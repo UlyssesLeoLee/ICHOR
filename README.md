@@ -25,7 +25,13 @@ npm start
 
 ### Tauri 2 开发模式（需要本地 Rust 工具链、Windows WebView2）
 
-先执行 `npm --prefix apps/studio install`；在本机安装 `rustup` 和 Tauri CLI，然后在项目根目录运行 `npx tauri dev`（或通过 npm 安装 `@tauri-apps/cli@^2` 后运行）。Tauri shell 会尝试通过 PATH 的 `node` 启动 `server/index.mjs`；如果 4577 已有服务器监听，先关闭另一个实例。**未在此离线环境编译或验证 Tauri 安装包**；本版 `bundle.active=false`，不提供假的 exe。
+先执行 `npm --prefix apps/studio install`；在本机安装 `rustup` 和 Tauri CLI，然后在项目根目录运行 `npx tauri dev`（或通过 npm 安装 `@tauri-apps/cli@^2` 后运行）。Tauri shell 会尝试通过 PATH 的 `node` 启动 `server/index.mjs`；如果 4577 已有服务器监听，先关闭另一个实例。
+
+**Windows 构建的前置条件**（v0.1.1 基线实测，见 `docs/16-BASELINE-ADR.md` §4 B-02）：
+
+1. VS「使用 C++ 的桌面开发」工作负载（msvc 工具链必需）；
+2. 仓库需提供 `src-tauri/icons/icon.ico`——`tauri-build` 对任何 Windows target 都会回退到该路径，当前仓库只含 3 个 PNG，**全新 clone 无法直接完成 Windows 编译**；
+3. 本版 `bundle.active=false`，不提供假的 exe。
 
 ## 已实现 / 尚未实现
 
@@ -64,7 +70,9 @@ npm test
 node --check server/index.mjs
 ```
 
-离线环境内已验证：20/20 UT/IT 通过。真正的 Playwright E2E 测试必须在配备依赖和浏览器的目标机器上执行；尚不能据此宣称 ST 已通过。
+离线环境内已验证：20/20 UT/IT 通过（全部在测试双桩下执行）。真正的 Playwright E2E 测试必须在配备依赖和浏览器的目标机器上执行；尚不能据此宣称 ST 已通过。
+
+> **v0.1.1 基线限定（2026-11-03 实测）**：Bridge 传给 `playwright test` 的参数向量含两个不存在的选项（`--screenshot`/`--video`），**真实浏览器执行当前必然失败**；另有一项重启后 Run 卡死、永久占用运行锁的缺陷。详见 `docs/16-BASELINE-ADR.md` §4 与 `docs/evidence/ATS-101/`。上表「已实现」列中涉及真实浏览器执行与产物归档的行，请按该基线文档的分类口径理解。
 
 ## 外部参考及声明
 

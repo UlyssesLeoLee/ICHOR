@@ -11,6 +11,8 @@
 - **主要约束**：本地 Node 22+；Playwright 需在被测项目的 node_modules 安装；项目只接受可信代码；不自动安装依赖；UI 不自动提交 Git。
 
 > **基线限定（2026-11-03，ATS-101/SEIKOIST-146 实测）**：下表 FR-009/010/011/014/018 的 `IMPLEMENTED` 仅指**代码路径与测试双桩已实现**，不代表真实浏览器链路可用。实测发现 B-01：`server/core.mjs:82` `safeRunArgs()` 向 Playwright Test CLI 传入 `--screenshot`/`--video` 两个**不存在的选项**，导致真实执行在参数解析阶段即失败（`summary=null`、`artifacts=[]`）。真实浏览器链路在 B-01 关闭前应视为**未验证**。详见 `docs/16-BASELINE-ADR.md` §4。
+>
+> **基线限定（2026-11-03，ATS-101/SEIKOIST-146 实测）— NFR-008**：NFR-008（恢复能力）**不得标为「已实现」**。实测发现 B-03：服务重启时启动恢复只处理 `queued`/`running`，**遗漏 `cancelling`**（`server/index.mjs:15`），而 `cancelRun()` 在找不到活动 job 时抛 `RUN_NOT_ACTIVE`（实测 500）。因此一次「请求停止后进程被强杀」的异常即可使该 Run 永久占用同项目运行锁且无法通过 API 解除，**无自愈路径**。NFR-008 当前状态为**部分实现（存在卡死缺陷）**，修复归 ATS-108/ATS-112。详见 `docs/16-BASELINE-ADR.md` §4 B-03。
 
 ## 2. 功能要件（Functional Requirements）
 
@@ -60,7 +62,7 @@
 | NFR-005 | 维护性 | npm 项目零迁移；Node bridge 与 Next/Tauri UI 解耦 | P0 | 已实现 |
 | NFR-006 | 性能 | 普通仓库 500 用例索引目标 3 秒内（非环境实测） | P1 | 待 ST 测量 |
 | NFR-007 | 可移植性 | Windows/macOS/Linux Web 便携版；Tauri 各 OS 构建另验 | P1 | 部分 |
-| NFR-008 | 恢复能力 | 服务异常重启后未完成运行标记 interrupted、保留历史 | P0 | 已实现 |
+| NFR-008 | 恢复能力 | 服务异常重启后未完成运行标记 interrupted、保留历史 | P0 | 部分实现（已发现卡死缺陷 B-03：重启恢复遗漏 `cancelling`，该 Run 永久占锁且无法经 API 解除） |
 | NFR-009 | 隐私保护 | 不自动上传代码、截图、Trace、密钥到外部 AI 服务 | P0 | 已实现，未来 AI 需再评估 |
 | NFR-010 | 可靠性 | 数据库原子写入；避免操作时半写入 | P0 | JSON 原子保存，源文件写入仍需改进 |
 | NFR-011 | 可运维性 | 日志/错误码/版本信息可查询，API 返回可定位信息 | P0 | 已实现基础 |
