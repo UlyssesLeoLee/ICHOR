@@ -1,0 +1,109 @@
+from pathlib import Path
+import json,re
+ROOT=Path(__file__).resolve().parents[1];DOC=ROOT/'docs';
+# ID, linked FR/NFR, category, title, precondition/input, expected result, evidence, status
+UT=[
+('UT-CORE-001','FR-001','正常','有效 Playwright 项目路径','目录含 package.json 与 playwright.config.ts','返回规范 realpath','node --test','PASS'),
+('UT-CORE-002','FR-004','正常','静态发现 test()','tests/login.spec.ts 含一个 test 常量标题','解析出 1 个 title/file/line','node --test','PASS'),
+('UT-SEC-001','NFR-003','安全','阻断脚本路径越界','../../outside.spec.ts、README.md','拒绝读取，抛 INVALID/PATH 错误','node --test','PASS'),
+('UT-CORE-003','FR-007','边界','保存冲突处理','保存前旧 hash、再以旧 hash 写入','第二次保存被拒，旧内容不覆盖','node --test','PASS'),
+('UT-CORE-004','FR-001','异常','缺失 package.json','提供上级临时目录','抛 PROJECT_PACKAGE_JSON_REQUIRED','node --test','PASS'),
+('UT-RUN-001','FR-009','异常','项目没有 Playwright CLI','node_modules 无 CLI','不自动安装，抛 PLAYWRIGHT_NOT_INSTALLED','node --test','PASS'),
+('UT-RPT-001','FR-016','正常','报告摘要计数','JSON 含 expected/unexpected/skipped','总数3,通过1,失败1,跳过1','node --test','PASS'),
+('UT-CORE-005','NFR-005','清理','临时夹清理','准备好独立测试 fixture','测试后的临时夹可删除','node --test','PASS'),
+('UT-CORE-006','FR-003','边界','忽略 node_modules 中测试','仓库含 node_modules/test.spec.ts','不出现在测试清单','设计用例，待自动化','PENDING'),
+('UT-CORE-007','FR-004','边界','嵌套深度上限','超过 14 层的测试路径','安全终止扫描，不陷入递归','设计用例，待自动化','PENDING'),
+('UT-CORE-008','FR-004','边界','最大用例文件上限','大于 2000 个 *.spec.ts','索引数量有界并显示提示','设计用例，待自动化','PENDING'),
+('UT-CORE-009','FR-006','边界','读取大于 1MB 源文件','构造 1,000,001 bytes 源码','拒绝 SOURCE_TOO_LARGE','设计用例，待自动化','PENDING'),
+('UT-CORE-010','FR-007','异常','非 UTF-8 文件编辑','以破损字节填充 spec.ts','显示警告或拒绝破坏性保存','设计用例，待实现','PENDING'),
+('UT-RUN-002','FR-011','异常','重复停止已结束 Run','不存在 active job','返回 RUN_NOT_ACTIVE','设计用例，待自动化','PENDING'),
+('UT-RPT-002','FR-016','边界','缺少 suites 的空报告','JSON {}','total=0，无崩溃','设计用例，待自动化','PENDING'),
+('UT-RPT-003','FR-016','异常','报告 JSON 损坏','report.json 内容非法','保持 Run 状态并记录 reportWarning','设计用例，待自动化','PENDING'),
+('UT-SEC-002','NFR-003','安全','symlink 越界源码','tests/test.spec.ts 指向仓库外','禁止打开与保存','设计用例，待自动化','PENDING'),
+('UT-SEC-003','FR-015','安全','恶意附件文件路径','file=../../etc/passwd','拒绝下载','设计用例，待自动化','PENDING'),
+('UT-EVT-001','FR-018','正常','事件序列递增','queued→running→finished','序列号单调 +1，无覆写','设计用例，待自动化','PENDING'),
+('UT-DATA-001','NFR-010','异常','状态文件格式损坏','state.json 非 JSON','服务拒绝启动，提示备份恢复','设计用例，待自动化','PENDING'),
+('UT-GIT-001','FR-002','正常','非 Git 仓库','存在 package 和 playwright config，无 .git','branch detached/none,不阻断添加','设计用例，待自动化','PENDING'),
+('UT-GIT-002','FR-002','正常','dirty 状态变化','修改一份被追踪的 spec.ts','Git status dirty=true','设计用例，待自动化','PENDING'),
+('UT-UI-001','FR-020','交互','流程视图复杂代码保护','测试脚本存在条件循环/helper','不修改源文件，不显示可反向编辑能力','待前端测试','PENDING'),
+('UT-UI-002','FR-005','交互','搜索不区分大小写','标题 Login Flow，输入 login','匹配对应测试','待前端测试','PENDING'),
+('UT-UI-003','FR-013','交互','日志轮询恢复','首次请求失败，后端重启','显示可恢复错误，不清空历史结果','待前端测试','PENDING'),
+]
+IT=[
+('IT-API-SETUP','NFR-011','正常','Node bridge 成功监听','使用隔离 ATS_DATA_DIR 和随机端口','/api/health=200','node --test','PASS'),
+('IT-SEC-001','NFR-002','安全','未鉴权访问项目 API','不带 X-ATS-Token GET /api/projects','401 INVALID_SESSION','node --test','PASS'),
+('IT-API-001','FR-001','正常','项目登记整合','POST 有效示例仓库路径','201 + project UUID','node --test','PASS'),
+('IT-API-002','FR-004','正常','跨模块脚本发现','GET 示例仓库 /tests','2 个示例用例','node --test','PASS'),
+('IT-SEC-002','NFR-002','安全','跨站 Origin 防护','Origin=https://evil.example 调 /session','403 ORIGIN_NOT_ALLOWED','node --test','PASS'),
+('IT-RUN-001','FR-009','异常','缺依赖时运行反馈','POST /run，示例仓库没 node_modules','Run status=error，未执行 npm install','node --test','PASS'),
+('IT-API-003','FR-012','正常','持久 Run 历史','GET /api/runs','可查到刚生成的 Run','node --test','PASS'),
+('IT-API-CLEANUP','NFR-005','清理','子进程和夹清理','结束 API test suite','释放进程及测试临时目录','node --test','PASS'),
+('IT-RUN-002','FR-009','正常','真实 Playwright 成功运行','已安装浏览器、本地项目 1 条 passing','Run passed，report.json + trace','需真实 Playwright','PENDING'),
+('IT-RUN-003','FR-009','异常','真实 Playwright 失败运行','目标 test 内断言故意失败','Run failed，错误与截图归档','需真实 Playwright','PENDING'),
+('IT-RUN-004','FR-011','异常','运行中停止','慢速执行场景，POST /stop','cancelling→cancelled，不误报 passed','需真实 Playwright','PENDING'),
+('IT-RUN-005','FR-012','异常','服务重启恢复','执行时 kill Node bridge','重启标记 interrupted 且保留事件','需异常注入','PENDING'),
+('IT-EVT-001','FR-018','正常','事件与 Run 对应','任意完整 Run','事件 seq 与 runId 一致','需集成事件校验','PENDING'),
+('IT-EVD-001','FR-015','正常','下载 evidence','完整 Run 产生 trace.zip','下载字节哈希与 Manifest 一致','需真实 Playwright','PENDING'),
+('IT-EVD-002','FR-015','安全','Run 附件 symlink 越界','将附件软链接指向外部','403/400 拒绝下载','需构造夹','PENDING'),
+('IT-SRC-001','FR-007','正常','UI/API 文件保存','读取→编辑→PUT 携带 baseHash','原仓库保存成功并产生 Git dirty','需真实 repo','PENDING'),
+('IT-SRC-002','FR-019','异常','并发保存冲突','A/B 同时读，同一文件先后写','第二次保存拒绝、代码不覆盖','需并发控制','PENDING'),
+('IT-SRC-003','FR-006','安全','不可编辑配置文件','请求 playwright.config.ts','被拒绝','可自动化','PENDING'),
+('IT-LIN-001','FR-017','正常','需求关联读取','加载 .aitest/requirements.json 与 links','原样返回两类结构','可自动化','PENDING'),
+('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖','PENDING'),
+('IT-TAU-001','FR-020','环境','Tauri shell 启动 bridge','本地 Rust Node PATH 均安装','Next 静态 UI 能连接 bridge','需 Rust/Tauri','PENDING'),
+('IT-RUN-MOCK-SETUP','FR-009','测试双桩','启动模拟 Runner CLI','隔离项目 + 假 CLI，不是 Playwright','Runner bridge 能启动本地模拟进程','node --test (mock)','PASS'),
+('IT-RUN-MOCK-001','FR-014','测试双桩','模拟成功报告归档链','假 CLI 生成 JSON/HTML/fixture trace','Run passed，Event 递增，Manifest/附件可查询','node --test (mock)','PASS'),
+('IT-RUN-MOCK-002','FR-011','测试双桩','模拟取消运行','假 CLI 延迟退出，POST /stop','终态 cancelled，不误报 passed','node --test (mock)','PASS'),
+('IT-RUN-MOCK-CLEANUP','NFR-005','测试双桩','模拟服务清理','关闭模拟服务与临时目录','临时数据清除，主仓库未受影响','node --test (mock)','PASS'),
+('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDING'),
+]
+ST=[
+('ST-001','FR-001','功能','首次打开并添加项目','Windows 11, Playwright 已安装，选择已有 repo','工作台显示项目与测试，不复制测试文件','浏览器/录屏','PENDING'),
+('ST-002','FR-002','功能','Git 分支与 dirty 真实显示','develop 分支，修改已跟踪文件','branch/sha/dirty 与 Git CLI 一致','屏幕截图+git status','PENDING'),
+('ST-003','FR-005','可用性','按标题搜索测试','导入 100 用例，输入关键字','结果过滤准确、点击可打开','界面截图','PENDING'),
+('ST-004','FR-006','功能','代码查看与编辑','选择包含 fixture 的 TS 脚本','原代码完整展示，不丢语法内容','Git diff','PENDING'),
+('ST-005','FR-007','功能','修改后保存不自动 commit','改用例注释并点击保存','工作区文件改变，Git commit 未产生','git diff/日志','PENDING'),
+('ST-006','FR-019','异常','外部编辑冲突','UI 打开后 IDE 改源代码，再 UI 保存','明确冲突提示，不覆盖 IDE 修改','截图和文件哈希','PENDING'),
+('ST-007','FR-008','可用性','图形和复杂代码并存','goto+fill+expect+helper','可解释步骤显示，helper 不被丢弃','截图与原文件','PENDING'),
+('ST-008','FR-009','功能','执行全部 passing 项目','本地安装 Playwright 浏览器，正常访问示例站','Run passed、结果和 HTML 报告可下载','report.json/视频/trace','PENDING'),
+('ST-009','FR-010','功能','只执行指定脚本','同项目两文件，选一文件执行','只执行文件中测试','report.json','PENDING'),
+('ST-010','FR-011','异常','中断长测试','测试等待 60 秒，运行时点停止','标记 cancelled，不产生 false pass','events.jsonl','PENDING'),
+('ST-011','FR-014','功能','失败后仍可看证据','故意失败的 expect','可下载 JSON/HTML/trace.zip、截图','evidence manifest','PENDING'),
+('ST-012','FR-012','可靠性','多次重复执行不覆盖','同一个文件连续运行 3 次','3 个独立 run IDs + 历史报告','state.json','PENDING'),
+('ST-013','NFR-001','可靠性','离线工作','在断网情况下使用已安装依赖的本地 app','本地扫描与测试运行可用','录屏','PENDING'),
+('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
+('ST-015','NFR-003','安全','路径穿越测试','请求 api Source/Artifact 越界','不能读取外部私密文件','HTTP log','PENDING'),
+('ST-016','NFR-004','完整性','证据哈希一致','完整 Run 导出证据文件','sha256 与 manifest 对应','本机 sha256sum','PENDING'),
+('ST-017','NFR-008','恢复','强制终止后重启','运行过程中强行停止 bridge','Run=interrupted，已完成历史不丢','日志+state','PENDING'),
+('ST-018','FR-017','功能','需求关系界面','导入附带 .aitest 的示例项目','显示 REQ-001/2 与用例映射','截图','PENDING'),
+('ST-019','NFR-006','性能','大仓库用例索引性能','500 tests / 100 files / SSD','目标 3 秒内（项目目标，待确认）','计时 log','PENDING'),
+('ST-020','NFR-007','兼容性','三 OS 便携 UI','Windows/macOS/Linux Node 22+','可启动并导入本地工程','测试记录','PENDING'),
+('ST-021','FR-020','兼容性','Next.js 静态构建','npm install 后运行 next build','静态 out 目录，浏览器可用','CI build log','PENDING'),
+('ST-022','FR-020','兼容性','Tauri Windows 开发构建','Windows+Rust+WebView2','桌面窗口打开，bridge 连接成功','编译+运行记录','PENDING'),
+('ST-023','NFR-009','隐私','数据不自动离开本地','操作工作台并抓包','未主动请求 AI/SaaS endpoints','网络流量','PENDING'),
+('ST-024','NFR-011','运行维护','错误信息可用于故障定位','停掉 server、损坏 state、缺 browser','明确错误而非模拟成功','录屏与日志','PENDING'),
+]
+
+def emit(file,title,purpose,cases):
+ lines=[f'# {title}','',f'> 设计总数：{len(cases)}；已执行通过：{sum(r[-1]=="PASS" for r in cases)}；待执行/未实现：{sum(r[-1]!="PASS" for r in cases)}。**PENDING 不是测试通过**。','',purpose,'','## 测试设计清单','', '| ID | 关联要件 | 类别 | 测试内容 | 测试数据 / 前提 | 预期结果 | 证据/方法 | 状态 |','|---|---|---|---|---|---|---|---|']
+ for t in cases: lines.append('|'+'|'.join(x.replace('|','/').replace('\n',' ') for x in t)+'|')
+ lines.extend(['','## 进入与退出条件','','- 进入：源码基线固定，目标环境、测试数据、执行账号和已知限制记录完整；优先执行异常/边界和安全阻断。','- 退出：P0 阻断级用例通过，失败有缺陷票和可复现证据；PENDING 逐条标注原因，不能简单计入通过。','- 每次复测必须关联修复 Git commit，并做受影响范围回归。',''])
+ (DOC/file).write_text('\n'.join(lines),encoding='utf8')
+emit('07-UT-TEST-DESIGN.md','ATS-UT-001 単体テスト設計書','单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。',UT)
+emit('08-IT-TEST-DESIGN.md','ATS-IT-001 結合テスト設計書','结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。',IT)
+emit('09-ST-TEST-DESIGN.md','ATS-ST-001 システムテスト設計書','系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，当前全部为待实机执行。UT/IT 自动化通过**不等同于** ST 验收。',ST)
+# ensure precise traceability coverage for all FR
+rtm=[]
+manual={'FR-001':'B01/UC-01','FR-002':'B01','FR-003':'B02','FR-004':'B02','FR-005':'UI-002','FR-006':'B03/UI-004','FR-007':'B03','FR-008':'B06/UI-003','FR-009':'B04','FR-010':'B04','FR-011':'B04','FR-012':'B05','FR-013':'B05/UI-005','FR-014':'B05','FR-015':'B05','FR-016':'B05','FR-017':'B07/UI-007','FR-018':'B05','FR-019':'B03','FR-020':'B06','FR-021':'P1 AST/CLI','FR-022':'P1 AST','FR-023':'P1 WDIO','FR-024':'P1 Agent','FR-025':'P1 Agent','FR-026':'P1 Graph','FR-027':'P1 Secret','FR-028':'P2 Remote','FR-029':'P2 Explore','FR-030':'P2 RBAC'}
+for i in range(1,31):
+ fid=f'FR-{i:03d}';cases=[x[0] for x in UT+IT+ST if x[1]==fid];implemented=i<=20
+ rtm.append((fid,manual.get(fid,'P1/P2'),'、'.join(cases) or 'TBD', '部分实现' if fid in ['FR-004','FR-008','FR-014','FR-020'] else 'IMPLEMENTED' if implemented else 'DESIGNED'))
+for i in range(1,13):
+ fid=f'NFR-{i:03d}';cases=[x[0] for x in UT+IT+ST if x[1]==fid];rtm.append((fid,'NFR / SEC / OPS','、'.join(cases) or 'TBD','PARTIAL' if i in [1,2,4,7,10,11] else 'DESIGNED / P1' if i in [6,12] else 'IMPLEMENTED'))
+lines=['# ATS-RTM-001 要件－設計－テスト追跡マトリクス','','> 关系依据 `02-REQUIREMENTS.md` → `03/04/05/06` 设计 → `07/08/09` UT/IT/ST。标为 IMPLEMENTED 代表代码能力，**不代表关联的 ST 已通过**。','','| 要件 ID | 设计定位 | UT / IT / ST 关联 | 代码或设计状态 |','|---|---|---|---|']
+lines+=['| '+' | '.join(r)+' |' for r in rtm]
+lines+=['','## 检查规则','','- 每一条 P0 Requirement 至少应有 1 条可执行测试；当前部分条目只具备设计而不具备已执行实机证据。','- 需求内容发生变化时，被关联测试需要标记 `review-required`；此检查由 P1 实现。','- 关联必须采用稳定 Requirement UID、TestCase UID，而不是测试标题或文件路径；样例 traceability 当前属于演示形式。','']
+(DOC/'10-RTM.md').write_text('\n'.join(lines),encoding='utf8')
+(ROOT/'tests'/'test-cases.json').write_text(json.dumps([{'id':r[0],'req':r[1],'category':r[2],'title':r[3],'input':r[4],'expected':r[5],'evidence':r[6],'status':r[7],'level':level} for level,rs in [('UT',UT),('IT',IT),('ST',ST)] for r in rs],ensure_ascii=False,indent=2),encoding='utf8')
+(ROOT/'tests'/'rtm.json').write_text(json.dumps([{'requirement':r[0],'design':r[1],'tests':r[2],'status':r[3]} for r in rtm],ensure_ascii=False,indent=2),encoding='utf8')
+print('test rows:',len(UT),len(IT),len(ST),'RTM',len(rtm))

@@ -1,0 +1,5 @@
+[
+ {"uid":"REQ-001","title":"网页首页可访问","status":"approved","type":"functional"},
+ {"uid":"REQ-002","title":"外部链接可使用","status":"approved","type":"functional"},
+ {"uid":"NFR-001","title":"执行失败应产生诊断证据","status":"approved","type":"non-functional"}
+]

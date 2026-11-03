@@ -1,0 +1,38 @@
+# ATS-OPS-001 運用設計書 / 安装、部署与维护
+
+## 1. 运行前提
+
+最少 Node.js 22、可访问的本地文件系统。被测项目要有 `package.json`、`playwright.config.*`，如要实际执行须先在其项目中安装 Playwright 和浏览器；不要求工作台自动安装 npm 包。推荐 Windows 11 Pro 开发端，PowerShell 7，Git CLI，VS Code。Tauri 开发另需 Rustup/Cargo、WebView2、C/C++ 编译链。Node/React/Playwright 版本请参考各自官方发行兼容表并以 lockfile 冻结（当前在线下载受限，未形成 lockfile）。
+
+## 2. 启动与验证
+
+便携模式（已通过本地 HTTP IT）：`npm start`，访问 `http://127.0.0.1:4577/fallback.html`；首次无任何项目可点击添加。Windows PowerShell 也可运行 `./start.ps1`。正式 Next 源码模式：`npm --prefix apps/studio install` → `npm run build:web` → `npm start` → 访问根路径。Tauri 开发模式：保证 Node 22/Rust/Tauri CLI 环境，`npx tauri dev`。后两种因离线缺依赖，属于**有源码、待目标环境构建验证**。
+
+## 3. 数据位置与备份恢复
+
+默认 `~/.ai-test-studio/state.json` 和 `runs/<run-id>`；可配置 `ATS_DATA_DIR`。备份时先停止服务器，整体复制 `ATS_DATA_DIR`；恢复时先备份当前，再复制旧目录，检查 `state.json.schema=1`。禁止直接编辑运行状态并声称通过；证据目录和 manifest 应一起保存。v0.1 没有 UI 清理和保留期，长期使用应定期人工迁移或归档敏感文件。
+
+## 4. 运行维护检查表
+
+| 事项 | 检查方法 | 异常时处理 |
+|---|---|---|
+| 服务存活 | `GET /api/health` | 检查 4577 端口冲突与 Node 版本 |
+| 目标 CLI | `node_modules/@playwright/test/cli.js` | 在**目标仓库**运行 npm install，勿在平台根运行 |
+| 浏览器依赖 | `npx playwright install`（目标项目） | 由用户安装浏览器；不使用自动下载兜底 |
+| Git 信息 | `git status --porcelain`、`git rev-parse` | 确认 PATH 和仓库状态 |
+| 测试用例缺失 | 检查 `.spec.ts/.test.ts` 及动态定义 | 静态索引有限，P1 引入 `--list` |
+| 报告缺失 | 检查 `runs/<run-id>/report.json` | 检查 Playwright 版本及 reporter 设置 |
+| 不能停止运行 | 任务管理器 / `taskkill` | 清理子孙进程，归档日志后重新测试 |
+| 页面空白 | Next 构建缺失 | 使用 `/fallback.html` 或补全 npm 依赖 |
+| 运行历史不存在 | 检查 `ATS_DATA_DIR` 与 state.json | 核对操作系统用户和权限 |
+| 状态损坏 | Node 服务启动报错 | 先备份损坏文件，再恢复历史快照 |
+
+## 5. 环境变量
+
+- `ATS_PORT`：默认 4577（Next UI 的 API BASE 当前写死 4577，变更端口需同步调整 UI 配置；非动态端口发布模式）
+- `ATS_DATA_DIR`：本地历史/附件目录，默认用户主目录 `.ai-test-studio`
+- `PLAYWRIGHT_JSON_OUTPUT_FILE` 等由 Runner 注入到测试子进程。
+
+## 6. 运维 SLO 建议（尚未证实）
+
+本地 API 健康响应 P95 低于 200ms；索引 500 个静态测试低于 3 秒；失败率计算不得把 cancelled/interrupted 误算为 passed；历史保留由用户设定但 P0 目前无自动清理。真正的 SLA、跨机器可用性和稳定性需从 ST 性能/恢复测试测定。

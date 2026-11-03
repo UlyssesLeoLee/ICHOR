@@ -1,0 +1,16 @@
+{
+  "name": "ai-test-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Git-native Playwright test control plane (local-first prototype)",
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "node server/index.mjs",
+    "dev:next": "npm --prefix apps/studio run dev",
+    "build:web": "npm --prefix apps/studio run build",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "node --check server/index.mjs && node --test tests/*.test.mjs"
+  },
+  "engines": {"node": ">=22"},
+  "license": "MIT"
+}

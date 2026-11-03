@@ -1,0 +1,26 @@
+# ATS-PLAN-001 開発計画書 / 分期路线图
+
+## 1. 当前版本 v0.1（已实现/源码待构建）
+
+已实现 Node bridge 的项目登记、静态索引、受控源码读写、Playwright 执行器、状态/日志/JSONL、原生报告/证据归档、需求关联读取；提供便携 HTML 和 Next/Tauri 项目源码。已自动验证 core/API UT/IT；**尚未执行实际带浏览器的 Playwright ST、Next build 或 Tauri compilation**。
+
+## 2. 后续最小可行顺序
+
+| Phase | 预计工程量（单人粗估） | 交付 | 非范围 |
+|---|---|---|---|
+| P0.1 稳定化 | 2–4 周 | 修复本地进程管理、真实 Playwright 正/负/取消运行实测、Next build、Tauri Windows dev build、UI keyboard a11y | AI 与企业权限 |
+| P0.2 资产一致性 | 3–5 周 | Playwright --list 原生索引、稳定 UID、Git diff 审核、source 原子保存、SQLite WAL、附件去重与保留 | 完整 AST 图反写 |
+| P1 双引擎 | 4–7 周 | WDIO Tauri Service 实测、Run/Test/Attempt、统一 Trace/Evidence 协议 | 远程集群 |
+| P1 图谱和测试设计 | 4–7 周 | Requirements/Design/TestCase 实体图、React Flow、UT/IT/ST 导入与覆盖矩阵 | 复杂跨仓库因果模型 |
+| P1 AI 安全编排 | 5–9 周 | Agent Planner、Generator、Triage、Diff Review，Docker 沙箱与模型适配 | AI 自动合并到主分支 |
+| P2 企业扩展 | 8–16 周 | 多用户、远程 Runner、S3、OIDC/RBAC、签名证据、审计、CI/CD 双向事件 | 取决于商业需求 |
+
+以上时长属于工程估计，不是可交付承诺；实际受团队人数、目标 OS、项目复杂度与联网依赖条件影响。
+
+## 3. 优先级、价值与风险
+
+P0 阶段重视**导入既有脚本→精准执行→保留证据→分析失败**。优先完成稳定性和可审计性，其次提升图形编辑自由度。任何 AI 修复需要以下最小链：`evidence → proposed diff → reviewer → compile/lint → rerun → approval → Git`。项目在证据完整性/沙箱未达标前，不应添加“一键自主修改并执行陌生仓库”的功能。
+
+## 4. 与 Star/GitGit/RAGit 的连接预留
+
+采用独立 Project/TestCase/Run/Evidence UID，将 REST/Webhook/事件转换作为未来接口；平台不直接依赖 Star 或 GitGit 数据表，也不要求迁移 Git。RAGit 只应供参考文档检索，不能未经授权上传项目机密文本。第一版保持独立运行，避免把协作系统强耦合到核心 Runner。

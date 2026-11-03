@@ -1,0 +1,4 @@
+[
+ {"from":"REQ-001","to":"home.spec.ts::首页响应正常","type":"verified_by"},
+ {"from":"REQ-002","to":"home.spec.ts::导航入口正常","type":"verified_by"}
+]

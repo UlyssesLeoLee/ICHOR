@@ -1,0 +1,134 @@
+
+> ai-test-studio@0.1.0 verify
+> node --check server/index.mjs && node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: IT-API-SETUP: start server
+ok 1 - IT-API-SETUP: start server
+  ---
+  duration_ms: 195.570033
+  type: 'test'
+  ...
+# Subtest: IT-SEC-001: rejects unauthenticated API
+ok 2 - IT-SEC-001: rejects unauthenticated API
+  ---
+  duration_ms: 9.203144
+  type: 'test'
+  ...
+# Subtest: IT-API-001: add existing repository
+ok 3 - IT-API-001: add existing repository
+  ---
+  duration_ms: 22.548051
+  type: 'test'
+  ...
+# Subtest: IT-API-002: import and index tests
+ok 4 - IT-API-002: import and index tests
+  ---
+  duration_ms: 17.572624
+  type: 'test'
+  ...
+# Subtest: IT-SEC-002: rejects foreign origin
+ok 5 - IT-SEC-002: rejects foreign origin
+  ---
+  duration_ms: 7.665093
+  type: 'test'
+  ...
+# Subtest: IT-RUN-001: no deps => explicit failure rather than fake success
+ok 6 - IT-RUN-001: no deps => explicit failure rather than fake success
+  ---
+  duration_ms: 22.560957
+  type: 'test'
+  ...
+# Subtest: IT-API-003: runs survive persisted read
+ok 7 - IT-API-003: runs survive persisted read
+  ---
+  duration_ms: 4.655697
+  type: 'test'
+  ...
+# Subtest: IT-API-CLEANUP: stop and cleanup
+ok 8 - IT-API-CLEANUP: stop and cleanup
+  ---
+  duration_ms: 2.544369
+  type: 'test'
+  ...
+# Subtest: UT-CORE-001: validates Playwright project
+ok 9 - UT-CORE-001: validates Playwright project
+  ---
+  duration_ms: 1.277103
+  type: 'test'
+  ...
+# Subtest: UT-CORE-002: extracts static test index
+ok 10 - UT-CORE-002: extracts static test index
+  ---
+  duration_ms: 1.811682
+  type: 'test'
+  ...
+# Subtest: UT-SEC-001: rejects path traversal
+ok 11 - UT-SEC-001: rejects path traversal
+  ---
+  duration_ms: 0.504352
+  type: 'test'
+  ...
+# Subtest: UT-CORE-003: conditional save avoids lost updates
+ok 12 - UT-CORE-003: conditional save avoids lost updates
+  ---
+  duration_ms: 1.270515
+  type: 'test'
+  ...
+# Subtest: UT-CORE-004: malformed project rejected
+ok 13 - UT-CORE-004: malformed project rejected
+  ---
+  duration_ms: 0.342779
+  type: 'test'
+  ...
+# Subtest: UT-RUN-001: missing local Playwright never auto-installs
+ok 14 - UT-RUN-001: missing local Playwright never auto-installs
+  ---
+  duration_ms: 0.389139
+  type: 'test'
+  ...
+# Subtest: UT-RPT-001: report summary counts passed/failed/skipped
+ok 15 - UT-RPT-001: report summary counts passed/failed/skipped
+  ---
+  duration_ms: 1.401283
+  type: 'test'
+  ...
+# Subtest: UT-CORE-005: removes generated fixture
+ok 16 - UT-CORE-005: removes generated fixture
+  ---
+  duration_ms: 2.807028
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-SETUP: isolated fake CLI adapter
+ok 17 - IT-RUN-MOCK-SETUP: isolated fake CLI adapter
+  ---
+  duration_ms: 130.347429
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip
+ok 18 - IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip
+  ---
+  duration_ms: 108.220659
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-002: cancel marks cancelled
+ok 19 - IT-RUN-MOCK-002: cancel marks cancelled
+  ---
+  duration_ms: 29.066227
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-CLEANUP: cleanup
+ok 20 - IT-RUN-MOCK-CLEANUP: cleanup
+  ---
+  duration_ms: 2.969179
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 370.959212

@@ -1,0 +1,14 @@
+{
+  "release": "AI Test Studio v0.1.0",
+  "date": "2026-11-03",
+  "automatedChecks": 20,
+  "automatedChecksPassed": 20,
+  "testDesignCases": 75,
+  "casesWithAutomatedPass": 20,
+  "STCasesExecuted": 0,
+  "requirementMappings": 42,
+  "nextJsBundleBuilt": false,
+  "tauriBinaryBuilt": false,
+  "actualPlaywrightBrowserRunVerified": false,
+  "browserUIMonitoringLimitation": "Current sandbox browser loopback access blocked by administrator policy; Node HTTP integration checks passed."
+}

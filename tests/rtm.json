@@ -1,0 +1,254 @@
+[
+  {
+    "requirement": "FR-001",
+    "design": "B01/UC-01",
+    "tests": "UT-CORE-001、UT-CORE-004、IT-API-001、ST-001",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-002",
+    "design": "B01",
+    "tests": "UT-GIT-001、UT-GIT-002、ST-002",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-003",
+    "design": "B02",
+    "tests": "UT-CORE-006",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-004",
+    "design": "B02",
+    "tests": "UT-CORE-002、UT-CORE-007、UT-CORE-008、IT-API-002",
+    "status": "部分实现"
+  },
+  {
+    "requirement": "FR-005",
+    "design": "UI-002",
+    "tests": "UT-UI-002、ST-003",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-006",
+    "design": "B03/UI-004",
+    "tests": "UT-CORE-009、IT-SRC-003、ST-004",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-007",
+    "design": "B03",
+    "tests": "UT-CORE-003、UT-CORE-010、IT-SRC-001、ST-005",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-008",
+    "design": "B06/UI-003",
+    "tests": "ST-007",
+    "status": "部分实现"
+  },
+  {
+    "requirement": "FR-009",
+    "design": "B04",
+    "tests": "UT-RUN-001、IT-RUN-001、IT-RUN-002、IT-RUN-003、IT-RUN-MOCK-SETUP、ST-008",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-010",
+    "design": "B04",
+    "tests": "ST-009",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-011",
+    "design": "B04",
+    "tests": "UT-RUN-002、IT-RUN-004、IT-RUN-MOCK-002、ST-010",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-012",
+    "design": "B05",
+    "tests": "IT-API-003、IT-RUN-005、ST-012",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-013",
+    "design": "B05/UI-005",
+    "tests": "UT-UI-003",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-014",
+    "design": "B05",
+    "tests": "IT-RUN-MOCK-001、ST-011",
+    "status": "部分实现"
+  },
+  {
+    "requirement": "FR-015",
+    "design": "B05",
+    "tests": "UT-SEC-003、IT-EVD-001、IT-EVD-002",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-016",
+    "design": "B05",
+    "tests": "UT-RPT-001、UT-RPT-002、UT-RPT-003",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-017",
+    "design": "B07/UI-007",
+    "tests": "IT-LIN-001、ST-018",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-018",
+    "design": "B05",
+    "tests": "UT-EVT-001、IT-EVT-001",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-019",
+    "design": "B03",
+    "tests": "IT-SRC-002、ST-006",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "FR-020",
+    "design": "B06",
+    "tests": "UT-UI-001、IT-UI-001、IT-TAU-001、ST-021、ST-022",
+    "status": "部分实现"
+  },
+  {
+    "requirement": "FR-021",
+    "design": "P1 AST/CLI",
+    "tests": "TBD",
+    "status": "DESIGNED"
+  },
+  {
+    "requirement": "FR-022",
+    "design": "P1 AST",
+    "tests": "TBD",
+    "status": "DESIGNED"
+  },
+  {
+    "requirement": "FR-023",
+    "design": "P1 WDIO",
+    "tests": "TBD",
+    "status": "DESIGNED"
+  },
+  {
+    "requirement": "FR-024",
+    "design": "P1 Agent",
+    "tests": "TBD",
+    "status": "DESIGNED"
+  },
+  {
+    "requirement": "FR-025",
+    "design": "P1 Agent",
+    "tests": "TBD",
+    "status": "DESIGNED"
+  },
+  {
+    "requirement": "FR-026",
+    "design": "P1 Graph",
+    "tests": "TBD",
+    "status": "DESIGNED"
+  },
+  {
+    "requirement": "FR-027",
+    "design": "P1 Secret",
+    "tests": "TBD",
+    "status": "DESIGNED"
+  },
+  {
+    "requirement": "FR-028",
+    "design": "P2 Remote",
+    "tests": "TBD",
+    "status": "DESIGNED"
+  },
+  {
+    "requirement": "FR-029",
+    "design": "P2 Explore",
+    "tests": "TBD",
+    "status": "DESIGNED"
+  },
+  {
+    "requirement": "FR-030",
+    "design": "P2 RBAC",
+    "tests": "TBD",
+    "status": "DESIGNED"
+  },
+  {
+    "requirement": "NFR-001",
+    "design": "NFR / SEC / OPS",
+    "tests": "ST-013",
+    "status": "PARTIAL"
+  },
+  {
+    "requirement": "NFR-002",
+    "design": "NFR / SEC / OPS",
+    "tests": "IT-SEC-001、IT-SEC-002、IT-API-004、ST-014",
+    "status": "PARTIAL"
+  },
+  {
+    "requirement": "NFR-003",
+    "design": "NFR / SEC / OPS",
+    "tests": "UT-SEC-001、UT-SEC-002、ST-015",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "NFR-004",
+    "design": "NFR / SEC / OPS",
+    "tests": "ST-016",
+    "status": "PARTIAL"
+  },
+  {
+    "requirement": "NFR-005",
+    "design": "NFR / SEC / OPS",
+    "tests": "UT-CORE-005、IT-API-CLEANUP、IT-RUN-MOCK-CLEANUP",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "NFR-006",
+    "design": "NFR / SEC / OPS",
+    "tests": "ST-019",
+    "status": "DESIGNED / P1"
+  },
+  {
+    "requirement": "NFR-007",
+    "design": "NFR / SEC / OPS",
+    "tests": "ST-020",
+    "status": "PARTIAL"
+  },
+  {
+    "requirement": "NFR-008",
+    "design": "NFR / SEC / OPS",
+    "tests": "ST-017",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "NFR-009",
+    "design": "NFR / SEC / OPS",
+    "tests": "ST-023",
+    "status": "IMPLEMENTED"
+  },
+  {
+    "requirement": "NFR-010",
+    "design": "NFR / SEC / OPS",
+    "tests": "UT-DATA-001",
+    "status": "PARTIAL"
+  },
+  {
+    "requirement": "NFR-011",
+    "design": "NFR / SEC / OPS",
+    "tests": "IT-API-SETUP、ST-024",
+    "status": "PARTIAL"
+  },
+  {
+    "requirement": "NFR-012",
+    "design": "NFR / SEC / OPS",
+    "tests": "TBD",
+    "status": "DESIGNED / P1"
+  }
+]
