@@ -33,12 +33,35 @@ const SOURCE_EXT = new Set(['.mjs', '.js', '.ts', '.tsx', '.html', '.rs', '.json
  * checked separately, so the audit must not count them as runtime hardcoding.
  */
 const NON_RUNTIME = new Set([
-  'README.md',            // usage instructions
   'start.ps1',            // launcher script: prints / opens a URL
   'start.sh',             // launcher script: prints a URL
   'tests/test-cases.json', // test-case data (input strings)
   'tools/generate_test_docs.py', // generator for tests/test-cases.json -- rewrites the old port
 ]);
+
+/**
+ * Pure documentation. These files MENTION the port exactly like README.md
+ * does, so they belong in the same category -- excluding docs/ wholesale
+ * while counting README.md would be an inconsistent rule.
+ *
+ * 16 §3.1 states how many mentions this group carries, so the count is
+ * asserted against the document. The set is derived from the tree rather than
+ * hardcoded, so a new doc that mentions the port is picked up automatically.
+ */
+const DOC_MENTION_ROOTS = ['docs'];
+const DOC_MENTION_FILES = [
+  'README.md',
+  // the audit tool itself: it names the port it audits.
+  'tools/ats101-probes/scenario-d-port-audit.mjs',
+];
+const DOC_MENTION_EXT = new Set(['.md']);
+
+/** True for a path that is pure documentation (a mention, not a hardcoding). */
+function isDocMention(rel) {
+  if (DOC_MENTION_FILES.includes(rel)) return true;
+  if (!DOC_MENTION_EXT.has(path.extname(rel))) return false;
+  return DOC_MENTION_ROOTS.some((r) => rel === r || rel.startsWith(`${r}/`));
+}
 
 /**
  * Binary containers that embed the port in their cell data. They are scanned
@@ -59,16 +82,26 @@ function walk(dir, acc = []) {
 
 const findings = [];
 const nonRuntimeFindings = [];
+const docMentionFindings = [];
 for (const file of walk(REPO_ROOT)) {
   const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
-  // Docs and evidence are excluded: they *mention* the port, they don't hardcode it.
-  if (rel.startsWith('docs/')) continue;
-  if (rel.startsWith('tools/ats101-probes/')) continue;
   const lines = fs.readFileSync(file, 'utf8').split('\n');
   lines.forEach((line, i) => {
     if (!line.includes(PORT)) return;
-    const entry = { rel, line: i + 1, text: line.trim() };
-    if (NON_RUNTIME.has(rel)) nonRuntimeFindings.push(entry);
+    const entry = {
+      rel,
+      line: i + 1,
+      text: line.trim(),
+      // A single line may name the port more than once, so the occurrence
+      // count is tracked per line -- the document's counts are occurrences.
+      occurrences: line.split(PORT).length - 1,
+    };
+    // Three buckets, in this order:
+    //   1. runtime hardcoding -- the port value actually takes effect;
+    //   2. documentation mention -- prose that names the port;
+    //   3. non-runtime data mention -- data/scripts that only display it.
+    if (isDocMention(rel)) docMentionFindings.push(entry);
+    else if (NON_RUNTIME.has(rel)) nonRuntimeFindings.push(entry);
     else findings.push(entry);
   });
 }
@@ -144,17 +177,40 @@ for (const f of findings) {
 console.log(`total = ${findings.length}`);
 console.log('');
 
-console.log('--- NON-runtime mentions (documented separately) ---');
+console.log('--- NON-runtime data mentions (data/scripts that only display it) ---');
 for (const f of nonRuntimeFindings) {
   console.log(`  ${f.rel}:${f.line}  ${f.text.length > 100 ? f.text.slice(0, 100) + '...' : f.text}`);
 }
 console.log(`total = ${nonRuntimeFindings.length}`);
 console.log('');
 
+console.log('--- DOC mentions (prose that names the port) ---');
+for (const f of docMentionFindings) {
+  console.log(`  ${f.rel}:${f.line}  ${f.text.length > 100 ? f.text.slice(0, 100) + '...' : f.text}`);
+}
+console.log(`total = ${docMentionFindings.length}`);
+console.log('');
+
 const files = [...new Set(findings.map((f) => f.rel))].sort();
 const nonRuntimeFiles = [...new Set(nonRuntimeFindings.map((f) => f.rel))].sort();
 console.log('--- distinct RUNTIME files ---');
 for (const f of files) console.log(`  ${f}`);
+console.log('');
+
+// --- documentation mentions -------------------------------------------------
+// 16 §3.1 states how many mentions the docs/ tree carries outside the baseline
+// document itself. That number must come from the tree, not from prose.
+const docMentions = docMentionFindings.filter(
+  (f) => f.rel.startsWith('docs/') && f.rel !== 'docs/16-BASELINE-ADR.md',
+);
+const docMentionFiles = [...new Set(docMentions.map((f) => f.rel))].sort();
+const docMentionOccurrences = docMentions.reduce((n, f) => n + f.occurrences, 0);
+console.log('--- distinct DOC files (docs/, excluding 16 itself) ---');
+for (const f of docMentionFiles) {
+  const n = docMentions.filter((m) => m.rel === f.rel).reduce((a, m) => a + m.occurrences, 0);
+  console.log(`  ${f} (${n})`);
+}
+console.log(`files = ${docMentionFiles.length}, mentions = ${docMentionOccurrences}`);
 console.log('');
 
 // --- compare against the list in the baseline document -----------------------
@@ -200,7 +256,15 @@ console.log('');
 const missing = files.filter((f) => !docSet.has(f));
 // The audit tool names itself in the doc; it is not a port-hardcoding site.
 const SELF = 'tools/ats101-probes/scenario-d-port-audit.mjs';
-const extra = [...docSet].filter((f) => !files.includes(f) && !nonRuntimeFiles.includes(f) && f !== SELF);
+/** Every file the probe classified, regardless of bucket. */
+const allClassified = new Set([
+  ...files,
+  ...nonRuntimeFiles,
+  ...docMentionFindings.map((f) => f.rel),
+]);
+const extra = [...docSet].filter(
+  (f) => !allClassified.has(f) && f !== SELF,
+);
 const missingNonRuntime = nonRuntimeFiles.filter((f) => !docSet.has(f));
 
 /**
@@ -215,7 +279,9 @@ const missingPositions = findings
 console.log('--- verdict ---');
 console.log(`runtime occurrences in source   : ${findings.length}`);
 console.log(`distinct runtime files          : ${files.length}`);
-console.log(`non-runtime files               : ${nonRuntimeFiles.length}`);
+console.log(`non-runtime data files          : ${nonRuntimeFiles.length}`);
+console.log(`doc-mention files (excl. 16)    : ${docMentionFiles.length}`);
+console.log(`doc mentions (excl. 16)         : ${docMentionOccurrences}`);
 console.log(`runtime files missing from §3.1 : ${missing.length ? missing.join(', ') : '(none)'}`);
 console.log(`non-runtime missing from §3.1   : ${missingNonRuntime.length ? missingNonRuntime.join(', ') : '(none)'}`);
 console.log(`runtime positions missing       : ${missingPositions.length ? missingPositions.join(', ') : '(none)'}`);
@@ -227,7 +293,21 @@ console.log(`actual runtime occurrence count : ${findings.length}`);
 const countOk = countMatch === String(findings.length);
 console.log(`count matches source            : ${countOk}`);
 
-if (missing.length || extra.length || missingNonRuntime.length || missingPositions.length || !countOk) {
+/**
+ * The doc-mention count stated in §3.1's audit-scope paragraph. It is stated
+ * as "5 个文件共 9 处提及" -- so both numbers are checked.
+ */
+const docClaim = /(\d+)\s*个文件共\s*(\d+)\s*处提及/.exec(section);
+const docClaimFiles = docClaim?.[1];
+const docClaimMentions = docClaim?.[2];
+const docCountOk = docClaimFiles === String(docMentionFiles.length)
+  && docClaimMentions === String(docMentionOccurrences);
+console.log(`doc files/mentions claimed      : ${docClaimFiles ?? '(not stated)'} / ${docClaimMentions ?? '(not stated)'}`);
+console.log(`doc files/mentions actual       : ${docMentionFiles.length} / ${docMentionOccurrences}`);
+console.log(`doc mention count matches       : ${docCountOk}`);
+
+if (missing.length || extra.length || missingNonRuntime.length || missingPositions.length
+  || !countOk || !docCountOk) {
   console.log('');
   console.log('RESULT: MISMATCH -- the port list in 16 §3.1 does not match the source.');
   process.exitCode = 1;

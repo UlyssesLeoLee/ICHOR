@@ -4,11 +4,12 @@
 
 已实现 Node bridge 的项目登记、静态索引、受控源码读写、Playwright 执行器、状态/日志/JSONL、原生报告/证据归档、需求关联读取；提供便携 HTML 和 Next/Tauri 项目源码。已自动验证 core/API UT/IT；**尚未执行实际带浏览器的 Playwright ST**。
 
-**构建与执行实测（2026-11-03，ATS-101 实测）**：**Next.js 16 静态导出构建已成功**（Next.js 16.4.4，产物 `apps/studio/out/`，可由 Bridge 伺服），npm registry 本次可达。**Tauri Windows 编译未通过**，已定位成因如下，且**成因清单尚未穷尽**：
+**构建与执行实测（2026-11-03，ATS-101 实测）**：**Next.js 16 静态导出构建已成功**（Next.js 16.4.4，产物 `apps/studio/out/`，可由 Bridge 伺服），npm registry 本次可达。**Tauri Windows 编译未通过**，已定位**四个成因**，且**成因清单尚未穷尽**：
 
-- **仓库缺陷**：仓库缺 `src-tauri/icons/icon.ico`（`tauri-build` 对任何 windows target 都会回退到该路径），**全新 clone 永远无法构建**——仅安装 MSVC 不能修复；
-- **环境缺陷**：msvc 链缺 MSVC「使用 C++ 的桌面开发」工作负载（Cargo/Rust 实测已安装，仅不在 PATH）；
-- **工具链缺陷**：gnu 链的编译器与运行时库不匹配；补齐 `.ico` 并换成带完整运行时的 MinGW GCC 后，`cargo check` 通过，但 `cargo build` 在链接 cdylib 时因导出序号超限失败（`ld.exe: error: export ordinal too large: 90774`）。
+- **成因 1（环境缺陷）**：msvc 链缺 MSVC「使用 C++ 的桌面开发」工作负载（Cargo/Rust 实测已安装，仅不在 PATH）；
+- **成因 2（仓库缺陷）**：仓库缺 `src-tauri/icons/icon.ico`（`tauri-build` 对任何 windows target 都会回退到该路径），**全新 clone 永远无法构建**——仅安装 MSVC 不能修复；
+- **成因 3（工具链缺陷）**：gnu 链的编译器与运行时库不匹配；
+- **成因 4（产物缺陷）**：补齐 `.ico` 并换成带完整运行时的 MinGW GCC 后，`cargo check` 通过，但 `cargo build` 在链接 cdylib 时因导出序号超限失败（`ld.exe: error: export ordinal too large: 90774`）。
 
 msvc 链的最终链接在本机无法验证，因此 **ATS-104 的验收须以 `cargo build`（含最终链接）为准，而非 `cargo check`**。详见 `docs/16-BASELINE-ADR.md` §4 B-02。
 

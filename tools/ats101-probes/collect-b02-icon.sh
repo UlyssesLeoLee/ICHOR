@@ -60,8 +60,13 @@ echo
 
 echo "--- 3. with a valid .ico present the build proceeds past the icon step ---"
 ICO_NATIVE="$(cygpath -w "$SRC_TAURI/icons/icon.ico")"
+# ICO_GENERATED records whether THIS run created the file. A pre-existing .ico
+# (e.g. once ATS-104 adds it to the repository) is a product asset and must be
+# PRESERVED -- this probe only removes what it generated itself.
+ICO_GENERATED=0
 if [ -f "$ICO_NATIVE" ]; then
   echo "an .ico already exists -- skipping generation"
+  echo "=> the pre-existing .ico is NOT a probe artefact and will be PRESERVED"
 else
   python - "$ICO_NATIVE" <<'PY'
 import struct, sys
@@ -80,12 +85,20 @@ entry = struct.pack('<BBBBHHII', w, h, 0, 0, 1, 32, len(image), 6 + 16)
 open(sys.argv[1], 'wb').write(header + entry + image)
 print('generated', sys.argv[1])
 PY
+ICO_GENERATED=1
+echo "=> this probe generated a temporary .ico"
 fi
 PATH="$MSYS_BIN:$PATH" "$CARGO" +stable-x86_64-pc-windows-gnu check --message-format short 2>&1 | tail -8
 echo "GNU_WITH_ICO_EXIT=${PIPESTATUS[0]}"
 echo
-echo "NOTE: the generated .ico is a build artefact for this probe only."
-echo "It is written into src-tauri/icons/ and is NOT part of the deliverable;"
-echo "delete it (and src-tauri/target) before committing."
-rm -f "$ICO_NATIVE"
-echo "removed the probe .ico again: $([ -f "$ICO_NATIVE" ] && echo STILL_THERE || echo ok)"
+if [ "$ICO_GENERATED" = "1" ]; then
+  echo "NOTE: the generated .ico is a build artefact for this probe only."
+  echo "It is written into src-tauri/icons/ and is NOT part of the deliverable;"
+  echo "delete it (and src-tauri/target) before committing."
+  rm -f "$ICO_NATIVE"
+  echo "removed the probe-generated .ico: $([ -f "$ICO_NATIVE" ] && echo STILL_THERE || echo ok)"
+else
+  echo "PRESERVED the pre-existing .ico (this probe did not create it):"
+  echo "  $ICO_NATIVE"
+  echo "  present after the probe: $([ -f "$ICO_NATIVE" ] && echo yes || echo NO)"
+fi
