@@ -29,9 +29,12 @@ npm start
 
 **Windows 构建的前置条件**（v0.1.1 基线实测，见 `docs/16-BASELINE-ADR.md` §4 B-02）：
 
+> 以下是**已知的必要条件，不是充分条件**——B-02 的成因清单尚未穷尽（msvc 链的最终链接在本机无法验证）。
+
 1. VS「使用 C++ 的桌面开发」工作负载（msvc 工具链必需）；
 2. 仓库需提供 `src-tauri/icons/icon.ico`——`tauri-build` 对任何 Windows target 都会回退到该路径，当前仓库只含 3 个 PNG，**全新 clone 无法直接完成 Windows 编译**；
-3. 本版 `bundle.active=false`，不提供假的 exe。
+3. 验收须以 **`cargo build`（含最终链接）** 为准，不能以 `cargo check` 为准——类型检查不链接最终产物；`cargo check` 通过而 `cargo build` 在链接 cdylib 时因导出序号超限失败的情形已实测出现；
+4. 本版 `bundle.active=false`，不提供假的 exe。
 
 ## 已实现 / 尚未实现
 
@@ -70,7 +73,7 @@ npm test
 node --check server/index.mjs
 ```
 
-离线环境内已验证：20/20 UT/IT 通过（全部在测试双桩下执行）。真正的 Playwright E2E 测试必须在配备依赖和浏览器的目标机器上执行；尚不能据此宣称 ST 已通过。
+离线环境内已验证：20/20 UT/IT 通过（**仅 Playwright CLI 以测试双桩替代**；其余为真实 HTTP / 文件 IO / 进程执行）。真正的 Playwright E2E 测试必须在配备依赖和浏览器的目标机器上执行；尚不能据此宣称 ST 已通过。
 
 > **v0.1.1 基线限定（2026-11-03 实测）**：Bridge 传给 `playwright test` 的参数向量含两个不存在的选项（`--screenshot`/`--video`），**真实浏览器执行当前必然失败**；另有一项重启后 Run 卡死、永久占用运行锁的缺陷。详见 `docs/16-BASELINE-ADR.md` §4 与 `docs/evidence/ATS-101/`。上表「已实现」列中涉及真实浏览器执行与产物归档的行，请按该基线文档的分类口径理解。
 

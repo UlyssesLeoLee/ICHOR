@@ -16,6 +16,10 @@
 #   2. the build fails naming exactly that path;
 #   3. providing a valid .ico lets the build proceed past that step.
 #
+# NOTE: step 3 only proves the ICON step is no longer the blocker. It is NOT a
+# counter-proof that the crate builds -- `cargo check` does not link the final
+# artifact. Use collect-b02-build-link.sh for the check-vs-build comparison.
+#
 # Usage: bash tools/ats101-probes/collect-b02-icon.sh
 set -u
 

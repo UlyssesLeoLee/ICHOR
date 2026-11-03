@@ -5,7 +5,8 @@
   - `bash tools/ats101-probes/collect-build-constraints.sh`   → 工具链、VS 工作负载、两条工具链 cargo check
   - `bash tools/ats101-probes/collect-b02-diagnosis.sh`        → shell 相关错误文本对比
   - `bash tools/ats101-probes/collect-b02-gnu-diagnosis.sh`   → gnu 链编译器/运行时不匹配诊断
-  - `bash tools/ats101-probes/collect-b02-icon.sh`             → 缺失 .ico 资源诊断 + 反证
+  - `bash tools/ats101-probes/collect-b02-icon.sh`             → 缺失 .ico 资源诊断
+  - `bash tools/ats101-probes/collect-b02-build-link.sh`      → cargo check 与 cargo build（最终链接）对照
 
 ## 3.1 Node Bridge 依赖
 
@@ -176,21 +177,43 @@ $ python -c "print(json.load(open('src-tauri/tauri.conf.json'))['bundle'])"
 该步骤对**任何 windows target triple** 执行，与 `bundle.active=false` 无关。
 **这是仓库内容缺陷**：全新 clone 永远无法满足，仅安装 MSVC 工作负载不能修复。
 
-## 3.10 反证：Rust 源码本身可编译
+## 3.10 `cargo check` 通过，但 `cargo build` 在最终链接时失败
 
-用 MSYS2 MinGW GCC（自带完整运行时）+ 临时生成一个合法 `.ico`：
+用 MSYS2 MinGW GCC（自带完整运行时）+ 临时生成一个合法 `.ico`，在**同一条命令序列**下对照 `cargo check` 与 `cargo build`：
 
 ```
---- 3. with a valid .ico present the build proceeds past the icon step ---
-generated C:\...\src-tauri\icons\icon.ico
-   Compiling ai-test-studio v0.1.0 (C:\...\src-tauri)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.53s
-GNU_WITH_ICO_EXIT=0
+--- 2. cargo check (type check + metadata, NO final link) ---
+   Compiling tauri-build v2.7.4
+   Compiling tauri v2.12.5
+   Compiling ai-test-studio v0.1.0 (...\src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 46s
+GNU_CHECK_EXIT=0
+
+--- 3. cargo build (performs the FINAL LINK of the cdylib) ---
+   Compiling wry v0.57.1
+   Compiling tauri-runtime-wry v2.12.3
+error: linking with `x86_64-w64-mingw32-gcc` failed: exit code: 1
+error: could not compile `ai-test-studio` (lib) due to 1 previous error
+GNU_BUILD_EXIT=101
 ```
 
-→ `src-tauri` 的 Rust 源码可编译。阻断项为三个**互不相同**的成因：
-(1) msvc 链缺 MSVC C++ 工作负载；(2) 仓库缺 `icons/icon.ico`；(3) gnu 链的编译器/运行时不匹配。
-探针生成的 `.ico` 仅为构建产物，已删除，不属交付物。
+链接器原文（`ld.exe`）：
+
+```
+C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/16.1.0/../../../../x86_64-w64-mingw32/bin/ld.exe:
+  error: export ordinal too large: 90774
+collect2.exe: error: ld returned 1 exit status
+```
+
+复现脚本：`bash tools/ats101-probes/collect-b02-build-link.sh`
+
+### 3.10.1 口径结论
+
+- `cargo check` **只做类型检查与元数据生成，不链接最终产物**，因此 `cargo check` 退出码 0 **不能证明该 crate 可以链接**，也**不能证明「Rust 源码本身没有问题」**。
+- 成因 4：`src-tauri/Cargo.toml:11` 声明 `crate-type = ["staticlib","cdylib","rlib"]`，cdylib 产物的导出符号数超过 PE 格式的导出序号上限 65535，链接器报 `export ordinal too large: 90774`。
+- 已定位成因：(1) msvc 链缺 MSVC C++ 工作负载；(2) 仓库缺 `icons/icon.ico`；(3) gnu 链编译器/运行时不匹配；(4) gnu 链 cdylib 导出序号超限。
+  **该清单不视为穷尽**——msvc 链的最终链接在本机无法验证（无 MSVC 工具链），msvc 链 `cargo build` 通过之前不能断言「修完这 4 项即可出包」。
+- 探针生成的 `.ico` 仅为构建产物，已删除，不属交付物。
 
 ## 3.11 真实 Playwright 浏览器可用性
 

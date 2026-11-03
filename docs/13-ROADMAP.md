@@ -1,10 +1,18 @@
 # ATS-PLAN-001 開発計画書 / 分期路线图
 
-## 1. 当前版本 v0.1（已实现 / 源码待构建）
+## 1. 当前版本 v0.1（Next 已构建 / Tauri 构建受阻 B-02）
 
 已实现 Node bridge 的项目登记、静态索引、受控源码读写、Playwright 执行器、状态/日志/JSONL、原生报告/证据归档、需求关联读取；提供便携 HTML 和 Next/Tauri 项目源码。已自动验证 core/API UT/IT；**尚未执行实际带浏览器的 Playwright ST**。
 
-**构建与执行实测（2026-11-03，ATS-101 实测）**：**Next.js 16 静态导出构建已成功**（Next.js 16.4.4，产物 `apps/studio/out/`，可由 Bridge 伺服），npm registry 本次可达。**Tauri Windows 编译未通过**：Cargo/Rust 实测已安装（cargo 1.99.1，仅不在 PATH），msvc 链根因是缺 MSVC「使用 C++ 的桌面开发」工作负载，gnu 链失败原因未诊断（Tauri Windows 以 MSVC 工具链为准）。**真实浏览器 ST 仍被代码缺陷 B-01 阻断**（`safeRunArgs()` 传入 Playwright CLI 不存在的 `--screenshot`/`--video` 选项，导致真实执行 100% 失败）。详见 `docs/16-BASELINE-ADR.md`。
+**构建与执行实测（2026-11-03，ATS-101 实测）**：**Next.js 16 静态导出构建已成功**（Next.js 16.4.4，产物 `apps/studio/out/`，可由 Bridge 伺服），npm registry 本次可达。**Tauri Windows 编译未通过**，已定位成因如下，且**成因清单尚未穷尽**：
+
+- **仓库缺陷**：仓库缺 `src-tauri/icons/icon.ico`（`tauri-build` 对任何 windows target 都会回退到该路径），**全新 clone 永远无法构建**——仅安装 MSVC 不能修复；
+- **环境缺陷**：msvc 链缺 MSVC「使用 C++ 的桌面开发」工作负载（Cargo/Rust 实测已安装，仅不在 PATH）；
+- **工具链缺陷**：gnu 链的编译器与运行时库不匹配；补齐 `.ico` 并换成带完整运行时的 MinGW GCC 后，`cargo check` 通过，但 `cargo build` 在链接 cdylib 时因导出序号超限失败（`ld.exe: error: export ordinal too large: 90774`）。
+
+msvc 链的最终链接在本机无法验证，因此 **ATS-104 的验收须以 `cargo build`（含最终链接）为准，而非 `cargo check`**。详见 `docs/16-BASELINE-ADR.md` §4 B-02。
+
+**真实浏览器 ST 仍被代码缺陷 B-01 阻断**（`safeRunArgs()` 传入 Playwright CLI 不存在的 `--screenshot`/`--video` 选项，导致真实执行 100% 失败）。
 
 ## 2. 后续最小可行顺序
 

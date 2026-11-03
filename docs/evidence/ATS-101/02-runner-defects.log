@@ -179,8 +179,30 @@ C3 pre-seeded state: stuck=true lockHeld=true unreleasable=true
 **结论**：该 Run 永久占用同项目的运行锁，且无法通过 API 解除（`RUN_NOT_ACTIVE` 返回 500）。
 三种方式结论一致，说明这是持久化状态与启动恢复代码的确定性缺陷，而非偶发竞态。
 
-**C2 的意义**：当前产品源码因 B-01 无法自然触发 B-03（真实运行在 stop 之前就已 failed）。
-**ATS-106 一修好 B-01，B-03 就会在真实操作中出现** —— 因此 B-01 与 B-03 必须同批修复与回归。
+### C1 的复现稳定性（连跑 3 次）
+
+C1 在**未修改的产品源码**上连跑 3 次，3/3 命中同一结果（每次使用独立的 `ATS_PROBE_WORKDIR`）：
+
+```
+########## RUN 1 ##########
+C1 natural race, UNMODIFIED product source: stuck=true lockHeld=true unreleasable=true
+C2 natural race, live Playwright child (B-01-patched SANDBOX COPY -- product source unchanged): stuck=true lockHeld=true unreleasable=true
+C3 pre-seeded state: stuck=true lockHeld=true unreleasable=true
+########## RUN 2 ##########
+C1 natural race, UNMODIFIED product source: stuck=true lockHeld=true unreleasable=true
+C2 natural race, live Playwright child (B-01-patched SANDBOX COPY -- product source unchanged): stuck=true lockHeld=true unreleasable=true
+C3 pre-seeded state: stuck=true lockHeld=true unreleasable=true
+########## RUN 3 ##########
+C1 natural race, UNMODIFIED product source: stuck=true lockHeld=true unreleasable=true
+C2 natural race, live Playwright child (B-01-patched SANDBOX COPY -- product source unchanged): stuck=true lockHeld=true unreleasable=true
+C3 pre-seeded state: stuck=true lockHeld=true unreleasable=true
+```
+
+**C1 与 C2 的意义**：
+
+- **C1 在当前产品源码下即可触发 B-03**——只要 `POST /stop` 落在 CLI 因参数错误（B-01）退出之前的短窗口内。这不是「B-01 修好后才会出现」的问题，而是**当前就存在的缺陷**。
+- **C2 证明 B-01 修好后窗口会扩大**：此时子进程是一个真实的 Playwright 慢用例，`/stop` 落在整个运行期的任意时刻都能命中。
+- 因此 **B-01 与 B-03 必须同批修复与回归**。
 
 ---
 
@@ -196,24 +218,47 @@ $ node tools/ats101-probes/scenario-d-port-audit.mjs
 
 ```
 --- RUNTIME hardcoding in shipped source ---
-  apps/studio/app/page.tsx:81      ... LOCAL RUNNER · 127.0.0.1:4577 ...
-  apps/studio/lib/api.ts:6         const root=()=>...window.location.port==='4577'...
+  apps/studio/app/page.tsx:81  ... LOCAL RUNNER · 127.0.0.1:4577 ...
+  apps/studio/lib/api.ts:6  const root=()=>...window.location.port==='4577'...
   apps/studio/public/fallback.html:3  ... LOCAL BRIDGE · 127.0.0.1:4577 ...
-  server/index.mjs:11               const PORT=Number(process.env.ATS_PORT||4577);
-  server/index.mjs:71               ...connect-src 'self' http://127.0.0.1:4577 http://localhost:4577...
-  src-tauri/src/lib.rs:19           .env("ATS_PORT","4577")
+  server/index.mjs:11  const PORT=Number(process.env.ATS_PORT||4577);
+  server/index.mjs:71  ...connect-src 'self' http://127.0.0.1:4577 http://localhost:4577...
+  src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
 total = 6
 
 --- NON-runtime mentions (documented separately) ---
-  README.md:9, README.md:24, README.md:28, README.md:43
+  README.md:9, README.md:24, README.md:28, README.md:52
   start.ps1:8, start.ps1:9, start.sh:4
   tests/test-cases.json:491, tests/test-cases.json:557, tests/test-cases.json:711
-total = 10
+  tools/generate_test_docs.py:52, tools/generate_test_docs.py:58, tools/generate_test_docs.py:74
+  test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)
+total = 14
+
+--- distinct RUNTIME files ---
+  apps/studio/app/page.tsx
+  apps/studio/lib/api.ts
+  apps/studio/public/fallback.html
+  server/index.mjs
+  src-tauri/src/lib.rs
+
+--- files listed in 16 §3.1 (port list) ---
+  README.md
+  apps/studio/app/page.tsx
+  apps/studio/lib/api.ts
+  apps/studio/public/fallback.html
+  server/index.mjs
+  src-tauri/src/lib.rs
+  start.ps1
+  start.sh
+  test-cases.xlsx
+  tests/test-cases.json
+  tools/ats101-probes/scenario-d-port-audit.mjs
+  tools/generate_test_docs.py
 
 --- verdict ---
 runtime occurrences in source   : 6
 distinct runtime files          : 5
-non-runtime files               : 4
+non-runtime files               : 6
 runtime files missing from §3.1 : (none)
 non-runtime missing from §3.1   : (none)
 runtime positions missing       : (none)
@@ -226,5 +271,7 @@ RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
 ```
 
 **结论**：默认端口 4577 在**运行时**源码中被硬编码在 **6 处**（5 个文件，其中 `server/index.mjs` 占 2 处）。
-另有 4 个文件共 10 处**非运行时**引用（README、启动脚本、测试用例数据），不影响运行时行为但会显示过期端口。
+另有 6 个文件共 14 处**非运行时**引用（README、启动脚本、测试用例数据及其生成器、`test-cases.xlsx`），不影响运行时行为但会显示过期端口。
 该清单在 `docs/16-BASELINE-ADR.md` §3.1 中按 `file:line` 逐条列出，并由本脚本自动校验。
+
+**审计范围**（与 16 §3.1 的「审计范围」段一致）：扫描仓库内全部 `.mjs/.js/.ts/.tsx/.html/.rs/.json/.md/.ps1/.sh/.py` 文件，另加 `test-cases.xlsx` 这一个 zip 容器——其单元格数据是 deflate 压缩的，**必须解压后扫描**，直接搜原始字节会漏掉（`test-cases.xlsx` 中 3 处，分别在 `xl/worksheets/sheet3.xml` 与 `sheet4.xml`）。

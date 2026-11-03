@@ -13,6 +13,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { REPO_ROOT } from './lib/bridge.mjs';
 
 const PORT = '4577';
@@ -24,7 +25,7 @@ console.log('');
 
 /** Directories that are not part of the shipped source. */
 const SKIP_DIRS = new Set(['node_modules', '.git', '.next', 'out', 'dist', 'target', 'test-results', 'playwright-report', '.multica']);
-const SOURCE_EXT = new Set(['.mjs', '.js', '.ts', '.tsx', '.html', '.rs', '.json', '.md', '.ps1', '.sh']);
+const SOURCE_EXT = new Set(['.mjs', '.js', '.ts', '.tsx', '.html', '.rs', '.json', '.md', '.ps1', '.sh', '.py']);
 
 /**
  * Files that mention the port but do not hardcode it at runtime.
@@ -36,7 +37,15 @@ const NON_RUNTIME = new Set([
   'start.ps1',            // launcher script: prints / opens a URL
   'start.sh',             // launcher script: prints a URL
   'tests/test-cases.json', // test-case data (input strings)
+  'tools/generate_test_docs.py', // generator for tests/test-cases.json -- rewrites the old port
 ]);
+
+/**
+ * Binary containers that embed the port in their cell data. They are scanned
+ * separately, because a plain text scan of the file bytes does not see the
+ * shared strings inside the zip container.
+ */
+const XLSX_FILES = ['test-cases.xlsx'];
 
 function walk(dir, acc = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -62,6 +71,70 @@ for (const file of walk(REPO_ROOT)) {
     if (NON_RUNTIME.has(rel)) nonRuntimeFindings.push(entry);
     else findings.push(entry);
   });
+}
+
+/**
+ * Scan the xlsx containers for the port. The port lives in shared-string cell
+ * data inside the zip, and the zip entries are DEFLATE-compressed, so the raw
+ * container bytes do not contain it -- the parts have to be inflated first.
+ * These files carry test-case input data, not runtime behaviour, so they
+ * belong to the non-runtime list.
+ */
+function inflateZipEntries(buf) {
+  const parts = [];
+  // Locate the end-of-central-directory record, then walk the central directory.
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= 0 && i >= buf.length - 22 - 0xffff; i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) return parts;
+  const count = buf.readUInt16LE(eocd + 10);
+  let off = buf.readUInt32LE(eocd + 16);
+  for (let n = 0; n < count; n++) {
+    if (buf.readUInt32LE(off) !== 0x02014b50) break;
+    const method = buf.readUInt16LE(off + 10);
+    const compSize = buf.readUInt32LE(off + 20);
+    const nameLen = buf.readUInt16LE(off + 28);
+    const extraLen = buf.readUInt16LE(off + 30);
+    const commentLen = buf.readUInt16LE(off + 32);
+    const localOff = buf.readUInt32LE(off + 42);
+    const name = buf.toString('utf8', off + 46, off + 46 + nameLen);
+    // Local header: the data starts after its own name + extra fields.
+    const lNameLen = buf.readUInt16LE(localOff + 26);
+    const lExtraLen = buf.readUInt16LE(localOff + 28);
+    const dataStart = localOff + 30 + lNameLen + lExtraLen;
+    const raw = buf.subarray(dataStart, dataStart + compSize);
+    let text;
+    try {
+      text = (method === 0 ? raw : zlib.inflateRawSync(raw)).toString('utf8');
+    } catch {
+      text = raw.toString('latin1');
+    }
+    parts.push({ name, text });
+    off += 46 + nameLen + extraLen + commentLen;
+  }
+  return parts;
+}
+
+for (const rel of XLSX_FILES) {
+  const full = path.join(REPO_ROOT, rel);
+  if (!fs.existsSync(full)) {
+    console.log(`WARNING: ${rel} not found -- the audit scope no longer matches the repository.`);
+    continue;
+  }
+  let total = 0;
+  const partNames = [];
+  for (const part of inflateZipEntries(fs.readFileSync(full))) {
+    const c = part.text.split(PORT).length - 1;
+    if (c) { total += c; partNames.push(`${part.name} (${c})`); }
+  }
+  if (total) {
+    nonRuntimeFindings.push({
+      rel,
+      line: 0,
+      text: `${total} occurrence(s) in the xlsx container: ${partNames.join(', ')}`,
+    });
+  }
 }
 
 console.log('--- RUNTIME hardcoding in shipped source ---');
@@ -100,8 +173,12 @@ if (!portItem) {
 }
 
 /** `file:line` or `file` references inside the port list. */
-const docRefs = [...portItem.matchAll(/`([^`]+?\.(?:mjs|ts|tsx|html|rs|ps1|sh|md|json))(?::([\d,\-]+))?`/g)]
-  .map((m) => ({ file: m[1], spec: m[2] }));
+const docRefs = [...portItem.matchAll(/`([^`]+?\.(?:mjs|ts|tsx|html|rs|ps1|sh|md|json|py|xlsx))(?::([\d,\-]+))?`/g)]
+  .map((m) => ({ file: m[1], spec: m[2] }))
+  // A leading dot means the token is not a repo file path -- e.g. the audit
+  // scope in the same paragraph is written as `.mjs/.js/.ts/...`, which would
+  // otherwise be parsed as one bogus "file".
+  .filter((r) => !r.file.startsWith('.'));
 const docSet = new Set(docRefs.map((r) => r.file));
 /** `file:line` positions the document claims (a spec may list several lines). */
 const docPositions = new Set();

@@ -80,9 +80,9 @@ def main():
     notes = {
         'ATS-106': 'B-01阻断：safeRunArgs 传入 Playwright CLI 不存在的 --screenshot/--video，须移除并改为向项目 playwright.config.ts 注入 use.screenshot/use.video（仅删除会丢失截图与视频）；本项应升 P0 关键阻断，并须加真实 CLI 参数契约测试',
         'ATS-107': '依赖 ATS-106 修复 B-01 后方可执行真实浏览器 PASS/FAIL',
-        'ATS-108': '须覆盖 B-03：重启后 cancelling 状态恢复与终态操作幂等；B-01 与 B-03 须同批修复与回归',
-        'ATS-104': 'B-02阻断（两个独立成因）：(1) msvc 链缺 MSVC「使用 C++ 的桌面开发」工作负载（Cargo 已安装但链接失败）；(2) 仓库缺 src-tauri/icons/icon.ico，tauri-build 对任何 windows target 都需要它，全新 clone 永远构建失败；gnu 链另有编译器/运行时不匹配问题',
-        'ATS-112': '须覆盖 B-03 附带项：终态 /stop 幂等、错误归类（NOT_A_DIRECTORY / RUN_NOT_ACTIVE 实测 500）与路径泄漏',
+        'ATS-108': '须覆盖 B-03：重启后 cancelling 状态恢复与终态操作幂等；B-01 与 B-03 须同批修复与回归（当前产品源码下 B-03 已可触发，探针 C1 连跑 3 次 3/3 命中）',
+        'ATS-104': 'B-02阻断（四个已定位成因，且成因清单尚未穷尽）：(1) msvc 链缺 MSVC「使用 C++ 的桌面开发」工作负载（Cargo 已安装但链接失败，最终链接本机无法验证）；(2) 仓库缺 src-tauri/icons/icon.ico，tauri-build 对任何 windows target 都需要它，全新 clone 永远构建失败；(3) gnu 链编译器/运行时不匹配；(4) gnu 链 cdylib 导出序号超限（cargo check 通过但 cargo build 链接失败：export ordinal too large）。验收须以 cargo build（含最终链接）为准，不以 cargo check 为准；上述为必要条件而非充分条件',
+        'ATS-112': '须覆盖错误归类与路径泄漏（根因在 server/index.mjs:123 的统一错误映射：正则未命中即 500 且原样回显 e.message 泄漏宿主绝对路径）；NOT_A_DIRECTORY 抛自 server/core.mjs:26，RUN_NOT_ACTIVE 抛自 server/index.mjs:55（此码与 B-03 相交，但与恢复集合 index.mjs:15 是两处不同缺陷）；另需终态 /stop 幂等',
     }
     marker = '【ATS-101】'
     # Notes written by the first ATS-101 delivery (pre-review). They are
@@ -131,7 +131,8 @@ def main():
     xml1 = set_cell_in_row(
         xml1, 7, 'D',
         '真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过'
-        '（B-02：msvc 链缺 MSVC C++ 构建工具）；详见 docs/16-BASELINE-ADR.md。')
+        '（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；'
+        '详见 docs/16-BASELINE-ADR.md。')
     parts[SHEET1] = xml1.encode('utf-8')
 
     # --- rewrite the archive, preserving every other part byte-for-byte ------

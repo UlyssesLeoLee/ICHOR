@@ -15,7 +15,7 @@ v0.1 的**代码能力基线成立**：Node Bridge 的项目登记、静态索�
 
 **要件分类口径（§2.1/§2.2）**：42 条要件中 **9 条有真实执行证据**，**3 条（FR-009/011/014）仅有测试双桩证据、真实链路被 B-01/B-03 阻断**，其余为待实测或仅设计。
 
-同时更正两处**已过时的环境结论**（原文档写于 npm registry 不可达时）：Next.js 16 静态导出构建**本次实测成功**；Rust 工具链**已安装**。Tauri 编译失败有**两个互相独立的成因**：msvc 链缺 **MSVC C++ 构建工具工作负载**（环境问题），以及**仓库缺少 `src-tauri/icons/icon.ico`**（仓库内容缺陷，全新 clone 永远无法满足，仅装 MSVC 不能修复）——详见 §4 B-02。gnu 链的失败另有**第三个独立成因**（编译器与运行时库不匹配）。已用反证证明：`src-tauri` 的 Rust 源码本身可编译。
+Tauri 编译失败已定位到**四个互相独立的成因**（§4 B-02）：msvc 链缺 **MSVC C++ 构建工具工作负载**（环境问题）；**仓库缺少 `src-tauri/icons/icon.ico`**（仓库内容缺陷，全新 clone 永远无法满足，仅装 MSVC 不能修复）；gnu 链的编译器与运行时库不匹配；gnu 链 cdylib 的导出序号超出 PE 上限。**成因清单尚未穷尽**：在补齐 `.ico` 并换成带完整运行时的 MinGW GCC 后，`cargo check`（类型检查，**不链接最终产物**）通过，但 `cargo build` 在链接 cdylib 时仍失败（`ld.exe: error: export ordinal too large: 90774`）。msvc 链的最终链接在本机无法验证，因此 **B-02 的成因清单在 msvc 链 `cargo build` 通过之前不视为穷尽**。
 
 ## 2. 实现状态基线（已实现／待实测／未实现）
 
@@ -117,8 +117,9 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
    | 6 | `src-tauri/src/lib.rs:19` | `ATS_PORT` 环境变量默认值 |
 
-   另有 4 个文件**非运行时**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`README.md`（使用说明）、`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）。
+   另有 6 个文件**非运行时**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`README.md`（使用说明）、`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）、`tools/generate_test_docs.py:52,58,74`（`tests/test-cases.json` 的生成器，重新生成会把旧端口写回去）、`test-cases.xlsx`（3 处，测试用例输入数据）。
    本清单由 `tools/ats101-probes/scenario-d-port-audit.mjs` 自动比对源码与本文档，**按 `file:line` 逐条校验**，遗漏即报错。
+   **审计范围**：扫描仓库内全部 `.mjs/.js/.ts/.tsx/.html/.rs/.json/.md/.ps1/.sh/.py` 文件（跳过 `node_modules/`、`.git/`、`.next/`、`out/`、`dist/`、`target/`、`test-results/`、`playwright-report/`、`.multica/`），另加 `test-cases.xlsx` 这一个 zip 容器（其单元格数据是 deflate 压缩的，须解压后扫描）。`docs/` 与 `tools/ats101-probes/` 本身不计入——它们**提及**端口，而非硬编码端口。
 2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
 3. **Host 白名单绑定端口**：`server/index.mjs:60` 的正则含 `${PORT}`，改端口后 Host 校验随之变化。
 4. **仅可信本地项目**：不自动安装依赖，不接受任意 CLI 字符串（`spawn(..., shell:false)`）。
@@ -132,11 +133,13 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 | 场景 | 实测 | 设计预期 | 问题 | 归属 |
 |---|---|---|---|---|
 | 目标不是目录（`NOT_A_DIRECTORY`） | **500** | 400 | 归类错误 | ATS-112 |
-| 停止非活动 Run（`RUN_NOT_ACTIVE`） | **500** | 设计文档 §7 错误码表未收录此码 | 归类错误；状态语义与幂等性见 B-03 | ATS-112 |
+| 停止非活动 Run（`RUN_NOT_ACTIVE`） | **500** | 设计文档 §7 错误码表未收录此码 | 归类错误；此码与 B-03 相交（见下方归属说明） | ATS-112 |
 | 登记不存在的路径 | **500** + `ENOENT: ... lstat 'D:\definitely'` | 400 | **泄漏宿主绝对路径** | ATS-112 |
 | 下载不存在的附件 | **500** + 泄漏 `ATS_DATA_DIR` 绝对路径 | 404 | **泄漏宿主绝对路径** | ATS-112 |
 
-> 归属说明：以上 4 项属 **B-03 的附带项 / ATS-112**（终态操作幂等与错误归类）。本基线的阻断项只有 B-01/B-02/B-03 三项（§4），**不存在编号 B-04**；错误归类与路径泄漏是 B-03 同一处状态机/错误处理缺口的附带产物，随 ATS-112 一并修复。
+> **归属说明**：以上 4 项的**根因位置是 `server/index.mjs:123` 的统一错误映射**——该处用正则匹配错误消息，未命中即返回 500，并把 `e.message` 原样回显，因此既造成**归类错误**，也造成**宿主绝对路径泄漏**。其中 `NOT_A_DIRECTORY` 由 `server/core.mjs:26` 抛出，`RUN_NOT_ACTIVE` 由 `server/index.mjs:55` 的 `cancelRun()` 抛出。
+> **归属**：全部 4 项均为 **ATS-112**（错误归类与路径泄漏）。仅 `RUN_NOT_ACTIVE` 与 **B-03** 相交——B-03 的自愈路径缺失另在 `server/index.mjs:15`（启动恢复集合遗漏 `cancelling`），二者是**两处不同的缺陷**，不可视为同一处状态机缺口。
+> 本基线的阻断项只有 B-01/B-02/B-03 三项（§4），**不存在编号 B-04**。
 
 ## 4. 阻断项（3 项）
 
@@ -170,7 +173,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
         / results/**/test-failed-1.png / results/**/video.webm
   ```
   证明阻塞点唯一，且 `parseReport()` 能正确解析真实 Playwright report.json。
-- **png/webm 的来源（更正此前表述）**：场景 B 的 png/webm **来自夹具自身的 `playwright.config.ts` 的 `use:{screenshot,video}` 配置，不是 Bridge 产出的**。同一脚本用不含该配置的夹具复跑：
+- **png/webm 的来源**：场景 B 的 png/webm **来自夹具自身的 `playwright.config.ts` 的 `use:{screenshot,video}` 配置，不是 Bridge 产出的**。同一脚本用不含该配置的夹具复跑：
   ```
   artifacts 数量 = 27   (夹具 use 无 screenshot/video)
   png present = false | webm present = false | report.json present = true
@@ -182,11 +185,11 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
   2. **但仅删除这两个选项会导致项目未自行配置 `use.screenshot`/`use.video` 时丢失截图与视频**——这正是 FR-014「尽力启用原生 reporter/trace/screenshot/video」的诉求。因此需**向目标项目的 `playwright.config.ts` 注入** `use.screenshot`/`use.video`（或等价地以受控方式覆盖 `use` 块），而不是依赖项目自身配置；
   3. 以**真实 Playwright CLI** 做参数契约测试，防止再次漂移（现有 mock CLI 接受任意参数，正是它掩盖了 B-01）。
 
-### B-02（严重 / P0）Tauri Windows 编译失败——两个独立成因（工具链缺失 + 仓库缺 .ico 资源）
+### B-02（严重 / P0）Tauri Windows 编译失败——三个已定位成因，且成因清单尚未穷尽
 
 - **位置**：`src-tauri/`
-- **更正旧结论**：`docs/14-REVIEW-VERIFICATION.md` 曾称「Cargo 未安装」。**实测 Cargo/Rust 已安装**（cargo 1.99.1、rustc 1.99.1、两个 toolchain：msvc 与 gnu），只是不在 PATH，须用 `~/.cargo/bin/cargo.exe` 全路径调用。
-- **复现脚本**：`tools/ats101-probes/collect-build-constraints.sh`、`tools/ats101-probes/collect-b02-diagnosis.sh`、`tools/ats101-probes/collect-b02-gnu-diagnosis.sh`、`tools/ats101-probes/collect-b02-icon.sh`
+- **Cargo/Rust 实测已安装**（cargo 1.99.1、rustc 1.99.1、两个 toolchain：msvc 与 gnu），只是不在 PATH，须用 `~/.cargo/bin/cargo.exe` 全路径调用。
+- **复现脚本**：`tools/ats101-probes/collect-build-constraints.sh`、`tools/ats101-probes/collect-b02-diagnosis.sh`、`tools/ats101-probes/collect-b02-gnu-diagnosis.sh`、`tools/ats101-probes/collect-b02-icon.sh`、`tools/ats101-probes/collect-b02-build-link.sh`
 - **依赖解析本身正常**：`cargo generate-lockfile` 成功锁定 406 个包（tauri 2.12.5）；crates.io 可达。
 
 **成因 1 —— msvc 链缺 MSVC C++ 构建工具（环境问题）**
@@ -219,9 +222,9 @@ CARGO_CHECK_EXIT=101
   `...\src-tauri\icons/icon.ico` not found; required for generating a Windows Resource file during tauri-build
   ```
 - **这是仓库内容缺陷，不是环境问题**：全新 clone 永远无法满足，**仅安装 MSVC 工作负载并不能修复它**。
-- **实测验证**：临时生成一个合法 `.ico` 后，构建**越过该步骤**（见下方「反证」）。
+- **实测验证**：临时生成一个合法 `.ico` 后，构建**越过该步骤**（见下方成因 4 的同一条命令序列）。
 
-**gnu 链失败（与 msvc 链成因不同，单独诊断）**
+**成因 3 —— gnu 链失败（与 msvc 链成因不同，单独诊断）**
 
 ```
 $ cargo +stable-x86_64-pc-windows-gnu check --message-format short
@@ -237,26 +240,43 @@ GNU_CHECK_EXIT=101
   而 rustup 自带的 gnu toolchain 只提供 `libgcc*.a`（无 C 运行时），MSYS2 的 MinGW GCC 16.1.0 则**两者齐备**。
   即失败源于**编译器与运行时库不匹配**，与 MSVC 工作负载缺失、与 `.ico` 缺失都是**不同**的成因。
 
-**反证：Rust 源码本身没有问题（B-02 全部是环境/资产问题）**
+**实测：`cargo check` 通过，但 `cargo build` 在最终链接时仍失败（成因 4）**
 
-用 MSYS2 的 MinGW GCC（自带完整运行时）+ 临时生成一个合法 `.ico` 后，gnu 链**编译通过**：
+用 MSYS2 的 MinGW GCC（自带完整运行时）+ 临时生成一个合法 `.ico` 后：
 
 ```
---- 3. with a valid .ico present the build proceeds past the icon step ---
-generated ...\src-tauri\icons\icon.ico
-   Compiling ai-test-studio v0.1.0 (...\src-tauri)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.53s
-GNU_WITH_ICO_EXIT=0
+--- 2. cargo check (type check + metadata, NO final link) ---
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 46s
+GNU_CHECK_EXIT=0
+
+--- 3. cargo build (performs the FINAL LINK of the cdylib) ---
+error: linking with `x86_64-w64-mingw32-gcc` failed: exit code: 1
+error: could not compile `ai-test-studio` (lib) due to 1 previous error
+GNU_BUILD_EXIT=101
 ```
 
-这证明 `src-tauri` 的 Rust 源码可编译；阻断的是 (1) MSVC 工作负载缺失、(2) 仓库缺 `.ico`、(3) gnu 工具链的编译器/运行时不匹配。
-**注意**：该 `.ico` 仅为本次探针的构建产物，已删除，**不属本任务交付物**（是否补入图标属 ATS-104 的范围）。
+链接器原文：
+
+```
+C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/16.1.0/../../../../x86_64-w64-mingw32/bin/ld.exe:
+  error: export ordinal too large: 90774
+collect2.exe: error: ld returned 1 exit status
+```
+
+- **复现脚本**：`tools/ats101-probes/collect-b02-build-link.sh`（同一条命令序列下 `cargo check` 与 `cargo build` 的对照）
+- **本项的准确口径**：`cargo check` 只做类型检查与元数据生成，**不链接最终产物**；因此 `cargo check` 退出码 0 **不能证明该 crate 可以链接**，也**不能证明「Rust 源码本身没有问题」**。
+- **成因 4（本次新定位）**：`src-tauri/Cargo.toml:11` 声明 `crate-type = ["staticlib","cdylib","rlib"]`，cdylib 产物的导出符号数超过 PE 格式的导出序号上限 65535，链接器报 `export ordinal too large: 90774`。
+- **成因清单状态**：已定位成因 (1) msvc 链缺 MSVC C++ 工作负载、(2) 仓库缺 `icons/icon.ico`、(3) gnu 链编译器/运行时不匹配、(4) gnu 链 cdylib 导出序号超限。
+  **该清单不视为穷尽**：msvc 链的**最终链接**在本机无法验证（无 MSVC 工具链），msvc 链 `cargo build` 通过之前不能断言「修完这 4 项即可出包」。
+- **注意**：该 `.ico` 仅为本次探针的构建产物，已删除，**不属本任务交付物**（是否补入图标属 ATS-104 的范围）。
 
 - **影响**：ATS-104/105、ST-022、FR-020 的桌面侧不能验证。
 - **修复方向**（属 ATS-104 / ATS-102）：
   1. 安装 VS「使用 C++ 的桌面开发」工作负载并固定工具链版本；CI 需显式声明 Windows 构建镜像含 MSVC C++ 工具链；
   2. **补入 `src-tauri/icons/icon.ico`（或让 `bundle.icon` 列出 `.ico` 条目）** —— 否则全新 clone 永远构建失败；
-  3. gnu 链非 Tauri Windows 的目标工具链，修复优先级低于 msvc 链。
+  3. gnu 链非 Tauri Windows 的目标工具链，修复优先级低于 msvc 链；
+  4. **验收必须以 `cargo build`（含最终链接）为准，不能以 `cargo check` 为准**；若 msvc 链同样暴露 cdylib 导出序号问题，需调整 `crate-type`（如仅保留 `staticlib`+`rlib`）或裁剪导出符号。
+  > 以上是**已知的必要条件**，不是**充分条件**：成因清单尚未穷尽（§4 B-02）。
 
 ### B-03（严重 / P0）重启后 Run 卡在 `cancelling`，永久占用同项目运行锁且 API 无法解除
 
@@ -273,7 +293,7 @@ GNU_WITH_ICO_EXIT=0
   POST /stop on stuck run   -> 500 {"error":"RUN_NOT_ACTIVE"}
   ```
 - **影响**：一次「请求停止后进程被强杀」的异常即可使该项目的运行功能**永久不可用**（无自愈路径）；ATS-108（取消/超时/子进程树回收与重启 ST）、ATS-112、NFR-008、FR-011、ST-010、ST-017 直接阻断。
-- **与 B-01 的耦合（重要）**：当前产品源码因 B-01 无法自然触发 B-03——真实运行在 stop 之前就已经 failed。**ATS-106 一修好 B-01，B-03 就会在真实操作中出现**（C2 即以 B-01 已修复的沙箱副本证明了这一点）。因此 **B-01 与 B-03 的修复与回归必须同批处理**，不得只修其一。
+- **与 B-01 的耦合（重要）**：**当前产品源码下 B-03 即可触发**——只要 `POST /stop` 落在 CLI 因参数错误退出之前的短窗口内（探针 C1 即在**未修改的产品源码**上连续 3 次复现，3/3 命中）。B-01 修复后，子进程变成一个真实的 Playwright 运行，**该窗口扩大到整个运行期**（探针 C2，此时子进程是真实的 Playwright 慢用例）。因此 **B-01 与 B-03 的修复与回归必须同批处理**，不得只修其一。
 - **修复方向**（属 ATS-108/112）：启动恢复的状态集合补齐 `cancelling`；`/stop` 对已终结 Run 应幂等返回终态而非 500；同项目运行锁改为以「活动 job 存在性」而非「历史记录状态」判定。
 
 ## 5. 构建约束清单（实测）
@@ -287,7 +307,7 @@ GNU_WITH_ICO_EXIT=0
 
 ### 5.2 Next.js 16 静态导出
 
-- **本次实测构建成功**（更正 `docs/14-REVIEW-VERIFICATION.md` 与 `docs/13-ROADMAP.md` 中「npm registry 离线，无法完成 build」的过时结论）：`npm install` 55 包 46s；`next build`（Next.js 16.4.4, Turbopack）编译 1485ms、TypeScript 2.2s、静态页 3/3；产物 `apps/studio/out/{index.html,404.html,_next/**}`。
+- **本次实测构建成功**：`npm install` 55 包 46s；`next build`（Next.js 16.4.4, Turbopack）编译 1485ms、TypeScript 2.2s、静态页 3/3；产物 `apps/studio/out/{index.html,404.html,_next/**}`。npm registry 本次可达。
 - 实测该产物可由 Bridge 直接伺服：`GET /` 与 `GET /index.html` 返回 200 且为 Next 导出 HTML；`/fallback.html` 返回便携 UI。
 - **构建副作用（须纳入版本控制约定）**：`next build` 会改写两个受版本控制的文件——
   - `apps/studio/next-env.d.ts`：追加 `./.next/types/routes.d.ts` 等 import（+5 行）
@@ -298,7 +318,7 @@ GNU_WITH_ICO_EXIT=0
 ### 5.3 Tauri 2 / Rust
 
 - 依赖解析**可行**：`cargo generate-lockfile` 成功锁定 406 个包（tauri 2.12.5）；crates.io 可达。
-- **编译不可行**：见 §4 B-02。cargo 不在 PATH，须用全路径调用。msvc 链根因为缺 MSVC C++ 工作负载；gnu 链根因为编译器与运行时库不匹配。
+- **编译不可行**：见 §4 B-02。cargo 不在 PATH，须用全路径调用。msvc 链根因为缺 MSVC C++ 工作负载（最终链接本机无法验证）；gnu 链根因为编译器与运行时库不匹配，且在 `.ico` 补齐后 `cargo build` 仍在链接 cdylib 时因导出序号超限而失败。
 - **仓库缺 Windows 资源文件**：`src-tauri/icons/` 只有 3 个 PNG，**无 `icon.ico`**，而 `tauri-build` 对任何 windows target 都会回退到 `icons/icon.ico` → 全新 clone 必然构建失败（§4 B-02 成因 2）。
 - `tauri.conf.json`：`beforeDevCommand` = `npm --prefix apps/studio run dev`（3000 端口），`devUrl` = `http://localhost:3000`，`frontendDist` = `../apps/studio/out`，`bundle.active=false`（不产出安装包）。
 - `src-tauri/src/lib.rs` 以 `Command::new("node")` 拉起 `../server/index.mjs` 并设 `ATS_PORT=4577`；**要求 PATH 中有 node**，否则 bridge 静默不启动（`spawn().ok()` 丢弃错误）——属 ATS-105 待办。
@@ -328,6 +348,7 @@ GNU_WITH_ICO_EXIT=0
 | **ADR-011** | **持久化状态机的恢复集合必须与运行态集合对齐；终态操作须幂等** | **ACCEPTED（本次新增）** | 遗漏一个中间态即可造成不可自愈的锁死 |
 | **ADR-012** | **v0.1.1 门禁放行前，B-01/B-02/B-03 必须全部关闭且有真实机器证据** | **ACCEPTED（本次新增）** | 三项均为 S1 阶段门禁的前置条件 |
 | **ADR-013** | **文档中的「接口/构建约束清单」必须可机读校验，清单与源码不一致即视为缺陷** | **ACCEPTED（本次新增）** | 人工维护的清单必然随源码漂移；改端口漏改一处即静默失效 |
+| **ADR-014** | **构建验收以产物链接完成为准：`cargo check` 通过不得作为「可构建」的证据** | **ACCEPTED（本次新增）** | 类型检查不链接最终产物，链接期缺陷（导出序号超限）只在 `cargo build` 暴露 |
 
 ## 7. 未验证项声明（PENDING ≠ PASS）
 
@@ -335,7 +356,7 @@ GNU_WITH_ICO_EXIT=0
 
 1. **24 项 ST 全部未执行**（ST-001~024），原因：ST-001~024 需要真实 UI/浏览器/Windows/Tauri 环境，其中依赖真实运行结果的部分被 B-01 阻断，Tauri 部分被 B-02 阻断。
 2. **真实浏览器 PASS/FAIL/CANCEL 未通过产品源码验证**——B-01 修复前不可能通过；对照实验只在沙箱副本中验证了「去掉两个选项即可工作」，**产品源码未修改**，不得据此宣称产品已具备该能力。
-3. **Tauri Windows 构建未验证**（B-02）。gnu 链的具体修复路径亦未验证。
+3. **Tauri Windows 构建未验证**（B-02）。msvc 链的**最终链接**（`cargo build`）本机无法验证；gnu 链的 `cargo build` 在 `.ico` 补齐后仍因 cdylib 导出序号超限而失败。**B-02 的成因清单在 msvc 链 `cargo build` 通过之前不视为穷尽**。
 4. **macOS/Linux 便携 UI 未验证**（仅 Windows 11 实测）。
 5. **性能指标未实测**（NFR-006：500 用例 3 秒目标无基线）。
 6. **依赖 SPDX/SBOM 未生成**（NFR-012 未完成）。
@@ -347,11 +368,11 @@ GNU_WITH_ICO_EXIT=0
 - **ATS-101 本身**：基线冻结与 ADR 已交付（本文 + `docs/evidence/ATS-101/` 4 份执行日志 + `tools/ats101-probes/` 可重跑复现脚本 + WBS 状态同步）。
 - **建议调整 WBS 归属**：
   - B-01 → **ATS-106**（Playwright CLI 环境检测与参数安全基线）应升级为 P0 关键阻断，并新增「真实 CLI 参数契约测试」验收项；执行类任务的 ATS-107 须在其后进行。
-  - B-02 → **ATS-104** 验收标准须补入「构建镜像含 MSVC C++ 构建工具工作负载」**与「仓库提供 `src-tauri/icons/icon.ico`（或 `bundle.icon` 列出 `.ico`）」**；ATS-102 的 CI 脚本须固定该镜像。
-  - B-03 → **ATS-108**（取消/超时/子进程树回收与重启 ST）须明确覆盖「cancelling 状态恢复」；ATS-112 须覆盖「终态操作幂等」与错误归类/路径泄漏（§3.2 附带项）。
+  - B-02 → **ATS-104** 验收标准须补入「构建镜像含 MSVC C++ 构建工具工作负载」**与「仓库提供 `src-tauri/icons/icon.ico`（或 `bundle.icon` 列出 `.ico`）」**，并明确「**验收以 `cargo build`（含最终链接）为准，不以 `cargo check` 为准**」；ATS-102 的 CI 脚本须固定该镜像。**上述为已知必要条件而非充分条件**——B-02 成因清单尚未穷尽（§4 B-02）。
+  - B-03 → **ATS-108**（取消/超时/子进程树回收与重启 ST）须明确覆盖「cancelling 状态恢复」；ATS-112 须覆盖「终态操作幂等」**与错误归类/路径泄漏**（后者根因在 `server/index.mjs:123` 的统一错误映射，见 §3.2）。
   - **B-01 与 B-03 须同批修复与回归**（§4 B-03 耦合说明）。
 - **阶段门禁**：在 B-01/B-02/B-03 关闭前，ATS-116（v0.1.1 质量门）不应放行，阶段出厂检查「设计一致性」「UT/IT」「ST/UAT」三项保持「待检查」。
-- **文档同步**：本文件与 `docs/14-REVIEW-VERIFICATION.md`、`docs/13-ROADMAP.md` 中关于「npm 离线」「Cargo 未安装」「Next build 不可完成」的表述已按 §5 更正，旧的过时结论已从正文移除，不再以「更正块」与正文并存。
+- **文档同步**：本文件、`docs/14-REVIEW-VERIFICATION.md`、`docs/13-ROADMAP.md` 与 `README.md` 对 B-02 的描述以本文 §4 为准，且四处口径一致（含 `icon.ico` 仓库缺陷与「成因清单未穷尽」的限定）。
 
 ## 9. 冻结声明
 
