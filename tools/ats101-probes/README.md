@@ -43,8 +43,8 @@ bash tools/ats101-probes/collect-b02-build-link.sh
 | `collect-b02-diagnosis.sh` | 执行 shell 对链接器错误文本的影响（Git Bash vs PowerShell） | 16 §4 B-02、证据 03 §3.8 |
 | `collect-b02-gnu-diagnosis.sh` | gnu 链：编译器与运行时库不匹配的诊断 | 16 §4 B-02、证据 03 §3.7.1 |
 | `collect-b02-icon.sh` | 仓库缺 `src-tauri/icons/icon.ico`（**仓库内容缺陷**：全新 clone 永远无法构建） | 16 §4 B-02 成因 2 |
-| `collect-b02-build-link.sh` | **`cargo check` 通过但 `cargo build` 在最终链接时失败**（`ld.exe: error: export ordinal too large`）——证明类型检查通过不等于可构建。判定以链接器标记字符串为准，可区分「导出序号超限」「其他链接错误」「链接前失败」 | 16 §4 B-02 成因 4、ADR-014、证据 03 §3.10 |
-| `stub-cargo.sh` | **判定逻辑的桩 cargo**：不执行真实构建，只复现三种失败形态（`ordinal` / `other-link` / `compile-error`），用于验证判定段确实能区分它们 | 16 §4 B-02 成因 4、证据 03 §3.10.2 |
+| `collect-b02-build-link.sh` | **`cargo check` 通过但 `cargo build` 在最终链接时失败**（`ld.exe: error: export ordinal too large`）——证明类型检查通过不等于可构建。判定以链接器标记字符串为准，可区分「导出序号超限」「其他链接错误」「链接前失败」「cargo 无法启动」 | 16 §4 B-02 成因 4、ADR-014、证据 03 §3.10 |
+| `stub-cargo.sh` | **判定逻辑的桩 cargo**：不执行真实构建，只复现四种失败形态（`ordinal` / `other-link` / `compile-error` / `check-fails` / `check-fails-ordinal`），用于验证判定段确实能区分它们 | 16 §4 B-02 成因 4、证据 03 §3.10.2 |
 
 ## 纪律（务必遵守）
 
@@ -65,18 +65,27 @@ bash tools/ats101-probes/collect-b02-build-link.sh
    唯一判据：它把 `cargo build` 的完整输出落盘（**不使用
    `--message-format short`**，否则 rustc 的 `= note:` 子诊断——链接器原文所在
    ——会被丢弃），再以标记字符串 `export ordinal too large` 判定成因 4。
-   判定段区分**三种失败形态**：
+   判定段区分**四种形态**：
    - **成因 4**：build 日志含 `export ordinal too large` → `CAUSE 4 REPRODUCED`；
    - **其他链接错误**：build 日志含 rustc 的链接失败标头 `linking with`，但无上述
      标记 → 报告「链接器已到达，但失败原因不是成因 4」；
    - **链接前失败**（编译错误、rustc 崩溃）：build 日志**不含** `linking with`
-     标头 → 报告「构建在链接之前就失败了，本次未评估成因 4」。
-   三者必须互相区分：编译失败与链接失败的 cargo 退出码都是 101，仅凭退出码
+     标头 → 报告「构建在链接之前就失败了，本次未评估成因 4」；
+   - **cargo 无法启动**（文件不存在或不可执行，shell 退出码 126/127）→ 报告
+     「探针未真正调用 cargo，这是探针配置问题」，**不得**报成编译错误或
+     rustc 崩溃。
+   四者必须互相区分：编译失败与链接失败的 cargo 退出码都是 101，仅凭退出码
    无法分辨；把编译失败报成「另一种链接失败」会让回归时的真实编译错误被误判。
-   `cargo check` 非 0 退出时，判定段明确报告 check 失败，并声明本次运行
-   **未评估成因 4**。
+   **成因 4 的判定只来自 build 步骤**：`cargo check` 非 0 退出时，判定段只陈述
+   check 失败本身，不对成因 4 下结论，因此 check 失败与 build 的判定不会互相
+   矛盾。
 
-   三种形态可用桩 cargo 无需真实构建即可复现：
+   **路径类覆盖变量在 `cd` 之前解析为绝对路径**：`ATS_PROBE_CARGO` 与
+   `ATS_PROBE_LOG_DIR` 均按**启动探针时的工作目录**解析，所以相对路径写法
+   （如 `ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh`）在探针 `cd` 进
+   `src-tauri/` 之后仍然指向同一个文件。
+
+   四种形态可用桩 cargo 无需真实构建即可复现（在仓库根目录运行）：
 
    ```bash
    # 桩 cargo：ordinal（成因 4）/ other-link（其他链接错误）/ compile-error（链接前失败）
@@ -90,6 +99,11 @@ bash tools/ats101-probes/collect-b02-build-link.sh
 本目录的脚本会写明它们审计的端口号（例如 `scenario-d-port-audit.mjs` 审计
 端口 `4577`），因此 `tools/ats101-probes/` 下的端口字面量属于**文档提及**，
 不是运行时硬编码——探针按目录归类，不会把它们报成「运行时硬编码点」。
+
+端口审计的 (c) 类（文档提及）判定依据是**文件扩展名**：任何 `.md` 文件都属于
+(c) 类，无论它位于 `docs/` 下还是仓库根。因此在仓库根新增一份提到端口的
+`.md` 文件会被计入 (c) 类统计，并使探针报 `RESULT: MISMATCH`——它**不会**被
+报成运行时硬编码点。
 
 
 ## 依赖

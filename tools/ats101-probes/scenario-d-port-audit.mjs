@@ -48,10 +48,6 @@ const NON_RUNTIME = new Set([
  * asserted against the document. The set is derived from the tree rather than
  * hardcoded, so a new doc that mentions the port is picked up automatically.
  */
-const DOC_MENTION_ROOTS = ['docs'];
-const DOC_MENTION_FILES = [
-  'README.md',
-];
 /**
  * The probe directory as a whole: every script in it names the port it
  * audits, so a port mention there is a MENTION, not a runtime hardcoding.
@@ -61,14 +57,18 @@ const DOC_MENTION_FILES = [
  * reported as a runtime hardcoding site.
  */
 const DOC_MENTION_DIRS = ['tools/ats101-probes'];
+/**
+ * Every Markdown file is prose, whatever directory it sits in, so a port
+ * mention in one is never a runtime hardcoding. The extension is the rule --
+ * a new CHANGELOG.md or NOTES.md at the repository root belongs to this
+ * bucket exactly like a file under docs/ does.
+ */
 const DOC_MENTION_EXT = new Set(['.md']);
 
 /** True for a path that is pure documentation (a mention, not a hardcoding). */
 function isDocMention(rel) {
-  if (DOC_MENTION_FILES.includes(rel)) return true;
   if (DOC_MENTION_DIRS.some((d) => rel === d || rel.startsWith(`${d}/`))) return true;
-  if (!DOC_MENTION_EXT.has(path.extname(rel))) return false;
-  return DOC_MENTION_ROOTS.some((r) => rel === r || rel.startsWith(`${r}/`));
+  return DOC_MENTION_EXT.has(path.extname(rel));
 }
 
 /**
@@ -206,14 +206,18 @@ for (const f of files) console.log(`  ${f}`);
 console.log('');
 
 // --- documentation mentions -------------------------------------------------
-// 16 §3.1 states how many mentions the docs/ tree carries outside the baseline
-// document itself. That number must come from the tree, not from prose.
+// 16 §3.1 states how many mentions the (c) class carries. The (c) class is
+// every Markdown file in the tree plus the probe directory; the COUNTED
+// scope excludes the baseline document itself (it enumerates the list, so it
+// mentions the port by construction) and the probe directory (which names the
+// port it audits). That number must come from the tree, not from prose.
 const docMentions = docMentionFindings.filter(
-  (f) => f.rel.startsWith('docs/') && f.rel !== 'docs/16-BASELINE-ADR.md',
+  (f) => f.rel !== 'docs/16-BASELINE-ADR.md'
+    && !f.rel.startsWith('tools/ats101-probes/'),
 );
 const docMentionFiles = [...new Set(docMentions.map((f) => f.rel))].sort();
 const docMentionOccurrences = docMentions.reduce((n, f) => n + f.occurrences, 0);
-console.log('--- distinct DOC files (docs/, excluding 16 itself) ---');
+console.log('--- distinct DOC files (c) class, excluding 16 itself and the probe dir ---');
 for (const f of docMentionFiles) {
   const n = docMentions.filter((m) => m.rel === f).reduce((a, m) => a + m.occurrences, 0);
   console.log(`  ${f} (${n})`);
@@ -303,7 +307,7 @@ console.log(`count matches source            : ${countOk}`);
 
 /**
  * The doc-mention count stated in §3.1's audit-scope paragraph. It is stated
- * as "5 个文件共 9 处提及" -- so both numbers are checked.
+ * as "<N> 个文件共 <M> 处提及" -- so both numbers are checked.
  */
 const docClaim = /(\d+)\s*个文件共\s*(\d+)\s*处提及/.exec(section);
 const docClaimFiles = docClaim?.[1];
