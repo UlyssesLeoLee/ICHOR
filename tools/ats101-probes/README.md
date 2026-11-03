@@ -18,6 +18,7 @@ bash tools/ats101-probes/collect-build-constraints.sh
 bash tools/ats101-probes/collect-b02-diagnosis.sh
 bash tools/ats101-probes/collect-b02-gnu-diagnosis.sh
 bash tools/ats101-probes/collect-b02-icon.sh
+bash tools/ats101-probes/collect-b02-build-link.sh
 ```
 
 ## 目录约定
@@ -40,7 +41,8 @@ bash tools/ats101-probes/collect-b02-icon.sh
 | `collect-build-constraints.sh` | 工具链、VS C++ 工作负载、两条工具链的 `cargo check` | 16 §4 B-02、§5.3 |
 | `collect-b02-diagnosis.sh` | 执行 shell 对链接器错误文本的影响（Git Bash vs PowerShell） | 16 §4 B-02、证据 03 §3.8 |
 | `collect-b02-gnu-diagnosis.sh` | gnu 链：编译器与运行时库不匹配的诊断 | 16 §4 B-02、证据 03 §3.7.1 |
-| `collect-b02-icon.sh` | 仓库缺 `src-tauri/icons/icon.ico`；并用反证证明 Rust 源码本身可编译 | 16 §4 B-02 成因 2 |
+| `collect-b02-icon.sh` | 仓库缺 `src-tauri/icons/icon.ico`（**仓库内容缺陷**：全新 clone 永远无法构建） | 16 §4 B-02 成因 2 |
+| `collect-b02-build-link.sh` | **`cargo check` 通过但 `cargo build` 在最终链接时失败**（`ld.exe: error: export ordinal too large`）——证明类型检查通过不等于可构建 | 16 §4 B-02 成因 4、ADR-014 |
 
 ## 纪律（务必遵守）
 

@@ -26,7 +26,11 @@
 **环境实测结论（2026-11-03，ATS-101/SEIKOIST-146）**：
 
 - **Next.js 16.4.4 静态导出构建实测成功**（产物 `apps/studio/out/`，可由 Bridge 伺服），npm registry 本次可达；
-- **Cargo/Rust 实测已安装**（cargo 1.99.1、rustc 1.99.1，仅不在 PATH）；Tauri 编译失败的 msvc 链根因是缺 MSVC「使用 C++ 的桌面开发」工作负载（gnu 链失败原因未诊断）；
+- **Cargo/Rust 实测已安装**（cargo 1.99.1、rustc 1.99.1，仅不在 PATH）；Tauri 编译失败已定位四个成因，且**成因清单尚未穷尽**：
+  1. msvc 链缺 MSVC「使用 C++ 的桌面开发」工作负载（环境；本机无法验证其最终链接）；
+  2. 仓库缺 `src-tauri/icons/icon.ico`（**仓库内容缺陷**，全新 clone 永远无法构建，仅装 MSVC 不能修复）；
+  3. gnu 链的编译器与运行时库不匹配；
+  4. gnu 链 cdylib 导出序号超限——补齐 `.ico` 并换成带完整运行时的 MinGW GCC 后，`cargo check` 通过，但 `cargo build` 在最终链接时报 `ld.exe: error: export ordinal too large: 90774`。
 - **实测发现 3 项此前未记录的阻断缺陷**：B-01（真实浏览器执行 100% 失败）、B-02（Tauri 编译）、B-03（重启后 Run 卡在 `cancelling` 永久占锁）。
 
 因此不得标记 ST Pass、也不能将 ZIP 描述为即装即用的 EXE。完整证据见 `docs/16-BASELINE-ADR.md` §4 与 `docs/evidence/ATS-101/`。
@@ -36,7 +40,7 @@
 - **源码一致性 / Node API UT-IT：通过**（基于对应 20 个断言）。
 - **基本工作台功能：具备零依赖便携 UI，可结合已有项目测试**。
 - **Playwright Runner 实际浏览器执行：未通过产品源码验证，且已确认必然失败**（B-01：参数向量含两个不存在的 CLI 选项）。待 ATS-106 修复后重测 ST-008/011。
-- **Next.js 编译：已实测通过**（16.4.4 静态导出，产物可由 Bridge 伺服）；**Tauri native：未通过**（B-02：缺 MSVC C++ 工作负载）。待 ATS-104 修复后重测 ST-021/022。
+- **Next.js 编译：已实测通过**（16.4.4 静态导出，产物可由 Bridge 伺服）；**Tauri native：未通过**（B-02：msvc 链缺 MSVC C++ 工作负载；**仓库缺 `src-tauri/icons/icon.ico`（仓库内容缺陷，仅装 MSVC 不能修复）**；gnu 链 `cargo build` 最终链接因 cdylib 导出序号超限失败）。**成因清单尚未穷尽**，验收须以 `cargo build`（含最终链接）为准。待 ATS-104 修复后重测 ST-021/022。
 - **P1/P2 能力：仅设计，不作实现交付承诺**。
 
 ## 4. 最终出厂检查
