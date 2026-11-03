@@ -8,7 +8,7 @@
   - `bash tools/ats101-probes/collect-b02-icon.sh`             → 缺失 .ico 资源诊断
   - `bash tools/ats101-probes/collect-b02-build-link.sh`      → cargo check 与 cargo build（最终链接）对照
   - `ATS_PROBE_STUB_MODE=<mode> ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
-     bash tools/ats101-probes/collect-b02-build-link.sh`       → 判定段的五种失败形态（桩 cargo，无真实构建）
+     bash tools/ats101-probes/collect-b02-build-link.sh`       → 判定段的桩模式输出（桩 cargo，无真实构建）
 
 ## 3.1 Node Bridge 依赖
 
@@ -245,7 +245,9 @@ build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
 判定段以字符串 `export ordinal too large` 为依据（对落盘的 build 日志 grep），
 并**进一步区分「其他链接错误」与「链接前失败」**：rustc 只有在真正调用了链接器
 时才会打出 `linking with ... failed` 标头，因此该标头是否出现在 build 日志里，
-就是区分「链接器已到达」与「构建在链接之前就挂了」的判据。脚本的反向分支原文：
+就是区分「链接器已到达」与「构建在链接之前就挂了」的判据。
+**退出码与日志两个信号缺一不可**：退出码先回答「cargo 是否产出过构建结果」，
+日志再回答「那是哪一种失败」。脚本的反向分支原文：
 
 **(a) 其他链接错误**（build 日志含 `linking with` 标头，但无成因 4 标记）：
 
@@ -258,8 +260,8 @@ build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
    the exit code alone cannot tell them apart.
 ```
 
-**(b) 链接前失败**（build 日志**不含** `linking with` 标头——编译错误或 rustc 崩溃，
-cargo 退出码同样是 101）：
+**(b) 链接前失败**（build 退出码 **101**、日志**不含** `linking with` 标头——编译错误
+或 rustc 崩溃）：
 
 ```
 => cargo build FAILED (exit 101) and the marker
@@ -291,28 +293,53 @@ cargo 退出码同样是 101）：
    Cause 4 was NOT evaluated by this run: cargo never ran.
 ```
 
-**四种形态互不相同**：成因 4 / 其他链接错误 / 链接前失败 / cargo 无法启动。
-编译失败与链接失败的 cargo 退出码都是 101，仅凭退出码无法分辨——把编译失败报成
-「另一种链接失败」，会让 ATS-104 修复后暴露的真实编译错误被误判为链接问题。
+**五类判定形态互不相同**（数的是**判定形态**，不是桩模式个数）：
+成因 4 / 其他链接错误 / 链接前失败 / cargo 无法启动 / cargo·工具链未正常运行。
+判定用**两个独立信号**：**退出码**说明 cargo 是否产出过构建结果，
+**build 日志**说明那是哪一种失败。
+
+- **只有退出码 101（cargo 自己的构建失败码）才允许被判成「编译错误或 rustc 崩溃」**。
+  126/127 是 **shell** 的退出码而非 cargo 的；其他非 0 码（如 1、2）说明 cargo
+  根本没跑到构建结果（工具链未安装、日志目录不可写等）。
+- 反过来，编译失败与链接失败的 cargo 退出码都是 101，仅凭退出码无法分辨——
+  把编译失败报成「另一种链接失败」，会让 ATS-104 修复后暴露的真实编译错误被误判为
+  链接问题。所以退出码与日志两个信号缺一不可。
+
 **成因 4 的判定只来自 build 步骤**：check 失败与 build 的判定因此不会互相矛盾。
 
-**四种形态的桩 cargo 复现**（`tools/ats101-probes/stub-cargo.sh`，无需真实构建；
-以下命令在**仓库根目录**原样运行，`ATS_PROBE_CARGO` 用相对路径）：
+**桩 cargo 的复现范围**（`tools/ats101-probes/stub-cargo.sh`，无需真实构建；
+以下命令在**仓库根目录**原样运行，`ATS_PROBE_CARGO` 用相对路径）。
+桩模式共 **7 个**（`ordinal` / `other-link` / `compile-error` / `check-fails` /
+`check-fails-ordinal` / `rustc-crash` / `ok`），**桩模式个数与判定形态个数不是一回事**：
 
 ```
 ATS_PROBE_STUB_MODE=ordinal            ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
   bash tools/ats101-probes/collect-b02-build-link.sh   # => CAUSE 4 REPRODUCED
 ATS_PROBE_STUB_MODE=other-link         ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
-  bash tools/ats101-probes/collect-b02-build-link.sh   # => (a) 其他链接错误
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => 其他链接错误
 ATS_PROBE_STUB_MODE=compile-error      ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
-  bash tools/ats101-probes/collect-b02-build-link.sh   # => (b) 链接前失败
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => 链接前失败
+ATS_PROBE_STUB_MODE=rustc-crash        ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => 链接前失败
 ATS_PROBE_STUB_MODE=check-fails        ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
-  bash tools/ats101-probes/collect-b02-build-link.sh   # => (c) check 失败 + build 成功
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => check 失败 + build 成功
 ATS_PROBE_STUB_MODE=check-fails-ordinal ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
-  bash tools/ats101-probes/collect-b02-build-link.sh   # => (c) check 失败 + (成因 4 复现)
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => check 失败 + (成因 4 复现)
+ATS_PROBE_STUB_MODE=ok                 ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => 构建成功
 ```
 
-**五种桩模式的判定段实际输出**（2026-11-03，Windows 11 / MINGW64_NT-10.0-26300；
+**「cargo 无法启动」这一类无法由桩产生**——桩一旦被调用，cargo 就已经启动了。
+该类用**不存在或不可执行的 `ATS_PROBE_CARGO` 路径**复现：
+
+```
+ATS_PROBE_CARGO=tools/ats101-probes/nope.sh \
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => 127，探针配置问题
+ATS_PROBE_CARGO=README.md \
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => 126，探针配置问题
+```
+
+**七种桩模式的判定段实际输出**（2026-11-04，Windows 11 / MINGW64_NT-10.0-26300；
 `cargo binary` 一行是本次运行的绝对路径）：
 
 ```
@@ -321,7 +348,7 @@ ATS_PROBE_STUB_MODE=check-fails-ordinal ATS_PROBE_CARGO=tools/ats101-probes/stub
 cargo check exit : 0
 cargo build exit : 101
 cargo binary     : <ATS_PROBE_CARGO 解析后的绝对路径>
-build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
+build log        : <ATS_PROBE_LOG_DIR>/ordinal/b02-build-link-cargo-build.log
 
 => linker marker FOUND in the cargo build output:
 error: linking with `x86_64-w64-mingw32-gcc` failed: exit code: 1
@@ -342,7 +369,7 @@ error: could not compile `ai-test-studio` (lib) due to 1 previous error
 cargo check exit : 0
 cargo build exit : 101
 cargo binary     : <ATS_PROBE_CARGO 解析后的绝对路径>
-build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
+build log        : <ATS_PROBE_LOG_DIR>/other-link/b02-build-link-cargo-build.log
 
 => cargo build FAILED and the marker 'export ordinal too large' is ABSENT.
 => The build log DOES contain rustc's link-failure header
@@ -359,7 +386,25 @@ build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
 cargo check exit : 0
 cargo build exit : 101
 cargo binary     : <ATS_PROBE_CARGO 解析后的绝对路径>
-build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
+build log        : <ATS_PROBE_LOG_DIR>/compile-error/b02-build-link-cargo-build.log
+
+=> cargo build FAILED (exit 101) and the marker
+   'export ordinal too large' is ABSENT.
+=> The build log contains NO 'linking with' header, so the build
+   FAILED BEFORE THE LINK STEP (compile error, or a rustc crash).
+=> Cause 4 was NOT evaluated by this run: the linker never ran, so
+   this output says nothing about the export ordinal either way.
+   Classify the compile/rustc failure above on its own.
+
+=> A green 'cargo check' does NOT prove the crate links.
+=> The B-02 cause list is therefore NOT exhaustive for the gnu toolchain.
+
+########## rustc-crash ##########
+--- 4. verdict ---
+cargo check exit : 0
+cargo build exit : 101
+cargo binary     : <ATS_PROBE_CARGO 解析后的绝对路径>
+build log        : <ATS_PROBE_LOG_DIR>/rustc-crash/b02-build-link-cargo-build.log
 
 => cargo build FAILED (exit 101) and the marker
    'export ordinal too large' is ABSENT.
@@ -377,7 +422,7 @@ build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
 cargo check exit : 101
 cargo build exit : 0
 cargo binary     : <ATS_PROBE_CARGO 解析后的绝对路径>
-build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
+build log        : <ATS_PROBE_LOG_DIR>/check-fails/b02-build-link-cargo-build.log
 
 => cargo check FAILED (exit 101).
    The type-check step did not complete, so this run says NOTHING about
@@ -390,7 +435,7 @@ build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
 cargo check exit : 101
 cargo build exit : 101
 cargo binary     : <ATS_PROBE_CARGO 解析后的绝对路径>
-build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
+build log        : <ATS_PROBE_LOG_DIR>/check-fails-ordinal/b02-build-link-cargo-build.log
 
 => cargo check FAILED (exit 101).
    The type-check step did not complete, so this run says NOTHING about
@@ -406,11 +451,101 @@ error: could not compile `ai-test-studio` (lib) due to 1 previous error
 => CAUSE 4 REPRODUCED: the cdylib export ordinal exceeds the PE
    export-ordinal limit (65535). This is specifically the
    'export ordinal too large' failure, not some other link error.
+
+########## ok ##########
+--- 4. verdict ---
+cargo check exit : 0
+cargo build exit : 0
+cargo binary     : <ATS_PROBE_CARGO 解析后的绝对路径>
+build log        : <ATS_PROBE_LOG_DIR>/ok/b02-build-link-cargo-build.log
+
+=> cargo build succeeded on the gnu toolchain.
 ```
 
 （`check-fails-ordinal` 一组证明 check 失败与 build 判定**不冲突**：check 段只陈述
 check 失败，成因 4 的结论由 build 段单独给出；同一份输出里不会同时出现
 「NOT evaluated」与「CAUSE 4 REPRODUCED」两个矛盾结论。）
+
+**「cargo 无法启动」与「cargo/工具链未正常运行」的判定段实际输出**
+（这两类不由桩产生；前者用不存在 / 不可执行的 `ATS_PROBE_CARGO` 路径复现，
+后者用真实 cargo 但工具链不可用复现）：
+
+```
+########## ATS_PROBE_CARGO=tools/ats101-probes/nope.sh（文件不存在）##########
+cargo check exit : n/a
+cargo build exit : n/a
+
+=> cargo could NOT be started (exit 127): the file does not exist.
+   The probe never reached a cargo invocation, so neither step produced
+   a cargo exit code. This is a PROBE SETUP problem, NOT a compile error,
+   NOT a rustc crash and NOT a link failure -- the cause of this failure
+   must be located in the cargo path or in the shell's launch error.
+   Cause 4 was NOT evaluated by this run: cargo never ran.
+
+########## ATS_PROBE_CARGO=README.md（文件不可执行）##########
+cargo check exit : n/a
+cargo build exit : n/a
+
+=> cargo could NOT be started (exit 126): the file is not executable.
+   The probe never reached a cargo invocation, so neither step produced
+   a cargo exit code. This is a PROBE SETUP problem, NOT a compile error,
+   NOT a rustc crash and NOT a link failure -- the cause of this failure
+   must be located in the cargo path or in the shell's launch error.
+   Cause 4 was NOT evaluated by this run: cargo never ran.
+
+########## ATS_PROBE_CARGO=<脚本通过 [ -x ] 但解释器不存在>（启动时返回 126）##########
+cargo check exit : 126
+cargo build exit : 126
+
+=> cargo could NOT be started (exit 126): the shell could
+   not execute the cargo binary. This is a PROBE SETUP problem, NOT a
+   compilation failure, NOT a rustc crash and NOT a link failure.
+   The cause-4 verdict below comes from the cargo BUILD step only.
+=> cargo could NOT be started (exit 126): the shell could
+   not execute the cargo binary. This is a PROBE SETUP problem, NOT a
+   compilation failure, NOT a rustc crash and NOT a link failure -- the
+   cargo call never produced a build outcome.
+   Cause 4 was NOT evaluated by this run: cargo never ran a build.
+
+########## 真实 cargo.exe + gnu 工具链未安装（RUSTUP_HOME 指向空目录、RUSTUP_AUTO_INSTALL=0）##########
+cargo check exit : 1
+cargo build exit : 1
+
+=> cargo check did not run to a verdict (exit 1).
+   cargo/toolchain did not run normally, so this run says NOTHING
+   about whether the crate links. This is NOT a compilation failure,
+   NOT a rustc crash and NOT a link failure.
+   The cause-4 verdict below comes from the cargo BUILD step only.
+=> cargo build did not run to a verdict (exit 1).
+   cargo/toolchain did not run normally, so this run produces NO build
+   verdict. This is NOT a compilation failure, NOT a rustc crash and
+   NOT a link failure -- classify the cargo output above on its own.
+   Cause 4 was NOT evaluated by this run: cargo never produced a build
+   outcome to inspect.
+
+########## ATS_PROBE_LOG_DIR 指向一个已存在的普通文件（日志不可写）##########
+cargo check exit : 1
+cargo build exit : 1
+
+=> cargo check did not run to a verdict (exit 1).
+   cargo/toolchain did not run normally, so this run says NOTHING
+   about whether the crate links. This is NOT a compilation failure,
+   NOT a rustc crash and NOT a link failure.
+   The cause-4 verdict below comes from the cargo BUILD step only.
+=> cargo build did not run to a verdict (exit 1).
+   cargo/toolchain did not run normally, so this run produces NO build
+   verdict. This is NOT a compilation failure, NOT a rustc crash and
+   NOT a link failure -- classify the cargo output above on its own.
+   Cause 4 was NOT evaluated by this run: cargo never produced a build
+   outcome to inspect.
+```
+
+（上面 5 组的输出里，`BEFORE THE LINK STEP` 与 `compile error` 各出现 **0 次**——
+非 101 的退出码一律判为「cargo 无法启动」或「cargo/工具链未正常运行」，
+不判成「编译错误或 rustc 崩溃」。
+其中「工具链未安装」用空的 `RUSTUP_HOME` 加 `RUSTUP_AUTO_INSTALL=0` 模拟，
+对应「未安装且不自动安装或离线」，并非 rustup 默认行为下必然出现的场景；
+判别点在于 exit 1 ≠ 101，与模拟方式无关。）
 
 **路径类覆盖变量在 `cd` 之前解析为绝对路径**：`ATS_PROBE_CARGO` 与
 `ATS_PROBE_LOG_DIR` 按**启动探针时的工作目录**解析，因此上述相对路径写法在探针

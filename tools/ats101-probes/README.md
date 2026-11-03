@@ -44,7 +44,7 @@ bash tools/ats101-probes/collect-b02-build-link.sh
 | `collect-b02-gnu-diagnosis.sh` | gnu 链：编译器与运行时库不匹配的诊断 | 16 §4 B-02、证据 03 §3.7.1 |
 | `collect-b02-icon.sh` | 仓库缺 `src-tauri/icons/icon.ico`（**仓库内容缺陷**：全新 clone 永远无法构建） | 16 §4 B-02 成因 2 |
 | `collect-b02-build-link.sh` | **`cargo check` 通过但 `cargo build` 在最终链接时失败**（`ld.exe: error: export ordinal too large`）——证明类型检查通过不等于可构建。判定以链接器标记字符串为准，可区分「导出序号超限」「其他链接错误」「链接前失败」「cargo 无法启动」 | 16 §4 B-02 成因 4、ADR-014、证据 03 §3.10 |
-| `stub-cargo.sh` | **判定逻辑的桩 cargo**：不执行真实构建，只复现四种失败形态（`ordinal` / `other-link` / `compile-error` / `check-fails` / `check-fails-ordinal`），用于验证判定段确实能区分它们 | 16 §4 B-02 成因 4、证据 03 §3.10.2 |
+| `stub-cargo.sh` | **判定逻辑的桩 cargo**：不执行真实构建。支持的**桩模式**共 7 个（`ordinal` / `other-link` / `compile-error` / `check-fails` / `check-fails-ordinal` / `rustc-crash` / `ok`），用于验证判定段确实能区分它们 | 16 §4 B-02 成因 4、证据 03 §3.10.2 |
 
 ## 纪律（务必遵守）
 
@@ -61,21 +61,31 @@ bash tools/ats101-probes/collect-b02-build-link.sh
    **保留**它并在输出中注明。`collect-b02-icon.sh` 与
    `collect-b02-build-link.sh` 都遵守这一条：它们用 `ICO_GENERATED` 标记
    区分「本次生成」与「预先存在」，只删除前者。
-5. **判定必须能区分不同失败。** `collect-b02-build-link.sh` 不以退出码作为
-   唯一判据：它把 `cargo build` 的完整输出落盘（**不使用
+5. **判定必须能区分不同失败。** `collect-b02-build-link.sh` 用**两个独立信号**判定：
+   **退出码**说明 cargo 是否产出过构建结果，**build 日志**说明那是哪一种失败。
+   脚本把 `cargo build` 的完整输出落盘（**不使用
    `--message-format short`**，否则 rustc 的 `= note:` 子诊断——链接器原文所在
    ——会被丢弃），再以标记字符串 `export ordinal too large` 判定成因 4。
-   判定段区分**四种形态**：
-   - **成因 4**：build 日志含 `export ordinal too large` → `CAUSE 4 REPRODUCED`；
-   - **其他链接错误**：build 日志含 rustc 的链接失败标头 `linking with`，但无上述
-     标记 → 报告「链接器已到达，但失败原因不是成因 4」；
-   - **链接前失败**（编译错误、rustc 崩溃）：build 日志**不含** `linking with`
-     标头 → 报告「构建在链接之前就失败了，本次未评估成因 4」；
-   - **cargo 无法启动**（文件不存在或不可执行，shell 退出码 126/127）→ 报告
-     「探针未真正调用 cargo，这是探针配置问题」，**不得**报成编译错误或
-     rustc 崩溃。
-   四者必须互相区分：编译失败与链接失败的 cargo 退出码都是 101，仅凭退出码
-   无法分辨；把编译失败报成「另一种链接失败」会让回归时的真实编译错误被误判。
+   判定段区分**五类判定形态**——数的是**判定形态**，不是桩模式个数：
+   - **成因 4**：build 退出码 101、日志含 `export ordinal too large`
+     → `CAUSE 4 REPRODUCED`；
+   - **其他链接错误**：build 退出码 101、日志含 rustc 的链接失败标头
+     `linking with`、但无上述标记 → 报告「链接器已到达，但失败原因不是成因 4」；
+   - **链接前失败**：build 退出码 **101**、日志**不含** `linking with` 标头
+     （编译错误、rustc 崩溃）→ 报告「构建在链接之前就失败了，本次未评估成因 4」；
+   - **cargo 无法启动**：shell 退出码 **126/127**（文件不存在、不可执行，
+     或解释器缺失导致启动失败）→ 报告「探针未真正调用 cargo，这是探针配置问题」，
+     **不得**报成编译错误或 rustc 崩溃；
+   - **cargo/工具链未正常运行**：其他非 0 退出码（如 1、2；工具链未安装、
+     日志目录不可写等）→ 报告「cargo/工具链未正常运行（exit N），本次无构建判定」，
+     **不得**报成编译错误或 rustc 崩溃。
+
+   **只有退出码 101（cargo 自己的构建失败码）才允许被判成编译错误或 rustc 崩溃。**
+   126/127 是 **shell** 的退出码而非 cargo 的，其他非 0 码说明 cargo 根本没有
+   跑到构建结果——把它们报成编译失败会让真实原因被误判。
+   反过来，编译失败与链接失败的 cargo 退出码都是 101，仅凭退出码无法分辨；
+   把编译失败报成「另一种链接失败」会让回归时的真实编译错误被误判——所以
+   退出码与日志两个信号缺一不可。
    **成因 4 的判定只来自 build 步骤**：`cargo check` 非 0 退出时，判定段只陈述
    check 失败本身，不对成因 4 下结论，因此 check 失败与 build 的判定不会互相
    矛盾。
@@ -85,13 +95,38 @@ bash tools/ats101-probes/collect-b02-build-link.sh
    （如 `ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh`）在探针 `cd` 进
    `src-tauri/` 之后仍然指向同一个文件。
 
-   四种形态可用桩 cargo 无需真实构建即可复现（在仓库根目录运行）：
+   **桩 cargo 实际能复现什么**：桩只控制 build 日志的内容与 cargo 的退出码，
+   因此它能复现的是**前 3 类判定形态**（成因 4 / 其他链接错误 / 链接前失败）
+   以及它们与 check 失败的组合——**「cargo 无法启动」这一类无法由桩产生**
+   （桩一旦被调用，cargo 就已经启动了）。该类用**不存在或不可执行的
+   `ATS_PROBE_CARGO` 路径**复现：`ATS_PROBE_CARGO=tools/ats101-probes/nope.sh`
+   （不存在 → 127）与 `ATS_PROBE_CARGO=README.md`（不可执行 → 126）。
+
+   桩模式与判定形态的对应关系（**桩模式 7 个，判定形态 5 类，二者不是一回事**）：
+
+   | 桩模式 | 产出 | 对应的判定形态 |
+   |---|---|---|
+   | `ordinal` | build 退出码 101 + 标记 | 成因 4 |
+   | `other-link` | build 退出码 101 + `linking with` 标头 | 其他链接错误 |
+   | `compile-error` | build 退出码 101，无标头 | 链接前失败 |
+   | `rustc-crash` | build 退出码 101，无标头 | 链接前失败 |
+   | `check-fails` | check 退出码 101，build 退出码 0 | check 失败 + build 成功 |
+   | `check-fails-ordinal` | check 退出码 101，build 退出码 101 + 标记 | check 失败 + 成因 4 |
+   | `ok` | check 与 build 均退出码 0 | 构建成功 |
+
+   在仓库根目录运行（`ATS_PROBE_CARGO` 用相对路径）：
 
    ```bash
    # 桩 cargo：ordinal（成因 4）/ other-link（其他链接错误）/ compile-error（链接前失败）
    ATS_PROBE_STUB_MODE=compile-error \
    ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
    bash tools/ats101-probes/collect-b02-build-link.sh
+
+   # 「cargo 无法启动」不由桩产生：用不存在 / 不可执行的路径复现
+   ATS_PROBE_CARGO=tools/ats101-probes/nope.sh \
+   bash tools/ats101-probes/collect-b02-build-link.sh   # => 127，探针配置问题
+   ATS_PROBE_CARGO=README.md \
+   bash tools/ats101-probes/collect-b02-build-link.sh   # => 126，探针配置问题
    ```
 
 ## 端口提及说明
