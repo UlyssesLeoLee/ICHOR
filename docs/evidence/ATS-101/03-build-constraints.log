@@ -222,7 +222,9 @@ cargo build exit : 101
 build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
 
 => linker marker FOUND in the cargo build output:
-  ... ld.exe: error: export ordinal too large: 90774
+  = note: "x86_64-w64-mingw32-gcc" "-Wl,...\list.def" "-fno-use-linker-plugin" ... "<257 object files omitted>" ... "-o" "...\ai_test_studio_lib.dll" "-Wl,--gc-sections" "-shared" ... "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/16.1.0/../../../../x86_64-w64-mingw32/bin/ld.exe: error: export ordinal too large: 90774
           collect2.exe: error: ld returned 1 exit status
 
 => CAUSE 4 REPRODUCED: the cdylib export ordinal exceeds the PE
@@ -233,9 +235,23 @@ build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
 => The B-02 cause list is therefore NOT exhaustive for the gnu toolchain.
 ```
 
+（`build log` 一行在实际输出中是本次运行的具体目录；上面写成 `<ATS_PROBE_LOG_DIR>` 占位。
+上面 `= note:` 段的链接器命令行做了省略显示：探针日志里该行含完整的
+`list.def` / `symbols.o` / 各 `.rlib` / `-o ai_test_studio_lib.dll` 参数；
+**`export ordinal too large: 90774` 一行是逐字原文**。）
+
 判定段以字符串 `export ordinal too large` 为依据（对落盘的 build 日志 grep），
-因此能把「导出序号超限」与其他链接失败区分开：若 `cargo build` 非零退出但该标记**不存在**，
-脚本会明确输出「这是**另一种**链接失败，成因 4 本次未复现」，而不是把两者混为一谈。
+因此能把「导出序号超限」与其他链接失败区分开。脚本的反向分支原文：
+
+```
+=> cargo build FAILED but the marker 'export ordinal too large' is ABSENT.
+=> That is a DIFFERENT link failure than cause 4 -- cause 4 is NOT
+   reproduced by this run. The link error above must be classified
+   on its own; the exit code alone cannot tell them apart.
+```
+
+即：`cargo build` 非零退出而该标记**不存在**时，脚本明确报告「这是另一种链接失败，
+成因 4 本次未复现」，而不是把两者混为一谈。
 
 ### 3.10.3 口径结论
 
