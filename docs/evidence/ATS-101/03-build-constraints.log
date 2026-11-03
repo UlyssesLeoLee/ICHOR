@@ -7,6 +7,8 @@
   - `bash tools/ats101-probes/collect-b02-gnu-diagnosis.sh`   → gnu 链编译器/运行时不匹配诊断
   - `bash tools/ats101-probes/collect-b02-icon.sh`             → 缺失 .ico 资源诊断
   - `bash tools/ats101-probes/collect-b02-build-link.sh`      → cargo check 与 cargo build（最终链接）对照
+  - `ATS_PROBE_STUB_MODE=<mode> ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
+     bash tools/ats101-probes/collect-b02-build-link.sh`       → 判定段的三种失败形态（桩 cargo，无真实构建）
 
 ## 3.1 Node Bridge 依赖
 
@@ -241,17 +243,56 @@ build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
 **`export ordinal too large: 90774` 一行是逐字原文**。）
 
 判定段以字符串 `export ordinal too large` 为依据（对落盘的 build 日志 grep），
-因此能把「导出序号超限」与其他链接失败区分开。脚本的反向分支原文：
+并**进一步区分「其他链接错误」与「链接前失败」**：rustc 只有在真正调用了链接器
+时才会打出 `linking with ... failed` 标头，因此该标头是否出现在 build 日志里，
+就是区分「链接器已到达」与「构建在链接之前就挂了」的判据。脚本的两个反向分支原文：
+
+**(a) 其他链接错误**（build 日志含 `linking with` 标头，但无成因 4 标记）：
 
 ```
-=> cargo build FAILED but the marker 'export ordinal too large' is ABSENT.
-=> That is a DIFFERENT link failure than cause 4 -- cause 4 is NOT
-   reproduced by this run. The link error above must be classified
-   on its own; the exit code alone cannot tell them apart.
+=> cargo build FAILED and the marker 'export ordinal too large' is ABSENT.
+=> The build log DOES contain rustc's link-failure header
+   ('linking with ... failed'), so the linker WAS reached and failed
+   for a DIFFERENT reason than cause 4 -- cause 4 is NOT reproduced
+   by this run. The link error above must be classified on its own;
+   the exit code alone cannot tell them apart.
 ```
 
-即：`cargo build` 非零退出而该标记**不存在**时，脚本明确报告「这是另一种链接失败，
-成因 4 本次未复现」，而不是把两者混为一谈。
+**(b) 链接前失败**（build 日志**不含** `linking with` 标头——编译错误或 rustc 崩溃，
+cargo 退出码同样是 101）：
+
+```
+=> cargo build FAILED (exit 101) and the marker
+   'export ordinal too large' is ABSENT.
+=> The build log contains NO 'linking with' header, so the build
+   FAILED BEFORE THE LINK STEP (compile error, or a rustc crash).
+=> Cause 4 was NOT evaluated by this run: the linker never ran, so
+   this output says nothing about the export ordinal either way.
+   Classify the compile/rustc failure above on its own.
+```
+
+**(c) `cargo check` 失败**（非 0 退出，含 101）：
+
+```
+=> cargo check FAILED (exit 101).
+   The type-check step did not complete, so this run says NOTHING about
+   whether the crate links. Cause 4 is NOT evaluated by this run.
+```
+
+**三种形态互不相同**：成因 4 / 其他链接错误 / 链接前失败。编译失败与链接失败的
+cargo 退出码都是 101，仅凭退出码无法分辨——把编译失败报成「另一种链接失败」，
+会让 ATS-104 修复后暴露的真实编译错误被误判为链接问题。
+
+**三种形态的桩 cargo 复现**（`tools/ats101-probes/stub-cargo.sh`，无需真实构建）：
+
+```
+ATS_PROBE_STUB_MODE=ordinal      ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => CAUSE 4 REPRODUCED
+ATS_PROBE_STUB_MODE=other-link   ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => (a) 其他链接错误
+ATS_PROBE_STUB_MODE=compile-error ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => (b) 链接前失败
+```
 
 ### 3.10.3 口径结论
 
