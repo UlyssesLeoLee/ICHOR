@@ -59,6 +59,9 @@ to_abs_path() {
 # can be exercised with a stub cargo (see README discipline #5): the three
 # failure shapes -- export ordinal, other link error, pre-link failure -- are
 # told apart by the build log, so they can be reproduced without a real build.
+# The exit code of the cargo call itself is classified separately (see the
+# verdict section): a launch failure (126/127) is the shell's code, not
+# cargo's, so it must never be reported as a build failure of the crate.
 CARGO="$(to_abs_path "${ATS_PROBE_CARGO:-$HOME/.cargo/bin/cargo.exe}")"
 MSYS_BIN="/c/msys64/mingw64/bin"
 ICO_NATIVE="$(cygpath -w "$SRC_TAURI/icons/icon.ico")"
@@ -66,7 +69,7 @@ LOG_DIR="$(to_abs_path "${ATS_PROBE_LOG_DIR:-${TMPDIR:-/tmp}/ats101-probes}")"
 CHECK_LOG="$LOG_DIR/b02-build-link-cargo-check.log"
 BUILD_LOG="$LOG_DIR/b02-build-link-cargo-build.log"
 
-mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR" 2>/dev/null
 
 # Whether the cargo binary can be started at all. When it cannot, the exit
 # codes below are the shell's (126/127), not cargo's, and the verdict must say
@@ -169,21 +172,31 @@ echo "GNU_BUILD_EXIT=$GNU_BUILD_EXIT"
 echo
 
 # ---------------------------------------------------------------------------
-# Step 4: verdict -- keyed on the linker marker, not on the exit code alone.
+# Step 4: verdict -- keyed on the linker marker AND on the exit code.
 #
-# Four outcomes must stay distinguishable, because they need different
-# follow-up actions:
-#   (1) the cdylib export ordinal exceeds the PE limit  -> cause 4
-#   (2) some OTHER link error                          -> a different cause
-#   (3) the build never reached the link step            -> cause 4 was not
-#       (compile error, rustc crash)                      evaluated at all
-#   (4) cargo could not be started at all                -> the probe itself
-#       (missing binary, not executable)                   could not run
+# The build verdict needs TWO independent signals, because neither one alone
+# is sufficient:
 #
-# rustc emits the header "linking with ... failed" only when it actually
-# invoked the linker, so its presence in the build log is what separates (2)
-# from (3). A compile error or a crashed rustc exits with 101 as well, so the
-# exit code alone cannot tell them apart.
+#   * the exit code says WHETHER cargo produced a build outcome at all:
+#       0     -> the build succeeded
+#       101   -> cargo ran and the crate did not build (cargo's own code for
+#                a failed build: compile error, rustc crash or link error)
+#       126   -> the shell found the cargo file but could not execute it
+#       127   -> the shell could not find the cargo file to execute
+#       other -> cargo/toolchain did not run normally (toolchain not
+#                installed, log not writable, ...) -- there is NO build
+#                outcome to classify
+#   * the build log says WHICH failure it was, but only among the failures
+#     that actually reached rustc: rustc emits the header
+#     "linking with ... failed" only when it invoked the linker, so its
+#     presence separates "the linker was reached" from "the build died
+#     before the link step".
+#
+# 126 and 127 are the SHELL's codes, not cargo's, so they must never be
+# reported as a build failure of the crate. Any other non-zero code means
+# cargo did not run to a build outcome, so it must never be reported as a
+# compile failure either. Only exit 101 -- cargo's own code for a failed
+# build -- may be called a compile error or a rustc crash.
 #
 # The verdict about cause 4 belongs to the BUILD step alone. The check step
 # reports its own outcome and says nothing about cause 4, so that a failing
@@ -191,6 +204,24 @@ echo
 # ---------------------------------------------------------------------------
 ORDINAL_MARKER="export ordinal too large"
 LINK_HEADER="linking with"
+
+# Classify one cargo invocation's exit code.
+#   completed    -> 0
+#   build-failed -> 101 (cargo ran, the crate did not build)
+#   not-started  -> 126/127 (the shell could not execute the cargo file)
+#   no-verdict   -> any other non-zero code (cargo did not run normally)
+classify_cargo_exit() {
+  case "$1" in
+    0)       echo "completed" ;;
+    101)     echo "build-failed" ;;
+    126|127) echo "not-started" ;;
+    *)       echo "no-verdict" ;;
+  esac
+}
+
+CHECK_CLASS="skipped"
+BUILD_CLASS="skipped"
+
 echo "--- 4. verdict ---"
 echo "cargo check exit : $GNU_CHECK_EXIT"
 echo "cargo build exit : $GNU_BUILD_EXIT"
@@ -199,51 +230,93 @@ echo "build log        : $BUILD_LOG"
 echo
 
 if [ "$CARGO_LAUNCH_EXIT" != "0" ]; then
+  # Static pre-check: the cargo file is missing or not executable, so the
+  # probe never reached a cargo invocation at all.
+  CHECK_CLASS="not-started"
+  BUILD_CLASS="not-started"
   echo "=> cargo could NOT be started (exit $CARGO_LAUNCH_EXIT): $CARGO_LAUNCH_REASON."
   echo "   The probe never reached a cargo invocation, so neither step produced"
   echo "   a cargo exit code. This is a PROBE SETUP problem, NOT a compile error,"
   echo "   NOT a rustc crash and NOT a link failure -- the cause of this failure"
   echo "   must be located in the cargo path or in the shell's launch error."
   echo "   Cause 4 was NOT evaluated by this run: cargo never ran."
-elif [ "$GNU_CHECK_EXIT" != "0" ]; then
-  echo "=> cargo check FAILED (exit $GNU_CHECK_EXIT)."
-  echo "   The type-check step did not complete, so this run says NOTHING about"
-  echo "   whether the crate links."
-  echo "   The cause-4 verdict below comes from the cargo BUILD step only."
-fi
+else
+  CHECK_CLASS="$(classify_cargo_exit "$GNU_CHECK_EXIT")"
+  BUILD_CLASS="$(classify_cargo_exit "$GNU_BUILD_EXIT")"
 
-if [ "$CARGO_LAUNCH_EXIT" = "0" ]; then
-  if grep -qi "$ORDINAL_MARKER" "$BUILD_LOG"; then
-    echo "=> linker marker FOUND in the cargo build output:"
-    grep -i -A2 -B2 "$ORDINAL_MARKER" "$BUILD_LOG" | head -12
-    echo
-    echo "=> CAUSE 4 REPRODUCED: the cdylib export ordinal exceeds the PE"
-    echo "   export-ordinal limit (65535). This is specifically the"
-    echo "   'export ordinal too large' failure, not some other link error."
-  else
-    if [ "$GNU_BUILD_EXIT" = "0" ]; then
-      echo "=> cargo build succeeded on the gnu toolchain."
-    elif grep -qi "$LINK_HEADER" "$BUILD_LOG"; then
-      echo "=> cargo build FAILED and the marker '$ORDINAL_MARKER' is ABSENT."
-      echo "=> The build log DOES contain rustc's link-failure header"
-      echo "   ('$LINK_HEADER ... failed'), so the linker WAS reached and failed"
-      echo "   for a DIFFERENT reason than cause 4 -- cause 4 is NOT reproduced"
-      echo "   by this run. The link error above must be classified on its own;"
-      echo "   the exit code alone cannot tell them apart."
-    else
-      echo "=> cargo build FAILED (exit $GNU_BUILD_EXIT) and the marker"
-      echo "   '$ORDINAL_MARKER' is ABSENT."
-      echo "=> The build log contains NO '$LINK_HEADER' header, so the build"
-      echo "   FAILED BEFORE THE LINK STEP (compile error, or a rustc crash)."
-      echo "=> Cause 4 was NOT evaluated by this run: the linker never ran, so"
-      echo "   this output says nothing about the export ordinal either way."
-      echo "   Classify the compile/rustc failure above on its own."
-    fi
+  if [ "$CHECK_CLASS" != "completed" ]; then
+    case "$CHECK_CLASS" in
+      build-failed)
+        echo "=> cargo check FAILED (exit $GNU_CHECK_EXIT)."
+        echo "   The type-check step did not complete, so this run says NOTHING about"
+        echo "   whether the crate links."
+        echo "   The cause-4 verdict below comes from the cargo BUILD step only."
+        ;;
+      not-started)
+        echo "=> cargo could NOT be started (exit $GNU_CHECK_EXIT): the shell could"
+        echo "   not execute the cargo binary. This is a PROBE SETUP problem, NOT a"
+        echo "   compilation failure, NOT a rustc crash and NOT a link failure."
+        echo "   The cause-4 verdict below comes from the cargo BUILD step only."
+        ;;
+      *)
+        echo "=> cargo check did not run to a verdict (exit $GNU_CHECK_EXIT)."
+        echo "   cargo/toolchain did not run normally, so this run says NOTHING"
+        echo "   about whether the crate links. This is NOT a compilation failure,"
+        echo "   NOT a rustc crash and NOT a link failure."
+        echo "   The cause-4 verdict below comes from the cargo BUILD step only."
+        ;;
+    esac
   fi
+
+  case "$BUILD_CLASS" in
+    completed)
+      echo "=> cargo build succeeded on the gnu toolchain."
+      ;;
+    not-started)
+      echo "=> cargo could NOT be started (exit $GNU_BUILD_EXIT): the shell could"
+      echo "   not execute the cargo binary. This is a PROBE SETUP problem, NOT a"
+      echo "   compilation failure, NOT a rustc crash and NOT a link failure -- the"
+      echo "   cargo call never produced a build outcome."
+      echo "   Cause 4 was NOT evaluated by this run: cargo never ran a build."
+      ;;
+    no-verdict)
+      echo "=> cargo build did not run to a verdict (exit $GNU_BUILD_EXIT)."
+      echo "   cargo/toolchain did not run normally, so this run produces NO build"
+      echo "   verdict. This is NOT a compilation failure, NOT a rustc crash and"
+      echo "   NOT a link failure -- classify the cargo output above on its own."
+      echo "   Cause 4 was NOT evaluated by this run: cargo never produced a build"
+      echo "   outcome to inspect."
+      ;;
+    build-failed)
+      if grep -qi "$ORDINAL_MARKER" "$BUILD_LOG"; then
+        echo "=> linker marker FOUND in the cargo build output:"
+        grep -i -A2 -B2 "$ORDINAL_MARKER" "$BUILD_LOG" | head -12
+        echo
+        echo "=> CAUSE 4 REPRODUCED: the cdylib export ordinal exceeds the PE"
+        echo "   export-ordinal limit (65535). This is specifically the"
+        echo "   'export ordinal too large' failure, not some other link error."
+      elif grep -qi "$LINK_HEADER" "$BUILD_LOG"; then
+        echo "=> cargo build FAILED and the marker '$ORDINAL_MARKER' is ABSENT."
+        echo "=> The build log DOES contain rustc's link-failure header"
+        echo "   ('$LINK_HEADER ... failed'), so the linker WAS reached and failed"
+        echo "   for a DIFFERENT reason than cause 4 -- cause 4 is NOT reproduced"
+        echo "   by this run. The link error above must be classified on its own;"
+        echo "   the exit code alone cannot tell them apart."
+      else
+        echo "=> cargo build FAILED (exit $GNU_BUILD_EXIT) and the marker"
+        echo "   '$ORDINAL_MARKER' is ABSENT."
+        echo "=> The build log contains NO '$LINK_HEADER' header, so the build"
+        echo "   FAILED BEFORE THE LINK STEP (compile error, or a rustc crash)."
+        echo "=> Cause 4 was NOT evaluated by this run: the linker never ran, so"
+        echo "   this output says nothing about the export ordinal either way."
+        echo "   Classify the compile/rustc failure above on its own."
+      fi
+      ;;
+  esac
 fi
 echo
 
-if [ "$CARGO_LAUNCH_EXIT" = "0" ] && [ "$GNU_CHECK_EXIT" = "0" ] && [ "$GNU_BUILD_EXIT" != "0" ]; then
+if [ "$BUILD_CLASS" = "build-failed" ] && [ "$CHECK_CLASS" = "completed" ]; then
   echo "=> A green 'cargo check' does NOT prove the crate links."
   echo "=> The B-02 cause list is therefore NOT exhaustive for the gnu toolchain."
 fi
