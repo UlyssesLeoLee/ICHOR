@@ -36,7 +36,7 @@ NOT_FOUND              404  未知 /api/* 路径
 
 ## 4.3 实测与设计文档不符的错误映射（缺陷）
 NOT_A_DIRECTORY        实测 500  设计预期 400
-RUN_NOT_ACTIVE         实测 500  设计预期 4xx（设计文档列在错误码表但无明确码）
+RUN_NOT_ACTIVE         实测 500  设计文档 §7 错误码表未收录此码（语义与幂等性见 B-03）
 PLAYWRIGHT_NOT_INSTALLED... 实测 202 + run.status=error（与设计一致）
 不存在路径 ENOENT      实测 500  泄漏宿主绝对路径
 缺失附件 ENOENT        实测 500  泄漏 ATS_DATA_DIR 绝对路径
