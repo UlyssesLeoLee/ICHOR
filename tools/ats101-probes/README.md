@@ -26,6 +26,7 @@ bash tools/ats101-probes/collect-b02-build-link.sh
 | 变量 | 含义 | 默认 |
 |---|---|---|
 | `ATS_PROBE_WORKDIR` | 夹具、沙箱与数据目录的根 | `$TMPDIR/ats101-probes` |
+| `ATS_PROBE_LOG_DIR` | 构建类探针落盘完整构建输出的目录 | `$TMPDIR/ats101-probes` |
 
 所有中间产物（真实 Playwright 夹具、被打了补丁的 `server/` 沙箱副本、Bridge 数据目录）
 都落在 `$ATS_PROBE_WORKDIR` 下，**不进版本控制**。仓库里只有生成它们的脚本。
@@ -42,7 +43,7 @@ bash tools/ats101-probes/collect-b02-build-link.sh
 | `collect-b02-diagnosis.sh` | 执行 shell 对链接器错误文本的影响（Git Bash vs PowerShell） | 16 §4 B-02、证据 03 §3.8 |
 | `collect-b02-gnu-diagnosis.sh` | gnu 链：编译器与运行时库不匹配的诊断 | 16 §4 B-02、证据 03 §3.7.1 |
 | `collect-b02-icon.sh` | 仓库缺 `src-tauri/icons/icon.ico`（**仓库内容缺陷**：全新 clone 永远无法构建） | 16 §4 B-02 成因 2 |
-| `collect-b02-build-link.sh` | **`cargo check` 通过但 `cargo build` 在最终链接时失败**（`ld.exe: error: export ordinal too large`）——证明类型检查通过不等于可构建 | 16 §4 B-02 成因 4、ADR-014 |
+| `collect-b02-build-link.sh` | **`cargo check` 通过但 `cargo build` 在最终链接时失败**（`ld.exe: error: export ordinal too large`）——证明类型检查通过不等于可构建。判定以链接器标记字符串为准，可区分「导出序号超限」与其他链接失败 | 16 §4 B-02 成因 4、ADR-014、证据 03 §3.10 |
 
 ## 纪律（务必遵守）
 
@@ -53,6 +54,18 @@ bash tools/ats101-probes/collect-b02-build-link.sh
    **不能**据此宣称产品已具备该能力。
 3. **每次改动后重跑。** 探针是可执行断言，文档里的数字应当来自探针输出，
    而不是手写。
+4. **不得删除非本次生成的产品资产。** 探针在仓库内产生的临时文件（如
+   `src-tauri/icons/icon.ico`）**只能删除本次运行自己创建的那一个**。
+   若该文件在探针运行前就已存在（例如 ATS-104 已把它补进仓库），探针必须
+   **保留**它并在输出中注明。`collect-b02-icon.sh` 与
+   `collect-b02-build-link.sh` 都遵守这一条：它们用 `ICO_GENERATED` 标记
+   区分「本次生成」与「预先存在」，只删除前者。
+5. **判定必须能区分不同失败。** `collect-b02-build-link.sh` 不以退出码作为
+   唯一判据：它把 `cargo build` 的完整输出落盘（**不使用
+   `--message-format short`**，否则 rustc 的 `= note:` 子诊断——链接器原文所在
+   ——会被丢弃），再以标记字符串 `export ordinal too large` 判定成因 4。
+   若 build 非零退出而该标记不存在，脚本明确报告「这是另一种链接失败，
+   成因 4 本次未复现」，而不是把两者混为一谈。
 
 ## 依赖
 

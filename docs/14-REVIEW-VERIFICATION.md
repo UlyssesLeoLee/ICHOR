@@ -31,7 +31,7 @@
   2. 仓库缺 `src-tauri/icons/icon.ico`（**仓库内容缺陷**，全新 clone 永远无法构建，仅装 MSVC 不能修复）；
   3. gnu 链的编译器与运行时库不匹配；
   4. gnu 链 cdylib 导出序号超限——补齐 `.ico` 并换成带完整运行时的 MinGW GCC 后，`cargo check` 通过，但 `cargo build` 在最终链接时报 `ld.exe: error: export ordinal too large: 90774`。
-- **实测发现 3 项此前未记录的阻断缺陷**：B-01（真实浏览器执行 100% 失败）、B-02（Tauri 编译）、B-03（重启后 Run 卡在 `cancelling` 永久占锁）。
+- **实测发现 3 项阻断缺陷**：B-01（真实浏览器执行 100% 失败）、B-02（Tauri 编译）、B-03（重启后 Run 卡在 `cancelling` 永久占锁）。
 
 因此不得标记 ST Pass、也不能将 ZIP 描述为即装即用的 EXE。完整证据见 `docs/16-BASELINE-ADR.md` §4 与 `docs/evidence/ATS-101/`。
 

@@ -119,7 +119,9 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 
    另有 6 个文件**非运行时**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`README.md`（使用说明）、`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）、`tools/generate_test_docs.py:52,58,74`（`tests/test-cases.json` 的生成器，重新生成会把旧端口写回去）、`test-cases.xlsx`（3 处，测试用例输入数据）。
    本清单由 `tools/ats101-probes/scenario-d-port-audit.mjs` 自动比对源码与本文档，**按 `file:line` 逐条校验**，遗漏即报错。
-   **审计范围**：扫描仓库内全部 `.mjs/.js/.ts/.tsx/.html/.rs/.json/.md/.ps1/.sh/.py` 文件（跳过 `node_modules/`、`.git/`、`.next/`、`out/`、`dist/`、`target/`、`test-results/`、`playwright-report/`、`.multica/`），另加 `test-cases.xlsx` 这一个 zip 容器（其单元格数据是 deflate 压缩的，须解压后扫描）。`docs/` 与 `tools/ats101-probes/` 本身不计入——它们**提及**端口，而非硬编码端口。
+   **审计范围**：扫描仓库内全部 `.mjs/.js/.ts/.tsx/.html/.rs/.json/.md/.ps1/.sh/.py` 文件（跳过 `node_modules/`、`.git/`、`.next/`、`out/`、`dist/`、`target/`、`test-results/`、`playwright-report/`、`.multica/`），另加 `test-cases.xlsx` 这一个 zip 容器（其单元格数据是 deflate 压缩的，须解压后扫描）。
+   **「运行时」与「非运行时」的判定规则**：以**文件是否参与运行**为准，不以文件所在目录为准。命中端口的文件分两类——(a) **运行时硬编码**：其端口值会实际生效，必须逐处同步；(b) **非运行时提及**：只显示或复制端口值，不影响运行行为，须一并更新但可批量处理。`README.md`、`docs/` 下的说明文档与 `tools/ats101-probes/` 自身都属 (b) 类——它们**提及**端口而非硬编码端口；探针按 (b) 类逐文件统计并在输出中列出，因此新增一份提到端口的文档也会被自动纳入审计范围。
+   **审计范围的准确边界**：本审计覆盖**源码与数据文件**中的端口字面量，**不覆盖** `docs/` 下的纯文字提及——除本文自身外，`docs/04`、`docs/08`、`docs/09`、`docs/11`、`docs/12` 5 个文件共 9 处提及，属 (b) 类。因此本节所列清单是**源码硬编码点**的完整清单，而非全仓库端口字面量的完整清单；`docs/` 下的提及不要求逐条列出，但换端口时同样须一并更新。
 2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
 3. **Host 白名单绑定端口**：`server/index.mjs:60` 的正则含 `${PORT}`，改端口后 Host 校验随之变化。
 4. **仅可信本地项目**：不自动安装依赖，不接受任意 CLI 字符串（`spawn(..., shell:false)`）。
@@ -185,7 +187,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
   2. **但仅删除这两个选项会导致项目未自行配置 `use.screenshot`/`use.video` 时丢失截图与视频**——这正是 FR-014「尽力启用原生 reporter/trace/screenshot/video」的诉求。因此需**向目标项目的 `playwright.config.ts` 注入** `use.screenshot`/`use.video`（或等价地以受控方式覆盖 `use` 块），而不是依赖项目自身配置；
   3. 以**真实 Playwright CLI** 做参数契约测试，防止再次漂移（现有 mock CLI 接受任意参数，正是它掩盖了 B-01）。
 
-### B-02（严重 / P0）Tauri Windows 编译失败——三个已定位成因，且成因清单尚未穷尽
+### B-02（严重 / P0）Tauri Windows 编译失败——四个已定位成因，且成因清单尚未穷尽
 
 - **位置**：`src-tauri/`
 - **Cargo/Rust 实测已安装**（cargo 1.99.1、rustc 1.99.1、两个 toolchain：msvc 与 gnu），只是不在 PATH，须用 `~/.cargo/bin/cargo.exe` 全路径调用。
@@ -240,35 +242,33 @@ GNU_CHECK_EXIT=101
   而 rustup 自带的 gnu toolchain 只提供 `libgcc*.a`（无 C 运行时），MSYS2 的 MinGW GCC 16.1.0 则**两者齐备**。
   即失败源于**编译器与运行时库不匹配**，与 MSVC 工作负载缺失、与 `.ico` 缺失都是**不同**的成因。
 
-**实测：`cargo check` 通过，但 `cargo build` 在最终链接时仍失败（成因 4）**
+**成因 4 —— gnu 链 cdylib 导出序号超出 PE 上限（产物缺陷，与成因 1~3 各自独立）**
 
-用 MSYS2 的 MinGW GCC（自带完整运行时）+ 临时生成一个合法 `.ico` 后：
+**实测：`cargo check` 通过，但 `cargo build` 在最终链接时仍失败**
+
+用 MSYS2 的 MinGW GCC（自带完整运行时）+ 临时生成一个合法 `.ico` 后（探针输出见 `docs/evidence/ATS-101/03-build-constraints.log` §3.10）：
 
 ```
 --- 2. cargo check (type check + metadata, NO final link) ---
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 46s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 34s
 GNU_CHECK_EXIT=0
 
 --- 3. cargo build (performs the FINAL LINK of the cdylib) ---
 error: linking with `x86_64-w64-mingw32-gcc` failed: exit code: 1
+  = note: C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/16.1.0/../../../../x86_64-w64-mingw32/bin/ld.exe: error: export ordinal too large: 90774
+          collect2.exe: error: ld returned 1 exit status
 error: could not compile `ai-test-studio` (lib) due to 1 previous error
 GNU_BUILD_EXIT=101
 ```
 
-链接器原文：
-
-```
-C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/16.1.0/../../../../x86_64-w64-mingw32/bin/ld.exe:
-  error: export ordinal too large: 90774
-collect2.exe: error: ld returned 1 exit status
-```
-
 - **复现脚本**：`tools/ats101-probes/collect-b02-build-link.sh`（同一条命令序列下 `cargo check` 与 `cargo build` 的对照）
+- **链接器原文取自该脚本自身的输出**：脚本把 `cargo build` 的完整输出落盘后 grep 判定，**不使用 `--message-format short`**——short 格式会丢掉 rustc 的 `= note:` 子诊断，而链接器原文正是在 note 里，short 格式下该脚本永远打印不出 `export ordinal too large`。
+- **判定依据是链接器标记字符串本身**，不是仅比较退出码：脚本以 `export ordinal too large` 为判据，因此能把「导出序号超限」与其他链接失败区分开——若 `cargo build` 非零退出但该标记不存在，脚本明确输出「这是另一种链接失败，成因 4 本次未复现」。
 - **本项的准确口径**：`cargo check` 只做类型检查与元数据生成，**不链接最终产物**；因此 `cargo check` 退出码 0 **不能证明该 crate 可以链接**，也**不能证明「Rust 源码本身没有问题」**。
-- **成因 4（本次新定位）**：`src-tauri/Cargo.toml:11` 声明 `crate-type = ["staticlib","cdylib","rlib"]`，cdylib 产物的导出符号数超过 PE 格式的导出序号上限 65535，链接器报 `export ordinal too large: 90774`。
+- **成因 4**：`src-tauri/Cargo.toml:11` 声明 `crate-type = ["staticlib","cdylib","rlib"]`，cdylib 产物的导出符号数超过 PE 格式的导出序号上限 65535，链接器报 `export ordinal too large: 90774`。
 - **成因清单状态**：已定位成因 (1) msvc 链缺 MSVC C++ 工作负载、(2) 仓库缺 `icons/icon.ico`、(3) gnu 链编译器/运行时不匹配、(4) gnu 链 cdylib 导出序号超限。
   **该清单不视为穷尽**：msvc 链的**最终链接**在本机无法验证（无 MSVC 工具链），msvc 链 `cargo build` 通过之前不能断言「修完这 4 项即可出包」。
-- **注意**：该 `.ico` 仅为本次探针的构建产物，已删除，**不属本任务交付物**（是否补入图标属 ATS-104 的范围）。
+- **注意**：该 `.ico` 仅为本次探针的构建产物，**只删除本次运行自己生成的那一个**；若 `.ico` 预先存在（例如 ATS-104 把它补进仓库之后），脚本保留它并在输出中注明，不会删除受版本控制的产品资产。是否补入图标属 ATS-104 的范围。
 
 - **影响**：ATS-104/105、ST-022、FR-020 的桌面侧不能验证。
 - **修复方向**（属 ATS-104 / ATS-102）：
@@ -343,12 +343,12 @@ collect2.exe: error: ld returned 1 exit status
 | ADR-006 | AI 只产出候选 Patch，未经审阅不得落 Git commit 或改期望值 | DESIGNED（P1） | 防假阳性掩盖缺陷 |
 | ADR-007 | Next 静态导出 + Tauri 2 壳；便携 HTML 为零依赖回退 | **PARTIAL**：Next 构建已验证；Tauri 受 B-02 阻断 | 两种 UI 形态并存，互为回退 |
 | ADR-008 | 自研代码 MIT；第三方依赖分别审查 | ACCEPTED（延续） | 许可边界需逐项核对 |
-| **ADR-009** | **「实机能力未验证」不等于「环境不可用」：构建与浏览器环境障碍必须与代码缺陷分开记录** | **ACCEPTED（本次新增）** | 若不分离，真实代码缺陷会被误记为环境问题而长期挂起 |
-| **ADR-010** | **Runner 的 CLI 参数向量必须有真实 CLI 契约测试，不得仅用测试双桩验证** | **ACCEPTED（本次新增）** | 接受任意参数的测试双桩无法发现参数不存在 |
-| **ADR-011** | **持久化状态机的恢复集合必须与运行态集合对齐；终态操作须幂等** | **ACCEPTED（本次新增）** | 遗漏一个中间态即可造成不可自愈的锁死 |
-| **ADR-012** | **v0.1.1 门禁放行前，B-01/B-02/B-03 必须全部关闭且有真实机器证据** | **ACCEPTED（本次新增）** | 三项均为 S1 阶段门禁的前置条件 |
-| **ADR-013** | **文档中的「接口/构建约束清单」必须可机读校验，清单与源码不一致即视为缺陷** | **ACCEPTED（本次新增）** | 人工维护的清单必然随源码漂移；改端口漏改一处即静默失效 |
-| **ADR-014** | **构建验收以产物链接完成为准：`cargo check` 通过不得作为「可构建」的证据** | **ACCEPTED（本次新增）** | 类型检查不链接最终产物，链接期缺陷（导出序号超限）只在 `cargo build` 暴露 |
+| **ADR-009** | **「实机能力未验证」不等于「环境不可用」：构建与浏览器环境障碍必须与代码缺陷分开记录** | **ACCEPTED** | 若不分离，真实代码缺陷会被误记为环境问题而长期挂起 |
+| **ADR-010** | **Runner 的 CLI 参数向量必须有真实 CLI 契约测试，不得仅用测试双桩验证** | **ACCEPTED** | 接受任意参数的测试双桩无法发现参数不存在 |
+| **ADR-011** | **持久化状态机的恢复集合必须与运行态集合对齐；终态操作须幂等** | **ACCEPTED** | 遗漏一个中间态即可造成不可自愈的锁死 |
+| **ADR-012** | **v0.1.1 门禁放行前，B-01/B-02/B-03 必须全部关闭且有真实机器证据** | **ACCEPTED** | 三项均为 S1 阶段门禁的前置条件 |
+| **ADR-013** | **文档中的「接口/构建约束清单」必须可机读校验，清单与源码不一致即视为缺陷** | **ACCEPTED** | 人工维护的清单必然随源码漂移；改端口漏改一处即静默失效 |
+| **ADR-014** | **构建验收以产物链接完成为准：`cargo check` 通过不得作为「可构建」的证据** | **ACCEPTED** | 类型检查不链接最终产物，链接期缺陷（导出序号超限）只在 `cargo build` 暴露 |
 
 ## 7. 未验证项声明（PENDING ≠ PASS）
 
