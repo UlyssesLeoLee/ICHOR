@@ -10,6 +10,8 @@
 - **OUT（v0.1）**：WDIO 实际运行、Tauri 安装包、动态/参数化用例精确索引、AI 自动化调用、结构化图编辑、登录/RBAC、Docker 隔离、分布式调度、CI 双向联动。
 - **主要约束**：本地 Node 22+；Playwright 需在被测项目的 node_modules 安装；项目只接受可信代码；不自动安装依赖；UI 不自动提交 Git。
 
+> **基线限定（2026-11-03，ATS-101/SEIKOIST-146 实测）**：下表 FR-009/010/011/014/018 的 `IMPLEMENTED` 仅指**代码路径与测试双桩已实现**，不代表真实浏览器链路可用。实测发现 B-01：`server/core.mjs:82` `safeRunArgs()` 向 Playwright Test CLI 传入 `--screenshot`/`--video` 两个**不存在的选项**，导致真实执行在参数解析阶段即失败（`summary=null`、`artifacts=[]`）。真实浏览器链路在 B-01 关闭前应视为**未验证**。详见 `docs/16-BASELINE-ADR.md` §4。
+
 ## 2. 功能要件（Functional Requirements）
 
 | ID | 标题 | 验收标准（合格基准） | 优先级 | v0.1 |

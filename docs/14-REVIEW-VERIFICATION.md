@@ -23,6 +23,11 @@
 
 注意：这些测试在无真实 Playwright 包/浏览器的环境执行，无法证明成功执行 Playwright 脚本链路。Tauri 源码存在但 Cargo 未安装，Next 源码存在但 npm registry 离线，无法在此环境完成 build；因此不得标记 ST Pass、也不能将 ZIP 描述为即装即用的 EXE。
 
+> **更正（2026-11-03，ATS-101/SEIKOIST-146 实测）**：上一段的环境结论已过时，实测结果见 `docs/16-BASELINE-ADR.md` §5 与 `docs/evidence/ATS-101/`：
+> - **Next.js 16 静态导出构建实测成功**（Next.js 16.4.4，产物 `apps/studio/out/`，并可由 Bridge 伺服），npm registry 本次可达；
+> - **Cargo/Rust 实测已安装**（cargo 1.99.1、rustc 1.99.1，仅不在 PATH），Tauri 编译失败的**真实原因是缺 MSVC「使用 C++ 的桌面开发」工作负载**（msvc 与 gnu 两条工具链均在链接阶段失败）；
+> - 另实测发现 3 项此前未记录的阻断缺陷，其中 B-01（`safeRunArgs()` 传入 Playwright CLI 不存在的 `--screenshot`/`--video` 选项）导致**真实浏览器执行 100% 失败**，是原「20/20 全绿」结论的重要限定条件。
+
 ## 3. 当前验收结论
 
 - **源码一致性 / Node API UT-IT：通过**（基于对应 20 个断言）。

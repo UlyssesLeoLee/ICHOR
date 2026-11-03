@@ -9,3 +9,5 @@ src-tauri/target/
 playwright-report/
 test-results/
 .atstest/
+__pycache__/
+*.pyc

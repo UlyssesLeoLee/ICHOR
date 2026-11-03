@@ -1,0 +1,73 @@
+# ATS-101 证据 03 — 构建环境约束实测
+# 日期: 2026-11-03 / Windows 11
+
+## 3.1 Node Bridge 依赖
+$ node --version
+v24.19.0
+$ npm --version
+12.2.0
+根 package.json engines: {"node":">=22"}
+lockfile: 不存在（ATS-102 待办）
+CI 配置: 不存在（ATS-102 待办）
+
+## 3.2 Next.js 静态导出构建（npm registry 本次可达）
+$ npm install --prefix apps/studio   -> added 55 packages in 46s
+$ npm --prefix apps/studio run build
+Next.js 16.4.4 (Turbopack)
+  Compiled successfully in 1485ms
+  Finished TypeScript in 2.2s
+  Generating static pages using 4 workers (3/3) in 749ms
+Route (app)  ○ /   ○ /_not-found   (Static) prerendered as static content
+产物: apps/studio/out/{index.html,404.html,_next/**}
+
+$ 复核 out/ 目录
+__next.__PAGE__.txt
+__next._full.txt
+__next._tree.txt
+_next
+_not-found
+404
+404.html
+fallback.html
+index.html
+index.txt
+
+## 3.3 Next 构建会改写仓库内两个受版本控制的文件
+apps/studio/next-env.d.ts  (+5 行: .next/types/routes.d.ts 等 import)
+apps/studio/tsconfig.json  (单行 JSON -> 多行 JSON, include 增加 .next/dev/types/**/*.ts)
+
+## 3.4 Tauri / Rust 工具链
+$ ~/.cargo/bin/cargo.exe --version
+cargo 1.99.1 (5f94df478 2026-08-27)
+$ ~/.cargo/bin/rustc.exe -vV
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+binary: rustc
+commit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67
+commit-date: 2026-10-13
+rustup toolchains: stable-x86_64-pc-windows-gnu stable-x86_64-pc-windows-msvc (active, default) 
+cargo 不在 PATH（须用 ~/.cargo/bin/cargo.exe 全路径调用）
+
+## 3.5 Tauri cargo check 失败（MSVC 默认工具链）
+$ cargo check --message-format short   (src-tauri, 依赖已解析 406 packages)
+error: linking with `link.exe` failed: exit code: 1
+note: `link.exe` returned an unexpected error
+note: in the Visual Studio installer, ensure the "C++ build tools" workload is selected
+error: could not compile `serde` (build script) due to 1 previous error   (共 17 处同类 error)
+CARGO_CHECK_EXIT=101
+
+## 3.6 Tauri cargo check 失败（GNU 工具链，排除 MSVC 特有因素）
+$ cargo +stable-x86_64-pc-windows-gnu check
+error: linking with `x86_64-w64-mingw32-gcc` failed: exit code: 1
+GNU_CHECK_EXIT=101
+
+## 3.7 MSVC 组件实际缺失项
+vswhere -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -> 无输出（该工作负载未安装）
+VS 安装路径存在: C:/Program Files/Microsoft Visual Studio/18/Community
+但 VC/Tools/MSVC 目录不存在 -> 无 C/C++ 编译器与链接器
+已安装的 WebView2 Runtime: 149.0.4022.98（存在，但无用例因编译失败而启动）
+
+## 3.8 真实 Playwright 浏览器可用性
+已安装 @playwright/test 1.64.1（npm registry 可达）
+缓存浏览器: chromium-1248 / chromium_headless_shell-1248 / firefox-1555 / webkit-2370 / ffmpeg-1013
+playwright-core 1.64.1 所需 revision: chromium=1248 firefox=1555 webkit=2370 ffmpeg=1013 -> 与本地缓存完全一致
+实测：真实 Chromium 启动成功，1 passed + 1 failed，产出 trace.zip/截图/视频（见证据 02 场景 B）

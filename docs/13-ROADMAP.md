@@ -2,7 +2,9 @@
 
 ## 1. 当前版本 v0.1（已实现/源码待构建）
 
-已实现 Node bridge 的项目登记、静态索引、受控源码读写、Playwright 执行器、状态/日志/JSONL、原生报告/证据归档、需求关联读取；提供便携 HTML 和 Next/Tauri 项目源码。已自动验证 core/API UT/IT；**尚未执行实际带浏览器的 Playwright ST、Next build 或 Tauri compilation**。
+已实现 Node bridge 的项目登记、静态索引、受控源码读写、Playwright 执行器、状态/日志/JSONL、原生报告/证据归档、需求关联读取；提供便携 HTML 和 Next/Tauri 项目源码。已自动验证 core/API UT/IT；**尚未执行实际带浏览器的 Playwright ST**。
+
+> **更正（2026-11-03，ATS-101 实测）**：本节原称「Next build 未执行」。实测 **Next.js 16 静态导出构建已成功**（Next.js 16.4.4，产物 `apps/studio/out/`，可由 Bridge 伺服），npm registry 本次可达。Tauri Windows 编译仍未通过，但原因不是「Cargo 未安装」而是缺 MSVC C++ 构建工具工作负载。真实浏览器 ST 仍被代码缺陷 B-01（`safeRunArgs()` 传入 Playwright CLI 不存在的 `--screenshot`/`--video` 选项）阻断。详见 `docs/16-BASELINE-ADR.md`。
 
 ## 2. 后续最小可行顺序
 

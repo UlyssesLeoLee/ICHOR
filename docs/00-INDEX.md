@@ -22,6 +22,8 @@
 | 13-ROADMAP.md | 開発計画書 | MVP/P1/P2、优先级、质量门禁 |
 | 14-REVIEW-VERIFICATION.md | 設計・実装レビュー | 自审、已执行测试与未验证项 |
 | 15-REFERENCES-LICENSES.md | 调査参考・ライセンス | 官方参考及许可证边界 |
+| 16-BASELINE-ADR.md | 基线冻结・ADR | v0.1 已实现/待实测/未实现、3 项阻断、接口与构建约束清单 |
+| evidence/ | 実行証跡 | ATS-101 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面） |
 
 ## 依托方法与限制
 
