@@ -8,7 +8,7 @@
   - `bash tools/ats101-probes/collect-b02-icon.sh`             → 缺失 .ico 资源诊断
   - `bash tools/ats101-probes/collect-b02-build-link.sh`      → cargo check 与 cargo build（最终链接）对照
   - `ATS_PROBE_STUB_MODE=<mode> ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
-     bash tools/ats101-probes/collect-b02-build-link.sh`       → 判定段的三种失败形态（桩 cargo，无真实构建）
+     bash tools/ats101-probes/collect-b02-build-link.sh`       → 判定段的五种失败形态（桩 cargo，无真实构建）
 
 ## 3.1 Node Bridge 依赖
 
@@ -245,7 +245,7 @@ build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
 判定段以字符串 `export ordinal too large` 为依据（对落盘的 build 日志 grep），
 并**进一步区分「其他链接错误」与「链接前失败」**：rustc 只有在真正调用了链接器
 时才会打出 `linking with ... failed` 标头，因此该标头是否出现在 build 日志里，
-就是区分「链接器已到达」与「构建在链接之前就挂了」的判据。脚本的两个反向分支原文：
+就是区分「链接器已到达」与「构建在链接之前就挂了」的判据。脚本的反向分支原文：
 
 **(a) 其他链接错误**（build 日志含 `linking with` 标头，但无成因 4 标记）：
 
@@ -271,28 +271,151 @@ cargo 退出码同样是 101）：
    Classify the compile/rustc failure above on its own.
 ```
 
-**(c) `cargo check` 失败**（非 0 退出，含 101）：
+**(c) `cargo check` 失败**（非 0 退出，含 101）——**只陈述 check 本身，不对成因 4 下结论**：
 
 ```
 => cargo check FAILED (exit 101).
    The type-check step did not complete, so this run says NOTHING about
-   whether the crate links. Cause 4 is NOT evaluated by this run.
+   whether the crate links.
+   The cause-4 verdict below comes from the cargo BUILD step only.
 ```
 
-**三种形态互不相同**：成因 4 / 其他链接错误 / 链接前失败。编译失败与链接失败的
-cargo 退出码都是 101，仅凭退出码无法分辨——把编译失败报成「另一种链接失败」，
-会让 ATS-104 修复后暴露的真实编译错误被误判为链接问题。
-
-**三种形态的桩 cargo 复现**（`tools/ats101-probes/stub-cargo.sh`，无需真实构建）：
+**(d) cargo 无法启动**（`ATS_PROBE_CARGO` 指向的文件不存在或不可执行，shell 退出码 126/127）：
 
 ```
-ATS_PROBE_STUB_MODE=ordinal      ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
+=> cargo could NOT be started (exit 127): the file does not exist.
+   The probe never reached a cargo invocation, so neither step produced
+   a cargo exit code. This is a PROBE SETUP problem, NOT a compile error,
+   NOT a rustc crash and NOT a link failure -- the cause of this failure
+   must be located in the cargo path or in the shell's launch error.
+   Cause 4 was NOT evaluated by this run: cargo never ran.
+```
+
+**四种形态互不相同**：成因 4 / 其他链接错误 / 链接前失败 / cargo 无法启动。
+编译失败与链接失败的 cargo 退出码都是 101，仅凭退出码无法分辨——把编译失败报成
+「另一种链接失败」，会让 ATS-104 修复后暴露的真实编译错误被误判为链接问题。
+**成因 4 的判定只来自 build 步骤**：check 失败与 build 的判定因此不会互相矛盾。
+
+**四种形态的桩 cargo 复现**（`tools/ats101-probes/stub-cargo.sh`，无需真实构建；
+以下命令在**仓库根目录**原样运行，`ATS_PROBE_CARGO` 用相对路径）：
+
+```
+ATS_PROBE_STUB_MODE=ordinal            ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
   bash tools/ats101-probes/collect-b02-build-link.sh   # => CAUSE 4 REPRODUCED
-ATS_PROBE_STUB_MODE=other-link   ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
+ATS_PROBE_STUB_MODE=other-link         ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
   bash tools/ats101-probes/collect-b02-build-link.sh   # => (a) 其他链接错误
-ATS_PROBE_STUB_MODE=compile-error ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
+ATS_PROBE_STUB_MODE=compile-error      ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
   bash tools/ats101-probes/collect-b02-build-link.sh   # => (b) 链接前失败
+ATS_PROBE_STUB_MODE=check-fails        ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => (c) check 失败 + build 成功
+ATS_PROBE_STUB_MODE=check-fails-ordinal ATS_PROBE_CARGO=tools/ats101-probes/stub-cargo.sh \
+  bash tools/ats101-probes/collect-b02-build-link.sh   # => (c) check 失败 + (成因 4 复现)
 ```
+
+**五种桩模式的判定段实际输出**（2026-11-03，Windows 11 / MINGW64_NT-10.0-26300；
+`cargo binary` 一行是本次运行的绝对路径）：
+
+```
+########## ordinal ##########
+--- 4. verdict ---
+cargo check exit : 0
+cargo build exit : 101
+cargo binary     : <ATS_PROBE_CARGO 解析后的绝对路径>
+build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
+
+=> linker marker FOUND in the cargo build output:
+error: linking with `x86_64-w64-mingw32-gcc` failed: exit code: 1
+  = note: "x86_64-w64-mingw32-gcc" "-Wl,--output-def,list.def" ... "-o" "...\\ai_test_studio_lib.dll" "-Wl,--gc-sections" "-shared"
+  = note: C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/16.1.0/../../../../x86_64-w64-mingw32/bin/ld.exe: error: export ordinal too large: 90774
+          collect2.exe: error: ld returned 1 exit status
+error: could not compile `ai-test-studio` (lib) due to 1 previous error
+
+=> CAUSE 4 REPRODUCED: the cdylib export ordinal exceeds the PE
+   export-ordinal limit (65535). This is specifically the
+   'export ordinal too large' failure, not some other link error.
+
+=> A green 'cargo check' does NOT prove the crate links.
+=> The B-02 cause list is therefore NOT exhaustive for the gnu toolchain.
+
+########## other-link ##########
+--- 4. verdict ---
+cargo check exit : 0
+cargo build exit : 101
+cargo binary     : <ATS_PROBE_CARGO 解析后的绝对路径>
+build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
+
+=> cargo build FAILED and the marker 'export ordinal too large' is ABSENT.
+=> The build log DOES contain rustc's link-failure header
+   ('linking with ... failed'), so the linker WAS reached and failed
+   for a DIFFERENT reason than cause 4 -- cause 4 is NOT reproduced
+   by this run. The link error above must be classified on its own;
+   the exit code alone cannot tell them apart.
+
+=> A green 'cargo check' does NOT prove the crate links.
+=> The B-02 cause list is therefore NOT exhaustive for the gnu toolchain.
+
+########## compile-error ##########
+--- 4. verdict ---
+cargo check exit : 0
+cargo build exit : 101
+cargo binary     : <ATS_PROBE_CARGO 解析后的绝对路径>
+build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
+
+=> cargo build FAILED (exit 101) and the marker
+   'export ordinal too large' is ABSENT.
+=> The build log contains NO 'linking with' header, so the build
+   FAILED BEFORE THE LINK STEP (compile error, or a rustc crash).
+=> Cause 4 was NOT evaluated by this run: the linker never ran, so
+   this output says nothing about the export ordinal either way.
+   Classify the compile/rustc failure above on its own.
+
+=> A green 'cargo check' does NOT prove the crate links.
+=> The B-02 cause list is therefore NOT exhaustive for the gnu toolchain.
+
+########## check-fails ##########
+--- 4. verdict ---
+cargo check exit : 101
+cargo build exit : 0
+cargo binary     : <ATS_PROBE_CARGO 解析后的绝对路径>
+build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
+
+=> cargo check FAILED (exit 101).
+   The type-check step did not complete, so this run says NOTHING about
+   whether the crate links.
+   The cause-4 verdict below comes from the cargo BUILD step only.
+=> cargo build succeeded on the gnu toolchain.
+
+########## check-fails-ordinal ##########
+--- 4. verdict ---
+cargo check exit : 101
+cargo build exit : 101
+cargo binary     : <ATS_PROBE_CARGO 解析后的绝对路径>
+build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
+
+=> cargo check FAILED (exit 101).
+   The type-check step did not complete, so this run says NOTHING about
+   whether the crate links.
+   The cause-4 verdict below comes from the cargo BUILD step only.
+=> linker marker FOUND in the cargo build output:
+error: linking with `x86_64-w64-mingw32-gcc` failed: exit code: 1
+  = note: "x86_64-w64-mingw32-gcc" "-Wl,--output-def,list.def" ... "-o" "...\\ai_test_studio_lib.dll" "-Wl,--gc-sections" "-shared"
+  = note: C:/msys64/mingw64/bin/../lib/gcc/x86_64-w64-mingw32/16.1.0/../../../../x86_64-w64-mingw32/bin/ld.exe: error: export ordinal too large: 90774
+          collect2.exe: error: ld returned 1 exit status
+error: could not compile `ai-test-studio` (lib) due to 1 previous error
+
+=> CAUSE 4 REPRODUCED: the cdylib export ordinal exceeds the PE
+   export-ordinal limit (65535). This is specifically the
+   'export ordinal too large' failure, not some other link error.
+```
+
+（`check-fails-ordinal` 一组证明 check 失败与 build 判定**不冲突**：check 段只陈述
+check 失败，成因 4 的结论由 build 段单独给出；同一份输出里不会同时出现
+「NOT evaluated」与「CAUSE 4 REPRODUCED」两个矛盾结论。）
+
+**路径类覆盖变量在 `cd` 之前解析为绝对路径**：`ATS_PROBE_CARGO` 与
+`ATS_PROBE_LOG_DIR` 按**启动探针时的工作目录**解析，因此上述相对路径写法在探针
+`cd` 进 `src-tauri/` 之后仍指向同一个文件；`ATS_PROBE_LOG_DIR=probe-logs`
+（相对路径）时，日志正常落盘在仓库根的 `probe-logs/` 下，判定正确。
 
 ### 3.10.3 口径结论
 

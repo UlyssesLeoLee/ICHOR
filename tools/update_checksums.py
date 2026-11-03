@@ -13,11 +13,11 @@ diffing against the original before touching the file):
 Two properties this generator guarantees:
 
   1. **Only tracked files are listed.** The file set comes from
-     `git ls-files`; untracked files are never hashed. An earlier version
-     also hashed untracked files, which let probe and build artefacts (a
-     probe-generated src-tauri/icons/icon.ico, a src-tauri/Cargo.lock
-     produced by cargo) leak into the release manifest. The manifest
-     describes the committed tree, so it must describe exactly that.
+     `git ls-files`; untracked files are never hashed. Probe and build
+     artefacts (a probe-generated src-tauri/icons/icon.ico, a
+     src-tauri/Cargo.lock produced by cargo) therefore never leak into the
+     release manifest. The manifest describes the committed tree, so it must
+     describe exactly that.
 
   2. **Every digest is the digest of the committed blob.** The bytes are read
      through `git cat-file blob HEAD:<path>`, and the working tree is checked
