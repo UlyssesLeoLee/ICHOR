@@ -24,6 +24,7 @@
 | 15-REFERENCES-LICENSES.md | 调査参考・ライセンス | 官方参考及许可证边界 |
 | 16-BASELINE-ADR.md | 基线冻结・ADR | v0.1 已实现/待实测/未实现、3 项阻断、接口与构建约束清单 |
 | evidence/ | 実行証跡 | ATS-101 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面） |
+| tools/ats101-probes/ | 再現スクリプト | ATS-101 全部阻断项与约束清单的仓库内可重跑复现脚本（见 `docs/evidence/ATS-101/`） |
 
 ## 依托方法与限制
 

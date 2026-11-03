@@ -1,7 +1,15 @@
 # ATS-101 证据 03 — 构建环境约束实测
-# 日期: 2026-11-03 / Windows 11
+
+- 日期: 2026-11-03 / Windows 11 (MINGW64_NT-10.0-26300)
+- 复现脚本（已入库，可直接重跑）:
+  - `bash tools/ats101-probes/collect-build-constraints.sh`   → 工具链、VS 工作负载、两条工具链 cargo check
+  - `bash tools/ats101-probes/collect-b02-diagnosis.sh`        → shell 相关错误文本对比
+  - `bash tools/ats101-probes/collect-b02-gnu-diagnosis.sh`   → gnu 链编译器/运行时不匹配诊断
+  - `bash tools/ats101-probes/collect-b02-icon.sh`             → 缺失 .ico 资源诊断 + 反证
 
 ## 3.1 Node Bridge 依赖
+
+```
 $ node --version
 v24.19.0
 $ npm --version
@@ -9,8 +17,11 @@ $ npm --version
 根 package.json engines: {"node":">=22"}
 lockfile: 不存在（ATS-102 待办）
 CI 配置: 不存在（ATS-102 待办）
+```
 
 ## 3.2 Next.js 静态导出构建（npm registry 本次可达）
+
+```
 $ npm install --prefix apps/studio   -> added 55 packages in 46s
 $ npm --prefix apps/studio run build
 Next.js 16.4.4 (Turbopack)
@@ -19,55 +30,171 @@ Next.js 16.4.4 (Turbopack)
   Generating static pages using 4 workers (3/3) in 749ms
 Route (app)  ○ /   ○ /_not-found   (Static) prerendered as static content
 产物: apps/studio/out/{index.html,404.html,_next/**}
+```
 
-$ 复核 out/ 目录
-__next.__PAGE__.txt
-__next._full.txt
-__next._tree.txt
-_next
-_not-found
-404
-404.html
-fallback.html
-index.html
-index.txt
+复核 `out/` 目录：
+
+```
+__next.__PAGE__.txt  __next._full.txt  __next._tree.txt
+_next  _not-found  404  404.html  fallback.html  index.html  index.txt
+```
 
 ## 3.3 Next 构建会改写仓库内两个受版本控制的文件
+
+```
 apps/studio/next-env.d.ts  (+5 行: .next/types/routes.d.ts 等 import)
 apps/studio/tsconfig.json  (单行 JSON -> 多行 JSON, include 增加 .next/dev/types/**/*.ts)
+```
 
 ## 3.4 Tauri / Rust 工具链
+
+```
 $ ~/.cargo/bin/cargo.exe --version
 cargo 1.99.1 (5f94df478 2026-08-27)
 $ ~/.cargo/bin/rustc.exe -vV
 rustc 1.99.1 (58cf8f9c3 2026-10-13)
-binary: rustc
-commit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67
-commit-date: 2026-10-13
-rustup toolchains: stable-x86_64-pc-windows-gnu stable-x86_64-pc-windows-msvc (active, default) 
-cargo 不在 PATH（须用 ~/.cargo/bin/cargo.exe 全路径调用）
+host: x86_64-pc-windows-msvc
+LLVM version: 23.1.1
+$ ~/.cargo/bin/rustup.exe toolchain list
+stable-x86_64-pc-windows-gnu
+stable-x86_64-pc-windows-msvc (active, default)
+cargo on PATH  : (not on PATH)
+```
 
-## 3.5 Tauri cargo check 失败（MSVC 默认工具链）
+## 3.5 MSVC 组件实际缺失项
+
+```
+$ vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+(无输出 → 该工作负载未安装)
+
+$ vswhere -latest -products '*' -property installationPath
+C:\Program Files\Microsoft Visual Studio\18\Community
+VS install path: C:\Program Files\Microsoft Visual Studio\18\Community
+VC/Tools/MSVC exists: NO
+已安装的 WebView2 Runtime: 149.0.4022.98（存在，但无用例因编译失败而启动）
+```
+
+## 3.6 Tauri cargo check 失败（MSVC 默认工具链）
+
+```
 $ cargo check --message-format short   (src-tauri, 依赖已解析 406 packages)
 error: linking with `link.exe` failed: exit code: 1
 note: `link.exe` returned an unexpected error
 note: in the Visual Studio installer, ensure the "C++ build tools" workload is selected
 error: could not compile `serde` (build script) due to 1 previous error   (共 17 处同类 error)
 CARGO_CHECK_EXIT=101
+```
 
-## 3.6 Tauri cargo check 失败（GNU 工具链，排除 MSVC 特有因素）
-$ cargo +stable-x86_64-pc-windows-gnu check
+## 3.7 Tauri cargo check 失败（GNU 工具链）
+
+```
+$ cargo +stable-x86_64-pc-windows-gnu check --message-format short
 error: linking with `x86_64-w64-mingw32-gcc` failed: exit code: 1
+note: lld: error: unable to find library -lgcc_eh
+      lld: error: unable to find library -lgcc
+      clang-23: error: linker command failed with exit code 1
 GNU_CHECK_EXIT=101
+```
 
-## 3.7 MSVC 组件实际缺失项
-vswhere -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -> 无输出（该工作负载未安装）
-VS 安装路径存在: C:/Program Files/Microsoft Visual Studio/18/Community
-但 VC/Tools/MSVC 目录不存在 -> 无 C/C++ 编译器与链接器
-已安装的 WebView2 Runtime: 149.0.4022.98（存在，但无用例因编译失败而启动）
+### 3.7.1 gnu 链根因：编译器与运行时库不匹配
 
-## 3.8 真实 Playwright 浏览器可用性
-已安装 @playwright/test 1.64.1（npm registry 可达）
+```
+$ command -v x86_64-w64-mingw32-gcc
+/c/Users/seiko/AppData/Local/Microsoft/WinGet/Packages/MartinStorsjo.LLVM-MinGW.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe/llvm-mingw-20260908-ucrt-x86_64/bin/x86_64-w64-mingw32-gcc
+$ x86_64-w64-mingw32-gcc --version
+clang version 23.1.1 (https://github.com/llvm/llvm-project.git 6dfe1677ab8dffbc6ec13d53a1e0215d75147689)
+Target: x86_64-w64-windows-gnu
+```
+
+该 LLVM-MinGW 发行版**不附带** `libgcc`/`libgcc_eh`，也没有 MinGW C 运行时。
+对照：rustup 自带 gnu toolchain 提供 `libgcc.a`/`libgcc_eh.a`/`libgcc_s.a`，但**无** `crt2.o`/`crtbegin.o`；
+MSYS2 的 MinGW GCC 16.1.0 **两者齐备**。
+
+把 rustup 的 self-contained gcc 放到 PATH 最前（只解决 libgcc，仍缺 C 运行时）后错误变为：
+
+```
+note: ld: cannot find crt2.o: No such file or directory
+      ld: cannot find crtbegin.o: No such file or directory
+      ld: cannot find -lkernel32: No such file or directory
+```
+
+→ 证实 gnu 链失败是**编译器/运行时不匹配**，与 MSVC 工作负载缺失无关。
+
+## 3.8 执行 shell 影响链接器错误文本（观察项，根因判定一致）
+
+### Git Bash（MSYS）—— `link.exe` 解析到 GNU coreutils 的 `link`
+
+```
+$ command -v link.exe
+/usr/bin/link.exe          ← GNU coreutils 的 link，不是 MSVC 链接器
+error: linking with `link.exe` failed: exit code: 1
+note: `link.exe` returned an unexpected error
+note: in the Visual Studio installer, ensure the "C++ build tools" workload is selected
+```
+
+### PowerShell（PATH 中无 Git `usr/bin`）
+
+```
+$ powershell.exe -NoProfile -NonInteractive -Command "cd '<src-tauri>'; & '<cargo.exe>' check --message-format short"
+error: linker `link.exe` not found
+note: the msvc targets depend on the msvc linker but `link.exe` was not found
+note: please ensure that Visual Studio 2017 or later, or Build Tools for Visual Studio were installed with the Visual C++ option
+note: VS Code is a different product, and is not sufficient
+MSVC_PS_CLEANPATH_EXIT=101
+```
+
+两种 shell 的报错文本不同，但**都指向同一根因：MSVC 工具链未安装**。
+
+## 3.9 仓库缺少 Windows 资源文件 `src-tauri/icons/icon.ico`（独立于工具链）
+
+```
+$ ls src-tauri/icons/
+128x128.png
+256x256.png
+32x32.png
+
+$ git ls-files src-tauri/icons/
+src-tauri/icons/128x128.png
+src-tauri/icons/256x256.png
+src-tauri/icons/32x32.png
+
+$ find . -name '*.ico' -not -path '*/node_modules/*'
+(空 —— 全仓没有任何 .ico)
+
+$ python -c "print(json.load(open('src-tauri/tauri.conf.json'))['bundle'])"
+{'active': False, 'targets': 'all', 'icon': ['icons/32x32.png', 'icons/128x128.png', 'icons/256x256.png']}
+```
+
+`bundle.icon` 未列出任何 `.ico` → `tauri-build` 回退到 `icons/icon.ico`（tauri-build 2.7.4 `src/lib.rs`
+的 `bundle.icon.iter().find(|i| i.ends_with(".ico")).unwrap_or("icons/icon.ico")`），
+而该文件不在仓库中。构建报错：
+
+```
+`C:\...\src-tauri\icons/icon.ico` not found; required for generating a Windows Resource file during tauri-build
+```
+
+该步骤对**任何 windows target triple** 执行，与 `bundle.active=false` 无关。
+**这是仓库内容缺陷**：全新 clone 永远无法满足，仅安装 MSVC 工作负载不能修复。
+
+## 3.10 反证：Rust 源码本身可编译
+
+用 MSYS2 MinGW GCC（自带完整运行时）+ 临时生成一个合法 `.ico`：
+
+```
+--- 3. with a valid .ico present the build proceeds past the icon step ---
+generated C:\...\src-tauri\icons\icon.ico
+   Compiling ai-test-studio v0.1.0 (C:\...\src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.53s
+GNU_WITH_ICO_EXIT=0
+```
+
+→ `src-tauri` 的 Rust 源码可编译。阻断项为三个**互不相同**的成因：
+(1) msvc 链缺 MSVC C++ 工作负载；(2) 仓库缺 `icons/icon.ico`；(3) gnu 链的编译器/运行时不匹配。
+探针生成的 `.ico` 仅为构建产物，已删除，不属交付物。
+
+## 3.11 真实 Playwright 浏览器可用性
+
+已安装 `@playwright/test` 1.64.1（npm registry 可达）
 缓存浏览器: chromium-1248 / chromium_headless_shell-1248 / firefox-1555 / webkit-2370 / ffmpeg-1013
 playwright-core 1.64.1 所需 revision: chromium=1248 firefox=1555 webkit=2370 ffmpeg=1013 -> 与本地缓存完全一致
 实测：真实 Chromium 启动成功，1 passed + 1 failed，产出 trace.zip/截图/视频（见证据 02 场景 B）
