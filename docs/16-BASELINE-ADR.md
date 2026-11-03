@@ -117,11 +117,17 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
    | 6 | `src-tauri/src/lib.rs:19` | `ATS_PORT` 环境变量默认值 |
 
-   另有 6 个文件**非运行时**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`README.md`（使用说明）、`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）、`tools/generate_test_docs.py:52,58,74`（`tests/test-cases.json` 的生成器，重新生成会把旧端口写回去）、`test-cases.xlsx`（3 处，测试用例输入数据）。
+   另有 5 个文件**非运行时数据**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）、`tools/generate_test_docs.py:52,58,74`（`tests/test-cases.json` 的生成器，重新生成会把旧端口写回去）、`test-cases.xlsx`（3 处，测试用例输入数据）。
+   文档类的端口提及另计，见下。
    本清单由 `tools/ats101-probes/scenario-d-port-audit.mjs` 自动比对源码与本文档，**按 `file:line` 逐条校验**，遗漏即报错。
    **审计范围**：扫描仓库内全部 `.mjs/.js/.ts/.tsx/.html/.rs/.json/.md/.ps1/.sh/.py` 文件（跳过 `node_modules/`、`.git/`、`.next/`、`out/`、`dist/`、`target/`、`test-results/`、`playwright-report/`、`.multica/`），另加 `test-cases.xlsx` 这一个 zip 容器（其单元格数据是 deflate 压缩的，须解压后扫描）。
-   **「运行时」与「非运行时」的判定规则**：以**文件是否参与运行**为准，不以文件所在目录为准。命中端口的文件分两类——(a) **运行时硬编码**：其端口值会实际生效，必须逐处同步；(b) **非运行时提及**：只显示或复制端口值，不影响运行行为，须一并更新但可批量处理。`README.md`、`docs/` 下的说明文档与 `tools/ats101-probes/` 自身都属 (b) 类——它们**提及**端口而非硬编码端口；探针按 (b) 类逐文件统计并在输出中列出，因此新增一份提到端口的文档也会被自动纳入审计范围。
-   **审计范围的准确边界**：本审计覆盖**源码与数据文件**中的端口字面量，**不覆盖** `docs/` 下的纯文字提及——除本文自身外，`docs/04`、`docs/08`、`docs/09`、`docs/11`、`docs/12` 5 个文件共 9 处提及，属 (b) 类。因此本节所列清单是**源码硬编码点**的完整清单，而非全仓库端口字面量的完整清单；`docs/` 下的提及不要求逐条列出，但换端口时同样须一并更新。
+   **三类判定规则**：以**文件是否参与运行**为准，不以文件所在目录为准。命中端口的文件分三类——
+   (a) **运行时硬编码**：其端口值会实际生效，必须逐处同步（即上表的 6 处）；
+   (b) **非运行时数据提及**：数据/脚本只显示或复制端口值，不影响运行行为，须一并更新但可批量处理（即上列的 5 个文件）；
+   (c) **文档提及**：纯文字描述端口，不影响任何行为——`README.md`、`docs/` 下的说明文档，以及 `tools/ats101-probes/` 自身（探针脚本必须写明它审计的端口）。
+   探针按这三类分别统计并逐文件列出，**新增一份提到端口的文档也会被自动纳入 (c) 类统计**，不会被误判成运行时硬编码。
+   **(c) 类的统计口径**：统计范围是 **`docs/` 目录下除本文件外的 `.md` 文件**，共 **5 个文件共 9 处提及**（`docs/04-DETAILED-DESIGN.md` 1 处、`docs/08-IT-TEST-DESIGN.md` 2 处、`docs/09-ST-TEST-DESIGN.md` 1 处、`docs/11-SECURITY-RISK.md` 1 处、`docs/12-DEPLOY-OPERATIONS.md` 4 处）。该数字由探针实测得出并断言，改动 `docs/` 下任一 `.md` 文件的端口提及后，探针会报 `RESULT: MISMATCH`。`docs/evidence/ATS-101/` 下的 `.log` 证据文件**不在扫描的扩展名范围内**，其中的端口字面量不计入这 9 处。
+   因此本节所列清单是**源码硬编码点**的完整清单，而非全仓库端口字面量的完整清单；`docs/` 下的提及不要求逐条列出，但换端口时同样须一并更新。
 2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
 3. **Host 白名单绑定端口**：`server/index.mjs:60` 的正则含 `${PORT}`，改端口后 Host 校验随之变化。
 4. **仅可信本地项目**：不自动安装依赖，不接受任意 CLI 字符串（`spawn(..., shell:false)`）。
@@ -263,7 +269,7 @@ GNU_BUILD_EXIT=101
 
 - **复现脚本**：`tools/ats101-probes/collect-b02-build-link.sh`（同一条命令序列下 `cargo check` 与 `cargo build` 的对照）
 - **链接器原文取自该脚本自身的输出**：脚本把 `cargo build` 的完整输出落盘后 grep 判定，**不使用 `--message-format short`**——short 格式会丢掉 rustc 的 `= note:` 子诊断，而链接器原文正是在 note 里，short 格式下该脚本永远打印不出 `export ordinal too large`。
-- **判定依据是链接器标记字符串本身**，不是仅比较退出码：脚本以 `export ordinal too large` 为判据，因此能把「导出序号超限」与其他链接失败区分开——若 `cargo build` 非零退出但该标记不存在，脚本明确输出「这是另一种链接失败，成因 4 本次未复现」。
+- **判定依据是链接器标记字符串本身**，不是仅比较退出码：脚本以 `export ordinal too large` 为判据，因此能把「导出序号超限」与其他链接失败区分开。判定段区分**三种失败形态**——(1) build 日志含该标记 → `CAUSE 4 REPRODUCED`；(2) build 日志含 rustc 的链接失败标头 `linking with` 但无该标记 → 「链接器已到达，但失败原因不是成因 4」；(3) build 日志**不含** `linking with` 标头（编译错误或 rustc 崩溃，退出码同为 101）→ 「构建在链接之前就失败了，本次未评估成因 4」。`cargo check` 非 0 退出时，判定段另行报告 check 失败并声明本次未评估成因 4。三种形态可用桩 cargo（`tools/ats101-probes/stub-cargo.sh`）无真实构建即可复现。
 - **本项的准确口径**：`cargo check` 只做类型检查与元数据生成，**不链接最终产物**；因此 `cargo check` 退出码 0 **不能证明该 crate 可以链接**，也**不能证明「Rust 源码本身没有问题」**。
 - **成因 4**：`src-tauri/Cargo.toml:11` 声明 `crate-type = ["staticlib","cdylib","rlib"]`，cdylib 产物的导出符号数超过 PE 格式的导出序号上限 65535，链接器报 `export ordinal too large: 90774`。
 - **成因清单状态**：已定位成因 (1) msvc 链缺 MSVC C++ 工作负载、(2) 仓库缺 `icons/icon.ico`、(3) gnu 链编译器/运行时不匹配、(4) gnu 链 cdylib 导出序号超限。

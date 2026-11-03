@@ -51,14 +51,22 @@ const NON_RUNTIME = new Set([
 const DOC_MENTION_ROOTS = ['docs'];
 const DOC_MENTION_FILES = [
   'README.md',
-  // the audit tool itself: it names the port it audits.
-  'tools/ats101-probes/scenario-d-port-audit.mjs',
 ];
+/**
+ * The probe directory as a whole: every script in it names the port it
+ * audits, so a port mention there is a MENTION, not a runtime hardcoding.
+ * Treating the directory (rather than a hand-picked file list) keeps the
+ * document and the probe in agreement about what belongs to this bucket --
+ * a new probe script, or a port mention added to this README, must not be
+ * reported as a runtime hardcoding site.
+ */
+const DOC_MENTION_DIRS = ['tools/ats101-probes'];
 const DOC_MENTION_EXT = new Set(['.md']);
 
 /** True for a path that is pure documentation (a mention, not a hardcoding). */
 function isDocMention(rel) {
   if (DOC_MENTION_FILES.includes(rel)) return true;
+  if (DOC_MENTION_DIRS.some((d) => rel === d || rel.startsWith(`${d}/`))) return true;
   if (!DOC_MENTION_EXT.has(path.extname(rel))) return false;
   return DOC_MENTION_ROOTS.some((r) => rel === r || rel.startsWith(`${r}/`));
 }
@@ -207,7 +215,7 @@ const docMentionFiles = [...new Set(docMentions.map((f) => f.rel))].sort();
 const docMentionOccurrences = docMentions.reduce((n, f) => n + f.occurrences, 0);
 console.log('--- distinct DOC files (docs/, excluding 16 itself) ---');
 for (const f of docMentionFiles) {
-  const n = docMentions.filter((m) => m.rel === f.rel).reduce((a, m) => a + m.occurrences, 0);
+  const n = docMentions.filter((m) => m.rel === f).reduce((a, m) => a + m.occurrences, 0);
   console.log(`  ${f} (${n})`);
 }
 console.log(`files = ${docMentionFiles.length}, mentions = ${docMentionOccurrences}`);

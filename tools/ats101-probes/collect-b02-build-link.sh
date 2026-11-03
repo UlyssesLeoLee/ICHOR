@@ -33,7 +33,11 @@ set -u
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SRC_TAURI="$REPO_ROOT/src-tauri"
-CARGO="$HOME/.cargo/bin/cargo.exe"
+# ATS_PROBE_CARGO overrides the cargo binary. It exists so the verdict logic
+# can be exercised with a stub cargo (see README discipline #5): the three
+# failure shapes -- export ordinal, other link error, pre-link failure -- are
+# told apart by the build log, so they can be reproduced without a real build.
+CARGO="${ATS_PROBE_CARGO:-$HOME/.cargo/bin/cargo.exe}"
 MSYS_BIN="/c/msys64/mingw64/bin"
 ICO_NATIVE="$(cygpath -w "$SRC_TAURI/icons/icon.ico")"
 LOG_DIR="${ATS_PROBE_LOG_DIR:-${TMPDIR:-/tmp}/ats101-probes}"
@@ -116,13 +120,32 @@ echo
 
 # ---------------------------------------------------------------------------
 # Step 4: verdict -- keyed on the linker marker, not on the exit code alone.
+#
+# Three failure shapes must stay distinguishable, because they need different
+# follow-up actions:
+#   (1) the cdylib export ordinal exceeds the PE limit  -> cause 4
+#   (2) some OTHER link error                          -> a different cause
+#   (3) the build never reached the link step            -> cause 4 was not
+#       (compile error, rustc crash)                      evaluated at all
+#
+# rustc emits the header "linking with ... failed" only when it actually
+# invoked the linker, so its presence in the build log is what separates (2)
+# from (3). A compile error or a crashed rustc exits with 101 as well, so the
+# exit code alone cannot tell them apart.
 # ---------------------------------------------------------------------------
 ORDINAL_MARKER="export ordinal too large"
+LINK_HEADER="linking with"
 echo "--- 4. verdict ---"
 echo "cargo check exit : $GNU_CHECK_EXIT"
 echo "cargo build exit : $GNU_BUILD_EXIT"
 echo "build log        : $BUILD_LOG"
 echo
+
+if [ "$GNU_CHECK_EXIT" != "0" ]; then
+  echo "=> cargo check FAILED (exit $GNU_CHECK_EXIT)."
+  echo "   The type-check step did not complete, so this run says NOTHING about"
+  echo "   whether the crate links. Cause 4 is NOT evaluated by this run."
+fi
 
 if grep -qi "$ORDINAL_MARKER" "$BUILD_LOG"; then
   echo "=> linker marker FOUND in the cargo build output:"
@@ -132,13 +155,23 @@ if grep -qi "$ORDINAL_MARKER" "$BUILD_LOG"; then
   echo "   export-ordinal limit (65535). This is specifically the"
   echo "   'export ordinal too large' failure, not some other link error."
 else
-  if [ "$GNU_BUILD_EXIT" != "0" ]; then
-    echo "=> cargo build FAILED but the marker '$ORDINAL_MARKER' is ABSENT."
-    echo "=> That is a DIFFERENT link failure than cause 4 -- cause 4 is NOT"
-    echo "   reproduced by this run. The link error above must be classified"
-    echo "   on its own; the exit code alone cannot tell them apart."
-  else
+  if [ "$GNU_BUILD_EXIT" = "0" ]; then
     echo "=> cargo build succeeded on the gnu toolchain."
+  elif grep -qi "$LINK_HEADER" "$BUILD_LOG"; then
+    echo "=> cargo build FAILED and the marker '$ORDINAL_MARKER' is ABSENT."
+    echo "=> The build log DOES contain rustc's link-failure header"
+    echo "   ('$LINK_HEADER ... failed'), so the linker WAS reached and failed"
+    echo "   for a DIFFERENT reason than cause 4 -- cause 4 is NOT reproduced"
+    echo "   by this run. The link error above must be classified on its own;"
+    echo "   the exit code alone cannot tell them apart."
+  else
+    echo "=> cargo build FAILED (exit $GNU_BUILD_EXIT) and the marker"
+    echo "   '$ORDINAL_MARKER' is ABSENT."
+    echo "=> The build log contains NO '$LINK_HEADER' header, so the build"
+    echo "   FAILED BEFORE THE LINK STEP (compile error, or a rustc crash)."
+    echo "=> Cause 4 was NOT evaluated by this run: the linker never ran, so"
+    echo "   this output says nothing about the export ordinal either way."
+    echo "   Classify the compile/rustc failure above on its own."
   fi
 fi
 echo
@@ -146,11 +179,6 @@ echo
 if [ "$GNU_CHECK_EXIT" = "0" ] && [ "$GNU_BUILD_EXIT" != "0" ]; then
   echo "=> A green 'cargo check' does NOT prove the crate links."
   echo "=> The B-02 cause list is therefore NOT exhaustive for the gnu toolchain."
-fi
-if [ "$GNU_CHECK_EXIT" != "0" ] && [ "$GNU_CHECK_EXIT" != "101" ]; then
-  echo "=> NOTE: cargo check exited $GNU_CHECK_EXIT (not 0/101) -- the type-check"
-  echo "   step itself did not complete normally on this host. The link-stage"
-  echo "   finding above is independent of the check exit code."
 fi
 echo
 
