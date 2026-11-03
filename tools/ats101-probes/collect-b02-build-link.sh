@@ -179,8 +179,9 @@ echo
 #
 #   * the exit code says WHETHER cargo produced a build outcome at all:
 #       0     -> the build succeeded
-#       101   -> cargo ran and the crate did not build (cargo's own code for
-#                a failed build: compile error, rustc crash or link error)
+#       101   -> cargo ran and produced NO build outcome (cargo's GENERAL
+#                failure code: compile error, rustc crash, link error,
+#                manifest parse error, dependency resolution error)
 #       126   -> the shell found the cargo file but could not execute it
 #       127   -> the shell could not find the cargo file to execute
 #       other -> cargo/toolchain did not run normally (toolchain not
@@ -195,8 +196,15 @@ echo
 # 126 and 127 are the SHELL's codes, not cargo's, so they must never be
 # reported as a build failure of the crate. Any other non-zero code means
 # cargo did not run to a build outcome, so it must never be reported as a
-# compile failure either. Only exit 101 -- cargo's own code for a failed
-# build -- may be called a compile error or a rustc crash.
+# compile failure either. Only exit 101 -- cargo's GENERAL failure code --
+# may be classified as a build failure. 101 is not specific to a failed
+# build: cargo also returns it for a manifest parse error or a dependency
+# resolution error, so the exit code alone cannot name the failure. What
+# exit 101 plus a build log WITHOUT the 'linking with' header does tell us
+# is that cargo failed BEFORE it invoked the linker -- a compile error or a
+# rustc crash are two of the possible causes, but so are cargo's own errors
+# (manifest parsing, dependency resolution). The verdict therefore names
+# the class and defers the exact cause to the log.
 #
 # The verdict about cause 4 belongs to the BUILD step alone. The check step
 # reports its own outcome and says nothing about cause 4, so that a failing
@@ -207,7 +215,7 @@ LINK_HEADER="linking with"
 
 # Classify one cargo invocation's exit code.
 #   completed    -> 0
-#   build-failed -> 101 (cargo ran, the crate did not build)
+#   build-failed -> 101 (cargo ran and produced no build outcome)
 #   not-started  -> 126/127 (the shell could not execute the cargo file)
 #   no-verdict   -> any other non-zero code (cargo did not run normally)
 classify_cargo_exit() {
@@ -303,14 +311,17 @@ else
         echo "   by this run. The link error above must be classified on its own;"
         echo "   the exit code alone cannot tell them apart."
       else
-        echo "=> cargo build FAILED (exit $GNU_BUILD_EXIT) and the marker"
-        echo "   '$ORDINAL_MARKER' is ABSENT."
-        echo "=> The build log contains NO '$LINK_HEADER' header, so the build"
-        echo "   FAILED BEFORE THE LINK STEP (compile error, or a rustc crash)."
-        echo "=> Cause 4 was NOT evaluated by this run: the linker never ran, so"
-        echo "   this output says nothing about the export ordinal either way."
-        echo "   Classify the compile/rustc failure above on its own."
-      fi
+              echo "=> cargo build FAILED (exit $GNU_BUILD_EXIT) and the marker"
+              echo "   '$ORDINAL_MARKER' is ABSENT."
+              echo "=> The build log contains NO '$LINK_HEADER' header, so cargo failed"
+              echo "   BEFORE THE LINK STEP: the linker was never invoked."
+              echo "=> The possible causes are a compile error, a rustc crash, or one of"
+              echo "   cargo's OWN errors (manifest parsing, dependency resolution) --"
+              echo "   exit $GNU_BUILD_EXIT is cargo's general failure code and does not"
+              echo "   name the cause. Read the log above and classify it on its own."
+              echo "=> Cause 4 was NOT evaluated by this run: the linker never ran, so"
+              echo "   this output says nothing about the export ordinal either way."
+            fi
       ;;
   esac
 fi

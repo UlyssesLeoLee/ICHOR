@@ -260,18 +260,25 @@ build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
    the exit code alone cannot tell them apart.
 ```
 
-**(b) 链接前失败**（build 退出码 **101**、日志**不含** `linking with` 标头——编译错误
-或 rustc 崩溃）：
+**(b) 链接前失败**（build 退出码 **101**、日志**不含** `linking with` 标头）：
 
 ```
 => cargo build FAILED (exit 101) and the marker
    'export ordinal too large' is ABSENT.
-=> The build log contains NO 'linking with' header, so the build
-   FAILED BEFORE THE LINK STEP (compile error, or a rustc crash).
+=> The build log contains NO 'linking with' header, so cargo failed
+   BEFORE THE LINK STEP: the linker was never invoked.
+=> The possible causes are a compile error, a rustc crash, or one of
+   cargo's OWN errors (manifest parsing, dependency resolution) --
+   exit 101 is cargo's general failure code and does not
+   name the cause. Read the log above and classify it on its own.
 => Cause 4 was NOT evaluated by this run: the linker never ran, so
    this output says nothing about the export ordinal either way.
-   Classify the compile/rustc failure above on its own.
 ```
+
+（**101 是 cargo 的通用失败码，不是「构建失败码」**：cargo 在 manifest 解析失败、
+依赖解析失败时同样返回 101。日志无 `linking with` 标头只说明失败发生在**调用
+链接器之前**；成因可能是编译错误、rustc 崩溃，也可能是 cargo 自身的错误，
+须按日志原文归类。）
 
 **(c) `cargo check` 失败**（非 0 退出，含 101）——**只陈述 check 本身，不对成因 4 下结论**：
 
@@ -298,12 +305,16 @@ build log        : <ATS_PROBE_LOG_DIR>/b02-build-link-cargo-build.log
 判定用**两个独立信号**：**退出码**说明 cargo 是否产出过构建结果，
 **build 日志**说明那是哪一种失败。
 
-- **只有退出码 101（cargo 自己的构建失败码）才允许被判成「编译错误或 rustc 崩溃」**。
+- **只有退出码 101 才允许被判成构建失败**。
+  **101 是 cargo 的通用失败码，不是「构建失败码」**：cargo 在 manifest 解析失败、
+  依赖解析失败时同样返回 101。日志无 `linking with` 标头时，表示 cargo 在调用
+  链接器之前就失败了——成因可能是编译错误、rustc 崩溃，也可能是 cargo 自身的
+  错误（manifest 解析、依赖解析），须按日志原文归类。
   126/127 是 **shell** 的退出码而非 cargo 的；其他非 0 码（如 1、2）说明 cargo
   根本没跑到构建结果（工具链未安装、日志目录不可写等）。
-- 反过来，编译失败与链接失败的 cargo 退出码都是 101，仅凭退出码无法分辨——
-  把编译失败报成「另一种链接失败」，会让 ATS-104 修复后暴露的真实编译错误被误判为
-  链接问题。所以退出码与日志两个信号缺一不可。
+- 反过来，编译失败、链接失败、manifest 解析失败与依赖解析失败的 cargo 退出码
+  都是 101，仅凭退出码无法分辨——把编译失败报成「另一种链接失败」，会让 ATS-104
+  修复后暴露的真实编译错误被误判为链接问题。所以退出码与日志两个信号缺一不可。
 
 **成因 4 的判定只来自 build 步骤**：check 失败与 build 的判定因此不会互相矛盾。
 
@@ -390,11 +401,14 @@ build log        : <ATS_PROBE_LOG_DIR>/compile-error/b02-build-link-cargo-build.
 
 => cargo build FAILED (exit 101) and the marker
    'export ordinal too large' is ABSENT.
-=> The build log contains NO 'linking with' header, so the build
-   FAILED BEFORE THE LINK STEP (compile error, or a rustc crash).
+=> The build log contains NO 'linking with' header, so cargo failed
+   BEFORE THE LINK STEP: the linker was never invoked.
+=> The possible causes are a compile error, a rustc crash, or one of
+   cargo's OWN errors (manifest parsing, dependency resolution) --
+   exit 101 is cargo's general failure code and does not
+   name the cause. Read the log above and classify it on its own.
 => Cause 4 was NOT evaluated by this run: the linker never ran, so
    this output says nothing about the export ordinal either way.
-   Classify the compile/rustc failure above on its own.
 
 => A green 'cargo check' does NOT prove the crate links.
 => The B-02 cause list is therefore NOT exhaustive for the gnu toolchain.
@@ -408,11 +422,14 @@ build log        : <ATS_PROBE_LOG_DIR>/rustc-crash/b02-build-link-cargo-build.lo
 
 => cargo build FAILED (exit 101) and the marker
    'export ordinal too large' is ABSENT.
-=> The build log contains NO 'linking with' header, so the build
-   FAILED BEFORE THE LINK STEP (compile error, or a rustc crash).
+=> The build log contains NO 'linking with' header, so cargo failed
+   BEFORE THE LINK STEP: the linker was never invoked.
+=> The possible causes are a compile error, a rustc crash, or one of
+   cargo's OWN errors (manifest parsing, dependency resolution) --
+   exit 101 is cargo's general failure code and does not
+   name the cause. Read the log above and classify it on its own.
 => Cause 4 was NOT evaluated by this run: the linker never ran, so
    this output says nothing about the export ordinal either way.
-   Classify the compile/rustc failure above on its own.
 
 => A green 'cargo check' does NOT prove the crate links.
 => The B-02 cause list is therefore NOT exhaustive for the gnu toolchain.
@@ -540,12 +557,73 @@ cargo build exit : 1
    outcome to inspect.
 ```
 
-（上面 5 组的输出里，`BEFORE THE LINK STEP` 与 `compile error` 各出现 **0 次**——
-非 101 的退出码一律判为「cargo 无法启动」或「cargo/工具链未正常运行」，
-不判成「编译错误或 rustc 崩溃」。
+（**逐组 `grep -c` 实测**：`BEFORE THE LINK STEP` 在 5 组里各出现 **0 次**；
+`compile error` 在后 3 组（第 3/4/5 组）各出现 **0 次**，在前 2 组
+（文件不存在 → 127、文件不可执行 → 126）各出现 **1 次**——那 1 次是否定句
+`This is a PROBE SETUP problem, NOT a compile error,` 里的字面量，**不是**把失败
+判成了编译错误。
+因此语义上的结论是：**5 组的判定都没有把失败判成编译错误或 rustc 崩溃**——
+非 101 的退出码一律判为「cargo 无法启动」或「cargo/工具链未正常运行」。
 其中「工具链未安装」用空的 `RUSTUP_HOME` 加 `RUSTUP_AUTO_INSTALL=0` 模拟，
 对应「未安装且不自动安装或离线」，并非 rustup 默认行为下必然出现的场景；
 判别点在于 exit 1 ≠ 101，与模拟方式无关。）
+
+**真实 cargo 的 101 反例：退出码 101 不是「构建失败码」**
+（证明 101 这一退出码本身**不能**命名失败原因；以下两例用真实
+`~/.cargo/bin/cargo.exe` + gnu 工具链跑出，check 与 build **都返回 101**，
+但失败原因既不是编译错误也不是 rustc 崩溃，而是 cargo 自身的错误。
+两者都落在**第 3 类判定形态「链接前失败」**里，分类规则不变。）：
+
+```
+########## m1：src-tauri/Cargo.toml 末尾追加非法 TOML（manifest 解析失败）##########
+cargo check exit : 101
+cargo build exit : 101
+build log 头部:
+error: unquoted keys cannot be empty, expected letters, numbers, `-`, `_`
+  --> Cargo.toml:21:3
+
+=> cargo check FAILED (exit 101).
+   The type-check step did not complete, so this run says NOTHING about
+   whether the crate links.
+   The cause-4 verdict below comes from the cargo BUILD step only.
+=> cargo build FAILED (exit 101) and the marker
+   'export ordinal too large' is ABSENT.
+=> The build log contains NO 'linking with' header, so cargo failed
+   BEFORE THE LINK STEP: the linker was never invoked.
+=> The possible causes are a compile error, a rustc crash, or one of
+   cargo's OWN errors (manifest parsing, dependency resolution) --
+   exit 101 is cargo's general failure code and does not
+   name the cause. Read the log above and classify it on its own.
+=> Cause 4 was NOT evaluated by this run: the linker never ran, so
+   this output says nothing about the export ordinal either way.
+
+########## m2：CARGO_HOME 指向空目录 + CARGO_NET_OFFLINE=true（依赖解析失败）##########
+cargo check exit : 101
+cargo build exit : 101
+build log 头部:
+error: no matching package named `serde` found
+location searched: crates.io index
+required by package `ai-test-studio v0.1.0 (...\src-tauri)`
+note: offline mode (via `--offline`) can sometimes cause surprising resolution failures
+
+=> cargo check FAILED (exit 101).
+   The type-check step did not complete, so this run says NOTHING about
+   whether the crate links.
+   The cause-4 verdict below comes from the cargo BUILD step only.
+=> cargo build FAILED (exit 101) and the marker
+   'export ordinal too large' is ABSENT.
+=> The build log contains NO 'linking with' header, so cargo failed
+   BEFORE THE LINK STEP: the linker was never invoked.
+=> The possible causes are a compile error, a rustc crash, or one of
+   cargo's OWN errors (manifest parsing, dependency resolution) --
+   exit 101 is cargo's general failure code and does not
+   name the cause. Read the log above and classify it on its own.
+=> Cause 4 was NOT evaluated by this run: the linker never ran, so
+   this output says nothing about the export ordinal either way.
+```
+
+（m2 之所以不是人为构造的场景：`src-tauri/Cargo.lock` **不在版本控制里**，
+全新 clone 在离线环境下必然落到同一个依赖解析失败。）
 
 **路径类覆盖变量在 `cd` 之前解析为绝对路径**：`ATS_PROBE_CARGO` 与
 `ATS_PROBE_LOG_DIR` 按**启动探针时的工作目录**解析，因此上述相对路径写法在探针
