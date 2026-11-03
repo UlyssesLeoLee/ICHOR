@@ -1,0 +1,55 @@
+# ATS-101 证据 04 — HTTP 接口面与错误码实测
+# 日期: 2026-11-03 / Node v24.19.0 / bridge 随机端口
+
+## 4.1 接口清单与实测状态码
+GET    200  /api/health                 -> {"ok":true,"version":"0.1.0","mode":"local","node":"..."}
+GET    200  /api/session                -> {"token":"<48 hex>","mode":"local"}
+GET    401  /api/projects (无 token)     -> {"error":"INVALID_SESSION"}
+GET    200  /api/projects               -> 项目列表（含实时 git branch/commit/dirty）
+POST   201  /api/projects               -> 项目登记
+GET    200  /api/projects/:id/tests     -> {files,tests,discovery,warning}
+GET    200  /api/projects/:id/source    -> {file,content,hash}
+PUT    400  /api/projects/:id/source    -> 缺 baseHash 时 INVALID_SOURCE_UPDATE
+POST   202  /api/projects/:id/run       -> {run:{status:queued|running|error}}
+GET    200  /api/projects/:id/lineage   -> {requirements,links}
+GET    200  /api/runs                   -> 运行历史（log 以 logLength 返回）
+GET    404  /api/runs/:id (未知)         -> {"error":"RUN_NOT_FOUND"}
+POST   404  /api/runs/:id/stop (未知)   -> {"error":"RUN_NOT_FOUND"}
+GET    404  /api/runs/:id/events (未知)  -> {"error":"RUN_NOT_FOUND"}
+GET    404  /api/runs/:id/artifact(未知)-> {"error":"RUN_NOT_FOUND"}
+GET    200  /api/diagnostics            -> runtime/platform/pid/limitations[]
+GET    404  /api/nope                   -> {"error":"NOT_FOUND"}
+
+## 4.2 错误码实测（与 docs/04 §7 对照）
+INVALID_PROJECT_PATH   400  路径长度 >1024
+PROJECT_PACKAGE_JSON_REQUIRED  400  目录缺 package.json
+PROJECT_ALREADY_REGISTERED  409  同一路径重复登记
+INVALID_SOURCE_FILE    400  非 .spec/.test 文件
+PATH_OUTSIDE_PROJECT   400  ../ 越界
+STALE_EDIT_CONFLICT    409  baseHash 不匹配
+PAYLOAD_TOO_LARGE      400  body > 1.2MB
+INVALID_SESSION        401  缺/错 X-ATS-Token
+ORIGIN_NOT_ALLOWED     403  跨站 Origin（raw socket 实测）
+INVALID_HOST           403  Host=evil.example:4577（raw socket 实测）
+RUN_NOT_FOUND          404  未知 run
+NOT_FOUND              404  未知 /api/* 路径
+
+## 4.3 实测与设计文档不符的错误映射（缺陷）
+NOT_A_DIRECTORY        实测 500  设计预期 400
+RUN_NOT_ACTIVE         实测 500  设计文档 §7 错误码表未收录此码（语义与幂等性见 B-03）
+PLAYWRIGHT_NOT_INSTALLED... 实测 202 + run.status=error（与设计一致）
+不存在路径 ENOENT      实测 500  泄漏宿主绝对路径
+缺失附件 ENOENT        实测 500  泄漏 ATS_DATA_DIR 绝对路径
+
+## 4.4 安全边界实测（raw socket，绕过 fetch 对 Host 头的重写）
+Host: localhost:PORT      -> HTTP/1.1 200 OK
+Host: 127.0.0.1:PORT      -> HTTP/1.1 200 OK
+Host: evil.example:PORT   -> HTTP/1.1 403 Forbidden {"error":"INVALID_HOST"}
+Origin: https://evil.example -> HTTP/1.1 403 Forbidden {"error":"ORIGIN_NOT_ALLOWED"}
+Origin: http://localhost:3000 -> HTTP/1.1 200 OK
+
+## 4.5 静态 UI 服务实测
+GET /            -> 200 text/html（Next 静态导出产物）
+GET /fallback.html -> 200 text/html（零依赖便携 UI）
+GET /index.html  -> 200 text/html
+GET /_next/static/chunks/（目录不存在）-> 404 text/plain "UI not built. Run npm --prefix apps/studio install && npm run build:web..."

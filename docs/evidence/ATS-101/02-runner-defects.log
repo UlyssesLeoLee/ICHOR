@@ -1,0 +1,26 @@
+## 场景 A：真实 Playwright 项目经 Bridge 启动运行（当前基线行为）
+POST /api/projects -> 201 {"project":{"id":"proj_fe932964-3322-41f0-adf2-5b86d543f3ff","name":"ats101-pwcap","root":"D:\\hermes-multica\\home\\cac
+POST /api/projects/:id/run -> 202 初始状态=running
+终态 status=failed exitCode=1
+summary=null
+artifacts=[]
+stdout 末尾: "error: unknown option '--screenshot'\n"
+events=["run.queued#1","run.started#2","run.finished#3"]
+
+结论：真实浏览器运行链路在 CLI 参数解析阶段即失败，未进入浏览器执行，summary 为 null，artifacts 为空。
+
+## 场景 B：仅修正 CLI 参数向量后（去掉 --screenshot/--video）的对照实验
+终态 status=failed exitCode=1
+summary: total=2 passed=1 failed=1 skipped=0 flaky=0
+case[0]: {"title":"real browser can launch","file":"probe.spec.ts","status":"expected","duration":461,"error":""}
+case[1].error 前 120 字符: "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: loc"
+artifacts 数量=31
+artifacts（前 12）: ["html/data/0fbe5adbe669d1532b6c95c944358140ac921665.zip","html/data/22d54cfe4bfbfd2eef82d0bcd8b6064a36b53d5e.webm","html/data/39e3e4cc8158bb54aae926a19b5224dbaa104a7d.zip","html/data/4d89d8c6872e4e17d02ab0e88dfd359f62d2380d.png","html/data/92b1238206d911fe8c661519e9bc978b5c7e639f.md","html/index.html","html/trace/assets/codeMirrorModule-BEB2e8M3.js","html/trace/assets/defaultSettingsView-D-g2vrvf.js","html/trace/assets/urlMatch-L3liM589.js","html/trace/codeMirrorModule.-QdMvsKi.css","html/trace/codicon.DCmgc-ay.ttf","html/trace/defaultSettingsView.C8BeHuxd.css"]
+对照结论：去掉 --screenshot/--video 后，真实 Chromium 执行成功，1 passed + 1 failed 被正确解析，
+trace.zip / test-failed-1.png / video.webm / report.json / html/ 全部产出。
+
+## 场景 C：重启后卡在 cancelling 的 Run
+重启后该 Run 状态 = cancelling  （期望 interrupted，实测卡死）
+同一项目 POST /run -> 409 {"error":"PROJECT_ALREADY_RUNNING"}
+POST /stop 解除卡死 -> 500 {"error":"RUN_NOT_ACTIVE"}
+结论：该 Run 永久占用同项目的运行锁，且无法通过 API 解除（RUN_NOT_ACTIVE 返回 500）。

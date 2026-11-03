@@ -1,0 +1,38 @@
+# ATS-101 证据 01 — Node Bridge 单元/集成测试
+# 日期: 2026-11-03  环境: Windows 11 / Node v24.19.0 / npm 12.2.0
+# 命令: npm test  (package.json scripts.test = node --test tests/*.test.mjs)
+
+$ node --check server/index.mjs
+(no output = syntax OK)
+
+$ npm test
+npm notice run ai-test-studio@0.1.0 test
+npm notice run node --test tests/*.test.mjs
+✔ IT-API-SETUP: start server (197.2563ms)
+✔ IT-SEC-001: rejects unauthenticated API (2.5396ms)
+✔ IT-API-001: add existing repository (133.8624ms)
+✔ IT-API-002: import and index tests (141.6084ms)
+✔ IT-SEC-002: rejects foreign origin (10.5596ms)
+✔ IT-RUN-001: no deps => explicit failure rather than fake success (138.1453ms)
+✔ IT-API-003: runs survive persisted read (15.371ms)
+✔ IT-API-CLEANUP: stop and cleanup (2.8137ms)
+✔ UT-CORE-001: validates Playwright project (3.1922ms)
+✔ UT-CORE-002: extracts static test index (2.3064ms)
+✔ UT-SEC-001: rejects path traversal (0.4571ms)
+✔ UT-CORE-003: conditional save avoids lost updates (2.7928ms)
+✔ UT-CORE-004: malformed project rejected (0.973ms)
+✔ UT-RUN-001: missing local Playwright never auto-installs (0.3797ms)
+✔ UT-RPT-001: report summary counts passed/failed/skipped (1.6615ms)
+✔ UT-CORE-005: removes generated fixture (3.3825ms)
+✔ IT-RUN-MOCK-SETUP: isolated fake CLI adapter (280.4922ms)
+✔ IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip (240.275ms)
+✔ IT-RUN-MOCK-002: cancel marks cancelled (270.4617ms)
+✔ IT-RUN-MOCK-CLEANUP: cleanup (13.5328ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 940.0246
