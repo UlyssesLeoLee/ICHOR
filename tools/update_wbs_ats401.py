@@ -10,10 +10,13 @@ ATS-401 row changes:
   P (剩余人日): cached value 5 -> 0 (the formula K*(1-O) is kept)
   T (风险/说明): append the ATS-401 note
 
-The overview sheet's cached formula results are refreshed to match:
-  B8  COUNTIF(N6:N94,"已完成")      -> 0        (no row is 已完成)
-  B9  1-SUM(P)/SUM(K)               -> 1-465/470
-  B10 SUM(P6:P94)                   -> 465
+The overview sheet's cached formula results are recomputed FROM THE SHEET
+rather than hardcoded, so the summary stays correct no matter what other rows
+already carry a non-zero completion rate:
+
+  B8  COUNTIF(N6:N94,"已完成")       -> counted from the sheet
+  B9  1-SUM(P)/SUM(K)                -> computed from the sheet
+  B10 SUM(P6:P94)                    -> computed from the sheet
 
 NOTE on 状态: 待审核 ("pending review"), NOT 已完成. The deliverable is
 submitted but not accepted yet -- the reviewer (Opus) syncs the completion
@@ -28,6 +31,8 @@ from pathlib import Path
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 SHEET2 = 'xl/worksheets/sheet2.xml'
 SHEET1 = 'xl/worksheets/sheet1.xml'
+
+FIRST_ROW, LAST_ROW = 6, 94
 
 
 def find_ats_row(xml, ats_id):
@@ -73,6 +78,42 @@ NOTE = (
 )
 
 
+def cell_text(xml, rid, col):
+    m = re.search(r'<x:c r="%s%d"[^>]*>(.*?)</x:c>' % (col, rid), xml, re.S)
+    if m is None:
+        return ''
+    v = re.search(r'<x:v>(.*?)</x:v>', m.group(1), re.S)
+    return v.group(1) if v else ''
+
+
+def cell_number(xml, rid, col):
+    raw = cell_text(xml, rid, col)
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def summarise(xml2):
+    """Recompute the overview's cached formula values from the sheet itself.
+
+    Mirrors the three formulas that live in the 总览 sheet:
+      B8  = COUNTIF('开发WBS'!N6:N94,"已完成")
+      B9  = IFERROR(1-SUM('开发WBS'!P6:P94)/SUM('开发WBS'!K6:K94),0)
+      B10 = SUM('开发WBS'!P6:P94)
+    """
+    done = 0
+    sum_p = 0.0
+    sum_k = 0.0
+    for rid in range(FIRST_ROW, LAST_ROW + 1):
+        if cell_text(xml2, rid, 'N') == '已完成':
+            done += 1
+        sum_p += cell_number(xml2, rid, 'P')
+        sum_k += cell_number(xml2, rid, 'K')
+    rate = 0.0 if sum_k == 0 else 1 - sum_p / sum_k
+    return done, rate, sum_p
+
+
 def main():
     shutil.copy2(XLSX, XLSX.with_suffix('.xlsx.bak'))
     zin = zipfile.ZipFile(XLSX)
@@ -103,12 +144,13 @@ def main():
     parts[SHEET2] = xml2.encode('utf-8')
 
     # --- 总览: refresh the cached values of the existing formulas -----------
+    done, rate, sum_p = summarise(xml2)
     xml1 = parts[SHEET1].decode('utf-8')
-    # SUM(K)=470 over 89 rows; ATS-401 contributes 0 remaining -> SUM(P)=465
-    xml1 = set_cell_in_row(xml1, 8, 'B', '0', numeric=True)                   # COUNTIF(已完成)
-    xml1 = set_cell_in_row(xml1, 9, 'B', '0.01063829787234', numeric=True)   # 1-465/470
-    xml1 = set_cell_in_row(xml1, 10, 'B', '465', numeric=True)                # SUM(P)
+    xml1 = set_cell_in_row(xml1, 8, 'B', str(done), numeric=True)
+    xml1 = set_cell_in_row(xml1, 9, 'B', repr(rate), numeric=True)
+    xml1 = set_cell_in_row(xml1, 10, 'B', str(int(sum_p)) if sum_p == int(sum_p) else str(sum_p), numeric=True)
     parts[SHEET1] = xml1.encode('utf-8')
+    print(f'overview: 已完成={done} 完成率={rate} 剩余人日={sum_p}')
 
     # --- rewrite the archive, preserving every other part byte-for-byte -----
     tmp = XLSX.with_suffix('.xlsx.tmp')
