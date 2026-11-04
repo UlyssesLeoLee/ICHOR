@@ -5,6 +5,8 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog } from './core.mjs';
+import { capabilityMatrix,getAdapter,listRunners,selectAdapter } from './adapters/registry.mjs';
+import { AdapterError,requireCapability } from './adapters/contract.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const ROOT=path.resolve(HERE,'..');
@@ -28,22 +30,25 @@ function finishRun(run,code,signal){
  if(run.status!=='running'&&run.status!=='cancelling')return;
  const cancelled=run.status==='cancelling';
  run.status=cancelled?'cancelled':code===0?'passed':'failed';run.exitCode=code;run.finishedAt=now();
- const reportFile=path.join(runDir(run.id),'report.json');
- if(fs.existsSync(reportFile)){try{run.summary=parseReport(JSON.parse(fs.readFileSync(reportFile,'utf8')));}catch(e){run.reportWarning=String(e.message);}}
+ const folder=runDir(run.id);
+ // Collect through the adapter that started the run, so every engine's
+ // native result file is mapped onto the same summary shape.
+ const adapter=run.runner?getAdapter(run.runner):null;
+ if(adapter){try{const collected=adapter.collect({outputDir:folder});if(collected&&collected.summary)run.summary=collected.summary;}catch(e){run.reportWarning=String(e.message);}}
+ if(!run.summary){const reportFile=path.join(folder,'report.json');if(fs.existsSync(reportFile)){try{run.summary=parseReport(JSON.parse(fs.readFileSync(reportFile,'utf8')));}catch(e){run.reportWarning=String(e.message);}}}
  run.artifacts=filesInRun(run.id).filter(x=>!['events.jsonl','stdout.log'].includes(x.file));
- const manifest={version:1,runId:run.id,projectId:run.projectId,sourceCommit:run.gitCommit,runner:'playwright',status:run.status,createdAt:run.startedAt,finishedAt:run.finishedAt,artifacts:run.artifacts};
- fs.writeFileSync(path.join(runDir(run.id),'manifest.json'),JSON.stringify(manifest,null,2));
+ const manifest={version:1,runId:run.id,projectId:run.projectId,sourceCommit:run.gitCommit,runner:run.runner||'playwright',status:run.status,createdAt:run.startedAt,finishedAt:run.finishedAt,artifacts:run.artifacts};
+ fs.writeFileSync(path.join(folder,'manifest.json'),JSON.stringify(manifest,null,2));
  writeEvent(run,'run.finished',{status:run.status,code,signal});jobs.delete(run.id);saveState(store);
 }
-function startRun(project,run){
+function startRun(project,run,adapter){
  const folder=runDir(run.id);fs.mkdirSync(folder,{recursive:true});
- writeEvent(run,'run.queued',{file:run.file});
- let args;try{args=safeRunArgs(project,run.file,folder);}catch(e){run.status='error';run.error=e.message;run.finishedAt=now();writeEvent(run,'run.error',{error:e.message});saveState(store);return;}
- const env={...process.env,PLAYWRIGHT_JSON_OUTPUT_FILE:path.join(folder,'report.json'),PLAYWRIGHT_HTML_OUTPUT_DIR:path.join(folder,'html'),PLAYWRIGHT_HTML_OPEN:'never',CI:'1',FORCE_COLOR:'0'};
- let cp;
- try{cp=spawn(process.execPath,args,{cwd:project.root,env,stdio:['ignore','pipe','pipe'],windowsHide:true,shell:false});}
- catch(e){run.status='error';run.error=e.message;saveState(store);return;}
- run.status='running';run.pid=cp.pid;run.startedAt=now();jobs.set(run.id,cp);writeEvent(run,'run.started',{pid:cp.pid});saveState(store);
+ writeEvent(run,'run.queued',{file:run.file,runner:run.runner});
+ let handle;
+ try{handle=adapter.start({project,run,file:run.file,outputDir:folder});}
+ catch(e){run.status='error';run.error=e.message;run.finishedAt=now();writeEvent(run,'run.error',{error:e.message});saveState(store);return;}
+ const cp=handle.child;
+ run.status='running';run.pid=cp.pid;run.startedAt=now();run.command=[handle.command,...handle.args];jobs.set(run.id,{child:cp,handle});writeEvent(run,'run.started',{pid:cp.pid,runner:run.runner});saveState(store);
  for(const stream of [cp.stdout,cp.stderr])stream.on('data',buf=>{
   const str=buf.toString('utf8');run.log=compactLog((run.log||'')+str);
   fs.appendFileSync(path.join(folder,'stdout.log'),str);
@@ -52,7 +57,8 @@ function startRun(project,run){
  cp.on('close',(code,signal)=>finishRun(run,code,signal));
 }
 function cancelRun(run){
- const cp=jobs.get(run.id);if(!cp)throw new Error('RUN_NOT_ACTIVE');run.status='cancelling';writeEvent(run,'run.cancelling');saveState(store);
+ const job=jobs.get(run.id);if(!job)throw new Error('RUN_NOT_ACTIVE');run.status='cancelling';writeEvent(run,'run.cancelling');saveState(store);
+ const cp=job.child;
  if(process.platform==='win32')spawn('taskkill',['/PID',String(cp.pid),'/T','/F'],{windowsHide:true});
  else {try{cp.kill('SIGTERM');}catch{}}
 }
@@ -89,13 +95,34 @@ const server=http.createServer(async(req,res)=>{
  const pm=p.match(/^\/api\/projects\/(proj_[0-9a-f-]{36})(?:\/(.*))?$/);
  if(pm){const project=getProject(pm[1]),action=pm[2]||'';
   if(action==='tests'&&req.method==='GET')return respond(res,200,{...discoverStatic(project),project:cleanProject(project)});
+  if(action==='runners'&&req.method==='GET'){
+   return respond(res,200,{runners:listRunners(),capabilities:capabilityMatrix(project),project:cleanProject(project)});
+  }
+  if(action==='runners'&&req.method==='POST'){
+   const b=await body(req);
+   const requested=Array.isArray(b.capabilities)?b.capabilities:[];
+   try{
+    const chosen=selectAdapter(project,requested,{preferred:b.runner});
+    return respond(res,200,{selected:chosen.adapter.kind,negotiation:chosen.negotiation,rejected:chosen.rejected});
+   }catch(e){
+    if(e instanceof AdapterError)return err(res,409,e.code);
+    throw e;
+   }
+  }
   if(action==='source'&&req.method==='GET')return respond(res,200,readSource(project,u.searchParams.get('file')));
   if(action==='source'&&req.method==='PUT'){const b=await body(req);return respond(res,200,writeSource(project,b.file,b.content,b.baseHash));}
   if(action==='run'&&req.method==='POST'){
    if(store.runs.some(x=>x.projectId===project.id&&['running','queued','cancelling'].includes(x.status)))throw new Error('PROJECT_ALREADY_RUNNING');
    const b=await body(req),file=b.file||null;if(file)readSource(project,file);
-   const run={id:safeId('run'),projectId:project.id,projectName:project.name,file,gitCommit:gitInfo(project.root).commit,status:'queued',createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,log:'',summary:null,artifacts:[]};
-   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run);return respond(res,202,{run});
+   // Pick the runner by capability negotiation, not by a hardcoded name. A
+   // caller may pin one with `runner`; otherwise the first runner that
+   // supports the required operations wins.
+   const requested=Array.isArray(b.capabilities)&&b.capabilities.length?b.capabilities:['discover','start','stop','collect'];
+   let chosen;
+   try{chosen=selectAdapter(project,requested,{preferred:b.runner});}
+   catch(e){if(e instanceof AdapterError)return err(res,409,e.code);throw e;}
+   const run={id:safeId('run'),projectId:project.id,projectName:project.name,file,gitCommit:gitInfo(project.root).commit,status:'queued',createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested};
+   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter);return respond(res,202,{run});
   }
   if(action==='lineage'&&req.method==='GET'){
    const dir=path.join(project.root,'.aitest');let requirements=[],links=[];

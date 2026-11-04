@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
+import { parseCliOptions, probeCommand } from './adapters/contract.mjs';
 
 export const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 export const safeId = (prefix) => `${prefix}_${crypto.randomUUID()}`;
@@ -76,10 +77,31 @@ export function resolvePlaywright(project) {
  for(const c of candidates){const p=path.join(project.root,c);if(fs.existsSync(p))return p;}
  return null;
 }
+/**
+ * The Playwright CLI options the INSTALLED CLI actually accepts.
+ *
+ * ATS-101 defect B-01 was that the argument vector was written by hand and
+ * contained two options (`--screenshot`, `--video`) that `playwright test`
+ * does not have -- the CLI rejected the whole vector and the run died during
+ * argument parsing. The option set of the installed CLI is now the contract:
+ * an option is only passed when the CLI declares it.
+ */
+export function playwrightCliOptions(project) {
+ const cli=resolvePlaywright(project);
+ if(!cli)return null;
+ const help=probeCommand(process.execPath,[cli,'test','--help'],{cwd:project.root});
+ if(!help.ok)return null;
+ return parseCliOptions(help.stdout);
+}
 export function safeRunArgs(project,testFile,output) {
  const cli=resolvePlaywright(project);
  if(!cli)throw new Error('PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT');
- const args=[cli,'test','--reporter=line,json,html','--output',path.join(output,'results'),'--trace','on','--screenshot','only-on-failure','--video','retain-on-failure','--workers','1'];
+ const options=playwrightCliOptions(project)||[];
+ const args=[cli,'test'];
+ if(options.includes('reporter'))args.push('--reporter=line,json,html');
+ if(options.includes('output'))args.push('--output',path.join(output,'results'));
+ if(options.includes('trace'))args.push('--trace','on');
+ if(options.includes('workers'))args.push('--workers','1');
  if(testFile){sourcePath(project,testFile); args.push(testFile);}return args;
 }
 export function runDir(id){if(!/^run_[0-9a-f-]{36}$/.test(id)) throw new Error('INVALID_RUN_ID');return path.join(dataDir(),'runs',id);}
