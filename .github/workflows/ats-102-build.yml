@@ -50,8 +50,7 @@ jobs:
             apps/studio/package-lock.json
 
       - name: Verify Node version matches engines
-        run: |
-          node -e "const e=require('./package.json').engines.node; const v=process.versions.node; console.log('node', v, 'engines', e); if(!v.startsWith('22.')) { console.error('Node 22 is required'); process.exit(1); }"
+        run: node tools/ci_build_gate.mjs --check-node
 
       - name: Clean install from lockfile (root)
         run: npm ci --no-audit --no-fund
@@ -106,12 +105,7 @@ jobs:
         working-directory: apps/studio
 
       - name: Verify the export artefact exists
-        run: |
-          if (-not (Test-Path 'apps/studio/out/index.html')) {
-            Write-Error 'apps/studio/out/index.html was not produced'
-            exit 1
-          }
-          Get-ChildItem apps/studio/out | Select-Object -First 20 | Format-Table -AutoSize
+        run: node tools/ci_build_gate.mjs --check-artefact
 
       # next build 会改写两个受版本控制的文件（next-env.d.ts / tsconfig.json）。
       # 这是已知的构建副作用（docs/16-BASELINE-ADR.md §5.2），因此这里只

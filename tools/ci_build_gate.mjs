@@ -30,8 +30,23 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 
 const argv = process.argv.slice(2);
 const LIST_ONLY = argv.includes('--list');
+const CHECK_ARTEFACT = argv.includes('--check-artefact');
+const CHECK_NODE = argv.includes('--check-node');
 const STEP_INDEX = argv.indexOf('--step');
 const ONLY_STEP = STEP_INDEX >= 0 ? argv[STEP_INDEX + 1] : null;
+
+/**
+ * The static export artefact the web-build step must produce.
+ */
+const EXPORT_ARTEFACT = path.join('apps', 'studio', 'out', 'index.html');
+
+/**
+ * The Node major version the project is pinned to. The root package.json
+ * declares `engines.node` as ">=22"; the CI gate additionally requires the
+ * MAJOR to be 22, because the lockfiles were produced by the Node 22 npm and
+ * a newer major may resolve differently.
+ */
+const REQUIRED_NODE_MAJOR = 22;
 
 /**
  * Every step runs a command and asserts its exit code. The commands are the
@@ -69,11 +84,11 @@ const STEPS = [
     title: 'Next.js 16 static export',
     commands: [
       { cwd: path.join(REPO_ROOT, 'apps', 'studio'), cmd: 'npm', args: ['run', 'build'] },
-      {
-        cwd: REPO_ROOT,
-        cmd: 'node',
-        args: ['-e', "const fs=require('fs');if(!fs.existsSync('apps/studio/out/index.html')){console.error('apps/studio/out/index.html was not produced');process.exit(1)}console.log('artefact ok: apps/studio/out/index.html')"],
-      },
+      // The artefact check is a separate script file rather than `node -e`,
+      // because an inline script has to survive the Windows shell's word
+      // splitting (a `shell: true` spawn splits on spaces, which breaks any
+      // `node -e` payload containing them).
+      { cwd: REPO_ROOT, cmd: 'node', args: [path.join(REPO_ROOT, 'tools', 'ci_build_gate.mjs'), '--check-artefact'] },
     ],
   },
   {
@@ -108,6 +123,38 @@ function run(cmd) {
 }
 
 function main() {
+  if (CHECK_NODE) {
+    const declared = JSON.parse(
+      fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'),
+    ).engines?.node || '(none)';
+    const major = Number(process.versions.node.split('.')[0]);
+    console.log(`node ${process.versions.node}, engines.node ${declared}`);
+    if (major !== REQUIRED_NODE_MAJOR) {
+      console.error(`Node ${REQUIRED_NODE_MAJOR}.x is required, got ${process.versions.node}`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`node version ok: ${process.versions.node}`);
+    return;
+  }
+
+  if (CHECK_ARTEFACT) {
+    const artefact = path.join(REPO_ROOT, EXPORT_ARTEFACT);
+    if (!fs.existsSync(artefact)) {
+      console.error(`${EXPORT_ARTEFACT} was not produced`);
+      process.exitCode = 1;
+      return;
+    }
+    const bytes = fs.statSync(artefact).size;
+    if (bytes === 0) {
+      console.error(`${EXPORT_ARTEFACT} is empty`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`artefact ok: ${EXPORT_ARTEFACT} (${bytes} bytes)`);
+    return;
+  }
+
   if (LIST_ONLY) {
     for (const step of STEPS) console.log(`${step.id}\t${step.title}`);
     return;

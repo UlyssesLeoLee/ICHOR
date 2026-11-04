@@ -112,6 +112,11 @@ function readLock(project) {
   return { lock, lockPath };
 }
 
+/** Read a file as text, normalising CRLF to LF. */
+function readTextLoose(file) {
+  return fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+}
+
 /**
  * Normalise the many shapes of a licence declaration into a single string.
  * The registry returns a string; the installed package.json may return a
@@ -425,7 +430,11 @@ async function main() {
         problems.push(`${path.relative(REPO_ROOT, file)} is missing`);
         continue;
       }
-      const actual = fs.readFileSync(file, 'utf8');
+      // The comparison is line-ending insensitive: git's autocrlf filter
+      // rewrites the committed LF content to CRLF in a Windows working tree,
+      // so a byte comparison would report a spurious drift on every clone.
+      // The CONTENT must match; the terminator style is git's business.
+      const actual = readTextLoose(file);
       if (actual !== expected) {
         problems.push(`${path.relative(REPO_ROOT, file)} differs from the lockfile-derived content`);
       }
