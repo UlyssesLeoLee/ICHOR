@@ -1001,6 +1001,28 @@
     "level": "UT"
   },
   {
+    "id": "UT-AGT-067",
+    "req": "FR-025",
+    "category": "安全",
+    "title": "自审检查不是精确字符串比较",
+    "input": "producedBy=gen-1，reviewer 取 gen-1 / gen-1(空格) / GEN-1 / Gen-1",
+    "expected": "四种写法均报 AGENT_REVIEW_SELF_FORBIDDEN",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-AGT-068",
+    "req": "FR-025",
+    "category": "安全",
+    "title": "提案人必须由平台侧给出",
+    "input": "context.producedBy 缺失或为空白",
+    "expected": "报 AGENT_PROPOSAL_INVALID",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
     "id": "IT-API-SETUP",
     "req": "NFR-011",
     "category": "正常",

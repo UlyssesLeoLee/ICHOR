@@ -1,6 +1,6 @@
 === ATS-401 coverage measurement ===
 node: v24.19.0
-date: 2026-11-04T08:17:31Z
+date: 2026-11-04T08:29:30Z
 command: node --test --experimental-test-coverage tests/*.test.mjs
 
 ℹ start of coverage report
@@ -8,11 +8,11 @@ command: node --test --experimental-test-coverage tests/*.test.mjs
 ℹ file                   | line % | branch % | funcs % | uncovered lines
 ℹ ---------------------------------------------------------------------------------------------------------------
 ℹ server                 |        |          |         | 
-ℹ  agent.mjs             |  97.43 |    85.52 |   95.24 | 535-537 540-543 591-593 600-601 740-744 857-860 884-887
+ℹ  agent.mjs             |  97.52 |    85.25 |   95.56 | 535-537 540-543 591-593 600-601 756-760 873-876 900-903
 ℹ  core.mjs              |  77.57 |    66.07 |   57.69 | 13-18 20-22 32-34 82-83 87-92 94-97
 ℹ tools                  |        |          |         | 
 ℹ  ats401-probes         |        |          |         | 
 ℹ   lib                  |        |          |         | 
 ℹ    contract-purity.mjs |  88.24 |    95.74 |   85.71 | 196-221
 ℹ ---------------------------------------------------------------------------------------------------------------
-ℹ all files              |  94.24 |    84.22 |   81.33 | 
+ℹ all files              |  94.39 |    84.03 |   82.05 | 

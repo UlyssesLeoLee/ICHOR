@@ -73,7 +73,7 @@ NOTE = (
     'diff 头部里的每一个路径都必须在 scope.outputs 内，rename/copy/binary/mode change 一律拒绝，'
     '摘要与内容在请求校验层复算比对（/api/agent/validate 与适配器同一判定），'
     '截止时间由 AbortController + Promise.race 强制施加。'
-    'UT/IT 共 81 项（66 UT + 15 IT）、npm test 共 101 项全通过；'
+    'UT/IT 共 83 项（68 UT + 15 IT）、npm test 共 103 项全通过；'
     '复现脚本 tools/ats401-probes/probe-agent-boundary.mjs（含负控），'
     '证据 docs/evidence/ATS-401/。'
     '未实现（不属本项）：模型提供商接入（ATS-403）、API Key 存储与外传知情授权（ATS-402）、'
