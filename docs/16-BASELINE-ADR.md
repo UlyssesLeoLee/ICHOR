@@ -149,7 +149,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 
 设计文档 `docs/04-DETAILED-DESIGN.md` §7 与实测一致的部分：`INVALID_PROJECT_PATH`(400)、`PROJECT_PACKAGE_JSON_REQUIRED`(400)、`PROJECT_ALREADY_REGISTERED`(409)、`INVALID_SOURCE_FILE`(400)、`PATH_OUTSIDE_PROJECT`(400)、`STALE_EDIT_CONFLICT`(409)、`PAYLOAD_TOO_LARGE`(400)、`INVALID_SESSION`(401)、`ORIGIN_NOT_ALLOWED`(403)、`INVALID_HOST`(403)、`RUN_NOT_FOUND`(404)、`NOT_FOUND`(404)。
 
-**Agent 契约错误码（ATS-401）**：`server/index.mjs:135` 把 `AGENT_*` 前缀的错误统一映射为 **400**（请求不满足契约属于客户端错误），并把错误码原样返回给调用方；调用方按 `err.code` 分支，不解析消息文本。24 个错误码的完整清单见 `docs/17-AGENT-CONTRACT.md` §4.3。实测覆盖：`AGENT_CAPABILITY_FORBIDDEN`、`AGENT_BUDGET_REQUIRED`、`AGENT_PROVENANCE_REQUIRED`、`AGENT_SCOPE_ESCAPE`（见 `docs/evidence/ATS-401/01-node-test.log`）。
+**Agent 契约错误码（ATS-401）**：`server/index.mjs:135` 把 `AGENT_*` 前缀的错误统一映射为 **400**（请求不满足契约属于客户端错误），并把错误码原样返回给调用方；调用方按 `err.code` 分支，不解析消息文本。25 个错误码的完整清单见 `docs/17-AGENT-CONTRACT.md` §4.3。实测覆盖：`AGENT_CAPABILITY_FORBIDDEN`、`AGENT_BUDGET_REQUIRED`、`AGENT_PROVENANCE_REQUIRED`、`AGENT_SCOPE_ESCAPE`（见 `docs/evidence/ATS-401/01-node-test.log`）。
 
 **实测与设计不符（缺陷）**：
 
