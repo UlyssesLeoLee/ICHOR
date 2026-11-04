@@ -103,7 +103,9 @@
 - **拒绝**的构造：rename、copy、`GIT binary patch`、`Binary files … differ`、`old/new mode`、任何非 `100644` 的 mode、`deleted file mode`。新建测试脚本（`--- /dev/null` + `new file mode 100644`，且路径在 `scope.outputs` 内）是允许的。
 - `script-diff` 提案必须引用至少一个输入出处（`evidenceRefs`），否则 `AGENT_PROPOSAL_INVALID`。
 - 非 `script-diff` 类型的提案**不得携带 diff**。
-- 评审：`reviewAgentProposal()` 只改审批状态，不改提案内容；`reviewer` 不得等于 `producedBy`（`AGENT_REVIEW_SELF_FORBIDDEN`）；只有 `pending` 可被评审。
+- 评审：`reviewAgentProposal()` 只改审批状态，不改提案内容；`reviewer` 与 `producedBy` **规范化后**不得相同（去首尾空白、折叠内部空白、转小写），因此 `'gen-1 '` 与 `'GEN-1'` 同样被拒（`AGENT_REVIEW_SELF_FORBIDDEN`）；只有 `pending` 可被评审。
+- 提案人由平台侧给出：`context.producedBy` 缺失时**拒绝**（`AGENT_PROPOSAL_INVALID`），不退化为 `'unknown'`——否则「提案人不得自审」在无提案人的提案上会失效。
+- 这仍只是**字符串层面的**身份判定，不是身份认证。评审人身份须来自登录态，该实现未落地（见 §6）。
 
 ### 2.4 ModelProvider 与 AgentAdapter
 
@@ -133,7 +135,7 @@
 
 ### 4.1 单元与集成测试（UT/IT）
 
-`npm test`（Node v24.19.0）：**101 项全通过**，其中 Agent 契约相关 81 项（66 项 `UT-AGT-*` 契约单元测试 + 15 项 `IT-AGT-*` API 集成测试），原有 20 项无回归。原始输出见 `docs/evidence/ATS-401/01-node-test.log`。
+`npm test`（Node v24.19.0）：**103 项全通过**，其中 Agent 契约相关 83 项（68 项 `UT-AGT-*` 契约单元测试 + 22 项 `IT-AGT-*` API 集成测试），原有 20 项无回归。原始输出见 `docs/evidence/ATS-401/01-node-test.log`。
 
 新增用例覆盖：
 
@@ -174,10 +176,10 @@
 
 | 文件 | 行覆盖 | 分支覆盖 | 函数覆盖 |
 |---|---|---|---|
-| `server/agent.mjs` | **97.43 %** | 85.52 % | 95.24 % |
+| `server/agent.mjs` | **97.52 %** | 85.25 % | 95.56 % |
 | `tools/ats401-probes/lib/contract-purity.mjs` | 88.24 % | 95.74 % | 85.71 % |
 
-第 1 次复核时 `server/agent.mjs` 的行覆盖为 82.17 %，复核意见点名的零覆盖分支（输入超预算、截止时间超时、provider 抛错、provider 无 text、预算四项上下限、`maxTokens`、`validateActions`、confidence、evidence 类出处）已全部补上用例（UT-AGT-029~066）。
+第 1 次复核时 `server/agent.mjs` 的行覆盖为 82.17 %，复核意见点名的零覆盖分支（输入超预算、截止时间超时、provider 抛错、provider 无 text、预算四项上下限、`maxTokens`、`validateActions`、confidence、evidence 类出处）已全部补上用例（UT-AGT-029~068）。
 
 ### 4.4 第 1 次复核的反例回归探针
 
@@ -231,6 +233,7 @@
 | `maxSteps` 的实际施加 | ATS-403 | 本次只校验上限；一次 `execute()` 为一步。多步循环未实现 |
 | 符号链接的路径校验 | 平台侧 | 路径校验是纯词法的，不解析符号链接。落地时平台侧必须做 realpath |
 | `projectId` 与已登记项目的绑定 | 平台侧 | `/api/agent/validate` 不校验 `projectId`/`root` 是否属于已登记项目 |
+| 评审人身份的**认证** | 平台侧 | 自审检查是字符串层面的规范化比较，不是身份认证。评审人身份须来自登录态 |
 
 **不得声称的能力**：仓库中没有任何代码把模型输出写入仓库、更新 expected result 或创建 Git commit。FR-024 / FR-025 仍为 `DESIGNED`，本次交付的是它们**依赖的契约层**，不是它们本身。
 

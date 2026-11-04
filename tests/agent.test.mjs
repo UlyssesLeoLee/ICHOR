@@ -533,10 +533,7 @@ test('UT-AGT-036: a new test script inside scope.outputs is accepted', () => {
     '@@ -0,0 +1 @@',
     "+test('new', async ({page}) => {});",
   ].join('\n');
-  const proposal = validateAgentProposal(
-    { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
-    request,
-  );
+  const proposal = validateAgentProposal({ summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] }, request, { producedBy: 'adapter-x' });
   assert.equal(proposal.kind, 'script-diff');
 });
 
@@ -685,7 +682,7 @@ test('UT-AGT-046: proposal actions are validated', () => {
     diff: LEGIT_HUNK,
     evidenceRefs: ['tests/login.spec.ts'],
     actions: [{ type: 'goto', target: '/login', value: 'v' }, { type: 'noop' }],
-  }, request);
+  }, request, { producedBy: 'adapter-x' });
   assert.equal(proposal.actions.length, 2);
   assert.equal(proposal.actions[0].type, 'goto');
   assert.equal(proposal.actions[0].target, '/login');
@@ -702,7 +699,7 @@ test('UT-AGT-047: the proposal confidence must be a number between 0 and 1', () 
     codeOf(() => validateAgentProposal({ summary: 'x', diff: LEGIT_HUNK, confidence: 'high', evidenceRefs: ['tests/login.spec.ts'] }, request)),
     'AGENT_PROPOSAL_INVALID',
   );
-  const proposal = validateAgentProposal({ summary: 'x', diff: LEGIT_HUNK, confidence: 0.8, evidenceRefs: ['tests/login.spec.ts'] }, request);
+  const proposal = validateAgentProposal({ summary: 'x', diff: LEGIT_HUNK, confidence: 0.8, evidenceRefs: ['tests/login.spec.ts'] }, request, { producedBy: 'adapter-x' });
   assert.equal(proposal.confidence, 0.8);
 });
 
@@ -831,10 +828,7 @@ test('UT-AGT-055: a quoted diff path is accepted and a long request id is reject
     "-test('login passes', async ({page}) => {});",
     "+test('login passes', async ({page}) => { await page.goto('/'); });",
   ].join('\n');
-  const proposal = validateAgentProposal(
-    { summary: 'x', diff: quotedDiff, evidenceRefs: ['tests/login.spec.ts'] },
-    request,
-  );
+  const proposal = validateAgentProposal({ summary: 'x', diff: quotedDiff, evidenceRefs: ['tests/login.spec.ts'] }, request, { producedBy: 'adapter-x' });
   assert.equal(proposal.kind, 'script-diff');
 });
 
@@ -976,5 +970,43 @@ test('UT-AGT-066: a provider that fails after the deadline is reported as a budg
   await assert.rejects(
     () => adapter.execute(baseRequest({ budget: { ...budget(), deadlineMs: 1000 } })),
     (error) => error.code === 'AGENT_PROVIDER_ERROR',
+  );
+});
+
+
+test('UT-AGT-067: the self-review check is not an exact string comparison', () => {
+  const request = validateAgentRequest(baseRequest());
+  const proposal = validateAgentProposal(
+    { summary: 'x', diff: LEGIT_HUNK, evidenceRefs: ['tests/login.spec.ts'] },
+    request,
+    { producedBy: 'gen-1' },
+  );
+  for (const who of ['gen-1', 'gen-1 ', ' GEN-1', 'Gen-1']) {
+    assert.equal(
+      codeOf(() => reviewAgentProposal(proposal, { reviewer: who, decision: 'approved' })),
+      'AGENT_REVIEW_SELF_FORBIDDEN',
+      `"${who}" must not be able to review its own proposal`,
+    );
+  }
+  const approved = reviewAgentProposal(proposal, { reviewer: 'reviewer-y', decision: 'approved' });
+  assert.equal(approved.approval, 'approved');
+});
+
+test('UT-AGT-068: a proposal without a platform-supplied producer is rejected', () => {
+  const request = validateAgentRequest(baseRequest());
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff: LEGIT_HUNK, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+    )),
+    'AGENT_PROPOSAL_INVALID',
+  );
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff: LEGIT_HUNK, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: '   ' },
+    )),
+    'AGENT_PROPOSAL_INVALID',
   );
 });

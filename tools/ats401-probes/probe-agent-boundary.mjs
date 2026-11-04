@@ -367,7 +367,7 @@ const requestWithNewOutput = validateAgentRequest({
 });
 let newSpecAccepted = false;
 try {
-  validateAgentProposal({ summary: 'x', diff: newSpecDiff, evidenceRefs: ['tests/login.spec.ts'] }, requestWithNewOutput);
+  validateAgentProposal({ summary: 'x', diff: newSpecDiff, evidenceRefs: ['tests/login.spec.ts'] }, requestWithNewOutput, { producedBy: 'probe-adapter' });
   newSpecAccepted = true;
 } catch (error) {
   newSpecAccepted = false;

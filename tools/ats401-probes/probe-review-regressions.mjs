@@ -46,6 +46,7 @@ import { fileURLToPath } from 'node:url';
 import {
   createAgentAdapter,
   createModelProvider,
+  reviewAgentProposal,
   validateAgentProposal,
   validateAgentRequest,
 } from '../../server/agent.mjs';
@@ -301,6 +302,25 @@ try {
 } finally {
   server.kill();
 }
+
+/* ------------------------------------------------------------------ */
+console.log('');
+console.log('--- F. the self-review check is not an exact string comparison ---');
+const selfReviewProposal = validateAgentProposal(
+  { summary: 'x', diff: LEGIT_HUNK, evidenceRefs: ['tests/login.spec.ts'] },
+  request,
+  { producedBy: 'gen-1' },
+);
+for (const who of ['gen-1', 'gen-1 ', ' GEN-1', 'Gen-1']) {
+  const selfCode = codeOf(() => reviewAgentProposal(selfReviewProposal, { reviewer: who, decision: 'approved' }));
+  check(`"${who}" cannot review its own proposal`, selfCode === 'AGENT_REVIEW_SELF_FORBIDDEN', `code=${selfCode}`);
+}
+const noProducer = codeOf(() => validateAgentProposal(
+  { summary: 'x', diff: LEGIT_HUNK, evidenceRefs: ['tests/login.spec.ts'] },
+  request,
+));
+check('a proposal without a platform-supplied producer is rejected',
+  noProducer === 'AGENT_PROPOSAL_INVALID', `code=${noProducer}`);
 
 /* ------------------------------------------------------------------ */
 console.log('');
