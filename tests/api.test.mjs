@@ -1,7 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {spawn} from 'node:child_process';
+import { freePort } from './helpers/free-port.mjs';
 const root=path.resolve(import.meta.dirname,'..');
 const base=path.resolve(root,'examples/sample-playwright');
-const data=fs.mkdtempSync(path.join(os.tmpdir(),'ats-api-'));const port=19000+Math.floor(Math.random()*10000);
+const data=fs.mkdtempSync(path.join(os.tmpdir(),'ats-api-'));const port=await freePort();
 let cp,token,projectId;
 async function ready(){for(let i=0;i<80;i++){try{const r=await fetch(`http://127.0.0.1:${port}/api/health`);if(r.ok)return;}catch{}await new Promise(r=>setTimeout(r,50));}throw Error('server did not boot');}
 async function api(endpoint,method='GET',payload,auth=true){const r=await fetch(`http://127.0.0.1:${port}`+endpoint,{method,headers:auth?{'X-ATS-Token':token,'Content-Type':'application/json'}:{},body:payload?JSON.stringify(payload):undefined});return [r.status,await r.json()];}

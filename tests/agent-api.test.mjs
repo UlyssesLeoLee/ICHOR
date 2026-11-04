@@ -5,10 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
+import { freePort } from './helpers/free-port.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-agt-api-'));
-const port = 25000 + Math.floor(Math.random() * 8000);
+const port = await freePort();
 let cp, token;
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 

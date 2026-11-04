@@ -4,11 +4,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { freePort } from './helpers/free-port.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const base = path.resolve(root, 'examples/sample-playwright');
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-uid-api-'));
-const port = 23000 + Math.floor(Math.random() * 10000);
+const port = await freePort();
 let cp, token, projectId;
 
 async function ready() {
