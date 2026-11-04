@@ -18,8 +18,13 @@ COMMIT="$(git rev-parse HEAD)"
 STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 NODE_V="$(node --version)"
 
-# The workbook is regenerated before the evidence is captured, so the logs
-# describe the tree that is actually committed.
+# The coexistence regression runs FIRST and it RESTORES the workbook to the
+# committed state when it finishes (it has to: it writes the workbook in
+# several orders to compare the results). Running it after the ATS-501
+# update would therefore silently throw the update away -- which is exactly
+# what happened once. The ATS-501 update is applied afterwards, so the
+# workbook the logs describe is the one that gets committed.
+bash tools/ats501-probes/check-wbs-updaters.sh > /dev/null 2>&1
 python tools/update_wbs_ats501.py --status 待审核 > /dev/null
 
 header() {
