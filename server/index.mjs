@@ -4,9 +4,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog } from './core.mjs';
-import { capabilityMatrix,getAdapter,listRunners,selectAdapter } from './adapters/registry.mjs';
-import { AdapterError,requireCapability } from './adapters/contract.mjs';
+import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog } from './core.mjs';
+import { capabilityMatrix,getAdapter,listRunners,selectAdapter,selectAdapterOrThrow } from './adapters/registry.mjs';
+import { AdapterError } from './adapters/contract.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const ROOT=path.resolve(HERE,'..');
@@ -102,10 +102,17 @@ const server=http.createServer(async(req,res)=>{
    const b=await body(req);
    const requested=Array.isArray(b.capabilities)?b.capabilities:[];
    try{
-    const chosen=selectAdapter(project,requested,{preferred:b.runner});
+    // A caller that pinned a runner gets an error when that runner cannot
+    // satisfy the request -- falling back to a different engine would run
+    // something the caller did not ask for.
+    if(b.runner){
+     const chosen=selectAdapterOrThrow(project,requested,{preferred:b.runner});
+     return respond(res,200,{selected:chosen.adapter.kind,negotiation:chosen,rejected:[]});
+    }
+    const chosen=selectAdapter(project,requested);
     return respond(res,200,{selected:chosen.adapter.kind,negotiation:chosen.negotiation,rejected:chosen.rejected});
    }catch(e){
-    if(e instanceof AdapterError)return err(res,409,e.code);
+    if(e instanceof AdapterError)return err(res,e.code==='UNKNOWN_RUNNER'?404:409,e.code);
     throw e;
    }
   }
@@ -117,10 +124,29 @@ const server=http.createServer(async(req,res)=>{
    // Pick the runner by capability negotiation, not by a hardcoded name. A
    // caller may pin one with `runner`; otherwise the first runner that
    // supports the required operations wins.
-   const requested=Array.isArray(b.capabilities)&&b.capabilities.length?b.capabilities:['discover','start','stop','collect'];
+   const explicit=Array.isArray(b.capabilities)&&b.capabilities.length>0;
+   const pinned=typeof b.runner==='string'&&b.runner?b.runner:null;
+   const requested=explicit?b.capabilities:['discover','start','stop','collect'];
    let chosen;
-   try{chosen=selectAdapter(project,requested,{preferred:b.runner});}
-   catch(e){if(e instanceof AdapterError)return err(res,409,e.code);throw e;}
+   try{
+    // A PINNED runner must not silently fall back to a different engine: the
+    // caller asked for that engine, so failing is the honest answer.
+    chosen=pinned
+     ? selectAdapterOrThrow(project,requested,{preferred:pinned})
+     : selectAdapter(project,requested);
+   }
+   catch(e){
+    if(!(e instanceof AdapterError))throw e;
+    // An EXPLICIT negotiation request that no runner can satisfy is a
+    // client-side condition: the caller asked for a capability nobody has.
+    // Answer it with the code and the adapter's own reason (409), not a 500.
+    if(explicit||pinned)return err(res,e.code==='UNKNOWN_RUNNER'?404:409,e.code);
+    // The DEFAULT request ("just run the tests") keeps the v0.1 contract of
+    // docs/04-DETAILED-DESIGN.md §7: the run is accepted (202) and then fails
+    // EXPLICITLY with status=error and the reason the engine is missing.
+    // Falling back to the first adapter makes start() raise that reason.
+    chosen={adapter:getAdapter('playwright'),negotiation:{requested}};
+   }
    const run={id:safeId('run'),projectId:project.id,projectName:project.name,file,gitCommit:gitInfo(project.root).commit,status:'queued',createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested};
    store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter);return respond(res,202,{run});
   }

@@ -64,7 +64,7 @@ export function selectAdapter(project, requested = [], { preferred } = {}) {
     ? [getAdapter(preferred), ...[...registry.values()].filter((a) => a.kind !== preferred)]
     : [...registry.values()];
   for (const adapter of candidates) {
-    const negotiation = negotiate(adapter, requested);
+    const negotiation = negotiate(adapter, project, requested);
     if (negotiation.supported) return { adapter, negotiation, rejected };
     rejected.push({ kind: adapter.kind, missing: negotiation.missing });
   }
@@ -72,9 +72,23 @@ export function selectAdapter(project, requested = [], { preferred } = {}) {
   throw new AdapterError('NO_RUNNER_SUPPORTS_REQUEST', `no runner supports the requested capabilities: ${detail}`, { rejected });
 }
 
-/** Same as selectAdapter, but raises CAPABILITY_UNSUPPORTED with the reasons. */
-export function selectAdapterOrThrow(project, requested = [], options = {}) {
-  return requireCapability(selectAdapter(project, requested, options).adapter, requested);
+/**
+ * Same as selectAdapter, but raises CAPABILITY_UNSUPPORTED with the reasons
+ * when the PREFERRED runner cannot satisfy the request.
+ *
+ * selectAdapter silently falls back to another runner. That is right for an
+ * automatic choice, but wrong when the caller pinned a runner: falling back
+ * would run a different engine than the one that was asked for.
+ *
+ * The return shape matches selectAdapter: { adapter, negotiation, rejected }.
+ */
+export function selectAdapterOrThrow(project, requested = [], { preferred } = {}) {
+  if (!preferred) {
+    const chosen = selectAdapter(project, requested);
+    return { ...chosen, negotiation: requireCapability(chosen.adapter, project, requested) };
+  }
+  const adapter = getAdapter(preferred);
+  return { adapter, negotiation: requireCapability(adapter, project, requested), rejected: [] };
 }
 
 export { negotiate, requireCapability };

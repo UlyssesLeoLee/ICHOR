@@ -11,7 +11,22 @@
  * only passed when the INSTALLED CLI actually accepts it. The v0.1 path built
  * the vector by hand, which is how `--screenshot` / `--video` -- options that
  * `playwright test` does not have -- reached the CLI (baseline defect B-01).
- * See docs/17-RUNNER-ADAPTER-CONTRACT.md.
+ *
+ * MEASURED FACTS (see docs/evidence/ATS-301/01-playwright-ground-truth.log,
+ * produced by tools/ats301-probes/playwright-ground-truth.mjs against
+ * @playwright/test 1.64.1 on this machine):
+ *
+ *   - `playwright test --help` accepts --reporter / --output / --trace /
+ *     --workers / --grep / --project / --list. It does NOT accept
+ *     --screenshot or --video: those are `use` options of the project's
+ *     playwright.config, not CLI options.
+ *   - The test file is a POSITIONAL argument (`[test-filter...]` in the
+ *     usage line), not an option.
+ *   - The JSON report arrives through PLAYWRIGHT_JSON_OUTPUT_FILE with the
+ *     shape { config, suites, errors, stats }; a suite carries `file`, a spec
+ *     carries `title`/`file`, and a test carries `status` ('expected' |
+ *     'unexpected' | 'flaky' | 'skipped') plus `results[]`.
+ *   - A run with one failing case exits with code 1.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,19 +34,22 @@ import { spawn } from 'node:child_process';
 import {
   ADAPTER_CONTRACT_VERSION,
   capability,
+  hasPositionalFilter,
   parseCliOptions,
+  parseCliUsage,
   probeCommand,
   readPackageVersion,
   resolveProjectBinary,
 } from './contract.mjs';
+import {
+  PLAYWRIGHT_CLI_CANDIDATES,
+  buildPlaywrightArgs,
+  mapPlaywrightStatus,
+  playwrightHtmlDir,
+  playwrightReportFile,
+  probePlaywrightCli,
+} from './playwright-cli.mjs';
 import { discoverStatic, parseReport, sourcePath } from '../core.mjs';
-
-/** Where the local Playwright CLI may live inside the project under test. */
-const CLI_CANDIDATES = [
-  'node_modules/@playwright/test/cli.js',
-  'node_modules/playwright/cli.js',
-  'node_modules/playwright-core/cli.js',
-];
 
 /**
  * Read the `use` block of the project's playwright config to find out whether
@@ -65,34 +83,34 @@ function readProjectUseOptions(projectRoot) {
  * Returns null when the project has no local Playwright CLI at all.
  */
 function probeCli(projectRoot) {
-  const cli = resolveProjectBinary(projectRoot, CLI_CANDIDATES);
-  if (!cli) return null;
-  const help = probeCommand(process.execPath, [cli, 'test', '--help'], { cwd: projectRoot });
+  const probe = probePlaywrightCli(projectRoot);
+  if (!probe) return null;
   return {
-    cli,
+    ...probe,
     version: readPackageVersion(projectRoot, '@playwright/test') || readPackageVersion(projectRoot, 'playwright'),
-    helpOk: help.ok,
-    options: help.ok ? parseCliOptions(help.stdout) : [],
-    helpError: help.ok ? '' : (help.stderr || help.error).split('\n')[0],
   };
 }
 
 /**
- * Build the CLI argument vector from the probed option set.
+ * The options the adapter is allowed to pass when the installed CLI's --help
+ * could not be parsed.
  *
- * Only options the installed CLI accepts are passed. Options that take a
- * value are passed as two argv entries; boolean flags as one.
+ * This is a FALLBACK, not a guess: when the help output is unreadable the
+ * adapter cannot know the option set, and passing nothing would silently
+ * change the run (no --output => no artefacts, no --reporter => no report).
+ * The vector below is the one the product has always used and that every
+ * Playwright version from 1.x accepts, so it is the conservative choice.
+ *
+ * The fallback is NOT used to claim a capability: `cliContract` and the
+ * option-derived capabilities stay `supported: false` when the help could not
+ * be parsed, because "the CLI declares it" was not proven.
  */
-export function buildPlaywrightArgs({ cli, options, outputDir, testFile }) {
-  const has = (name) => options.includes(name);
-  const args = [cli, 'test'];
-  if (has('reporter')) args.push('--reporter=line,json,html');
-  if (has('output')) args.push('--output', path.join(outputDir, 'results'));
-  if (has('trace')) args.push('--trace', 'on');
-  if (has('workers')) args.push('--workers', '1');
-  if (testFile) args.push(testFile);
-  return args;
-}
+export const FALLBACK_PLAYWRIGHT_OPTIONS = Object.freeze([
+  'reporter',
+  'output',
+  'trace',
+  'workers',
+]);
 
 export function createPlaywrightAdapter() {
   return {
@@ -119,8 +137,18 @@ export function createPlaywrightAdapter() {
         ];
       }
 
-      const has = (name) => probe.options.includes(name);
       const opts = probe.options;
+      // When the help output could not be parsed the adapter cannot PROVE
+      // that the CLI accepts an option. It may still PASS the conservative
+      // fallback vector so the run behaves as it always has, but the
+      // capability itself stays unsupported -- an unproven claim is a lie.
+      const helpReadable = probe.helpOk && opts.length > 0;
+      const effective = helpReadable ? opts : [...FALLBACK_PLAYWRIGHT_OPTIONS];
+      const has = (name) => effective.includes(name);
+      const declared = (name) => opts.includes(name);
+      const positional = hasPositionalFilter(probe.usage);
+
+      const unsupportedBecauseUnproven = 'the installed CLI\'s --help output could not be parsed, so it was not proven that the CLI accepts this option';
 
       const caps = [
         capability('discover', true, {
@@ -135,28 +163,35 @@ export function createPlaywrightAdapter() {
           evidence: 'the adapter terminates the spawned child process (taskkill /T /F on Windows, SIGTERM elsewhere), the same mechanism the v0.1 path uses',
         }),
         capability('collect', true, {
-          evidence: 'the adapter reads the JSON report the CLI writes and maps it onto the common result model',
+          evidence: 'the adapter reads the JSON report the CLI writes (PLAYWRIGHT_JSON_OUTPUT_FILE) and maps it onto the common result model',
         }),
-        capability('filterByFile', has('output') || opts.length > 0, {
-          evidence: `the installed CLI accepts a positional file filter (probed options: ${opts.join(', ')})`,
-          detail: { accepted: opts.includes('output') },
+        capability('filterByFile', positional, {
+          evidence: positional
+            ? `the installed CLI takes the test file as a positional argument (usage: ${probe.usage})`
+            : '',
+          reason: positional ? '' : 'the installed CLI declares no positional test-filter argument in its usage line',
+          detail: { usage: probe.usage },
         }),
         capability('filterByTestUid', false, {
           reason: 'the index ID is a temporary hash (sha256(projectId:file:title)[0:16]), not a stable UID; authoritative discovery with stable UIDs is FR-021 and is not implemented',
         }),
-        capability('structuredReport', has('reporter'), {
-          evidence: `the installed CLI accepts --reporter (probed from --help)${has('reporter') ? '' : ' -- NOT ACCEPTED'}`,
-          detail: { reporter: has('reporter') },
+        capability('structuredReport', declared('reporter'), {
+          evidence: declared('reporter')
+            ? 'the installed CLI accepts --reporter (probed from --help)'
+            : '',
+          reason: declared('reporter') ? '' : (helpReadable ? 'the installed CLI does not accept --reporter' : unsupportedBecauseUnproven),
         }),
-        capability('htmlReport', has('reporter'), {
-          evidence: has('reporter')
-            ? "the installed CLI accepts --reporter and 'html' is one of its built-in reporters"
-            : 'the installed CLI does not accept --reporter, so no HTML report can be requested',
+        capability('htmlReport', declared('reporter'), {
+          evidence: declared('reporter')
+            ? "the installed CLI accepts --reporter and 'html' is one of its built-in reporters (measured: the html reporter wrote index.html and a trace/ viewer under PLAYWRIGHT_HTML_OUTPUT_DIR)"
+            : '',
+          reason: declared('reporter') ? '' : (helpReadable ? 'the installed CLI does not accept --reporter, so no HTML report can be requested' : unsupportedBecauseUnproven),
         }),
-        capability('trace', has('trace'), {
-          evidence: has('trace')
-            ? "the installed CLI accepts --trace (probed from --help)"
-            : 'the installed CLI does not accept --trace',
+        capability('trace', declared('trace'), {
+          evidence: declared('trace')
+            ? 'the installed CLI accepts --trace (probed from --help); the measured run wrote trace.zip per test under the --output directory'
+            : '',
+          reason: declared('trace') ? '' : (helpReadable ? 'the installed CLI does not accept --trace' : unsupportedBecauseUnproven),
         }),
         capability('screenshot', Boolean(use && use.screenshot), {
           evidence: use && use.screenshot
@@ -178,12 +213,14 @@ export function createPlaywrightAdapter() {
         capability('nativeBrowser', true, {
           evidence: 'the adapter runs the project\'s own @playwright/test CLI, which launches a real browser; no stub or double is involved',
         }),
-        capability('cliContract', has('reporter') && has('output') && has('trace'), {
+        capability('cliContract', declared('reporter') && declared('output') && declared('trace'), {
           evidence: `every option the adapter passes is one the installed CLI declares (probed from --help: ${opts.join(', ')}); the v0.1 defect B-01 was that the hand-written vector contained --screenshot/--video, which \`playwright test\` does not accept`,
-          reason: (has('reporter') && has('output') && has('trace'))
+          reason: (declared('reporter') && declared('output') && declared('trace'))
             ? ''
-            : `the installed CLI does not accept all of --reporter/--output/--trace (probed: ${opts.join(', ')})`,
-          detail: { options: opts, passed: ['--reporter', '--output', '--trace', '--workers'].filter((o) => opts.includes(o)) },
+            : (helpReadable
+              ? `the installed CLI does not accept all of --reporter/--output/--trace (probed: ${opts.join(', ')})`
+              : unsupportedBecauseUnproven),
+          detail: { options: opts, passed: ['--reporter', '--output', '--trace', '--workers'].filter((o) => effective.includes(o)) },
         }),
       ];
       return caps;
@@ -208,16 +245,21 @@ export function createPlaywrightAdapter() {
       const probe = probeCli(project.root);
       if (!probe) throw new Error('PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT');
       if (file) sourcePath(project, file); // rejects anything outside the project
+      // The RUN uses the effective option set (the probed one, or the
+      // conservative fallback when the help could not be read). The
+      // CAPABILITY report uses the probed one only -- see capabilities().
+      const helpReadable = probe.helpOk && probe.options.length > 0;
+      const options = helpReadable ? probe.options : [...FALLBACK_PLAYWRIGHT_OPTIONS];
       const args = buildPlaywrightArgs({
         cli: probe.cli,
-        options: probe.options,
+        options,
         outputDir,
         testFile: file || null,
       });
       const env = {
         ...process.env,
-        PLAYWRIGHT_JSON_OUTPUT_FILE: path.join(outputDir, 'report.json'),
-        PLAYWRIGHT_HTML_OUTPUT_DIR: path.join(outputDir, 'html'),
+        PLAYWRIGHT_JSON_OUTPUT_FILE: playwrightReportFile(outputDir),
+        PLAYWRIGHT_HTML_OUTPUT_DIR: playwrightHtmlDir(outputDir),
         PLAYWRIGHT_HTML_OPEN: 'never',
         CI: '1',
         FORCE_COLOR: '0',
@@ -230,7 +272,7 @@ export function createPlaywrightAdapter() {
         pid: child.pid,
         command: process.execPath,
         args,
-        reportFile: path.join(outputDir, 'report.json'),
+        reportFile: playwrightReportFile(outputDir),
         engine: 'playwright',
       };
     },
@@ -248,19 +290,23 @@ export function createPlaywrightAdapter() {
     /**
      * Collect the results of a finished run and map them onto the common
      * result model. Returns null when the engine produced no report.
+     *
+     * The counts are recomputed from the MAPPED statuses, so the summary and
+     * the per-case statuses cannot drift apart.
      */
     collect({ outputDir }) {
-      const reportFile = path.join(outputDir, 'report.json');
+      const reportFile = playwrightReportFile(outputDir);
       if (!fs.existsSync(reportFile)) return null;
-      const summary = parseReport(JSON.parse(fs.readFileSync(reportFile, 'utf8')));
+      const raw = parseReport(JSON.parse(fs.readFileSync(reportFile, 'utf8')));
+      const cases = raw.cases.map((c) => ({ ...c, status: mapPlaywrightStatus(c.status) }));
       return {
         summary: {
-          passed: summary.passed,
-          failed: summary.failed,
-          skipped: summary.skipped,
-          flaky: summary.flaky,
-          total: summary.total,
-          cases: summary.cases.map((c) => ({
+          passed: cases.filter((c) => c.status === 'passed').length,
+          failed: cases.filter((c) => c.status === 'failed').length,
+          skipped: cases.filter((c) => c.status === 'skipped').length,
+          flaky: cases.filter((c) => c.status === 'flaky').length,
+          total: cases.length,
+          cases: cases.map((c) => ({
             title: c.title,
             file: c.file,
             status: c.status,

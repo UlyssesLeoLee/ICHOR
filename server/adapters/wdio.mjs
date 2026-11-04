@@ -11,15 +11,31 @@
  * config, not through the command line. The config is written INSIDE the
  * run's own output directory, so nothing is written into the user's project.
  *
- * Baseline honesty (see docs/17-RUNNER-ADAPTER-CONTRACT.md):
+ * MEASURED FACTS (see docs/evidence/ATS-301/02-wdio-ground-truth.log,
+ * produced by tools/ats301-probes/wdio-ground-truth.mjs against @wdio/cli
+ * 10.1.0 + a real Chrome 151 on this machine):
+ *
+ *   - The json reporter writes ONE FILE PER WORKER, named
+ *     `wdio-<cid>-json-reporter.json`, into the reporter's `outputDir`
+ *     directory. (`outputFile` is NOT honoured by this reporter version --
+ *     the ResultSet went to stdout instead.) A multi-worker run therefore
+ *     produces several files and they MUST be merged.
+ *   - The ResultSet shape is { start, end, capabilities, framework, mochaOpts,
+ *     suites, specs, state }. A suite carries name/duration/tests/hooks but NO
+ *     `file` field; `specs` is an array of file:// URL STRINGS, not objects.
+ *   - A test carries name/start/end/duration/state and, when it failed, an
+ *     `error` object with name/message/stack/type.
+ *   - WDIO states are passed | failed | skipped | pending.
+ *   - A run with one failing case exits with code 1.
+ *
+ * Baseline honesty (see docs/18-RUNNER-ADAPTER-CONTRACT.md):
  *   - The contract, the capability negotiation and the result mapping ARE
  *     implemented and tested.
- *   - The WDIO ENGINE path on this machine IS proven: a real @wdio/cli v10
+ *   - The WDIO ENGINE path IS proven on this machine: a real @wdio/cli v10
  *     local-runner execution against a real Chrome produced one PASS and one
  *     FAIL, and the json reporter produced the exact ResultSet shape this
- *     adapter parses (docs/evidence/ATS-301/).
- *   - What WDIO does NOT offer is stated as unsupported with a reason:
- *     trace, screenshot-on-failure and video have no built-in equivalent.
+ *     adapter parses.
+ *   - What WDIO does NOT offer is stated as unsupported with a reason.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -101,21 +117,32 @@ export function findWdioReports(outputDir) {
   return found;
 }
 
-/** Merge several WDIO ResultSets into one common summary. */
+/**
+ * Merge several WDIO ResultSets into one common summary.
+ *
+ * The per-case `file` is only filled in when the worker report names exactly
+ * ONE spec file. The json reporter does not carry the spec file on the suite
+ * object, and a worker that ran several spec files cannot attribute a case to
+ * one of them -- so the adapter leaves `file` empty instead of guessing.
+ */
 export function mergeWdioReports(reports) {
   const cases = [];
   let browserName = '';
   let browserVersion = '';
+  let unattributed = 0;
   for (const { report } of reports) {
     if (report.capabilities) {
       browserName = browserName || report.capabilities.browserName || '';
       browserVersion = browserVersion || report.capabilities.browserVersion || '';
     }
+    const specs = Array.isArray(report.specs) ? report.specs : [];
+    const onlySpec = specs.length === 1 ? specs[0] : null;
     for (const suite of report.suites || []) {
       for (const test of suite.tests || []) {
+        if (!onlySpec) unattributed++;
         cases.push({
           title: test.name,
-          file: suite.file || '',
+          file: onlySpec ? fileUrlToRelative(onlySpec) : '',
           status: mapWdioStatus(test.state),
           duration: test.duration || 0,
           error: test.error ? (test.error.message || String(test.error)) : '',
@@ -131,7 +158,22 @@ export function mergeWdioReports(reports) {
     total: cases.length,
     cases,
     browser: browserName ? `${browserName} ${browserVersion}`.trim() : '',
+    unattributedCases: unattributed,
   };
+}
+
+/** Turn a `file:///C:/x/y.js` spec entry into a plain path. */
+export function fileUrlToRelative(spec) {
+  if (typeof spec !== 'string') return '';
+  if (!spec.startsWith('file:')) return spec;
+  try {
+    const u = new URL(spec);
+    let p = decodeURIComponent(u.pathname);
+    if (/^\/[a-zA-Z]:/.test(p)) p = p.slice(1); // Windows drive letter
+    return p.replace(/\\/g, '/');
+  } catch {
+    return spec;
+  }
 }
 
 /**
@@ -140,28 +182,47 @@ export function mergeWdioReports(reports) {
  * It is written into the run's own output directory. The project's own
  * wdio.conf.* is used as the BASE (so the project's services, capabilities
  * and framework are respected) and the per-run knobs are layered on top.
+ *
+ * The `specs` array is ONLY overridden when the caller filtered by file.
+ * Overriding it with an empty array would silently run ZERO tests and report
+ * a green run -- the worst possible failure mode for a test tool.
  */
 export function buildWdioConfigText({ projectRoot, specFiles, outputDir, reporterName }) {
-  const projectConfig = ['wdio.conf.ts', 'wdio.conf.js', 'wdio.conf.mjs', 'wdio.conf.cjs'].find(
+  const projectConfig = ['wdio.conf.js', 'wdio.conf.cjs', 'wdio.conf.mjs'].find(
     (n) => fs.existsSync(path.join(projectRoot, n)),
   );
+  // A WDIO config file is loaded as `exports.config = {...}`, so
+  // `require(...)` yields `{ config: {...} }` -- the config object is nested
+  // under a `config` key. The generated file must therefore read
+  // `base.config`, and it must NOT declare `base` a second time (a duplicate
+  // `const base` made the generated file a SYNTAX ERROR and the run failed
+  // before any test executed).
   const baseImport = projectConfig
-    ? `const base = require(${JSON.stringify(path.join(projectRoot, projectConfig))});`
-    : 'const base = { config: {} };';
-  const baseConfig = projectConfig ? 'base.config' : '{}';
+    ? `const baseConfig = require(${JSON.stringify(path.join(projectRoot, projectConfig))});`
+    : 'const baseConfig = { config: {} };';
   const specs = specFiles.length
-    ? specFiles.map((f) => path.join(projectRoot, f)).map((f) => JSON.stringify(f)).join(', ')
-    : '[]';
+    ? specFiles.map((f) => JSON.stringify(path.join(projectRoot, f))).join(', ')
+    : null;
+  // `specs: null` means "keep the project's own specs" -- the spread of the
+  // base config then supplies them.
+  //
+  // The project's own spec paths are RELATIVE (e.g. './tests/pass.spec.js'),
+  // and WDIO resolves them against the directory of the CONFIG FILE, not
+  // against the project root. The generated config lives in the run's output
+  // directory, so the relative paths would not resolve and WDIO would report
+  // "No specs found to run". The base specs are therefore rewritten to
+  // absolute paths under the project root.
+  const specsLine = specs === null
+    ? `  specs: (base.specs || []).map((s) => path.resolve(${JSON.stringify(projectRoot)}, s)),\n`
+    : `  specs: [${specs}],\n`;
   return `'use strict';
 // GENERATED BY AI Test Studio -- ATS-301 WDIO adapter. One file per run.
 const path = require('path');
 ${baseImport}
-const baseConfig = ${baseConfig};
 const base = baseConfig && baseConfig.config ? baseConfig.config : {};
 module.exports.config = {
   ...base,
-  specs: [${specs}],
-  reporters: [['${reporterName}', { outputDir: ${JSON.stringify(outputDir)} }]],
+${specsLine}  reporters: [['${reporterName}', { outputDir: ${JSON.stringify(outputDir)} }]],
   logLevel: base.logLevel || 'error',
   capabilities: base.capabilities || [{ browserName: 'chrome' }],
 };
@@ -263,13 +324,13 @@ export function createWdioAdapter() {
         }),
         capability('collect', hasJsonReporter, {
           evidence: hasJsonReporter
-            ? 'the project has @wdio/json-reporter installed; its ResultSet (suites[].tests[].state) is parsed and mapped onto the common result model'
+            ? 'the project has @wdio/json-reporter installed; its per-worker ResultSet (suites[].tests[].state) is parsed and merged onto the common result model'
             : '',
           reason: hasJsonReporter ? '' : 'the project has no @wdio/json-reporter installed, so there is no machine-readable report to collect',
         }),
         capability('filterByFile', has('spec'), {
           evidence: has('spec')
-            ? "the installed `wdio run` CLI accepts --spec (probed from --help)"
+            ? "the installed `wdio run` CLI accepts --spec (probed from --help); the adapter applies the same filter through the generated config's `specs` array"
             : '',
           reason: has('spec') ? '' : 'the installed `wdio run` CLI does not accept --spec',
         }),
@@ -282,11 +343,8 @@ export function createWdioAdapter() {
             : '',
           reason: hasJsonReporter ? '' : 'the project has no @wdio/json-reporter installed',
         }),
-        capability('htmlReport', probe.reporters.includes('spec'), {
-          evidence: probe.reporters.includes('spec')
-            ? 'the project has @wdio/spec-reporter installed, which renders an HTML report'
-            : '',
-          reason: probe.reporters.includes('spec') ? '' : 'the project has no @wdio/spec-reporter installed',
+        capability('htmlReport', false, {
+          reason: 'WebdriverIO has no HTML file reporter: @wdio/html-reporter does not exist as a package, and the reporters this build reads (@wdio/json-reporter, @wdio/spec-reporter, @wdio/junit-reporter, @wdio/dot-reporter) write JSON/JUnit/text, not HTML',
         }),
         capability('trace', false, {
           reason: 'WebdriverIO has no built-in trace artefact comparable to Playwright\'s trace.zip; capturing one is part of the ATS-302 prototype and is not implemented',

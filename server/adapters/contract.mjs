@@ -7,12 +7,12 @@
  * A caller can therefore ask "can this runner do X?" and get a truthful answer
  * instead of discovering the limitation halfway through a run.
  *
- * Design rules (see docs/17-RUNNER-ADAPTER-CONTRACT.md):
+ * Design rules (see docs/18-RUNNER-ADAPTER-CONTRACT.md):
  *
- *  1. The contract is DATA, not behaviour. `capabilities()` returns a plain
- *     object that can be serialised, diffed and asserted on. It never throws
- *     for a missing capability -- an unsupported capability is reported as
- *     `supported: false` with a reason.
+ *  1. The contract is DATA, not behaviour. `capabilities(project)` returns a
+ *     plain object that can be serialised, diffed and asserted on. It never
+ *     throws for a missing capability -- an unsupported capability is reported
+ *     as `supported: false` with a reason.
  *  2. A capability is only `supported: true` when it has been PROVEN on this
  *     machine. "The CLI has an option" is not proof; "the option was accepted
  *     and the run produced the artefact" is. The `evidence` field records how
@@ -137,9 +137,13 @@ export function assertAdapter(adapter) {
  * one boolean. `missing` lists the ones that are not available, each with the
  * adapter's own reason -- the caller can surface that reason to the user
  * instead of inventing one.
+ *
+ * NOTE: the project is a REQUIRED argument. A capability is a property of the
+ * project (its installed CLI, its reporters, its config), so negotiating
+ * without one would answer a question nobody asked.
  */
-export function negotiate(adapter, requested = []) {
-  const caps = adapter.capabilities();
+export function negotiate(adapter, project, requested = []) {
+  const caps = adapter.capabilities(project);
   const byName = new Map(caps.map((c) => [c.name, c]));
   const missing = [];
   const resolved = [];
@@ -166,8 +170,8 @@ export function negotiate(adapter, requested = []) {
  * Assert that the adapter supports every requested capability.
  * Throws AdapterError('CAPABILITY_UNSUPPORTED') carrying the reasons.
  */
-export function requireCapability(adapter, requested = []) {
-  const result = negotiate(adapter, requested);
+export function requireCapability(adapter, project, requested = []) {
+  const result = negotiate(adapter, project, requested);
   if (!result.supported) {
     const detail = result.missing.map((m) => `${m.name}: ${m.reason}`).join('; ');
     throw new AdapterError('CAPABILITY_UNSUPPORTED', `adapter ${adapter.kind} does not support ${detail}`, { missing: result.missing });
@@ -176,8 +180,8 @@ export function requireCapability(adapter, requested = []) {
 }
 
 /** True when the adapter declares the capability as supported. */
-export function supports(adapter, name) {
-  const cap = adapter.capabilities().find((c) => c.name === name);
+export function supports(adapter, project, name) {
+  const cap = adapter.capabilities(project).find((c) => c.name === name);
   return Boolean(cap && cap.supported);
 }
 
@@ -185,8 +189,8 @@ export function supports(adapter, name) {
  * The capabilities that are NOT supported -- the "known gaps" of an adapter.
  * Used to warn a caller before a run rather than after it.
  */
-export function gaps(adapter) {
-  return adapter.capabilities().filter((c) => !c.supported);
+export function gaps(adapter, project) {
+  return adapter.capabilities(project).filter((c) => !c.supported);
 }
 
 /* ------------------------------------------------------------------ */
@@ -212,14 +216,48 @@ export function probeCommand(command, args, { cwd, timeout = 20000, env } = {}) 
  * the help text of the installed CLI is the contract. A capability that has no
  * corresponding option is reported as unsupported with the reason "the
  * installed CLI does not accept this option".
+ *
+ * A help line may declare SEVERAL aliases, e.g. Playwright's
+ *
+ *     -g, --grep <grep>   Only run tests matching this regular expression
+ *
+ * so every alias on the line is collected. Matching only the first token
+ * would silently hide `--grep`, and an adapter that believes the CLI lacks
+ * `--grep` would refuse a capability the engine actually provides.
  */
 export function parseCliOptions(helpText) {
   const options = new Set();
   for (const line of String(helpText || '').split('\n')) {
-    const m = line.match(/^\s+-{1,2}([a-zA-Z][\w-]*)/);
-    if (m) options.add(m[1]);
+    // Only the LEADING option column of a help line, never the description.
+    const m = line.match(/^\s+(-{1,2}[a-zA-Z][\w-]*(?:\s*,\s*-{1,2}[a-zA-Z][\w-]*)*)/);
+    if (!m) continue;
+    for (const token of m[1].split(',')) {
+      const name = token.trim().replace(/^-+/, '');
+      if (name) options.add(name);
+    }
   }
   return [...options].sort();
+}
+
+/**
+ * The positional filter a CLI accepts, if any.
+ *
+ * Playwright takes the test file as a POSITIONAL argument
+ * (`Usage: npx playwright test [options] [test-filter...]`), not as an option,
+ * so it cannot be discovered from the option list. The usage line is the
+ * contract for it.
+ */
+export function parseCliUsage(helpText) {
+  for (const line of String(helpText || '').split('\n')) {
+    const m = line.match(/^\s*Usage:\s*(.+)$/);
+    if (m) return m[1].trim();
+  }
+  return '';
+}
+
+/** True when the usage line declares a positional test filter. */
+export function hasPositionalFilter(helpText) {
+  return /\[test-filter/i.test(parseCliUsage(helpText));
 }
 
 /**
