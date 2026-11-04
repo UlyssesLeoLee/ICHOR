@@ -10,13 +10,14 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 
 | 验收项 | 结论 | 证据 |
 |---|---|---|
-| Node 22 clean install | **PASS** | 干净克隆内 `npm ci` 根包 0 依赖 / `apps/studio` 57 包，39.0 s |
+| Node 22 clean install | **PASS** | 干净克隆内 `npm ci` 根包 0 依赖 / `apps/studio` 57 包，36.6 s |
 | `npm test` | **PASS** | **59/59** 通过（Node 内置 `node:test`；含 ATS-401 的 39 项） |
-| 锁文件可重现 | **PASS** | 两个独立克隆各跑一次 `npm ci`，安装树 sha256 完全一致 |
+| 锁文件可重现 | **PASS** | 两个独立克隆各跑一次 `npm ci`，安装树摘要完全一致（口径见 §2.2）；`npm ci` 不改写 lockfile |
 | 生成依赖清单 | **PASS** | `docs/dependencies/dependency-manifest.{json,md}`，88 个依赖全部有许可 |
 | Windows CI 构建脚本 | **PASS** | `.github/workflows/ats-102-build.yml`，3 个 job；本地以 `tools/ci_build_gate.mjs` 逐步复现并全绿 |
 
-**最终验收运行**（合并 `dev` 之后的全新克隆，门禁退出码 **0**）：`docs/evidence/ATS-102/04-final-clean-clone-gate.log`。
+**最终验收运行**（全新克隆，门禁 6 步退出码 **0**）：`docs/evidence/ATS-102/07-final-gate-6-steps.log`。
+前一轮（合并 `dev` 之后、加入安装树摘要检查之前）的验收见 `04-final-clean-clone-gate.log`。
 
 **本次交付同时关闭了 ATS-101 §5.1 指出的两处「ATS-102 待办」**：仓库此前既无 lockfile 也无 CI 配置。
 
@@ -43,7 +44,43 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 
 1. **`npm ci` 不得改写 lockfile**——CI 的 `lockcheck` 步骤与门禁脚本的同名步骤都断言 `git diff --exit-code -- package-lock.json apps/studio/package-lock.json` 为空。实测为空。
 2. **两个独立克隆各装一次，安装树必须逐字节一致**。实测：两个克隆的 `apps/studio/node_modules` 下全部 317 个 `package.json` 聚合 sha256 同为
-   `2ece6ea6f218344269b1132b5195377504423c59df7a01a965ef86f7c11103c6`。
+   `4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304`。
+
+   该聚合值的**计算口径写在 `tools/tree_digest.mjs` 的文件头**（逐文件的
+   `<相对路径> NUL <sha256>` 行，按路径排序，LF 连接，末尾补 LF，再取 sha256），
+   因此第三方可用同一条命令重算：
+
+   ```
+   node tools/tree_digest.mjs <克隆>/apps/studio/node_modules --package-json-only
+   ```
+
+   口径只用**相对路径**，所以摘要与克隆到哪个目录无关——这一点是该测量有意义的前提。
+   全树（不止 `package.json`）的摘要同法可算：`4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3`（17191 个文件）。
+
+   **该摘要是随平台变化的**，这是 lockfile 的性质而非口径的缺陷：
+   `apps/studio/package-lock.json` 声明了 **34 个平台相关的 optional 包**
+   （`@next/swc-<platform>`、`@img/sharp-<platform>`、`@img/sharp-libvips-*`），
+   npm 只安装与本机匹配的那一份（实测 Windows x64 装了其中 9 个）。因此
+   Windows 与 Linux 的安装树天然不同，**期望值必须按平台记录**——
+   `tools/installed-tree-digests.txt` 即按 `<口径> <平台> <sha256>` 逐行记录；
+   某平台尚无记录时该检查**跳过而非失败**（没有可比对的基准，凭空造一个是错的）。
+   这一点也是它**不能**作为跨平台一致性证据的原因，见 §7 第 6 条。
+
+   **全树口径（`all-files`）不只锁版本，还抓到了 npm 自己没抓到的安装损坏。**
+   复核期间有一个全新克隆的 `npm ci` 装出了**被截断且补零**的
+   `next/dist/server/image-optimizer.js.map`（25088 字节：前 8704 字节正常，
+   其后 16384 字节全为 0），而 **npm ci 退出码为 0**、tarball 的 integrity
+   校验也通过——npm 的完整性校验覆盖 tarball，不覆盖解压后的文件是否被完整写出。
+   是本门禁把它拦下的（`installdigest` 步 FAILED、退出码 1），而同一轮里
+   npm ci / npm test / next build 全部 PASS。
+   注意**只算 `package.json` 的窄口径看不出这个问题**（被截断的不是
+   `package.json`），这也是全树口径值得保留的理由。
+   详见 `docs/evidence/ATS-102/07-final-gate-6-steps.log` §6.1。
+
+   > 更正记录：早先此处引用的 `2ece6ea6…` 无法用任何常见口径重算（已逐一试过
+   > 路径前缀／分隔符／排序／换行／大小写等约 2000 种组合），**该值不可复现，
+   > 已作废**。新值由上列命令直接产出，且在三个相互独立的克隆（含交付前那次
+   > 运行自己留下的克隆）上结果一致。
 3. **lockfile 自身在安装前后哈希不变**。实测两个 lockfile 的 sha256 在安装前后相同：
    - `package-lock.json` → `703557d47d0bb8b3582dbc9daf0ee1d1a0972d58f0391f77e2b08f8942ec46d9`
    - `apps/studio/package-lock.json` → `5931d663e33da6fc3e56a968e6100a5f275a254473a5d67714bcbd13004fee24`
@@ -63,14 +100,18 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 | job | runner | 门禁内容 |
 |---|---|---|
 | `node-tests` | `windows-2022` | Node 22 版本断言 → 根 `npm ci` → lockfile 未被改写 → `npm test` → `node --check server/index.mjs` |
-| `web-build` | `windows-2022` | `apps/studio` 的 `npm ci` → lockfile 未被改写 → `next build` → 产物 `out/index.html` 存在且非空 |
+| `web-build` | `windows-2022` | `apps/studio` 的 `npm ci` → lockfile 未被改写 → **安装树摘要校验** → `next build` → 产物 `out/index.html` 存在且非空 |
 | `dependency-manifest` | `ubuntu-latest` | 安装依赖 → 重新生成依赖清单 → `--check` 断言与提交的清单一致 |
 
 三个 job 各自把产物上传为 artifact（测试输出、静态导出目录、依赖清单），保留 7 天。
 
+**安装树摘要校验**（`node tools/tree_digest.mjs --check apps/studio/node_modules`）：
+把已安装的 `apps/studio/node_modules` 钉在 lockfile 上——换 tarball、被篡改的
+依赖都会让它失配。该检查的期望值按**平台**记录，原因见 §2.2。
+
 ### 3.1 与本地门禁脚本的一致性
 
-workflow 的每一条命令都对应 `tools/ci_build_gate.mjs` 里的一个 step（`install` / `lockcheck` / `test` / `build` / `manifest`）。该脚本可在任意有 Node 22 的机器上以一条命令复现整个门禁：
+workflow 的每一条命令都对应 `tools/ci_build_gate.mjs` 里的一个 step（`install` / `lockcheck` / `installdigest` / `test` / `build` / `manifest`）。该脚本可在任意有 Node 22 的机器上以一条命令复现整个门禁：
 
 ```bash
 node tools/ci_build_gate.mjs            # 全部步骤
@@ -146,6 +187,8 @@ RESULT: OK -- every build-gate step passed.
 | `docs/evidence/ATS-102/03-lockfile-reproducibility.log` | 两个独立克隆各装一次，安装树 sha256 一致；两个 lockfile 安装前后哈希不变 |
 | `docs/evidence/ATS-102/04-final-clean-clone-gate.log` | **最终验收运行**：合并 `dev`（纳入 ATS-401）之后的全新克隆，门禁退出码 0，59/59 测试通过 |
 | `docs/evidence/ATS-102/05-windows-shell-path-pitfall.log` | Windows/Git-Bash 下的 PATH 形态坑（`spawn taskkill ENOENT` 导致 Bridge 崩溃）与修正 |
+| `docs/evidence/ATS-102/06-independent-verification.log` | **复核轮次**：独立全新克隆重跑门禁（59/59、退出码 0）；三个相互独立克隆的安装树摘要一致；两个不可复现的摘要值被作废 |
+| `docs/evidence/ATS-102/07-final-gate-6-steps.log` | **最终验收运行**：加入安装树摘要检查后的 6 步门禁，全绿、退出码 0 |
 
 ### 4.1 合并 `dev` 后的最终验收
 
@@ -164,6 +207,20 @@ $ echo $?
 ```
 
 门禁跑完后 `git status --short` 为空、两个 lockfile 的 `git diff` 为空。
+
+**复核轮次的最终验收**（加入安装树摘要检查后，门禁为 6 步）：
+
+```
+--- [install] PASSED (36648 ms)
+--- [lockcheck] PASSED (61 ms)
+--- [installdigest] PASSED (1776 ms)   # digest ok: all-files win32-x64 = 4542171b...
+--- [test] PASSED (1780 ms)            # tests 59 / pass 59 / fail 0
+--- [build] PASSED (8035 ms)
+--- [manifest] PASSED (144 ms)
+RESULT: OK -- every build-gate step passed.
+```
+
+完整日志：`docs/evidence/ATS-102/07-final-gate-6-steps.log`。
 
 ### 4.2 在 Windows/Git-Bash 上准备环境
 
@@ -233,7 +290,14 @@ ATS-101 记录的已知副作用是：`next build` 会改写 `apps/studio/next-e
 
 本次的处理：**把改写后的内容提交进版本控制**，并实测该副作用是**幂等的**（连续两次 `next build` 后两文件的 sha256 不变）。因此构建后工作区不再变脏，CI 无需「允许变更清单」，只保留一步**报告**（`git --no-pager diff --stat`，`continue-on-error: true`，不阻断）以便将来升级 Next 时能看见差异。
 
-实测：构建前后 `next-env.d.ts` sha256 `1b59d4c6…`、`tsconfig.json` sha256 `3314e0e7…`，第二次构建后不变。
+实测：连续两次 `next build` 后两文件 sha256 不变，且 `git status --short` 为空：
+
+- `apps/studio/next-env.d.ts` → `1b59d4c6b83807db275d43f3cf2cc8e9323f465fab764eea091cc5becd5bad37`
+- `apps/studio/tsconfig.json` → `671231fb6240b994441ed4ea03f9d110af1df971dfd6a3638e6db111435f92b0`
+
+> 更正记录：早先此处 `tsconfig.json` 的值写作 `3314e0e7…`，**该值不存在于本仓库
+> 任何历史版本的该文件中**，无法复现，已作废。上列两值取自工作区文件的原始字节
+> （`sha256sum`），可逐条重算。
 
 ### 6.3 新增第二个 lockfile 引入的告警及其消除
 
@@ -260,7 +324,11 @@ ATS-101 §8 建议：「ATS-102 的 CI 脚本须固定该镜像」。本次的 w
 - `docs/WBS.xlsx`：取 `dev` 的版本（含 ATS-101 已完成、ATS-401 待审核），再用 `tools/update_wbs_ats102.py` 施加 ATS-102 的行改动；该脚本的总览缓存值改为**从表格重算**（沿用 `dev` 的 `summarise` 约定），不再硬编码，因此对其它行的完成率状态不敏感。
 - `docs/16-BASELINE-ADR.md`：取 `dev` 的行号（`server/index.mjs:132`——ATS-401 加了代码后行号右移，已对合并后的源码逐行核对确认），并保留本次追加的「ATS-102 进展」说明。
 
-合并后实测：`npm test` **59/59** 通过，构建门禁 5 步全绿（§4.1）。
+合并后实测：`npm test` **59/59** 通过，构建门禁全绿（§4.1）。
+
+> 复核轮次的补充：门禁在加入安装树摘要检查后为 **6 步**（`install` / `lockcheck` /
+> `installdigest` / `test` / `build` / `manifest`），最终验收见
+> `docs/evidence/ATS-102/07-final-gate-6-steps.log`。
 
 ## 7. 未验证项声明（PENDING ≠ PASS）
 
@@ -269,10 +337,11 @@ ATS-101 §8 建议：「ATS-102 的 CI 脚本须固定该镜像」。本次的 w
 3. **NFR-012 的分发审计结论未出**，本次只提供数据基础（§1 第 3 条）。
 4. **完整 SPDX SBOM 未生成**（§5.3）。
 5. **16 个需复核依赖的最终法律结论未出**（§5.2）。
-6. **macOS / Linux 上未实测**。本次全部实测在 Windows 11 上完成；lockfile 的 `resolved` 与 `optional` 条目覆盖其他平台，但安装树的跨平台一致性未验证。
+6. **macOS / Linux 上未实测**。本次全部实测在 Windows 11 上完成。补充：安装树摘要**按平台变化**（§2.2，34 个平台相关 optional 包），所以 Windows 上算出的值**不能**代表 Linux——`tools/installed-tree-digests.txt` 目前只有 `win32-x64` 一组期望值，Linux runner 上该检查会**跳过**（不是失败），直到有人补录该平台的期望值为止。跨平台一致性仍属未验证。
 7. **CI 的并发取消（`concurrency`）与 artifact 保留行为未实测**。
 8. **产品的 `spawn('taskkill')` 无兜底缺陷未修**（§6.5）——本任务只记录与定位，未改产品代码（属 ATS-108）。
 9. **门禁在 GitHub runner 上的 PATH/工具链差异未验证**：本地用 `tools/ats102-env.sh` 准备 MSYS 形式的 PATH（§4.2），而 GitHub 的 Windows runner 由 `actions/setup-node` 直接配置 PATH，二者的差异未实测。
+10. **构建步骤的稳定性未量化**：复核期间有一个全新克隆的 `next build` 在 "Generating static pages" 阶段崩溃（`Next.js build worker exited with code: 3221226505`，即 0xC0000409，原生栈缓冲区溢出），同一克隆上单独重跑即退出码 0、随后整轮门禁全绿。本机磁盘 C: 93% / D: 89%、内存紧张，判为资源压力下的偶发原生崩溃而非代码缺陷，但**该判定的依据是重跑成功，不是根因定位**——真实 GitHub runner 的资源充裕度不同，未实测其发生率。
 
 ## 8. 冻结声明
 

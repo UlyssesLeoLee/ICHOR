@@ -4,9 +4,12 @@ name: ATS-102 build gate
 #
 # 门禁内容（对应 docs/02-REQUIREMENTS.md NFR-007 / NFR-012）：
 #   1. Node 22 + `npm ci`（严格按 lockfile 安装）→ 锁文件可重现性门禁；
-#   2. `npm test`（Node 内置 test runner，20 项 UT/IT）→ 回归门禁；
-#   3. `apps/studio` 的 `npm ci` + `next build` → 静态导出构建门禁；
+#   2. `npm test`（Node 内置 test runner，59 项 UT/IT）→ 回归门禁；
+#   3. `apps/studio` 的 `npm ci` + 安装树摘要校验 + `next build`
+#      → 静态导出构建门禁；
 #   4. 依赖清单生成 + 漂移校验 → 依赖清单门禁。
+#
+# 本地等价门禁：node tools/ci_build_gate.mjs（步骤与本 workflow 一一对应）。
 #
 # 镜像说明（依据 docs/16-BASELINE-ADR.md §4 B-02）：
 #   Windows job 固定在带 Visual Studio 2022 C++ 生成工具的镜像上，
@@ -99,6 +102,15 @@ jobs:
       - name: Verify lockfile is not mutated by npm ci
         run: |
           git diff --exit-code -- apps/studio/package-lock.json
+
+      # The installed tree is pinned to the lockfiles by a path-independent
+      # digest, so a swapped tarball or a patched dependency is caught here
+      # rather than at runtime. The recorded value is per platform: npm only
+      # installs the platform-specific optional packages of the host, so a
+      # Linux runner legitimately has a different tree (and would SKIP if no
+      # value is recorded for that platform yet).
+      - name: Verify the installed tree matches the recorded digest
+        run: node tools/tree_digest.mjs --check apps/studio/node_modules
 
       - name: Build static export
         run: npm run build

@@ -17,6 +17,8 @@
  *   install   npm ci in the root and in apps/studio, from the committed
  *             lockfiles only
  *   lockcheck assert that npm ci did not mutate either lockfile
+ *   installdigest assert that the installed apps/studio tree still matches
+ *             the digest recorded for it (tools/installed-tree-digests.txt)
  *   test      npm test (Node built-in test runner)
  *   build     the Next.js 16 static export
  *   manifest  regenerate the dependency manifest and assert no drift
@@ -69,6 +71,21 @@ const STEPS = [
         cwd: REPO_ROOT,
         cmd: 'git',
         args: ['diff', '--exit-code', '--', 'package-lock.json', 'apps/studio/package-lock.json'],
+      },
+    ],
+  },
+  {
+    id: 'installdigest',
+    title: 'The installed tree matches the digest recorded for it',
+    commands: [
+      // The digest is path-independent (relative paths only), so the expected
+      // value is the same on every machine and every checkout location. It
+      // pins the installed tree to the lockfiles: any dependency change,
+      // swapped tarball or patched file moves it.
+      {
+        cwd: REPO_ROOT,
+        cmd: 'node',
+        args: [path.join(REPO_ROOT, 'tools', 'tree_digest.mjs'), '--check', path.join('apps', 'studio', 'node_modules')],
       },
     ],
   },

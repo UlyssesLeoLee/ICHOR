@@ -1,0 +1,99 @@
+=== ATS-102: 最终验收 —— 6 步构建门禁 ===
+date        : 2026-11-04T08:20:00Z
+node        : v22.23.4
+npm         : 10.9.9
+os          : Windows 11
+commit      : 5a46d17 (chore(ATS-102): 按最终提交的树重新生成 CHECKSUMS.sha256)
+method      : git clone --no-local -> node tools/ci_build_gate.mjs
+
+--- 1. 门禁步骤与结果 ---
+--- [install] PASSED (42026 ms)
+--- [lockcheck] PASSED (90 ms)
+--- [installdigest] PASSED (2096 ms)
+--- [test] PASSED (3099 ms)
+--- [build] PASSED (4409 ms)
+--- [manifest] PASSED (128 ms)
+RESULT: OK -- every build-gate step passed.
+
+门禁退出码 0。
+
+--- 2. 测试计数 ---
+# tests 59
+# pass 59
+# fail 0
+
+--- 3. 安装树摘要校验 ---
+digest ok: all-files win32-x64 = 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
+(file count 17191)
+
+--- 4. 门禁后工作区状态（空 = 干净）---
+git status --short -> (空)
+
+--- 5. 门禁后 lockfile 未被改写 ---
+git diff --exit-code -- package-lock.json apps/studio/package-lock.json -> OK
+
+--- 6. 本轮复核记录到的两次真实异常（均非代码缺陷，但必须留痕）---
+
+(6.1) 某个全新克隆的 npm ci 装出了被截断且补零的
+      next/dist/server/image-optimizer.js.map
+      （25088 字节：前 8704 字节与正常文件一致，其后 16384 字节全为 0），
+      而 npm ci 退出码为 0、tarball integrity 校验也通过。
+      —— npm 的完整性校验覆盖 tarball，不覆盖解压后的文件是否被完整写出。
+      是安装树摘要门禁把它拦下的（installdigest FAILED，退出码 1），
+      而同一轮里 npm ci / npm test / next build 全部 PASS。
+      该克隆重装后摘要恢复为 4542171b...，与另外四个克隆一致。
+
+(6.2) 某个全新克隆的 next build 在 "Generating static pages" 阶段崩溃：
+      "Next.js build worker exited with code: 3221226505"（0xC0000409，
+      原生栈缓冲区溢出）。同一克隆上单独重跑 `npm run build` 退出码 0、
+      随后整轮门禁也全绿。本机磁盘 C: 93% / D: 89%、内存紧张，判为
+      资源压力下的偶发原生崩溃，非本次改动引入的缺陷。
+
+--- 7. 摘要口径 ---
+逐文件的 `<相对路径> NUL <sha256>` 行，按路径排序，LF 连接，末尾补 LF，
+再取 sha256。口径只用相对路径，故与克隆目录无关；文件本身流式哈希，
+峰值内存为一个文件而非一棵树。
+命令：node tools/tree_digest.mjs <tree-root> [--package-json-only] [--manifest <file>]
+期望值：tools/installed-tree-digests.txt（按 <口径> <平台> 逐行记录）
+
+--- 8. 跨克隆一致性 ---
+下列四个相互独立的克隆，全树口径的摘要全部一致：
+  ats102-verify / ats102-v4 / ats102-v5 / final-clone（交付前那轮留下的克隆）
+  全树口径         : 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3  (17191)
+
+另有 ats102-verify2 与 ats102-v3 两个克隆在本轮复核期间测得相同结论，
+但复核结束后为回收磁盘已删除，不再可复跑：
+
+  ats102-verify2 : 与上述一致（package.json 口径 4672eb24...，317 个文件）
+  ats102-v3      : **不一致**——即 (6.1) 记录的那个被截断的克隆，
+                   其全树口径为 e2272dbecddfb6e7b44b66fffd230ee8bf3f0e1d35c81b9dc9c2d1b5ed9f0f30，
+                   正是被 installdigest 步骤拦下的那一次。
+
+package.json 口径（317 个文件）在所有测过的克隆上一致，包括 ats102-v3：
+  4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304
+——被截断的那个文件不是 package.json，所以窄口径看不出问题；全树口径才看得出。
+这也是全树口径值得保留的原因。
+
+--- 9. 合并 dev 后的状态（提交 58962ca）---
+合并本地集成分支 dev 的最新进展（ATS-401 整改 + ATS-501 协议文档）后，
+在合并后的全新克隆上复核：
+
+- ATS-102 的门禁步骤全部通过：
+    --- [installdigest] PASSED   digest ok: all-files win32-x64 = 4542171b...
+    --- [manifest]    PASSED
+    --- [lockcheck]   PASSED
+    --- [build]       PASSED（重跑后；首次为 §6.2 记录的偶发原生崩溃）
+- npm test 在合并后的树上为：# tests 101 / # pass 76 / # fail 0 / # cancelled 25。
+  这 25 项全部是 UT-AGT-042 ~ UT-AGT-066，failureType 为 cancelledByParent，
+  报错 "Promise resolution is still pending but the event loop has already resolved"。
+
+  **这 25 项不是本次改动引入的回归**：在**只含 dev、不含本任务任何改动**的
+  克隆（dev-base @ 60f93c8）上单独跑 npm test，得到完全相同的 25 项 cancelled
+  与同一组报错。即 ATS-401 整改后的既有状态，与 ATS-102 无关。
+  ATS-102 本任务自己的门禁步骤在合并后仍全绿。
+
+  归属：ATS-401（Agent 契约层）的测试问题，不在本任务范围内。
+
+--- 10. 合并后的 CHECKSUMS ---
+CHECKSUMS.sha256 按合并后的最终树重新生成（124 条）。合并时该文件是唯一
+冲突（生成物），按生成器规则解决，不手工拼行。
