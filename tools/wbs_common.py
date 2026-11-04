@@ -32,7 +32,63 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # Every script that writes a marked note into a shared cell owns exactly one
 # marker. A cell may therefore carry notes from more than one script, and the
 # merge has to keep the foreign ones.
-MARKERS = ('【ATS-101】', '【ATS-401】', '【ATS-501】')
+#
+# The tuple order is also the CANONICAL block order: the merge re-emits the
+# blocks in this order regardless of the order in which the scripts ran. Two
+# updaters that touch the same cell therefore produce the same sheet whatever
+# order they run in.
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-401】', '【ATS-501】')
+
+# The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
+# They are shared by every updater, so each task contributes ONE marked
+# fragment and the cell is the composition of all of them.
+#
+# `base` is the unmarked part that belongs to no task and is never removed.
+# `stale` lists the legacy unmarked fragments that earlier deliveries wrote
+# whole-cell; they are superseded by the marked fragments and must not
+# linger next to them.
+NARRATIVE = {
+    'D6': {
+        'base': 'v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT',
+        'stale': (
+            'Next.js 16 静态导出构建已实测通过（ATS-101）',
+            'Agent 契约层已实现（ATS-401）',
+            '锁文件、依赖清单与 CI 构建门禁已交付（ATS-102）。',
+            'Next.js 16 静态导出构建已实测通过（ATS-101）。',
+        ),
+    },
+    'D7': {
+        'base': '真实浏览器 Playwright ST 未执行（受 B-01 阻断）；'
+                'Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、'
+                '仓库缺 icons/icon.ico，且成因清单尚未穷尽）',
+        'stale': (
+            'CI workflow 未在真实 runner 上跑过（ATS-102）',
+            '详见 docs/16-BASELINE-ADR.md、docs/17-BUILD-CI.md 与 docs/17-AGENT-CONTRACT.md。',
+            '详见 docs/16-BASELINE-ADR.md。',
+        ),
+    },
+}
+
+# Each task's own contribution to the narrative cells.
+NARRATIVE_FRAGMENTS = {
+    '【ATS-101】': {
+        'D6': 'Next.js 16 静态导出构建已实测通过',
+        'D7': '详见 docs/16-BASELINE-ADR.md',
+    },
+    '【ATS-102】': {
+        'D6': '锁文件、依赖清单与 CI 构建门禁已交付',
+        'D7': 'CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md',
+    },
+    '【ATS-401】': {
+        'D6': 'Agent 契约层已实现',
+        'D7': '详见 docs/17-AGENT-CONTRACT.md',
+    },
+    '【ATS-501】': {
+        'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',
+        'D7': '远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；'
+              '详见 docs/19-REMOTE-RUNNER-PROTOCOL.md',
+    },
+}
 
 
 def _text(value):
@@ -104,8 +160,10 @@ def merge_marked(current, marker, new_text, stale_prefixes=(), stale_fragments=(
     script, so that the cell keeps the exact bytes the committed baseline
     has. A foreign marked block in the same cell survives untouched.
 
-    The blocks are re-emitted in document order, so a cell that carries two
-    scripts' notes does not have their order flipped by a re-run.
+    The blocks are re-emitted in CANONICAL order (the MARKERS tuple order),
+    not in the order they happened to appear in the cell. That is what makes
+    two updaters order-independent: whichever script runs last, the cell
+    ends up with the same sequence of blocks.
     """
     current = _text(current) or ''
     positions = []
@@ -130,7 +188,7 @@ def merge_marked(current, marker, new_text, stale_prefixes=(), stale_fragments=(
         if owner == marker:
             if own_written:
                 continue              # a duplicate of this script's block
-            out_blocks.append(marker + new_text)
+            out_blocks.append((marker, marker + new_text))
             own_written = True
             continue
         if owner is None:
@@ -138,7 +196,7 @@ def merge_marked(current, marker, new_text, stale_prefixes=(), stale_fragments=(
                 # This script owns the unmarked text of this cell.
                 if own_written:
                     continue
-                out_blocks.append(new_text)
+                out_blocks.append((None, new_text))
                 own_written = True
                 continue
             if drop_unmarked:
@@ -150,16 +208,33 @@ def merge_marked(current, marker, new_text, stale_prefixes=(), stale_fragments=(
                     and s not in stale_fragments]
             text = '；'.join(segs)
         if text.strip():
-            out_blocks.append(text)
+            out_blocks.append((owner, text))
 
     if not own_written:
         if plain:
-            out_blocks.insert(0, new_text)
+            out_blocks.insert(0, (None, new_text))
         else:
-            out_blocks.append(marker + new_text)
+            out_blocks.append((marker, marker + new_text))
+
+    # Re-emit in canonical order: unmarked prefix first, then one block per
+    # marker in the MARKERS order. A block whose marker is unknown (a future
+    # task) keeps its relative position at the end rather than being lost.
+    prefix = ''.join(t for owner, t in out_blocks if owner is None)
+    by_marker = {}
+    unknown = []
+    for owner, t in out_blocks:
+        if owner is None:
+            continue
+        if owner in MARKERS:
+            by_marker[owner] = t
+        else:
+            unknown.append(t)
+    ordered = [prefix] if prefix.strip() else []
+    ordered.extend(by_marker[m] for m in MARKERS if m in by_marker)
+    ordered.extend(unknown)
 
     out = ''
-    for text in out_blocks:
+    for text in ordered:
         text = text.strip().rstrip('；').strip()
         if not text:
             continue
@@ -170,6 +245,58 @@ def merge_marked(current, marker, new_text, stale_prefixes=(), stale_fragments=(
             out += '' if out.endswith('。') else '；'
         out += text
     return out
+
+
+def compose_narrative(cell, cell_name):
+    """Build the 总览 narrative cell from every task's marked fragment.
+
+    The cell is owned by NO single task: each task contributes one marked
+    fragment, and the cell is the composition of the unmarked base plus all
+    the fragments. Any updater can therefore rewrite the cell without
+    erasing another task's contribution, and the result does not depend on
+    the order in which the updaters ran.
+
+    `cell_name` is the cell's name ('D6' / 'D7'), not its column letter.
+    """
+    spec = NARRATIVE[cell_name]
+    current = _text(cell) or ''
+    # Strip the legacy unmarked fragments: they are the whole-cell
+    # predecessors of the marked fragments below.
+    prefix = spec['base']
+    for stale in spec['stale']:
+        prefix = prefix.replace(stale, '')
+    prefix = prefix.strip().rstrip('；').strip()
+
+    parts = [prefix] if prefix else []
+    for marker in MARKERS:
+        fragment = NARRATIVE_FRAGMENTS.get(marker, {}).get(cell_name)
+        if not fragment:
+            continue
+        # A fragment that is already in the cell (from an earlier run) must
+        # not be added twice.
+        if marker in current and fragment in current:
+            parts.append(fragment)
+            continue
+        parts.append(fragment)
+    out = '；'.join(p for p in parts if p)
+    if out and not out.endswith('。'):
+        out += '。'
+    return out
+
+
+def set_narrative_cell(xml, rid, cell_name):
+    """Rewrite one 总览 narrative cell as the composition of all fragments.
+
+    `cell_name` is the cell's name ('D6' / 'D7'); the row is `rid` (6 / 7).
+    """
+    column = cell_name[0]
+    m = re.search(r'<x:c r="%s%d"[^>]*>(.*?)</x:c>' % (column, rid), xml, re.S)
+    if m is None:
+        raise SystemExit(f'{cell_name} not found')
+    cur = re.search(r'<x:v>(.*?)</x:v>', m.group(1), re.S)
+    merged = compose_narrative(cur.group(1) if cur else '', cell_name)
+    new_cell = '<x:c r="%s%d" t="str"><x:v>%s</x:v></x:c>' % (column, rid, merged)
+    return xml[:m.start()] + new_cell + xml[m.end():]
 
 
 def set_marked_cell(xml, rid, col, marker, new_text,

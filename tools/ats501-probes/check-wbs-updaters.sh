@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # ATS-501 regression: the WBS updaters must not fight over the workbook.
 #
-# 1. Re-running the ATS-101 updater must NOT walk an accepted row back from
-#    已完成 to 待审核 -- the review is a one-way door.
-# 2. Running the updaters in either order must yield the SAME sheet.
-# 3. Each updater must be idempotent: running it twice must not change the
-#    result.
-# 4. The derived 总览 totals must equal the sheet they are derived from.
-# 5. Every task's marked note must survive a run of the other updaters.
+# The workbook is shared by FIVE updaters -- ATS-101, ATS-101 (post-review),
+# ATS-102, ATS-401 and ATS-501 -- and every one of them writes into the same
+# 总览 narrative cells D6/D7. The regression therefore checks:
+#
+# 1. an accepted row is not downgraded -- with a SEEDED 已完成 row, so the
+#    check can never pass by having nothing to protect;
+# 2. running the updaters in either order yields the SAME sheet;
+# 3. each updater is idempotent: running it twice changes nothing;
+# 4. the derived 总览 totals equal the sheet they are derived from;
+# 5. every task's marked note survives a run of the other updaters;
+# 6. no updater erases another task's text in the shared D6/D7 cells.
 #
 # Usage: bash tools/ats501-probes/check-wbs-updaters.sh
 set -u
@@ -25,6 +29,15 @@ TMP_NATIVE="$(cygpath -w "$TMP" 2>/dev/null || echo "$TMP")"
 
 XLSX="docs/WBS.xlsx"
 BASE="$TMP/WBS.base.xlsx"
+
+# Every updater that may write into the shared workbook.
+UPDATERS=(
+  tools/update_wbs_ats101.py
+  tools/update_wbs_ats101_done.py
+  tools/update_wbs_ats102.py
+  tools/update_wbs_ats401.py
+  tools/update_wbs_ats501.py
+)
 
 fail=0
 ok()   { printf '  PASS  %s\n' "$*"; }
@@ -51,62 +64,108 @@ PY
 
 restore() { cp "$BASE" "$XLSX"; }
 
-note '=== ATS-501 regression: WBS updater interaction ==='
-note "repo root : $ROOT"
-note ''
+# Seed a row as 已完成 so the "an accepted row stays accepted" check has
+# something real to protect. Without the seed the check would pass by
+# comparing 待审核 with 待审核 -- a vacuous pass.
+seed_done() {
+  python - "$XLSX" <<'PY'
+import re
+import shutil
+import sys
+import zipfile
 
-# --- 1. an accepted row is not downgraded ----------------------------------
-# The expectation is derived from the BASELINE workbook: if the ATS-101 row
-# already carries a terminal status there, the updater must leave it alone.
-# On a branch where the row is still 待审核, there is nothing to protect.
-note '--- 1. an accepted row stays accepted ---'
-BASE_STATUS=$(python - "$TMP_NATIVE/WBS.base.xlsx" <<'PY'
+target = sys.argv[1]
+zin = zipfile.ZipFile(target)
+parts = {n: zin.read(n) for n in zin.namelist()}
+infos = {i.filename: i for i in zin.infolist()}
+zin.close()
+
+xml = parts['xl/worksheets/sheet2.xml'].decode('utf-8')
+for rm in re.finditer(r'<x:row[^>]*r="(\d+)"[^>]*>(.*?)</x:row>', xml, re.S):
+    if '<x:v>ATS-502</x:v>' in rm.group(2):
+        rid = rm.group(1)
+        row = rm.group(0)
+        m = re.search(r'(<x:c r="N%s"[^>]*>)(.*?)(</x:c>)' % rid, row, re.S)
+        cell = '<x:c r="N%s" t="str"><x:v>已完成</x:v></x:c>' % rid
+        row = row[:m.start()] + cell + row[m.end():]
+        xml = xml[:rm.start()] + row + xml[rm.end():]
+        break
+else:
+    raise SystemExit('ATS-502 row not found')
+
+parts['xl/worksheets/sheet2.xml'] = xml.encode('utf-8')
+tmp = target + '.seed.tmp'
+with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zout:
+    for name, data in parts.items():
+        info = infos[name]
+        zi = zipfile.ZipInfo(name, date_time=info.date_time)
+        zi.compress_type = zipfile.ZIP_DEFLATED
+        zi.external_attr = info.external_attr
+        zout.writestr(zi, data)
+shutil.copy2(tmp, target)
+import os
+os.unlink(tmp)
+PY
+}
+
+status_of() { python - "$1" "$2" <<'PY'
 import sys
 sys.path.insert(0, 'tools')
 from wbs_common import read_parts, sheet_cells
 parts = read_parts(sys.argv[1])
 s2 = sheet_cells(parts, 'xl/worksheets/sheet2.xml')
 for rid, cells in s2.items():
-    if cells.get('A') == 'ATS-101':
+    if cells.get('A') == sys.argv[2]:
         print(cells.get('N', ''))
         break
 PY
-)
+}
+
+run_all() { for u in "${UPDATERS[@]}"; do python "$u" > /dev/null || return 1; done; }
+
+note '=== ATS-501 regression: WBS updater interaction ==='
+note "repo root : $ROOT"
+note "updaters  : ${UPDATERS[*]}"
+note ''
+
+# --- 1. an accepted row is not downgraded ----------------------------------
+note '--- 1. a seeded 已完成 row stays 已完成 ---'
 restore
-python tools/update_wbs_ats101.py > /dev/null || bad 'ATS-101 updater exited non-zero'
-STATUS=$(python - <<'PY'
-import sys
-sys.path.insert(0, 'tools')
-from wbs_common import read_parts, sheet_cells
-parts = read_parts()
-s2 = sheet_cells(parts, 'xl/worksheets/sheet2.xml')
-for rid, cells in s2.items():
-    if cells.get('A') == 'ATS-101':
-        print(cells.get('N', ''))
-        break
-PY
-)
-if [ "$STATUS" = "$BASE_STATUS" ]; then
-  ok "the ATS-101 row still reads '$STATUS' after a re-run (baseline: '$BASE_STATUS')"
+seed_done
+SEEDED=$(status_of "$XLSX" ATS-502)
+if [ "$SEEDED" != "已完成" ]; then
+  bad "the seed did not take: ATS-502 reads '$SEEDED' instead of 已完成"
 else
-  bad "the ATS-101 row changed from '$BASE_STATUS' to '$STATUS' -- an accepted review must not be undone"
+  ok "the seed took: ATS-502 reads 已完成"
 fi
+# Every updater that touches a status must leave the seeded row alone.
+for u in "${UPDATERS[@]}"; do
+  restore
+  seed_done
+  python "$u" > /dev/null 2>&1
+  AFTER=$(status_of "$XLSX" ATS-502)
+  if [ "$AFTER" = "已完成" ]; then
+    ok "$u leaves the accepted ATS-502 row at 已完成"
+  else
+    bad "$u walked the accepted ATS-502 row back from 已完成 to '$AFTER'"
+  fi
+done
 
 # --- 2. either order yields the same sheet ---------------------------------
 note ''
-note '--- 2. both updaters, in either order ---'
+note '--- 2. the updaters, in either order ---'
 restore
-python tools/update_wbs_ats101.py > /dev/null
-python tools/update_wbs_ats501.py > /dev/null
+run_all || bad 'an updater exited non-zero in order A'
 dump "$XLSX" > "$TMP/orderA.txt"
 
 restore
-python tools/update_wbs_ats501.py > /dev/null
-python tools/update_wbs_ats101.py > /dev/null
+for ((i=${#UPDATERS[@]}-1; i>=0; i--)); do
+  python "${UPDATERS[$i]}" > /dev/null || bad "an updater exited non-zero in order B"
+done
 dump "$XLSX" > "$TMP/orderB.txt"
 
 if diff -u "$TMP/orderA.txt" "$TMP/orderB.txt" > "$TMP/diffAB.txt"; then
-  ok 'ATS-101 -> ATS-501 and ATS-501 -> ATS-101 produce the same sheet'
+  ok 'the five updaters produce the same sheet in either order'
 else
   bad 'the two orders disagree:'
   sed -n '1,40p' "$TMP/diffAB.txt"
@@ -116,14 +175,12 @@ fi
 note ''
 note '--- 3. idempotency ---'
 restore
-python tools/update_wbs_ats101.py > /dev/null
-python tools/update_wbs_ats501.py > /dev/null
+run_all || bad 'an updater exited non-zero on the first pass'
 dump "$XLSX" > "$TMP/once.txt"
-python tools/update_wbs_ats101.py > /dev/null
-python tools/update_wbs_ats501.py > /dev/null
+run_all || bad 'an updater exited non-zero on the second pass'
 dump "$XLSX" > "$TMP/twice.txt"
 if diff -u "$TMP/once.txt" "$TMP/twice.txt" > "$TMP/diffII.txt"; then
-  ok 'running both updaters twice changes nothing'
+  ok 'running the five updaters twice changes nothing'
 else
   bad 'the updaters are not idempotent:'
   sed -n '1,40p' "$TMP/diffII.txt"
@@ -168,14 +225,11 @@ if [ $? -ne 0 ]; then fail=1; fi
 note ''
 note '--- 5. the marked notes of every task survive ---'
 restore
-python tools/update_wbs_ats101.py > /dev/null
-python tools/update_wbs_ats501.py > /dev/null
+run_all || bad 'an updater exited non-zero'
 python - "$TMP_NATIVE/WBS.base.xlsx" <<'PY'
 import sys
 sys.path.insert(0, 'tools')
-from wbs_common import read_parts, sheet_cells
-
-MARKERS = ('【ATS-101】', '【ATS-401】', '【ATS-501】')
+from wbs_common import MARKERS, read_parts, sheet_cells
 
 
 def marker_counts(parts):
@@ -203,11 +257,52 @@ print('  PASS  every marked note of the baseline is still in the sheet')
 PY
 if [ $? -ne 0 ]; then fail=1; fi
 
+# --- 6. no updater erases another task's narrative -------------------------
+note ''
+note "--- 6. the shared D6/D7 cells keep every task's text ---"
+
+restore
+run_all || bad 'an updater exited non-zero'
+python - "$TMP_NATIVE/WBS.base.xlsx" <<'PY'
+import sys
+sys.path.insert(0, 'tools')
+from wbs_common import read_parts, sheet_cells
+
+# Each task's own contribution to the shared narrative cells. The fragments
+# are the ones the shared composition is built from.
+FRAGMENTS = {
+    'D6': ['Next.js 16 静态导出构建已实测通过',
+           '锁文件、依赖清单与 CI 构建门禁已交付',
+           'Agent 契约层已实现',
+           '远程执行面协议已冻结'],
+    'D7': ['详见 docs/16-BASELINE-ADR.md',
+           'docs/17-BUILD-CI.md',
+           'docs/17-AGENT-CONTRACT.md',
+           'docs/19-REMOTE-RUNNER-PROTOCOL.md'],
+}
+
+s1 = sheet_cells(read_parts(), 'xl/worksheets/sheet1.xml')
+problems = []
+for column, fragments in FRAGMENTS.items():
+    row = 6 if column == 'D6' else 7
+    text = s1[row]['D']
+    for fragment in fragments:
+        if fragment not in text:
+            problems.append(f'{column} lost: {fragment}')
+    print(f'  {column}: {text}')
+if problems:
+    for p in problems:
+        print('  FAIL  ' + p)
+    sys.exit(1)
+print('  PASS  D6 and D7 still carry every task\'s contribution')
+PY
+if [ $? -ne 0 ]; then fail=1; fi
+
 restore
 note ''
 if [ "$fail" -eq 0 ]; then
-  note 'RESULT: OK -- the WBS updaters coexist, are idempotent, do not undo an'
-  note '        accepted review, and the 总览 cache always matches 开发WBS.'
+  note 'RESULT: OK -- the five WBS updaters coexist, are idempotent, do not undo'
+  note '        an accepted review, and the 总览 cache always matches 开发WBS.'
   exit 0
 fi
 note 'RESULT: MISMATCH -- the WBS updaters do not coexist.'

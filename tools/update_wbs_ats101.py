@@ -30,7 +30,8 @@ import zipfile
 from pathlib import Path
 
 from wbs_common import (SHEET1, SHEET2, cell_text, format_rate,
-                        set_cell_in_row, set_marked_cell, totals)
+                        set_cell_in_row, set_marked_cell, set_narrative_cell,
+                        totals)
 
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 
@@ -110,21 +111,11 @@ def main():
         xml1, 9, 'B', format_rate(derived['completion_rate']), numeric=True)
     xml1 = set_cell_in_row(
         xml1, 10, 'B', repr(int(derived['sum_remaining'])), numeric=True)
-    # The two narrative cells are shared with the other WBS updaters. D6 and
-    # D7 belong to ATS-101 outright, so this script writes them WITHOUT a
-    # marker -- that keeps the committed baseline's exact bytes -- and a
-    # foreign marked block in the same cell survives untouched.
-    xml1 = set_marked_cell(
-        xml1, 6, 'D', marker,
-        'v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT；'
-        'Next.js 16 静态导出构建已实测通过（ATS-101）。',
-        plain=True)
-    xml1 = set_marked_cell(
-        xml1, 7, 'D', marker,
-        '真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过'
-        '（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；'
-        '详见 docs/16-BASELINE-ADR.md。',
-        plain=True)
+    # The two narrative cells are shared with every other WBS updater. Each
+    # task contributes one marked fragment and the cell is the composition of
+    # all of them, so this script can no longer erase another task's text.
+    xml1 = set_narrative_cell(xml1, 6, 'D6')
+    xml1 = set_narrative_cell(xml1, 7, 'D7')
     parts[SHEET1] = xml1.encode('utf-8')
 
     # --- rewrite the archive, preserving every other part byte-for-byte ------

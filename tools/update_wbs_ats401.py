@@ -28,6 +28,8 @@ import shutil
 import zipfile
 from pathlib import Path
 
+from wbs_common import set_marked_cell
+
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 SHEET2 = 'xl/worksheets/sheet2.xml'
 SHEET1 = 'xl/worksheets/sheet1.xml'
@@ -131,15 +133,10 @@ def main():
     xml2 = set_cell_in_row(xml2, rid, 'P', '0', numeric=True)
 
     # 风险/说明: append the ATS-401 note, replacing a previous copy of it.
-    m = re.search(r'<x:c r="T%d"[^>]*>(.*?)</x:c>' % rid, xml2, re.S)
-    if m is None:
-        raise SystemExit(f'T{rid} not found')
-    cur = re.search(r'<x:v>(.*?)</x:v>', m.group(1), re.S)
-    current = cur.group(1) if cur else ''
-    head = current.split('【ATS-401】')[0].rstrip('；')
-    merged = (head + '；' if head else '') + NOTE
-    new_cell = '<x:c r="T%d" t="str"><x:v>%s</x:v></x:c>' % (rid, merged)
-    xml2 = xml2[:m.start()] + new_cell + xml2[m.end():]
+    # The marker-aware merge keeps every other task's marked block in the
+    # same cell and re-emits the blocks in canonical order, so the result
+    # does not depend on which updater ran last.
+    xml2 = set_marked_cell(xml2, rid, 'T', '【ATS-401】', NOTE)
 
     parts[SHEET2] = xml2.encode('utf-8')
 
