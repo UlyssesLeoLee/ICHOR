@@ -24,7 +24,8 @@
 | 15-REFERENCES-LICENSES.md | 调査参考・ライセンス | 官方参考及许可证边界 |
 | 16-BASELINE-ADR.md | 基线冻结・ADR | v0.1 已实现/待实测/未实现、3 项阻断、接口与构建约束清单 |
 | 17-AGENT-CONTRACT.md | Agent 契約 | Agent 契约 v1：作用域、预算、输入出处、角色能力、提案与评审状态机、权限边界与实测证据 |
-| evidence/ | 実行証跡 | ATS-101/ATS-401 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界） |
+| 18-UID-SPEC.md | 稳定 UID 规范 | Project/TestDefinition/Run/Attempt 的标识符规则、迁移脚本与已知边界 |
+| evidence/ | 実行証跡 | ATS-101/ATS-201/ATS-401 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界、UID 规范） |
 | tools/ats101-probes/ | 再現スクリプト | ATS-101 全部阻断项与约束清单的仓库内可重跑复现脚本（见 `docs/evidence/ATS-101/`） |
 | tools/ats401-probes/ | 再現スクリプト | ATS-401 权限边界的仓库内可重跑复现脚本（含负控，见 `docs/evidence/ATS-401/`） |
 

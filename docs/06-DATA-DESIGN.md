@@ -8,15 +8,18 @@
 
 | 实体 | 主键/索引 | 字段 | 存储位置 |
 |---|---|---|---|
-| Project | id UUID | id,name,root,addedAt | `state.json.projects` |
-| Run | id UUID | projectId,file,gitCommit,status,createdAt,startedAt,finishedAt,log,summary,eventSeq,artifacts | `state.json.runs` |
-| TestDefinition | 摘要 ID | `id=sha256(projectId:file:title)[0:16]`, file,title,line,source | 实时扫描（临时） |
+| Project | `proj_1_<24 hex>` | id,uid,name,root,addedAt,legacyId | `state.json.projects` |
+| Run | `run_1_<24 hex>` | id,uid,seq,projectId,projectUid,file,gitCommit,status,createdAt,startedAt,finishedAt,log,summary,eventSeq,artifacts,attempts | `state.json.runs` |
+| Attempt | `att_1_<24 hex>` | uid,runUid,testUid,file,title,line,retry,status,duration,error | `state.json.runs[].attempts`、`runs/<run-uid>/manifest.json` |
+| TestDefinition | `tc-*` / `tc_1_d_*` / `tcp_1_*` | uid,uidSource,uidStable,file,title,line,source,ambiguity? | 实时扫描（临时）；身份映射存于 `state.json.uidRegistry` |
 | Requirement | uid | uid,title,type,status | 原 Git `.aitest/requirements.json` |
 | Link | from,to,type | from,to,type | 原 Git `.aitest/traceability.json` |
 | ExecutionEvent | runId+seq | seq,at,type,data | `runs/<run-id>/events.jsonl` |
 | Evidence | sha256 + file | file,size,sha256 | `runs/<run-id>/manifest.json` |
 
-`TestDefinition.id` 在文件重命名或测试标题变化时改变；不能把此临时 ID 用于长久的需求关联。生产版必须引入稳定 UID，建议显式 `@TC-xxx` 或测试旁 manifest 管理。
+`TestDefinition` 的标识符规则、优先级与迁移方式见 `docs/18-UID-SPEC.md`。要点：用例的 UID 在**文件改名与标题改写后保持不变**；标题相同但执行体不同的两个用例得到不同 UID；两者都相同（无法唯一判定）时给出 `tcp_1_*` 临时标识并在 `ambiguity` 中报告候选，不做静默合并。
+
+`state.json.uidRegistry` 记录 `{uid, uidSource, titleKey, bodyKey, file, title, aliases}`，是「改标题后仍能找回原 UID」的依据；它是**增量字段**，没有它的旧状态文件照常加载。
 
 ## 3. 目标逻辑 ER（P1/P2 规划，不属于 v0.1 数据表）
 

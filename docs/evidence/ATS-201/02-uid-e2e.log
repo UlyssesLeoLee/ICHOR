@@ -1,0 +1,63 @@
+# ATS-201 UID end-to-end evidence
+
+$ node tools/ats201-probes/uid-e2e.mjs
+
+=== ATS-201 UID end-to-end ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-9338e6630e93\worktree
+work dir  : C:\Users\seiko\AppData\Local\Temp\ats201-uid-e2e
+
+--- 1. project registration and test catalog ---
+PASS  POST /api/projects -> 201  -- status=201
+PASS  project UID matches proj_1_<24 hex>  -- proj_1_2536d1a9e9d60b7e4d4bcca5
+PASS  project.id equals project.uid
+PASS  catalog lists 2 test cases  -- count=2
+PASS  catalog reports uidVersion 1
+PASS  duplicate titles get different UIDs  -- tc_1_d_f9c9ba255fbf925e vs tc_1_d_41caee938b43bec8
+PASS  both UIDs are stable (uidStable=true)
+   test 1: tc_1_d_f9c9ba255fbf925e  (derived-body)  login works
+   test 2: tc_1_d_41caee938b43bec8  (derived-body)  login works
+
+--- 2. rename the file AND rewrite the title ---
+PASS  the renamed+retitled case is found
+PASS  its UID did not change  -- tc_1_d_f9c9ba255fbf925e vs tc_1_d_f9c9ba255fbf925e
+PASS  its UID source is the registry  -- registry
+PASS  both retitled cases are present  -- count=2
+PASS  the two retitled cases keep distinct UIDs  -- tc_1_d_f9c9ba255fbf925e vs tc_1_d_41caee938b43bec8
+PASS  the set of UIDs is preserved across the rename  -- before={tc_1_d_f9c9ba255fbf925e,tc_1_d_41caee938b43bec8} after={tc_1_d_f9c9ba255fbf925e,tc_1_d_41caee938b43bec8}
+
+--- 3. run, UID, seq and attempts ---
+PASS  POST /run -> 202  -- status=202
+PASS  run UID matches run_1_<24 hex>  -- run_1_bcb2b0a09c11f0ae2fa1606e
+PASS  run.seq is 1  -- seq=1
+PASS  the run reaches a terminal state  -- passed
+PASS  the run is reachable through its UID
+PASS  the run carries attempts  -- attempts=2
+PASS  attempt UIDs match att_1_<24 hex>  -- att_1_b0a09119346862afdd96755a,att_1_93aaea08368f656f5ade1391
+PASS  attempt UIDs are distinct
+PASS  attempts are bound to TestDefinition UIDs  -- tc_1_d_f9c9ba255fbf925e,tc_1_d_41caee938b43bec8
+PASS  the manifest records the attempts
+PASS  the manifest records the project UID
+
+--- 4. migrate a legacy state file ---
+   project: proj_11111111-1111-1111-1111-111111111111 -> proj_1_2536d1a9e9d60b7e4d4bcca5
+   run: run_22222222-2222-2222-2222-222222222222 -> run_1_f9ed571619a63dff76846211
+   run folder rename required: run_22222222-2222-2222-2222-222222222222 -> run_1_f9ed571619a63dff76846211
+   projects: 1, runs: 1, changes: 2
+   run folder renamed: run_22222222-2222-2222-2222-222222222222 -> run_1_f9ed571619a63dff76846211
+   migrated: C:\Users\seiko\AppData\Local\Temp\ats201-uid-e2e\legacy\state.json
+PASS  the migration exits 0
+PASS  the project UID was rewritten  -- proj_1_2536d1a9e9d60b7e4d4bcca5
+PASS  the legacy project id is kept as legacyId
+PASS  the run UID was rewritten  -- run_1_f9ed571619a63dff76846211
+PASS  the run folder was renamed on disk
+PASS  the migration is idempotent  -- already migrated: C:\Users\seiko\AppData\Local\Temp\ats201-uid-e2e\legacy\state.json
+uidVersion=1
+
+--- 5. the bridge serves a migrated state file ---
+PASS  the bridge boots on the migrated state
+PASS  the migrated run is listed  -- run_1_f9ed571619a63dff76846211
+PASS  the migrated run is reachable through its UID  -- status=200
+
+RESULT: ALL CHECKS PASSED
+
+exit code: 0

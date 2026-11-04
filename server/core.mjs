@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
+import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid } from './uid.mjs';
 
 export const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 export const safeId = (prefix) => `${prefix}_${crypto.randomUUID()}`;
@@ -11,9 +12,13 @@ export const now = () => new Date().toISOString();
 export function ensureData() { fs.mkdirSync(path.join(dataDir(),'runs'), {recursive:true}); }
 export function loadState() {
   ensureData(); const name=path.join(dataDir(),'state.json');
-  if (!fs.existsSync(name)) return {schema:1, projects:[], runs:[]};
+  if (!fs.existsSync(name)) return {schema:1, projects:[], runs:[], uidRegistry:emptyRegistry()};
   const v=JSON.parse(fs.readFileSync(name,'utf8'));
   if (v.schema!==1 || !Array.isArray(v.projects) || !Array.isArray(v.runs)) throw new Error('UNSUPPORTED_DATABASE');
+  // The UID registry is additive: a state file written before ATS-201 has no
+  // registry and is loaded with an empty one, so old installations keep
+  // working until the migration script rewrites their identifiers.
+  if (!v.uidRegistry || typeof v.uidRegistry!=='object') v.uidRegistry=emptyRegistry();
   return v;
 }
 export function saveState(v) {
@@ -59,17 +64,28 @@ export function walkTests(root,rel='',depth=0,acc=[]) {
     else if(ent.isFile()&&/\.(spec|test)\.[cm]?[jt]sx?$/.test(ent.name))acc.push(child.replace(/\\/g,'/'));
   }return acc;
 }
-export function discoverStatic(project) {
- const files=walkTests(project.root);const tests=[];
+export function discoverStatic(project, registry) {
+ const files=walkTests(project.root);const discovered=[];
  for(const file of files){
    const content=fs.readFileSync(path.join(project.root,file),'utf8');
    const re=/(?:^|\n)\s*(?:test|it)(?:\.(?:only|skip|fixme))?\s*\(\s*(['"`])([^\n]*?)\1/g;
    let m;while((m=re.exec(content))!==null){
      const title=m[2].slice(0,180),line=content.slice(0,m.index).split('\n').length;
-     tests.push({id:sha(`${project.id}:${file}:${title}`).slice(0,16),file,title,line,source:'static',level:'ST'});
+     const body=extractCallbackBody(content,m.index+m[0].length);
+     discovered.push({file,title,line,bodyText:body.text});
    }
  }
- return {files,tests,discovery:'static',warning:'静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试请以 Playwright --list 为准。'};
+ const projectUid=projectUidOf(project);
+ const resolved=resolveIdentities({projectUid,discovered,registry});
+ const tests=resolved.items.map(t=>({
+   id:t.uid,uid:t.uid,uidSource:t.uidSource,uidStable:t.uidStable,
+   file:t.file,title:t.title,line:t.line,source:'static',level:'ST',
+   ...(t.ambiguity?{ambiguity:t.ambiguity}:{})
+ }));
+ const ambiguous=tests.filter(t=>!t.uidStable).length;
+ return {files,tests,discovery:'static',uidVersion:UID_SCHEME_VERSION,projectUid,registry:resolved.registry,
+   warning:'静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试请以 Playwright --list 为准。'
+     +(ambiguous?` ${ambiguous} 个用例的 UID 为临时值（标题重复且无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`:'')};
 }
 export function resolvePlaywright(project) {
  const candidates=['node_modules/@playwright/test/cli.js','node_modules/playwright/cli.js','node_modules/playwright-core/cli.js'];
@@ -82,7 +98,7 @@ export function safeRunArgs(project,testFile,output) {
  const args=[cli,'test','--reporter=line,json,html','--output',path.join(output,'results'),'--trace','on','--screenshot','only-on-failure','--video','retain-on-failure','--workers','1'];
  if(testFile){sourcePath(project,testFile); args.push(testFile);}return args;
 }
-export function runDir(id){if(!/^run_[0-9a-f-]{36}$/.test(id)) throw new Error('INVALID_RUN_ID');return path.join(dataDir(),'runs',id);}
+export function runDir(id){if(!/^run_(?:[0-9a-f-]{36}|1_[0-9a-f]{24})$/.test(id)) throw new Error('INVALID_RUN_ID');return path.join(dataDir(),'runs',id);}
 export function filesInRun(id){const root=runDir(id);const result=[];
  function recur(dir,depth){if(depth>8||result.length>400)return;for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
  const full=path.join(dir,entry.name);if(entry.isSymbolicLink())continue;if(entry.isDirectory())recur(full,depth+1);else if(entry.isFile()){
@@ -99,9 +115,55 @@ export function parseReport(report){
  let passed=0,failed=0,skipped=0,flaky=0;const cases=[];
  function walk(s){for(const x of s.specs||[]){for(const t of x.tests||[]){
   const status=t.status||'unknown';if(['expected'].includes(status))passed++;else if(status==='flaky')flaky++;else if(status==='skipped')skipped++;else failed++;
-  cases.push({title:x.title,file:s.file||'',status,duration:(t.results||[]).reduce((a,b)=>a+(b.duration||0),0),error:t.results?.find(r=>r.error)?.error?.message||''});
+  cases.push({title:x.title,file:s.file||'',status,duration:(t.results||[]).reduce((a,b)=>a+(b.duration||0),0),error:t.results?.find(r=>r.error)?.error?.message||'',retry:t.retry||0,line:x.line||null,column:x.column||null});
  }}for(const sub of s.suites||[])walk(sub);}
  for(const suite of report.suites||[])walk(suite);
  return {passed,failed,skipped,flaky,total:cases.length,cases};
+}
+
+/**
+ * Builds the Attempt records of one Run.
+ *
+ * One Attempt is the execution of one test case inside one Run; a retried
+ * case produces one Attempt per retry. The Attempt UID is derived from the
+ * Run UID, the TestDefinition UID, the retry index and the occurrence index
+ * of the case inside the report, so the same attempt can be recomputed from
+ * the recorded fields (that is what the migration script relies on).
+ *
+ * `registry` supplies the mapping from a reported case to the stable
+ * TestDefinition UID. A case that cannot be bound unambiguously keeps
+ * `testUid: null` and records the reason in `uidBasis`.
+ */
+export function attemptsForRun(run, summary, registry) {
+  if (!summary || !Array.isArray(summary.cases)) return [];
+  const projectUid = run.projectUid ?? '';
+  const occurrence = new Map();
+  const attempts = [];
+  for (const c of summary.cases) {
+    const found = findTestUid(registry, projectUid, { file: c.file, title: c.title, line: c.line });
+    const key = `${c.file} ${c.title} ${c.line}`;
+    const index = occurrence.get(key) ?? 0;
+    occurrence.set(key, index + 1);
+    attempts.push({
+      uid: attemptUidFor({
+        runUid: run.uid || run.id,
+        testUid: found.uid,
+        retry: c.retry,
+        fallbackKey: `${c.file} ${c.title} ${c.line}`,
+        occurrence: index
+      }),
+      runUid: run.uid || run.id,
+      testUid: found.uid,
+      uidBasis: found.basis,
+      file: c.file,
+      title: c.title,
+      line: c.line,
+      retry: c.retry || 0,
+      status: c.status,
+      duration: c.duration,
+      error: c.error || ''
+    });
+  }
+  return attempts;
 }
 export function compactLog(log){return log.length>150000?log.slice(-150000):log;}

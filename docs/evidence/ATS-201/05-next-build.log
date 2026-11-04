@@ -1,0 +1,53 @@
+# ATS-201 Next.js 16 static export build evidence
+
+$ npm --prefix apps/studio install   (already installed for this run)
+
+$ npm --prefix apps/studio run build
+
+npm notice run @ai-test-studio/ui@0.1.0 build
+npm notice run next build
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 27ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 309ms
+  Running TypeScript ...
+
+  We detected TypeScript in your project and reconfigured your tsconfig.json file for you.
+  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+
+  	- include was updated to add '.next/dev/types/**/*.ts'
+
+  Finished TypeScript in 1415ms ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/3) ...
+✓ Generating static pages using 4 workers (3/3) in 556ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+
+
+exit code: 0
+
+## generated static output
+
+__next.__PAGE__.txt
+__next._full.txt
+__next._tree.txt
+_next
+_not-found
+404
+404.html
+fallback.html
+index.html
+index.txt
+
+## git status of the build-rewritten files (reverted, not part of this delivery)
+
+ M apps/studio/next-env.d.ts
+ M apps/studio/tsconfig.json

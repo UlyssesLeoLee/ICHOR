@@ -4,7 +4,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog } from './core.mjs';
+import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun } from './core.mjs';
+import { projectUidFor, projectUidOf, runUidFor, attemptUidFor, nextRunSeq, UID_SCHEME_VERSION } from './uid.mjs';
 import { AGENT_CONTRACT_VERSION,describeAgentContract,validateAgentRequest } from './agent.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
@@ -21,9 +22,9 @@ const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=u
 const respond=(res,status,obj)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(obj));};
 const err=(res,status,msg)=>respond(res,status,{error:msg});
 async function body(req){let buf='';for await(const chunk of req){buf+=chunk;if(buf.length>1_200_000)throw new Error('PAYLOAD_TOO_LARGE');}return buf?JSON.parse(buf):{};}
-function getProject(id){const p=store.projects.find(p=>p.id===id);if(!p)throw new Error('PROJECT_NOT_FOUND');return p;}
-function getRun(id){const r=store.runs.find(r=>r.id===id);if(!r)throw new Error('RUN_NOT_FOUND');return r;}
-function cleanProject(p){let git={branch:'-',commit:'-',dirty:false};try{git=gitInfo(p.root);}catch{} return {...p, git};}
+function getProject(id){const p=store.projects.find(p=>p.id===id||p.uid===id);if(!p)throw new Error('PROJECT_NOT_FOUND');return p;}
+function getRun(id){const r=store.runs.find(r=>r.id===id||r.uid===id);if(!r)throw new Error('RUN_NOT_FOUND');return r;}
+function cleanProject(p){let git={branch:'-',commit:'-',dirty:false};try{git=gitInfo(p.root);}catch{} return {...p,uid:p.uid||projectUidOf(p),git};}
 function writeEvent(run,type,data={}){const ev={seq:++run.eventSeq,at:now(),type,data};fs.appendFileSync(path.join(runDir(run.id),'events.jsonl'),JSON.stringify(ev)+'\n');}
 function finishRun(run,code,signal){
  if(run.status!=='running'&&run.status!=='cancelling')return;
@@ -31,8 +32,9 @@ function finishRun(run,code,signal){
  run.status=cancelled?'cancelled':code===0?'passed':'failed';run.exitCode=code;run.finishedAt=now();
  const reportFile=path.join(runDir(run.id),'report.json');
  if(fs.existsSync(reportFile)){try{run.summary=parseReport(JSON.parse(fs.readFileSync(reportFile,'utf8')));}catch(e){run.reportWarning=String(e.message);}}
+ run.attempts=attemptsForRun(run,run.summary,store.uidRegistry);
  run.artifacts=filesInRun(run.id).filter(x=>!['events.jsonl','stdout.log'].includes(x.file));
- const manifest={version:1,runId:run.id,projectId:run.projectId,sourceCommit:run.gitCommit,runner:'playwright',status:run.status,createdAt:run.startedAt,finishedAt:run.finishedAt,artifacts:run.artifacts};
+ const manifest={version:1,runId:run.id,projectUid:run.projectUid||null,projectId:run.projectId,sourceCommit:run.gitCommit,runner:'playwright',status:run.status,createdAt:run.startedAt,finishedAt:run.finishedAt,artifacts:run.artifacts,attempts:run.attempts};
  fs.writeFileSync(path.join(runDir(run.id),'manifest.json'),JSON.stringify(manifest,null,2));
  writeEvent(run,'run.finished',{status:run.status,code,signal});jobs.delete(run.id);saveState(store);
 }
@@ -85,17 +87,37 @@ const server=http.createServer(async(req,res)=>{
  if(p==='/api/projects'&&req.method==='POST'){
   const b=await body(req);const actual=validateProjectPath(b.path);
   if(store.projects.find(x=>x.root===actual))throw new Error('PROJECT_ALREADY_REGISTERED');
-  const project={id:safeId('proj'),name:path.basename(actual),root:actual,addedAt:now()};store.projects.push(project);saveState(store);return respond(res,201,{project:cleanProject(project)});
+  // The project identifier is the stable UID: it is derived from the
+  // canonical project root, so re-registering the same repository yields the
+  // same identifier and the project can be referenced from outside the
+  // local state file.
+  const uid=projectUidFor(actual);
+  const project={id:uid,uid,name:path.basename(actual),root:actual,addedAt:now()};
+  store.projects.push(project);saveState(store);return respond(res,201,{project:cleanProject(project)});
  }
- const pm=p.match(/^\/api\/projects\/(proj_[0-9a-f-]{36})(?:\/(.*))?$/);
+ const pm=p.match(/^\/api\/projects\/(proj_(?:[0-9a-f-]{36}|1_[0-9a-f]{24}))(?:\/(.*))?$/);
  if(pm){const project=getProject(pm[1]),action=pm[2]||'';
-  if(action==='tests'&&req.method==='GET')return respond(res,200,{...discoverStatic(project),project:cleanProject(project)});
+  if(action==='tests'&&req.method==='GET'){
+   const catalog=discoverStatic(project,store.uidRegistry);
+   store.uidRegistry=catalog.registry;saveState(store);
+   return respond(res,200,{...catalog,project:cleanProject(project)});
+  }
   if(action==='source'&&req.method==='GET')return respond(res,200,readSource(project,u.searchParams.get('file')));
   if(action==='source'&&req.method==='PUT'){const b=await body(req);return respond(res,200,writeSource(project,b.file,b.content,b.baseHash));}
   if(action==='run'&&req.method==='POST'){
    if(store.runs.some(x=>x.projectId===project.id&&['running','queued','cancelling'].includes(x.status)))throw new Error('PROJECT_ALREADY_RUNNING');
    const b=await body(req),file=b.file||null;if(file)readSource(project,file);
-   const run={id:safeId('run'),projectId:project.id,projectName:project.name,file,gitCommit:gitInfo(project.root).commit,status:'queued',createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,log:'',summary:null,artifacts:[]};
+   const gitCommit=gitInfo(project.root).commit;
+   const projectUid=projectUidOf(project);
+   // The execution sequence is recorded on the run itself and backed by a
+   // durable per project counter, so a sequence number is never reused even
+   // after the run history is trimmed.
+   const history=store.runs.filter(x=>x.projectId===project.id);
+   const seq=nextRunSeq(history,store.runCounters?.[project.id]??0);
+   store.runCounters=store.runCounters??{};
+   store.runCounters[project.id]=seq;
+   const uid=runUidFor({projectUid,gitCommit,file,seq});
+   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:'queued',createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,log:'',summary:null,artifacts:[]};
    store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run);return respond(res,202,{run});
   }
   if(action==='lineage'&&req.method==='GET'){
@@ -106,7 +128,7 @@ const server=http.createServer(async(req,res)=>{
   }
  }
  if(p==='/api/runs'&&req.method==='GET')return respond(res,200,{runs:store.runs.map(({log,...r})=>({...r,logLength:log?.length||0}))});
- const rm=p.match(/^\/api\/runs\/(run_[0-9a-f-]{36})(?:\/(.*))?$/);
+ const rm=p.match(/^\/api\/runs\/(run_(?:[0-9a-f-]{36}|1_[0-9a-f]{24}))(?:\/(.*))?$/);
  if(rm){const r=getRun(rm[1]),action=rm[2]||'';
   if(action===''&&req.method==='GET')return respond(res,200,{run:r});
   if(action==='stop'&&req.method==='POST'){cancelRun(r);return respond(res,200,{status:r.status});}

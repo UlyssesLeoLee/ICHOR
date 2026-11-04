@@ -1,0 +1,86 @@
+# ATS-201 migration evidence
+
+## legacy state file (input)
+
+{
+  "schema": 1,
+  "projects": [
+    { "id": "proj_11111111-1111-1111-1111-111111111111", "name": "app", "root": "D:/ICHOR/examples/sample-playwright", "addedAt": "2026-01-01T00:00:00.000Z" }
+  ],
+  "runs": [
+    { "id": "run_22222222-2222-2222-2222-222222222222", "projectId": "proj_11111111-1111-1111-1111-111111111111", "projectName": "app", "file": "tests/home.spec.ts", "gitCommit": "abc1234", "status": "passed", "createdAt": "2026-01-01T00:00:00.000Z", "startedAt": "2026-01-01T00:00:01.000Z", "finishedAt": "2026-01-01T00:00:09.000Z", "eventSeq": 3, "log": "", "summary": null, "artifacts": [] }
+  ]
+}
+
+## dry run
+
+$ node tools/migrate_uids.mjs --state <state.json> --dry-run
+project: proj_11111111-1111-1111-1111-111111111111 -> proj_1_94a1ff716796f1427550aa9d
+run: run_22222222-2222-2222-2222-222222222222 -> run_1_b335cd9f57447875cc3087b1
+run folder rename required: run_22222222-2222-2222-2222-222222222222 -> run_1_b335cd9f57447875cc3087b1
+projects: 1, runs: 1, changes: 2
+dry run: nothing written
+
+## real migration
+
+$ node tools/migrate_uids.mjs --state <state.json> --backup
+project: proj_11111111-1111-1111-1111-111111111111 -> proj_1_94a1ff716796f1427550aa9d
+run: run_22222222-2222-2222-2222-222222222222 -> run_1_b335cd9f57447875cc3087b1
+run folder rename required: run_22222222-2222-2222-2222-222222222222 -> run_1_b335cd9f57447875cc3087b1
+projects: 1, runs: 1, changes: 2
+backup written: C:\Users\seiko\AppData\Local\Temp\multica-task-2825630632\legacy-state.json.bak
+migrated: C:\Users\seiko\AppData\Local\Temp\multica-task-2825630632\legacy-state.json
+
+## idempotency
+
+$ node tools/migrate_uids.mjs --state <state.json>
+already migrated: C:\Users\seiko\AppData\Local\Temp\multica-task-2825630632\legacy-state.json
+uidVersion=1
+
+## migrated state file
+
+{
+  "schema": 1,
+  "uidVersion": 1,
+  "projects": [
+    {
+      "id": "proj_1_94a1ff716796f1427550aa9d",
+      "name": "app",
+      "root": "D:/ICHOR/examples/sample-playwright",
+      "addedAt": "2026-01-01T00:00:00.000Z",
+      "uid": "proj_1_94a1ff716796f1427550aa9d",
+      "legacyId": "proj_11111111-1111-1111-1111-111111111111"
+    }
+  ],
+  "runs": [
+    {
+      "id": "run_1_b335cd9f57447875cc3087b1",
+      "projectId": "proj_11111111-1111-1111-1111-111111111111",
+      "projectName": "app",
+      "file": "tests/home.spec.ts",
+      "gitCommit": "abc1234",
+      "status": "passed",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "startedAt": "2026-01-01T00:00:01.000Z",
+      "finishedAt": "2026-01-01T00:00:09.000Z",
+      "eventSeq": 3,
+      "log": "",
+      "summary": null,
+      "artifacts": [],
+      "seq": 1,
+      "uid": "run_1_b335cd9f57447875cc3087b1",
+      "projectUid": "proj_1_94a1ff716796f1427550aa9d",
+      "legacyId": "run_22222222-2222-2222-2222-222222222222"
+    }
+  ],
+  "uidRegistry": {
+    "version": 1,
+    "projects": {}
+  }
+}
+## broken input is reported, not overwritten
+
+$ node tools/migrate_uids.mjs --state <broken state.json>
+cannot parse C:\Users\seiko\AppData\Local\Temp\multica-task-2825630632\broken-state.json: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+exit code: 1
+file content afterwards: { not json
