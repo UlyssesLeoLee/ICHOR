@@ -1,6 +1,6 @@
 === ATS-501 evidence: remote protocol contract audit ===
-date        : 2026-11-04T04:37:16Z (UTC)
-commit      : 75391b3d504e0b77950b929e905cde69476fd3da
+date        : 2026-11-04T04:42:26Z (UTC)
+commit      : 84405cb3b90ed7d11c30a5c66c2534d8a376ea0c
 node        : v24.19.0
 command     : node tools/ats501-probes/audit-remote-protocol.mjs
 

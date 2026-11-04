@@ -1,20 +1,20 @@
-=== ATS-501 evidence: baseline regression (the remote protocol work must not disturb v0.1 / ATS-401) ===
-date        : 2026-11-04T04:37:57Z (UTC)
+=== ATS-501 evidence: baseline regression (the remote protocol work must not disturb v0.1) ===
+date        : 2026-11-04T04:42:52Z (UTC)
 node        : v24.19.0
 
 --- npm test (node --test tests/*.test.mjs) ---
-✔ IT-RUN-MOCK-SETUP: isolated fake CLI adapter (324.9882ms)
-✔ IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip (318.9844ms)
-✔ IT-RUN-MOCK-002: cancel marks cancelled (245.6732ms)
-✔ IT-RUN-MOCK-CLEANUP: cleanup (17.364ms)
-ℹ tests 59
+✔ IT-RUN-MOCK-SETUP: isolated fake CLI adapter (305.6781ms)
+✔ IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip (327.4406ms)
+✔ IT-RUN-MOCK-002: cancel marks cancelled (239.9141ms)
+✔ IT-RUN-MOCK-CLEANUP: cleanup (15.0527ms)
+ℹ tests 20
 ℹ suites 0
-ℹ pass 59
+ℹ pass 20
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1113.6091
+ℹ duration_ms 1044.9038
 NPM_TEST_EXIT=0
 
 --- node --check server/index.mjs ---
