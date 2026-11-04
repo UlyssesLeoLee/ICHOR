@@ -1,6 +1,6 @@
 === ATS-501 evidence: WBS updater coexistence regression (five updaters) ===
-date        : 2026-11-04T08:23:34Z (UTC)
-commit      : 287b8c40d9faaeae7a0b61761cd616908d002018
+date        : 2026-11-04T08:27:36Z (UTC)
+commit      : 06cc90c7318c2a597b35981c4887ea330b064ebd
 node        : v24.19.0
 command     : bash tools/ats501-probes/check-wbs-updaters.sh
 
@@ -28,7 +28,7 @@ updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/upd
   PASS  the cached 总览 values equal the values derived from 开发WBS
 
 --- 5. the marked notes of every task survive ---
-  baseline markers: {'【ATS-102】': 5, '【ATS-101】': 5, '【ATS-401】': 1, '【ATS-501】': 11}
+  baseline markers: {'【ATS-102】': 5, '【ATS-101】': 5, '【ATS-401】': 1}
   current markers : {'【ATS-102】': 5, '【ATS-101】': 5, '【ATS-401】': 1, '【ATS-501】': 11}
   PASS  every marked note of the baseline is still in the sheet
 
