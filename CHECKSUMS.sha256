@@ -31,7 +31,7 @@ e530fb36fe1d3f30afee68241507c1b2a068bf5dc2a10af7af33e18f3eee3fdc  docs/13-ROADMA
 4ab09c31a6731526c771be7b60bcc5c8cc35952effe43bc80a4ff9d6b6460f64  docs/15-REFERENCES-LICENSES.md
 f82b8b9d8bfaee0ec7253ecf70198652df6ea617a336a52ba9d73646b6caab62  docs/16-BASELINE-ADR.md
 141d9d4741ee8e7d7c3cce0d95f35f5079effd214f9313df44d8208b4423c450  docs/17-AGENT-CONTRACT.md
-18db81bb433f0bc81d006e68dd58fb82fcb2d75608134b8b2ef165e65d957e50  docs/17-BUILD-CI.md
+ab47fbc0bc958f32d3b09eb7a5d69b5b6d0f82b40ecd10479b800b6a6511fc1e  docs/17-BUILD-CI.md
 dde1ff76f863831a9348266f1c1dcbe86ebbca5e47d2f00617a638ec4d110b03  docs/dependencies/dependency-manifest.json
 95c1cbe987798d4700e8a5cabc913605f2e2afa75215a25a23ca81efd76a3e50  docs/dependencies/dependency-manifest.md
 f1eb81f00cdcedecb2ca3d57ddda4e7ee84a86f93713e3b21de64a715b7e8d4a  docs/evidence/ATS-101/01-node-test.log
@@ -44,6 +44,7 @@ f5a5b41c48fd19ef30a370425bbfdc8a80949af1b50e99745eeb4777fdf1a33c  docs/evidence/
 abc77d87b0175f92909f4da8cf55b90f89570c91dc60927a8d6725a8fdd37d67  docs/evidence/ATS-102/04-final-clean-clone-gate.log
 8bfd1a6451ac09d7e3d326b0f4ecc5c6d6f8c5bad4ff13d54ba52d85f1979ae9  docs/evidence/ATS-102/05-windows-shell-path-pitfall.log
 ae3ae7b8f1c206ebb02c9e388692146069a30d50228cb5786340370cae6b1d1b  docs/evidence/ATS-102/06-independent-verification.log
+1fe2b05836d0a458a82c9b8d06ade23740c6ca9aaf88654efb5135362391bf6c  docs/evidence/ATS-102/07-final-gate-6-steps.log
 2016237403e6eefd3490d01623dd0e7245a45d4f525d1fc7702ccc466a2da203  docs/evidence/ATS-401/01-node-test.log
 fe22c8bda1a94e252534365484d6db6daebb1a020d24da8ab9620aebdcbb14d4  docs/evidence/ATS-401/02-agent-boundary.log
 4e1704bd99928c4b3253f3b14d20589692a6a120c3ebc9c6ee138002e1f7f95c  docs/evidence/ATS-401/03-port-audit.log
