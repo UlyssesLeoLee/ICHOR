@@ -140,6 +140,10 @@ uid = "att_1_" + sha256(runUid ␀ testUid ␀ retry ␀ occurrence)[0:24]
 
 Attempt 记录写入 `state.json` 的 run 记录里，并进入 `runs/<run-uid>/manifest.json` 的 `attempts` 数组。
 
+运行摘要里有两个计数，**单位不同，不要混用**：`total`/`passed`/`failed`/`skipped`/`flaky`
+计的是**用例数**（重试用例仍是一个用例），`executions` 计的是**执行次数**（重试各算一次）。
+`summary.cases` 数组与 `executions` 一一对应。
+
 ## 4. 同一逻辑用例的判定
 
 `server/uid.mjs` 的 `compareIdentities(a, b)` 给出显式判定：

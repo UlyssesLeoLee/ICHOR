@@ -139,7 +139,11 @@ export function parseReport(report){
  }}for(const sub of s.suites||[])walk(sub);}
  for(const suite of report.suites||[])walk(suite);
  const rootDir=report?.config?.rootDir||null;
- return {passed,failed,skipped,flaky,total:cases.length,cases,rootDir};
+ // `total` counts the test cases of the run, the same unit as passed / failed /
+ // skipped / flaky. A retried case is still ONE case; its retries are counted
+ // separately as `executions`, because each retry is a separate execution.
+ const total=passed+failed+skipped+flaky;
+ return {passed,failed,skipped,flaky,total,executions:cases.length,cases,rootDir};
 }
 
 /**

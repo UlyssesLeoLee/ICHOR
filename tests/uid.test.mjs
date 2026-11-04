@@ -368,6 +368,10 @@ test('UT-UID-027: a retried case produces one attempt per retry', () => {
   assert.equal(summary.cases[1].retry, 1);
   assert.equal(summary.cases[1].error, 'transient');
   assert.equal(summary.rootDir, report.config.rootDir);
+  // `total` counts the cases of the run, not the executions: a retried case is
+  // still one case, so the counters stay on the same unit.
+  assert.equal(summary.total, 1);
+  assert.equal(summary.executions, 2);
   const attempts = attemptsForRun(
     { uid: 'run_1_ffffffffffffffffffffffff', projectUid, projectRoot: projectDir },
     summary,

@@ -6,10 +6,10 @@ HTTP 201
     "uid": "proj_1_f0323b520807634950777a6d",
     "name": "sample-playwright",
     "root": "C:\\Users\\seiko\\multica_workspaces_desktop-api.multica.ai\\triton-n4hv-4bc6c5b98085\\seikoist-16-c3fad0582a33\\worktree\\examples\\sample-playwright",
-    "addedAt": "2026-11-04T08:02:05.661Z",
+    "addedAt": "2026-11-04T08:07:52.711Z",
     "git": {
       "branch": "agent/m3/seikoist-162",
-      "commit": "5580263",
+      "commit": "c1dd93d",
       "dirty": true
     }
   }
@@ -52,19 +52,19 @@ HTTP 201
 --- POST /api/projects/:uid/run ---
 {
   "status": "error",
-  "id": "run_1_be9f2fe7769f1295a5c264d4",
-  "uid": "run_1_be9f2fe7769f1295a5c264d4",
+  "id": "run_1_a58e8dbdaebc913e6ebc1a6e",
+  "uid": "run_1_a58e8dbdaebc913e6ebc1a6e",
   "seq": 1,
   "projectId": "proj_1_f0323b520807634950777a6d",
   "projectUid": "proj_1_f0323b520807634950777a6d",
-  "gitCommit": "5580263"
+  "gitCommit": "c1dd93d"
 }
 
 --- GET /api/runs (abridged) ---
 [
   {
-    "id": "run_1_be9f2fe7769f1295a5c264d4",
-    "uid": "run_1_be9f2fe7769f1295a5c264d4",
+    "id": "run_1_a58e8dbdaebc913e6ebc1a6e",
+    "uid": "run_1_a58e8dbdaebc913e6ebc1a6e",
     "seq": 1,
     "status": "error",
     "projectUid": "proj_1_f0323b520807634950777a6d"
@@ -76,7 +76,7 @@ HTTP 201
   "runtime": "v24.19.0",
   "server": "Node.js bridge",
   "platform": "win32",
-  "pid": 18108,
+  "pid": 22260,
   "environment": "local",
   "limitations": [
     "Local trusted repositories only",
