@@ -12,7 +12,7 @@
 
 > **基线限定（2026-11-03，ATS-101/SEIKOIST-146 实测）**：下表 FR-009/010/011/014/018 的 `IMPLEMENTED` 仅指**代码路径与测试双桩已实现**，不代表真实浏览器链路可用。实测发现 B-01：`server/core.mjs:82` `safeRunArgs()` 向 Playwright Test CLI 传入 `--screenshot`/`--video` 两个**不存在的选项**，导致真实执行在参数解析阶段即失败（`summary=null`、`artifacts=[]`）。真实浏览器链路在 B-01 关闭前应视为**未验证**。详见 `docs/16-BASELINE-ADR.md` §4。
 >
-> **基线限定（2026-11-03，ATS-101/SEIKOIST-146 实测）— NFR-008**：NFR-008（恢复能力）**不得标为「已实现」**。实测发现 B-03：服务重启时启动恢复只处理 `queued`/`running`，**遗漏 `cancelling`**（`server/index.mjs:15`），而 `cancelRun()` 在找不到活动 job 时抛 `RUN_NOT_ACTIVE`（实测 500）。因此一次「请求停止后进程被强杀」的异常即可使该 Run 永久占用同项目运行锁且无法通过 API 解除，**无自愈路径**。NFR-008 当前状态为**部分实现（存在卡死缺陷）**，修复归 ATS-108/ATS-112。详见 `docs/16-BASELINE-ADR.md` §4 B-03。
+> **基线限定（2026-11-03，ATS-101/SEIKOIST-146 实测）— NFR-008**：NFR-008（恢复能力）**不得标为「已实现」**。实测发现 B-03：服务重启时启动恢复只处理 `queued`/`running`，**遗漏 `cancelling`**（`server/index.mjs:16`），而 `cancelRun()` 在找不到活动 job 时抛 `RUN_NOT_ACTIVE`（实测 500）。因此一次「请求停止后进程被强杀」的异常即可使该 Run 永久占用同项目运行锁且无法通过 API 解除，**无自愈路径**。NFR-008 当前状态为**部分实现（存在卡死缺陷）**，修复归 ATS-108/ATS-112。详见 `docs/16-BASELINE-ADR.md` §4 B-03。
 
 ## 2. 功能要件（Functional Requirements）
 
@@ -41,8 +41,8 @@
 | FR-021 | 完整 Playwright --list 发现 | 根据权威运行时发现动态测试与参数化用例 | P1 | DESIGNED |
 | FR-022 | Graph Editor 受控反写 | 仅可视化子集能写回 AST；复杂代码原位保留 | P1 | DESIGNED |
 | FR-023 | WDIO Tauri Runner | 统一 Run/Test/Attempt schema，驱动桌面 E2E | P1 | DESIGNED |
-| FR-024 | AI 生成 | 需求→测试意图→脚本候选→审查后写入 | P1 | DESIGNED |
-| FR-025 | AI 诊断 | 失败归类、差异建议，不能自动修改断言或提交 | P1 | DESIGNED |
+| FR-024 | AI 生成 | 需求→测试意图→脚本候选→审查后写入 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |
+| FR-025 | AI 诊断 | 失败归类、差异建议，不能自动修改断言或提交 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |
 | FR-026 | 图谱血缘与覆盖缺口 | Requirement→Script→Run→Evidence 可查询和影响分析 | P1 | DESIGNED |
 | FR-027 | 多环境/密钥存储 | 单独安全凭据存储，配置不进入 Git | P1 | DESIGNED |
 | FR-028 | CI/CD 与远程执行 | RunnerAdapter/Queue/工作区隔离 | P2 | DESIGNED |

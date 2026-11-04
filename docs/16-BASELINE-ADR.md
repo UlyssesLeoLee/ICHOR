@@ -9,7 +9,7 @@
 
 ## 1. 结论摘要
 
-v0.1 的**代码能力基线成立**：Node Bridge 的项目登记、静态索引、受控源码读写、Runner 调度、状态/事件/证据归档链路已实现，20 项 UT/IT 全绿（`docs/evidence/ATS-101/01-node-test.log`）。
+v0.1 的**代码能力基线成立**：Node Bridge 的项目登记、静态索引、受控源码读写、Runner 调度、状态/事件/证据归档链路已实现，20 项 UT/IT 全绿（`docs/evidence/ATS-101/01-node-test.log`）。ATS-401 在此基线上新增 Agent 契约层与 39 项测试后，`npm test` 为 **59 项全通过**（`docs/evidence/ATS-401/01-node-test.log`）。
 
 但**v0.1.1 不能按当前源码进入实机验收**，原因有 3 项阻断（§4）。其中 B-01 是单点致命缺陷：Bridge 传给 Playwright Test CLI 的参数向量包含两个**不存在的选项**，导致任何真实浏览器执行在参数解析阶段即失败，`summary=null`、`artifacts=[]`。该缺陷同时使 24 项 ST 中依赖真实运行结果的 ST-008/009/010/011/012/017/024 无法开展。
 
@@ -69,16 +69,27 @@ Tauri 编译失败已定位到**四个互相独立的成因**（§4 B-02）：ms
 
 ### 2.4 未实现（仅设计，P1/P2）
 
-FR-021（`--list` 权威发现）、FR-022（AST 受控反写）、FR-023（WDIO Tauri）、FR-024/025（AI 生成与诊断）、FR-026（图谱血缘）、FR-027（密钥存储）、FR-028（远程/CI）、FR-029（Agent 自主探索）、FR-030（多用户 RBAC）；NFR-006（性能指标）、NFR-012（依赖 SPDX/SBOM）。
+FR-021（`--list` 权威发现）、FR-022（AST 受控反写）、FR-023（WDIO Tauri）、FR-026（图谱血缘）、FR-027（密钥存储）、FR-028（远程/CI）、FR-029（Agent 自主探索）、FR-030（多用户 RBAC）；NFR-006（性能指标）、NFR-012（依赖 SPDX/SBOM）。
+
+**FR-024（AI 生成）与 FR-025（AI 诊断）的能力本身未实现**：仓库未接入模型提供商，也没有把模型输出写入仓库、更新 expected result 或创建 Git commit 的代码路径。两者依赖的 Agent 契约层已实现（§2.6），但**契约层不等于能力**。
 
 **未实现的 P0 功能项为 0 项**；上述均为 P1/P2 范围，对应 WBS ATS-201 及以后。
 
 ### 2.5 覆盖率量化
 
-- 测试设计总数 75（UT 25 / IT 26 / ST 24）；**已执行通过 20，待执行 55**。
+- 测试设计总数 114（UT 53 / IT 37 / ST 24）；**已执行通过 59，待执行 55**。
 - **ST 实机执行 0/24**。UT/IT 通过**不等于** ST 验收（见 `docs/09-ST-TEST-DESIGN.md` 退出条件）。
-- 42 条要件中，有 ≥1 条已执行测试覆盖者 12 条（9 条真实证据 + 3 条仅 mock 证据）；**P0 FR-001~020 中 12 条无任何已执行测试**（FR-002/003/005/006/008/010/013/015/017/018/019/020）。
-- RTM 引用的测试 ID **无悬挂**（`tests/rtm.json` 全部 75 个 ID 均在设计表中存在）。
+- 42 条要件中，有 ≥1 条已执行测试覆盖者 15 条：其中 9 条为 v0.1 的真实执行证据、3 条仅有测试双桩证据（FR-009/011/014）、3 条为 ATS-401 的 Agent 契约层测试（FR-024/025/NFR-009）。**「有已执行测试覆盖」不等于「该要件已实现」**——FR-024/025 覆盖的是契约层，AI 生成与诊断本身未实现，其能力状态仍为 `DESIGNED`（详见 §2.6）。
+- **P0 FR-001~020 中 12 条无任何已执行测试**（FR-002/003/005/006/008/010/013/015/017/018/019/020）。
+- RTM 引用的测试 ID **无悬挂**（`tests/rtm.json` 全部 114 个 ID 均在设计表中存在）。
+
+### 2.6 Agent 契约层（ATS-401，S4/v0.4.0）
+
+`server/agent.mjs` 实现了 Agent 契约 v1（`agent-contract/v1`）：请求必须带作用域、预算与输入出处；角色（planner/generator/triage/healer）对应能力白名单；产出为待审提案，提案人不得自审；diff 目标必须落在作用域内且为测试脚本文件。
+
+**权限边界是机制而非约定**：契约层只 import `node:crypto` 与 `node:path`，物理上无法写文件、起进程或发网络请求；写入与提交类能力在请求层一律被拒；提案的 `approval` 恒为 `pending`。
+
+**这一节不改变 FR-024/025 的能力状态**：仓库中**没有**接入模型提供商，也**没有**把模型输出写入仓库、更新 expected result 或创建 Git commit 的代码路径。契约层是这两条要件的**前置依赖**，不是它们本身。详见 `docs/17-AGENT-CONTRACT.md` 与 `docs/evidence/ATS-401/`。
 
 ## 3. 接口约束清单（以实测为准）
 
@@ -102,7 +113,9 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 | POST | `/api/runs/:id/stop` | token | 200 | Windows `taskkill /T /F`，Unix SIGTERM |
 | GET | `/api/runs/:id/events` | token | 200 | `events.jsonl` 追加事件 |
 | GET | `/api/runs/:id/artifact?file=` | token | 200 | 越界拒绝；`Content-Disposition: attachment` |
-| GET | `/api/diagnostics` | token | 200 | runtime/platform/limitations[] |
+| GET | `/api/diagnostics` | token | 200 | runtime/platform/limitations[]，含 `agentContract` 状态 |
+| GET | `/api/agent/contract` | token | 200 | Agent 契约 v1 描述（角色/能力/禁用清单/预算上限/错误码） |
+| POST | `/api/agent/validate` | token | 200/400 | **只校验** Agent 请求是否满足契约；不调用模型，不写项目；违反契约返回 400 + `AGENT_*` 错误码 |
 
 **接口硬约束**（下游改动必须同步，违反即静默失效）：
 
@@ -110,8 +123,8 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 
    | # | 位置（file:line） | 作用 |
    |---|---|---|
-   | 1 | `server/index.mjs:11` | 默认值 `process.env.ATS_PORT\|\|4577` |
-   | 2 | `server/index.mjs:71` | CSP `connect-src` |
+   | 1 | `server/index.mjs:12` | 默认值 `process.env.ATS_PORT\|\|4577` |
+   | 2 | `server/index.mjs:72` | CSP `connect-src` |
    | 3 | `apps/studio/lib/api.ts:6` | API Base |
    | 4 | `apps/studio/app/page.tsx:81` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
    | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
@@ -129,12 +142,14 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    **(c) 类的统计口径**：统计范围是**除本文件与 `tools/ats101-probes/` 之外的全部 `.md` 文件**，共 **6 个文件共 13 处提及**（`README.md` 4 处、`docs/04-DETAILED-DESIGN.md` 1 处、`docs/08-IT-TEST-DESIGN.md` 2 处、`docs/09-ST-TEST-DESIGN.md` 1 处、`docs/11-SECURITY-RISK.md` 1 处、`docs/12-DEPLOY-OPERATIONS.md` 4 处）。该数字由探针实测得出并断言，改动上述任一 `.md` 文件的端口提及后，探针会报 `RESULT: MISMATCH`。`docs/evidence/ATS-101/` 下的 `.log` 证据文件**不在扫描的扩展名范围内**，其中的端口字面量不计入这 13 处。
    因此本节所列清单是**源码硬编码点**的完整清单，而非全仓库端口字面量的完整清单；文档类提及不要求逐条列出，但换端口时同样须一并更新。
 2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
-3. **Host 白名单绑定端口**：`server/index.mjs:60` 的正则含 `${PORT}`，改端口后 Host 校验随之变化。
+3. **Host 白名单绑定端口**：`server/index.mjs:61` 的正则含 `${PORT}`，改端口后 Host 校验随之变化。
 4. **仅可信本地项目**：不自动安装依赖，不接受任意 CLI 字符串（`spawn(..., shell:false)`）。
 
 ### 3.2 错误码实测映射
 
 设计文档 `docs/04-DETAILED-DESIGN.md` §7 与实测一致的部分：`INVALID_PROJECT_PATH`(400)、`PROJECT_PACKAGE_JSON_REQUIRED`(400)、`PROJECT_ALREADY_REGISTERED`(409)、`INVALID_SOURCE_FILE`(400)、`PATH_OUTSIDE_PROJECT`(400)、`STALE_EDIT_CONFLICT`(409)、`PAYLOAD_TOO_LARGE`(400)、`INVALID_SESSION`(401)、`ORIGIN_NOT_ALLOWED`(403)、`INVALID_HOST`(403)、`RUN_NOT_FOUND`(404)、`NOT_FOUND`(404)。
+
+**Agent 契约错误码（ATS-401）**：`server/index.mjs:135` 把 `AGENT_*` 前缀的错误统一映射为 **400**（请求不满足契约属于客户端错误），并把错误码原样返回给调用方；调用方按 `err.code` 分支，不解析消息文本。25 个错误码的完整清单见 `docs/17-AGENT-CONTRACT.md` §4.3。实测覆盖：`AGENT_CAPABILITY_FORBIDDEN`、`AGENT_BUDGET_REQUIRED`、`AGENT_PROVENANCE_REQUIRED`、`AGENT_SCOPE_ESCAPE`（见 `docs/evidence/ATS-401/01-node-test.log`）。
 
 **实测与设计不符（缺陷）**：
 
@@ -145,8 +160,8 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 | 登记不存在的路径 | **500** + `ENOENT: ... lstat 'D:\definitely'` | 400 | **泄漏宿主绝对路径** | ATS-112 |
 | 下载不存在的附件 | **500** + 泄漏 `ATS_DATA_DIR` 绝对路径 | 404 | **泄漏宿主绝对路径** | ATS-112 |
 
-> **归属说明**：以上 4 项的**根因位置是 `server/index.mjs:123` 的统一错误映射**——该处用正则匹配错误消息，未命中即返回 500，并把 `e.message` 原样回显，因此既造成**归类错误**，也造成**宿主绝对路径泄漏**。其中 `NOT_A_DIRECTORY` 由 `server/core.mjs:26` 抛出，`RUN_NOT_ACTIVE` 由 `server/index.mjs:55` 的 `cancelRun()` 抛出。
-> **归属**：全部 4 项均为 **ATS-112**（错误归类与路径泄漏）。仅 `RUN_NOT_ACTIVE` 与 **B-03** 相交——B-03 的自愈路径缺失另在 `server/index.mjs:15`（启动恢复集合遗漏 `cancelling`），二者是**两处不同的缺陷**，不可视为同一处状态机缺口。
+> **归属说明**：以上 4 项的**根因位置是 `server/index.mjs:132` 的统一错误映射**——该处用正则匹配错误消息，未命中即返回 500，并把 `e.message` 原样回显，因此既造成**归类错误**，也造成**宿主绝对路径泄漏**。其中 `NOT_A_DIRECTORY` 由 `server/core.mjs:26` 抛出，`RUN_NOT_ACTIVE` 由 `server/index.mjs:56` 的 `cancelRun()` 抛出。
+> **归属**：全部 4 项均为 **ATS-112**（错误归类与路径泄漏）。仅 `RUN_NOT_ACTIVE` 与 **B-03** 相交——B-03 的自愈路径缺失另在 `server/index.mjs:16`（启动恢复集合遗漏 `cancelling`），二者是**两处不同的缺陷**，不可视为同一处状态机缺口。
 > 本基线的阻断项只有 B-01/B-02/B-03 三项（§4），**不存在编号 B-04**。
 
 ## 4. 阻断项（3 项）
@@ -294,8 +309,8 @@ GNU_BUILD_EXIT=101
 
 ### B-03（严重 / P0）重启后 Run 卡在 `cancelling`，永久占用同项目运行锁且 API 无法解除
 
-- **位置**：`server/index.mjs:15`（启动恢复）、`server/index.mjs:54-58`（`cancelRun`）、`server/index.mjs:95`（并发判定）
-- **根因**：启动恢复只把 `queued`/`running` 标记为 `interrupted`，**遗漏 `cancelling`**（`server/index.mjs:15`：`if(['queued','running'].includes(run.status))`）。而 `cancelRun()` 在找不到活动 job 时抛 `RUN_NOT_ACTIVE`，因此这条 Run 既不会被恢复，也无法通过 `/stop` 解除。
+- **位置**：`server/index.mjs:16`（启动恢复）、`server/index.mjs:55-59`（`cancelRun`）、`server/index.mjs:96`（并发判定）
+- **根因**：启动恢复只把 `queued`/`running` 标记为 `interrupted`，**遗漏 `cancelling`**（`server/index.mjs:16`：`if(['queued','running'].includes(run.status))`）。而 `cancelRun()` 在找不到活动 job 时抛 `RUN_NOT_ACTIVE`，因此这条 Run 既不会被恢复，也无法通过 `/stop` 解除。
 - **复现脚本**：`tools/ats101-probes/scenario-c-b03-cancelling-lock.mjs`，三种方式独立复现：
   - **C1 自然竞态（产品源码未修改）**：启动真实 Run → `POST /stop` 返回 200 `{"status":"cancelling"}` → `taskkill /F` 硬杀 Bridge（取消流程来不及完成）→ 重启；
   - **C2 自然竞态（活着的 Playwright 子进程）**：在 **B-01 已修复的沙箱副本**上跑同一次竞态，此时子进程是一个真实的 Playwright 慢用例；
@@ -383,7 +398,7 @@ GNU_BUILD_EXIT=101
 - **建议调整 WBS 归属**：
   - B-01 → **ATS-106**（Playwright CLI 环境检测与参数安全基线）应升级为 P0 关键阻断，并新增「真实 CLI 参数契约测试」验收项；执行类任务的 ATS-107 须在其后进行。
   - B-02 → **ATS-104** 验收标准须补入「构建镜像含 MSVC C++ 构建工具工作负载」**与「仓库提供 `src-tauri/icons/icon.ico`（或 `bundle.icon` 列出 `.ico`）」**，并明确「**验收以 `cargo build`（含最终链接）为准，不以 `cargo check` 为准**」；ATS-102 的 CI 脚本须固定该镜像。**上述为已知必要条件而非充分条件**——B-02 成因清单尚未穷尽（§4 B-02）。
-  - B-03 → **ATS-108**（取消/超时/子进程树回收与重启 ST）须明确覆盖「cancelling 状态恢复」；ATS-112 须覆盖「终态操作幂等」**与错误归类/路径泄漏**（后者根因在 `server/index.mjs:123` 的统一错误映射，见 §3.2）。
+  - B-03 → **ATS-108**（取消/超时/子进程树回收与重启 ST）须明确覆盖「cancelling 状态恢复」；ATS-112 须覆盖「终态操作幂等」**与错误归类/路径泄漏**（后者根因在 `server/index.mjs:132` 的统一错误映射，见 §3.2）。
   - **B-01 与 B-03 须同批修复与回归**（§4 B-03 耦合说明）。
 - **阶段门禁**：在 B-01/B-02/B-03 关闭前，ATS-116（v0.1.1 质量门）不应放行，阶段出厂检查「设计一致性」「UT/IT」「ST/UAT」三项保持「待检查」。
 - **文档同步**：本文件、`docs/14-REVIEW-VERIFICATION.md`、`docs/13-ROADMAP.md` 与 `README.md` 对 B-02 的描述以本文 §4 为准，且四处口径一致（含 `icon.ico` 仓库缺陷与「成因清单未穷尽」的限定）。
