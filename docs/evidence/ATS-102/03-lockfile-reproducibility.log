@@ -30,3 +30,23 @@ package.json count: 317
 --- 5. verdict ---
 REPRODUCIBLE: two independent npm ci runs in separate clones produced
 byte-identical installed trees (same sha256 over all 317 package.json files).
+
+--- 6. CORRECTION (added 2026-11-04, later review round) ---
+The installed-tree digest quoted in section 4 (2ece6ea6...) is NOT reproducible:
+its aggregation recipe was never recorded, and no common recipe (path prefix,
+separator, sort order, line terminator, hashing vs. raw bytes, upper/lower case)
+reproduces it -- roughly 2000 combinations were tried against the same tree.
+The digest is therefore WITHDRAWN as unverifiable.
+
+The underlying measurement still holds, and is now recorded with a recipe that
+a third party can recompute:
+
+  node tools/tree_digest.mjs <clone>/apps/studio/node_modules --package-json-only
+
+  package.json scope : 4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304  (317 files)
+  whole-tree scope   : 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3  (17191 files)
+
+Both values were reproduced identically on THREE independent clones, one of
+which is the clone this very log's section 4 was measured on -- i.e. the tree
+content is confirmed unchanged; only the quoted digest string was wrong.
+See docs/evidence/ATS-102/06-independent-verification.log for the raw output.

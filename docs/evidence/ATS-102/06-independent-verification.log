@@ -1,0 +1,57 @@
+=== ATS-102: 独立复核（第二次复核轮次） ===
+date        : 2026-11-04T07:35:00Z
+node        : v22.23.4
+npm         : 10.9.9
+os          : Windows 11
+method      : 全新 git clone --no-local x2 -> node tools/ci_build_gate.mjs
+
+--- 1. 构建门禁（全新克隆 A）---
+--- [install] PASSED (47968 ms)
+--- [lockcheck] PASSED (91 ms)
+# tests 59
+# pass 59
+# fail 0
+--- [test] PASSED (2022 ms)
+--- [build] PASSED (10190 ms)
+RESULT: OK -- the committed dependency manifest matches the lockfiles.
+--- [manifest] PASSED (155 ms)
+RESULT: OK -- every build-gate step passed.
+
+--- 2. 门禁后工作区状态（空 = 干净）---
+(end)
+
+--- 3. 门禁后 lockfile 未被改写 ---
+lockfiles unchanged: OK
+
+--- 4. 安装树摘要：三个相互独立的克隆 ---
+clone ats102-verify:
+  tree root      : D:\hermes-multica\home\cache\scratch\ats102-verify\apps\studio\node_modules
+  scope          : package.json files only
+  file count     : 317
+  tree sha256    : 4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304
+  tree root      : D:\hermes-multica\home\cache\scratch\ats102-verify\apps\studio\node_modules
+  scope          : all files
+  file count     : 17191
+  tree sha256    : 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
+clone ats102-verify2:
+  tree root      : D:\hermes-multica\home\cache\scratch\ats102-verify2\apps\studio\node_modules
+  scope          : package.json files only
+  file count     : 317
+  tree sha256    : 4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304
+  tree root      : D:\hermes-multica\home\cache\scratch\ats102-verify2\apps\studio\node_modules
+  scope          : all files
+  file count     : 17191
+  tree sha256    : 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
+clone final-clone:
+  tree root      : D:\hermes-multica\home\cache\scratch\final-clone\apps\studio\node_modules
+  scope          : package.json files only
+  file count     : 317
+  tree sha256    : 4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304
+  tree root      : D:\hermes-multica\home\cache\scratch\final-clone\apps\studio\node_modules
+  scope          : all files
+  file count     : 17191
+  tree sha256    : 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
+
+--- 5. verdict ---
+三个独立克隆（含交付前那次运行自己留下的 final-clone）的两种口径摘要全部一致。
+锁文件可重现成立。

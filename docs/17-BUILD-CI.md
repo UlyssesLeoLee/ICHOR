@@ -43,7 +43,23 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 
 1. **`npm ci` 不得改写 lockfile**——CI 的 `lockcheck` 步骤与门禁脚本的同名步骤都断言 `git diff --exit-code -- package-lock.json apps/studio/package-lock.json` 为空。实测为空。
 2. **两个独立克隆各装一次，安装树必须逐字节一致**。实测：两个克隆的 `apps/studio/node_modules` 下全部 317 个 `package.json` 聚合 sha256 同为
-   `2ece6ea6f218344269b1132b5195377504423c59df7a01a965ef86f7c11103c6`。
+   `4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304`。
+
+   该聚合值的**计算口径写在 `tools/tree_digest.mjs` 的文件头**（逐文件的
+   `<相对路径> NUL <sha256>` 行，按路径排序，LF 连接，末尾补 LF，再取 sha256），
+   因此第三方可用同一条命令重算：
+
+   ```
+   node tools/tree_digest.mjs <克隆>/apps/studio/node_modules --package-json-only
+   ```
+
+   口径只用**相对路径**，所以摘要与克隆到哪个目录无关——这一点是该测量有意义的前提。
+   全树（不止 `package.json`）的摘要同法可算：`4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3`（17191 个文件）。
+
+   > 更正记录：早先此处引用的 `2ece6ea6…` 无法用任何常见口径重算（已逐一试过
+   > 路径前缀／分隔符／排序／换行／大小写等约 2000 种组合），**该值不可复现，
+   > 已作废**。新值由上列命令直接产出，且在三个相互独立的克隆（含交付前那次
+   > 运行自己留下的克隆）上结果一致。
 3. **lockfile 自身在安装前后哈希不变**。实测两个 lockfile 的 sha256 在安装前后相同：
    - `package-lock.json` → `703557d47d0bb8b3582dbc9daf0ee1d1a0972d58f0391f77e2b08f8942ec46d9`
    - `apps/studio/package-lock.json` → `5931d663e33da6fc3e56a968e6100a5f275a254473a5d67714bcbd13004fee24`
@@ -233,7 +249,14 @@ ATS-101 记录的已知副作用是：`next build` 会改写 `apps/studio/next-e
 
 本次的处理：**把改写后的内容提交进版本控制**，并实测该副作用是**幂等的**（连续两次 `next build` 后两文件的 sha256 不变）。因此构建后工作区不再变脏，CI 无需「允许变更清单」，只保留一步**报告**（`git --no-pager diff --stat`，`continue-on-error: true`，不阻断）以便将来升级 Next 时能看见差异。
 
-实测：构建前后 `next-env.d.ts` sha256 `1b59d4c6…`、`tsconfig.json` sha256 `3314e0e7…`，第二次构建后不变。
+实测：连续两次 `next build` 后两文件 sha256 不变，且 `git status --short` 为空：
+
+- `apps/studio/next-env.d.ts` → `1b59d4c6b83807db275d43f3cf2cc8e9323f465fab764eea091cc5becd5bad37`
+- `apps/studio/tsconfig.json` → `671231fb6240b994441ed4ea03f9d110af1df971dfd6a3638e6db111435f92b0`
+
+> 更正记录：早先此处 `tsconfig.json` 的值写作 `3314e0e7…`，**该值不存在于本仓库
+> 任何历史版本的该文件中**，无法复现，已作废。上列两值取自工作区文件的原始字节
+> （`sha256sum`），可逐条重算。
 
 ### 6.3 新增第二个 lockfile 引入的告警及其消除
 

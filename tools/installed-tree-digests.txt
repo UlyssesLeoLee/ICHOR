@@ -1,0 +1,26 @@
+# Recorded digests of the installed dependency tree (apps/studio/node_modules)
+#
+# Produced by `node tools/tree_digest.mjs <tree-root>` — see that tool's file
+# header for the exact recipe. The digest is PATH-INDEPENDENT (only paths
+# relative to the tree root take part), so the same checkout installed on
+# different machines gives the same value.
+#
+# It is PLATFORM-DEPENDENT, and that is a property of the lockfile, not of the
+# recipe: apps/studio/package-lock.json declares 34 platform-specific optional
+# entries (@next/swc-<platform>, @img/sharp-<platform>, @img/sharp-libvips-*).
+# npm only installs the ones matching the host platform, so a Windows install
+# and a Linux install legitimately produce different trees. The values are
+# therefore recorded per platform, and `--check` compares against the entry for
+# the platform it runs on.
+#
+# Format:  <scope> <platform> <sha256>
+#   scope     all-files | package-json
+#   platform  <process.platform>-<process.arch>
+#
+# To re-measure after an intentional dependency change:
+#   npm ci --prefix apps/studio && node tools/tree_digest.mjs apps/studio/node_modules
+#   node tools/tree_digest.mjs apps/studio/node_modules --package-json-only
+# then update the matching line below.
+
+all-files     win32-x64 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
+package-json win32-x64 4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304

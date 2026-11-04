@@ -100,6 +100,15 @@ jobs:
         run: |
           git diff --exit-code -- apps/studio/package-lock.json
 
+      # The installed tree is pinned to the lockfiles by a path-independent
+      # digest, so a swapped tarball or a patched dependency is caught here
+      # rather than at runtime. The recorded value is per platform: npm only
+      # installs the platform-specific optional packages of the host, so a
+      # Linux runner legitimately has a different tree (and would SKIP if no
+      # value is recorded for that platform yet).
+      - name: Verify the installed tree matches the recorded digest
+        run: node tools/tree_digest.mjs --check apps/studio/node_modules
+
       - name: Build static export
         run: npm run build
         working-directory: apps/studio

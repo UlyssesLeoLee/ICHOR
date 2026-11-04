@@ -73,6 +73,21 @@ const STEPS = [
     ],
   },
   {
+    id: 'installdigest',
+    title: 'The installed tree matches the digest recorded for it',
+    commands: [
+      // The digest is path-independent (relative paths only), so the expected
+      // value is the same on every machine and every checkout location. It
+      // pins the installed tree to the lockfiles: any dependency change,
+      // swapped tarball or patched file moves it.
+      {
+        cwd: REPO_ROOT,
+        cmd: 'node',
+        args: [path.join(REPO_ROOT, 'tools', 'tree_digest.mjs'), '--check', path.join('apps', 'studio', 'node_modules')],
+      },
+    ],
+  },
+  {
     id: 'test',
     title: 'Unit / integration tests (node --test)',
     commands: [
@@ -83,6 +98,14 @@ const STEPS = [
     id: 'build',
     title: 'Next.js 16 static export',
     commands: [
+      // The digest check belongs to this step because this is the step that
+      // installs apps/studio's dependencies -- the tree it verifies does not
+      // exist before the `install` step has run.
+      {
+        cwd: REPO_ROOT,
+        cmd: 'node',
+        args: [path.join(REPO_ROOT, 'tools', 'tree_digest.mjs'), '--check', path.join('apps', 'studio', 'node_modules')],
+      },
       { cwd: path.join(REPO_ROOT, 'apps', 'studio'), cmd: 'npm', args: ['run', 'build'] },
       // The artefact check is a separate script file rather than `node -e`,
       // because an inline script has to survive the Windows shell's word
