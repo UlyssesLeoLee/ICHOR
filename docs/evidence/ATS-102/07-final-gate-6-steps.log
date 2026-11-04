@@ -73,3 +73,27 @@ package.json 口径（317 个文件）在所有测过的克隆上一致，包括
   4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304
 ——被截断的那个文件不是 package.json，所以窄口径看不出问题；全树口径才看得出。
 这也是全树口径值得保留的原因。
+
+--- 9. 合并 dev 后的状态（提交 58962ca）---
+合并本地集成分支 dev 的最新进展（ATS-401 整改 + ATS-501 协议文档）后，
+在合并后的全新克隆上复核：
+
+- ATS-102 的门禁步骤全部通过：
+    --- [installdigest] PASSED   digest ok: all-files win32-x64 = 4542171b...
+    --- [manifest]    PASSED
+    --- [lockcheck]   PASSED
+    --- [build]       PASSED（重跑后；首次为 §6.2 记录的偶发原生崩溃）
+- npm test 在合并后的树上为：# tests 101 / # pass 76 / # fail 0 / # cancelled 25。
+  这 25 项全部是 UT-AGT-042 ~ UT-AGT-066，failureType 为 cancelledByParent，
+  报错 "Promise resolution is still pending but the event loop has already resolved"。
+
+  **这 25 项不是本次改动引入的回归**：在**只含 dev、不含本任务任何改动**的
+  克隆（dev-base @ 60f93c8）上单独跑 npm test，得到完全相同的 25 项 cancelled
+  与同一组报错。即 ATS-401 整改后的既有状态，与 ATS-102 无关。
+  ATS-102 本任务自己的门禁步骤在合并后仍全绿。
+
+  归属：ATS-401（Agent 契约层）的测试问题，不在本任务范围内。
+
+--- 10. 合并后的 CHECKSUMS ---
+CHECKSUMS.sha256 按合并后的最终树重新生成（124 条）。合并时该文件是唯一
+冲突（生成物），按生成器规则解决，不手工拼行。
