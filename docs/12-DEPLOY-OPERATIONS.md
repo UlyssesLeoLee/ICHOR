@@ -2,7 +2,7 @@
 
 ## 1. 运行前提
 
-最少 Node.js 22、可访问的本地文件系统。被测项目要有 `package.json`、`playwright.config.*`，如要实际执行须先在其项目中安装 Playwright 和浏览器；不要求工作台自动安装 npm 包。推荐 Windows 11 Pro 开发端，PowerShell 7，Git CLI，VS Code。Tauri 开发另需 Rustup/Cargo、WebView2、C/C++ 编译链。Node/React/Playwright 版本请参考各自官方发行兼容表并以 lockfile 冻结（当前在线下载受限，未形成 lockfile）。
+最少 Node.js 22、可访问的本地文件系统。被测项目要有 `package.json`、`playwright.config.*`，如要实际执行须先在其项目中安装 Playwright 和浏览器；不要求工作台自动安装 npm 包。推荐 Windows 11 Pro 开发端，PowerShell 7，Git CLI，VS Code。Tauri 开发另需 Rustup/Cargo、WebView2、C/C++ 编译链。Node/React/Playwright 版本请参考各自官方发行兼容表并以 lockfile 冻结。**本仓库自身的依赖已冻结**（ATS-102 交付）：根与 `apps/studio` 各有 `package-lock.json`，Node 版本见 `.nvmrc`（22.23.4），安装须用 `npm ci`（严格按 lockfile）而非 `npm install`；依赖清单见 `docs/dependencies/`，构建门禁见 `docs/17-BUILD-CI.md`。
 
 ## 2. 启动与验证
 

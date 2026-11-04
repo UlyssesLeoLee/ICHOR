@@ -100,6 +100,12 @@ const STEPS = [
   },
 ];
 
+/** The npm version in use, for the gate banner. */
+function npmVersion() {
+  const res = spawnSync('npm', ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' });
+  return (res.stdout || '').trim() || 'unknown';
+}
+
 function run(cmd) {
   const started = Date.now();
   const res = spawnSync(cmd.cmd, cmd.args, {
@@ -170,7 +176,7 @@ function main() {
 
   console.log('=== ATS-102 build gate ===');
   console.log(`node   : ${process.version}`);
-  console.log(`npm    : ${(spawnSync('npm', ['--version'], { encoding: 'utf8' }) || {}).stdout?.trim() || 'unknown'}`);
+  console.log(`npm    : ${npmVersion()}`);
   console.log(`repo   : ${REPO_ROOT}`);
   console.log('');
 

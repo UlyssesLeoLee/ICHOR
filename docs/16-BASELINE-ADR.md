@@ -315,19 +315,20 @@ GNU_BUILD_EXIT=101
 ### 5.1 Node Bridge
 
 - 运行时：Node ≥ 22（`package.json` `engines`）。实测 Node v24.19.0 / npm 12.2.0 全绿通过。
-- **无 lockfile**（根与 `apps/studio` 均无 `package-lock.json`）→ 依赖不可重现，属 ATS-102 待办。
-- **无 CI 配置**（无 `.github/workflows`、无 `.gitlab-ci.yml`）→ 无自动门禁，属 ATS-102 待办。
+- **lockfile 已补齐（ATS-102 交付，`docs/17-BUILD-CI.md`）**：根与 `apps/studio` 各有 `package-lock.json`（lockfileVersion 3），`resolved` 指向 `registry.npmjs.org`，含 integrity 哈希。实测两个独立克隆各跑 `npm ci`，安装树 sha256 一致。
+- **CI 配置已补齐（ATS-102 交付）**：`.github/workflows/ats-102-build.yml`（3 个 job：node-tests / web-build / dependency-manifest），可用 `node tools/ci_build_gate.mjs` 本地逐步复现。**该 workflow 未在真实 runner 上跑过**（远端 `main` 仅有 LICENSE，本分支未推送），详见 `docs/17-BUILD-CI.md` §1 与 §7。
 - 根包无第三方运行时依赖，测试全部用 Node 内置 `node:test`。
 
 ### 5.2 Next.js 16 静态导出
 
 - **本次实测构建成功**：`npm install` 55 包 46s；`next build`（Next.js 16.4.4, Turbopack）编译 1485ms、TypeScript 2.2s、静态页 3/3；产物 `apps/studio/out/{index.html,404.html,_next/**}`。npm registry 本次可达。
 - 实测该产物可由 Bridge 直接伺服：`GET /` 与 `GET /index.html` 返回 200 且为 Next 导出 HTML；`/fallback.html` 返回便携 UI。
-- **构建副作用（须纳入版本控制约定）**：`next build` 会改写两个受版本控制的文件——
+- **构建副作用（已在 ATS-102 交付中处理）**：`next build` 会改写两个受版本控制的文件——
   - `apps/studio/next-env.d.ts`：追加 `./.next/types/routes.d.ts` 等 import（+5 行）
   - `apps/studio/tsconfig.json`：由单行 JSON 重排为多行，并追加 `.next/dev/types/**/*.ts`
-  → 构建后工作区必然 dirty，CI 需先校验这两文件是否与基线一致，或将其纳入允许变更清单。
+  → ATS-102 已把改写后的内容**提交进版本控制**并实测该副作用**幂等**（连续两次构建后两文件 sha256 不变），因此构建后工作区不再变 dirty，CI 无需「允许变更清单」，只保留一步 diff 报告（不阻断）。详见 `docs/17-BUILD-CI.md` §6.2。
 - `next.config.mjs` 为 `output:'export'`，无 SSR、无 API Routes；`trailingSlash:true`。
+  - ATS-102 新增了 `turbopack.root: import.meta.dirname`：加入第二个 lockfile 后 Next 会推断错 workspace root 并告警，固定该项后告警消失。
 
 ### 5.3 Tauri 2 / Rust
 
@@ -373,7 +374,7 @@ GNU_BUILD_EXIT=101
 3. **Tauri Windows 构建未验证**（B-02）。msvc 链的**最终链接**（`cargo build`）本机无法验证；gnu 链的 `cargo build` 在 `.ico` 补齐后仍因 cdylib 导出序号超限而失败。**B-02 的成因清单在 msvc 链 `cargo build` 通过之前不视为穷尽**。
 4. **macOS/Linux 便携 UI 未验证**（仅 Windows 11 实测）。
 5. **性能指标未实测**（NFR-006：500 用例 3 秒目标无基线）。
-6. **依赖 SPDX/SBOM 未生成**（NFR-012 未完成）。
+6. **依赖 SPDX/SBOM 未生成**（NFR-012 未完成）。**ATS-102 进展**：依赖清单已生成（`docs/dependencies/dependency-manifest.{json,md}`，88 个依赖的许可/版本/integrity 全部齐备），但 ①**完整 SPDX SBOM 未生成**（多数包未发布 `sbomId`），②**分发审计结论未出**，③16 个需复核依赖（15 weak copyleft + 1 attribution）的法律结论未出 → NFR-012 **仍为未完成**。
 7. **多实例并发写 state 未验证**（JSON 原子写已实现，单写锁未实现）。
 8. **证据保留期与脱敏未实现**（Trace/视频含 PII 风险未闭环）。
 
@@ -382,7 +383,7 @@ GNU_BUILD_EXIT=101
 - **ATS-101 本身**：基线冻结与 ADR 已交付（本文 + `docs/evidence/ATS-101/` 4 份执行日志 + `tools/ats101-probes/` 可重跑复现脚本 + WBS 状态同步）。
 - **建议调整 WBS 归属**：
   - B-01 → **ATS-106**（Playwright CLI 环境检测与参数安全基线）应升级为 P0 关键阻断，并新增「真实 CLI 参数契约测试」验收项；执行类任务的 ATS-107 须在其后进行。
-  - B-02 → **ATS-104** 验收标准须补入「构建镜像含 MSVC C++ 构建工具工作负载」**与「仓库提供 `src-tauri/icons/icon.ico`（或 `bundle.icon` 列出 `.ico`）」**，并明确「**验收以 `cargo build`（含最终链接）为准，不以 `cargo check` 为准**」；ATS-102 的 CI 脚本须固定该镜像。**上述为已知必要条件而非充分条件**——B-02 成因清单尚未穷尽（§4 B-02）。
+  - B-02 → **ATS-104** 验收标准须补入「构建镜像含 MSVC C++ 构建工具工作负载」**与「仓库提供 `src-tauri/icons/icon.ico`（或 `bundle.icon` 列出 `.ico`）」**，并明确「**验收以 `cargo build`（含最终链接）为准，不以 `cargo check` 为准**」；ATS-102 的 CI 脚本须固定该镜像。**上述为已知必要条件而非充分条件**——B-02 成因清单尚未穷尽（§4 B-02）。**ATS-102 进展**：CI workflow 已用 `runs-on: windows-2022`（自带 VS 2022 生成工具）固定镜像基线；但**未加入 Rust/Tauri job**——仓库现状下该 job 必然失败（B-02），加一个必红的 job 只会使门禁失效。该 job 属 ATS-104 交付范围，届时须连同 `.ico` 与 MSVC 链一并加入（`docs/17-BUILD-CI.md` §6.4）。
   - B-03 → **ATS-108**（取消/超时/子进程树回收与重启 ST）须明确覆盖「cancelling 状态恢复」；ATS-112 须覆盖「终态操作幂等」**与错误归类/路径泄漏**（后者根因在 `server/index.mjs:123` 的统一错误映射，见 §3.2）。
   - **B-01 与 B-03 须同批修复与回归**（§4 B-03 耦合说明）。
 - **阶段门禁**：在 B-01/B-02/B-03 关闭前，ATS-116（v0.1.1 质量门）不应放行，阶段出厂检查「设计一致性」「UT/IT」「ST/UAT」三项保持「待检查」。

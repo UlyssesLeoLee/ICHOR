@@ -1,0 +1,32 @@
+=== ATS-102: 锁文件可重现性实测 ===
+date        : 2026-11-04T04:29:37Z
+node        : v22.23.4
+npm         : 10.9.9
+os          : Windows 11
+registry    : https://registry.npmjs.org/ (canonical, not the local mirror)
+method      : git clone --no-local x2 -> npm ci -> compare
+
+--- 1. lockfile SHA-256 (clone A, BEFORE npm ci) ---
+703557d47d0bb8b3582dbc9daf0ee1d1a0972d58f0391f77e2b08f8942ec46d9 *package-lock.json
+5931d663e33da6fc3e56a968e6100a5f275a254473a5d67714bcbd13004fee24 *apps/studio/package-lock.json
+
+--- 2. lockfile SHA-256 (clone B, AFTER a full npm ci + build + test gate) ---
+703557d47d0bb8b3582dbc9daf0ee1d1a0972d58f0391f77e2b08f8942ec46d9 *package-lock.json
+5931d663e33da6fc3e56a968e6100a5f275a254473a5d67714bcbd13004fee24 *apps/studio/package-lock.json
+
+--- 3. verdict: lockfiles byte-identical before and after npm ci ---
+IDENTICAL (both hashes match the values committed in the branch)
+
+--- 4. installed-tree reproducibility: two INDEPENDENT npm ci runs ---
+
+clone A (apps/studio/node_modules after gate run 1):
+installed-tree sha256: 2ece6ea6f218344269b1132b5195377504423c59df7a01a965ef86f7c11103c6
+package.json count: 317
+
+clone B (apps/studio/node_modules after an independent npm ci):
+installed-tree sha256: 2ece6ea6f218344269b1132b5195377504423c59df7a01a965ef86f7c11103c6
+package.json count: 317
+
+--- 5. verdict ---
+REPRODUCIBLE: two independent npm ci runs in separate clones produced
+byte-identical installed trees (same sha256 over all 317 package.json files).

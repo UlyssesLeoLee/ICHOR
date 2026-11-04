@@ -37,7 +37,7 @@ flowchart LR
 | 测试报告含口令、PII、cookie | 泄露与隐私违规 | HIGH | 视觉脱敏、日志清洗、证据加密及保留期 |
 | JSON 状态持久化未设置单写锁 | 多实例损坏或丢更新 | MEDIUM | SQLite WAL/文件锁/进程唯一实例 |
 | 未签名 Evidence Manifest | 本地高权限可篡改 | MEDIUM | WORM、签名、远端哈希证明 |
-| 依赖 lockfile/许可证未做生成式 SBOM | 供应链与发行风险 | MEDIUM | CI SBOM + 漏洞扫描 + 许可证审核 |
+| 依赖 lockfile 已生成，但 SPDX SBOM/漏洞扫描/许可证审核未做 | 供应链与发行风险 | MEDIUM | 依赖清单已生成（`docs/dependencies/`）；待补 SBOM + 漏洞扫描 + 许可证审核 |
 | HTML 报告可能存在主动内容 | XSS/浏览器安全 | MEDIUM | 下载而不是在管理源直接执行 HTML |
 | UI Monaco 编辑任意源码缺严格 diff 审批 | 人为误修改 | MEDIUM | Git diff review + code review policy |
 | AI 自主修复更改 expected 导致掩盖 Bug | 测试完整性 | HIGH (P1) | 禁止无审批断言更新/必须重测/Reviewer 角色 |
