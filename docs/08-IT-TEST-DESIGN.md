@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：26；已执行通过：12；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：37；已执行通过：23；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -34,6 +34,17 @@
 |IT-RUN-MOCK-002|FR-011|测试双桩|模拟取消运行|假 CLI 延迟退出，POST /stop|终态 cancelled，不误报 passed|node --test (mock)|PASS|
 |IT-RUN-MOCK-CLEANUP|NFR-005|测试双桩|模拟服务清理|关闭模拟服务与临时目录|临时数据清除，主仓库未受影响|node --test (mock)|PASS|
 |IT-API-004|NFR-002|安全|错误 Host 拒绝|Host=evil.example:4577|403 INVALID_HOST|可自动化|PENDING|
+|IT-AGT-SETUP|NFR-011|正常|Agent 契约 API 的 bridge 启动|隔离 ATS_DATA_DIR 与随机端口|/api/health=200 并取得 token|node --test|PASS|
+|IT-AGT-001|FR-024|正常|契约描述经 API 暴露|GET /api/agent/contract|200 + contract=agent-contract/v1 + 禁用能力清单|node --test|PASS|
+|IT-AGT-002|NFR-002|安全|契约端点需要会话 token|不带 X-ATS-Token GET /api/agent/contract|401 INVALID_SESSION|node --test|PASS|
+|IT-AGT-003|FR-024|正常|合法请求通过契约校验|POST /api/agent/validate 合法请求|200 + valid=true + 输入出处摘要回显|node --test|PASS|
+|IT-AGT-004|FR-024|安全|写入类能力请求被拒|requestedCapabilities 含 write_source|400 + AGENT_CAPABILITY_FORBIDDEN|node --test|PASS|
+|IT-AGT-005|FR-024|安全|缺预算的请求被拒|请求体无 budget|400 + AGENT_BUDGET_REQUIRED|node --test|PASS|
+|IT-AGT-006|FR-024|安全|缺输入出处的请求被拒|请求体 inputs 为空|400 + AGENT_PROVENANCE_REQUIRED|node --test|PASS|
+|IT-AGT-007|FR-024|安全|越界作用域被拒|scope.files 含 ../../outside.spec.ts|400 + AGENT_SCOPE_ESCAPE|node --test|PASS|
+|IT-AGT-008|FR-024|安全|校验请求不写入项目|校验前后对比夹具文件内容|内容不变，工作区无副作用|node --test|PASS|
+|IT-AGT-009|FR-024|正常|诊断端点报告契约状态|GET /api/diagnostics|agentContract.version=agent-contract/v1，status=CONTRACT_ONLY|node --test|PASS|
+|IT-AGT-CLEANUP|NFR-005|清理|Agent API 子进程与夹清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
 
 ## 进入与退出条件
 

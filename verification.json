@@ -1,14 +1,23 @@
 {
   "release": "AI Test Studio v0.1.0",
   "date": "2026-11-03",
-  "automatedChecks": 20,
-  "automatedChecksPassed": 20,
-  "testDesignCases": 75,
-  "casesWithAutomatedPass": 20,
+  "automatedChecks": 59,
+  "automatedChecksPassed": 59,
+  "testDesignCases": 114,
+  "casesWithAutomatedPass": 59,
   "STCasesExecuted": 0,
   "requirementMappings": 42,
   "nextJsBundleBuilt": false,
   "tauriBinaryBuilt": false,
   "actualPlaywrightBrowserRunVerified": false,
-  "browserUIMonitoringLimitation": "Current sandbox browser loopback access blocked by administrator policy; Node HTTP integration checks passed."
+  "browserUIMonitoringLimitation": "Current sandbox browser loopback access blocked by administrator policy; Node HTTP integration checks passed.",
+  "agentContract": {
+    "version": "agent-contract/v1",
+    "status": "CONTRACT_ONLY",
+    "unitTests": 28,
+    "integrationTests": 11,
+    "boundaryProbe": "tools/ats401-probes/probe-agent-boundary.mjs",
+    "modelProviderConnected": false,
+    "note": "The agent contract is implemented and enforced; no model provider is connected, so no agent request can reach a model and no agent output can be written to a repository."
+  }
 }

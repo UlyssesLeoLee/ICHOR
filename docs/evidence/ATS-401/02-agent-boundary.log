@@ -1,0 +1,51 @@
+=== ATS-401 probe: Agent contract v1 permission boundary ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-16e44f6f08bb\worktree
+work root : C:\Users\seiko\AppData\Local\Temp\multica-task-4264754514\ats401-probes
+
+--- signal 1a: static analysis of server/agent.mjs ---
+  imports: node:crypto, node:path
+  [PASS] agent.mjs does not import node:fs
+  [PASS] agent.mjs does not import node:fs/promises
+  [PASS] agent.mjs does not import fs
+  [PASS] agent.mjs does not import node:child_process
+  [PASS] agent.mjs does not import child_process
+  [PASS] agent.mjs does not import node:net
+  [PASS] agent.mjs does not import node:http
+  [PASS] agent.mjs does not import node:https
+  [PASS] agent.mjs does not import node:dgram
+  [PASS] agent.mjs does not import node:tls
+  [PASS] agent.mjs imports only node:crypto and node:path -- node:crypto, node:path
+
+--- signal 1c: negative control -- the detector must fire on a broken copy ---
+  [PASS] the detector flags a copy that imports node:fs -- flagged: node:fs
+  [PASS] the detector flags a copy that imports node:child_process -- flagged: node:child_process
+  [PASS] the detector flags a copy that imports node:https -- flagged: node:https
+
+--- signal 1b: runtime check that the fixture repo is untouched ---
+  [PASS] fixture repo is a git repository
+  [PASS] the spec file content is unchanged
+  [PASS] git status is unchanged -- ""
+  [PASS] no new git commit was created
+  [PASS] the proposal is pending review
+  [PASS] the proposal carries the diff as text only
+
+--- signal 2: forbidden capabilities are rejected ---
+  [PASS] requesting write_source is rejected -- code=AGENT_CAPABILITY_FORBIDDEN
+  [PASS] requesting git_commit is rejected -- code=AGENT_CAPABILITY_FORBIDDEN
+  [PASS] requesting git_push is rejected -- code=AGENT_CAPABILITY_FORBIDDEN
+  [PASS] requesting update_expected is rejected -- code=AGENT_CAPABILITY_FORBIDDEN
+  [PASS] requesting approve_proposal is rejected -- code=AGENT_CAPABILITY_FORBIDDEN
+  [PASS] role planner holds no forbidden capability
+  [PASS] role generator holds no forbidden capability
+  [PASS] role triage holds no forbidden capability
+  [PASS] role healer holds no forbidden capability
+
+--- signal 3: proposals cannot be applied outside the scope ---
+  [PASS] a diff outside scope.outputs is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a diff targeting a non test-script file is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a diff escaping the project root is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] the producer cannot review its own proposal -- code=AGENT_REVIEW_SELF_FORBIDDEN
+  [PASS] an independent reviewer can approve
+
+--- verdict ---
+PASS: the agent contract cannot write, commit, or apply a proposal

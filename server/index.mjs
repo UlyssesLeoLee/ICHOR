@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog } from './core.mjs';
+import { AGENT_CONTRACT_VERSION,describeAgentContract,validateAgentRequest } from './agent.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const ROOT=path.resolve(HERE,'..');
@@ -117,10 +118,23 @@ const server=http.createServer(async(req,res)=>{
    res.writeHead(200,{'Content-Type':type,'Content-Disposition':`attachment; filename="${path.basename(actual).replace(/[^a-zA-Z0-9._-]/g,'_')}"`,'X-Content-Type-Options':'nosniff'});return fs.createReadStream(actual).pipe(res);
   }
  }
- if(p==='/api/diagnostics'&&req.method==='GET')return respond(res,200,{runtime:process.version,server:'Node.js bridge',platform:process.platform,pid:process.pid,environment:'local',limitations:['Local trusted repositories only','No process/container sandbox','No account/RBAC','AI provider not connected','WDIO adapter planned']});
+ if(p==='/api/diagnostics'&&req.method==='GET')return respond(res,200,{runtime:process.version,server:'Node.js bridge',platform:process.platform,pid:process.pid,environment:'local',limitations:['Local trusted repositories only','No process/container sandbox','No account/RBAC','AI provider not connected','WDIO adapter planned'],agentContract:{version:AGENT_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The agent contract is defined and enforced; no model provider is wired, so no agent request can reach a model.',writePolicy:'Agents produce diffs only; applying a diff, updating expected results and committing are platform-side operations performed after review.'}});
+ if(p==='/api/agent/contract'&&req.method==='GET')return respond(res,200,describeAgentContract());
+ if(p==='/api/agent/validate'&&req.method==='POST'){
+  // Validation only: it proves a request satisfies the contract. It does not
+  // call a model, and it never writes to the project.
+  const b=await body(req);
+  const validated=validateAgentRequest(b);
+  return respond(res,200,{valid:true,contract:validated.contract,requestId:validated.id,role:validated.role,scope:validated.scope,budget:validated.budget,inputRefs:validated.inputs.map(i=>({kind:i.kind,ref:i.ref,digest:i.digest,retrievedAt:i.retrievedAt})),requestedCapabilities:validated.requestedCapabilities,egress:validated.egress});
+ }
  if(p.startsWith('/api/'))return err(res,404,'NOT_FOUND');
  return staticFile(req,res,p);
- }catch(e){const message=e instanceof Error?e.message:String(e);const status=/NOT_FOUND/.test(message)?404:/CONFLICT|ALREADY/.test(message)?409:/OUTSIDE|INVALID|REQUIRED|STALE|TOO_LARGE|NOT_INSTALLED/.test(message)?400:500;return err(res,status,message);}
+ }catch(e){const message=e instanceof Error?e.message:String(e);const code=e&&e.code?e.code:'';
+ // Agent contract violations are client errors: the request does not satisfy
+ // the contract. The code is returned as-is so a caller can branch on it.
+ const agentStatus=/^AGENT_/.test(code)?400:null;
+ const status=agentStatus!==null?agentStatus:/NOT_FOUND/.test(message)?404:/CONFLICT|ALREADY/.test(message)?409:/OUTSIDE|INVALID|REQUIRED|STALE|TOO_LARGE|NOT_INSTALLED/.test(message)?400:500;
+ return err(res,status,code||message);}
 });
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))server.listen(PORT,'127.0.0.1',()=>console.log(`AI Test Studio bridge: http://127.0.0.1:${PORT}/fallback.html`));
 export {server};

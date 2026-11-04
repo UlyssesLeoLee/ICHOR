@@ -122,7 +122,7 @@ JSON report 中取 suite/spec/test/results，生成 `summary.total,passed,failed
 
 运行不接受任意 cmd 字符串。`file` 必须是已存在的 `.spec/.test` 测试文件，真实路径在 project 目录内。浏览器不直接以未经授权的 URL 读取附件，附件必须带 token，且设 Content-Disposition attachment；静态资源不得提供仓库路径。服务器拒绝非 localhost Host。跨站访问 session 由 Origin allowlist 控制；同一用户下的其他本地进程仍可能访问服务，这不是操作系统级隔离。
 
-## 9. P1 Runner / Agent 协议草案（未实现）
+## 9. P1 Runner / Agent 协议（Agent 契约 v1 已实现；Runner 适配器未实现）
 
 ```typescript
 interface RunnerAdapter {
@@ -136,3 +136,7 @@ interface AgentProposal { id:string; role:'planner'|'generator'|'triage'|'healer
 ```
 
 明确不在 P0 允许 AI 直接修改仓库。P1 工作流为 `proposal -> reviewer -> diff -> compile/tests -> human/policy approval -> Git`。
+
+**Agent 契约 v1 的实现状态（ATS-401，S4/v0.4.0）**：`server/agent.mjs` 实现了 Agent 请求与提案的契约层——作用域（`scope`）、预算（`budget`）、输入出处（`inputs` 的 kind/ref/digest/content）、角色与能力白名单、提案收敛规则与评审状态机。契约层的权限边界是**机制**而非约定：契约层只 import `node:crypto` 与 `node:path`，因此物理上无法写文件、起进程或发起网络请求；写入与提交类能力在请求层一律被拒；提案的 `approval` 恒为 `pending` 且提案人不得自审；diff 目标必须落在 `scope.outputs` 内且为测试脚本文件。
+
+**未实现**：模型提供商接入（ATS-403）、API Key 存储与外传知情授权（ATS-402）、提案落地（应用 diff / 更新 expected / Git 提交）。仓库中**没有**把模型输出写入仓库的代码路径。详见 `docs/17-AGENT-CONTRACT.md`。
