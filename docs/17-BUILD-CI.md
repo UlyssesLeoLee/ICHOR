@@ -10,13 +10,14 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 
 | 验收项 | 结论 | 证据 |
 |---|---|---|
-| Node 22 clean install | **PASS** | 干净克隆内 `npm ci` 根包 0 依赖 / `apps/studio` 57 包，39.0 s |
+| Node 22 clean install | **PASS** | 干净克隆内 `npm ci` 根包 0 依赖 / `apps/studio` 57 包，36.6 s |
 | `npm test` | **PASS** | **59/59** 通过（Node 内置 `node:test`；含 ATS-401 的 39 项） |
-| 锁文件可重现 | **PASS** | 两个独立克隆各跑一次 `npm ci`，安装树 sha256 完全一致 |
+| 锁文件可重现 | **PASS** | 两个独立克隆各跑一次 `npm ci`，安装树摘要完全一致（口径见 §2.2）；`npm ci` 不改写 lockfile |
 | 生成依赖清单 | **PASS** | `docs/dependencies/dependency-manifest.{json,md}`，88 个依赖全部有许可 |
 | Windows CI 构建脚本 | **PASS** | `.github/workflows/ats-102-build.yml`，3 个 job；本地以 `tools/ci_build_gate.mjs` 逐步复现并全绿 |
 
-**最终验收运行**（合并 `dev` 之后的全新克隆，门禁退出码 **0**）：`docs/evidence/ATS-102/04-final-clean-clone-gate.log`。
+**最终验收运行**（全新克隆，门禁 6 步退出码 **0**）：`docs/evidence/ATS-102/07-final-gate-6-steps.log`。
+前一轮（合并 `dev` 之后、加入安装树摘要检查之前）的验收见 `04-final-clean-clone-gate.log`。
 
 **本次交付同时关闭了 ATS-101 §5.1 指出的两处「ATS-102 待办」**：仓库此前既无 lockfile 也无 CI 配置。
 
@@ -56,6 +57,15 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
    口径只用**相对路径**，所以摘要与克隆到哪个目录无关——这一点是该测量有意义的前提。
    全树（不止 `package.json`）的摘要同法可算：`4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3`（17191 个文件）。
 
+   **该摘要是随平台变化的**，这是 lockfile 的性质而非口径的缺陷：
+   `apps/studio/package-lock.json` 声明了 **34 个平台相关的 optional 包**
+   （`@next/swc-<platform>`、`@img/sharp-<platform>`、`@img/sharp-libvips-*`），
+   npm 只安装与本机匹配的那一份（实测 Windows x64 装了其中 9 个）。因此
+   Windows 与 Linux 的安装树天然不同，**期望值必须按平台记录**——
+   `tools/installed-tree-digests.txt` 即按 `<口径> <平台> <sha256>` 逐行记录；
+   某平台尚无记录时该检查**跳过而非失败**（没有可比对的基准，凭空造一个是错的）。
+   这一点也是它**不能**作为跨平台一致性证据的原因，见 §7 第 6 条。
+
    > 更正记录：早先此处引用的 `2ece6ea6…` 无法用任何常见口径重算（已逐一试过
    > 路径前缀／分隔符／排序／换行／大小写等约 2000 种组合），**该值不可复现，
    > 已作废**。新值由上列命令直接产出，且在三个相互独立的克隆（含交付前那次
@@ -79,14 +89,18 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 | job | runner | 门禁内容 |
 |---|---|---|
 | `node-tests` | `windows-2022` | Node 22 版本断言 → 根 `npm ci` → lockfile 未被改写 → `npm test` → `node --check server/index.mjs` |
-| `web-build` | `windows-2022` | `apps/studio` 的 `npm ci` → lockfile 未被改写 → `next build` → 产物 `out/index.html` 存在且非空 |
+| `web-build` | `windows-2022` | `apps/studio` 的 `npm ci` → lockfile 未被改写 → **安装树摘要校验** → `next build` → 产物 `out/index.html` 存在且非空 |
 | `dependency-manifest` | `ubuntu-latest` | 安装依赖 → 重新生成依赖清单 → `--check` 断言与提交的清单一致 |
 
 三个 job 各自把产物上传为 artifact（测试输出、静态导出目录、依赖清单），保留 7 天。
 
+**安装树摘要校验**（`node tools/tree_digest.mjs --check apps/studio/node_modules`）：
+把已安装的 `apps/studio/node_modules` 钉在 lockfile 上——换 tarball、被篡改的
+依赖都会让它失配。该检查的期望值按**平台**记录，原因见 §2.2。
+
 ### 3.1 与本地门禁脚本的一致性
 
-workflow 的每一条命令都对应 `tools/ci_build_gate.mjs` 里的一个 step（`install` / `lockcheck` / `test` / `build` / `manifest`）。该脚本可在任意有 Node 22 的机器上以一条命令复现整个门禁：
+workflow 的每一条命令都对应 `tools/ci_build_gate.mjs` 里的一个 step（`install` / `lockcheck` / `installdigest` / `test` / `build` / `manifest`）。该脚本可在任意有 Node 22 的机器上以一条命令复现整个门禁：
 
 ```bash
 node tools/ci_build_gate.mjs            # 全部步骤
@@ -162,6 +176,8 @@ RESULT: OK -- every build-gate step passed.
 | `docs/evidence/ATS-102/03-lockfile-reproducibility.log` | 两个独立克隆各装一次，安装树 sha256 一致；两个 lockfile 安装前后哈希不变 |
 | `docs/evidence/ATS-102/04-final-clean-clone-gate.log` | **最终验收运行**：合并 `dev`（纳入 ATS-401）之后的全新克隆，门禁退出码 0，59/59 测试通过 |
 | `docs/evidence/ATS-102/05-windows-shell-path-pitfall.log` | Windows/Git-Bash 下的 PATH 形态坑（`spawn taskkill ENOENT` 导致 Bridge 崩溃）与修正 |
+| `docs/evidence/ATS-102/06-independent-verification.log` | **复核轮次**：独立全新克隆重跑门禁（59/59、退出码 0）；三个相互独立克隆的安装树摘要一致；两个不可复现的摘要值被作废 |
+| `docs/evidence/ATS-102/07-final-gate-6-steps.log` | **最终验收运行**：加入安装树摘要检查后的 6 步门禁，全绿、退出码 0 |
 
 ### 4.1 合并 `dev` 后的最终验收
 
@@ -180,6 +196,20 @@ $ echo $?
 ```
 
 门禁跑完后 `git status --short` 为空、两个 lockfile 的 `git diff` 为空。
+
+**复核轮次的最终验收**（加入安装树摘要检查后，门禁为 6 步）：
+
+```
+--- [install] PASSED (36648 ms)
+--- [lockcheck] PASSED (61 ms)
+--- [installdigest] PASSED (1776 ms)   # digest ok: all-files win32-x64 = 4542171b...
+--- [test] PASSED (1780 ms)            # tests 59 / pass 59 / fail 0
+--- [build] PASSED (8035 ms)
+--- [manifest] PASSED (144 ms)
+RESULT: OK -- every build-gate step passed.
+```
+
+完整日志：`docs/evidence/ATS-102/07-final-gate-6-steps.log`。
 
 ### 4.2 在 Windows/Git-Bash 上准备环境
 
@@ -283,7 +313,11 @@ ATS-101 §8 建议：「ATS-102 的 CI 脚本须固定该镜像」。本次的 w
 - `docs/WBS.xlsx`：取 `dev` 的版本（含 ATS-101 已完成、ATS-401 待审核），再用 `tools/update_wbs_ats102.py` 施加 ATS-102 的行改动；该脚本的总览缓存值改为**从表格重算**（沿用 `dev` 的 `summarise` 约定），不再硬编码，因此对其它行的完成率状态不敏感。
 - `docs/16-BASELINE-ADR.md`：取 `dev` 的行号（`server/index.mjs:132`——ATS-401 加了代码后行号右移，已对合并后的源码逐行核对确认），并保留本次追加的「ATS-102 进展」说明。
 
-合并后实测：`npm test` **59/59** 通过，构建门禁 5 步全绿（§4.1）。
+合并后实测：`npm test` **59/59** 通过，构建门禁全绿（§4.1）。
+
+> 复核轮次的补充：门禁在加入安装树摘要检查后为 **6 步**（`install` / `lockcheck` /
+> `installdigest` / `test` / `build` / `manifest`），最终验收见
+> `docs/evidence/ATS-102/07-final-gate-6-steps.log`。
 
 ## 7. 未验证项声明（PENDING ≠ PASS）
 
@@ -292,7 +326,7 @@ ATS-101 §8 建议：「ATS-102 的 CI 脚本须固定该镜像」。本次的 w
 3. **NFR-012 的分发审计结论未出**，本次只提供数据基础（§1 第 3 条）。
 4. **完整 SPDX SBOM 未生成**（§5.3）。
 5. **16 个需复核依赖的最终法律结论未出**（§5.2）。
-6. **macOS / Linux 上未实测**。本次全部实测在 Windows 11 上完成；lockfile 的 `resolved` 与 `optional` 条目覆盖其他平台，但安装树的跨平台一致性未验证。
+6. **macOS / Linux 上未实测**。本次全部实测在 Windows 11 上完成。补充：安装树摘要**按平台变化**（§2.2，34 个平台相关 optional 包），所以 Windows 上算出的值**不能**代表 Linux——`tools/installed-tree-digests.txt` 目前只有 `win32-x64` 一组期望值，Linux runner 上该检查会**跳过**（不是失败），直到有人补录该平台的期望值为止。跨平台一致性仍属未验证。
 7. **CI 的并发取消（`concurrency`）与 artifact 保留行为未实测**。
 8. **产品的 `spawn('taskkill')` 无兜底缺陷未修**（§6.5）——本任务只记录与定位，未改产品代码（属 ATS-108）。
 9. **门禁在 GitHub runner 上的 PATH/工具链差异未验证**：本地用 `tools/ats102-env.sh` 准备 MSYS 形式的 PATH（§4.2），而 GitHub 的 Windows runner 由 `actions/setup-node` 直接配置 PATH，二者的差异未实测。

@@ -17,6 +17,8 @@
  *   install   npm ci in the root and in apps/studio, from the committed
  *             lockfiles only
  *   lockcheck assert that npm ci did not mutate either lockfile
+ *   installdigest assert that the installed apps/studio tree still matches
+ *             the digest recorded for it (tools/installed-tree-digests.txt)
  *   test      npm test (Node built-in test runner)
  *   build     the Next.js 16 static export
  *   manifest  regenerate the dependency manifest and assert no drift
@@ -98,14 +100,6 @@ const STEPS = [
     id: 'build',
     title: 'Next.js 16 static export',
     commands: [
-      // The digest check belongs to this step because this is the step that
-      // installs apps/studio's dependencies -- the tree it verifies does not
-      // exist before the `install` step has run.
-      {
-        cwd: REPO_ROOT,
-        cmd: 'node',
-        args: [path.join(REPO_ROOT, 'tools', 'tree_digest.mjs'), '--check', path.join('apps', 'studio', 'node_modules')],
-      },
       { cwd: path.join(REPO_ROOT, 'apps', 'studio'), cmd: 'npm', args: ['run', 'build'] },
       // The artefact check is a separate script file rather than `node -e`,
       // because an inline script has to survive the Windows shell's word
