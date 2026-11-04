@@ -116,10 +116,30 @@ export function planMigration(state) {
       uid,
       seq: r.seq,
       projectUid,
+      // The reference to the owning project is rewritten together with the
+      // project identifier. Leaving it at the legacy value would detach the
+      // run from its project: the bridge looks the run history up by
+      // `run.projectId === project.id` and would not find it.
+      projectId: projectUid ?? r.projectId,
       ...(r.id !== uid ? { legacyId: r.id } : {}),
       ...(r.attempts ? { attempts: r.attempts.map((a) => ({ ...a, runUid: uid })) } : {})
     });
   }
+
+  // The durable per project counter has to survive the migration: it is what
+  // keeps the sequence of the next run above every sequence already used,
+  // even when the run history was trimmed.
+  const counters = { ...(state.runCounters ?? {}) };
+  for (const [legacyId, projectUid] of projectUidOfLegacyId) {
+    const highest = nextState.runs
+      .filter((r) => r.projectId === projectUid)
+      .reduce((max, r) => Math.max(max, Number.isInteger(r.seq) ? r.seq : 0), 0);
+    const current = Number.isInteger(counters[projectUid]) ? counters[projectUid] : 0;
+    const currentLegacy = Number.isInteger(counters[legacyId]) ? counters[legacyId] : 0;
+    const next = Math.max(highest, current, currentLegacy);
+    if (next > 0) counters[projectUid] = next;
+  }
+  if (Object.keys(counters).length) nextState.runCounters = counters;
 
   // Preserve the original ordering of the run list (newest first).
   const order = new Map(state.runs.map((r, i) => [r.id, i]));

@@ -27,6 +27,7 @@
 | 18-UID-SPEC.md | 稳定 UID 规范 | Project/TestDefinition/Run/Attempt 的标识符规则、迁移脚本与已知边界 |
 | evidence/ | 実行証跡 | ATS-101/ATS-201/ATS-401 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界、UID 规范） |
 | tools/ats101-probes/ | 再現スクリプト | ATS-101 全部阻断项与约束清单的仓库内可重跑复现脚本（见 `docs/evidence/ATS-101/`） |
+| tools/ats201-probes/ | 再現スクリプト | ATS-201 稳定 UID 规范的可重跑验证脚本，含真实 Playwright 报告契约测试（见 `docs/evidence/ATS-201/`） |
 | tools/ats401-probes/ | 再現スクリプト | ATS-401 权限边界的仓库内可重跑复现脚本（含负控，见 `docs/evidence/ATS-401/`） |
 
 ## 依托方法与限制

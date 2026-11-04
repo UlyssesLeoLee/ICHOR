@@ -32,7 +32,11 @@ function finishRun(run,code,signal){
  run.status=cancelled?'cancelled':code===0?'passed':'failed';run.exitCode=code;run.finishedAt=now();
  const reportFile=path.join(runDir(run.id),'report.json');
  if(fs.existsSync(reportFile)){try{run.summary=parseReport(JSON.parse(fs.readFileSync(reportFile,'utf8')));}catch(e){run.reportWarning=String(e.message);}}
- run.attempts=attemptsForRun(run,run.summary,store.uidRegistry);
+ // The report names the test files relative to the Playwright rootDir, the
+ // registry stores them relative to the project root. The project root is
+ // needed to reconcile the two spellings.
+ const proj=store.projects.find(p=>p.id===run.projectId||p.uid===run.projectId||p.uid===run.projectUid);
+ run.attempts=attemptsForRun({...run,projectRoot:proj?.root??null},run.summary,store.uidRegistry);
  run.artifacts=filesInRun(run.id).filter(x=>!['events.jsonl','stdout.log'].includes(x.file));
  const manifest={version:1,runId:run.id,projectUid:run.projectUid||null,projectId:run.projectId,sourceCommit:run.gitCommit,runner:'playwright',status:run.status,createdAt:run.startedAt,finishedAt:run.finishedAt,artifacts:run.artifacts,attempts:run.attempts};
  fs.writeFileSync(path.join(runDir(run.id),'manifest.json'),JSON.stringify(manifest,null,2));

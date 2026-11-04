@@ -173,6 +173,49 @@ test('UT-MIG-012: the backup keeps the original file', () => {
   assert.equal(fs.readFileSync(`${statePath}.bak`, 'utf8'), original);
 });
 
+/* ---------------------------------------------------------------- */
+/* The migrated state stays connected to its project                 */
+/* ---------------------------------------------------------------- */
+
+/**
+ * The bridge looks the run history up by `run.projectId === project.id` and
+ * derives the next execution sequence from that history plus the durable
+ * counter. A migration that leaves the run pointing at the legacy project
+ * identifier would detach the run from its project, and the next run would
+ * reuse a sequence number that is already taken -- two different runs with
+ * the same `run_1_<24 hex>` identifier.
+ */
+test('UT-MIG-014: the migrated run still points at its project', () => {
+  const { state } = planMigration(legacyState());
+  const projectUid = state.projects[0].uid;
+  for (const run of state.runs) {
+    assert.equal(run.projectId, projectUid);
+    assert.equal(run.projectUid, projectUid);
+  }
+  // The bridge finds the history of the project under its new identifier.
+  const history = state.runs.filter((r) => r.projectId === state.projects[0].id);
+  assert.equal(history.length, state.runs.length);
+});
+
+test('UT-MIG-015: the durable run counter survives the migration', () => {
+  const legacy = legacyState();
+  legacy.runCounters = { 'proj_11111111-1111-1111-1111-111111111111': 7 };
+  const { state } = planMigration(legacy);
+  const projectUid = state.projects[0].uid;
+  assert.equal(state.runCounters[projectUid], 7);
+  // The next sequence is above every sequence already used.
+  const counter = state.runCounters[projectUid];
+  const highest = state.runs.reduce((max, r) => Math.max(max, r.seq), 0);
+  assert.ok(counter >= highest, `counter=${counter} highest=${highest}`);
+});
+
+test('UT-MIG-016: the counter is derived from the migrated runs when it is absent', () => {
+  const { state } = planMigration(legacyState());
+  const projectUid = state.projects[0].uid;
+  const highest = state.runs.reduce((max, r) => Math.max(max, r.seq), 0);
+  assert.equal(state.runCounters[projectUid], highest);
+});
+
 test('UT-MIG-013: cleanup removes the temporary fixture', () => {
   fs.rmSync(dir, { recursive: true, force: true });
   assert.equal(fs.existsSync(dir), false);

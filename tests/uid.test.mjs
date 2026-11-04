@@ -295,6 +295,89 @@ test('UT-UID-020: the UID registry survives a restart of the discovery', () => {
   fs.rmSync(path.join(projectDir, 'tests', 'renamed.spec.ts'));
 });
 
+/* ---------------------------------------------------------------- */
+/* Binding against a real Playwright report                         */
+/* ---------------------------------------------------------------- */
+
+/**
+ * A Playwright report names the test file relative to its own `rootDir`,
+ * which is derived from `testDir`. The registry stores the file relative to
+ * the project root. Both spellings have to reach the same key, otherwise a
+ * reported case never matches its registry entry and the attempt stays
+ * unbound.
+ */
+test('UT-UID-025: a report path relative to the Playwright rootDir is bound to the registry', () => {
+  const registry = {
+    version: 1,
+    projects: {
+      [projectUid]: {
+        version: 1,
+        entries: [
+          { uid: 'tc_1_d_aaaaaaaaaaaaaaaa', bodyKey: 'k1', file: 'tests/a.spec.ts', title: 'case', line: 7 }
+        ]
+      }
+    }
+  };
+  const summary = {
+    rootDir: path.join(projectDir, 'tests').replace(/\\/g, '/'),
+    cases: [{ title: 'case', file: 'a.spec.ts', line: 7, status: 'expected', duration: 1, retry: 0 }]
+  };
+  const attempts = attemptsForRun(
+    { uid: 'run_1_eeeeeeeeeeeeeeeeeeeeeeee', projectUid, projectRoot: projectDir },
+    summary,
+    registry
+  );
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0].file, 'tests/a.spec.ts');
+  assert.equal(attempts[0].testUid, 'tc_1_d_aaaaaaaaaaaaaaaa');
+  assert.equal(attempts[0].uidBasis, 'file-line');
+});
+
+test('UT-UID-026: the static scanner numbers the line of the test call', () => {
+  // The line a Playwright report gives is the line of the `test(` call.
+  fs.writeFileSync(
+    path.join(projectDir, 'tests', 'lines.spec.ts'),
+    "import { test } from '@playwright/test';\n\ntest('first', async () => {});\n"
+  );
+  const catalog = discoverStatic(project, emptyRegistry());
+  assert.equal(catalog.tests[0].line, 3);
+  fs.rmSync(path.join(projectDir, 'tests', 'lines.spec.ts'));
+});
+
+test('UT-UID-027: a retried case produces one attempt per retry', () => {
+  // A retried test case is ONE entry in `spec.tests[]` whose `results[]`
+  // holds one element per retry. Each retry is a separate execution.
+  const report = {
+    config: { rootDir: path.join(projectDir, 'tests').replace(/\\/g, '/') },
+    suites: [{
+      file: 'flaky.spec.ts',
+      specs: [{
+        title: 'flaky case',
+        line: 3,
+        file: 'flaky.spec.ts',
+        tests: [{
+          status: 'flaky',
+          results: [{ duration: 10, retry: 0 }, { duration: 12, retry: 1, error: { message: 'transient' } }]
+        }]
+      }]
+    }]
+  };
+  const summary = parseReport(report);
+  assert.equal(summary.cases.length, 2);
+  assert.equal(summary.cases[0].retry, 0);
+  assert.equal(summary.cases[1].retry, 1);
+  assert.equal(summary.cases[1].error, 'transient');
+  assert.equal(summary.rootDir, report.config.rootDir);
+  const attempts = attemptsForRun(
+    { uid: 'run_1_ffffffffffffffffffffffff', projectUid, projectRoot: projectDir },
+    summary,
+    emptyRegistry()
+  );
+  assert.equal(attempts.length, 2);
+  assert.equal(new Set(attempts.map((a) => a.uid)).size, 2);
+  assert.deepEqual(attempts.map((a) => a.retry), [0, 1]);
+});
+
 test('UT-UID-021: cleanup removes the temporary fixture', () => {
   fs.rmSync(dir, { recursive: true, force: true });
   assert.equal(fs.existsSync(dir), false);

@@ -63,8 +63,8 @@ ATS201_NOTE = (
     '已交付 UID 规范 v1（docs/18-UID-SPEC.md）：'
     'Project proj_1_<24hex>、TestDefinition tc-*/tc_1_d_*/tcp_1_*、Run run_1_<24hex>、Attempt att_1_<24hex>；'
     '跨文件改名与标题改写保持 UID，重复标题按执行体指纹区分，无法唯一判定时报告歧义；'
-    '迁移脚本 tools/migrate_uids.mjs（确定性、幂等、含运行目录改名）；'
-    '证据 docs/evidence/ATS-201/（66 项 Node UT/IT 全通过 + 33 项端到端检查全通过）。'
+    '迁移脚本 tools/migrate_uids.mjs（确定性、幂等、含运行目录改名、迁移后引用与计数器同步）；'
+    '证据 docs/evidence/ATS-201/（111 项 Node UT/IT 全通过 + 端到端检查 + 真实 Playwright 报告契约检查 + 迁移序号撞号检查）。'
     '边界：动态/参数化用例的权威发现归 ATS-202（FR-021），'
     '重识别与歧义提示策略归 ATS-204，SQLite 迁移归 ATS-205，Run/Test/Attempt 统一模型归 ATS-208'
 )

@@ -46,7 +46,13 @@ fs.mkdirSync(WORK, { recursive: true });
 const projectDir = path.join(WORK, 'fixture');
 fs.mkdirSync(path.join(projectDir, 'tests'), { recursive: true });
 fs.writeFileSync(path.join(projectDir, 'package.json'), '{"name":"ats201-fixture"}');
-fs.writeFileSync(path.join(projectDir, 'playwright.config.ts'), 'export default {}');
+// The config declares `testDir: './tests'`, the shape of a normal Playwright
+// project: the reported file is then relative to `<project>/tests`, while the
+// registry stores it relative to the project root.
+fs.writeFileSync(
+  path.join(projectDir, 'playwright.config.ts'),
+  "export default { testDir: './tests' };\n"
+);
 
 const SPEC = "test('login works', async ({ page }) => {\n  await page.goto('/login');\n  await expect(page.getByRole('button')).toBeVisible();\n});\n";
 const SPEC2 = "test('login works', async ({ page }) => {\n  await page.goto('/register');\n  await expect(page.getByText('created')).toBeVisible();\n});\n";
@@ -55,29 +61,15 @@ fs.writeFileSync(path.join(projectDir, 'tests', 'login.spec.ts'), SPEC + SPEC2);
 // A fake Playwright CLI: a test double, NOT Playwright itself. It exercises
 // the runner transport, the report parsing and the attempt archive.
 //
-// The double reports the target file, the titles and the line numbers of the
-// spec it was pointed at, the way a real Playwright JSON report does. It
-// never runs a browser.
+// The double models the SHAPE of the real JSON report -- the path basis, the
+// line number and the per-retry results -- so that the bridge binds the
+// attempts the same way it does with a real Playwright. The model is checked
+// against the real Playwright by attempt-binding-real-pw.mjs.
 fs.mkdirSync(path.join(projectDir, 'node_modules', '@playwright', 'test'), { recursive: true });
-fs.writeFileSync(path.join(projectDir, 'node_modules', '@playwright', 'test', 'cli.js'), `
-const fs=require('fs'),path=require('path');
-const args=process.argv.slice(2);
-const out=process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;
-const target=args.find(a=>!a.startsWith('--')&&a.endsWith('.spec.ts'))||'tests/login.spec.ts';
-const src=fs.readFileSync(path.resolve(target),'utf8');
-const specs=[];
-const re=/(?:^|\\n)\\s*(?:test|it)\\s*\\(\\s*(['"\`])([^\\n]*?)\\1/g;
-let m;
-while((m=re.exec(src))!==null){
-  const line=src.slice(0,m.index).split('\\n').length;
-  const body=src.slice(m.index+m[0].length);
-  const failed=/register/.test(body);
-  specs.push({title:m[2],line,tests:[{status:failed?'unexpected':'expected',results:[{duration:failed?22:11,...(failed?{error:{message:'boom'}}:{})}]}]});
-}
-fs.mkdirSync(path.dirname(out),{recursive:true});
-fs.writeFileSync(out, JSON.stringify({suites:[{file:target,specs}]}));
-console.log('fake-cli: report written for '+target+' ('+specs.length+' specs)');
-`);
+fs.copyFileSync(
+  path.join(REPO_ROOT, 'tools', 'ats201-probes', 'fake-playwright-cli.cjs'),
+  path.join(projectDir, 'node_modules', '@playwright', 'test', 'cli.js')
+);
 
 /* ------------------------------------------------------------------ */
 /* bridge helpers                                                     */

@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid } from './uid.mjs';
+import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid, normalizeTestPath } from './uid.mjs';
 
 export const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 export const safeId = (prefix) => `${prefix}_${crypto.randomUUID()}`;
@@ -68,9 +68,12 @@ export function discoverStatic(project, registry) {
  const files=walkTests(project.root);const discovered=[];
  for(const file of files){
    const content=fs.readFileSync(path.join(project.root,file),'utf8');
-   const re=/(?:^|\n)\s*(?:test|it)(?:\.(?:only|skip|fixme))?\s*\(\s*(['"`])([^\n]*?)\1/g;
+   const re=/(?:^|\n)[ \t]*(?:test|it)(?:\.(?:only|skip|fixme))?\s*\(\s*(['"`])([^\n]*?)\1/g;
    let m;while((m=re.exec(content))!==null){
-     const title=m[2].slice(0,180),line=content.slice(0,m.index).split('\n').length;
+     // The line of the `test(` call itself, not the line of the whitespace
+     // that precedes it: a Playwright report numbers the line of the call.
+     const title=m[2].slice(0,180);
+     const line=content.slice(0,m.index+m[0].length).split('\n').length;
      const body=extractCallbackBody(content,m.index+m[0].length);
      discovered.push({file,title,line,bodyText:body.text});
    }
@@ -111,14 +114,32 @@ export function artifactPath(id,relative){
  const full=path.resolve(root,relative);if(!isSubpath(root,full))throw new Error('PATH_OUTSIDE_RUN');
  const actual=fs.realpathSync(full);if(!isSubpath(root,actual)||!fs.statSync(actual).isFile())throw new Error('PATH_OUTSIDE_RUN');return actual;
 }
+/**
+ * Parses a Playwright JSON report into the run summary.
+ *
+ * Two details of the report format matter for the UID scheme:
+ *
+ *   * `spec.file` is relative to the Playwright `rootDir`, which is derived
+ *     from `testDir`. The registry stores the file relative to the project
+ *     root, so the report's `rootDir` is reported alongside the cases and the
+ *     two spellings are reconciled by the caller.
+ *   * a retried test case is ONE entry in `spec.tests[]` whose `results[]`
+ *     array holds one element per retry. Every retry is a separate execution
+ *     of the case, so every retry becomes its own case record here.
+ */
 export function parseReport(report){
  let passed=0,failed=0,skipped=0,flaky=0;const cases=[];
  function walk(s){for(const x of s.specs||[]){for(const t of x.tests||[]){
   const status=t.status||'unknown';if(['expected'].includes(status))passed++;else if(status==='flaky')flaky++;else if(status==='skipped')skipped++;else failed++;
-  cases.push({title:x.title,file:s.file||'',status,duration:(t.results||[]).reduce((a,b)=>a+(b.duration||0),0),error:t.results?.find(r=>r.error)?.error?.message||'',retry:t.retry||0,line:x.line||null,column:x.column||null});
+  const results=Array.isArray(t.results)&&t.results.length?t.results:[{}];
+  const file=x.file||s.file||'';
+  results.forEach((r,index)=>{
+   cases.push({title:x.title,file,status,duration:r.duration||0,error:r.error?.message||'',retry:Number.isInteger(r.retry)?r.retry:index,line:x.line||null,column:x.column||null});
+  });
  }}for(const sub of s.suites||[])walk(sub);}
  for(const suite of report.suites||[])walk(suite);
- return {passed,failed,skipped,flaky,total:cases.length,cases};
+ const rootDir=report?.config?.rootDir||null;
+ return {passed,failed,skipped,flaky,total:cases.length,cases,rootDir};
 }
 
 /**
@@ -137,11 +158,17 @@ export function parseReport(report){
 export function attemptsForRun(run, summary, registry) {
   if (!summary || !Array.isArray(summary.cases)) return [];
   const projectUid = run.projectUid ?? '';
+  const projectRoot = run.projectRoot ?? null;
+  const rootDir = summary.rootDir ?? null;
   const occurrence = new Map();
   const attempts = [];
   for (const c of summary.cases) {
-    const found = findTestUid(registry, projectUid, { file: c.file, title: c.title, line: c.line });
-    const key = `${c.file} ${c.title} ${c.line}`;
+    // The report names the file relative to the Playwright rootDir, the
+    // registry stores it relative to the project root. Both are reduced to
+    // the project relative spelling before they are compared.
+    const file = normalizeTestPath(c.file, { rootDir, projectRoot });
+    const found = findTestUid(registry, projectUid, { file, title: c.title, line: c.line });
+    const key = `${file} ${c.title} ${c.line}`;
     const index = occurrence.get(key) ?? 0;
     occurrence.set(key, index + 1);
     attempts.push({
@@ -149,13 +176,13 @@ export function attemptsForRun(run, summary, registry) {
         runUid: run.uid || run.id,
         testUid: found.uid,
         retry: c.retry,
-        fallbackKey: `${c.file} ${c.title} ${c.line}`,
+        fallbackKey: `${file} ${c.title} ${c.line}`,
         occurrence: index
       }),
       runUid: run.uid || run.id,
       testUid: found.uid,
       uidBasis: found.basis,
-      file: c.file,
+      file,
       title: c.title,
       line: c.line,
       retry: c.retry || 0,

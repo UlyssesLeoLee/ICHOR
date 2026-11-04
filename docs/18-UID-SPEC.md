@@ -119,12 +119,24 @@ uid = "run_1_" + sha256(projectUid ␀ gitCommit ␀ targetKey ␀ seq)[0:24]
 一个 Attempt 是「一个 Run 中某个用例的一次执行」；重试的用例每个 retry 产生一个 Attempt。
 
 ```
-uid = "att_1_" + sha256(runUid ␀ testUid ␀ retry)[0:24]
+uid = "att_1_" + sha256(runUid ␀ testUid ␀ retry ␀ occurrence)[0:24]
 ```
+
+`occurrence` 是该用例在报告中的出现序号：同一个文件、同一个标题、同一个行号的用例
+在报告里可能出现多次（参数化、动态生成），序号让它们各自持有不同的标识符。
 
 `testUid` 取自 UID 注册表；用例不在注册表里时（例如运行的是项目里未被静态发现的用例），
 退化为 `file ␀ title` 作为回退键——**Attempt 仍然有稳定标识，但不再绑定到 TestDefinition UID**，
 这一情形在 `testUid` 字段上体现为 `null`。
+
+**报告路径与注册表路径的拼写必须先归一**。Playwright 报告里的 `spec.file` 相对于它自己的
+`rootDir`（由 `testDir` 推导），而注册表里的 `file` 相对于**项目根目录**：
+`examples/sample-playwright` 这类 `testDir: './tests'` 的项目，报告写 `home.spec.ts`，
+注册表写 `tests/home.spec.ts`。`server/uid.mjs` 的 `normalizeTestPath()` 用报告里的
+`config.rootDir` 与项目根目录把两种写法归一到同一个键，归一后才做查找。
+
+**行号同理**：静态扫描给出的行号是 `test(` 调用所在行，与 Playwright 报告的行号一致；
+扫描器必须以 `test(` 的位置计行，而不是以其前导空白的位置计行。
 
 Attempt 记录写入 `state.json` 的 run 记录里，并进入 `runs/<run-uid>/manifest.json` 的 `attempts` 数组。
 
@@ -153,11 +165,17 @@ node tools/migrate_uids.mjs --state <path to state.json> [--dry-run] [--backup]
 
 `--state` 缺省取 `$ATS_DATA_DIR/state.json`，未设置时取 `~/.ai-test-studio/state.json`。
 
-脚本做三件事：
+脚本做四件事：
 
 1. **Project**：`id` 重写为 `proj_1_<24 hex>`；
 2. **Run**：`id` 重写为 `run_1_<24 hex>`，并补上 `seq`；
-3. **磁盘目录**：`runs/<旧 id>/` 改名为 `runs/<新 id>/`——不改名则归档证据会与状态文件脱钩。
+3. **引用**：`run.projectId` 改写为新的 Project 标识符。**这一步不可省略**——Bridge 按
+   `run.projectId === project.id` 查运行历史，引用若停留在旧标识符上，历史就查不到，
+   下一次运行会重新拿到 `seq = 1`，与已迁移的 run 撞出同一个 `run_1_<24 hex>`；
+4. **计数器**：`runCounters` 按新标识符迁移，并取「已迁移 run 的最大 seq」与旧计数器的较大值，
+   保证下一次运行的序号高于所有已用序号。
+
+磁盘上的运行目录 `runs/<旧 id>/` 改名为 `runs/<新 id>/`——不改名则归档证据会与状态文件脱钩。
 
 旧标识符写入 `legacyId` 字段，旧的外部链接与书签仍然可解析。
 
@@ -211,8 +229,24 @@ node tools/migrate_uids.mjs --state <path to state.json> [--dry-run] [--backup]
 
 | 类别 | 用例 | 覆盖内容 |
 |---|---|---|
-| UT | `UT-UID-001` … `UT-UID-021`（`tests/uid.test.mjs`） | 派生规则、跨改名/跨改标题、重复标题、歧义、注册表、Run/Attempt UID |
-| UT | `UT-MIG-001` … `UT-MIG-013`（`tests/migrate.test.mjs`） | 迁移计划、幂等、目录改名、失败不毁数据、备份 |
+| UT | `UT-UID-001` … `UT-UID-021`、`UT-UID-025` … `UT-UID-027`（`tests/uid.test.mjs`） | 派生规则、跨改名/跨改标题、重复标题、歧义、注册表、Run/Attempt UID、报告路径归一、行号对齐、重试展开 |
+| UT | `UT-MIG-001` … `UT-MIG-013`、`UT-MIG-014` … `UT-MIG-016`（`tests/migrate.test.mjs`） | 迁移计划、幂等、目录改名、失败不毁数据、备份、迁移后引用与计数器 |
 | IT | `IT-UID-001` … `IT-UID-007`（`tests/uid-api.test.mjs`） | 真实 HTTP 下的 UID 暴露、注册表持久化、按 UID 寻址、序号单调 |
 
 执行：`npm test`（Node ≥ 22）。
+
+### 8.1 真实 Playwright 契约验证
+
+`tools/ats201-probes/attempt-binding-real-pw.mjs` 用**真实的 `@playwright/test` 1.64.1**（真实
+Chromium）在一次性夹具项目上跑一次真实运行，再用产品代码（`parseReport` / `attemptsForRun` /
+`discoverStatic`）处理真实报告，逐条断言：
+
+- 真实报告的 `spec.file` 相对 `rootDir`、注册表相对项目根目录；
+- 两个同名不同执行体的用例拿到不同 UID；
+- 每个 attempt 都绑定到对应的 TestDefinition UID，绑定依据为 `file-line`。
+
+`tools/ats201-probes/migration-seq-collision.mjs` 复现并断言「迁移后下一次运行的序号不得与
+已迁移 run 撞号」。
+
+这两支探针是**契约测试**：报告格式一旦变化（路径基准、行号、重试展开），它们会立刻失败，
+而基于假 CLI 的端到端脚本不会。
