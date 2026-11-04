@@ -1,0 +1,88 @@
+=== ATS-501 evidence: remote protocol contract audit ===
+date        : 2026-11-04T04:37:16Z (UTC)
+commit      : 75391b3d504e0b77950b929e905cde69476fd3da
+node        : v24.19.0
+command     : node tools/ats501-probes/audit-remote-protocol.mjs
+
+=== ATS-501 probe: remote protocol contract audit ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-21-baadb8c20660\worktree
+document  : docs\18-REMOTE-RUNNER-PROTOCOL.md
+
+local Bridge error codes found : 20
+REMOTE_ codes in the contract  : 24
+baseline ADRs : 14, ADRs registered here : 6
+ATS-501 row 77: status=待审核 completion=1 remaining=0
+
+--- checks ---
+  PASS  constraint marker present
+  PASS  constraint block fenced as json
+  PASS  constraint block parses as JSON
+  PASS  protocol version is major 1 / minMinor 0
+  PASS  protocol negotiation is capability_by_name
+  PASS  transport requires TLS 1.3 and forbids cleartext
+  PASS  enrollment token is single use, tenant bound, 900s TTL
+  PASS  request signature covers method/path/body/timestamp/nonce
+  PASS  replay window (300s) exceeds clock skew (60s)
+  PASS  node is bound to exactly one tenant
+  PASS  tenant context is server assigned, never client chosen
+  PASS  cross-tenant access answers 404
+  PASS  storage prefix is tenant scoped
+  PASS  resources are referenced by opaque uid only
+  PASS  rejection default policy is deny
+  PASS  unknown conditions are rejected and audited
+  PASS  design status is DESIGNED
+  PASS  idempotency is required for dispatch, cancel and result
+  PASS  idempotency conflict is rejected (not silently accepted)
+  PASS  deadline is enforced and a lease is required
+  PASS  four planes are declared
+  PASS  control plane may not touch the local desktop API, the runner filesystem, or accept a local path as a project reference
+  PASS  rejection code list is non-empty
+  PASS  every rejection code uses the REMOTE_ namespace
+  PASS  rejection codes are unique
+  PASS  every rejection code declares a valid HTTP status
+  PASS  every rejection code declares retryability
+  PASS  retryable codes are never permanent client errors (400/401/403/404/413/422)
+  PASS  rejection table section found in prose
+  PASS  prose rejection table rows parsed
+  PASS  every prose rejection code is in the constraint block
+  PASS  every constraint-block rejection code is in the prose table
+  PASS  prose and block agree on HTTP status
+  PASS  prose and block agree on retryability
+  PASS  data-constraint section found in prose
+  PASS  every marker used in the data-constraint table is declared in the block
+  PASS  every marker declared in the block is used in the data-constraint table
+  PASS  hard-boundary section found in prose
+  PASS  every control-plane prohibition is named in the hard-boundary table
+  PASS  trust-level section found in prose
+  PASS  every declared untrusted input is named in the trust-level table
+  PASS  no REMOTE_ code collides with a local Bridge error code
+  PASS  FR-028 row found in docs/02-REQUIREMENTS.md
+  PASS  FR-028 is still DESIGNED (a protocol document must not imply implementation)
+  PASS  FR-030 row found in docs/02-REQUIREMENTS.md
+  PASS  FR-030 is still DESIGNED (a protocol document must not imply implementation)
+  PASS  FR-028 carries an explicit DESIGNED badge
+  PASS  ADR register section found in prose
+  PASS  ADR numbers registered here do not collide with docs/16-BASELINE-ADR.md
+  PASS  this task registers at least one ADR
+  PASS  ATS-501 row found in docs/WBS.xlsx「开发WBS」
+  PASS  ATS-501 status is one of the workbook's allowed values
+  PASS  ATS-501 status is 待审核 (frozen and submitted, not yet accepted)
+  PASS  ATS-501 completion rate is a number in [0,1]
+  PASS  ATS-501 remaining days equal estimate * (1 - completion)
+  PASS  ATS-501 acceptance criteria are the frozen five elements
+  PASS  every acceptance element named in the WBS row appears in the protocol document
+  PASS  acceptance element 「信任边界」 has a dedicated section
+  PASS  acceptance element 「认证」 has a dedicated section
+  PASS  acceptance element 「版本握手」 has a dedicated section
+  PASS  acceptance element 「租户隔离」 has a dedicated section
+  PASS  acceptance element 「拒绝规则」 has a dedicated section
+  PASS  the document contains no unqualified claim that the remote plane is implemented
+  PASS  the document declares its own design status
+
+checks passed : 64/64
+remote codes  : 24
+threats       : 13
+
+RESULT: OK -- the remote protocol contract is self-consistent and agrees with the WBS row, the requirement badges and the baseline ADR register.
+
+EXIT_CODE=0

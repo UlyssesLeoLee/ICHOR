@@ -23,8 +23,10 @@
 | 14-REVIEW-VERIFICATION.md | 設計・実装レビュー | 自审、已执行测试与未验证项 |
 | 15-REFERENCES-LICENSES.md | 调査参考・ライセンス | 官方参考及许可证边界 |
 | 16-BASELINE-ADR.md | 基线冻结・ADR | v0.1 已实现/待实测/未实现、3 项阻断、接口与构建约束清单 |
-| evidence/ | 実行証跡 | ATS-101 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面） |
+| 18-REMOTE-RUNNER-PROTOCOL.md | 远程协议・威胁模型 | S5 远程执行面的信任边界、认证、版本握手、租户隔离、拒绝规则（ADR-015~020，全部 DESIGNED） |
+| evidence/ | 実行証跡 | ATS-101/ATS-501 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、协议契约校验） |
 | tools/ats101-probes/ | 再現スクリプト | ATS-101 全部阻断项与约束清单的仓库内可重跑复现脚本（见 `docs/evidence/ATS-101/`） |
+| tools/ats501-probes/ | 検証スクリプト | ATS-501 远程协议契约的机读校验与 WBS 更新脚本的共存回归（见 `docs/evidence/ATS-501/`） |
 
 ## 依托方法与限制
 

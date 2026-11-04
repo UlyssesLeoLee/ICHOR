@@ -1,0 +1,31 @@
+=== ATS-501 evidence: WBS updater coexistence regression ===
+date        : 2026-11-04T04:37:22Z (UTC)
+commit      : 75391b3d504e0b77950b929e905cde69476fd3da
+python      : Python 3.11.16
+command     : bash tools/ats501-probes/check-wbs-updaters.sh
+
+=== ATS-501 regression: WBS updater interaction ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-21-baadb8c20660/worktree
+
+--- 1. an accepted row stays accepted ---
+  PASS  the ATS-101 row is still 已完成 after a re-run
+
+--- 2. both updaters, in either order ---
+  PASS  ATS-101 -> ATS-501 and ATS-501 -> ATS-101 produce the same sheet
+
+--- 3. idempotency ---
+  PASS  running both updaters twice changes nothing
+
+--- 4. the derived 总览 totals match the sheet ---
+  derived: completed=1 rate=0.025531914893617 remaining=458
+  cached : completed=1 rate=0.025531914893617 remaining=458
+  PASS  the cached 总览 values equal the values derived from 开发WBS
+
+--- 5. the marked notes of every task survive ---
+  marked rows: {'【ATS-101】': 5, '【ATS-401】': 1, '【ATS-501】': 11}
+  PASS  every task's marked note is still in the sheet
+
+RESULT: OK -- the WBS updaters coexist, are idempotent, do not undo an
+        accepted review, and the 总览 cache always matches 开发WBS.
+
+EXIT_CODE=0

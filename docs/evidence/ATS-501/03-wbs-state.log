@@ -1,0 +1,33 @@
+=== ATS-501 evidence: WBS state after the ATS-101 + ATS-501 updates ===
+date        : 2026-11-04T04:37:50Z (UTC)
+commands    : python tools/update_wbs_ats101.py
+              python tools/update_wbs_ats501.py
+
+--- 总览 (sheet1) cached values ---
+B8  已完成项     = 1
+B9  完成率(人日) = 0.025531914893617
+B10 剩余人日     = 458
+derived from 开发WBS: {'completed': 1, 'sum_estimate': 470.0, 'sum_remaining': 458.0, 'completion_rate': 0.025531914893617058}
+
+--- 总览 D7 narrative (both blocks coexist) ---
+真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；详见 docs/16-BASELINE-ADR.md。【ATS-501】远程执行面尚无实现，ATS-501 只冻结协议与威胁模型；详见 docs/18-REMOTE-RUNNER-PROTOCOL.md。
+
+--- 开发WBS rows of this task family ---
+  ATS-101 N= 已完成 O= 1 P= 0 | markers 101=0 401=0 501=0
+  ATS-401 N= 待审核 O= 1 P= 0 | markers 101=0 401=1 501=0
+  ATS-501 N= 待审核 O= 1 P= 0 | markers 101=0 401=0 501=1
+
+--- 开发WBS ATS-501 row, full ---
+  A = ATS-501
+  E = 远程 Runner 边界、威胁模型与协议冻结
+  F = Remote 协议/ADR
+  G = 定义服务端信任边界、认证、版本握手、租户隔离及拒绝规则
+  H = -
+  K = 5
+  N = 待审核
+  O = 1
+  P = 0
+  Q = 审查
+  R = FR-028,FR-030
+  S = 否
+  T = 阶段内按验收门槛控制；【ATS-501】远程协议/ADR 已冻结于 docs/18-REMOTE-RUNNER-PROTOCOL.md：信任边界、认证、版本握手、租户隔离、拒绝规则五项验收要素齐备，机读契约块可由 tools/ats501-probes/audit-remote-protocol.mjs 校验；远程执行面在本任务范围内无任何实现，全部标记 DESIGNED

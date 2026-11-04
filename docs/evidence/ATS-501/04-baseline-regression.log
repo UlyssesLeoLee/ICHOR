@@ -1,0 +1,39 @@
+=== ATS-501 evidence: baseline regression (the remote protocol work must not disturb v0.1 / ATS-401) ===
+date        : 2026-11-04T04:37:57Z (UTC)
+node        : v24.19.0
+
+--- npm test (node --test tests/*.test.mjs) ---
+✔ IT-RUN-MOCK-SETUP: isolated fake CLI adapter (324.9882ms)
+✔ IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip (318.9844ms)
+✔ IT-RUN-MOCK-002: cancel marks cancelled (245.6732ms)
+✔ IT-RUN-MOCK-CLEANUP: cleanup (17.364ms)
+ℹ tests 59
+ℹ suites 0
+ℹ pass 59
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1113.6091
+NPM_TEST_EXIT=0
+
+--- node --check server/index.mjs ---
+SYNTAX_EXIT=0
+
+--- port audit (tools/ats101-probes/scenario-d-port-audit.mjs) ---
+distinct runtime files          : 5
+non-runtime data files          : 5
+doc-mention files (excl. 16)    : 6
+doc mentions (excl. 16)         : 13
+runtime files missing from §3.1 : (none)
+non-runtime missing from §3.1   : (none)
+runtime positions missing       : (none)
+listed but not found at runtime : (none)
+count claimed in 16 §3.1        : 6
+actual runtime occurrence count : 6
+count matches source            : true
+doc files/mentions claimed      : 6 / 13
+doc files/mentions actual       : 6 / 13
+doc mention count matches       : true
+
+RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.

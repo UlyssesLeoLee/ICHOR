@@ -16,15 +16,27 @@ NOTE on 状态: ATS-101 is set to 待审核 ("pending review"), NOT 已完成. T
 deliverable is frozen and submitted, but it has not been accepted yet -- the
 reviewer (Opus) syncs 已完成/完成率 after the review passes. Declaring it
 已完成 before review would contradict "不得自行置 done".
+
+NOTE on re-runs after acceptance: once the review has passed, the ATS-101 row
+carries 已完成. Re-running this script must NOT walk that row back to 待审核 --
+the review is a one-way door. The script therefore only writes 待审核 when the
+row does not already carry a terminal state (已完成 / 已取消). The already
+accepted row keeps its status; the notes and the cached 总览 values are still
+refreshed, because they are derived from the sheet.
 """
 import re
 import shutil
 import zipfile
 from pathlib import Path
 
+from wbs_common import (SHEET1, SHEET2, cell_text, format_rate,
+                        set_cell_in_row, set_marked_cell, totals)
+
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
-SHEET2 = 'xl/worksheets/sheet2.xml'
-SHEET1 = 'xl/worksheets/sheet1.xml'
+
+# The two status values that a later acceptance may have set. They are not
+# downgraded by a re-run of this script.
+TERMINAL_STATUSES = ('已完成', '已取消')
 
 
 def find_ats_row(xml, ats_id):
@@ -32,29 +44,6 @@ def find_ats_row(xml, ats_id):
         if f'<x:v>{ats_id}</x:v>' in rm.group(2):
             return int(rm.group(1)), rm
     raise SystemExit(f'row for {ats_id} not found')
-
-
-def set_cell(xml, col, value, *, numeric=False):
-    """Set the <x:v> of one cell in one row, keeping its style and any formula."""
-    pat = re.compile(r'(<x:c r="%s\d+"[^>]*>)(.*?)(</x:c>)' % col, re.S)
-    m = pat.search(xml)
-    if m is None:
-        raise SystemExit(f'cell {col} not found')
-    open_tag, body, close = m.groups()
-    f = re.search(r'<x:f>(.*?)</x:f>', body, re.S)
-    open_tag = re.sub(r'\st="[^"]*"', '', open_tag)
-    open_tag = open_tag[:-1] + (' t="n">' if numeric else ' t="str">')
-    new_body = (f.group(0) if f else '') + f'<x:v>{value}</x:v>'
-    return xml[:m.start()] + open_tag + new_body + close + xml[m.end():]
-
-
-def set_cell_in_row(xml, rid, col, value, *, numeric=False):
-    """Set one cell of one specific row without touching other rows."""
-    m = re.search(r'<x:row[^>]*r="%d"[^>]*>.*?</x:row>' % rid, xml, re.S)
-    if m is None:
-        raise SystemExit(f'row {rid} not found')
-    row = set_cell(m.group(0), col, value, numeric=numeric)
-    return xml[:m.start()] + row + xml[m.end():]
 
 
 def main():
@@ -68,8 +57,12 @@ def main():
 
     # --- ATS-101: 状态 / 完成率 / 剩余人日 -----------------------------------
     rid, _rm = find_ats_row(xml2, 'ATS-101')
-    # 待审核 is one of the six values in the N-column data-validation list.
-    xml2 = set_cell_in_row(xml2, rid, 'N', '待审核')
+    # A re-run must not undo an accepted review. Only a row that has not been
+    # accepted yet is set to 待审核.
+    current_status = cell_text(xml2, rid, 'N')
+    if current_status not in TERMINAL_STATUSES:
+        # 待审核 is one of the six values in the N-column data-validation list.
+        xml2 = set_cell_in_row(xml2, rid, 'N', '待审核')
     xml2 = set_cell_in_row(xml2, rid, 'O', '1', numeric=True)
     # P keeps its formula K*(1-O) = 2*(1-1) = 0; only the cached value changes
     xml2 = set_cell_in_row(xml2, rid, 'P', '0', numeric=True)
@@ -100,39 +93,38 @@ def main():
     )
     for ats, note in notes.items():
         rid, _rm = find_ats_row(xml2, ats)
-        m = re.search(r'<x:c r="T%d"[^>]*>(.*?)</x:c>' % rid, xml2, re.S)
-        if m is None:
-            raise SystemExit(f'T{rid} not found')
-        cur = re.search(r'<x:v>(.*?)</x:v>', m.group(1), re.S)
-        current = cur.group(1) if cur else ''
-        # drop a previous copy of this script's note, keep everything else
-        head = current.split(marker)[0] if marker in current else current
-        # drop the superseded notes from the first delivery
-        kept = [seg for seg in head.split('；')
-                if not any(seg.startswith(p) for p in stale_prefixes)
-                and seg not in stale_fragments]
-        head = '；'.join(kept)
-        merged = (head.rstrip('；') + '；' if head else '') + marker + note
-        new_cell = '<x:c r="T%d" t="str"><x:v>%s</x:v></x:c>' % (rid, merged)
-        xml2 = xml2[:m.start()] + new_cell + xml2[m.end():]
+        xml2 = set_marked_cell(xml2, rid, 'T', marker, note,
+                               stale_prefixes, stale_fragments)
 
     parts[SHEET2] = xml2.encode('utf-8')
 
     # --- 总览: refresh cached formula results + the two narrative cells ------
+    # The cached values are DERIVED from the sheet that was just written, not
+    # hardcoded: a hardcoded cache is stale as soon as another script changes
+    # a row, and the 总览 would then silently disagree with the 开发WBS.
     xml1 = parts[SHEET1].decode('utf-8')
-    # SUM(K)=470 over 89 rows; ATS-101 contributes 0 remaining -> SUM(P)=468
-    xml1 = set_cell_in_row(xml1, 8, 'B', '0', numeric=True)                   # COUNTIF(已完成)
-    xml1 = set_cell_in_row(xml1, 9, 'B', '0.004255319148936', numeric=True)  # 1-468/470
-    xml1 = set_cell_in_row(xml1, 10, 'B', '468', numeric=True)                # SUM(P)
+    derived = totals(parts)
     xml1 = set_cell_in_row(
-        xml1, 6, 'D',
+        xml1, 8, 'B', str(derived['completed']), numeric=True)
+    xml1 = set_cell_in_row(
+        xml1, 9, 'B', format_rate(derived['completion_rate']), numeric=True)
+    xml1 = set_cell_in_row(
+        xml1, 10, 'B', repr(int(derived['sum_remaining'])), numeric=True)
+    # The two narrative cells are shared with the other WBS updaters. D6 and
+    # D7 belong to ATS-101 outright, so this script writes them WITHOUT a
+    # marker -- that keeps the committed baseline's exact bytes -- and a
+    # foreign marked block in the same cell survives untouched.
+    xml1 = set_marked_cell(
+        xml1, 6, 'D', marker,
         'v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT；'
-        'Next.js 16 静态导出构建已实测通过（ATS-101）。')
-    xml1 = set_cell_in_row(
-        xml1, 7, 'D',
+        'Next.js 16 静态导出构建已实测通过（ATS-101）。',
+        plain=True)
+    xml1 = set_marked_cell(
+        xml1, 7, 'D', marker,
         '真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过'
         '（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；'
-        '详见 docs/16-BASELINE-ADR.md。')
+        '详见 docs/16-BASELINE-ADR.md。',
+        plain=True)
     parts[SHEET1] = xml1.encode('utf-8')
 
     # --- rewrite the archive, preserving every other part byte-for-byte ------
