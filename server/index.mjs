@@ -132,9 +132,22 @@ const server=http.createServer(async(req,res)=>{
  }catch(e){const message=e instanceof Error?e.message:String(e);const code=e&&e.code?e.code:'';
  // Agent contract violations are client errors: the request does not satisfy
  // the contract. The code is returned as-is so a caller can branch on it.
- const agentStatus=/^AGENT_/.test(code)?400:null;
- const status=agentStatus!==null?agentStatus:/NOT_FOUND/.test(message)?404:/CONFLICT|ALREADY/.test(message)?409:/OUTSIDE|INVALID|REQUIRED|STALE|TOO_LARGE|NOT_INSTALLED/.test(message)?400:500;
- return err(res,status,code||message);}
+ //
+ // SCOPE: this mapping applies to AGENT_* errors ONLY. Every other error keeps
+ // the pre-ATS-401 behaviour byte for byte (status by message pattern, the
+ // message echoed as-is), so ATS-401 does not silently change the API surface
+ // for unrelated errors. The path-leak in that echo is a pre-existing defect
+ // owned by ATS-112 (docs/16-BASELINE-ADR.md §3.2), not by this task.
+ const isAgentError=/^AGENT_/.test(code);
+ if(isAgentError){
+  const status=400;
+  // The details are contract-level values only (the offending field, the
+  // limit, the target path). They never contain a local filesystem path.
+  const details=e&&e.details&&typeof e.details==='object'?{details:e.details}:{};
+  return respond(res,status,{error:code||message,...details});
+ }
+ const status=/NOT_FOUND/.test(message)?404:/CONFLICT|ALREADY/.test(message)?409:/OUTSIDE|INVALID|REQUIRED|STALE|TOO_LARGE|NOT_INSTALLED/.test(message)?400:500;
+ return err(res,status,message);}
 });
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))server.listen(PORT,'127.0.0.1',()=>console.log(`AI Test Studio bridge: http://127.0.0.1:${PORT}/fallback.html`));
 export {server};

@@ -9,7 +9,7 @@
 
 ## 1. 结论摘要
 
-v0.1 的**代码能力基线成立**：Node Bridge 的项目登记、静态索引、受控源码读写、Runner 调度、状态/事件/证据归档链路已实现，20 项 UT/IT 全绿（`docs/evidence/ATS-101/01-node-test.log`）。ATS-401 在此基线上新增 Agent 契约层与 39 项测试后，`npm test` 为 **59 项全通过**（`docs/evidence/ATS-401/01-node-test.log`）。
+v0.1 的**代码能力基线成立**：Node Bridge 的项目登记、静态索引、受控源码读写、Runner 调度、状态/事件/证据归档链路已实现，20 项 UT/IT 全绿（`docs/evidence/ATS-101/01-node-test.log`）。ATS-401 在此基线上新增 Agent 契约层与 81 项测试后，`npm test` 为 **101 项全通过**（`docs/evidence/ATS-401/01-node-test.log`）。
 
 但**v0.1.1 不能按当前源码进入实机验收**，原因有 3 项阻断（§4）。其中 B-01 是单点致命缺陷：Bridge 传给 Playwright Test CLI 的参数向量包含两个**不存在的选项**，导致任何真实浏览器执行在参数解析阶段即失败，`summary=null`、`artifacts=[]`。该缺陷同时使 24 项 ST 中依赖真实运行结果的 ST-008/009/010/011/012/017/024 无法开展。
 
@@ -77,17 +77,17 @@ FR-021（`--list` 权威发现）、FR-022（AST 受控反写）、FR-023（WDIO
 
 ### 2.5 覆盖率量化
 
-- 测试设计总数 114（UT 53 / IT 37 / ST 24）；**已执行通过 59，待执行 55**。
+- 测试设计总数 156（UT 91 / IT 41 / ST 24）；**已执行通过 101，待执行 55**。
 - **ST 实机执行 0/24**。UT/IT 通过**不等于** ST 验收（见 `docs/09-ST-TEST-DESIGN.md` 退出条件）。
 - 42 条要件中，有 ≥1 条已执行测试覆盖者 15 条：其中 9 条为 v0.1 的真实执行证据、3 条仅有测试双桩证据（FR-009/011/014）、3 条为 ATS-401 的 Agent 契约层测试（FR-024/025/NFR-009）。**「有已执行测试覆盖」不等于「该要件已实现」**——FR-024/025 覆盖的是契约层，AI 生成与诊断本身未实现，其能力状态仍为 `DESIGNED`（详见 §2.6）。
 - **P0 FR-001~020 中 12 条无任何已执行测试**（FR-002/003/005/006/008/010/013/015/017/018/019/020）。
-- RTM 引用的测试 ID **无悬挂**（`tests/rtm.json` 全部 114 个 ID 均在设计表中存在）。
+- RTM 引用的测试 ID **无悬挂**（`tests/rtm.json` 引用的 156 个测试 ID 均在设计表中存在；另有 1 个 `TBD` 占位符非测试 ID）。
 
 ### 2.6 Agent 契约层（ATS-401，S4/v0.4.0）
 
 `server/agent.mjs` 实现了 Agent 契约 v1（`agent-contract/v1`）：请求必须带作用域、预算与输入出处；角色（planner/generator/triage/healer）对应能力白名单；产出为待审提案，提案人不得自审；diff 目标必须落在作用域内且为测试脚本文件。
 
-**权限边界是机制而非约定**：契约层只 import `node:crypto` 与 `node:path`，物理上无法写文件、起进程或发网络请求；写入与提交类能力在请求层一律被拒；提案的 `approval` 恒为 `pending`。
+**权限边界是机制而非约定**：契约层的源码只 import `node:crypto` 与 `node:path` 且不含任何 I/O 调用（由静态检查 + 11 项负控守护；**不是**「物理上无法」——真正的隔离属平台侧 ATS-403）；写入与提交类能力在请求层一律被拒；提案的 `approval` 恒为 `pending`。
 
 **这一节不改变 FR-024/025 的能力状态**：仓库中**没有**接入模型提供商，也**没有**把模型输出写入仓库、更新 expected result 或创建 Git commit 的代码路径。契约层是这两条要件的**前置依赖**，不是它们本身。详见 `docs/17-AGENT-CONTRACT.md` 与 `docs/evidence/ATS-401/`。
 
@@ -149,7 +149,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 
 设计文档 `docs/04-DETAILED-DESIGN.md` §7 与实测一致的部分：`INVALID_PROJECT_PATH`(400)、`PROJECT_PACKAGE_JSON_REQUIRED`(400)、`PROJECT_ALREADY_REGISTERED`(409)、`INVALID_SOURCE_FILE`(400)、`PATH_OUTSIDE_PROJECT`(400)、`STALE_EDIT_CONFLICT`(409)、`PAYLOAD_TOO_LARGE`(400)、`INVALID_SESSION`(401)、`ORIGIN_NOT_ALLOWED`(403)、`INVALID_HOST`(403)、`RUN_NOT_FOUND`(404)、`NOT_FOUND`(404)。
 
-**Agent 契约错误码（ATS-401）**：`server/index.mjs:135` 把 `AGENT_*` 前缀的错误统一映射为 **400**（请求不满足契约属于客户端错误），并把错误码原样返回给调用方；调用方按 `err.code` 分支，不解析消息文本。25 个错误码的完整清单见 `docs/17-AGENT-CONTRACT.md` §4.3。实测覆盖：`AGENT_CAPABILITY_FORBIDDEN`、`AGENT_BUDGET_REQUIRED`、`AGENT_PROVENANCE_REQUIRED`、`AGENT_SCOPE_ESCAPE`（见 `docs/evidence/ATS-401/01-node-test.log`）。
+**Agent 契约错误码（ATS-401）**：`server/index.mjs:141` 把 `AGENT_*` 前缀的错误统一映射为 **400**（请求不满足契约属于客户端错误），并把错误码与 `details` 原样返回给调用方；调用方按 `err.code` 分支，不解析消息文本。**这个映射的作用域仅限 `AGENT_*`**——其它错误保持 ATS-401 之前的行为不变。25 个错误码的完整清单见 `docs/17-AGENT-CONTRACT.md` §4.3。实测覆盖：`AGENT_CAPABILITY_FORBIDDEN`、`AGENT_BUDGET_REQUIRED`、`AGENT_PROVENANCE_REQUIRED`、`AGENT_SCOPE_ESCAPE`（见 `docs/evidence/ATS-401/01-node-test.log`）。
 
 **实测与设计不符（缺陷）**：
 

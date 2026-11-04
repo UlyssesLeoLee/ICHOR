@@ -26,7 +26,7 @@ flowchart LR
 | SEC-006 | 不接收任意 CLI 命令 | `spawn(process.execPath,args,{shell:false})` |
 | SEC-007 | 附件隔离 | 每 Run 独立目录；附件下载 token 与 `Content-Disposition` |
 | SEC-008 | 不自动向云端上传 | 无云账户/AI 服务自动调用；本机 UI/运行服务 |
-| SEC-009 | Agent 契约层无写入能力 | `server/agent.mjs` 只 import `node:crypto`/`node:path`；写入与提交类能力在请求层被拒；提案 `approval` 恒为 `pending` 且提案人不得自审 |
+| SEC-009 | Agent 契约层无写入能力 | `server/agent.mjs` 只 import `node:crypto`/`node:path` 且源码不含任何 I/O 调用（静态检查守护）；写入与提交类能力在请求层被拒；提案 `approval` 恒为 `pending` 且提案人不得自审。**运行时隔离（模块沙箱/只读挂载/子进程）未实现，属 ATS-403** |
 
 ## 3. 不可忽略的剩余风险
 
