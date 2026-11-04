@@ -29,4 +29,8 @@
 
 ## 当前代码的许可证声明
 
-本压缩包中的原创 `server/`、`apps/studio/`、`src-tauri/` 与文档均以随包 MIT LICENSE 发布（具体第三方依赖按其自身许可）。未复制任何列举竞品的源代码。`apps/studio/package.json` 含 Next、React、Monaco、XYFlow 等依赖声明，尚未生成 lockfile/SBOM，正式闭源商业版必须进行 SPDX/依赖供应链审查和版本锁定。
+本压缩包中的原创 `server/`、`apps/studio/`、`src-tauri/` 与文档均以随包 MIT LICENSE 发布（具体第三方依赖按其自身许可）。未复制任何列举竞品的源代码。
+
+**依赖清单状态（ATS-102 交付）**：`apps/studio/package.json` 的第三方依赖（Next、React、Monaco、XYFlow 等）已生成 lockfile（`apps/studio/package-lock.json`，88 个包），并由 `tools/gen_dep_manifest.mjs` 生成了依赖清单 `docs/dependencies/dependency-manifest.{json,md}`——记录每个依赖的版本、许可、`resolved` URL 与 `integrity` 哈希。88 个依赖的许可**全部已知**，其中**强 copyleft（AGPL/GPL/SSPL/BUSL/Elastic/Commons-Clause）为 0 个**；需人工复核的有 16 个：15 个弱 copyleft（LGPL，全部是 `sharp`/`libvips` 的平台原生二进制，随 Next.js 图片优化依赖引入）与 1 个署名义务（`caniuse-lite`，CC-BY-4.0）。
+
+**仍未完成**（不得称为已合规）：①完整 SPDX SBOM 未生成（多数包未发布 `sbomId`）；②分发审计结论未出；③上述 16 个依赖是否随产物分发、以及 notice 文件如何随包携带，须在正式闭源商业发行前逐项确认。详见 `docs/17-BUILD-CI.md` §5。

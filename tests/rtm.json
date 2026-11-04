@@ -140,13 +140,13 @@
   {
     "requirement": "FR-024",
     "design": "P1 Agent",
-    "tests": "TBD",
+    "tests": "UT-AGT-001、UT-AGT-002、UT-AGT-003、UT-AGT-004、UT-AGT-005、UT-AGT-006、UT-AGT-007、UT-AGT-008、UT-AGT-009、UT-AGT-010、UT-AGT-011、UT-AGT-012、UT-AGT-013、UT-AGT-014、UT-AGT-015、UT-AGT-016、UT-AGT-021、UT-AGT-022、UT-AGT-023、UT-AGT-024、UT-AGT-025、UT-AGT-026、UT-AGT-028、IT-AGT-001、IT-AGT-003、IT-AGT-004、IT-AGT-005、IT-AGT-006、IT-AGT-007、IT-AGT-008、IT-AGT-009",
     "status": "DESIGNED"
   },
   {
     "requirement": "FR-025",
     "design": "P1 Agent",
-    "tests": "TBD",
+    "tests": "UT-AGT-017、UT-AGT-018、UT-AGT-019、UT-AGT-020",
     "status": "DESIGNED"
   },
   {
@@ -188,7 +188,7 @@
   {
     "requirement": "NFR-002",
     "design": "NFR / SEC / OPS",
-    "tests": "IT-SEC-001、IT-SEC-002、IT-API-004、ST-014",
+    "tests": "IT-SEC-001、IT-SEC-002、IT-API-004、IT-AGT-002、ST-014",
     "status": "PARTIAL"
   },
   {
@@ -206,7 +206,7 @@
   {
     "requirement": "NFR-005",
     "design": "NFR / SEC / OPS",
-    "tests": "UT-CORE-005、IT-API-CLEANUP、IT-RUN-MOCK-CLEANUP",
+    "tests": "UT-CORE-005、IT-API-CLEANUP、IT-RUN-MOCK-CLEANUP、IT-AGT-CLEANUP",
     "status": "IMPLEMENTED"
   },
   {
@@ -230,7 +230,7 @@
   {
     "requirement": "NFR-009",
     "design": "NFR / SEC / OPS",
-    "tests": "ST-023",
+    "tests": "UT-AGT-027、ST-023",
     "status": "IMPLEMENTED"
   },
   {
@@ -242,7 +242,7 @@
   {
     "requirement": "NFR-011",
     "design": "NFR / SEC / OPS",
-    "tests": "IT-API-SETUP、ST-024",
+    "tests": "IT-API-SETUP、IT-AGT-SETUP、ST-024",
     "status": "PARTIAL"
   },
   {

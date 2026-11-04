@@ -11,7 +11,7 @@
 | Git 和 DB 双源冲突 | 同一 script 两份内容 | 只直接操作原项目，运行历史分离 | 稳定 UID / data migration |
 | 将子进程说成沙箱 | 恶意代码可读宿主文件 | 文档明确可信仓库、不可对公网开放 | P1 Docker/VM |
 | 将模拟测试报告当真实 ST | 无 npm/浏览器无法端到端 | 20/20 UT/IT 通过，ST 全列 PENDING | 实机运行未验证；B-01 使真实链路 100% 失败 |
-| AI 改断言导致假阳性 | 测试“自修复”掩盖 Bug | P1 AI 仅生成 Diff 候选 | 人工审核 UI 未实现 |
+| AI 改断言导致假阳性 | 测试“自修复”掩盖 Bug | P1 AI 仅生成 Diff 候选 | 人工审核 UI 未实现；**Agent 契约 v1 已在能力层禁用 `update_expected`（ATS-401）** |
 | Tauri + Next SSR 兼容性 | Tauri 原生不提供 Next SSR | output=export / 静态文件 | Next 构建已实测通过；Tauri 受 B-02 阻断 |
 | 多版本发布与许可证 | 误认为 AGPL/GPL 可直接商用 | 只借鉴理念，源码原创 MIT | npm deps SPDX 审核待做 |
 | Evidence 永久保存隐私风险 | Trace、视频可能含 PII | 每 Run 隔离 + 下载鉴权 + 风险标注 | 证据清理/脱敏 P1 |
@@ -19,7 +19,7 @@
 
 ## 2. 实际运行验证
 
-执行 `npm test`（Node v24.19.0）：**20 项 UT + IT 全部 PASS**，含 8 项 UT 与 12 项 IT；测试在隔离临时仓库/数据目录中运行，覆盖项目验证、静态扫描、来源限制、SHA-256 保存冲突、缺依赖处理、汇总解析、Origin/Token、安全 API、历史持久化。`node --check server/index.mjs` 通过。
+执行 `npm test`（Node v24.19.0）：**59 项 UT + IT 全部 PASS**，含 53 项 UT 与 37 项 IT；测试在隔离临时仓库/数据目录中运行，覆盖项目验证、静态扫描、来源限制、SHA-256 保存冲突、缺依赖处理、汇总解析、Origin/Token、安全 API、历史持久化，以及 Agent 契约的作用域、预算、输入出处、能力白名单、提案收敛与评审状态机。`node --check server/index.mjs` 通过。
 
 **这些测试在 mock Playwright CLI 下执行**，只能证明 Bridge 自身逻辑，不足以证明真实浏览器链路可用——实测发现 B-01：Bridge 传给 Playwright Test CLI 的参数向量含两个不存在的选项，真实执行 100% 失败（`summary=null`、`artifacts=[]`）。
 
@@ -35,9 +35,13 @@
 
 因此不得标记 ST Pass、也不能将 ZIP 描述为即装即用的 EXE。完整证据见 `docs/16-BASELINE-ADR.md` §4 与 `docs/evidence/ATS-101/`。
 
+**Agent 契约 v1 的实测（2026-11-04，ATS-401/SEIKOIST-200）**：`npm test` 现为 **59 项全通过**（原有 20 项无回归，新增 28 项 `UT-AGT-*` 契约单元测试 + 11 项 `IT-AGT-*` API 集成测试），原始输出见 `docs/evidence/ATS-401/01-node-test.log`。权限边界另由 `tools/ats401-probes/probe-agent-boundary.mjs` 以三类独立信号复现：静态分析（契约层只 import `node:crypto`/`node:path`）、运行期（真实 git 夹具仓库在完整契约调用后内容、`git status`、`git log` 全部不变）、以及**负控**（对注入 `node:fs`/`node:child_process`/`node:https` 的源码副本，同一段判定逻辑必须报警），输出见 `docs/evidence/ATS-401/02-agent-boundary.log`。
+
+**这一节不改变 FR-024/025 的能力状态**：仓库未接入模型提供商，也没有把模型输出写入仓库、更新 expected result 或创建 Git commit 的代码路径。已实现的是 FR-024/025 依赖的**契约层**，不是 AI 生成与诊断本身。详见 `docs/17-AGENT-CONTRACT.md`。
+
 ## 3. 当前验收结论
 
-- **源码一致性 / Node API UT-IT：通过**（基于对应 20 个断言）。
+- **源码一致性 / Node API UT-IT：通过**（基于对应 59 个断言）。
 - **基本工作台功能：具备零依赖便携 UI，可结合已有项目测试**。
 - **Playwright Runner 实际浏览器执行：未通过产品源码验证，且已确认必然失败**（B-01：参数向量含两个不存在的 CLI 选项）。待 ATS-106 修复后重测 ST-008/011。
 - **Next.js 编译：已实测通过**（16.4.4 静态导出，产物可由 Bridge 伺服）；**Tauri native：未通过**（B-02：msvc 链缺 MSVC C++ 工作负载；**仓库缺 `src-tauri/icons/icon.ico`（仓库内容缺陷，仅装 MSVC 不能修复）**；gnu 链 `cargo build` 最终链接因 cdylib 导出序号超限失败）。**成因清单尚未穷尽**，验收须以 `cargo build`（含最终链接）为准。待 ATS-104 修复后重测 ST-021/022。

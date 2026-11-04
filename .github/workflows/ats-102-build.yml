@@ -1,0 +1,163 @@
+name: ATS-102 build gate
+
+# ATS-102 (SEIKOIST-147) -- 锁文件、依赖与 Windows CI 构建脚本
+#
+# 门禁内容（对应 docs/02-REQUIREMENTS.md NFR-007 / NFR-012）：
+#   1. Node 22 + `npm ci`（严格按 lockfile 安装）→ 锁文件可重现性门禁；
+#   2. `npm test`（Node 内置 test runner，20 项 UT/IT）→ 回归门禁；
+#   3. `apps/studio` 的 `npm ci` + `next build` → 静态导出构建门禁；
+#   4. 依赖清单生成 + 漂移校验 → 依赖清单门禁。
+#
+# 镜像说明（依据 docs/16-BASELINE-ADR.md §4 B-02）：
+#   Windows job 固定在带 Visual Studio 2022 C++ 生成工具的镜像上，
+#   以满足 ATS-104 后续的 `cargo build` 需要；Node 版本由 .nvmrc 固定。
+#   B-02 的成因清单尚未穷尽，因此本 job 目前只验证 Node 侧产物，
+#   Rust/Tauri 侧构建仍属 ATS-104 的验收范围。
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+# 取消同一分支上较早的未完成运行，避免重复占用 runner。
+concurrency:
+  group: ats102-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------
+  # 门禁 1+2：Node 22 clean install + npm test（Windows 为目标平台）
+  # ---------------------------------------------------------------------
+  node-tests:
+    name: node22 clean install + test (windows)
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            apps/studio/package-lock.json
+
+      - name: Verify Node version matches engines
+        run: node tools/ci_build_gate.mjs --check-node
+
+      - name: Clean install from lockfile (root)
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify lockfile is not mutated by npm ci
+        run: |
+          git diff --exit-code -- package-lock.json
+
+      - name: Run unit / integration tests
+        run: npm test
+
+      - name: Syntax check the bridge entrypoint
+        run: node --check server/index.mjs
+
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-test-output
+          path: |
+            test-results/**
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ---------------------------------------------------------------------
+  # 门禁 3：Next.js 16 静态导出构建
+  # ---------------------------------------------------------------------
+  web-build:
+    name: next16 static export (windows)
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: apps/studio/package-lock.json
+
+      - name: Clean install from lockfile (apps/studio)
+        run: npm ci --no-audit --no-fund
+        working-directory: apps/studio
+
+      - name: Verify lockfile is not mutated by npm ci
+        run: |
+          git diff --exit-code -- apps/studio/package-lock.json
+
+      - name: Build static export
+        run: npm run build
+        working-directory: apps/studio
+
+      - name: Verify the export artefact exists
+        run: node tools/ci_build_gate.mjs --check-artefact
+
+      # next build 会改写两个受版本控制的文件（next-env.d.ts / tsconfig.json）。
+      # 这是已知的构建副作用（docs/16-BASELINE-ADR.md §5.2），因此这里只
+      # 报告差异而不阻断：差异内容需由人工确认是否应提交。
+      - name: Report build side effects on tracked files
+        run: |
+          git --no-pager diff --stat -- apps/studio/next-env.d.ts apps/studio/tsconfig.json
+        continue-on-error: true
+
+      - name: Upload the static export
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-static-export
+          path: apps/studio/out
+          if-no-files-found: error
+          retention-days: 7
+
+  # ---------------------------------------------------------------------
+  # 门禁 4：依赖清单生成与漂移校验（NFR-012 的可机读部分）
+  # ---------------------------------------------------------------------
+  dependency-manifest:
+    name: dependency manifest drift check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      # 先按 lockfile 生成一次（此时无 node_modules，许可字段为 UNKNOWN），
+      # 再安装后重新生成补齐许可字段；两次结果必须一致到「许可已知」这一层，
+      # 因此这里用 --check 校验的是提交进仓库的那一份。
+      - name: Install dependencies so licences can be read
+        run: |
+          npm ci --no-audit --no-fund
+          npm --prefix apps/studio ci --no-audit --no-fund
+
+      - name: Regenerate the dependency manifest
+        run: node tools/gen_dep_manifest.mjs
+
+      - name: Verify the committed manifest matches the lockfiles
+        run: node tools/gen_dep_manifest.mjs --check
+
+      - name: Upload the regenerated manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-manifest
+          path: docs/dependencies/
+          if-no-files-found: error
+          retention-days: 7

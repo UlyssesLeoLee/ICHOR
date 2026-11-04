@@ -1,0 +1,124 @@
+=== ATS-102: Windows/Git-Bash 环境约束实测（PATH 形态） ===
+
+- 日期: 2026-11-04 / Windows 11 (MINGW64_NT-10.0-26300) / Git Bash
+- 复现方式: source tools/ats102-env.sh && node tools/ci_build_gate.mjs
+- 影响面: 构建门禁与「产品的 Windows 停止路径」
+
+## 1. 现象
+
+在 Git Bash 下按最小 PATH 运行门禁时，测试 `IT-RUN-MOCK-002: cancel marks cancelled`
+失败，错误为 `fetch failed`（ECONNRESET）——看起来像产品缺陷，实则是环境问题。
+
+## 2. 定位
+
+抓 Bridge 的 stderr（把 spawn 的 stdio 从 'ignore' 改为 'pipe'）后，真正的错误是：
+
+```
+[bridge ERR] node:events:497
+      throw er; // Unhandled 'error' event
+      ^
+Error: spawn taskkill ENOENT
+    at ChildProcess._handle.onexit (node:internal/child_process:285:19)
+Emitted 'error' event on ChildProcess instance at:
+    at ChildProcess._handle.onexit (node:internal/child_process:291:11) {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'spawn taskkill',
+  path: 'taskkill',
+  spawnargs: [ '/PID', '14432', '/T', '/F' ]
+}
+```
+
+即：`server/index.mjs` 的 `cancelRun()` 在 Windows 上用 `spawn('taskkill', ...)`
+强杀子进程树；`taskkill` 不在 PATH 上 → 抛 ENOENT → **该错误未被监听**，
+变成 unhandled 'error' 事件 → **整个 Bridge 进程崩溃** → 客户端 fetch 失败。
+
+## 3. 根因：MSYS 把 Windows 形式的 PATH 改错了
+
+PATH 里写的是 Windows 形式：
+
+```
+PATH="...:C:/Windows/system32:C:/Windows:..."
+```
+
+MSYS 把开头的 `C:` 当成**相对路径**，于是把它改写成：
+
+```
+C:\Program Files\Git\Windows\system32
+```
+
+该目录下没有 taskkill.exe（真正的位置是 `C:\Windows\System32`）。
+在 Bash 里 `which taskkill` 仍能找到，是因为 Bash 自己用的是 MSYS 形式
+的 PATH；而**原生 Windows 子进程**（node.exe → cmd.exe）拿到的是被改写后的
+PATH，于是找不到 taskkill。
+
+对照：原生子进程实际看到的 PATH 前几项
+
+```
+C:\Program Files\Git\usr\bin
+C:\Program Files\Git\usr\bin
+C:\Program Files\Git\mingw64\bin
+D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64
+C:\Program Files\Git\Windows\system32      <-- 被改错的 C:/Windows/system32
+C:\Windows                                  <-- 这一条是对的
+```
+
+## 4. 修正
+
+`tools/ats102-env.sh` 把 PATH 全部改成 **MSYS 形式**：
+
+```
+PATH="/usr/bin:/bin:/mingw64/bin:$NODE22_DIR:/c/Windows/system32:/c/Windows:..."
+```
+
+Bash 用 MSYS 形式找得到二进制；MSYS 在启动原生子进程时会整体翻译成
+Windows 形式，于是原生子进程看到的是正确的 `C:\Windows\system32`。
+
+修正后原生子进程的 PATH：
+
+```
+C:\Program Files\Git\usr\bin
+C:\Program Files\Git\usr\bin
+C:\Program Files\Git\mingw64\bin
+D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64
+C:\Windows\system32                          <-- 正确
+C:\Windows
+```
+
+验证 taskkill 可达：
+
+```
+$ node -e "const {spawnSync}=require('child_process'); const r=spawnSync('taskkill',['/?'],{encoding:'utf8'}); console.log('status=',r.status,'| err=',r.error&&r.error.code)"
+status= 0 | err= undefined
+```
+
+修正后测试全绿：
+
+```
+$ node --test tests/runner.test.mjs
+ok 1 - IT-RUN-MOCK-SETUP: isolated fake CLI adapter
+ok 2 - IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip
+ok 3 - IT-RUN-MOCK-002: cancel marks cancelled
+ok 4 - IT-RUN-MOCK-CLEANUP: cleanup
+# tests 4
+# pass 4
+# fail 0
+```
+
+## 5. 附带发现（产品侧，非本任务范围）
+
+`spawn('taskkill', ...)` 的 'error' 事件**无人监听**。在 taskkill 缺失或
+失败时，一个本应只影响单次停止请求的异常，会让整个 Bridge 进程崩溃。
+这与 `docs/16-BASELINE-ADR.md` §4 B-03 所述的「停止语义缺陷」相邻但不同：
+B-03 是**状态恢复集合**遗漏 `cancelling`；本条是**子进程 spawn 失败未兜底**。
+归属建议：ATS-108（取消/超时/子进程树回收与重启 ST）。
+
+## 6. 对验收口径的影响
+
+- 上述失败**不是**本次交付引入的回归：在 `dev` 上单独复现（`git clone
+  --no-local --branch dev`）同样失败，且在 ATS-101 基线 commit `c68bc0c`
+  上同样失败。它由**运行环境**决定，不是代码状态决定。
+- 本条记录在此，是为了说明「为什么在某些 shell 下会看到 IT-RUN-MOCK-002
+  失败」，以及为什么构建门禁必须用 `tools/ats102-env.sh` 准备环境。
+- 真正的构建门禁结论以 `docs/evidence/ATS-102/04-final-clean-clone-gate.log`
+  为准：**59/59 通过，门禁退出码 0**。

@@ -1,0 +1,211 @@
+=== ATS-102 build gate ===
+node   : v22.23.4
+npm    : unknown
+repo   : D:\hermes-multica\home\cache\scratch\clean-clone
+
+--- [install] Clean install from the committed lockfiles (npm ci)
+  $ npm ci --no-audit --no-fund
+
+up to date in 635ms
+  ok (1057 ms)
+  $ npm ci --no-audit --no-fund
+
+added 57 packages in 54s
+  ok (54854 ms)
+--- [install] PASSED (55911 ms)
+
+--- [lockcheck] npm ci did not mutate either lockfile
+  $ git diff --exit-code -- package-lock.json apps/studio/package-lock.json
+  ok (144 ms)
+--- [lockcheck] PASSED (144 ms)
+
+--- [test] Unit / integration tests (node --test)
+  $ npm test
+
+> ai-test-studio@0.1.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: IT-API-SETUP: start server
+ok 1 - IT-API-SETUP: start server
+  ---
+  duration_ms: 323.0444
+  type: 'test'
+  ...
+# Subtest: IT-SEC-001: rejects unauthenticated API
+ok 2 - IT-SEC-001: rejects unauthenticated API
+  ---
+  duration_ms: 3.9571
+  type: 'test'
+  ...
+# Subtest: IT-API-001: add existing repository
+ok 3 - IT-API-001: add existing repository
+  ---
+  duration_ms: 237.4539
+  type: 'test'
+  ...
+# Subtest: IT-API-002: import and index tests
+ok 4 - IT-API-002: import and index tests
+  ---
+  duration_ms: 789.8685
+  type: 'test'
+  ...
+# Subtest: IT-SEC-002: rejects foreign origin
+ok 5 - IT-SEC-002: rejects foreign origin
+  ---
+  duration_ms: 2.7969
+  type: 'test'
+  ...
+# Subtest: IT-RUN-001: no deps => explicit failure rather than fake success
+ok 6 - IT-RUN-001: no deps => explicit failure rather than fake success
+  ---
+  duration_ms: 496.5003
+  type: 'test'
+  ...
+# Subtest: IT-API-003: runs survive persisted read
+ok 7 - IT-API-003: runs survive persisted read
+  ---
+  duration_ms: 2.8419
+  type: 'test'
+  ...
+# Subtest: IT-API-CLEANUP: stop and cleanup
+ok 8 - IT-API-CLEANUP: stop and cleanup
+  ---
+  duration_ms: 5.341
+  type: 'test'
+  ...
+# Subtest: UT-CORE-001: validates Playwright project
+ok 9 - UT-CORE-001: validates Playwright project
+  ---
+  duration_ms: 3.7749
+  type: 'test'
+  ...
+# Subtest: UT-CORE-002: extracts static test index
+ok 10 - UT-CORE-002: extracts static test index
+  ---
+  duration_ms: 1.7784
+  type: 'test'
+  ...
+# Subtest: UT-SEC-001: rejects path traversal
+ok 11 - UT-SEC-001: rejects path traversal
+  ---
+  duration_ms: 0.3451
+  type: 'test'
+  ...
+# Subtest: UT-CORE-003: conditional save avoids lost updates
+ok 12 - UT-CORE-003: conditional save avoids lost updates
+  ---
+  duration_ms: 5.2927
+  type: 'test'
+  ...
+# Subtest: UT-CORE-004: malformed project rejected
+ok 13 - UT-CORE-004: malformed project rejected
+  ---
+  duration_ms: 1.3373
+  type: 'test'
+  ...
+# Subtest: UT-RUN-001: missing local Playwright never auto-installs
+ok 14 - UT-RUN-001: missing local Playwright never auto-installs
+  ---
+  duration_ms: 0.9369
+  type: 'test'
+  ...
+# Subtest: UT-RPT-001: report summary counts passed/failed/skipped
+ok 15 - UT-RPT-001: report summary counts passed/failed/skipped
+  ---
+  duration_ms: 2.4433
+  type: 'test'
+  ...
+# Subtest: UT-CORE-005: removes generated fixture
+ok 16 - UT-CORE-005: removes generated fixture
+  ---
+  duration_ms: 6.976
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-SETUP: isolated fake CLI adapter
+ok 17 - IT-RUN-MOCK-SETUP: isolated fake CLI adapter
+  ---
+  duration_ms: 680.9751
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip
+ok 18 - IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip
+  ---
+  duration_ms: 1116.918
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-002: cancel marks cancelled
+ok 19 - IT-RUN-MOCK-002: cancel marks cancelled
+  ---
+  duration_ms: 815.1924
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-CLEANUP: cleanup
+ok 20 - IT-RUN-MOCK-CLEANUP: cleanup
+  ---
+  duration_ms: 47.8796
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3373.2717
+  ok (4614 ms)
+--- [test] PASSED (4614 ms)
+
+--- [build] Next.js 16 static export
+  $ npm run build
+
+> @ai-test-studio/ui@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 77ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.1s
+  Running TypeScript ...
+  Finished TypeScript in 4.6s ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/3) ...
+✓ Generating static pages using 4 workers (3/3) in 1826ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+
+  ok (14504 ms)
+  $ node -e const fs=require('fs');if(!fs.existsSync('apps/studio/out/index.html')){console.error('apps/studio/out/index.html was not produced');process.exit(1)}console.log('artefact ok: apps/studio/out/index.html')
+[eval]:1
+const
+     
+Unexpected token `<eof>`. Expected yield, an identifier, [ or {
+
+SyntaxError: Unexpected end of input
+    at makeContextifyScript (node:internal/vm:185:14)
+    at compileScript (node:internal/process/execution:383:10)
+    at evalTypeScript (node:internal/process/execution:256:22)
+    at node:internal/main/eval_string:74:3
+
+Node.js v22.23.4
+  command exited with 1 after 376 ms
+--- [build] FAILED after 14881 ms
+
+--- [manifest] Dependency manifest is in sync with the lockfiles
+  $ node tools/gen_dep_manifest.mjs --check
+RESULT: MISMATCH -- the committed dependency manifest does not match the lockfiles:
+  docs\dependencies\dependency-manifest.json differs from the lockfile-derived content
+  docs\dependencies\dependency-manifest.md differs from the lockfile-derived content
+  command exited with 1 after 486 ms
+--- [manifest] FAILED after 486 ms
+
+RESULT: FAILED -- build, manifest
