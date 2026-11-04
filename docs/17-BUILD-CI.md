@@ -66,6 +66,17 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
    某平台尚无记录时该检查**跳过而非失败**（没有可比对的基准，凭空造一个是错的）。
    这一点也是它**不能**作为跨平台一致性证据的原因，见 §7 第 6 条。
 
+   **全树口径（`all-files`）不只锁版本，还抓到了 npm 自己没抓到的安装损坏。**
+   复核期间有一个全新克隆的 `npm ci` 装出了**被截断且补零**的
+   `next/dist/server/image-optimizer.js.map`（25088 字节：前 8704 字节正常，
+   其后 16384 字节全为 0），而 **npm ci 退出码为 0**、tarball 的 integrity
+   校验也通过——npm 的完整性校验覆盖 tarball，不覆盖解压后的文件是否被完整写出。
+   是本门禁把它拦下的（`installdigest` 步 FAILED、退出码 1），而同一轮里
+   npm ci / npm test / next build 全部 PASS。
+   注意**只算 `package.json` 的窄口径看不出这个问题**（被截断的不是
+   `package.json`），这也是全树口径值得保留的理由。
+   详见 `docs/evidence/ATS-102/07-final-gate-6-steps.log` §6.1。
+
    > 更正记录：早先此处引用的 `2ece6ea6…` 无法用任何常见口径重算（已逐一试过
    > 路径前缀／分隔符／排序／换行／大小写等约 2000 种组合），**该值不可复现，
    > 已作废**。新值由上列命令直接产出，且在三个相互独立的克隆（含交付前那次
@@ -330,6 +341,7 @@ ATS-101 §8 建议：「ATS-102 的 CI 脚本须固定该镜像」。本次的 w
 7. **CI 的并发取消（`concurrency`）与 artifact 保留行为未实测**。
 8. **产品的 `spawn('taskkill')` 无兜底缺陷未修**（§6.5）——本任务只记录与定位，未改产品代码（属 ATS-108）。
 9. **门禁在 GitHub runner 上的 PATH/工具链差异未验证**：本地用 `tools/ats102-env.sh` 准备 MSYS 形式的 PATH（§4.2），而 GitHub 的 Windows runner 由 `actions/setup-node` 直接配置 PATH，二者的差异未实测。
+10. **构建步骤的稳定性未量化**：复核期间有一个全新克隆的 `next build` 在 "Generating static pages" 阶段崩溃（`Next.js build worker exited with code: 3221226505`，即 0xC0000409，原生栈缓冲区溢出），同一克隆上单独重跑即退出码 0、随后整轮门禁全绿。本机磁盘 C: 93% / D: 89%、内存紧张，判为资源压力下的偶发原生崩溃而非代码缺陷，但**该判定的依据是重跑成功，不是根因定位**——真实 GitHub runner 的资源充裕度不同，未实测其发生率。
 
 ## 8. 冻结声明
 
