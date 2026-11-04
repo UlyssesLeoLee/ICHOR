@@ -1,6 +1,6 @@
 === ATS-401 coverage measurement ===
 node: v24.19.0
-date: 2026-11-04T08:29:30Z
+date: 2026-11-04T08:35:41Z
 command: node --test --experimental-test-coverage tests/*.test.mjs
 
 ℹ start of coverage report
