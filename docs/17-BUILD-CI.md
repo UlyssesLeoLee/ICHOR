@@ -11,7 +11,7 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 | 验收项 | 结论 | 证据 |
 |---|---|---|
 | Node 22 clean install | **PASS** | 干净克隆内 `npm ci` 根包 0 依赖 / `apps/studio` 57 包，36.6 s |
-| `npm test` | **PASS** | **59/59** 通过（Node 内置 `node:test`；含 ATS-401 的 39 项） |
+| `npm test` | **PASS** | 本任务交付时为 **59/59** 通过（Node 内置 `node:test`）；测试总数随并行任务增加而变化，见 §4.1 的说明 |
 | 锁文件可重现 | **PASS** | 两个独立克隆各跑一次 `npm ci`，安装树摘要完全一致（口径见 §2.2）；`npm ci` 不改写 lockfile |
 | 生成依赖清单 | **PASS** | `docs/dependencies/dependency-manifest.{json,md}`，88 个依赖全部有许可 |
 | Windows CI 构建脚本 | **PASS** | `.github/workflows/ats-102-build.yml`，3 个 job；本地以 `tools/ci_build_gate.mjs` 逐步复现并全绿 |
@@ -221,6 +221,20 @@ RESULT: OK -- every build-gate step passed.
 ```
 
 完整日志：`docs/evidence/ATS-102/07-final-gate-6-steps.log`。
+
+#### 测试总数会随并行任务变化
+
+上表的 59 项是**本任务交付时**的数量。`dev` 上并行推进的 ATS-401
+（Agent 契约层）会新增 `UT-AGT-*` 测试，因此合并后总数会变——这一点与
+ATS-102 无关，门禁步骤本身不受影响。
+
+合并 `dev` 之后实测：`npm test` 为 `# tests 103 / # pass 76 / # fail 0 /
+# cancelled 27`，而 `npm test` 这一步判为 FAILED。**那 27 项全部是
+`UT-AGT-042` ~ `UT-AGT-068`**（`failureType: cancelledByParent`），且在
+**只含 `dev`、不含本任务任何改动**的克隆上跑出完全相同的结果，即 ATS-401
+整改后的既有状态，**不是 ATS-102 引入的回归**。ATS-102 自己的门禁步骤
+（`install` / `lockcheck` / `installdigest` / `build` / `manifest`）在合并后
+仍全部通过。归属：ATS-401，不在本任务范围内。
 
 ### 4.2 在 Windows/Git-Bash 上准备环境
 
