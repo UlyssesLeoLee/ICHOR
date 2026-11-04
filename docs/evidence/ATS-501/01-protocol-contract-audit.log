@@ -1,16 +1,17 @@
 === ATS-501 evidence: remote protocol contract audit ===
-date        : 2026-11-04T04:42:26Z (UTC)
-commit      : 84405cb3b90ed7d11c30a5c66c2534d8a376ea0c
+date        : 2026-11-04T08:23:34Z (UTC)
+commit      : 287b8c40d9faaeae7a0b61761cd616908d002018
 node        : v24.19.0
 command     : node tools/ats501-probes/audit-remote-protocol.mjs
 
 === ATS-501 probe: remote protocol contract audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-21-baadb8c20660\worktree
-document  : docs\18-REMOTE-RUNNER-PROTOCOL.md
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-21-09825c30b24a\worktree
+document  : docs\19-REMOTE-RUNNER-PROTOCOL.md
 
+REMOTE_ tokens in the document : 25
 local Bridge error codes found : 20
-REMOTE_ codes in the contract  : 24
-baseline ADRs : 14, ADRs registered here : 6
+REMOTE_ codes in the contract  : 25
+baseline ADRs : 14, ADRs registered here : 9
 ATS-501 row 77: status=待审核 completion=1 remaining=0
 
 --- checks ---
@@ -20,34 +21,52 @@ ATS-501 row 77: status=待审核 completion=1 remaining=0
   PASS  protocol version is major 1 / minMinor 0
   PASS  protocol negotiation is capability_by_name
   PASS  transport requires TLS 1.3 and forbids cleartext
+  PASS  connection direction is frozen as node-outbound-only
+  PASS  the node authenticates the control plane by TLS server certificate
   PASS  enrollment token is single use, tenant bound, 900s TTL
-  PASS  request signature covers method/path/body/timestamp/nonce
+  PASS  the private key is generated on the node and never exported
+  PASS  the control plane holds only the public key and the key id
+  PASS  enrollment requires a proof of possession
+  PASS  credential rotation is node-generated as well
+  PASS  request signature covers method/path/query/body/tenant/node/key/timestamp/nonce
+  PASS  the signature canonicalisation is named and includes the query string
   PASS  replay window (300s) exceeds clock skew (60s)
+  PASS  the pre-auth failure code is a single code
+  PASS  the pre-auth failure reasons are audit-only and never public codes
   PASS  node is bound to exactly one tenant
+  PASS  the code acquisition channel is the node-local preseeded source
+  PASS  the control plane sends only projectUid and gitSha as code references
+  PASS  the control plane never sends a repository url, a source archive or a private key
   PASS  tenant context is server assigned, never client chosen
   PASS  cross-tenant access answers 404
+  PASS  cross-tenant access uses the two declared 404 codes
   PASS  storage prefix is tenant scoped
   PASS  resources are referenced by opaque uid only
   PASS  rejection default policy is deny
-  PASS  unknown conditions are rejected and audited
+  PASS  an unknown condition is rejected with a policy code
+  PASS  the policy rejection code is declared and is not the internal error code
+  PASS  the policy rejection is not retryable and the internal error is
   PASS  design status is DESIGNED
-  PASS  idempotency is required for dispatch, cancel and result
+  PASS  idempotency is required for dispatch, cancel, result, ack and keyRotation
   PASS  idempotency conflict is rejected (not silently accepted)
   PASS  deadline is enforced and a lease is required
   PASS  four planes are declared
-  PASS  control plane may not touch the local desktop API, the runner filesystem, or accept a local path as a project reference
+  PASS  control plane may not touch the local desktop API, the runner filesystem, accept a local path as a project reference, generate or distribute the node private key, or distribute source archives
+  PASS  a private key and a repository url are forbidden message markers
   PASS  rejection code list is non-empty
   PASS  every rejection code uses the REMOTE_ namespace
   PASS  rejection codes are unique
   PASS  every rejection code declares a valid HTTP status
   PASS  every rejection code declares retryability
   PASS  retryable codes are never permanent client errors (400/401/403/404/413/422)
+  PASS  the internal error code is a 500 and the policy rejection is a 4xx
   PASS  rejection table section found in prose
   PASS  prose rejection table rows parsed
   PASS  every prose rejection code is in the constraint block
   PASS  every constraint-block rejection code is in the prose table
   PASS  prose and block agree on HTTP status
   PASS  prose and block agree on retryability
+  PASS  every REMOTE_ token in the whole document is a declared rejection code
   PASS  data-constraint section found in prose
   PASS  every marker used in the data-constraint table is declared in the block
   PASS  every marker declared in the block is used in the data-constraint table
@@ -55,6 +74,28 @@ ATS-501 row 77: status=待审核 completion=1 remaining=0
   PASS  every control-plane prohibition is named in the hard-boundary table
   PASS  trust-level section found in prose
   PASS  every declared untrusted input is named in the trust-level table
+  PASS  the rejection policy section found in prose
+  PASS  the prose policy table names REMOTE_POLICY_REJECTED in the policy rejection row
+  PASS  the prose and the block agree on the HTTP status of REMOTE_POLICY_REJECTED
+  PASS  the prose and the block agree on the retryability of REMOTE_POLICY_REJECTED
+  PASS  the prose policy table names REMOTE_INTERNAL in the internal error row
+  PASS  the prose and the block agree on the HTTP status of REMOTE_INTERNAL
+  PASS  the prose and the block agree on the retryability of REMOTE_INTERNAL
+  PASS  the policy rejection and the internal error are different codes
+  PASS  the policy rejection is a 4xx and not retryable, the internal error is a 500 and retryable
+  PASS  the prose has the connection direction section
+  PASS  the prose has the code acquisition section
+  PASS  the prose has the enrollment section
+  PASS  the prose has the credential rotation section
+  PASS  the prose has the request signature section
+  PASS  the prose has the rejection policy section
+  PASS  the enrollment prose states that the key pair is generated on the node
+  PASS  the enrollment prose states that the control plane never receives the private key
+  PASS  the rotation prose states that the control plane distributes no private key
+  PASS  the document never says the control plane returns a node private key
+  PASS  the document never says the control plane generates the node key pair
+  PASS  the document does not leak node existence ("该节点存在但凭据错误")
+  PASS  the document states that pre-auth failures collapse to one public code
   PASS  no REMOTE_ code collides with a local Bridge error code
   PASS  FR-028 row found in docs/02-REQUIREMENTS.md
   PASS  FR-028 is still DESIGNED (a protocol document must not imply implementation)
@@ -66,7 +107,7 @@ ATS-501 row 77: status=待审核 completion=1 remaining=0
   PASS  this task registers at least one ADR
   PASS  ATS-501 row found in docs/WBS.xlsx「开发WBS」
   PASS  ATS-501 status is one of the workbook's allowed values
-  PASS  ATS-501 status is 待审核 (frozen and submitted, not yet accepted)
+  PASS  ATS-501 status is 待审核 or 进行中 or 已完成
   PASS  ATS-501 completion rate is a number in [0,1]
   PASS  ATS-501 remaining days equal estimate * (1 - completion)
   PASS  ATS-501 acceptance criteria are the frozen five elements
@@ -76,13 +117,16 @@ ATS-501 row 77: status=待审核 completion=1 remaining=0
   PASS  acceptance element 「版本握手」 has a dedicated section
   PASS  acceptance element 「租户隔离」 has a dedicated section
   PASS  acceptance element 「拒绝规则」 has a dedicated section
+  PASS  the ATS-501 note points at the current protocol document name
+  PASS  the ATS-501 note does not point at the old document name
   PASS  the document contains no unqualified claim that the remote plane is implemented
   PASS  the document declares its own design status
+  PASS  the implemented-claim matcher is not vacuous (positive control fires)
+  PASS  the implemented-claim matcher ignores a negated claim (negative control)
 
-checks passed : 64/64
-remote codes  : 24
-threats       : 13
+checks passed : 108/108
+remote codes  : 25
+threats       : 14
 
 RESULT: OK -- the remote protocol contract is self-consistent and agrees with the WBS row, the requirement badges and the baseline ADR register.
-
-EXIT_CODE=0
+exit code   : 0
