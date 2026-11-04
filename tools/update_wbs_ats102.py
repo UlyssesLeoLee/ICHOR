@@ -134,7 +134,11 @@ def main():
         'ATS-106': '前置 ATS-102 已交付 CI 门禁（npm ci + npm test）；本项须新增「真实 Playwright CLI 参数契约测试」'
                    '并接入该门禁，否则 B-01 仍会被测试双桩掩盖',
         'ATS-107': '前置 ATS-102 已交付 CI 门禁；本项的真实浏览器夹具须在 apps/studio 或独立工程内以 lockfile 固定依赖',
-        'ATS-108': '前置 ATS-102 已交付 CI 门禁；本项的重启恢复与幂等回归须接入该门禁',
+        'ATS-108': '前置 ATS-102 已交付 CI 门禁；本项的重启恢复与幂等回归须接入该门禁。'
+                   '另：ATS-102 定位环境问题时发现 server/index.mjs 的 cancelRun() 用 spawn(\'taskkill\') 强杀子进程树，'
+                   '但该 spawn 的 error 事件无人监听——taskkill 不可用时 ENOENT 变成 unhandled error 事件，'
+                   '整个 Bridge 进程崩溃（docs/evidence/ATS-102/05-windows-shell-path-pitfall.log）。'
+                   '该缺陷与 B-03（恢复集合遗漏 cancelling）是两处不同的问题，须一并覆盖',
     }
     marker = '【ATS-102】'
     for ats, note in notes.items():

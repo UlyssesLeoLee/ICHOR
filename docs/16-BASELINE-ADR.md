@@ -399,7 +399,7 @@ GNU_BUILD_EXIT=101
 - **建议调整 WBS 归属**：
   - B-01 → **ATS-106**（Playwright CLI 环境检测与参数安全基线）应升级为 P0 关键阻断，并新增「真实 CLI 参数契约测试」验收项；执行类任务的 ATS-107 须在其后进行。
   - B-02 → **ATS-104** 验收标准须补入「构建镜像含 MSVC C++ 构建工具工作负载」**与「仓库提供 `src-tauri/icons/icon.ico`（或 `bundle.icon` 列出 `.ico`）」**，并明确「**验收以 `cargo build`（含最终链接）为准，不以 `cargo check` 为准**」；ATS-102 的 CI 脚本须固定该镜像。**上述为已知必要条件而非充分条件**——B-02 成因清单尚未穷尽（§4 B-02）。**ATS-102 进展**：CI workflow 已用 `runs-on: windows-2022`（自带 VS 2022 生成工具）固定镜像基线；但**未加入 Rust/Tauri job**——仓库现状下该 job 必然失败（B-02），加一个必红的 job 只会使门禁失效。该 job 属 ATS-104 交付范围，届时须连同 `.ico` 与 MSVC 链一并加入（`docs/17-BUILD-CI.md` §6.4）。
-  - B-03 → **ATS-108**（取消/超时/子进程树回收与重启 ST）须明确覆盖「cancelling 状态恢复」；ATS-112 须覆盖「终态操作幂等」**与错误归类/路径泄漏**（后者根因在 `server/index.mjs:132` 的统一错误映射，见 §3.2）。
+  - B-03 → **ATS-108**（取消/超时/子进程树回收与重启 ST）须明确覆盖「cancelling 状态恢复」；ATS-112 须覆盖「终态操作幂等」**与错误归类/路径泄漏**（后者根因在 `server/index.mjs:132` 的统一错误映射，见 §3.2）。**ATS-102 追加发现**：`cancelRun()` 用 `spawn('taskkill', ...)` 强杀子进程树，但该 spawn 的 'error' 事件**无人监听**——taskkill 不可用时 ENOENT 变成 unhandled 'error' 事件，**整个 Bridge 进程崩溃**。这与 B-03 是**两处不同的缺陷**，须一并覆盖（`docs/evidence/ATS-102/05-windows-shell-path-pitfall.log`）。
   - **B-01 与 B-03 须同批修复与回归**（§4 B-03 耦合说明）。
 - **阶段门禁**：在 B-01/B-02/B-03 关闭前，ATS-116（v0.1.1 质量门）不应放行，阶段出厂检查「设计一致性」「UT/IT」「ST/UAT」三项保持「待检查」。
 - **文档同步**：本文件、`docs/14-REVIEW-VERIFICATION.md`、`docs/13-ROADMAP.md` 与 `README.md` 对 B-02 的描述以本文 §4 为准，且四处口径一致（含 `icon.ico` 仓库缺陷与「成因清单未穷尽」的限定）。

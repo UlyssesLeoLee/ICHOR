@@ -10,11 +10,13 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 
 | 验收项 | 结论 | 证据 |
 |---|---|---|
-| Node 22 clean install | **PASS** | 干净克隆内 `npm ci` 根包 0 依赖 / `apps/studio` 57 包，48.4 s |
-| `npm test` | **PASS** | 20/20 通过（Node 内置 `node:test`） |
+| Node 22 clean install | **PASS** | 干净克隆内 `npm ci` 根包 0 依赖 / `apps/studio` 57 包，39.0 s |
+| `npm test` | **PASS** | **59/59** 通过（Node 内置 `node:test`；含 ATS-401 的 39 项） |
 | 锁文件可重现 | **PASS** | 两个独立克隆各跑一次 `npm ci`，安装树 sha256 完全一致 |
 | 生成依赖清单 | **PASS** | `docs/dependencies/dependency-manifest.{json,md}`，88 个依赖全部有许可 |
 | Windows CI 构建脚本 | **PASS** | `.github/workflows/ats-102-build.yml`，3 个 job；本地以 `tools/ci_build_gate.mjs` 逐步复现并全绿 |
+
+**最终验收运行**（合并 `dev` 之后的全新克隆，门禁退出码 **0**）：`docs/evidence/ATS-102/04-final-clean-clone-gate.log`。
 
 **本次交付同时关闭了 ATS-101 §5.1 指出的两处「ATS-102 待办」**：仓库此前既无 lockfile 也无 CI 配置。
 
@@ -133,7 +135,48 @@ RESULT: OK -- the committed dependency manifest matches the lockfiles.
 RESULT: OK -- every build-gate step passed.
 ```
 
-**门禁退出码 0**；门禁跑完后 `git status --short` 为**空**（工作区干净），即构建不再留下脏文件。完整日志：`docs/evidence/ATS-102/01-clean-clone-build-gate.log`。
+**门禁退出码 0**；门禁跑完后 `git status --short` 为**空**（工作区干净），即构建不再留下脏文件。
+
+完整日志：
+
+| 文件 | 内容 |
+|---|---|
+| `docs/evidence/ATS-102/01-clean-clone-build-gate.log` | 首次干净克隆的门禁全绿运行 |
+| `docs/evidence/ATS-102/02-first-run-failures-found.log` | **更早一次**干净克隆的失败运行——保留以证明那两个缺陷确实存在过并被修复，而不是从未发生 |
+| `docs/evidence/ATS-102/03-lockfile-reproducibility.log` | 两个独立克隆各装一次，安装树 sha256 一致；两个 lockfile 安装前后哈希不变 |
+| `docs/evidence/ATS-102/04-final-clean-clone-gate.log` | **最终验收运行**：合并 `dev`（纳入 ATS-401）之后的全新克隆，门禁退出码 0，59/59 测试通过 |
+| `docs/evidence/ATS-102/05-windows-shell-path-pitfall.log` | Windows/Git-Bash 下的 PATH 形态坑（`spawn taskkill ENOENT` 导致 Bridge 崩溃）与修正 |
+
+### 4.1 合并 `dev` 后的最终验收
+
+`dev` 在本任务期间前进到了 `0f52347`（纳入 ATS-401 的 Agent 契约层，测试数由 20 增至 59）。因此最终验收在**合并 `dev` 之后**的全新克隆上重跑：
+
+```
+$ node tools/ci_build_gate.mjs
+--- [install] PASSED (38982 ms)
+--- [lockcheck] PASSED (65 ms)
+--- [test] PASSED (1676 ms)      # tests 59 / pass 59 / fail 0
+--- [build] PASSED (7942 ms)
+--- [manifest] PASSED (174 ms)
+RESULT: OK -- every build-gate step passed.
+$ echo $?
+0
+```
+
+门禁跑完后 `git status --short` 为空、两个 lockfile 的 `git diff` 为空。
+
+### 4.2 在 Windows/Git-Bash 上准备环境
+
+门禁会启动原生 Windows 子进程（`npm.cmd` → `cmd.exe`），而产品代码在 Windows 上用 `spawn('taskkill', ...)` 强杀子进程树。因此 PATH 必须是 **MSYS 形式**（`/c/Windows/system32`），写成 Windows 形式（`C:/Windows/system32`）会被 MSYS 改写成 `C:\Program Files\Git\Windows\system32`，导致 `taskkill.exe` 找不到、`spawn taskkill ENOENT` 变成未监听的 'error' 事件、**整个 Bridge 崩溃**，表现为 `IT-RUN-MOCK-002` 失败。
+
+```bash
+source tools/ats102-env.sh
+node tools/ci_build_gate.mjs
+```
+
+该坑的完整定位过程见 `docs/evidence/ATS-102/05-windows-shell-path-pitfall.log`。**该失败不是本次交付引入的回归**——在 `dev` 单独克隆上、在 ATS-101 基线 commit `c68bc0c` 上同样复现。
+
+> 附带发现（产品侧，属 ATS-108）：`spawn('taskkill', ...)` 的 'error' 事件无人监听，一次停止请求失败会让整个 Bridge 进程崩溃。该缺陷与 B-03（状态恢复集合遗漏 `cancelling`）**相邻但不同**，不在本任务范围内。
 
 ## 5. 依赖清单（NFR-012 的数据基础）
 
@@ -204,6 +247,21 @@ ATS-101 §8 建议：「ATS-102 的 CI 脚本须固定该镜像」。本次的 w
 
 **但这不构成 B-02 已关闭**：B-02 的成因清单尚未穷尽（`docs/16-BASELINE-ADR.md` §4 B-02），且仓库仍缺 `src-tauri/icons/icon.ico`。本次 workflow **未加入 Rust/Tauri job**——理由是：仓库现状下该 job 必然失败（B-02），加一个必红的 job 只会让门禁失去意义。**该 job 属于 ATS-104 的交付范围**，届时应连同 `.ico` 资源与 MSVC 链一并加入。
 
+### 6.5 对 ATS-108（取消/超时/子进程树回收）的新增发现
+
+§4.2 的定位过程中发现：`server/index.mjs` 的 `cancelRun()` 在 Windows 上用 `spawn('taskkill', ...)` 强杀子进程树，但**该 spawn 的 'error' 事件无人监听**。当 `taskkill` 不可用时，ENOENT 变成 unhandled 'error' 事件，**整个 Bridge 进程崩溃**——本应只影响一次停止请求的失败，波及整个服务。
+
+这与 B-03（`docs/16-BASELINE-ADR.md` §4 B-03）是**两处不同的缺陷**：B-03 是状态恢复集合遗漏 `cancelling`；本条是子进程 spawn 失败无兜底。归属建议：**ATS-108**。
+
+### 6.6 与 `dev` 的合并
+
+本任务期间 `dev` 前进到 `0f52347`（纳入 ATS-401 的 Agent 契约层，测试数由 20 增至 59）。合并时出现 3 处冲突，全部是**两侧各自新增内容**（`docs/00-INDEX.md` 的文档目录表、`docs/16-BASELINE-ADR.md` §8 的 B-02/B-03 两行、`docs/WBS.xlsx` 的二进制），因此**保留双方**而非取一侧：
+
+- `docs/WBS.xlsx`：取 `dev` 的版本（含 ATS-101 已完成、ATS-401 待审核），再用 `tools/update_wbs_ats102.py` 施加 ATS-102 的行改动；该脚本的总览缓存值改为**从表格重算**（沿用 `dev` 的 `summarise` 约定），不再硬编码，因此对其它行的完成率状态不敏感。
+- `docs/16-BASELINE-ADR.md`：取 `dev` 的行号（`server/index.mjs:132`——ATS-401 加了代码后行号右移，已对合并后的源码逐行核对确认），并保留本次追加的「ATS-102 进展」说明。
+
+合并后实测：`npm test` **59/59** 通过，构建门禁 5 步全绿（§4.1）。
+
 ## 7. 未验证项声明（PENDING ≠ PASS）
 
 1. **GitHub Actions 未在真实 runner 上执行**。原因见 §1 第 1 条：远端 `main` 仅有 LICENSE、本分支未推送，无法触发真实 CI。workflow 的**命令序列**已由本地门禁脚本逐步复现并全绿，但**runner 环境的实际行为**（`actions/setup-node` 的缓存、artifact 上传、`windows-2022` 镜像内容）未验证。
@@ -213,6 +271,8 @@ ATS-101 §8 建议：「ATS-102 的 CI 脚本须固定该镜像」。本次的 w
 5. **16 个需复核依赖的最终法律结论未出**（§5.2）。
 6. **macOS / Linux 上未实测**。本次全部实测在 Windows 11 上完成；lockfile 的 `resolved` 与 `optional` 条目覆盖其他平台，但安装树的跨平台一致性未验证。
 7. **CI 的并发取消（`concurrency`）与 artifact 保留行为未实测**。
+8. **产品的 `spawn('taskkill')` 无兜底缺陷未修**（§6.5）——本任务只记录与定位，未改产品代码（属 ATS-108）。
+9. **门禁在 GitHub runner 上的 PATH/工具链差异未验证**：本地用 `tools/ats102-env.sh` 准备 MSYS 形式的 PATH（§4.2），而 GitHub 的 Windows runner 由 `actions/setup-node` 直接配置 PATH，二者的差异未实测。
 
 ## 8. 冻结声明
 
