@@ -31,6 +31,9 @@
  *                                                        # package.json files
  *   node tools/tree_digest.mjs --check <tree-root>      # compare against the
  *                                                        # recorded digest
+ *   node tools/tree_digest.mjs <tree-root> --manifest <file>
+ *                                                        # write the per-file
+ *                                                        # digest list
  *
  * Exit code 0 on success, 1 if the tree root does not exist or the digest
  * does not match the recorded value.
@@ -43,6 +46,8 @@ const argv = process.argv.slice(2);
 const CHECK = argv.includes('--check');
 const PACKAGE_JSON_ONLY = argv.includes('--package-json-only');
 const treeRoot = argv.find((a) => !a.startsWith('--'));
+const manifestIndex = argv.indexOf('--manifest');
+const MANIFEST_OUT = manifestIndex >= 0 ? argv[manifestIndex + 1] : null;
 
 if (!treeRoot) {
   console.error('usage: node tools/tree_digest.mjs [--check] <tree-root> [--package-json-only]');
@@ -68,17 +73,42 @@ function collect(dir, acc) {
     } else if (entry.isFile()) {
       const rel = path.relative(root, full).split(path.sep).join('/');
       if (PACKAGE_JSON_ONLY && path.basename(rel) !== 'package.json') continue;
-      acc.push([rel, fs.readFileSync(full)]);
+      acc.push(rel);
     }
   }
   return acc;
 }
 
+/**
+ * The digest of one file, read as a STREAM rather than buffered whole.
+ *
+ * Buffering every file at once is what the first version of this tool did,
+ * and it died with "RangeError: Array buffer allocation failed" on a large
+ * tree -- an installed tree here is ~17000 files and the machine was under
+ * memory pressure. Hashing per file and keeping only the hex digest means
+ * peak memory is one file, not one tree.
+ */
+function hashFile(full) {
+  const hash = crypto.createHash('sha256');
+  const fd = fs.openSync(full, 'r');
+  try {
+    const buf = Buffer.allocUnsafe(1 << 16);
+    for (;;) {
+      const bytes = fs.readSync(fd, buf, 0, buf.length, null);
+      if (bytes <= 0) break;
+      hash.update(buf.subarray(0, bytes));
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+  return hash.digest('hex');
+}
+
 const files = collect(root, []);
-files.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+files.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 
 const lines = files.map(
-  ([rel, bytes]) => `${rel}\0${crypto.createHash('sha256').update(bytes).digest('hex')}`,
+  (rel) => `${rel}\0${hashFile(path.join(root, ...rel.split('/')))}`,
 );
 
 const treeDigest = crypto
@@ -90,6 +120,15 @@ console.log(`tree root      : ${root}`);
 console.log(`scope          : ${PACKAGE_JSON_ONLY ? 'package.json files only' : 'all files'}`);
 console.log(`file count     : ${files.length}`);
 console.log(`tree sha256    : ${treeDigest}`);
+
+/**
+ * The per-file digest list. It is what makes a mismatch diagnosable: the
+ * tree digest alone would leave a reviewer comparing 17000+ files by hand.
+ */
+if (MANIFEST_OUT) {
+  fs.writeFileSync(MANIFEST_OUT, `${lines.join('\n')}\n`, 'utf8');
+  console.log(`manifest       : ${MANIFEST_OUT}`);
+}
 
 /**
  * The recorded digests live in a plain text file next to this tool, so that
@@ -144,7 +183,10 @@ if (!CHECK) {
         `installed tree digest mismatch for scope "${scope}" on platform "${platform}":\n` +
           `  expected ${expectedDigest}\n` +
           `  actual   ${treeDigest}\n` +
-          'The installed tree does not match the lockfiles it was installed from.',
+          `  files    ${files.length}\n` +
+          'The installed tree does not match the lockfiles it was installed from.\n' +
+          'To locate the differing files, write a manifest for each tree and diff them:\n' +
+          '  node tools/tree_digest.mjs <tree> --manifest <file>',
       );
       process.exit(1);
     }
