@@ -48,6 +48,7 @@
 - **Playwright Runner 实际浏览器执行：未通过产品源码验证，且已确认必然失败**（B-01：参数向量含两个不存在的 CLI 选项）。待 ATS-106 修复后重测 ST-008/011。
 - **Next.js 编译：已实测通过**（16.4.4 静态导出，产物可由 Bridge 伺服）；**Tauri native：未通过**（B-02：msvc 链缺 MSVC C++ 工作负载；**仓库缺 `src-tauri/icons/icon.ico`（仓库内容缺陷，仅装 MSVC 不能修复）**；gnu 链 `cargo build` 最终链接因 cdylib 导出序号超限失败）。**成因清单尚未穷尽**，验收须以 `cargo build`（含最终链接）为准。待 ATS-104 修复后重测 ST-021/022。
 - **P1/P2 能力：仅设计，不作实现交付承诺**。
+- **远程执行面（ATS-501，2026-11-04）**：协议、信任边界、威胁模型与拒绝规则已冻结于 `docs/19-REMOTE-RUNNER-PROTOCOL.md`（ADR-015~023），全部标记 **DESIGNED**；仓库内**没有任何远程执行面实现**，因此本项**无实机证据**。可执行的只有协议自身的机读契约校验（`tools/ats501-probes/audit-remote-protocol.mjs`，108/108 检查通过）与证明该校验非空转的负向夹具（`tools/ats501-probes/mutation-tests.mjs`，11/11 变异均变红），见 `docs/evidence/ATS-501/`——二者都不验证任何远程运行时行为。FR-028/FR-030 状态不变，仍为 `DESIGNED`。
 
 ## 4. 最终出厂检查
 
