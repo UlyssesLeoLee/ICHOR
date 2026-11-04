@@ -8,11 +8,17 @@
  *   - 把提案写回仓库的路径（评审通过后的应用由平台侧执行，契约层不提供）。
  *
  * 权限边界的实现方式（每条都可机器复核，见 tools/ats401-probes/）：
- *   1. 本模块只 import `node:crypto` 与 `node:path`，两者都不做 I/O，
- *      因此契约层在物理上无法写文件、执行命令或发起网络请求。
+ *   1. 本模块的**源码**不含任何 I/O 调用：只 import `node:crypto` 与
+ *      `node:path`，并且不引用 fetch / process / globalThis / WebSocket /
+ *      动态 import / require / process.getBuiltinModule。该性质由**静态检查**
+ *      守护（tools/ats401-probes/lib/contract-purity.mjs，带负控）——
+ *      注意这不是「物理上无法」：Node 运行时并不阻止上述能力，模块隔离、
+ *      只读挂载或子进程沙箱才是真正的隔离手段，留给平台侧（ATS-403）。
  *   2. 能力白名单里没有任何「写/提交」类能力；请求携带这类能力直接被拒绝。
  *   3. 提案只承载 diff 与分析结论，`approval` 恒为 `pending`，且提案人不能自审。
- *   4. 提案的 diff 目标必须落在 `scope.outputs` 内，且必须是测试脚本文件。
+ *   4. 提案的 diff 只接受能被完整解析的 unified diff；diff 头部里出现的
+ *      **每一个**路径都必须落在 `scope.outputs` 内且为测试脚本文件，
+ *      rename / copy / binary / mode change 一律拒绝。
  *
  * 错误码是稳定契约的一部分（见 AGENT_ERROR_CODES），调用方按 `err.code` 分支，
  * 不解析错误消息文本。
@@ -123,6 +129,12 @@ const HEX64 = /^[0-9a-f]{64}$/;
 const RUN_ID = /^run_[0-9a-f-]{36}$/;
 const MAX_TEXT = 8000;
 
+/**
+ * 超时竞速用的哨兵值。provider 的返回值不可能是这个对象，因此它与
+ * 「provider 正常返回」可区分。
+ */
+const TIMEOUT_SENTINEL = Object.freeze({ __agentTimeout: true });
+
 function fail(code, message, details) {
   const err = new Error(message);
   err.code = code;
@@ -231,31 +243,38 @@ export function validateAgentBudget(budget) {
   }
   if (budget.maxInputBytes > AGENT_BUDGET_LIMITS.maxInputBytes) {
     fail('AGENT_BUDGET_INVALID', 'budget.maxInputBytes exceeds the platform limit', {
+      field: 'maxInputBytes',
       limit: AGENT_BUDGET_LIMITS.maxInputBytes,
     });
   }
   if (budget.maxOutputBytes > AGENT_BUDGET_LIMITS.maxOutputBytes) {
     fail('AGENT_BUDGET_INVALID', 'budget.maxOutputBytes exceeds the platform limit', {
+      field: 'maxOutputBytes',
       limit: AGENT_BUDGET_LIMITS.maxOutputBytes,
     });
   }
   if (budget.maxSteps > AGENT_BUDGET_LIMITS.maxSteps) {
     fail('AGENT_BUDGET_INVALID', 'budget.maxSteps exceeds the platform limit', {
+      field: 'maxSteps',
       limit: AGENT_BUDGET_LIMITS.maxSteps,
     });
   }
   if (budget.deadlineMs > AGENT_BUDGET_LIMITS.deadlineMs) {
     fail('AGENT_BUDGET_INVALID', 'budget.deadlineMs exceeds the platform limit', {
+      field: 'deadlineMs',
       limit: AGENT_BUDGET_LIMITS.deadlineMs,
     });
   }
   if (budget.deadlineMs < AGENT_BUDGET_LIMITS.minDeadlineMs) {
     fail('AGENT_BUDGET_INVALID', 'budget.deadlineMs is below the platform minimum', {
+      field: 'deadlineMs',
       minimum: AGENT_BUDGET_LIMITS.minDeadlineMs,
     });
   }
   if (budget.maxTokens !== undefined && (!Number.isInteger(budget.maxTokens) || budget.maxTokens <= 0)) {
-    fail('AGENT_BUDGET_INVALID', 'budget.maxTokens must be a positive integer when present');
+    fail('AGENT_BUDGET_INVALID', 'budget.maxTokens must be a positive integer when present', {
+      field: 'maxTokens',
+    });
   }
   return {
     maxInputBytes: budget.maxInputBytes,
@@ -270,7 +289,15 @@ export function validateAgentBudget(budget) {
 
 /**
  * 输入出处（provenance）：每个输入必须说明「来自哪里」「内容是什么」「内容是否
- * 与声明的摘要一致」。摘要用 SHA-256 校验，因此出处不是自述字段，而是可验事实。
+ * 与声明的摘要一致」。
+ *
+ * 保证的边界（**不要读成比这更强**）：
+ *   - `ref` 必须落在已声明的作用域内 —— 请求读不到作用域外的**已声明**材料；
+ *   - `digest` 必须是 `content` 的 SHA-256 —— 摘要与内容**自洽**。
+ *
+ * 摘要与内容都由请求方提供，因此这一层证明的是「两者自洽」，**不能**证明
+ * `content` 确实来自 `ref` 所指的那份源文件。「ref 对应真实源内容」由**平台侧**
+ * 在构造请求时负责（读取文件后再计算摘要）；该平台侧实现尚未落地，属未验证项。
  */
 export function validateAgentInputs(inputs, scope) {
   if (!Array.isArray(inputs) || inputs.length === 0) {
@@ -328,6 +355,14 @@ export function validateAgentInputs(inputs, scope) {
     const key = `${kind}:${ref}`;
     if (seen.has(key)) fail('AGENT_PROVENANCE_INVALID', `duplicate provenance entry ${key}`);
     seen.add(key);
+
+    // 摘要必须与内容一致。这项检查放在**请求校验**层而不是只在适配器里，
+    // 因此 `POST /api/agent/validate` 与适配器对同一请求给出同一个判定。
+    if (sha256(content) !== digest) {
+      fail('AGENT_PROVENANCE_DIGEST_MISMATCH', `input ${ref} does not match its declared digest`, {
+        ref,
+      });
+    }
 
     return { kind, ref, digest, content, retrievedAt };
   });
@@ -440,17 +475,115 @@ function validateActions(actions, outputKind) {
   });
 }
 
+/**
+ * 拆开 `diff --git a/X b/Y` 的两侧。
+ *
+ * git 的这行在路径含空格时是有歧义的（`a/dir b/file b/dir b/file`）。拆分的
+ * 规则：先取**两侧路径相同**的那个分隔点（普通改动的常见情形），找不到再退回
+ * 第一个合法分隔点。
+ */
+function splitDiffGitPaths(rest) {
+  const candidates = [];
+  for (let i = 0; i < rest.length; i += 1) {
+    if (!rest.startsWith(' b/', i)) continue;
+    const left = rest.slice(0, i);
+    const right = rest.slice(i + 1);
+    if (left.startsWith('a/')) candidates.push([left, right]);
+  }
+  if (!candidates.length) return [];
+  const same = candidates.find(([left, right]) => left.slice(2) === right.slice(2));
+  return same || candidates[0];
+}
+
+/**
+ * 从 diff 头部里抽出**每一个**出现过的路径。
+ *
+ * 只看 `---`/`+++` 是不够的：git 的扩展头（rename from/to、copy from/to、
+ * Binary files…、old/new mode）根本不产生这两行，而 CRLF 结尾的header行
+ * 也会让按行匹配的写法失效。因此这里先把 CR 去掉，再逐类扫描头部关键字。
+ */
 function diffTargetPaths(diff) {
   const out = [];
-  for (const line of diff.split('\n')) {
-    const match = /^(?:---|\+\+\+)\s+(.+)$/.exec(line);
-    if (!match) continue;
-    let candidate = match[1].split('\t')[0].trim();
-    if (candidate === '/dev/null') continue;
-    if (candidate.startsWith('a/') || candidate.startsWith('b/')) candidate = candidate.slice(2);
-    out.push(toPosix(candidate));
+  const push = (candidate) => {
+    if (!candidate) return;
+    let value = candidate.split('\t')[0].trim();
+    if (!value || value === '/dev/null') return;
+    if (value.startsWith('"') && value.endsWith('"') && value.length > 1) {
+      value = value.slice(1, -1);
+    }
+    if (value.startsWith('a/') || value.startsWith('b/')) value = value.slice(2);
+    if (!value) return;
+    out.push(toPosix(value));
+  };
+
+  for (const raw of diff.split('\n')) {
+    // 头部行可能带 CR（CRLF diff）。去掉 CR 后再匹配，避免整行被跳过。
+    const line = raw.replace(/\r/g, '');
+    let match = /^(?:---|\+\+\+)\s+(.+)$/.exec(line);
+    if (match) {
+      push(match[1]);
+      continue;
+    }
+    match = /^diff --git\s+(.+)$/.exec(line);
+    if (match) {
+      // `diff --git a/X b/Y` —— 两侧都是路径，都要检查。
+      for (const side of splitDiffGitPaths(match[1].trim())) push(side);
+      continue;
+    }
+    match = /^(?:rename|copy) (?:from|to)\s+(.+)$/.exec(line);
+    if (match) {
+      push(match[1]);
+      continue;
+    }
+    match = /^Binary files\s+(.+?)\s+and\s+(.+?)\s+differ$/.exec(line);
+    if (match) {
+      push(match[1]);
+      push(match[2]);
+      continue;
+    }
   }
   return [...new Set(out)];
+}
+
+/**
+ * 找出 diff 里**不允许**出现的构造，并给出可复核的原因。
+ *
+ * 逐一拒绝：rename / copy、binary patch、`Binary files … differ`、
+ * `old mode`/`new mode`（含 mode change），以及任何非 100644 的 mode。
+ * 目的是让「diff 目标都在 scope.outputs 内」这条约束**不能被绕过**：
+ * 只要头部里出现一个作用域外的路径，整个提案就被拒。
+ */
+function diffForbiddenConstructs(diff) {
+  const forbidden = [];
+  for (const raw of diff.split('\n')) {
+    const line = raw.replace(/\r/g, '');
+    if (/^diff --git\s/.test(line)) continue; // 已在 diffTargetPaths 里按路径处理
+    if (/^(?:rename|copy) (?:from|to)\s/.test(line)) {
+      forbidden.push({ construct: 'rename-or-copy', line });
+      continue;
+    }
+    if (/^GIT binary patch\s*$/.test(line)) {
+      forbidden.push({ construct: 'git-binary-patch', line });
+      continue;
+    }
+    if (/^Binary files\s/.test(line)) {
+      forbidden.push({ construct: 'binary-files-differ', line });
+      continue;
+    }
+    if (/^(?:old|new) mode\s+/.test(line)) {
+      forbidden.push({ construct: 'mode-change', line });
+      continue;
+    }
+    if (/^new file mode\s+/.test(line)) {
+      const mode = line.replace(/^new file mode\s+/, '').trim();
+      if (mode !== '100644') forbidden.push({ construct: 'non-100644-mode', line });
+      continue;
+    }
+    if (/^deleted file mode\s+/.test(line)) {
+      forbidden.push({ construct: 'deleted-file', line });
+    }
+  }
+  return forbidden;
 }
 
 function validateDiff(diff, scope, outputKind) {
@@ -470,6 +603,16 @@ function validateDiff(diff, scope, outputKind) {
     fail('AGENT_PROPOSAL_INVALID', `a ${outputKind} proposal must not carry a diff`);
   }
   if (!/^@@ .*@@/m.test(diff)) fail('AGENT_PROPOSAL_INVALID', 'proposal.diff is not a unified diff');
+
+  // 不允许的构造先拒：rename / copy / binary / mode change。
+  const forbidden = diffForbiddenConstructs(diff);
+  if (forbidden.length) {
+    fail('AGENT_PROPOSAL_OUT_OF_SCOPE', `proposal.diff uses a forbidden construct: ${forbidden[0].construct}`, {
+      construct: forbidden[0].construct,
+    });
+  }
+
+  // 头部里出现的**每一个**路径都要落在 scope.outputs 内。
   const targets = diffTargetPaths(diff);
   if (!targets.length) fail('AGENT_PROPOSAL_INVALID', 'proposal.diff does not name a target file');
   for (const target of targets) {
@@ -668,13 +811,8 @@ export function createAgentAdapter({
         }
       }
 
-      for (const input of request.inputs) {
-        if (sha256(input.content) !== input.digest) {
-          fail('AGENT_PROVENANCE_DIGEST_MISMATCH', `input ${input.ref} does not match its declared digest`, {
-            ref: input.ref,
-          });
-        }
-      }
+      // 摘要一致性已在 validateAgentRequest() 内检查（请求校验层），
+      // 因此 API 校验端点与适配器对同一请求给出同一个判定。
 
       const transmitted = request.inputs.filter((input) => request.egress.kinds.includes(input.kind));
       const inputBytes = Buffer.byteLength(
@@ -692,13 +830,44 @@ export function createAgentAdapter({
       const deadlineAt = startedAt + request.budget.deadlineMs;
       const providerRequest = buildProviderRequest(request, transmitted);
 
+      // 截止时间是**强制**的，不是事后检查：provider 挂起时也必须返回。
+      // AbortController 把 signal 交给 provider（它应当主动中止底层请求），
+      // Promise.race 保证即使 provider 忽略 signal，适配器也会在 deadline
+      // 到达时以 AGENT_BUDGET_EXCEEDED 结束这次调用。
+      const controller = new AbortController();
+      let timer = null;
+      let timedOut = false;
+      const timeout = new Promise((resolve) => {
+        timer = setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+          resolve(TIMEOUT_SENTINEL);
+        }, request.budget.deadlineMs);
+        if (typeof timer.unref === 'function') timer.unref();
+      });
+
       let response;
       try {
-        response = await provider.complete(providerRequest, { deadlineAt });
+        response = await Promise.race([
+          provider.complete(providerRequest, { deadlineAt, signal: controller.signal }),
+          timeout,
+        ]);
       } catch (error) {
+        if (timedOut) {
+          fail('AGENT_BUDGET_EXCEEDED', 'the call exceeded budget.deadlineMs', {
+            deadlineMs: request.budget.deadlineMs,
+          });
+        }
         fail('AGENT_PROVIDER_ERROR', `provider ${provider.id} failed`, {
           provider: provider.id,
           cause: error && error.message ? error.message : String(error),
+        });
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+      if (response === TIMEOUT_SENTINEL) {
+        fail('AGENT_BUDGET_EXCEEDED', 'the call exceeded budget.deadlineMs', {
+          deadlineMs: request.budget.deadlineMs,
         });
       }
       if (!isPlainObject(response) || typeof response.text !== 'string') {
@@ -712,7 +881,9 @@ export function createAgentAdapter({
         });
       }
       if (Date.now() > deadlineAt) {
-        fail('AGENT_BUDGET_EXCEEDED', 'the call exceeded budget.deadlineMs');
+        fail('AGENT_BUDGET_EXCEEDED', 'the call exceeded budget.deadlineMs', {
+          deadlineMs: request.budget.deadlineMs,
+        });
       }
 
       let raw;

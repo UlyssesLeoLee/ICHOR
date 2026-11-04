@@ -1,25 +1,30 @@
 === ATS-401 probe: Agent contract v1 permission boundary ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-16e44f6f08bb\worktree
-work root : C:\Users\seiko\AppData\Local\Temp\multica-task-4264754514\ats401-probes
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-f647eb9bbd9f\worktree
+work root : C:\Users\seiko\AppData\Local\Temp\multica-task-1633316846\ats401-probes
 
 --- signal 1a: static analysis of server/agent.mjs ---
   imports: node:crypto, node:path
-  [PASS] agent.mjs does not import node:fs
-  [PASS] agent.mjs does not import node:fs/promises
-  [PASS] agent.mjs does not import fs
-  [PASS] agent.mjs does not import node:child_process
-  [PASS] agent.mjs does not import child_process
-  [PASS] agent.mjs does not import node:net
-  [PASS] agent.mjs does not import node:http
-  [PASS] agent.mjs does not import node:https
-  [PASS] agent.mjs does not import node:dgram
-  [PASS] agent.mjs does not import node:tls
   [PASS] agent.mjs imports only node:crypto and node:path -- node:crypto, node:path
+  [PASS] agent.mjs does not reference the fetch global
+  [PASS] agent.mjs does not reference the WebSocket global
+  [PASS] agent.mjs does not reference the XMLHttpRequest global
+  [PASS] agent.mjs does not reference the process global
+  [PASS] agent.mjs does not reference the globalThis global
+  [PASS] agent.mjs does not reference the global global
+  [PASS] the contract layer source contains no I/O capability -- forbidden modules: none; forbidden globals: none
 
 --- signal 1c: negative control -- the detector must fire on a broken copy ---
-  [PASS] the detector flags a copy that imports node:fs -- flagged: node:fs
-  [PASS] the detector flags a copy that imports node:child_process -- flagged: node:child_process
-  [PASS] the detector flags a copy that imports node:https -- flagged: node:https
+  [PASS] the detector flags a static import of node:fs -- flagged: module:node:fs
+  [PASS] the detector flags a static import of node:child_process -- flagged: module:node:child_process
+  [PASS] the detector flags a static import of node:https -- flagged: module:node:https
+  [PASS] the detector flags a double-quoted import of node:fs -- flagged: module:node:fs
+  [PASS] the detector flags process.getBuiltinModule("node:fs") -- flagged: module:node:fs, global:process
+  [PASS] the detector flags a bare global fetch() call -- flagged: global:fetch
+  [PASS] the detector flags a dynamic import of node:child_process -- flagged: module:node:child_process
+  [PASS] the detector flags a require() of node:fs -- flagged: module:node:fs
+  [PASS] the detector flags a reference to the process global -- flagged: global:process
+  [PASS] the detector flags a reference to the globalThis global -- flagged: global:globalThis
+  [PASS] the detector flags a WebSocket call -- flagged: global:WebSocket
 
 --- signal 1b: runtime check that the fixture repo is untouched ---
   [PASS] fixture repo is a git repository
@@ -46,6 +51,16 @@ work root : C:\Users\seiko\AppData\Local\Temp\multica-task-4264754514\ats401-pro
   [PASS] a diff escaping the project root is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
   [PASS] the producer cannot review its own proposal -- code=AGENT_REVIEW_SELF_FORBIDDEN
   [PASS] an independent reviewer can approve
+
+--- signal 3b: every path in the diff header is scope-checked ---
+  [PASS] a rename section that moves server/index.mjs out of the scope is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a copy section that copies a file outside the scope is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a mode change on a file outside the scope is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a CRLF-terminated diff section targeting a file outside the scope is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a binary patch creating a file outside the scope is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a Binary files ... differ section targeting a file outside the scope is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a diff --git header naming a file outside the scope is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a new test script inside scope.outputs is accepted
 
 --- verdict ---
 PASS: the agent contract cannot write, commit, or apply a proposal

@@ -27,6 +27,8 @@ import shutil
 import zipfile
 from pathlib import Path
 
+from wbs_common import set_marked_cell, set_narrative_cell
+
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 SHEET2 = 'xl/worksheets/sheet2.xml'
 SHEET1 = 'xl/worksheets/sheet1.xml'
@@ -143,16 +145,10 @@ def main():
     marker = '【ATS-102】'
     for ats, note in notes.items():
         rid, _rm = find_ats_row(xml2, ats)
-        m = re.search(r'<x:c r="T%d"[^>]*>(.*?)</x:c>' % rid, xml2, re.S)
-        if m is None:
-            raise SystemExit(f'T{rid} not found')
-        cur = re.search(r'<x:v>(.*?)</x:v>', m.group(1), re.S)
-        current = cur.group(1) if cur else ''
-        # drop a previous copy of this script's note, keep everything else
-        head = current.split(marker)[0] if marker in current else current
-        merged = (head.rstrip('；') + '；' if head else '') + marker + note
-        new_cell = '<x:c r="T%d" t="str"><x:v>%s</x:v></x:c>' % (rid, merged)
-        xml2 = xml2[:m.start()] + new_cell + xml2[m.end():]
+        # The marker-aware merge keeps every other task's marked block in the
+        # same cell and re-emits the blocks in canonical order, so the result
+        # does not depend on which updater ran last.
+        xml2 = set_marked_cell(xml2, rid, 'T', marker, note)
 
     parts[SHEET2] = xml2.encode('utf-8')
 
@@ -165,18 +161,11 @@ def main():
     xml1 = set_cell_in_row(xml1, 8, 'B', str(done), numeric=True)                    # COUNTIF(已完成)
     xml1 = set_cell_in_row(xml1, 9, 'B', repr(rate), numeric=True)                    # 1-SUM(P)/SUM(K)
     xml1 = set_cell_in_row(xml1, 10, 'B', str(int(sum_p)) if sum_p == int(sum_p) else str(sum_p), numeric=True)
-    xml1 = set_cell_in_row(
-        xml1, 6, 'D',
-        'v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT；'
-        'Next.js 16 静态导出构建已实测通过（ATS-101）；'
-        'Agent 契约层已实现（ATS-401）；'
-        '锁文件、依赖清单与 CI 构建门禁已交付（ATS-102）。')
-    xml1 = set_cell_in_row(
-        xml1, 7, 'D',
-        '真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过'
-        '（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；'
-        'CI workflow 未在真实 runner 上跑过（ATS-102）；'
-        '详见 docs/16-BASELINE-ADR.md、docs/17-BUILD-CI.md 与 docs/17-AGENT-CONTRACT.md。')
+    # The two narrative cells are shared with every other WBS updater. Each
+    # task contributes one marked fragment and the cell is the composition of
+    # all of them, so this script can no longer erase another task's text.
+    xml1 = set_narrative_cell(xml1, 6, 'D6')
+    xml1 = set_narrative_cell(xml1, 7, 'D7')
     parts[SHEET1] = xml1.encode('utf-8')
     print(f'overview: 已完成={done} 完成率={rate} 剩余人日={sum_p}')
 

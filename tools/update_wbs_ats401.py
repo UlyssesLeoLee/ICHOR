@@ -28,6 +28,8 @@ import shutil
 import zipfile
 from pathlib import Path
 
+from wbs_common import set_marked_cell
+
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 SHEET2 = 'xl/worksheets/sheet2.xml'
 SHEET1 = 'xl/worksheets/sheet1.xml'
@@ -68,8 +70,12 @@ NOTE = (
     '【ATS-401】Agent 契约 v1 已实现并实测（agent-contract/v1）：'
     '请求须带作用域/预算/输入出处，角色对应能力白名单，产出为待审提案，提案人不得自审；'
     '写入与提交类能力（write_source/git_commit/update_expected 等）在请求层一律被拒，'
-    '契约层只 import node:crypto 与 node:path 因而物理上无法写文件或发网络请求。'
-    'UT/IT 39 项新增、npm test 共 59 项全通过；'
+    '契约层源码只 import node:crypto 与 node:path 且不含任何 I/O 调用（静态检查守护，'
+    '并非「物理上无法」；运行时隔离属 ATS-403），'
+    'diff 头部里的每一个路径都必须在 scope.outputs 内，rename/copy/binary/mode change 一律拒绝，'
+    '摘要与内容在请求校验层复算比对（/api/agent/validate 与适配器同一判定），'
+    '截止时间由 AbortController + Promise.race 强制施加。'
+    'UT/IT 共 81 项（66 UT + 15 IT）、npm test 共 101 项全通过；'
     '复现脚本 tools/ats401-probes/probe-agent-boundary.mjs（含负控），'
     '证据 docs/evidence/ATS-401/。'
     '未实现（不属本项）：模型提供商接入（ATS-403）、API Key 存储与外传知情授权（ATS-402）、'
@@ -131,15 +137,10 @@ def main():
     xml2 = set_cell_in_row(xml2, rid, 'P', '0', numeric=True)
 
     # 风险/说明: append the ATS-401 note, replacing a previous copy of it.
-    m = re.search(r'<x:c r="T%d"[^>]*>(.*?)</x:c>' % rid, xml2, re.S)
-    if m is None:
-        raise SystemExit(f'T{rid} not found')
-    cur = re.search(r'<x:v>(.*?)</x:v>', m.group(1), re.S)
-    current = cur.group(1) if cur else ''
-    head = current.split('【ATS-401】')[0].rstrip('；')
-    merged = (head + '；' if head else '') + NOTE
-    new_cell = '<x:c r="T%d" t="str"><x:v>%s</x:v></x:c>' % (rid, merged)
-    xml2 = xml2[:m.start()] + new_cell + xml2[m.end():]
+    # The marker-aware merge keeps every other task's marked block in the
+    # same cell and re-emits the blocks in canonical order, so the result
+    # does not depend on which updater ran last.
+    xml2 = set_marked_cell(xml2, rid, 'T', '【ATS-401】', NOTE)
 
     parts[SHEET2] = xml2.encode('utf-8')
 

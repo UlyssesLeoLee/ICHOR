@@ -1,0 +1,227 @@
+=== ATS-501 evidence: baseline regression: npm test / node --check / port audit ===
+date        : 2026-11-04T08:27:36Z (UTC)
+commit      : 06cc90c7318c2a597b35981c4887ea330b064ebd
+node        : v24.19.0
+command     : npm test && node --check server/index.mjs && node tools/ats101-probes/scenario-d-port-audit.mjs
+
+--- npm test ---
+npm notice run ai-test-studio@0.1.0 test
+npm notice run node --test tests/*.test.mjs
+✔ IT-AGT-SETUP: start server (203.4686ms)
+✔ IT-AGT-001: the contract description is exposed (5.0748ms)
+✔ IT-AGT-002: the contract endpoint requires a session token (3.6368ms)
+✔ IT-AGT-003: a valid request is accepted by the validator (11.081ms)
+✔ IT-AGT-004: a request asking for a forbidden capability is rejected with 400 (8.7907ms)
+✔ IT-AGT-005: a request without a budget is rejected with 400 (4.67ms)
+✔ IT-AGT-006: a request without provenance is rejected with 400 (4.658ms)
+✔ IT-AGT-007: a request whose scope escapes the project root is rejected with 400 (5.0742ms)
+✔ IT-AGT-008: validating a request does not write to the project (5.4531ms)
+✔ IT-AGT-009: the diagnostics endpoint reports the agent contract status (2.8783ms)
+✔ IT-AGT-010: a request whose digest does not match its content is rejected with 400 (3.5603ms)
+✔ IT-AGT-011: an AGENT_* error carries machine-readable details (3.9023ms)
+✔ IT-AGT-012: the error details never contain a local filesystem path (4.4375ms)
+✔ IT-AGT-013: a non-agent error keeps the pre-ATS-401 behaviour (4.0792ms)
+✔ IT-AGT-CLEANUP: stop and cleanup (7.5327ms)
+✔ UT-AGT-001: contract version and roles are stable (2.373ms)
+✔ UT-AGT-002: no role holds a write or commit capability (0.2293ms)
+✔ UT-AGT-003: scope requires an absolute root and at least one input target (0.6322ms)
+✔ UT-AGT-004: scope rejects paths that escape the project root (0.3361ms)
+✔ UT-AGT-005: scope outputs must be test script files (0.3557ms)
+✔ UT-AGT-006: budget must be present, integral and within platform limits (0.4093ms)
+✔ UT-AGT-007: provenance must be present and inside the declared scope (1.6866ms)
+✔ UT-AGT-008: provenance digest must be a sha256 hex digest (0.3591ms)
+✔ UT-AGT-009: a request asking for a forbidden capability is rejected (0.6239ms)
+✔ UT-AGT-010: an unknown contract version is rejected (0.2096ms)
+✔ UT-AGT-011: an unknown role is rejected (0.1408ms)
+✔ UT-AGT-012: a request cannot claim a capability its role does not grant (0.3148ms)
+✔ UT-AGT-013: a diff targeting a file outside scope.outputs is rejected (4.06ms)
+✔ UT-AGT-014: a diff targeting a non test-script file is rejected (0.4477ms)
+✔ UT-AGT-015: a diff escaping the project root is rejected (0.4005ms)
+✔ UT-AGT-016: scope.outputs cannot declare a path outside the project root (0.1785ms)
+✔ UT-AGT-017: the approval state of a proposal is always pending (0.4594ms)
+✔ UT-AGT-018: a script-diff proposal must cite provenance evidence (0.3563ms)
+✔ UT-AGT-019: the producer may not review its own proposal (0.3285ms)
+✔ UT-AGT-020: only a pending proposal can be reviewed (0.2989ms)
+✔ UT-AGT-021: the adapter rejects a forbidden capability at construction time (0.232ms)
+✔ UT-AGT-022: the adapter rejects a capability the role does not grant (0.164ms)
+✔ UT-AGT-023: the adapter rejects a request whose role it does not serve (0.9953ms)
+✔ UT-AGT-024: the adapter rejects input whose content does not match its digest (0.3148ms)
+✔ UT-AGT-025: the adapter rejects provider output that is not JSON (0.7289ms)
+✔ UT-AGT-026: the adapter rejects provider output larger than the budget (0.8375ms)
+✔ UT-AGT-027: inputs outside the declared egress kinds are not transmitted (0.7704ms)
+✔ UT-AGT-028: the described contract exposes no writable capability (0.2671ms)
+✔ UT-AGT-029: a diff that renames a file out of the scope is rejected (0.3158ms)
+✔ UT-AGT-030: a diff that copies a file out of the scope is rejected (0.3057ms)
+✔ UT-AGT-031: a diff that changes a file mode is rejected (0.2491ms)
+✔ UT-AGT-032: a CRLF-terminated diff header is still scope-checked (1.4774ms)
+✔ UT-AGT-033: a binary patch is rejected (0.3469ms)
+✔ UT-AGT-034: a Binary files ... differ section is rejected (0.1932ms)
+✔ UT-AGT-035: a diff --git header naming an out-of-scope file is rejected (0.362ms)
+✔ UT-AGT-036: a new test script inside scope.outputs is accepted (0.3188ms)
+✔ UT-AGT-037: a deleted file section is rejected (0.2475ms)
+✔ UT-AGT-038: a non-100644 new file mode is rejected (0.3118ms)
+✔ UT-AGT-039: the request validator rejects a digest that does not match the content (0.1809ms)
+✔ UT-AGT-040: the budget limits are enforced on every field (0.3302ms)
+✔ UT-AGT-041: the adapter rejects input that exceeds the input byte budget (0.3752ms)
+✔ UT-AGT-042: the adapter enforces the deadline when the provider hangs (1015.9729ms)
+✔ UT-AGT-043: the adapter reports a provider failure as AGENT_PROVIDER_ERROR (0.4673ms)
+✔ UT-AGT-044: the adapter rejects a provider response without text (0.2331ms)
+✔ UT-AGT-045: the adapter passes an abort signal to the provider (0.2367ms)
+✔ UT-AGT-046: proposal actions are validated (0.2659ms)
+✔ UT-AGT-047: the proposal confidence must be a number between 0 and 1 (0.2137ms)
+✔ UT-AGT-048: evidence-kind provenance must belong to scope.runs (0.4133ms)
+✔ UT-AGT-049: evidence refs must come from the request provenance (0.185ms)
+✔ UT-AGT-050: the contract layer source contains no I/O capability (8.9533ms)
+✔ UT-AGT-051: the scope projectId must be a non-empty string (0.2533ms)
+✔ UT-AGT-052: every provenance field is validated (0.3296ms)
+✔ UT-AGT-053: run and requirement provenance must be in the scope (0.1973ms)
+✔ UT-AGT-054: the requested capabilities and the egress kinds are validated (0.2425ms)
+✔ UT-AGT-055: a quoted diff path is accepted and a long request id is rejected (0.2322ms)
+✔ UT-AGT-056: the diff argument itself is validated (0.1834ms)
+✔ UT-AGT-057: a non-script-diff proposal must not carry a diff (0.1247ms)
+✔ UT-AGT-058: an absolute diff target is rejected (0.1214ms)
+✔ UT-AGT-059: the evidence refs argument is validated (0.1838ms)
+✔ UT-AGT-060: the proposal must be an object and its kind must match the role (0.1284ms)
+✔ UT-AGT-061: a proposal that needs a capability the request does not grant is rejected (0.2328ms)
+✔ UT-AGT-062: the provider and the adapter constructors are validated (0.1904ms)
+✔ UT-AGT-063: the adapter refuses a capability it does not hold (0.2102ms)
+✔ UT-AGT-064: the adapter describes itself (0.1013ms)
+✔ UT-AGT-065: the review arguments are validated (0.2342ms)
+✔ UT-AGT-066: a provider that fails after the deadline is reported as a budget failure (61.2483ms)
+✔ IT-API-SETUP: start server (199.9884ms)
+✔ IT-SEC-001: rejects unauthenticated API (3.0077ms)
+✔ IT-API-001: add existing repository (172.3954ms)
+✔ IT-API-002: import and index tests (152.2061ms)
+✔ IT-SEC-002: rejects foreign origin (13.7163ms)
+✔ IT-RUN-001: no deps => explicit failure rather than fake success (154.8633ms)
+✔ IT-API-003: runs survive persisted read (13.0525ms)
+✔ IT-API-CLEANUP: stop and cleanup (3.2657ms)
+✔ UT-CORE-001: validates Playwright project (4.2182ms)
+✔ UT-CORE-002: extracts static test index (1.6977ms)
+✔ UT-SEC-001: rejects path traversal (1.404ms)
+✔ UT-CORE-003: conditional save avoids lost updates (4.5059ms)
+✔ UT-CORE-004: malformed project rejected (1.457ms)
+✔ UT-RUN-001: missing local Playwright never auto-installs (0.8692ms)
+✔ UT-RPT-001: report summary counts passed/failed/skipped (1.4954ms)
+✔ UT-CORE-005: removes generated fixture (5.2341ms)
+✔ IT-RUN-MOCK-SETUP: isolated fake CLI adapter (354.7274ms)
+✔ IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip (332.7902ms)
+✔ IT-RUN-MOCK-002: cancel marks cancelled (259.7666ms)
+✔ IT-RUN-MOCK-CLEANUP: cleanup (15.3849ms)
+ℹ tests 101
+ℹ suites 0
+ℹ pass 101
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1279.1724
+
+--- node --check server/index.mjs ---
+OK
+
+--- port audit ---
+=== ATS-101 scenario D: hardcoded default-port audit ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-21-09825c30b24a\worktree
+port      : 4577
+
+--- RUNTIME hardcoding in shipped source ---
+  apps/studio/app/page.tsx:81  <footer className="bottom-bar"><span><span className="online"/> LOCAL RUNNER · 127.0.0.1:4577</span><span>Git ...
+  apps/studio/lib/api.ts:6  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
+  apps/studio/public/fallback.html:3  </style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</spa...
+  server/index.mjs:12  const PORT=Number(process.env.ATS_PORT||4577);
+  server/index.mjs:72  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
+  src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
+total = 6
+
+--- NON-runtime data mentions (data/scripts that only display it) ---
+  start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
+  start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
+  start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
+  tests/test-cases.json:1217  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:1283  "input": "Host=evil.example:4577",
+  tests/test-cases.json:1602  "input": "同 LAN 他机尝试访问 4577",
+  tools/generate_test_docs.py:118  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
+  tools/generate_test_docs.py:124  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
+  tools/generate_test_docs.py:155  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
+  test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)
+total = 10
+
+--- DOC mentions (prose that names the port) ---
+  docs/04-DETAILED-DESIGN.md:16  所有带状态 API 要求 `X-ATS-Token`；`/api/session` 必须在 localhost 或 tauri 来源访问，不接受陌生 Origin。Node 绑定 loopback `...
+  docs/08-IT-TEST-DESIGN.md:30  |IT-UI-001|FR-020|正常|Next UI 与 Bridge CORS|localhost:3000 + 4577|页面 API 可正常请求|需 npm 依赖|PENDING|
+  docs/08-IT-TEST-DESIGN.md:36  |IT-API-004|NFR-002|安全|错误 Host 拒绝|Host=evil.example:4577|403 INVALID_HOST|可自动化|PENDING|
+  docs/09-ST-TEST-DESIGN.md:24  |ST-014|NFR-002|安全|远程主机访问拒绝|同 LAN 他机尝试访问 4577|连接拒绝或无法访问 API|网络抓包|PENDING|
+  docs/11-SECURITY-RISK.md:37  | session token 同机可请求；固定 4577 端口 | 其他同机进程干扰 | HIGH | IPC/Unix domain socket/named pipe、随机端口、OS 身份验证 ...
+  docs/12-DEPLOY-OPERATIONS.md:9  便携模式（已通过本地 HTTP IT）：`npm start`，访问 `http://127.0.0.1:4577/fallback.html`；首次无任何项目可点击添加。Windows PowerS...
+  docs/12-DEPLOY-OPERATIONS.md:19  | 服务存活 | `GET /api/health` | 检查 4577 端口冲突与 Node 版本 |
+  docs/12-DEPLOY-OPERATIONS.md:32  - `ATS_PORT`：默认 4577（Next UI 的 API BASE 当前写死 4577，变更端口需同步调整 UI 配置；非动态端口发布模式）
+  docs/16-BASELINE-ADR.md:98  Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-ATS-Token`；`/api/session` 由 Origin allowlist...
+  docs/16-BASELINE-ADR.md:122  1. **默认端口 4577 在发布源码中被硬编码在 6 处**（不含文档与测试数据）。改端口须同步全部，否则 UI 与 CSP 会指向错误端口：
+  docs/16-BASELINE-ADR.md:126  | 1 | `server/index.mjs:12` | 默认值 `process.env.ATS_PORT\|\|4577` |
+  docs/16-BASELINE-ADR.md:129  | 4 | `apps/studio/app/page.tsx:81` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
+  docs/16-BASELINE-ADR.md:130  | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
+  docs/16-BASELINE-ADR.md:144  2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
+  docs/16-BASELINE-ADR.md:354  - `src-tauri/src/lib.rs` 以 `Command::new("node")` 拉起 `../server/index.mjs` 并设 `ATS_PORT=4577`；**要求 P...
+  README.md:9  3. 浏览器打开 <http://127.0.0.1:4577/fallback.html>。这是**已测试的零依赖便携 UI**。
+  README.md:24  完成构建后，打开 <http://127.0.0.1:4577/>，将使用正式 Next.js 工作台（Monaco 编辑器 + 流程投影）。开发模式：开一个终端运行 `npm start`，另一个运...
+  README.md:30  先执行 `npm --prefix apps/studio install`；在本机安装 `rustup` 和 Tauri CLI，然后在项目根目录运行 `npx tauri dev`（或通过 npm...
+  README.md:54  **安全提示：测试脚本本质上是可执行代码。仅添加可信仓库。** 这是本地开发版本，Node 子进程不等于安全沙箱；CLI/测试代码仍可访问执行用户权限下的文件、网络和环境变量。不要将 4577 端口公...
+  tools/ats101-probes/README.md:140  端口 `4577`），因此 `tools/ats101-probes/` 下的端口字面量属于**文档提及**，
+  tools/ats101-probes/scenario-d-port-audit.mjs:4  *   The hardcoded default port 4577 must be listed COMPLETELY in
+  tools/ats101-probes/scenario-d-port-audit.mjs:19  const PORT = '4577';
+total = 22
+
+--- distinct RUNTIME files ---
+  apps/studio/app/page.tsx
+  apps/studio/lib/api.ts
+  apps/studio/public/fallback.html
+  server/index.mjs
+  src-tauri/src/lib.rs
+
+--- distinct DOC files (c) class, excluding 16 itself and the probe dir ---
+  README.md (4)
+  docs/04-DETAILED-DESIGN.md (1)
+  docs/08-IT-TEST-DESIGN.md (2)
+  docs/09-ST-TEST-DESIGN.md (1)
+  docs/11-SECURITY-RISK.md (1)
+  docs/12-DEPLOY-OPERATIONS.md (4)
+files = 6, mentions = 13
+
+--- files listed in 16 §3.1 (port list) ---
+  README.md
+  apps/studio/app/page.tsx
+  apps/studio/lib/api.ts
+  apps/studio/public/fallback.html
+  docs/04-DETAILED-DESIGN.md
+  docs/08-IT-TEST-DESIGN.md
+  docs/09-ST-TEST-DESIGN.md
+  docs/11-SECURITY-RISK.md
+  docs/12-DEPLOY-OPERATIONS.md
+  server/index.mjs
+  src-tauri/src/lib.rs
+  start.ps1
+  start.sh
+  test-cases.xlsx
+  tests/test-cases.json
+  tools/ats101-probes/scenario-d-port-audit.mjs
+  tools/generate_test_docs.py
+
+--- verdict ---
+runtime occurrences in source   : 6
+distinct runtime files          : 5
+non-runtime data files          : 5
+doc-mention files (excl. 16)    : 6
+doc mentions (excl. 16)         : 13
+runtime files missing from §3.1 : (none)
+non-runtime missing from §3.1   : (none)
+runtime positions missing       : (none)
+listed but not found at runtime : (none)
+count claimed in 16 §3.1        : 6
+actual runtime occurrence count : 6
+count matches source            : true
+doc files/mentions claimed      : 6 / 13
+doc files/mentions actual       : 6 / 13
+doc mention count matches       : true
+
+RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.

@@ -1,0 +1,25 @@
+=== ATS-501 evidence: protocol audit mutation tests (negative fixtures) ===
+date        : 2026-11-04T08:27:36Z (UTC)
+commit      : 06cc90c7318c2a597b35981c4887ea330b064ebd
+node        : v24.19.0
+command     : node tools/ats501-probes/mutation-tests.mjs
+
+=== ATS-501 probe: protocol audit mutation tests ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-21-09825c30b24a\worktree
+
+  PASS  control: the unmutated document passes the audit
+  PASS  M1: a REMOTE_ typo in the prose fails the audit
+  PASS  M1b: an undeclared REMOTE_ code outside the code table fails the audit
+  PASS  M2: an unqualified 「已实现/已上线」 claim fails the audit
+  PASS  M3: a control-plane-distributed private key fails the audit
+  PASS  M4: the node-existence leak fails the audit
+  PASS  M5: routing unknown conditions to REMOTE_INTERNAL fails the audit
+  PASS  M6: removing the code acquisition section fails the audit
+  PASS  M7: flipping the connection direction fails the audit
+  PASS  M8: a workbook without the ATS-501 row fails the audit
+  PASS  M9: a WBS status outside the allowed set fails the audit
+
+mutations passed : 11/11
+
+RESULT: OK -- every mutation turned the audit red, so the audit is not vacuous.
+exit code   : 0

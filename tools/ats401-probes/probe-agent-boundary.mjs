@@ -2,15 +2,20 @@
 /**
  * ATS-401 probe -- Agent 契约 v1 的权限边界
  *
- * 本探针用**静态分析 + 运行期断言**两条独立信号证明三件事：
+ * 本探针用**静态分析 + 运行期断言**三条独立信号证明三件事：
  *
- *   1. 契约层在物理上无法写入仓库、提交 Git 或发起网络请求
- *      （静态：server/agent.mjs 的 import 清单里没有 fs / child_process / net / http；
+ *   1. 契约层的**源码**不含任何 I/O 调用
+ *      （静态：server/agent.mjs 只 import node:crypto 与 node:path，且不引用
+ *       fetch / process / globalThis / WebSocket / 动态 import / require /
+ *       process.getBuiltinModule；
  *       运行期：调用契约层之后，夹具仓库的工作区文件内容与 Git 状态都不变）。
+ *      注意：这是**静态检查**，不是「物理上无法」——Node 运行时并不阻止上述
+ *      能力，真正的隔离（模块沙箱 / 只读挂载 / 子进程）属平台侧，见 ATS-403。
  *   2. 请求无法申请到写入类能力
  *      （运行期：带 write_source / git_commit 的请求一律被 AGENT_CAPABILITY_FORBIDDEN 拒绝）。
  *   3. 提案无法落地
- *      （运行期：diff 目标不在 scope.outputs 内、或目标是非测试脚本文件，都被拒绝；
+ *      （运行期：diff 里出现的每一个路径都必须在 scope.outputs 内且为测试脚本文件；
+ *       rename / copy / binary / mode change 一律被拒；
  *       且提案的 approval 恒为 pending，提案人不能自审）。
  *
  * 用法：node tools/ats401-probes/probe-agent-boundary.mjs
@@ -30,6 +35,12 @@ import {
   validateAgentProposal,
   validateAgentRequest,
 } from '../../server/agent.mjs';
+import {
+  ALLOWED_MODULES,
+  FORBIDDEN_GLOBALS,
+  analyzeContractPurity,
+  negativeControls,
+} from './lib/contract-purity.mjs';
 
 const PROBE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(PROBE_DIR, '..', '..');
@@ -53,30 +64,28 @@ console.log('');
 
 console.log('--- signal 1a: static analysis of server/agent.mjs ---');
 const agentSource = fs.readFileSync(path.join(REPO_ROOT, 'server', 'agent.mjs'), 'utf8');
-const FORBIDDEN_MODULES = [
-  'node:fs', 'node:fs/promises', 'fs', 'node:child_process', 'child_process',
-  'node:net', 'node:http', 'node:https', 'node:dgram', 'node:tls',
-];
+const purity = analyzeContractPurity(agentSource);
 
-/**
- * 返回源码里出现的所有 import 说明符。
- * 抽成函数是为了让负控（negative control）能用同一段判定逻辑去检查一份
- * 故意被破坏的源码，从而证明判定不是恒真的。
- */
-function importedModulesOf(source) {
-  const specifiers = [...source.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
-  return [...new Set(specifiers)];
-}
-
-const importedModules = importedModulesOf(agentSource);
-console.log(`  imports: ${importedModules.join(', ')}`);
-for (const mod of FORBIDDEN_MODULES) {
-  check(`agent.mjs does not import ${mod}`, !importedModules.includes(mod));
+console.log(`  imports: ${purity.imports.join(', ')}`);
+for (const mod of purity.forbiddenModules) {
+  check(`agent.mjs does not import ${mod}`, false, 'the contract layer must not import an I/O module');
 }
 check(
   'agent.mjs imports only node:crypto and node:path',
-  importedModules.every((m) => m === 'node:crypto' || m === 'node:path'),
-  importedModules.join(', '),
+  purity.imports.every((m) => ALLOWED_MODULES.includes(m)),
+  purity.imports.join(', '),
+);
+for (const name of FORBIDDEN_GLOBALS) {
+  check(
+    `agent.mjs does not reference the ${name} global`,
+    !purity.forbiddenGlobals.includes(name),
+    purity.forbiddenGlobals.join(', '),
+  );
+}
+check(
+  'the contract layer source contains no I/O capability',
+  purity.pure,
+  `forbidden modules: ${purity.forbiddenModules.join(', ') || 'none'}; forbidden globals: ${purity.forbiddenGlobals.join(', ') || 'none'}`,
 );
 
 /* ------------------------------------------------------------------ */
@@ -84,26 +93,16 @@ check(
 /* ------------------------------------------------------------------ */
 console.log('');
 console.log('--- signal 1c: negative control -- the detector must fire on a broken copy ---');
-const brokenSources = {
-  'a copy that imports node:fs': agentSource.replace(
-    "import crypto from 'node:crypto';",
-    "import crypto from 'node:crypto';\nimport fs from 'node:fs';",
-  ),
-  'a copy that imports node:child_process': agentSource.replace(
-    "import crypto from 'node:crypto';",
-    "import crypto from 'node:crypto';\nimport { spawn } from 'node:child_process';",
-  ),
-  'a copy that imports node:https': agentSource.replace(
-    "import crypto from 'node:crypto';",
-    "import crypto from 'node:crypto';\nimport https from 'node:https';",
-  ),
-};
-for (const [label, broken] of Object.entries(brokenSources)) {
-  const modules = importedModulesOf(broken);
-  const flagged = FORBIDDEN_MODULES.filter((m) => modules.includes(m));
+const controls = negativeControls(agentSource);
+for (const [label, broken] of Object.entries(controls)) {
+  const analysis = analyzeContractPurity(broken);
+  const flagged = [
+    ...analysis.forbiddenModules.map((m) => `module:${m}`),
+    ...analysis.forbiddenGlobals.map((g) => `global:${g}`),
+  ];
   check(
     `the detector flags ${label}`,
-    flagged.length > 0,
+    !analysis.pure && flagged.length > 0,
     flagged.length ? `flagged: ${flagged.join(', ')}` : 'NOT FLAGGED -- the detector would be vacuous',
   );
 }
@@ -275,6 +274,105 @@ check('the producer cannot review its own proposal', code === 'AGENT_REVIEW_SELF
 
 const approved = reviewAgentProposal(outcome.proposal, { reviewer: 'probe-reviewer', decision: 'approved' });
 check('an independent reviewer can approve', approved.approval === 'approved' && approved.reviewedBy === 'probe-reviewer');
+
+/* ------------------------------------------------------------------ */
+/* 信号 3b：diff 头部里的每一条路径都要受作用域约束                   */
+/* ------------------------------------------------------------------ */
+console.log('');
+console.log('--- signal 3b: every path in the diff header is scope-checked ---');
+
+const LEGIT_HUNK = [
+  'diff --git a/tests/login.spec.ts b/tests/login.spec.ts',
+  '--- a/tests/login.spec.ts',
+  '+++ b/tests/login.spec.ts',
+  '@@ -1 +1 @@',
+  "-test('login passes', async ({page}) => {});",
+  "+test('login passes', async ({page}) => { await page.goto('/login'); });",
+].join('\n');
+
+/**
+ * 每一条都是「在合法 hunk 后面追加一个越界构造」的绕过尝试。
+ * 只要其中任何一条被接受，作用域约束就被绕过了。
+ */
+/** CR as a real character, so the CRLF case is a real CRLF. */
+const CR = String.fromCharCode(13);
+
+const bypassAttempts = [
+  {
+    label: 'a rename section that moves server/index.mjs out of the scope',
+    diff: `${LEGIT_HUNK}\ndiff --git a/server/index.mjs b/server/pwned.mjs\nsimilarity index 100%\nrename from server/index.mjs\nrename to server/pwned.mjs\n`,
+  },
+  {
+    label: 'a copy section that copies a file outside the scope',
+    diff: `${LEGIT_HUNK}\ndiff --git a/tests/login.spec.ts b/server/copied.mjs\nsimilarity index 100%\ncopy from tests/login.spec.ts\ncopy to server/copied.mjs\n`,
+  },
+  {
+    label: 'a mode change on a file outside the scope',
+    diff: `${LEGIT_HUNK}\ndiff --git a/start.sh b/start.sh\nold mode 100644\nnew mode 100755\n`,
+  },
+  {
+    label: 'a CRLF-terminated diff section targeting a file outside the scope',
+    // Built from char codes so the CR really lands in the string literal.
+    diff: [
+      LEGIT_HUNK,
+      'diff --git a/server/index.mjs b/server/index.mjs' + CR,
+      '--- a/server/index.mjs' + CR,
+      '+++ b/server/index.mjs' + CR,
+      '@@ -1 +1 @@' + CR,
+      '-x' + CR,
+      '+y' + CR,
+    ].join('\n'),
+  },
+  {
+    label: 'a binary patch creating a file outside the scope',
+    diff: `${LEGIT_HUNK}\ndiff --git a/server/evil.mjs b/server/evil.mjs\nnew file mode 100644\nindex 0000000..1234567\nGIT binary patch\nliteral 12\nzcmZQzU|?V=+\n\nliteral 0\nHcmV?d00001\n\n`,
+  },
+  {
+    label: 'a Binary files ... differ section targeting a file outside the scope',
+    diff: `${LEGIT_HUNK}\ndiff --git a/server/index.mjs b/server/index.mjs\nBinary files a/server/index.mjs and b/server/index.mjs differ\n`,
+  },
+  {
+    label: 'a diff --git header naming a file outside the scope',
+    diff: `${LEGIT_HUNK}\ndiff --git a/server/index.mjs b/server/index.mjs\n`,
+  },
+];
+
+for (const attempt of bypassAttempts) {
+  code = null;
+  try {
+    validateAgentProposal({ summary: 'x', diff: attempt.diff, evidenceRefs: ['tests/login.spec.ts'] }, validatedRequest);
+  } catch (error) {
+    code = error.code;
+  }
+  check(
+    `${attempt.label} is rejected`,
+    code === 'AGENT_PROPOSAL_OUT_OF_SCOPE',
+    `code=${code}`,
+  );
+}
+
+/* 允许新建测试脚本：--- /dev/null + new file mode 100644，且路径在 outputs 内。 */
+const newSpecDiff = [
+  'diff --git a/tests/new.spec.ts b/tests/new.spec.ts',
+  'new file mode 100644',
+  'index 0000000..1234567',
+  '--- /dev/null',
+  '+++ b/tests/new.spec.ts',
+  '@@ -0,0 +1 @@',
+  "+test('new', async ({page}) => {});",
+].join('\n');
+const requestWithNewOutput = validateAgentRequest({
+  ...request,
+  scope: { ...request.scope, outputs: [...request.scope.outputs, 'tests/new.spec.ts'] },
+});
+let newSpecAccepted = false;
+try {
+  validateAgentProposal({ summary: 'x', diff: newSpecDiff, evidenceRefs: ['tests/login.spec.ts'] }, requestWithNewOutput);
+  newSpecAccepted = true;
+} catch (error) {
+  newSpecAccepted = false;
+}
+check('a new test script inside scope.outputs is accepted', newSpecAccepted);
 
 /* ------------------------------------------------------------------ */
 console.log('');
