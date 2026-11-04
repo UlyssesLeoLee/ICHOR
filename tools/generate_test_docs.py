@@ -94,6 +94,8 @@ UT=[
 ('UT-AGT-064','FR-024','正常','适配器的自描述','adapter.describe()','返回 id/role/capabilities/outputKind','node --test','PASS'),
 ('UT-AGT-065','FR-025','边界','评审参数本身的校验','非对象提案、空 reviewer、非法 decision','分别报 AGENT_REVIEW_STATE_INVALID / AGENT_REVIEWER_INVALID','node --test','PASS'),
 ('UT-AGT-066','FR-024','异常','provider 失败与超时的区分','provider 在 50ms 后抛错','报 AGENT_PROVIDER_ERROR','node --test','PASS'),
+('UT-AGT-067','FR-025','安全','自审检查不是精确字符串比较','producedBy=gen-1，reviewer 取 gen-1 / gen-1(空格) / GEN-1 / Gen-1','四种写法均报 AGENT_REVIEW_SELF_FORBIDDEN','node --test','PASS'),
+('UT-AGT-068','FR-025','安全','提案人必须由平台侧给出','context.producedBy 缺失或为空白','报 AGENT_PROPOSAL_INVALID','node --test','PASS'),
 ]
 IT=[
 ('IT-API-SETUP','NFR-011','正常','Node bridge 成功监听','使用隔离 ATS_DATA_DIR 和随机端口','/api/health=200','node --test','PASS'),

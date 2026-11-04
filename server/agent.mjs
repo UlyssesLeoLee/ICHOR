@@ -704,9 +704,25 @@ export function validateAgentProposal(raw, request, context = {}) {
     evidenceRefs,
     confidence,
     approval: 'pending',
-    producedBy: context.producedBy || 'unknown',
+    // 提案人由平台侧决定。未提供 producedBy 时**不允许**落到 'unknown'：
+    // 那样任何评审人都不等于它，自审检查就形同虚设。缺提案人即拒绝。
+    producedBy: requireProducer(context),
     createdAt: context.now || new Date().toISOString(),
   };
+}
+
+/**
+ * 取平台侧给出的提案人标识。
+ *
+ * 缺提案人时拒绝（`AGENT_PROPOSAL_INVALID`），而不是退化成 'unknown'——
+ * 后者会让「提案人不得自审」这条约束在没有任何提案人的提案上失效。
+ */
+function requireProducer(context) {
+  const producedBy = context.producedBy;
+  if (typeof producedBy !== 'string' || !producedBy.trim()) {
+    fail('AGENT_PROPOSAL_INVALID', 'the platform must supply context.producedBy');
+  }
+  return producedBy;
 }
 
 /* --------------------------------------------------------------- provider */
@@ -918,6 +934,26 @@ export function createAgentAdapter({
 /* ----------------------------------------------------------------- review */
 
 /**
+ * 判断两个身份标识是否指同一个人。
+ *
+ * 提案人不得自审这条规则不能靠**精确字符串比较**来守：`'gen-1 '`（多一个
+ * 空格）与 `'GEN-1'`（大小写不同）都能绕过。因此这里按「规范化后比较」
+ * 处理：去首尾空白 + 折叠内部空白 + 转小写。
+ *
+ * 这仍然只是**字符串层面的**身份判定，不是身份认证。真正的认证由平台侧
+ * 负责（谁在评审必须来自登录态，而不是请求体里的一个字符串）——该实现
+ * 尚未落地，属未验证项。
+ */
+function isSameActor(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const normalize = (value) => value.trim().replace(/\s+/g, ' ').toLowerCase();
+  const left = normalize(a);
+  const right = normalize(b);
+  if (!left || !right) return false;
+  return left === right;
+}
+
+/**
  * 评审提案。评审人不得是提案人（ADR-006 的角色分离）；只有 `pending` 提案可评审。
  * 评审只改变审批状态，不改变提案内容。
  */
@@ -934,7 +970,7 @@ export function reviewAgentProposal(proposal, { reviewer, decision, note, now } 
       approval: proposal.approval,
     });
   }
-  if (proposal.producedBy === reviewer) {
+  if (isSameActor(proposal.producedBy, reviewer)) {
     fail('AGENT_REVIEW_SELF_FORBIDDEN', 'the producer of a proposal may not review it');
   }
   const reviewNote = note === undefined || note === null
