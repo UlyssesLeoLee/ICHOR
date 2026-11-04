@@ -28,7 +28,7 @@
 | dependencies/ | 依賴清單 | ATS-102 生成的依赖清单（机读 JSON + 人读 MD），由 lockfile 派生，可机读校验 |
 | evidence/ | 実行証跡 | ATS-101/ATS-401/ATS-102 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界、构建门禁与可重现性） |
 | tools/ats101-probes/ | 再現スクリプト | ATS-101 全部阻断项与约束清单的仓库内可重跑复现脚本（见 `docs/evidence/ATS-101/`） |
-| tools/ats401-probes/ | 再現スクリプト | ATS-401 权限边界的仓库内可重跑复现脚本（含负控，见 `docs/evidence/ATS-401/`） |
+| tools/ats401-probes/ | 再現スクリプト | ATS-401 权限边界的仓库内可重跑复现脚本（权限边界探针 + 第 1 次复核反例回归探针，含负控，见 `docs/evidence/ATS-401/`） |
 | tools/ci_build_gate.mjs | 構建門禁 | ATS-102：本地逐步复现 CI workflow 的全部步骤（一条命令） |
 
 ## 依托方法与限制

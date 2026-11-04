@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：53；已执行通过：36；待执行/未实现：17。**PENDING 不是测试通过**。
+> 设计总数：91；已执行通过：74；待执行/未实现：17。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -61,6 +61,44 @@
 |UT-AGT-026|FR-024|异常|模型输出超出预算被拒|provider 返回 200KB 文本|报 AGENT_BUDGET_EXCEEDED|node --test|PASS|
 |UT-AGT-027|NFR-009|安全|未声明外传的输入不外传|egress.kinds 为空|provider 收到的 inputs 为空|node --test|PASS|
 |UT-AGT-028|FR-024|正常|契约描述不含可写能力|describeAgentContract() 全量检查|forbiddenCapabilities 含 write_source，无角色持可写能力|node --test|PASS|
+|UT-AGT-029|FR-024|安全|diff 里的 rename 被拒|合法 hunk 后追加 rename from/to|报 AGENT_PROPOSAL_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-030|FR-024|安全|diff 里的 copy 被拒|合法 hunk 后追加 copy from/to|报 AGENT_PROPOSAL_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-031|FR-024|安全|diff 里的 mode change 被拒|合法 hunk 后追加 old/new mode|报 AGENT_PROPOSAL_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-032|FR-024|安全|CRLF diff 头部同样受作用域约束|头部行以 CR 结尾且指向作用域外|报 AGENT_PROPOSAL_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-033|FR-024|安全|GIT binary patch 被拒|合法 hunk 后追加 binary patch|报 AGENT_PROPOSAL_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-034|FR-024|安全|Binary files ... differ 被拒|合法 hunk 后追加二进制差异段|报 AGENT_PROPOSAL_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-035|FR-024|安全|diff --git 头部的越界路径被拒|头部指向 scope.outputs 外的文件|报 AGENT_PROPOSAL_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-036|FR-024|正常|允许在 scope.outputs 内新建测试脚本|--- /dev/null + new file mode 100644|提案被接受|node --test|PASS|
+|UT-AGT-037|FR-024|安全|deleted file mode 被拒|合法 hunk 后追加 deleted file mode|报 AGENT_PROPOSAL_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-038|FR-024|安全|非 100644 的 new file mode 被拒|new file mode 100755|报 AGENT_PROPOSAL_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-039|FR-024|安全|请求校验层复算摘要|digest 与 content 不符|报 AGENT_PROVENANCE_DIGEST_MISMATCH|node --test|PASS|
+|UT-AGT-040|FR-024|边界|预算四项上下限与 maxTokens|逐项越过平台上下限|报 AGENT_BUDGET_INVALID|node --test|PASS|
+|UT-AGT-041|FR-024|边界|输入超出字节预算|maxInputBytes=10|报 AGENT_BUDGET_EXCEEDED|node --test|PASS|
+|UT-AGT-042|FR-024|异常|provider 挂起时截止时间仍被强制施加|deadlineMs=1000，provider 永不返回|报 AGENT_BUDGET_EXCEEDED 且不等待 provider|node --test|PASS|
+|UT-AGT-043|FR-024|异常|provider 抛错|complete() 抛 Error|报 AGENT_PROVIDER_ERROR，details.cause 为原消息|node --test|PASS|
+|UT-AGT-044|FR-024|异常|provider 返回体没有 text|complete() 返回 { nope: true }|报 AGENT_PROVIDER_OUTPUT_INVALID|node --test|PASS|
+|UT-AGT-045|FR-024|正常|provider 上下文带 AbortSignal|捕获 ctx.signal 与 ctx.deadlineAt|两者齐备|node --test|PASS|
+|UT-AGT-046|FR-025|正常|提案 actions 的形状校验|type/target/value 逐一校验|非法 type 被拒，合法 actions 原样保留|node --test|PASS|
+|UT-AGT-047|FR-025|边界|提案 confidence 的取值范围|1.5 与字符串被拒，0.8 接受|非法值报 AGENT_PROPOSAL_INVALID|node --test|PASS|
+|UT-AGT-048|FR-024|安全|evidence 类出处必须属于 scope.runs|run id 不在 scope.runs 内|报 AGENT_PROVENANCE_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-049|FR-025|安全|evidenceRefs 必须来自请求出处|引用未声明的 ref|报 AGENT_PROPOSAL_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-050|FR-024|安全|契约层源码不含 I/O 调用|静态分析 server/agent.mjs|无禁用模块、无禁用全局|node --test|PASS|
+|UT-AGT-051|FR-024|边界|scope.projectId 的形状|空串、非字符串、超长|报 AGENT_SCOPE_INVALID|node --test|PASS|
+|UT-AGT-052|FR-024|边界|出处各字段逐一校验|kind/ref/content/retrievedAt 非法|报 AGENT_PROVENANCE_INVALID|node --test|PASS|
+|UT-AGT-053|FR-024|安全|run/requirement 类出处必须落在作用域内|ref 不在 scope.runs/requirements|报 AGENT_PROVENANCE_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-054|FR-024|边界|requestedCapabilities 与 egress.kinds 校验|非数组、超 16 项、空串、非法 kind|报 AGENT_REQUEST_INVALID|node --test|PASS|
+|UT-AGT-055|FR-024|边界|带引号的 diff 路径与超长请求 id|git 引号包裹的路径被正确解包|引号路径被接受，超长 id 被拒|node --test|PASS|
+|UT-AGT-056|FR-024|边界|diff 参数本身的校验|非字符串、空串、超长、非 unified diff|报 AGENT_PROPOSAL_INVALID|node --test|PASS|
+|UT-AGT-057|FR-025|安全|非 script-diff 提案不得携带 diff|planner 提案带 diff / kind 不匹配|报 AGENT_PROPOSAL_INVALID|node --test|PASS|
+|UT-AGT-058|FR-024|安全|diff 目标为绝对路径时被拒|--- /etc/passwd|报 AGENT_PROPOSAL_OUT_OF_SCOPE|node --test|PASS|
+|UT-AGT-059|FR-025|边界|evidenceRefs 参数本身的校验|空串、超过 64 项|报 AGENT_PROPOSAL_INVALID|node --test|PASS|
+|UT-AGT-060|FR-025|边界|提案必须是对象且 kind 与角色匹配|非对象、kind 与角色不符|报 AGENT_PROPOSAL_INVALID|node --test|PASS|
+|UT-AGT-061|FR-025|安全|提案所需能力未被授予时拒绝|requestedCapabilities 为空|报 AGENT_CAPABILITY_NOT_GRANTED|node --test|PASS|
+|UT-AGT-062|FR-024|异常|provider 与 adapter 的构造参数校验|空 id、非函数 complete、非法 role/capabilities|分别报 AGENT_PROVIDER_INVALID / AGENT_REQUEST_INVALID / AGENT_ROLE_UNKNOWN|node --test|PASS|
+|UT-AGT-063|FR-024|安全|适配器拒绝自己未持有的能力|请求额外的能力|报 AGENT_CAPABILITY_NOT_GRANTED|node --test|PASS|
+|UT-AGT-064|FR-024|正常|适配器的自描述|adapter.describe()|返回 id/role/capabilities/outputKind|node --test|PASS|
+|UT-AGT-065|FR-025|边界|评审参数本身的校验|非对象提案、空 reviewer、非法 decision|分别报 AGENT_REVIEW_STATE_INVALID / AGENT_REVIEWER_INVALID|node --test|PASS|
+|UT-AGT-066|FR-024|异常|provider 失败与超时的区分|provider 在 50ms 后抛错|报 AGENT_PROVIDER_ERROR|node --test|PASS|
 
 ## 进入与退出条件
 

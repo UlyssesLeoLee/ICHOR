@@ -1,5 +1,5 @@
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-16e44f6f08bb\worktree
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-f647eb9bbd9f\worktree
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
@@ -15,12 +15,12 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:799  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:865  "input": "Host=evil.example:4577",
-  tests/test-cases.json:1140  "input": "同 LAN 他机尝试访问 4577",
-  tools/generate_test_docs.py:80  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
-  tools/generate_test_docs.py:86  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
-  tools/generate_test_docs.py:113  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
+  tests/test-cases.json:1217  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:1283  "input": "Host=evil.example:4577",
+  tests/test-cases.json:1602  "input": "同 LAN 他机尝试访问 4577",
+  tools/generate_test_docs.py:118  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
+  tools/generate_test_docs.py:124  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
+  tools/generate_test_docs.py:155  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
   test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)
 total = 10
 
@@ -39,11 +39,11 @@ total = 10
   docs/16-BASELINE-ADR.md:129  | 4 | `apps/studio/app/page.tsx:81` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
   docs/16-BASELINE-ADR.md:130  | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
   docs/16-BASELINE-ADR.md:144  2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
-  docs/16-BASELINE-ADR.md:353  - `src-tauri/src/lib.rs` 以 `Command::new("node")` 拉起 `../server/index.mjs` 并设 `ATS_PORT=4577`；**要求 P...
+  docs/16-BASELINE-ADR.md:354  - `src-tauri/src/lib.rs` 以 `Command::new("node")` 拉起 `../server/index.mjs` 并设 `ATS_PORT=4577`；**要求 P...
   README.md:9  3. 浏览器打开 <http://127.0.0.1:4577/fallback.html>。这是**已测试的零依赖便携 UI**。
   README.md:24  完成构建后，打开 <http://127.0.0.1:4577/>，将使用正式 Next.js 工作台（Monaco 编辑器 + 流程投影）。开发模式：开一个终端运行 `npm start`，另一个运...
-  README.md:28  先执行 `npm --prefix apps/studio install`；在本机安装 `rustup` 和 Tauri CLI，然后在项目根目录运行 `npx tauri dev`（或通过 npm...
-  README.md:52  **安全提示：测试脚本本质上是可执行代码。仅添加可信仓库。** 这是本地开发版本，Node 子进程不等于安全沙箱；CLI/测试代码仍可访问执行用户权限下的文件、网络和环境变量。不要将 4577 端口公...
+  README.md:30  先执行 `npm --prefix apps/studio install`；在本机安装 `rustup` 和 Tauri CLI，然后在项目根目录运行 `npx tauri dev`（或通过 npm...
+  README.md:54  **安全提示：测试脚本本质上是可执行代码。仅添加可信仓库。** 这是本地开发版本，Node 子进程不等于安全沙箱；CLI/测试代码仍可访问执行用户权限下的文件、网络和环境变量。不要将 4577 端口公...
   tools/ats101-probes/README.md:140  端口 `4577`），因此 `tools/ats101-probes/` 下的端口字面量属于**文档提及**，
   tools/ats101-probes/scenario-d-port-audit.mjs:4  *   The hardcoded default port 4577 must be listed COMPLETELY in
   tools/ats101-probes/scenario-d-port-audit.mjs:19  const PORT = '4577';

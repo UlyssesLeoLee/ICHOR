@@ -71,7 +71,7 @@ Run 创建后不会通过二次执行来恢复失败脚本；用户可再次触�
 
 RunnerAdapter：`discover(project, context) -> TestDefinition[]`、`start(spec, env) -> RunHandle`、`stop(runId)`、`collect(runId) -> EvidenceManifest`。ExplorerAgent：`plan(requirement, scope) -> TestIntent[]`、`observe(session) -> Observation`、`proposePatch(evidence) -> Diff`；Agent 不直接更新 Git。
 
-**Agent 契约 v1 的实现状态（ATS-401）**：Agent 请求必须带作用域、预算与输入出处，产出为待审提案；Agent 不直接更新 Git 由**能力层**保证——写入与提交类能力在请求层被拒，契约层本身不具备文件写入、进程启动与网络访问能力。模型提供商接入（ATS-403）与 API Key 存储（ATS-402）尚未实现，仓库中不存在把模型输出写入仓库的代码路径。契约细节见 `docs/17-AGENT-CONTRACT.md`。
+**Agent 契约 v1 的实现状态（ATS-401）**：Agent 请求必须带作用域、预算与输入出处，产出为待审提案；Agent 不直接更新 Git 由**能力层**保证——写入与提交类能力在请求层被拒，契约层的源码不含任何文件写入、进程启动与网络访问调用（由静态检查守护；真正的运行时隔离属 ATS-403）。模型提供商接入（ATS-403）与 API Key 存储（ATS-402）尚未实现，仓库中不存在把模型输出写入仓库的代码路径。契约细节见 `docs/17-AGENT-CONTRACT.md`。
 
 桌面 Runner 由 WDIO Tauri Service 实现，转换为共通 Execution/Attempt/Artifact 模型。Enterprise 接入远程 Runner 的消息携带 project UID、git sha、test UID、idempotency key、deadline、secrets reference，但不直接传项目本地绝对路径。
 
