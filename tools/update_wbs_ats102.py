@@ -34,6 +34,9 @@ SHEET1 = 'xl/worksheets/sheet1.xml'
 # 待审核 is one of the six values in the N-column data-validation list.
 STATUS_PENDING_REVIEW = '待审核'
 
+# The 开发WBS data rows the overview formulas aggregate over.
+FIRST_ROW, LAST_ROW = 6, 94
+
 
 def find_ats_row(xml, ats_id):
     for rm in re.finditer(r'<x:row[^>]*r="(\d+)"[^>]*>(.*?)</x:row>', xml, re.S):
@@ -62,6 +65,46 @@ def set_cell_in_row(xml, rid, col, value, *, numeric=False):
         raise SystemExit(f'row {rid} not found')
     row = set_cell(m.group(0), col, value, numeric=numeric)
     return xml[:m.start()] + row + xml[m.end():]
+
+
+def cell_text(xml, rid, col):
+    m = re.search(r'<x:c r="%s%d"[^>]*>(.*?)</x:c>' % (col, rid), xml, re.S)
+    if m is None:
+        return ''
+    v = re.search(r'<x:v>(.*?)</x:v>', m.group(1), re.S)
+    return v.group(1) if v else ''
+
+
+def cell_number(xml, rid, col):
+    raw = cell_text(xml, rid, col)
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def summarise(xml2):
+    """Recompute the overview's cached formula values from the sheet itself.
+
+    Mirrors the three formulas that live in the 总览 sheet:
+      B8  = COUNTIF('开发WBS'!N6:N94,"已完成")
+      B9  = IFERROR(1-SUM('开发WBS'!P6:P94)/SUM('开发WBS'!K6:K94),0)
+      B10 = SUM('开发WBS'!P6:P94)
+
+    The values are derived from the sheet rather than hardcoded, so the
+    overview stays correct no matter which other rows already carry a
+    non-zero completion rate (ATS-101 / ATS-401 are 已完成 / 待审核).
+    """
+    done = 0
+    sum_p = 0.0
+    sum_k = 0.0
+    for rid in range(FIRST_ROW, LAST_ROW + 1):
+        if cell_text(xml2, rid, 'N') == '已完成':
+            done += 1
+        sum_p += cell_number(xml2, rid, 'P')
+        sum_k += cell_number(xml2, rid, 'K')
+    rate = 0.0 if sum_k == 0 else 1 - sum_p / sum_k
+    return done, rate, sum_p
 
 
 def main():
@@ -109,25 +152,29 @@ def main():
 
     parts[SHEET2] = xml2.encode('utf-8')
 
-    # --- 总览: refresh cached formula results -------------------------------
-    # SUM(K)=470 over 89 rows; ATS-101 and ATS-102 each contribute 0 remaining
-    # -> SUM(P)=465, COUNTIF(已完成)=1 (only ATS-101 is 已完成; ATS-102 is 待审核)
+    # --- 总览: refresh the cached values of the existing formulas -----------
+    # The values are recomputed FROM THE SHEET, not hardcoded, so the overview
+    # stays correct no matter which other rows (ATS-101 已完成, ATS-401 待审核)
+    # already carry a non-zero completion rate.
+    done, rate, sum_p = summarise(xml2)
     xml1 = parts[SHEET1].decode('utf-8')
-    xml1 = set_cell_in_row(xml1, 8, 'B', '1', numeric=True)                    # COUNTIF(已完成)
-    xml1 = set_cell_in_row(xml1, 9, 'B', '0.010638297872340', numeric=True)     # 1-465/470
-    xml1 = set_cell_in_row(xml1, 10, 'B', '465', numeric=True)                 # SUM(P)
+    xml1 = set_cell_in_row(xml1, 8, 'B', str(done), numeric=True)                    # COUNTIF(已完成)
+    xml1 = set_cell_in_row(xml1, 9, 'B', repr(rate), numeric=True)                    # 1-SUM(P)/SUM(K)
+    xml1 = set_cell_in_row(xml1, 10, 'B', str(int(sum_p)) if sum_p == int(sum_p) else str(sum_p), numeric=True)
     xml1 = set_cell_in_row(
         xml1, 6, 'D',
         'v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT；'
         'Next.js 16 静态导出构建已实测通过（ATS-101）；'
+        'Agent 契约层已实现（ATS-401）；'
         '锁文件、依赖清单与 CI 构建门禁已交付（ATS-102）。')
     xml1 = set_cell_in_row(
         xml1, 7, 'D',
         '真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过'
         '（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；'
         'CI workflow 未在真实 runner 上跑过（ATS-102）；'
-        '详见 docs/16-BASELINE-ADR.md 与 docs/17-BUILD-CI.md。')
+        '详见 docs/16-BASELINE-ADR.md、docs/17-BUILD-CI.md 与 docs/17-AGENT-CONTRACT.md。')
     parts[SHEET1] = xml1.encode('utf-8')
+    print(f'overview: 已完成={done} 完成率={rate} 剩余人日={sum_p}')
 
     # --- rewrite the archive, preserving every other part byte-for-byte ------
     tmp = XLSX.with_suffix('.xlsx.tmp')
