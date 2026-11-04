@@ -1,6 +1,6 @@
 === ATS-501 evidence: WBS updater coexistence regression (five updaters) ===
-date        : 2026-11-04T08:27:36Z (UTC)
-commit      : 06cc90c7318c2a597b35981c4887ea330b064ebd
+date        : 2026-11-04T08:30:37Z (UTC)
+commit      : a0666ca616603f7f39aa1cab7845ea9a6ac5b972
 node        : v24.19.0
 command     : bash tools/ats501-probes/check-wbs-updaters.sh
 

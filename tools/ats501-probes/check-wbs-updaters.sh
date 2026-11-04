@@ -44,8 +44,8 @@ ok()   { printf '  PASS  %s\n' "$*"; }
 bad()  { printf '  FAIL  %s\n' "$*"; fail=1; }
 note() { printf '%s\n' "$*"; }
 
-# The baseline is the committed state of the branch, so the check runs against
-# the tree this branch is built on.
+# BASE is the COMMITTED state of the branch: it is the reference the
+# marked-note check compares against.
 git show "HEAD:$XLSX" > "$BASE"
 
 dump() { python - "$1" <<'PY'
@@ -62,7 +62,14 @@ for sheet in ('xl/worksheets/sheet1.xml', 'xl/worksheets/sheet2.xml'):
 PY
 }
 
-restore() { cp "$BASE" "$XLSX"; }
+# `restore` puts the workbook back the way it was when the script started.
+# The baseline is the COMMITTED state, so an uncommitted edit to the workbook
+# would be lost by the final restore -- which once silently discarded the
+# ATS-501 row update. The baseline is therefore snapshotted from the
+# working tree, not from HEAD, so the script is non-destructive.
+SNAPSHOT="$TMP/WBS.snapshot.xlsx"
+cp "$XLSX" "$SNAPSHOT"
+restore() { cp "$SNAPSHOT" "$XLSX"; }
 
 # Seed a row as 已完成 so the "an accepted row stays accepted" check has
 # something real to protect. Without the seed the check would pass by
