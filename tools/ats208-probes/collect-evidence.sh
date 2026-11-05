@@ -16,6 +16,16 @@ mkdir -p "$EV"
 export PYTHONUTF8=1
 export PYTHONIOENCODING=utf-8
 
+# The coverage step needs a WRITABLE temp directory: node writes its
+# coverage file into the temp dir, and a full or unwritable system temp
+# makes the coverage report fail ("coverage file is empty") even though
+# every test passed. The scratch dir is used when it exists.
+if [ -n "${ATS208_SCRATCH:-}" ] && [ -d "${ATS208_SCRATCH:-}" ]; then
+  export TMPDIR="$ATS208_SCRATCH"
+  export TEMP="$ATS208_SCRATCH"
+  export TMP="$ATS208_SCRATCH"
+fi
+
 run() { # run <logfile> <label> <command...>
   local out="$1" label="$2"; shift 2
   {
