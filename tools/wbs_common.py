@@ -83,7 +83,7 @@ NARRATIVE_FRAGMENTS = {
         'D6': 'Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过（ATS-103）',
         'D7': '静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；'
               '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112，'
-              '详见 docs/21-FRONTEND-EXPORT.md',
+              '详见 docs/22-FRONTEND-EXPORT.md',
     },
     '【ATS-401】': {
         'D6': 'Agent 契约层已实现',

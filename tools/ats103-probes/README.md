@@ -2,7 +2,7 @@
 
 本目录是 ATS-103（SEIKOIST-148）「Next.js 16 静态导出构建、路由与 API 代理验证」
 所依据的**可重跑验证脚本**。对应的实际输出记录在 `docs/evidence/ATS-103/`，
-结论文档是 `docs/21-FRONTEND-EXPORT.md`。
+结论文档是 `docs/22-FRONTEND-EXPORT.md`。
 
 ## 运行方式
 
@@ -41,7 +41,7 @@ bash tools/ats103-probes/collect-evidence.sh
    崩溃时如实反映 `summary=none`，而不是把崩溃伪装成成功。
 4. **本目录不修产品缺陷。** 探针只**如实记录**运行期的证据链缺陷
    （引擎进程异常死亡时 Bridge 把 run 标成 `failed` 却无 summary），修复
-   归属 ATS-108 / ATS-112，见 `docs/21-FRONTEND-EXPORT.md` §4。
+   归属 ATS-108 / ATS-112，见 `docs/22-FRONTEND-EXPORT.md` §4。
 5. **不得把 `DESIGNED` 写成已实现。** 本任务交付的是**验证与证据**，
    产品代码零改动；`apps/studio/**` 与 `server/**` 保持原状。
 

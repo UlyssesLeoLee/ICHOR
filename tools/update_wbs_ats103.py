@@ -109,7 +109,7 @@ def main():
                    '真实运行 1 PASS/1 FAIL 共 2 例并采集 27 个产物）。'
                    '「API 代理」在 output:export 下的真实形态是导出页到 127.0.0.1:4577 的跨源直连'
                    '（基址由 lib/api.ts 运行时按端口解析），静态导出下不存在 Next.js 服务端代理路由；'
-                   '详见 docs/21-FRONTEND-EXPORT.md §2',
+                   '详见 docs/22-FRONTEND-EXPORT.md §2',
         'ATS-104': '前置 ATS-103 已交付静态导出基线：apps/studio/out 可由 Bridge 直接提供（server/index.mjs '
                    '的 staticFile() 以该目录为静态根），本项的 Tauri 壳可直接加载 http://127.0.0.1:4577；'
                    '但静态导出未在真实 Tauri 壳内实测，且 ATS-102 的 B-02 阻断仍未关闭（仓库缺 '

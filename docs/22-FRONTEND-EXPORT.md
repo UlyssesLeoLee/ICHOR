@@ -202,9 +202,9 @@ run.status = cancelled ? 'cancelled' : code === 0 ? 'passed' : 'failed';
 | `docs/evidence/ATS-103/04-wbs-updater-regression.log` | 新增 | §3.6 的 WBS 更新脚本共存回归日志 |
 | `tools/update_wbs_ats103.py` | 新增 | 本任务的 WBS 行更新脚本（与 ATS-101/102/301/401/501 同构，标记 `【ATS-103】`） |
 | `tools/wbs_common.py` | 修改 | 共享工作簿的标记登记与叙述片段：新增 `【ATS-103】` |
-| `docs/21-FRONTEND-EXPORT.md` | 新增 | 本文件 |
+| `docs/22-FRONTEND-EXPORT.md` | 新增 | 本文件 |
 | `docs/WBS.xlsx` | 修改 | 「开发WBS」ATS-103 行的状态/完成率/剩余人日 + 风险说明；ATS-104/ATS-111 行的下游约束；「总览」缓存值与 D6/D7 叙述 |
-| `docs/00-INDEX.md` | 修改 | 收录 21-FRONTEND-EXPORT.md、ATS-103 证据目录与探针脚本 |
+| `docs/00-INDEX.md` | 修改 | 收录 22-FRONTEND-EXPORT.md、ATS-103 证据目录与探针脚本 |
 | `CHECKSUMS.sha256` | 修改 | 随新增/修改的受控文件重新生成 |
 
 **产品代码零改动**：`apps/studio/**` 与 `server/**` 未被修改——这不是「偷懒」，而是本任务的实测结论：**既有配置已经满足完成定义**。

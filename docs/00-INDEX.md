@@ -24,7 +24,7 @@
 | 15-REFERENCES-LICENSES.md | 调査参考・ライセンス | 官方参考及许可证边界 |
 | 16-BASELINE-ADR.md | 基线冻结・ADR | v0.1 已实现/待实测/未实现、3 项阻断、接口与构建约束清单 |
 | 17-BUILD-CI.md | 構建・CI 基線 | ATS-102：锁文件、依赖清单、Windows CI 构建脚本与实测证据 |
-| 21-FRONTEND-EXPORT.md | 前端交付・検証 | ATS-103：Next.js 16 静态导出构建、Bridge 静态提供与 API 契约实测、实测证据与未验证项 |
+| 22-FRONTEND-EXPORT.md | 前端交付・検証 | ATS-103：Next.js 16 静态导出构建、Bridge 静态提供与 API 契约实测、实测证据与未验证项 |
 | 17-AGENT-CONTRACT.md | Agent 契約 | Agent 契约 v1：作用域、预算、输入出处、角色能力、提案与评审状态机、权限边界与实测证据 |
 | 19-REMOTE-RUNNER-PROTOCOL.md | 远程协议・威胁模型 | S5 远程执行面的信任边界、认证、版本握手、租户隔离、拒绝规则（ADR-015~023，全部 DESIGNED） |
 | dependencies/ | 依賴清單 | ATS-102 生成的依赖清单（机读 JSON + 人读 MD），由 lockfile 派生，可机读校验 |
