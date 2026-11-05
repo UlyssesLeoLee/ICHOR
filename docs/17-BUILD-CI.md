@@ -230,7 +230,9 @@ GATE_EXIT_CODE=0
 
 
 
-**Node 22.23.4 下 `# tests 165 / # pass 158 / # fail 0 / # cancelled 0 / # skipped 7`，退出码 0**（`08-node22-gate-8-steps.log`）。
+**Node 22.23.4 下 `# tests 165 / # pass 158 / # fail 0 / # cancelled 0 / # skipped 7`，退出码 0**（`15-node22-gate-8-steps-final.log`）。
+
+被跳过的 7 项是 ATS-301 的引擎 IT（`IT-ADP-005` ～ `IT-ADP-011`），原因是 `examples/sample-playwright` 与 `examples/sample-wdio` 两个夹具**没有 `node_modules`**——夹具的依赖不在本仓库的 lockfile 里，装它们需要各自单独安装。这 7 项在 CI 的干净克隆上同样会跳过，因此**不是**本机环境的产物。
 
 该结果依赖于 `server/agent.mjs` 的截止时间计时器**不调用 `timer.unref()`**。若该计时器被 `unref()`，当进程内没有其它活动句柄、provider 又是一个纯 Promise（不持有 socket 之类的句柄）时，Node 会在截止时间到达之前直接退出，`execute()` 永不 settle，调用方拿不到 `AGENT_BUDGET_EXCEEDED`（进程以 exit 13「unsettled top-level await」结束）。实测对照：
 

@@ -1,6 +1,6 @@
 === ATS-102 evidence: the manifest drift gate against a tampered COMMITTED manifest ===
 clone : D:/hermes-multica/home/cache/scratch/ats102-drift-clone
-date  : 2026-11-05T08:07:06Z
+date  : 2026-11-05T08:13:56Z
 git   : git version 2.55.0.windows.4
 node  : v22.23.4
 npm   : 10.9.9
@@ -21,7 +21,7 @@ order A: regenerate, then --check
  with itself, so any committed drift is silently overwritten)
 
 tampered: "integrity": "sha512-Xz4Tpyki7XyrpbUK1jR1
-c2084fc probe: tampered manifest
+26953be probe: tampered manifest
 exit code = 0   (0 means the drift was NOT detected)
 
 -------------------------------------------------------------------
@@ -50,5 +50,5 @@ Order B is the one this gate uses: it is the only order that does not
 write to the file it is checking, needs no git, and runs offline.
 
 --- the tampered commit is visible in the clone's log ---
-d29b2cd probe: tampered manifest
-d084267 docs(ATS-102): 按复核第 2 轮的 3 项必须修改项改正文档与证据口径
+800c1dd probe: tampered manifest
+b772bb5 chore(ATS-102): 按最终提交的树重新生成 CHECKSUMS.sha256
