@@ -75,7 +75,7 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
    | **10.9.9**（Node 22.23.4 自带，`packageManager` 指定） | 17191 | 317 | `4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3` |
    | 12.2.0（Node 24.19.0 自带） | 17167 | 315 | `5e5a977f96aeb873f414967d1bb7ea7068df251ed47e2a68c21764f2c9e4a18f` |
 
-   差异的**全部**来源是 npm 12 不再安装 `@emnapi/runtime` 与 `@img/sharp-wasm32` 两个包（24 个文件），外加 `.bin/` 下 8 个 shim 与 `.package-lock.json` 的内容随 npm 版本变化（15 个文件）。逐文件的比对可用 `python tools/ats102-probes/diff-install-trees.py <树A> <树B>` 复现。
+   差异的**全部**来源是 npm 12.2.0 不安装 `@emnapi/runtime` 与 `@img/sharp-wasm32` 两个包（24 个文件），外加 `.bin/` 下 8 个 shim 与 `.package-lock.json` 的内容随 npm 版本变化（15 个文件）。逐文件的比对可用 `python tools/ats102-probes/diff-install-trees.py <树A> <树B>` 复现。
 
    因此**每一行期望值只对它记录的那一 npm 版本成立**——记录里已经写明了这一点。门禁支持的配置是 `packageManager` 指定的 npm 10.9.9；npm 12.2.0 的摘要也已测量并记录（用于诊断与对照），但 npm 12.2.0 **不是**门禁支持的配置。这一依赖被做成了可诊断的，而不是靠读者自己猜：
 
@@ -83,7 +83,7 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
    - `tools/installed-tree-digests.txt` 的每行记录了产出该值的 npm 版本；
    - `tools/tree_digest.mjs --check` 按 `(口径, 平台, npm 版本)` 查期望值，失配时输出**当前 PATH 上的 npm** 与**期望值对应的 npm**，并说明两者装出的 optional 包集合不同。
 
-   于是「摘要失配」不再可能被误读成 lockfile 坏了：先看 `checknode` 步是否通过——通过了就说明 npm 版本是对的，再去查 lockfile。
+   于是「摘要失配」有两个可查的原因，读者不必猜：先看 `checknode` 步是否通过——通过了就说明 npm 版本是对的，再去查 lockfile。
 
    **全树口径（`all-files`）不只锁版本，还抓到了 npm 自己没抓到的安装损坏。**
    复核期间有一个全新克隆的 `npm ci` 装出了**被截断且补零**的
