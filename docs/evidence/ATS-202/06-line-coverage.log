@@ -1,86 +1,94 @@
 === command ===
 node --test --experimental-test-coverage tests/discovery.test.mjs tests/discovery-it.test.mjs tests/discovery-api.test.mjs
 === output ===
-✔ IT-ATS202-API-SETUP: start the bridge (431.373ms)
-✔ IT-ATS202-API-001: a project starts untrusted (50.7867ms)
-✔ IT-ATS202-API-002: an untrusted project gets the STATIC index (71.4485ms)
-✔ IT-ATS202-API-003: an invalid trust value is refused (3.775ms)
-✔ IT-ATS202-API-004: forcing the authoritative index on an untrusted project is refused (53.7574ms)
-✔ IT-ATS202-API-005: the trust can be granted, and the index switches (749.9656ms)
-✔ IT-ATS202-API-006: the trust survives a restart of the bridge (701.3969ms)
-✔ IT-ATS202-API-007: the trust can be revoked, and the index falls back (125.7459ms)
-✔ IT-ATS202-API-CLEANUP: stop and cleanup (114.0254ms)
-✔ IT-ATS202-SETUP: the real Playwright is installed (0.7205ms)
-✔ IT-ATS202-001: the listing reports the cases of the project (605.381ms)
-✔ IT-ATS202-002: a DYNAMIC case is in the authoritative index and not in the static one (609.4059ms)
-✔ IT-ATS202-003: the trusted project gets the authoritative index (519.1845ms)
-✔ IT-ATS202-004: the UNTRUSTED project never runs --list (1.8123ms)
-✔ IT-ATS202-005: the trusted project DOES execute the listing (602.9015ms)
-✔ IT-ATS202-006: the agreement with the CLI is measured, not asserted (536.8729ms)
-✔ IT-ATS202-007: the UID of a case does not move when the index switches (547.4167ms)
-✔ IT-ATS202-008: a broken project config falls back and says why (546.3563ms)
-✔ IT-ATS202-009: a project without a local Playwright CLI is reported, not installed (2.2861ms)
-✔ IT-ATS202-010: a listing that does not finish in time is reported as a timeout (36.5703ms)
-✔ IT-ATS202-011: a CLI that reports an error is a failure, not an empty index (582.135ms)
-✔ IT-ATS202-CLEANUP: remove the temporary fixture (57.6644ms)
-✔ UT-ATS202-001: a spec is parsed into a case with the project relative file (1.8303ms)
-✔ UT-ATS202-002: the file is resolved against the CLI rootDir, not the project root (0.1939ms)
-✔ UT-ATS202-003: a file outside the project is excluded and reported (0.1894ms)
-✔ UT-ATS202-004: the describe path is read from the suite nesting (0.1529ms)
-✔ UT-ATS202-005: a project matrix reports the same case once per project (0.1781ms)
-✔ UT-ATS202-006: the CLI errors are carried over verbatim (0.109ms)
-✔ UT-ATS202-007: the cases are sorted by file and line (6.9332ms)
-✔ UT-ATS202-008: projectRelativeFile refuses a path outside the project (0.2049ms)
-✔ UT-ATS202-009: the outcome codes are stable (0.0894ms)
-✔ UT-ATS202-010: a project without a trust record is untrusted (0.2117ms)
-✔ UT-ATS202-011: a vouched project is trusted (0.8438ms)
-✔ UT-ATS202-012: the trust can be revoked, and the reason is kept (0.1408ms)
-✔ UT-ATS202-013: the trust of one project does not leak into another (0.0747ms)
-✔ UT-ATS202-014: withTrust does not mutate the state it is given (0.1133ms)
-✔ UT-ATS202-015: a unique title keeps the ATS-201 title-key UID (1.2697ms)
-✔ UT-ATS202-016: an explicit annotation wins over every derived key (0.1182ms)
-✔ UT-ATS202-017: the same explicit annotation on two cases binds neither (0.2459ms)
-✔ UT-ATS202-018: the describe path resolves two same-titled cases (0.1532ms)
-✔ UT-ATS202-019: two same-titled cases in the same describe path stay ambiguous (0.1502ms)
-✔ UT-ATS202-020: the body fingerprint decides when the describe path does not (0.1686ms)
-✔ UT-ATS202-020b: a DYNAMIC case is decided by the describe path, not by the body (0.1434ms)
-✔ UT-ATS202-021: the UID of an ordinary case is the same as the static one (0.0929ms)
-✔ UT-ATS202-021b: the UID of an ordinary case does not change when the index switches (0.1394ms)
-✔ UT-ATS202-022: the registry keeps the spec ids of the CLI (0.1383ms)
-✔ UT-ATS202-023: an entry of an absent file is not pruned (0.1157ms)
-✔ UT-ATS202-024: an entry of a covered file whose case is gone is pruned (0.0795ms)
-✔ UT-ATS202-025: the comparison reports the cases only one index knows (0.1652ms)
-✔ UT-ATS202-026: the comparison reports agreement when the two agree (0.0778ms)
-✔ UT-ATS202-027: the lexical describe path reads the blocks above the line (0.1897ms)
-✔ UT-ATS202-028: the case key spells the file, the path and the title (0.0621ms)
-ℹ tests 52
+✔ IT-ATS202-API-SETUP: start the bridge (435.5952ms)
+✔ IT-ATS202-API-001: a project starts untrusted (53.2945ms)
+✔ IT-ATS202-API-002: an untrusted project gets the STATIC index (68.7077ms)
+✔ IT-ATS202-API-003: an invalid trust value is refused (5.0837ms)
+✔ IT-ATS202-API-004: forcing the authoritative index on an untrusted project is refused (65.9339ms)
+✔ IT-ATS202-API-005: the trust can be granted, and the index switches (756.6455ms)
+✔ IT-ATS202-API-006: the trust survives a restart of the bridge (704.91ms)
+✔ IT-ATS202-API-007: the trust can be revoked, and the index falls back (117.4976ms)
+✔ IT-ATS202-API-008: a TRUSTED project that asks for the static index is not reported as untrusted (139.8823ms)
+✔ IT-ATS202-API-009: the Bridge keeps answering while a project is listed (5136.3323ms)
+✔ IT-ATS202-API-CLEANUP: stop and cleanup (216.154ms)
+✔ IT-ATS202-SETUP: the real Playwright is installed (0.741ms)
+✔ IT-ATS202-001: the listing reports the cases of the project (620.4693ms)
+✔ IT-ATS202-002: a DYNAMIC case is in the authoritative index and not in the static one (606.0513ms)
+✔ IT-ATS202-003: the trusted project gets the authoritative index (509.9045ms)
+✔ IT-ATS202-004: the UNTRUSTED project never runs --list (2.5047ms)
+✔ IT-ATS202-005: the trusted project DOES execute the listing (608.6419ms)
+✔ IT-ATS202-006: the agreement with the CLI is measured, not asserted (536.8972ms)
+✔ IT-ATS202-007: the UID of a case does not move when the index switches (540.8422ms)
+✔ IT-ATS202-008: a broken project config falls back and says why (505.3307ms)
+✔ IT-ATS202-009: a project without a local Playwright CLI is reported, not installed (1.0866ms)
+✔ IT-ATS202-010: a listing that does not finish in time is reported as a timeout (15.6441ms)
+✔ IT-ATS202-011: a CLI that reports an error is a failure, not an empty index (616.0764ms)
+✔ IT-ATS202-012: the consistency agrees for a case after a CLOSED describe (611.0487ms)
+✔ IT-ATS202-013: the consistency agrees for the describe MODIFIERS (583.579ms)
+✔ IT-ATS202-014: the UID of a case with an ESCAPED QUOTE does not move (583.5897ms)
+✔ IT-ATS202-015: the UID of a case with a LONG title does not move (565.2855ms)
+✔ IT-ATS202-016: the UID of a MULTI-LINE test( call survives a retitle (1145.6718ms)
+✔ IT-ATS202-017: the TEMPLATE of a dynamic case does not inherit a rendered UID (566.3364ms)
+✔ IT-ATS202-CLEANUP: remove the temporary fixture (51.9244ms)
+✔ UT-ATS202-001: a spec is parsed into a case with the project relative file (1.8908ms)
+✔ UT-ATS202-002: the file is resolved against the CLI rootDir, not the project root (0.1903ms)
+✔ UT-ATS202-003: a file outside the project is excluded and reported (0.1891ms)
+✔ UT-ATS202-004: the describe path is read from the suite nesting (0.1608ms)
+✔ UT-ATS202-005: a project matrix reports the same case once per project (0.175ms)
+✔ UT-ATS202-006: the CLI errors are carried over verbatim (0.1143ms)
+✔ UT-ATS202-007: the cases are sorted by file and line (6.8805ms)
+✔ UT-ATS202-008: projectRelativeFile refuses a path outside the project (0.1832ms)
+✔ UT-ATS202-009: the outcome codes are stable (0.0825ms)
+✔ UT-ATS202-010: a project without a trust record is untrusted (0.1748ms)
+✔ UT-ATS202-011: a vouched project is trusted (0.8713ms)
+✔ UT-ATS202-012: the trust can be revoked, and the reason is kept (0.1301ms)
+✔ UT-ATS202-013: the trust of one project does not leak into another (0.0721ms)
+✔ UT-ATS202-014: withTrust does not mutate the state it is given (0.1192ms)
+✔ UT-ATS202-015: a unique title keeps the ATS-201 title-key UID (1.2611ms)
+✔ UT-ATS202-016: an explicit annotation wins over every derived key (0.1234ms)
+✔ UT-ATS202-017: the same explicit annotation on two cases binds neither (0.2712ms)
+✔ UT-ATS202-018: the describe path resolves two same-titled cases (0.1445ms)
+✔ UT-ATS202-019: two same-titled cases in the same describe path stay ambiguous (0.1479ms)
+✔ UT-ATS202-020: the body fingerprint decides when the describe path does not (0.1641ms)
+✔ UT-ATS202-020b: a DYNAMIC case is decided by the describe path, not by the body (0.1316ms)
+✔ UT-ATS202-021: the UID of an ordinary case is the same as the static one (0.0933ms)
+✔ UT-ATS202-021b: the UID of an ordinary case does not change when the index switches (0.1426ms)
+✔ UT-ATS202-022: the registry keeps the spec ids of the CLI (0.154ms)
+✔ UT-ATS202-023: an entry of an absent file is not pruned (0.1227ms)
+✔ UT-ATS202-024: an entry of a covered file whose case is gone is pruned (0.1019ms)
+✔ UT-ATS202-025: the comparison reports the cases only one index knows (0.184ms)
+✔ UT-ATS202-026: the comparison reports agreement when the two agree (0.0732ms)
+✔ UT-ATS202-027: the lexical describe path reads the blocks above the line (0.4142ms)
+✔ UT-ATS202-028: the case key spells the file, the path and the title (0.0622ms)
+ℹ tests 60
 ℹ suites 0
-ℹ pass 52
+ℹ pass 60
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 5754.3006
+ℹ duration_ms 9732.2813
 ℹ start of coverage report
-ℹ ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ℹ file                  | line % | branch % | funcs % | uncovered lines
-ℹ ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ℹ server                |        |          |         | 
 ℹ  adapters             |        |          |         | 
 ℹ   contract.mjs        |  65.03 |   100.00 |    7.69 | 76-80 94-110 120-131 146-167 174-180 184-186 193-194 202-210 229-240 251-256 276-279 299-306
 ℹ   playwright-cli.mjs  |  66.00 |   100.00 |    0.00 | 37-47 56-64 78-85 89-90 94-95 99-100
-ℹ  core.mjs             |  64.25 |    68.52 |   26.83 | 19-28 30-32 57-60 74-86 110-124 131-148 152-156 158-164 166-168 171-178 181-185 377-380 394-396 405-412 415-420 422-425 455-471 490-509 525-578
+ℹ  core.mjs             |  66.52 |    69.23 |   29.55 | 19-28 30-32 57-60 74-86 110-124 131-148 152-156 158-164 166-168 171-178 181-185 258-259 286-291 375-382 464-467 481-483 492-499 502-507 509-512 542-558 577-596 612-665
 ℹ  discovery            |        |          |         | 
-ℹ   authoritative.mjs   |  94.77 |    80.61 |   78.57 | 159 263-264 282-285 302-312
-ℹ   index.mjs           |  96.92 |    84.21 |  100.00 | 98-99 123-124
-ℹ   playwright-list.mjs |  97.98 |    61.04 |  100.00 | 185-186 297-301
+ℹ   authoritative.mjs   |  95.86 |    83.65 |   85.71 | 300-303 320-330
+ℹ   index.mjs           |  93.51 |    71.43 |   92.86 | 167 196-207 230-231 255-256
+ℹ   playwright-list.mjs |  85.60 |    60.92 |   86.67 | 185-186 270-288 300-339 415-418 437-441
 ℹ   trust.mjs           |  96.30 |    65.38 |   83.33 | 122 132-135
-ℹ  uid.mjs              |  62.31 |    55.05 |   45.61 | 68-73 77-78 89 148-155 157-160 162-169 171-180 182-206 208-221 337-365 411-413 418-421 425-438 441-449 462-478 497-498 501-509 523-524 526-541 548-550 576-579 592-605 675-689 697-698 715-728 737-739 752-754 795-871 893-923 932-934
+ℹ  uid.mjs              |  71.93 |    63.85 |   54.69 | 68-73 77-78 89 157-163 165-168 170-177 187 213 217-229 525-553 599-601 607-609 613-626 629-637 650-666 685-686 689-697 711-712 714-729 736-738 765-767 780-793 863-877 885-886 903-916 925-927 940-942 983-1059 1081-1111 1120-1122
 ℹ tests                 |        |          |         | 
 ℹ  helpers              |        |          |         | 
 ℹ   free-port.mjs       | 100.00 |    83.33 |   80.00 | 
-ℹ ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-ℹ all files             |  74.66 |    67.59 |   47.83 | 
-ℹ ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ all files             |  77.30 |    69.15 |   53.04 | 
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ℹ end of coverage report
 === exit code: 0 ===
