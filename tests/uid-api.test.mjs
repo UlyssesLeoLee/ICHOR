@@ -28,6 +28,25 @@ async function api(endpoint, method = 'GET', payload) {
   return [r.status, await r.json()];
 }
 
+/**
+ * Waits until a run reaches a terminal state.
+ *
+ * The Bridge refuses a second run of the same project while the first one is
+ * still in flight (PROJECT_ALREADY_RUNNING), so a test that starts two runs
+ * has to wait for the first one to finish. The wait is bounded so that a
+ * broken run fails the test instead of hanging it.
+ */
+async function waitForRun(uid, timeoutMs = 120000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const r = await api(`/api/runs/${uid}`);
+    const status = r[1]?.run?.status;
+    if (status && !['queued', 'running', 'cancelling'].includes(status)) return r[1].run;
+    await new Promise((res) => setTimeout(res, 100));
+  }
+  throw Error(`run ${uid} did not finish within ${timeoutMs}ms`);
+}
+
 test('IT-UID-SETUP: start server', async () => {
   cp = spawn(process.execPath, ['server/index.mjs'], {
     cwd: root, env: { ...process.env, ATS_PORT: String(port), ATS_DATA_DIR: data }, stdio: 'ignore'
@@ -81,6 +100,10 @@ test('IT-UID-005: the run carries a UID in the v1 format', async () => {
   assert.match(r[1].run.uid, /^run_1_[0-9a-f]{24}$/);
   assert.equal(r[1].run.id, r[1].run.uid);
   assert.equal(r[1].run.seq, 1);
+  // The run has to reach a terminal state before the next one can start:
+  // the Bridge refuses a second run of the same project while one is in
+  // flight (PROJECT_ALREADY_RUNNING).
+  await waitForRun(r[1].run.uid);
 });
 
 test('IT-UID-006: the run is reachable through its UID', async () => {
