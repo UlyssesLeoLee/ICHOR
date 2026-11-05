@@ -1,6 +1,14 @@
 === ATS-101 scenario D: hardcoded default-port audit ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-c245c91b845d/worktree
-date      : 2026-11-05T10:28:15Z
+date      : 2026-11-05T10:56:41Z
+NOTE: this is ATS-101's probe, not ATS-401's. It audits docs/16 §3.1
+      against the source tree, so it also reports on files other
+      tasks add. As of 2026-11-05 it reports MISMATCH because
+      ATS-301's 7e4244a added tools/check_adr_citations.py, which is
+      not yet listed in 16 §3.1. The same mismatch reproduces
+      identically on dev, so it is NOT an ATS-401 regression; it is
+      ATS-101/ATS-301's to fix. Recorded here so the log is not read
+      as an ATS-401 failure.
 
 === ATS-101 scenario D: hardcoded default-port audit ===
 repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree
@@ -13,7 +21,9 @@ port      : 4577
   server/index.mjs:14  const PORT=Number(process.env.ATS_PORT||4577);
   server/index.mjs:78  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
   src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
-total = 6
+  tools/check_adr_citations.py:113  # An IPv4 literal is NOT a file citation: `127.0.0.1:4577` names a host and a
+  tools/check_adr_citations.py:136  A `host:port` pair (`127.0.0.1:4577`) is NOT a file citation: it has no
+total = 8
 
 --- NON-runtime data mentions (data/scripts that only display it) ---
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
@@ -59,6 +69,7 @@ total = 22
   apps/studio/public/fallback.html
   server/index.mjs
   src-tauri/src/lib.rs
+  tools/check_adr_citations.py
 
 --- distinct DOC files (c) class, excluding 16 itself and the probe dir ---
   README.md (4)
@@ -89,20 +100,20 @@ files = 6, mentions = 13
   tools/generate_test_docs.py
 
 --- verdict ---
-runtime occurrences in source   : 6
-distinct runtime files          : 5
+runtime occurrences in source   : 8
+distinct runtime files          : 6
 non-runtime data files          : 5
 doc-mention files (excl. 16)    : 6
 doc mentions (excl. 16)         : 13
-runtime files missing from §3.1 : (none)
+runtime files missing from §3.1 : tools/check_adr_citations.py
 non-runtime missing from §3.1   : (none)
-runtime positions missing       : (none)
+runtime positions missing       : tools/check_adr_citations.py:113, tools/check_adr_citations.py:136
 listed but not found at runtime : (none)
 count claimed in 16 §3.1        : 6
-actual runtime occurrence count : 6
-count matches source            : true
+actual runtime occurrence count : 8
+count matches source            : false
 doc files/mentions claimed      : 6 / 13
 doc files/mentions actual       : 6 / 13
 doc mention count matches       : true
 
-RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
+RESULT: MISMATCH -- the port list in 16 §3.1 does not match the source.
