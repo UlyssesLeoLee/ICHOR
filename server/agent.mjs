@@ -478,7 +478,7 @@ function validateActions(actions, outputKind) {
 }
 
 /**
- * diff 头部的**白名单**语法（ATS-401 第 2 次复核整改）。
+ * diff 头部的**白名单**语法（ATS-401 第 2、3 次复核整改）。
  *
  * 第 1 轮整改用的是黑名单：列出已知危险的构造（rename/copy/binary/mode
  * change）并逐一拒绝。第 2 次复核证明了黑名单追不上 git 的解析器——
@@ -487,19 +487,20 @@ function validateActions(actions, outputKind) {
  *
  * 因此改为白名单：**只有**下面这些头部行被接受，其余一律拒绝。
  *
- *   diff --git a/P b/P     可选；出现时两侧的 P 必须相同，且与该段的
- *                          ---/+++ 中的 P 一致
+ *   diff --git a/P b/P     可选；出现时两侧的 P 必须相同
  *   index <hex>..<hex>     可选，可带 " 100644"
  *   new file mode 100644   可选
- *   --- a/P                或 --- /dev/null
- *   +++ b/P
+ *   --- a/P                或 --- /dev/null（新建文件）
+ *   +++ b/P                （+++ /dev/null 即删除，一律拒绝）
  *
  * 被拒绝的写法包括：旧式 `rename old/new`、`similarity`/`dissimilarity index`、
- * `Index:`、`***` 上下文 diff 头、带引号的路径、任何 mode 变更、任何
- * `copy from/to`、任何二进制补丁。
+ * `Index:`、`***` 上下文 diff 头、任何 mode 变更、任何 `copy from/to`、
+ * 任何二进制补丁、**不带 a/ 或 b/ 前缀的路径**。
  *
- * 白名单语法的**判据**是 git 自己的解析器：平台侧落地前必须再用
- * `git apply --check --numstat --summary` 校验一次（见 docs/17-AGENT-CONTRACT.md）。
+ * 第 3 次复核进一步指出：白名单本身还必须与 **git 自己的解析器**逐条
+ * 对齐，否则「校验通过但 git apply 改了别的文件」依然可能发生。本模块的
+ * 判据因此改为「与 git 的 apply.c 行为一致」，实测依据见
+ * tools/ats401-probes/probe-git-apply-parity.mjs。
  *
  * 这条保证的强度以「被接受的 diff 语法」为准——它不是「物理上无法」：
  * 任何新引入的 diff 形式都必须先加进白名单才能被接受。
@@ -513,6 +514,9 @@ const DIFF_HEADER_ALLOWED = Object.freeze([
   '---',
   '+++',
 ]);
+
+/** git 的「文件末尾没有换行符」标记行。 */
+const NO_NEWLINE_MARKER = '\\ No newline at end of file';
 
 /**
  * 拆开 `diff --git a/X b/Y` 的两侧。
@@ -624,7 +628,17 @@ function unquoteGitPath(quoted) {
       }
     }
   }
-  return Buffer.from(bytes).toString('utf8');
+  const buffer = Buffer.from(bytes);
+  // **拒绝有损解码**：不是合法 UTF-8 的字节序列，用 toString('utf8') 解码
+  // 会静默地变成 U+FFFD（替换字符）。那样得到的路径与 git 实际写入磁盘的
+  // 字节不是同一个路径——校验器与 git 对「改的是哪个文件」就会分歧。
+  // 用往返比较把这种情况挡掉：解码后再编码，必须与原字节完全一致。
+  const decoded = buffer.toString('utf8');
+  if (!Buffer.from(decoded, 'utf8').equals(buffer)) return null;
+  // 解码结果里出现 U+FFFD 也一律拒绝：无法区分「路径本来含替换字符」与
+  // 「解码失真」，宁可不放行一个无法确认的路径。
+  if (decoded.includes('�')) return null;
+  return decoded;
 }
 
 /**
@@ -633,6 +647,12 @@ function unquoteGitPath(quoted) {
  * 带引号的路径先做**完整的 C 风格反转义**（见 unquoteGitPath）。不完整实现
  * 反转义会让校验结果与 git 实际解析出的路径不一致，因此这里宁可解析失败
  * 并拒绝，也不放行一个无法确认的路径。
+ *
+ * **必须带 `a/` 或 `b/` 前缀**（`/dev/null` 除外）：`git apply` 默认按 `-p1`
+ * 剥掉路径的第一段，所以不带前缀的 `+++ tests/login.spec.ts` 会被 git 解析
+ * 成仓库根目录下的 `login.spec.ts`——与校验器看到的 `tests/login.spec.ts`
+ * 完全不同。允许裸路径就等于允许校验器与 git 对「改的是哪个文件」产生分歧，
+ * 因此这里一律拒绝。
  *
  * @returns {string|null} 归一化后的相对路径；`/dev/null` 或无法解析时返回 null
  */
@@ -644,10 +664,10 @@ function normalizeDiffPath(raw) {
     if (value === null) return null;
   }
   if (value === '/dev/null') return null;
-  if (value.startsWith('a/') || value.startsWith('b/')) {
-    return toPosix(value.slice(2));
-  }
-  return toPosix(value);
+  // 不带 a/ b/ 前缀的路径：git 的 -p1 会剥掉第一段，校验器无法与它对齐，
+  // 一律拒绝。
+  if (!value.startsWith('a/') && !value.startsWith('b/')) return null;
+  return toPosix(value.slice(2));
 }
 
 /**
@@ -658,6 +678,22 @@ function normalizeDiffPath(raw) {
  *     paths:  string[]   头部里出现过的仓库相对路径
  *     hunks:  number     hunk 段的数量
  *   }
+ *
+ * **hunk 的消费方式与 git 的 apply.c 对齐**（ATS-401 第 3 次复核整改）：
+ *
+ *   - 空行是**一行上下文**（git 把它当成内容为空白的上下文行），旧行数与
+ *     新行数各加 1。第 2 轮的实现把空行直接 `continue` 掉、不计数，于是
+ *     校验器认为 hunk 还没结束、git 认为已经结束，两边从此错位：紧随其后的
+ *     `---`/`+++` 被校验器当成 hunk 体吞掉，git 却当成**新的一段**。
+ *   - 旧行数与新行数**同时**达到声明值时，这个 hunk 立即结束，状态回到
+ *     「头部」。此后出现的 `---`/`+++` 开启**新的一段**，必须完整校验。
+ *   - hunk 体内计数**超出**声明值即拒绝（git 报 "corrupt patch"）。
+ *
+ * 两处例外必须保留，否则合法的 diff 会被误拒：
+ *   (a) 输入末尾的换行不算一行：`split('\n')` 得到的最后一个空串既不计为
+ *       上下文，在头部状态下也不算非法头；
+ *   (b) hunk 结束之后**紧跟的一行** `\ No newline at end of file` 仍然合法
+ *       （git 在无换行的文件里就会产出这一行）。
  *
  * @returns {{segments: object[], error: {construct: string, line: string}|null}}
  */
@@ -671,6 +707,10 @@ function parseDiffSegments(diff) {
   };
 
   const lines = diff.split('\n').map((raw) => raw.replace(/\r/g, ''));
+  // 例外 (a)：输入末尾的换行不算一行。
+  if (lines.length && lines[lines.length - 1] === '' && diff.endsWith('\n')) {
+    lines.pop();
+  }
 
   for (let i = 0; i < lines.length && !error; i += 1) {
     const line = lines[i];
@@ -721,6 +761,11 @@ function parseDiffSegments(diff) {
         reject('header-outside-segment', line);
         break;
       }
+    } else if (line.startsWith('--- ') && current.hunks > 0) {
+      // hunk 已经结束之后出现的 `---`：**新的一段**（git 也把它当作新文件
+      // 的一段）。绝不能被当作上一个 hunk 的体吞掉。
+      current = { header: [], paths: [], hunks: 0 };
+      segments.push(current);
     }
 
     // hunk 头先判：它不属于「头部行」，必须单独处理。
@@ -735,30 +780,62 @@ function parseDiffSegments(diff) {
       current.hunks += 1;
       current.header.push(line);
 
-      // 按 hunk 头声明的行数消费 hunk 体。
+      // 按 hunk 头声明的行数消费 hunk 体——与 git 的 apply.c 一致。
       let oldSeen = 0;
       let newSeen = 0;
       let j = i + 1;
-      for (; j < lines.length; j += 1) {
+      let done = oldCount === 0 && newCount === 0;
+      while (!done && j < lines.length) {
         const body = lines[j];
-        if (body.startsWith('@@ ')) break;             // 下一个 hunk
-        if (body.startsWith('diff --git ')) break;     // 下一段
-        if (body.startsWith('\\')) continue;          // "\ No newline at end of file"
-        if (body === '') continue;                    // 空行 = 上下文行（' ' 前缀被吞）
-        if (body.startsWith(' ')) { oldSeen += 1; newSeen += 1; continue; }
-        if (body.startsWith('+')) { newSeen += 1; continue; }
-        if (body.startsWith('-')) { oldSeen += 1; continue; }
-        reject('illegal-hunk-line', body);
-        break;
+        // git 的「文件末尾没有换行符」标记行不计入行数。
+        if (body === NO_NEWLINE_MARKER) { j += 1; continue; }
+        if (body.startsWith('\\')) {
+          // 其它反斜杠开头的行 git 判为 corrupt patch。
+          reject('illegal-hunk-line', body);
+          break;
+        }
+        let dOld = 0;
+        let dNew = 0;
+        if (body === '') {
+          // 空行 = 内容为空白的**上下文行**，git 对它旧/新行各加 1。
+          dOld = 1; dNew = 1;
+        } else if (body.startsWith(' ')) {
+          dOld = 1; dNew = 1;
+        } else if (body.startsWith('+')) {
+          dNew = 1;
+        } else if (body.startsWith('-')) {
+          dOld = 1;
+        } else {
+          reject('illegal-hunk-line', body);
+          break;
+        }
+        if (oldSeen + dOld > oldCount || newSeen + dNew > newCount) {
+          // 计数超出声明值：git 报 corrupt patch，这里直接拒绝。
+          reject('hunk-line-count-exceeded', body);
+          break;
+        }
+        oldSeen += dOld;
+        newSeen += dNew;
+        j += 1;
+        // 旧、新两个计数**同时**达到声明值时，这个 hunk 立即结束。
+        if (oldSeen === oldCount && newSeen === newCount) done = true;
       }
       if (error) break;
       if (oldSeen !== oldCount || newSeen !== newCount) {
         reject('hunk-line-count-mismatch', line);
         break;
       }
+      // 继续从 hunk 体的下一行读起：那里已经是「头部」状态了。
       i = j - 1;
       continue;
     }
+
+    // 头部状态下的行：
+    //   - 空行：git 忽略它（两段之间的空行是合法的）。
+    //   - `\ No newline at end of file`：例外 (b)，hunk 结束后紧跟的
+    //     这一行仍然合法（git 对无换行的文件就会产出它）。
+    if (line.trim() === '') continue;
+    if (line === NO_NEWLINE_MARKER) continue;
 
     // 头部行：只允许白名单里的几种。
     const allowed = DIFF_HEADER_ALLOWED.some((prefix) => line.startsWith(prefix));
@@ -787,10 +864,17 @@ function parseDiffSegments(diff) {
     }
 
     if (line.startsWith('--- ') || line.startsWith('+++ ')) {
+      const raw = line.slice(4).trim();
+      if (line.startsWith('+++ ') && raw === '/dev/null') {
+        // `+++ /dev/null` 就是**删除**文件。与 doc 17「`deleted file mode`
+        // 一律拒绝」保持同一口径：删除一律拒绝。
+        reject('deleted-file-target', line);
+        break;
+      }
       const target = normalizeDiffPath(line.slice(4));
       if (target === null) {
         // `--- /dev/null` 是合法的（新增文件）。
-        if (line.slice(4).trim() !== '/dev/null') {
+        if (raw !== '/dev/null') {
           reject('quoted-or-invalid-diff-path', line);
           break;
         }
@@ -845,11 +929,12 @@ function validateDiff(diff, scope, outputKind) {
 
   // 每一段都必须至少有一个 hunk，且头部里出现的**每一个**路径都要落在
   // scope.outputs 内。
+  //
+  // 顺序很重要：**先**判路径是否越界，**再**判「这段有没有 hunk」。
+  // 一个越界的 `diff --git` 头（后面没有 hunk）报 OUT_OF_SCOPE 比报
+  // INVALID 更准确——问题出在路径上，不是出在 hunk 上。
   const targets = [];
   for (const segment of parsed.segments) {
-    if (!segment.hunks) {
-      fail('AGENT_PROPOSAL_INVALID', 'proposal.diff contains a file segment without a hunk');
-    }
     for (const target of segment.paths) targets.push(target);
   }
   if (!targets.length) fail('AGENT_PROPOSAL_INVALID', 'proposal.diff does not name a target file');
@@ -867,6 +952,11 @@ function validateDiff(diff, scope, outputKind) {
     }
     if (!scope.outputs.includes(target)) {
       fail('AGENT_PROPOSAL_OUT_OF_SCOPE', `diff target ${target} is not listed in scope.outputs`, { target });
+    }
+  }
+  for (const segment of parsed.segments) {
+    if (!segment.hunks) {
+      fail('AGENT_PROPOSAL_INVALID', 'proposal.diff contains a file segment without a hunk');
     }
   }
   return diff;
