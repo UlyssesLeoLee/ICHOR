@@ -1,12 +1,12 @@
 === the ATS-206 row of docs/WBS.xlsx ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-53f569e2a08a/worktree
-commit    : 3262837
+commit    : 489da8c
 branch    : agent/m2/seikoist-167
 node      : v24.19.0
 python    : Python 3.11.16
 
 overview: 已完成=1 完成率=0.13191489361702124 剩余人日=408.0
-CHANGED (first run applied the update)
+IDEMPOTENT: row ATS-206 unchanged
 overview: 已完成=1 完成率=0.13191489361702124 剩余人日=408.0
 IDEMPOTENT: a second run leaves row ATS-206 byte-identical
 verify: ATS-206 row 27 状态=待审核 完成率=1 剩余人日=0 marker×1
