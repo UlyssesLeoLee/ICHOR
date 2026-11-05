@@ -11,12 +11,12 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 | 验收项 | 结论 | 证据 |
 |---|---|---|
 | Node 22 clean install | **PASS** | 干净克隆内 `npm ci` 根包 0 依赖 / `apps/studio` 57 包；`npm ci` 不改写 lockfile |
-| `npm test` | **PASS** | Node 22.23.4 下 `# tests 165 / # pass 158 / # fail 0 / # cancelled 0`，退出码 **0**（`08-node22-gate-8-steps.log`） |
+| `npm test` | **PASS** | Node 22.23.4 下 `# tests 165 / # pass 158 / # fail 0 / # cancelled 0 / # skipped 7`，退出码 **0**（`15-node22-gate-8-steps-final.log`） |
 | 锁文件可重现 | **PASS** | 安装树摘要逐字节一致（口径见 §2.2）；`npm ci` 不改写 lockfile；`autocrlf=true` 与 `false` 两种检出下依赖清单 `--check` 均退出码 0 |
 | 生成依赖清单 | **PASS** | `docs/dependencies/dependency-manifest.{json,md}`，88 个依赖许可全部已知，校验**完全离线** |
 | Windows CI 构建脚本 | **PASS** | `.github/workflows/ats-102-build.yml`，3 个 job；本地门禁 `tools/ci_build_gate.mjs` 与 workflow 逐步对应 |
 
-**最终验收运行**（全新克隆，门禁 8 步退出码 **0**）：`docs/evidence/ATS-102/08-node22-gate-8-steps.log`。
+**最终验收运行**（全新克隆，门禁 8 步退出码 **0**）：`docs/evidence/ATS-102/15-node22-gate-8-steps-final.log`。
 
 **本次交付关闭了 ATS-101 §5.1 指出的两处「ATS-102 待办」**：仓库此前既无 lockfile 也无 CI 配置。
 
@@ -59,14 +59,31 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 
    口径只用**相对路径**，所以摘要与克隆到哪个目录无关——这是该测量有意义的前提。
 
-   实测值（Windows x64）：
+   实测值（Windows x64，**npm 10.9.9**）：
 
    | 口径 | 文件数 | sha256 |
    |---|---|---|
    | `all-files` | 17191 | `4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3` |
    | `package-json` | 317 | `4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304` |
 
-   **该摘要是随平台变化的**，这是 lockfile 的性质而非口径的缺陷：`apps/studio/package-lock.json` 声明了 **40 个 optional 包**，其中 **33 个带 `os`/`cpu`/`libc` 平台约束**（`@next/swc-<platform>`、`@img/sharp-<platform>`、`@img/sharp-libvips-*`）。npm 只安装与本机匹配的那一份：Windows x64 实际安装 **9 个** optional 包，其中**只有 2 个是平台相关的**（`@img/sharp-win32-x64`、`@next/swc-win32-x64-msvc`），其余 7 个（`sharp`、`semver`、`detect-libc`、`@emnapi/runtime` 等）在所有平台都装。因此 Windows 与 Linux 的安装树天然不同，**期望值必须按平台记录**——`tools/installed-tree-digests.txt` 即按 `<口径> <平台> <sha256>` 逐行记录；某平台尚无记录时该检查**跳过而非失败**（没有可比对的基准，凭空造一个是错的）。这一点也是它**不能**作为跨平台一致性证据的原因，见 §7 第 6 条。
+   **该摘要是随平台变化的**，这是 lockfile 的性质而非口径的缺陷：`apps/studio/package-lock.json` 声明了 **40 个 optional 包**，其中 **33 个带 `os`/`cpu`/`libc` 平台约束**（`@next/swc-<platform>`、`@img/sharp-<platform>`、`@img/sharp-libvips-*`），其余 **7 个不带平台约束**（`@emnapi/runtime`、`@img/colour`、`@img/sharp-wasm32`、`@types/trusted-types`、`detect-libc`、`semver`、`sharp`）。npm 只安装与本机匹配的那一份：Windows x64 实际安装 **9 个** optional 包，其中**只有 2 个是平台相关的**（`@img/sharp-win32-x64`、`@next/swc-win32-x64-msvc`）。因此 Windows 与 Linux 的安装树天然不同，**期望值必须按平台记录**——`tools/installed-tree-digests.txt` 即按 `<口径> <平台> <npm 版本> <sha256>` 逐行记录；某平台尚无记录时该检查**跳过而非失败**（没有可比对的基准，凭空造一个是错的）。这一点也是它**不能**作为跨平台一致性证据的原因，见 §7 第 6 条。
+
+   **该摘要也是随 npm 版本变化的**，因为不同 npm 对同一份 lockfile 装出的 optional 包集合不同。实测（同一份已提交的 `apps/studio/package-lock.json`，见 `14-npm-version-and-install-digest.log`）：
+
+   | npm | 安装的文件数 | `package.json` 数 | `all-files` sha256 |
+   |---|---|---|---|
+   | **10.9.9**（Node 22.23.4 自带，`packageManager` 指定） | 17191 | 317 | `4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3` |
+   | 12.2.0（Node 24.19.0 自带） | 17167 | 315 | `5e5a977f96aeb873f414967d1bb7ea7068df251ed47e2a68c21764f2c9e4a18f` |
+
+   差异的**全部**来源是 npm 12.2.0 不安装 `@emnapi/runtime` 与 `@img/sharp-wasm32` 两个包（24 个文件），外加 `.bin/` 下 8 个 shim 与 `.package-lock.json` 的内容随 npm 版本变化（15 个文件）。逐文件的比对可用 `python tools/ats102-probes/diff-install-trees.py <树A> <树B>` 复现。
+
+   因此**每一行期望值只对它记录的那一 npm 版本成立**——记录里已经写明了这一点。门禁支持的配置是 `packageManager` 指定的 npm 10.9.9；npm 12.2.0 的摘要也已测量并记录（用于诊断与对照），但 npm 12.2.0 **不是**门禁支持的配置。这一依赖被做成了可诊断的，而不是靠读者自己猜：
+
+   - `tools/ci_build_gate.mjs --check-node` 在断言 Node major 的**同时**断言 npm 版本与根 `package.json` 的 `packageManager` 一致，不一致即退出码 1 并直接报出实际版本与期望版本；
+   - `tools/installed-tree-digests.txt` 的每行记录了产出该值的 npm 版本；
+   - `tools/tree_digest.mjs --check` 按 `(口径, 平台, npm 版本)` 查期望值，失配时输出**当前 PATH 上的 npm** 与**期望值对应的 npm**，并说明两者装出的 optional 包集合不同。
+
+   于是「摘要失配」有两个可查的原因，读者不必猜：先看 `checknode` 步是否通过——通过了就说明 npm 版本是对的，再去查 lockfile。
 
    **全树口径（`all-files`）不只锁版本，还抓到了 npm 自己没抓到的安装损坏。**
    复核期间有一个全新克隆的 `npm ci` 装出了**被截断且补零**的
@@ -99,7 +116,7 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 
 - `.nvmrc` → `22.23.4`（Node 22 LTS「Jod」的末版），CI 用 `actions/setup-node` 的 `node-version-file` 读取。
 - 根 `package.json` 的 `engines.node` 仍是 `">=22"`（运行时的下限约束，不改），另加 `packageManager: "npm@10.9.9"` 记录产出 lockfile 的 npm 版本。
-- `tools/ci_build_gate.mjs --check-node` 断言 **major 必须为 22**：lockfile 由 Node 22 自带的 npm 产出，换 major 可能解析不同。
+- `tools/ci_build_gate.mjs --check-node` 断言 **Node major 必须为 22**（lockfile 由 Node 22 自带的 npm 产出，换 major 可能解析不同），**并断言 npm 版本与 `packageManager` 一致**（安装树摘要依赖 npm 版本，见 §2.2）。两者任一不符即退出码 1，并报出实际版本与期望版本。
 
 ## 3. CI workflow
 
@@ -107,7 +124,7 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 
 | job | runner | 门禁内容 |
 |---|---|---|
-| `node-tests` | `windows-2022` | Node 22 版本断言 → 根 `npm ci` → lockfile 未被改写 → `npm test` → `node --check server/index.mjs` |
+| `node-tests` | `windows-2022` | Node 22 + npm 10.9.9 版本断言 → 根 `npm ci` → lockfile 未被改写 → `npm test` → `node --check server/index.mjs` |
 | `web-build` | `windows-2022` | `apps/studio` 的 `npm ci` → lockfile 未被改写 → **安装树摘要校验** → `next build` → 产物 `out/index.html` 存在且非空 |
 | `dependency-manifest` | `ubuntu-latest` | **直接 `--check`** 断言提交的依赖清单与 lockfile 一致 |
 
@@ -118,13 +135,20 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 依赖都会让它失配。该检查的期望值按**平台**记录，原因见 §2.2。
 
 **依赖清单 job 的比对语义**：该 job **直接跑 `--check`**，不先重新生成清单。
-先重生成再 `--check` 等于拿刚写出的文件与它自己比较，任何漂移都会被悄悄覆盖、
-检测不到。实测把清单里一条 `integrity` 篡改后：
 
-| 序列 | 退出码 |
-|---|---|
-| 直接 `--check`（现行 CI 序列） | **1**（报 `MISMATCH`） |
-| 先重生成再 `--check` | 0（检测不到漂移） |
+三种序列在**已提交的**清单被篡改后的实测结果（`13-manifest-drift-committed-tamper.log`）：
+
+| 序列 | 退出码 | 是否检出漂移 |
+|---|---|---|
+| 直接 `--check`（现行 CI 序列） | **1** | **检出** |
+| 先重生成再 `--check` | 0 | 检测不到 |
+| 先重生成再 `git diff --exit-code` | **1** | **检出** |
+
+**为什么选 `--check`**：三种序列里只有它**不写自己正在检查的文件**。
+
+- 「先重生成再 `--check`」把刚写出的文件与它自己比较，任何漂移都被悄悄覆盖，因此检测不到。
+- 「先重生成再 `git diff --exit-code`」能检出——重生成改写了已提交的清单，工作区因此与提交不一致。但它**要求工作区是 git 检出**（需要 `.git`、需要 HEAD 中的清单、且 `git diff` 只能看见工作区与索引/HEAD 的差异），在只拿到一份源码归档的场景下不成立。
+- 「直接 `--check`」不写文件、不依赖 git、可离线运行，报错信息直接指向「哪一份文件与 lockfile 不一致」。
 
 该 job **不需要 `npm ci`**：生成器从**已提交的 lockfile** 取依赖与许可数据，不读 `node_modules`，因此这个 job 不装任何依赖。
 
@@ -134,7 +158,7 @@ workflow 的每一条命令都对应 `tools/ci_build_gate.mjs` 里的一个 step
 
 | # | 本地门禁 step | 对应的 workflow 步骤 |
 |---|---|---|
-| 1 | `checknode` | `node-tests` → "Verify Node version matches engines"（`--check-node`） |
+| 1 | `checknode` | `node-tests` → "Verify Node and npm versions match the pinned toolchain"（`--check-node`） |
 | 2 | `install` | `node-tests` → "Clean install from lockfile (root)"；`web-build` → "Clean install from lockfile (apps/studio)" |
 | 3 | `lockcheck` | 两个 job 的 "Verify lockfile is not mutated by npm ci" |
 | 4 | `installdigest` | `web-build` → "Verify the installed tree matches the recorded digest" |
@@ -170,20 +194,20 @@ node tools/ci_build_gate.mjs --step test
 node   : v22.23.4
 npm    : 10.9.9
 
---- [checknode] PASSED (75 ms)
---- [install] PASSED (40116 ms)
---- [lockcheck] PASSED (90 ms)
---- [installdigest] PASSED (4921 ms)   # digest ok: all-files win32-x64 = 4542171b...
---- [test] PASSED (4312 ms)            # tests 165 / pass 158 / fail 0 / cancelled 0 / skipped 7
---- [syntax] PASSED (104 ms)
---- [build] PASSED (17578 ms)          # artefact ok: apps/studio/out/index.html (12927 bytes)
---- [manifest] PASSED (255 ms)         # packages=88 licenceKnown=88 reviewRequired=16
+--- [checknode] PASSED (390 ms)
+--- [install] PASSED (41372 ms)
+--- [lockcheck] PASSED (50 ms)
+--- [installdigest] PASSED (2803 ms)   # digest ok: all-files win32-x64 = 4542171b...
+--- [test] PASSED (1831 ms)            # tests 165 / pass 158 / fail 0 / cancelled 0 / skipped 7
+--- [syntax] PASSED (73 ms)
+--- [build] PASSED (5940 ms)           # artefact ok: apps/studio/out/index.html (12927 bytes)
+--- [manifest] PASSED (104 ms)         # packages=88 licenceKnown=88 reviewRequired=16
 
 RESULT: OK -- every build-gate step passed.
 GATE_EXIT_CODE=0
 ```
 
-完整日志：`docs/evidence/ATS-102/08-node22-gate-8-steps.log`。
+完整日志：`docs/evidence/ATS-102/15-node22-gate-8-steps-final.log`。
 
 **门禁退出码 0**；门禁跑完后 `git status --short` 为**空**、`git diff`（两个 lockfile）为空（工作区干净），即构建不留下脏文件。
 
@@ -191,7 +215,10 @@ GATE_EXIT_CODE=0
 
 | 文件 | 内容 |
 |---|---|
-| `08-node22-gate-8-steps.log` | **最终验收运行**：全新克隆上 8 步门禁全绿、退出码 0；`npm test` 165 项 / 158 通过 / 0 取消 |
+| `15-node22-gate-8-steps-final.log` | **最终验收运行**：全新克隆上 8 步门禁全绿、退出码 0；`npm test` 165 项 / 158 通过 / 0 取消 / 7 跳过 |
+| `13-manifest-drift-committed-tamper.log` | 清单漂移门禁的**已提交篡改**对照：三种序列的检出能力（`--check` 检出 / 先重生成再 `--check` 不检出 / 先重生成再 `git diff` 检出） |
+| `14-npm-version-and-install-digest.log` | 同一份 lockfile 在 npm 10.9.9 与 npm 12.2.0 下装出的两棵树：文件数、摘要、optional 包差异，以及两个 npm 下门禁各自的诊断输出 |
+| `08-node22-gate-8-steps.log` | 上一轮的门禁运行（采集于 `ca2216f`），保留作为历史对照 |
 | `09-manifest-check-autocrlf-true-false.log` | 依赖清单 `--check` 在 `core.autocrlf=true` 与 `false` 两种检出下均退出码 0；并附修复前生成器在同一 LF 检出上退出码 1 的对照 |
 | `10-path-with-space-and-cjk.log` | 检出目录含空格（`sp ace`）与含中日文（`中文目录`）时的门禁：修复前报错、修复后摘要校验通过 |
 | `11-manifest-tamper-regression.log` | **门禁有效性回归**：篡改清单一条 `integrity` 后，现行 CI 序列退出码 1、旧序列退出码 0 |
@@ -203,7 +230,9 @@ GATE_EXIT_CODE=0
 
 
 
-**Node 22.23.4 下 `# tests 165 / # pass 158 / # fail 0 / # cancelled 0 / # skipped 7`，退出码 0**（`08-node22-gate-8-steps.log`）。
+**Node 22.23.4 下 `# tests 165 / # pass 158 / # fail 0 / # cancelled 0 / # skipped 7`，退出码 0**（`15-node22-gate-8-steps-final.log`）。
+
+被跳过的 7 项是 ATS-301 的引擎 IT（`IT-ADP-005` ～ `IT-ADP-011`），原因是 `examples/sample-playwright` 与 `examples/sample-wdio` 两个夹具**没有 `node_modules`**——夹具的依赖不在本仓库的 lockfile 里，装它们需要各自单独安装。这 7 项在 CI 的干净克隆上同样会跳过，因此**不是**本机环境的产物。
 
 该结果依赖于 `server/agent.mjs` 的截止时间计时器**不调用 `timer.unref()`**。若该计时器被 `unref()`，当进程内没有其它活动句柄、provider 又是一个纯 Promise（不持有 socket 之类的句柄）时，Node 会在截止时间到达之前直接退出，`execute()` 永不 settle，调用方拿不到 `AGENT_BUDGET_EXCEEDED`（进程以 exit 13「unsettled top-level await」结束）。实测对照：
 
@@ -336,9 +365,10 @@ ATS-101 §8 建议：「ATS-102 的 CI 脚本须固定该镜像」。本次的 w
 6. **macOS / Linux 上未实测**。本次全部实测在 Windows 11 上完成。补充：安装树摘要**按平台变化**（§2.2：40 个 optional 包、其中 33 个带平台约束），所以 Windows 上算出的值**不能**代表 Linux——`tools/installed-tree-digests.txt` 目前只有 `win32-x64` 一组期望值，Linux runner 上该检查会**跳过**（不是失败），直到有人补录该平台的期望值为止。跨平台一致性仍属未验证。依赖清单的 `--check` 本身**不依赖平台**（数据源是 lockfile），已实测在 `core.autocrlf=true` 与 `false` 两种检出下均退出码 0（§2.2 第 3 条）。
 7. **CI 的并发取消（`concurrency`）与 artifact 保留行为未实测**。
 8. **产品的 `spawn('taskkill')` 无兜底缺陷未修**（§6.5）——本任务只记录与定位，未改产品代码（属 ATS-108）。
-9. **门禁在 GitHub runner 上的 PATH/工具链差异未验证**：本地用 `tools/ats102-env.sh` 准备 MSYS 形式的 PATH（§4.3），而 GitHub 的 Windows runner 由 `actions/setup-node` 直接配置 PATH，二者的差异未实测。
+9. **门禁在 GitHub runner 上的 PATH/工具链差异未验证**：本地用 `tools/ats102-env.sh` 准备 MSYS 形式的 PATH（§4.3），而 GitHub 的 Windows runner 由 `actions/setup-node` 直接配置 PATH，二者的差异未实测。**特别是 runner 上的 npm 版本**：`actions/setup-node` 装的是 Node 22.23.4 自带的 npm 10.9.9，与 `packageManager` 一致，但这一路径**未在真实 runner 上验证过**——门禁的 `checknode` 步会在版本不符时直接失败，因此即使不符也是「响亮地失败」而不是「静默地失配」。
 10. **构建步骤的稳定性未量化**：复核期间有一个全新克隆的 `next build` 在 "Generating static pages" 阶段崩溃（`Next.js build worker exited with code: 3221226505`，即 0xC0000409，原生栈缓冲区溢出），同一克隆上单独重跑即退出码 0、随后整轮门禁全绿。本机磁盘 C: 94% / D: 88%、内存紧张，判为资源压力下的偶发原生崩溃而非代码缺陷，但**该判定的依据是重跑成功，不是根因定位**——真实 GitHub runner 的资源充裕度不同，未实测其发生率。
 11. **依赖清单的 registry 依赖仅限 SPDX 列**：许可数据已改为取自 lockfile，`--check` 完全离线；但 SPDX 标识（`sbomId`）仍取自 registry，因此清单中该列全为「—」（§5.3）。
+12. **npm 12.2.0 下的门禁未整轮跑通**：npm 12.2.0 只在 `installdigest` 这一步上单独验证过（`14-npm-version-and-install-digest.log`），且该步在补录了 npm 12.2.0 的摘要后**通过**。整轮 8 步门禁在 npm 12.2.0 下**未跑**——`checknode` 会先因 npm 版本与 `packageManager` 不符而失败，所以 npm 12.2.0 本来就**不是**该门禁支持的配置。npm 12.2.0 的摘要是**已记录的值**，不是「门禁在 npm 12 下通过」的证据。
 
 ## 8. 冻结声明
 

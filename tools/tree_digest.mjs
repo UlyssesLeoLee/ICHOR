@@ -41,6 +41,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const argv = process.argv.slice(2);
@@ -148,6 +149,34 @@ const EXPECTED_FILE = path.join(
 const scope = PACKAGE_JSON_ONLY ? 'package-json' : 'all-files';
 const platform = `${process.platform}-${process.arch}`;
 
+/**
+ * The npm version on the PATH, i.e. the npm that `npm ci` runs with.
+ *
+ * The recorded digest depends on this version: npm 10.9.9 and npm 12.2.0
+ * install different sets of optional packages from the same lockfile. The
+ * digest check therefore compares the recorded value against the entry for
+ * THIS npm version, and says so when the recorded value came from a
+ * different one.
+ *
+ * The version is read by running the npm on the PATH, not by reading the npm
+ * next to `process.execPath`: the tree was installed by the npm on the PATH,
+ * and that is the npm this check must report.
+ *
+ * On Windows `npm` is a `.cmd` shim, so it cannot be launched directly: the
+ * OS only starts it through cmd.exe. The command is therefore run as
+ * `cmd /c npm --version` WITHOUT `shell: true`, because a shell that
+ * concatenates its arguments unescaped is deprecated in Node (DEP0190) and
+ * would re-split the version string. `cmd /c` takes the whole remainder as
+ * one command line, so nothing is re-split.
+ */
+function npmVersion() {
+  const cmd = process.platform === 'win32'
+    ? { file: 'cmd', args: ['/c', 'npm --version'] }
+    : { file: 'npm', args: ['--version'] };
+  const res = spawnSync(cmd.file, cmd.args, { encoding: 'utf8', shell: false });
+  return (res.stdout || '').trim() || 'unknown';
+}
+
 if (!CHECK) {
   // Nothing to compare against: the digest was just measured and printed.
 } else if (!fs.existsSync(EXPECTED_FILE)) {
@@ -170,9 +199,10 @@ if (!CHECK) {
    * recorded value is a skip, not a failure -- there is nothing to compare
    * against, and inventing one here would be wrong.
    */
-  const expected = recorded.find((f) => f[0] === scope && f[1] === platform);
+  const forPlatform = recorded.filter((f) => f[0] === scope && f[1] === platform);
+  const actualNpm = npmVersion();
 
-  if (!expected) {
+  if (!forPlatform.length) {
     console.log(
       `digest: no recorded value for scope "${scope}" on platform "${platform}" -- skipped.`,
     );
@@ -180,16 +210,45 @@ if (!CHECK) {
       `Record one with: node tools/tree_digest.mjs <tree-root>${PACKAGE_JSON_ONLY ? ' --package-json-only' : ''}`,
     );
   } else {
-    const expectedDigest = expected[2];
-    if (expectedDigest === treeDigest) {
+    // The third column is the npm version that produced the recorded value.
+    // Entries for the SAME platform but a DIFFERENT npm version are kept
+    // separate, because the digest is a property of (tree, npm version).
+    const entries = forPlatform.map((f) => ({
+      npm: /^\d+\.\d+\.\d+/.test(f[2] || '') ? f[2] : null,
+      digest: /^\d+\.\d+\.\d+/.test(f[2] || '') ? f[3] : f[2],
+    }));
+    const forThisNpm = entries.find((e) => e.npm === actualNpm);
+    const entry = forThisNpm || entries[0];
+
+    if (entry.digest === treeDigest) {
       console.log(`digest ok: ${scope} ${platform} = ${treeDigest}`);
     } else {
+      // Every recorded value for this platform is listed, so the reader can
+      // see whether a recorded digest for THIS npm version exists at all.
+      const recordedLines = entries
+        .map((e) => `  npm ${e.npm || '(unknown)'} -> ${e.digest}`)
+        .join('\n');
       console.error(
         `installed tree digest mismatch for scope "${scope}" on platform "${platform}":\n` +
-          `  expected ${expectedDigest}\n` +
+          `  expected ${entry.digest}\n` +
           `  actual   ${treeDigest}\n` +
           `  files    ${files.length}\n` +
-          'The installed tree does not match the lockfiles it was installed from.\n' +
+          `  npm      ${actualNpm} (the npm on PATH)\n` +
+          `\nrecorded values for this platform:\n${recordedLines}\n` +
+          (forThisNpm
+            ? ''
+            : `\nThere is no recorded value for npm ${actualNpm}. The recorded digest was\n` +
+              `produced by npm ${entry.npm}, and the npm on PATH is npm ${actualNpm}.\n` +
+              `The two install different sets of optional packages from the same\n` +
+              `lockfile, so the trees differ and the digests cannot match.\n` +
+              `Use npm ${entry.npm} to reproduce the recorded tree.\n`) +
+          'The installed tree does not match the tree the recorded digest describes.\n' +
+          'Two things change that tree:\n' +
+          '  - the npm version: npm 10.9.9 and npm 12.2.0 install different sets of\n' +
+          '    optional packages from the same lockfile;\n' +
+          '  - the lockfiles themselves: a dependency change moves the digest.\n' +
+          'The build gate pins the npm version in its `checknode` step, so if that\n' +
+          'step passed, compare the lockfiles against the recorded value.\n' +
           'To locate the differing files, write a manifest for each tree and diff them:\n' +
           '  node tools/tree_digest.mjs <tree> --manifest <file>',
       );

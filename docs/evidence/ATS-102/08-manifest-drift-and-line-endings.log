@@ -10,6 +10,16 @@ node : v24.19.0
 The committed manifest must be checked BEFORE it is regenerated.
 Regenerating first compares the file with itself and cannot detect drift.
 
+NOTE on the measurement method: the tamper in this log was left in the
+WORKING TREE only. It was therefore never committed, so the next
+regeneration simply overwrote it -- which is why order C could not see it
+here. CI faces a COMMITTED manifest that no longer matches the lockfiles, so
+order C has to be measured against a COMMITTED tamper. That measurement is
+in 13-manifest-drift-committed-tamper.log, where order C DOES detect the
+drift. The conclusion about which order to use does not change (--check is
+the order that does not write the file it is checking), but the reason is
+different -- see docs/17-BUILD-CI.md §3.
+
 --- tamper with one integrity value
 tampered: "integrity": "sha512-Xz4Tpyki7XyrpbUK1jR1
 
@@ -21,9 +31,9 @@ exit code = 1   (non-zero means the drift WAS detected)
 
 --- order C: regenerate, then git diff --exit-code
 exit code = 0   (0 means the drift was NOT detected)
-  -> regenerating OVERWRITES the tampered manifest, so a diff taken
-     afterwards cannot see the tamper. This is why the gate only
-     runs --check.
+  -> the tamper here was never COMMITTED, so regenerating overwrote it
+     and the diff saw nothing. Measured against a COMMITTED tamper, order C
+     exits 1 -- see 13-manifest-drift-committed-tamper.log.
 
     RESULT: OK -- the committed dependency manifest matches the lockfiles.
       packages=88 licenceKnown=88 reviewRequired=16
@@ -76,4 +86,7 @@ checkout path: D:/hermes-multica/home/cache/scratch/ats102-sp ace 中/repo
 
 (The installdigest difference between the two paths is nil: the same
  digest is produced with and without spaces. The recorded expectation
- does not match this machine's install; see docs/17-BUILD-CI.md §7 item 11.)
+ does not match this machine's install because this log was collected
+ under npm 12.2.0, while the recorded value was produced under npm
+ 10.9.9. The npm-version dependence of the digest, and the diagnostics
+ for it, are in 14-npm-version-and-install-digest.log.)

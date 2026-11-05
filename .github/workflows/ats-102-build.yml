@@ -54,7 +54,16 @@ jobs:
             package-lock.json
             apps/studio/package-lock.json
 
-      - name: Verify Node version matches engines
+      # The Node AND npm versions are asserted here, in one step, because
+      # both of them determine what the later steps see:
+      #   - the Node major, because the lockfiles were produced by the Node 22
+      #     npm and a newer major may resolve differently;
+      #   - the npm version, because the recorded installed-tree digest is a
+      #     property of the tree ONE npm version installs. npm 10.9.9 and
+      #     npm 12.2.0 install different sets of optional packages from the
+      #     same lockfile, so under the wrong npm the digest step would fail
+      #     with a message about the tree rather than about the npm.
+      - name: Verify Node and npm versions match the pinned toolchain
         run: node tools/ci_build_gate.mjs --check-node
 
       - name: Clean install from lockfile (root)
