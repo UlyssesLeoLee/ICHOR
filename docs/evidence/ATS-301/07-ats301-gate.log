@@ -1,0 +1,72 @@
+=== ATS-301 gate: WBS helper + ADR citations ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-9ac72405ff1c/worktree
+python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+
+--- 1. the WBS shared-cell merge regression ---
+PASS ATS-401 note carrying its own marker is not doubled
+PASS ATS-401 note without the marker yields the same cell
+PASS a second merge of the same block is a no-op
+PASS the merged cell carries the marker exactly once
+PASS the foreign marker survives
+PASS the own marker is present
+PASS 【ATS-101】 is idempotent
+PASS 【ATS-102】 is idempotent
+PASS 【ATS-301】 is idempotent
+PASS 【ATS-401】 is idempotent
+PASS 【ATS-501】 is idempotent
+PASS at least one updater declares a marker
+PASS update_wbs_ats101.py declares exactly one marker
+PASS 【ATS-101】 (from update_wbs_ats101.py) is registered in MARKERS
+PASS update_wbs_ats102.py declares exactly one marker
+PASS 【ATS-102】 (from update_wbs_ats102.py) is registered in MARKERS
+PASS update_wbs_ats301.py declares exactly one marker
+PASS 【ATS-301】 (from update_wbs_ats301.py) is registered in MARKERS
+PASS update_wbs_ats401.py declares exactly one marker
+PASS 【ATS-401】 (from update_wbs_ats401.py) is registered in MARKERS
+PASS update_wbs_ats501.py declares exactly one marker
+PASS 【ATS-501】 (from update_wbs_ats501.py) is registered in MARKERS
+PASS the declared markers are exactly MARKERS
+
+all checks passed
+  PASS  tools/test_wbs_common.py
+
+--- 2. every ADR path:line citation resolves ---
+--- citations enumerated from the ADR ---
+  apps/studio/app/page.tsx         81
+  apps/studio/lib/api.ts           6
+  apps/studio/public/fallback.html 3
+  server/core.mjs                  103, 27
+  server/index.mjs                 123, 14, 18, 194, 202, 203, 60-65, 61, 67, 78
+  src-tauri/Cargo.toml             11
+  src-tauri/src/lib.rs             19
+  start.ps1                        8-9
+  start.sh                         4
+  tools/generate_test_docs.py      52,58,74
+
+ok   server/index.mjs:14
+ok   server/index.mjs:18
+ok   server/index.mjs:60
+ok   server/index.mjs:61
+ok   server/index.mjs:67
+ok   server/index.mjs:78
+ok   server/index.mjs:123
+ok   server/index.mjs:194
+ok   server/index.mjs:202
+ok   server/index.mjs:203
+ok   server/core.mjs:27
+ok   server/core.mjs:103
+ok   src-tauri/Cargo.toml:11
+ok   server/index.mjs:60-65 (cancelRun extent)
+ok   apps/studio/app/page.tsx (covered by the ATS-101 port audit)
+ok   apps/studio/lib/api.ts (covered by the ATS-101 port audit)
+ok   apps/studio/public/fallback.html (covered by the ATS-101 port audit)
+ok   src-tauri/src/lib.rs (covered by the ATS-101 port audit)
+ok   start.ps1 (covered by the ATS-101 port audit)
+ok   start.sh (covered by the ATS-101 port audit)
+ok   tools/generate_test_docs.py (covered by the ATS-101 port audit)
+
+RESULT: OK
+  PASS  tools/check_adr_citations.py
+
+RESULT: OK -- the WBS helper regression and the ADR citation check both pass.

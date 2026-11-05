@@ -1,0 +1,66 @@
+ATS-301 / review item 1 (C1) -- Playwright's positional test filter
+================================================================
+
+THE DEFECT
+  hasPositionalFilter() only understood a FULL `--help` text. The adapter
+  however probes the CLI and already extracts the bare USAGE line, then
+  handed THAT to the check. The check found no 'Usage:' prefix, parsed
+  nothing, and reported filterByFile as unsupported -- a false negative on
+  a capability the adapter uses on every filtered run.
+
+THE FIX
+  server/adapters/contract.mjs -- hasPositionalFilter() now accepts either the
+  full help text or the already-extracted bare usage line; a bare usage line
+  is matched directly against the positional-filter marker.
+
+--- PROOF 1: the real Playwright project reports filterByFile supported ---
+command: node --test --test-name-pattern=IT-ADP-005 tests/adapters-it.test.mjs
+exit code: 0
+  ✔ IT-ADP-005: negotiation over the real Playwright project proves the CLI options (413.835ms)
+  ✔ IT-ADP-005B: the real Playwright CLI declares a positional test filter (815.9371ms)
+  ✔ IT-ADP-005C: the real Playwright run passes the filtered file as a positional argument (415.9683ms)
+  ℹ tests 3
+  ℹ pass 3
+  ℹ fail 0
+  ℹ skipped 0
+
+  IT-ADP-005B asserts, over the REAL @playwright/test project:
+    - cap.supported === true
+    - cap.reason === ''            (a supported capability carries no reason)
+    - cap.evidence quotes the SAME usage line the capability came from
+    - cap.detail.usage matches /\[test-filter/i
+    - requireCapability(a, project, ['filterByFile']) does NOT raise
+  IT-ADP-005C asserts the claim matches the EXECUTION: the file reaches
+  the CLI as the last POSITIONAL argument, never as an option.
+
+--- PROOF 2: the negative case -- a usage line WITHOUT a test filter ---
+  tools/test_wbs_common.py style unit coverage in tests/adapters.test.mjs
+  (UT-ADP-017) and tests/adapters-engines.test.mjs (UT-PWA-004) use a
+  FORGED probe whose usage text has no test-filter marker and assert the
+  capability is NOT supported.
+
+--- PROOF 3: the positive tests are NOT constant -- mutation ---
+  server/adapters/contract.mjs -- the positional-filter match is disabled
+  (the check is forced to 'no positional filter'), i.e. the pre-fix
+  behaviour. The real-project assertions must then go red.
+command: node --test --test-name-pattern=IT-ADP-005 tests/adapters-it.test.mjs
+exit code: 1
+Failing tests under the mutation:
+  ✖ IT-ADP-005B: the real Playwright CLI declares a positional test filter (420.2692ms)
+
+  -> the real-project assertions turn RED when the check is disabled, so
+     they are not constant. The file was restored byte-identically.
+
+--- the forged-usage negative tests ---
+command: node --test --test-name-pattern=UT-ADP-017 tests/adapters.test.mjs
+exit code: 0
+  ✔ UT-ADP-017: parseCliUsage reads the usage line and detects the positional filter (0.8987ms)
+  ✔ UT-ADP-017B: hasPositionalFilter accepts a BARE usage line as well as a help text (0.1093ms)
+  ℹ tests 2
+  ℹ pass 2
+  ℹ fail 0
+
+ENVIRONMENT
+  node     : v24.19.0
+  playwright: 1.64.1 (@playwright/test, real project)
+  date     : 2026-11-05T19:25:13

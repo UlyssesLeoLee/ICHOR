@@ -1,0 +1,35 @@
+--- citations enumerated from the ADR ---
+  apps/studio/app/page.tsx         81
+  apps/studio/lib/api.ts           6
+  apps/studio/public/fallback.html 3
+  server/core.mjs                  103, 27
+  server/index.mjs                 123, 14, 18, 194, 202, 203, 60-65, 61, 67, 78
+  src-tauri/Cargo.toml             11
+  src-tauri/src/lib.rs             19
+  start.ps1                        8-9
+  start.sh                         4
+  tools/generate_test_docs.py      52,58,74
+
+ok   server/index.mjs:14
+ok   server/index.mjs:18
+ok   server/index.mjs:60
+ok   server/index.mjs:61
+ok   server/index.mjs:67
+ok   server/index.mjs:78
+ok   server/index.mjs:123
+ok   server/index.mjs:194
+ok   server/index.mjs:202
+ok   server/index.mjs:203
+ok   server/core.mjs:27
+ok   server/core.mjs:103
+ok   src-tauri/Cargo.toml:11
+ok   server/index.mjs:60-65 (cancelRun extent)
+ok   apps/studio/app/page.tsx (covered by the ATS-101 port audit)
+ok   apps/studio/lib/api.ts (covered by the ATS-101 port audit)
+ok   apps/studio/public/fallback.html (covered by the ATS-101 port audit)
+ok   src-tauri/src/lib.rs (covered by the ATS-101 port audit)
+ok   start.ps1 (covered by the ATS-101 port audit)
+ok   start.sh (covered by the ATS-101 port audit)
+ok   tools/generate_test_docs.py (covered by the ATS-101 port audit)
+
+RESULT: OK
