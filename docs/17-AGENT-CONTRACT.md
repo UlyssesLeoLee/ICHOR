@@ -145,6 +145,8 @@
 
 第 3 次复核进一步发现：第 2 轮的白名单**解析方式**本身与 `git apply` 不一致——空行没有被计为上下文行，导致校验器在 hunk 结束后仍停在 hunk 状态，把紧随其后的 `---`/`+++` 当作 hunk 体吞掉（空行脱同步绕过）；不带 `a/`/`b/` 前缀的路径也没有被拒（`git apply` 默认 `-p1` 会剥掉第一段，校验器与 git 对「改的是哪个文件」产生分歧）。本轮整改把解析器**逐条对齐到 `git apply` 的实际行为**（hunk 的消费规则、路径前缀、删除一律拒绝），并把「校验器判定的路径 == git 解析出的路径」作为硬要求。
 
+第 4 次复核进一步发现：第 3 轮的对齐仍有两处与 git 不一致。其一，**路径的字节**必须逐字同——校验器原先用全局 `replace(/\r/g, '')` 删掉行内所有 CR、再对路径做 `trim()`，而 git 读路径时在 **CR** 处截断、却**保留**路径**尾部**的空白。于是 `b/tests/new\r.spec.ts` 在 git 眼里是 `tests/new`（实测：git 的 `--numstat` 报的就是 `tests/new`），`b/tests/new.spec.ts ` 在 git 眼里是带尾随空格的 `tests/new.spec.ts `；校验器把字节清掉之后看到的却是 scope 内的 `tests/new.spec.ts`——两边看的不是同一个文件。本轮整改改为：**只去掉行尾的那一个 CR**（CRLF 换行），路径中出现任何其它 CR、任何控制字符（0x00~0x1f、0x7f）、或首尾带空白，一律拒绝。其二，**传统 diff（没有 `diff --git` 头）把文件删空**时，git 自己的 `--summary` 会报告 `delete <path>`（实测：`git apply --numstat --summary` 报 `0\t2\ttests/login.spec.ts` + ` delete tests/login.spec.ts`），而带 `diff --git` 头的同一个 diff **不会**被报成 delete（git 从 `+++ /dev/null` 判定删除）。契约层的口径是「删除一律拒绝」，因此**没有 `diff --git` 头、且新文件这一侧一行都不剩**的段一律拒绝；带 git 头的同类 diff 仍被接受（git 不视其为删除）。
+
 **这条保证的强度**：在本仓库的**双向差分语料**上（`tools/ats401-probes/probe-git-apply-bidirectional.mjs`：复核的 3 个反例 + 对合法 diff 的自动变异 + 真实 `git diff` 输出），校验器与 `git apply --numstat --summary` 的判定一致——校验器接受的每一个输入，git 报告的路径都落在 `scope.outputs` 内，且没有 create（outputs 之外）/ delete / rename / mode 变更。**这是「在该语料上一致」的结论，不是「与 git 完全等价」的结论**；语料之外的 diff 形式未被证明。平台侧落地前仍必须再用 `git apply --check --numstat --summary` 校验一次，以 git 自己的解析器为准（见 §2.3）。
 
 **关于机制 1 的准确表述**：它是一条**静态检查**，证明契约层的源码不含 I/O 调用；它**不是**「物理上无法」。Node 运行时并不阻止模块使用 `fetch`、`process`、`globalThis`、`process.getBuiltinModule`、动态 `import()` 或 `require`，因此真正的隔离（模块沙箱、只读挂载、子进程沙箱）**不在本任务范围**，属平台侧（ATS-403）。第 1 次复核指出旧表述「物理上无法」高估了该机制的强度，本节已按实测改为上述口径；`tools/ats401-probes/lib/contract-purity.mjs` 的 11 项负控证明该检查不是恒真。
@@ -155,7 +157,9 @@
 
 ### 4.1 单元与集成测试（UT/IT）
 
-`npm test`（Node v24.19.0）：在两个 example fixture 的依赖都装好的工作树上，**189 项全通过，0 失败、0 跳过**。其中 Agent 契约相关 90 项（`UT-AGT-*` 契约单元测试 68 项 + 第 3 次复核整改新增的 UT-AGT-074~085 共 12 项 + `IT-AGT-*` API 集成测试 22 项），原有 20 项无回归。
+`npm test`（Node v24.19.0）：在两个 example fixture 的依赖都装好的工作树上，**194 项全通过，0 失败、0 跳过**。其中 Agent 契约相关 **105 项**：`UT-AGT-*` 契约单元测试 **90 项**（`tests/agent.test.mjs`）+ `IT-AGT-*` API 集成测试 **15 项**（`tests/agent-api.test.mjs`），其余为 ATS-401 之前就有的用例，无回归。
+
+> 第 4 次复核时本项为 189 项（`UT-AGT-*` 85 项 + `IT-AGT-*` 15 项 + 其余）。第 4 次复核整改新增 5 项 UT（UT-AGT-086~090）。
 
 > 依赖未装时同一命令会跳过若干 fixture 集成测试（`examples/sample-playwright` / `examples/sample-wdio` 没有 `node_modules`）。**跳过不等于通过**：本轮把两个 fixture 的依赖都装上之后重跑，189 项全绿——IT-API-013（能力协商）在缺 Playwright 依赖时是会**失败**的（协商返回 409 而不是 200），不是跳过。原始输出见 `docs/evidence/ATS-401/01-node-test.log`。
 
@@ -179,6 +183,7 @@
 - API：契约端点、鉴权、校验端点的各类拒绝、校验无写入副作用、**错误附带 `details` 且不含本机路径**、**非 agent 错误保持 ATS-401 之前的行为**（IT-AGT-001~013）
 - **第 3 次复核整改**：hunk 的消费方式与 git 对齐（空行计为一行上下文、两个计数同时达标即结束、其后的 `---`/`+++` 另起一段并完整校验、计数超限即拒）、两处例外（末尾换行不算一行、hunk 之后紧跟的 `\ No newline` 标记仍合法）、路径必须带 `a/`/`b/` 前缀、`+++ /dev/null` 按删除拒绝、非 UTF-8 引号路径拒绝、路径越界先于「有无 hunk」判定（UT-AGT-074~084）
 - **截止时间在无其它活动句柄的进程里仍然生效**（UT-AGT-085）
+- **第 4 次复核整改**：路径必须逐字节干净（CR / 控制字符 / 首尾空白一律拒绝，且**只**去掉行尾的那一个 CRLF 的 CR）、传统 diff 删空文件按删除拒绝、而带 `diff --git` 头的同类 diff 与只删部分行的传统 diff 仍被接受（UT-AGT-086~090）
 
 ### 4.2 可重跑复现探针
 
@@ -229,9 +234,13 @@
 | D | 当场跑 `git diff`，核对语料里的三种形状确实是 git 自己产出的 | 语料不能与 git 脱节 |
 | E **负控** | 当场造出真实的 rename / delete / mode change，把 git 自己的 `--summary` 输出喂给 A 节用的那三个判定 | 三个判定都命中——证明 A 节不是恒真 |
 
-语料包含：复核的 3 个反例；对合法 diff 的自动变异（插入空行、去掉 `a/` `b/` 前缀、改成 `/dev/null`、在 hunk 之后追加 `---`/`+++` 段、超出声明的 hunk 计数、重命名、改 mode、去掉 `index` 头）；以及三种真实 `git diff` 输出。
+语料包含：复核的 3 个反例；**第 4 次复核的 6 个路径反例**（路径中间的 CR、路径中间的 CR（改动文件）、路径末尾的空格、路径末尾的换页符、`+++` 后两个空格、路径中间的垂直制表符）；对合法 diff 的自动变异（插入空行、去掉 `a/` `b/` 前缀、改成 `/dev/null`、在 hunk 之后追加 `---`/`+++` 段、超出声明的 hunk 计数、重命名、改 mode、去掉 `index` 头、**删空整个文件的传统 diff**、**同一个 diff 带 `diff --git` 头**、**只删掉部分行的传统 diff**）；以及三种真实 `git diff` 输出。
 
-verdict 文案限定为「在该语料上一致」：**PASS: on this corpus (15 inputs, 5 accepted), the contract whitelist and git apply agree in both directions**。这是语料上的一致，不是与 git 完全等价（见 §2.3「关于机制 4 的准确表述」）。
+B2/B3 两节是第 4 次复核整改的专项断言：B2 断言 6 个路径反例全部被拒；B3 断言「传统 diff 删空文件」被拒，并**当场用 git 自己验证**这个判定的前提（git 确实把这种 diff 报成 `delete`，而带 `diff --git` 头的同一个 diff 不报 delete），避免断言只验证了校验器自己的一侧。
+
+E 节还修掉了一个**恒真的检查**：`detectsDelete` 原先只匹配 `delete mode`，而 git 对传统 diff 打印的是**另一种拼法** `delete <path>`——这个拼法永远匹配不上，于是 A 节的「git 未报告 delete」在传统 diff 上恒为真。现在判定同时匹配两种拼法，并且 E 节对**两种拼法各有一条负控**（真实删除的 `delete mode` 与传统 diff 的 `delete <path>`），任一拼法失效都会被测出来。
+
+verdict 文案限定为「在该语料上一致」：**PASS: on this corpus (24 inputs, 7 accepted), the contract whitelist and git apply agree in both directions**。这是语料上的一致，不是与 git 完全等价（见 §2.3「关于机制 4 的准确表述」）。
 
 E 节不是形式主义：它发现并修掉了一个**恒真的检查**——原先的 rename 判定写的是 `/\brename (from|to)\b/`，而 git 的 `--summary` 实际输出 `rename old => new (100%)`，从来不打印 `rename from`/`rename to`（那是 `diff --raw` 的格式），所以那个正则在任何输入上都不匹配，判定永远为「没有 rename」。
 
