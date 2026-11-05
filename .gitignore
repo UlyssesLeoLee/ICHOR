@@ -41,3 +41,9 @@ taskfiles.json
 conflict_groups.json
 wupd_instr.md
 conclusion.md
+
+# The ATS-103 evidence collector's intermediate files. The final log is
+# 06-mutation-evidence.log; the .head/.body pair is how the collector
+# prepends a provenance block to the script's own output.
+docs/evidence/ATS-103/06-mutation-evidence.log.head
+docs/evidence/ATS-103/06-mutation-evidence.log.body

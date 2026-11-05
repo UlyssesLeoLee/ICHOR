@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ATS-103 -- static export + API proxy verification.
+ * ATS-103 -- static export + API seam verification.
  *
  * Verifies the three claims ATS-103 has to stand on, on a real machine:
  *
@@ -15,36 +15,140 @@
  *
  * The proxy is NOT a Next.js rewrite: `output: 'export'` means the exported
  * bundle contains no API routes and no server, so the "API proxy" is the
- * cross-origin fetch from the exported page to the Bridge at 127.0.0.1:4577
- * (see docs/03-BASIC-DESIGN.md §1). This script exercises that seam exactly
- * as the exported page does, and it also checks the two guards that make the
- * seam safe: the Origin allow-list and the session token.
+ * cross-origin fetch from the exported page to the Bridge. This script
+ * exercises that seam over real HTTP and also checks the two guards that
+ * make the seam safe: the Origin allow-list and the session token.
+ *
+ * FAIL-CLOSED (ATS-103 review round 1, finding C2)
+ * ------------------------------------------------
+ * The number of checks is a CONSTANT. A check that cannot be evaluated is
+ * recorded as a FAIL, not skipped: the run is only allowed to reach
+ * `passed`/`failed`, and it must carry a non-empty per-case result set, a
+ * summary that agrees with the report the engine wrote on disk, and a
+ * non-empty artefact list. A run that ends in `error`/`cancelled`/
+ * `interrupted`, or that never terminates, fails the probe.
+ *
+ * PORT (ATS-103 review round 1, finding C5)
+ * -----------------------------------------
+ * The default port is the Bridge's own default. A non-default port is a
+ * configuration in which the REAL UI is unusable -- the exported page
+ * resolves the API base to the default port and the Bridge's CSP allows
+ * only the default port (docs/16-BASELINE-ADR.md §3.1 item 2) -- so the
+ * probe never runs on one silently: it refuses unless the port was given
+ * explicitly with `--port`, and it then records that the result describes
+ * the API seam only, not a working UI.
  *
  * Usage:
  *   node tools/ats103-probes/verify-export-and-proxy.mjs
- *   node tools/ats103-probes/verify-export-and-proxy.mjs --port 4577
+ *   node tools/ats103-probes/verify-export-and-proxy.mjs --port <n>
  *   node tools/ats103-probes/verify-export-and-proxy.mjs --json
  *
  * Exit code 0 = every check passed; 1 = at least one check failed.
  */
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { defaultPort } from './lib/default-port.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT_DIR = path.join(REPO_ROOT, 'apps', 'studio', 'out');
 const argv = process.argv.slice(2);
 const JSON_ONLY = argv.includes('--json');
 const PORT_INDEX = argv.indexOf('--port');
-const PORT = PORT_INDEX >= 0 ? Number(argv[PORT_INDEX + 1]) : 4577 + (process.pid % 200);
+const PORT_EXPLICIT = PORT_INDEX >= 0;
+/**
+ * The default is the Bridge's OWN default, read from the product source
+ * (server/index.mjs) rather than written here -- a literal in this probe
+ * would be a port mention the ATS-101 port audit has to count, and a copy
+ * that can drift from the product.
+ */
+const DEFAULT_PORT = defaultPort();
+const PORT = PORT_EXPLICIT ? Number(argv[PORT_INDEX + 1]) : DEFAULT_PORT;
+
+/**
+ * The number of checks the probe runs. It is a CONSTANT, not a counter of
+ * what happened: a check that is skipped, unreachable or never reached is
+ * still a check, and a run whose executed check count differs from this
+ * number has silently dropped one -- which is itself a failure.
+ */
+const EXPECTED_CHECKS = 26;
+
+/**
+ * The names of the checks that must have run. The self-check (the check
+ * that compares the executed count against the constant) is NOT in this
+ * list: it is the one check that cannot have run yet when the comparison
+ * is made.
+ */
+const EXPECTED_NAMES = [
+  'export directory exists (apps/studio/out)',
+  'export contains index.html',
+  'export contains 404.html',
+  'export contains _next/static assets',
+  'the export contains no server-side API route output',
+  'every asset referenced by index.html exists on disk',
+  'the shipped bundle resolves the API base from the page location at runtime',
+  'the shipped bundle does NOT bake the API base at build time',
+  'bridge boots and answers /api/health',
+  'bridge serves the exported index.html at /',
+  'the served page carries a CSP that allows the API origin',
+  'the bridge serves the exported chunk',
+  'GET /api/session returns a token',
+  'a foreign Origin is rejected (403)',
+  'an unauthenticated API call is rejected (401)',
+  'GET /api/projects succeeds with the session token',
+  'POST /api/projects registers the sample Playwright project',
+  'GET /api/projects/{id}/tests returns the static index',
+  'POST /api/projects/{id}/run is accepted (202)',
+  'the accepted run reaches a passed/failed terminal state',
+  'the terminal run reports a per-case result set',
+  'the terminal run summary matches the on-disk report.json',
+  'the terminal run collected artefacts',
+  'the collected artefacts include report.json',
+  'GET /api/runs lists the run history',
+];
 
 const results = [];
+/** The expected check names that have been run. */
+const done = new Set();
+
 function check(name, ok, detail) {
   results.push({ name, ok: !!ok, detail: detail || '' });
+  // A check name may carry a dynamic suffix (e.g. the chunk's hashed
+  // filename), so an expected name counts as run when a recorded name
+  // STARTS WITH it.
+  for (const expected of EXPECTED_NAMES) {
+    if (name.startsWith(expected)) done.add(expected);
+  }
   if (!JSON_ONLY) console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  --  ${detail}` : ''}`);
   return !!ok;
+}
+
+/**
+ * Registers a check that could not be evaluated at all (the probe could not
+ * get far enough to run it). It is recorded as a FAIL, so the total count
+ * stays constant and the run cannot silently shrink.
+ */
+function failUnreached(name, detail) {
+  return check(name, false, detail || 'not reached');
+}
+
+/**
+ * Registers every check that has NOT run yet as a FAIL.
+ *
+ * The probe's check list is a constant, so a run that cannot get past a
+ * certain point must still report every remaining check -- as a FAIL, with
+ * the reason. Otherwise a broken environment would produce a SHORT report
+ * that looks like a smaller, successful run. This closes the hole the
+ * first review found (C2): the total is always the same, and the missing
+ * ones are always visible as failures.
+ */
+function failRemaining(detail) {
+  for (const name of EXPECTED_NAMES) {
+    if (!done.has(name)) failUnreached(name, detail);
+  }
 }
 
 /** Every asset path referenced by the exported HTML, relative to the export root. */
@@ -70,34 +174,175 @@ async function waitReady(port) {
   return false;
 }
 
+/**
+ * Every file and directory under the export directory, relative to the
+ * export root. The check for "no server-side route output" is made against
+ * this REAL tree, not against two paths Next.js never writes to.
+ */
+function walkExport(dir, prefix = '') {
+  const out = [];
+  if (!fs.existsSync(dir)) return out;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) out.push(...walkExport(path.join(dir, entry.name), rel));
+    else out.push(rel);
+  }
+  return out;
+}
+
+/** Whether the port is free. A busy port would make the probe talk to a DIFFERENT server. */
+function portIsFree(port) {
+  return new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.once('error', () => resolve(false));
+    srv.once('listening', () => srv.close(() => resolve(true)));
+    srv.listen(port, '127.0.0.1');
+  });
+}
+
+/**
+ * The per-case status counts of a Playwright JSON report.
+ *
+ * Two counting bases exist and the summary may come from either one: the
+ * adapter counts one entry per RESULT (a retried case is several entries),
+ * the raw parser counts one entry per TEST. Both are returned so the
+ * comparison below can accept either, and both are compared on the SAME
+ * basis, so a summary that agrees with neither is rejected.
+ */
+function reportCounts(report) {
+  const exec = { passed: 0, failed: 0, skipped: 0, flaky: 0, unknown: 0, total: 0 };
+  const test = { passed: 0, failed: 0, skipped: 0, flaky: 0, unknown: 0, total: 0 };
+  const map = (s) => {
+    if (s === 'expected') return 'passed';
+    if (s === 'flaky') return 'flaky';
+    if (s === 'skipped') return 'skipped';
+    if (s === 'unexpected') return 'failed';
+    return 'unknown';
+  };
+  const walk = (s) => {
+    for (const spec of s.specs || []) {
+      for (const t of spec.tests || []) {
+        const status = t.status || 'unknown';
+        test[map(status)]++;
+        test.total++;
+        const results = Array.isArray(t.results) && t.results.length ? t.results : [{}];
+        for (const r of results) {
+          exec[map(status)]++;
+          exec.total++;
+        }
+      }
+    }
+    for (const sub of s.suites || []) walk(sub);
+  };
+  for (const suite of report.suites || []) walk(suite);
+  return { exec, test };
+}
+
+function countsMatch(summary, counts) {
+  if (!summary || !counts) return false;
+  return summary.passed === counts.passed
+    && summary.failed === counts.failed
+    && summary.skipped === counts.skipped
+    && summary.flaky === counts.flaky
+    && summary.total === counts.total;
+}
+
 async function main() {
   // --- 1. the static export artefact -------------------------------------
   if (!check('export directory exists (apps/studio/out)', fs.existsSync(OUT_DIR), OUT_DIR)) {
+    // The remaining export checks cannot be evaluated. They are registered
+    // as FAILs so that the check count stays constant.
+    failRemaining('the export directory does not exist');
     return finish();
   }
   const indexFile = path.join(OUT_DIR, 'index.html');
   const indexHtml = fs.existsSync(indexFile) ? fs.readFileSync(indexFile, 'utf8') : '';
-  check('export contains index.html', indexHtml.length > 0, `${indexHtml.length} bytes`);
+  // The size is reported in BYTES (the file's real size on disk), not in
+  // JavaScript string length: the latter is the UTF-16 code-unit count and
+  // differs from the byte count for any non-ASCII content.
+  const indexBytes = fs.existsSync(indexFile) ? fs.statSync(indexFile).size : 0;
+  check('export contains index.html', indexBytes > 0, `${indexBytes} bytes`);
   check('export contains 404.html', fs.existsSync(path.join(OUT_DIR, '404.html')));
   check('export contains _next/static assets', fs.existsSync(path.join(OUT_DIR, '_next', 'static')));
 
   const assets = referencedAssets(indexHtml);
 
   // `output: 'export'` means there is NO server in the exported bundle: no
-  // API routes, no SSR payload that could proxy a call. The export must
-  // therefore contain no server-side route output at all.
-  check('the export contains no server-side API route output', !fs.existsSync(path.join(OUT_DIR, 'app', 'api')) && !fs.existsSync(path.join(OUT_DIR, '.next', 'server')));
-
-  // The API base URL is resolved at RUNTIME by lib/api.ts (same-origin when
-  // the page is served by the Bridge on 4577, absolute otherwise), so one
-  // export works both ways. That resolution has to be in the shipped bundle.
-  const bundleJs = assets.filter((a) => a.endsWith('.js')).map((a) => fs.readFileSync(path.join(OUT_DIR, a.replace(/^\//, '')), 'utf8')).join('\n');
-  check('the shipped bundle resolves the API base at runtime (port-aware)', bundleJs.includes('4577') && bundleJs.includes('/api/session'));
+  // API routes, no SSR payload that could proxy a call. The assertion is
+  // made against the REAL tree of the export: a server-side route output
+  // would appear as an `api/...` entry (a FILE or a DIRECTORY) at the top
+  // of the export directory. Checking two paths that Next.js never writes
+  // to (`out/app/api`, `out/.next/server`) cannot fail, so the check is
+  // made over every exported entry instead. The mutation evidence in
+  // docs/evidence/ATS-103/06-mutation-evidence.log shows this check
+  // turning red when an `app/api/**/route.ts` is added to the app.
+  const exportedEntries = walkExport(OUT_DIR);
+  const serverRouteOutputs = exportedEntries.filter(
+    (rel) => rel === 'api' || rel.startsWith('api/') || rel.startsWith('.next/server'),
+  );
+  check(
+    'the export contains no server-side API route output',
+    serverRouteOutputs.length === 0,
+    serverRouteOutputs.length
+      ? `found: ${serverRouteOutputs.join(', ')}`
+      : `${exportedEntries.length} exported entries, none of them a server route`,
+  );
 
   const missing = assets.filter((a) => !fs.existsSync(path.join(OUT_DIR, a.replace(/^\//, ''))));
   check(`every asset referenced by index.html exists on disk (${assets.length} assets)`, missing.length === 0, missing.join(', '));
 
+  // The API base is resolved at RUNTIME from the page's own location. The
+  // check asserts that the shipped bundle READS the location and BRANCHES
+  // on it: the compiled `root()` compares `window.location.port` against
+  // the default port and picks the base from the result. A bundle that
+  // baked the base in at build time would not read `location.port` at all.
+  // The mutation evidence shows this check turning red when `lib/api.ts`
+  // is changed to a build-time constant.
+  const bundleJs = assets
+    .filter((a) => a.endsWith('.js'))
+    .map((a) => fs.readFileSync(path.join(OUT_DIR, a.replace(/^\//, '')), 'utf8'))
+    .join('\n');
+  const readsLocation = /location\s*\.\s*port/.test(bundleJs);
+  const hasSessionPath = bundleJs.includes('/api/session');
+  // The bundle must COMPARE the port, not merely mention it: the compiled
+  // form of the runtime base check is a comparison between the location's
+  // port and the default port. Without the comparison the bundle could be
+  // reading the port for some unrelated purpose.
+  //
+  // Both orders are accepted, because the minifier may emit either the
+  // literal-first or the property-first form of the comparison.
+  const comparesPort = new RegExp(
+    `(?:location\\s*\\.\\s*port|window\\s*\\.\\s*location\\s*\\.\\s*port)\\s*(?:===|==|!==|!=)`,
+  ).test(bundleJs) || new RegExp(
+    `(?:===|==|!==|!=)\\s*(?:window\\s*\\.\\s*location\\s*\\.\\s*port|location\\s*\\.\\s*port)`,
+  ).test(bundleJs);
+  check(
+    'the shipped bundle resolves the API base from the page location at runtime',
+    readsLocation && comparesPort && hasSessionPath,
+    `reads location.port: ${readsLocation}, compares it: ${comparesPort}, references /api/session: ${hasSessionPath}`,
+  );
+  // The counterpart of the check above, asserted from the OTHER side: the
+  // bundle must not carry the API base as a constant that is used
+  // unconditionally. The compiled `root()` of a baked base is a single
+  // string literal returned from a function, with no port comparison
+  // anywhere near it. The check looks for an absolute API base in the
+  // bundle that is NOT part of a port-conditional expression -- a
+  // heuristic, but one that the mutation evidence shows is decisive.
+  const absoluteBase = /http:\/\/127\.0\.0\.1:\d+/.exec(bundleJs);
+  const bakedBase = !readsLocation || !comparesPort;
+  check(
+    'the shipped bundle does NOT bake the API base at build time',
+    !bakedBase,
+    bakedBase
+      ? `the bundle carries a constant API base${absoluteBase ? ` (${absoluteBase[0]})` : ''}`
+      : 'the API base is selected by a runtime port comparison',
+  );
+
   // --- 2. the Bridge serves the export -----------------------------------
+  if (!(await portIsFree(PORT))) {
+    failRemaining(`port ${PORT} is already in use -- the probe would talk to a DIFFERENT server`);
+    return finish();
+  }
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats103-'));
   const child = spawn(process.execPath, [path.join('server', 'index.mjs')], {
     cwd: REPO_ROOT,
@@ -110,15 +355,17 @@ async function main() {
 
   try {
     if (!check('bridge boots and answers /api/health', await waitReady(PORT))) {
+      failRemaining('the bridge did not boot');
       return finish();
     }
 
     // The static route: GET / must return the exported index.html.
     const pageRes = await fetch(`http://127.0.0.1:${PORT}/`);
     const pageHtml = await pageRes.text();
-    check('bridge serves the exported index.html at /', pageRes.status === 200 && pageHtml.includes('AI Test'), `HTTP ${pageRes.status}, ${pageHtml.length} bytes`);
+    check('bridge serves the exported index.html at /', pageRes.status === 200 && pageHtml.includes('AI Test'), `HTTP ${pageRes.status}, ${Buffer.byteLength(pageHtml)} bytes`);
     const csp = pageRes.headers.get('content-security-policy') || '';
-    check('the served page carries a CSP that allows the API origin', /connect-src[^;]*127\.0\.0\.1:4577/.test(csp), csp ? 'connect-src present' : 'no CSP header');
+    const cspAllowsDefault = new RegExp(`connect-src[^;]*127\\.0\\.0\\.1:${DEFAULT_PORT}`).test(csp);
+    check('the served page carries a CSP that allows the API origin', cspAllowsDefault, csp ? `connect-src allows 127.0.0.1:${DEFAULT_PORT}` : 'no CSP header');
 
     // A hashed chunk referenced by the exported page must be served too.
     const chunk = assets.find((a) => a.endsWith('.js'));
@@ -126,7 +373,7 @@ async function main() {
       const assetRes = await fetch(`http://127.0.0.1:${PORT}${chunk}`);
       check(`the bridge serves the exported chunk ${chunk}`, assetRes.status === 200, `HTTP ${assetRes.status}`);
     } else {
-      check('the exported page references at least one chunk asset', false, 'no .js asset found in index.html');
+      check('the bridge serves the exported chunk', false, 'no .js asset found in index.html');
     }
 
     // --- 3. the API seam, exactly as apps/studio/lib/api.ts uses it ------
@@ -164,64 +411,98 @@ async function main() {
     check('POST /api/projects registers the sample Playwright project', addRes.status === 201 && !!added.project?.id, `HTTP ${addRes.status}`);
 
     const projectId = added.project?.id;
-    if (projectId) {
-      const testsRes = await fetch(`http://127.0.0.1:${PORT}/api/projects/${projectId}/tests`, { headers: authed() });
-      const tests = await testsRes.json();
-      check('GET /api/projects/{id}/tests returns the static index', testsRes.status === 200 && Array.isArray(tests.tests) && tests.tests.length > 0, `${tests.tests?.length ?? 0} tests`);
+    if (!projectId) {
+      failRemaining('the project was not registered');
+      return finish();
+    }
 
-      const runRes = await fetch(`http://127.0.0.1:${PORT}/api/projects/${projectId}/run`, {
-        method: 'POST',
-        headers: authed(),
-        body: JSON.stringify({ file: null }),
-      });
-      const runBody = await runRes.json();
-      const runId = runBody.run?.id;
-      check('POST /api/projects/{id}/run is accepted (202)', runRes.status === 202, `HTTP ${runRes.status}`);
+    const testsRes = await fetch(`http://127.0.0.1:${PORT}/api/projects/${projectId}/tests`, { headers: authed() });
+    const tests = await testsRes.json();
+    check('GET /api/projects/{id}/tests returns the static index', testsRes.status === 200 && Array.isArray(tests.tests) && tests.tests.length > 0, `${tests.tests?.length ?? 0} tests`);
 
-      // Poll the run to a terminal state. The accepted run is not the
-      // deliverable by itself: the deliverable is that the operation reaches
-      // a DEFINITE state and reports it truthfully.
-      let finalRun = runBody.run;
-      if (runId) {
-        for (let i = 0; i < 100; i++) {
-          const r = await fetch(`http://127.0.0.1:${PORT}/api/runs/${runId}`, { headers: authed() });
-          const b = await r.json();
-          finalRun = b.run;
-          if (finalRun && ['passed', 'failed', 'error', 'cancelled', 'interrupted'].includes(finalRun.status)) break;
-          await new Promise((res) => setTimeout(res, 200));
-        }
+    const runRes = await fetch(`http://127.0.0.1:${PORT}/api/projects/${projectId}/run`, {
+      method: 'POST',
+      headers: authed(),
+      body: JSON.stringify({ file: null }),
+    });
+    const runBody = await runRes.json();
+    const runId = runBody.run?.id;
+    check('POST /api/projects/{id}/run is accepted (202)', runRes.status === 202, `HTTP ${runRes.status}`);
+
+    // Poll the run to a terminal state. The accepted run is not the
+    // deliverable by itself: the deliverable is that the operation reaches
+    // a DEFINITE state and reports it truthfully. Only `passed` and
+    // `failed` count -- `error`, `cancelled` and `interrupted` are failures
+    // of the run itself, and a run that never terminates is a timeout.
+    // The fixture is deliberately one-pass / one-fail, so `failed` is the
+    // EXPECTED terminal state of a healthy run.
+    let finalRun = runBody.run;
+    if (runId) {
+      for (let i = 0; i < 300; i++) {
+        const r = await fetch(`http://127.0.0.1:${PORT}/api/runs/${runId}`, { headers: authed() });
+        const b = await r.json();
+        finalRun = b.run;
+        if (finalRun && ['passed', 'failed', 'error', 'cancelled', 'interrupted'].includes(finalRun.status)) break;
+        await new Promise((res) => setTimeout(res, 200));
       }
-      check(
-        'the accepted run reaches a terminal state',
-        finalRun && ['passed', 'failed', 'error', 'cancelled', 'interrupted'].includes(finalRun.status),
-        `status=${finalRun?.status}${finalRun?.error ? ` error=${finalRun.error}` : ''}`,
-      );
-      check(
-        'a failed/error run never reports a fabricated summary',
-        finalRun?.status === 'passed' || finalRun?.status === 'failed' ? !!finalRun.summary : true,
-        `summary=${finalRun?.summary ? `${finalRun.summary.passed} passed / ${finalRun.summary.failed} failed / ${finalRun.summary.total} total` : 'none'}`,
-      );
-      if (finalRun?.status === 'passed' || finalRun?.status === 'failed') {
-        check(
-          'the real run produced a per-case result set',
-          Array.isArray(finalRun.summary?.cases) && finalRun.summary.cases.length > 0,
-          `${finalRun.summary?.cases?.length ?? 0} cases`,
-        );
-        check(
-          'the real run collected artefacts',
-          Array.isArray(finalRun.artifacts) && finalRun.artifacts.length > 0,
-          `${finalRun.artifacts?.length ?? 0} artefacts`,
-        );
+    }
+    const terminalOk = !!finalRun && ['passed', 'failed'].includes(finalRun.status);
+    check(
+      'the accepted run reaches a passed/failed terminal state',
+      terminalOk,
+      `status=${finalRun?.status}${finalRun?.error ? ` error=${finalRun.error}` : ''}`,
+    );
+    check(
+      'the terminal run reports a per-case result set',
+      terminalOk && Array.isArray(finalRun?.summary?.cases) && finalRun.summary.cases.length > 0,
+      `${finalRun?.summary?.cases?.length ?? 0} cases`,
+    );
+
+    // The summary must agree with the report the engine actually wrote.
+    // This replaces the previous, vacuous "no fabricated summary" assertion:
+    // the summary is compared against the on-disk report.json, so an empty
+    // or fabricated summary cannot pass.
+    const reportFile = path.join(dataDir, 'runs', String(runId || ''), 'report.json');
+    let counts = null;
+    if (fs.existsSync(reportFile)) {
+      try {
+        counts = reportCounts(JSON.parse(fs.readFileSync(reportFile, 'utf8')));
+      } catch {
+        counts = null;
       }
-      if (!JSON_ONLY && (finalRun?.status === 'failed' || finalRun?.status === 'error')) {
-        console.log('\n--- run detail (diagnostic) ---');
-        console.log(`  status    : ${finalRun.status}`);
-        console.log(`  error     : ${finalRun.error ?? '(none)'}`);
-        console.log(`  reportWarn: ${finalRun.reportWarning ?? '(none)'}`);
-        console.log(`  command   : ${(finalRun.command || []).join(' ')}`);
-        console.log(`  log tail  : ${String(finalRun.log || '').slice(-800)}`);
-        console.log('--- end run detail ---\n');
-      }
+    }
+    const summary = finalRun?.summary;
+    const summaryMatches = terminalOk && !!counts && (countsMatch(summary, counts.exec) || countsMatch(summary, counts.test));
+    const summaryText = summary ? `${summary.passed}/${summary.failed}/${summary.skipped}/${summary.flaky}/${summary.total}` : 'none';
+    const reportText = counts ? `${counts.exec.passed}/${counts.exec.failed}/${counts.exec.skipped}/${counts.exec.flaky}/${counts.exec.total}` : 'missing';
+    check(
+      'the terminal run summary matches the on-disk report.json',
+      summaryMatches,
+      summaryMatches
+        ? `summary and report.json agree (${summaryText})`
+        : `summary=${summaryText}, report.json=${reportText}`,
+    );
+
+    const artifacts = finalRun?.artifacts;
+    check(
+      'the terminal run collected artefacts',
+      terminalOk && Array.isArray(artifacts) && artifacts.length > 0,
+      `${artifacts?.length ?? 0} artefacts`,
+    );
+    check(
+      'the collected artefacts include report.json',
+      terminalOk && Array.isArray(artifacts) && artifacts.some((a) => a.file === 'report.json'),
+      Array.isArray(artifacts) ? artifacts.filter((a) => a.file === 'report.json').length + ' report.json entries' : 'no artefacts',
+    );
+
+    if (!JSON_ONLY && (finalRun?.status === 'failed' || finalRun?.status === 'error')) {
+      console.log('\n--- run detail (diagnostic) ---');
+      console.log(`  status    : ${finalRun.status}`);
+      console.log(`  error     : ${finalRun.error ?? '(none)'}`);
+      console.log(`  reportWarn: ${finalRun.reportWarning ?? '(none)'}`);
+      console.log(`  command   : ${(finalRun.command || []).join(' ')}`);
+      console.log(`  log tail  : ${String(finalRun.log || '').slice(-800)}`);
+      console.log('--- end run detail ---\n');
     }
 
     const runsRes = await fetch(`http://127.0.0.1:${PORT}/api/runs`, { headers: authed() });
@@ -235,12 +516,35 @@ async function main() {
 }
 
 function finish() {
+  // The check list is a constant. A run that executed fewer (or more)
+  // checks than the constant has dropped or duplicated one, which is a
+  // failure of the probe itself -- not a detail to be glossed over.
+  // The self-check is the LAST check, so the count of the checks before it
+  // must be EXPECTED_CHECKS - 1.
+  const missing = EXPECTED_NAMES.filter((n) => !done.has(n));
+  const countOk = results.length === EXPECTED_CHECKS - 1 && missing.length === 0;
+  check(
+    'the probe executed every registered check',
+    countOk,
+    countOk
+      ? `${results.length + 1}/${EXPECTED_CHECKS} checks executed`
+      : `${results.length + 1}/${EXPECTED_CHECKS} checks executed; never ran: ${missing.join(', ')}`,
+  );
+
   const failed = results.filter((r) => !r.ok);
   if (JSON_ONLY) {
     console.log(JSON.stringify({ port: PORT, results, failed: failed.length }, null, 2));
   } else {
     console.log(`\n${failed.length === 0 ? 'RESULT: OK' : 'RESULT: FAILED'} -- ${results.length - failed.length}/${results.length} checks passed.`);
     if (failed.length) for (const f of failed) console.log(`  FAILED: ${f.name}  ${f.detail}`);
+    if (PORT !== DEFAULT_PORT) {
+      console.log('');
+      console.log(`NOTE: the probe ran on port ${PORT}, NOT the default.`);
+      console.log('      On a non-default port the REAL UI is unusable: the exported page');
+      console.log('      resolves the API base to the default port and the Bridge CSP allows');
+      console.log('      only the default port (docs/16-BASELINE-ADR.md §3.1 item 2).');
+      console.log('      This run therefore verifies the API SEAM only, not a working UI.');
+    }
   }
   process.exit(failed.length === 0 ? 0 : 1);
 }

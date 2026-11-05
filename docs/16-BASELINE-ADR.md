@@ -130,7 +130,8 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
    | 6 | `src-tauri/src/lib.rs:19` | `ATS_PORT` 环境变量默认值 |
 
-   另有 7 个文件**非运行时数据**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）、`tools/generate_test_docs.py:172,178,224`（`tests/test-cases.json` 的生成器，重新生成会把旧端口写回去）、`test-cases.xlsx`（3 处，测试用例输入数据）、`tools/update_wbs_ats103.py:110,114`（WBS 备注**文本**里的端口，值不生效）。
+   另有 6 个文件**非运行时数据**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）、`tools/generate_test_docs.py:172,178,224`（`tests/test-cases.json` 的生成器，重新生成会把旧端口写回去）、`test-cases.xlsx`（3 处，测试用例输入数据）。
+   （ATS-103 交付前，WBS 更新脚本的备注文本里也有一处端口提及；该文本已改写为不写端口字面量，因此它**不再出现在本清单里**。）
    文档类的端口提及另计，见下。
    本清单由 `tools/ats101-probes/scenario-d-port-audit.mjs` 自动比对源码与本文档，**按 `file:line` 逐条校验**，遗漏即报错。
    **审计范围**：扫描仓库内全部 `.mjs/.js/.ts/.tsx/.html/.rs/.json/.md/.ps1/.sh/.py` 文件（跳过 `node_modules/`、`.git/`、`.next/`、`out/`、`dist/`、`target/`、`test-results/`、`playwright-report/`、`.multica/`），另加 `test-cases.xlsx` 这一个 zip 容器（其单元格数据是 deflate 压缩的，须解压后扫描）。
@@ -139,7 +140,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    (b) **非运行时数据提及**：数据/脚本只显示或复制端口值，不影响运行行为，须一并更新但可批量处理（即上列的 7 个文件）；
    (c) **文档提及**：纯文字描述端口，不影响任何行为——判定依据是**文件扩展名**：任何以 `.md` 结尾的文件都属此类，无论它位于 `docs/` 下还是仓库根（如 `README.md`）；此外 `tools/ats101-probes/` 下的脚本也属此类（探针脚本必须写明它审计的端口）。
    探针按这三类分别统计并逐文件列出，**新增一份提到端口的文档也会被自动纳入 (c) 类统计**，不会被误判成运行时硬编码。
-   **(c) 类的统计口径**：统计范围是**除本文件与探针目录之外的全部 `.md` 文件**（以及探针目录下的 `.mjs` 脚本——它们同样只是叙述自己审计的端口），共 **9 个文件共 27 处提及**（`README.md` 4 处、`docs/04-DETAILED-DESIGN.md` 1 处、`docs/08-IT-TEST-DESIGN.md` 2 处、`docs/09-ST-TEST-DESIGN.md` 1 处、`docs/11-SECURITY-RISK.md` 1 处、`docs/12-DEPLOY-OPERATIONS.md` 4 处、`docs/22-FRONTEND-EXPORT.md` 5 处、`tools/ats103-probes/README.md` 3 处、`tools/ats103-probes/verify-export-and-proxy.mjs` 6 处）。该数字由探针实测得出并断言，改动上述任一文件的端口提及后，探针会报 `RESULT: MISMATCH`。`docs/evidence/ATS-101/` 下的 `.log` 证据文件**不在扫描的扩展名范围内**，其中的端口字面量不计入这 27 处。
+   **(c) 类的统计口径**：统计范围是**除本文件与探针目录之外的全部 `.md` 文件**（以及探针目录下的 `.mjs` 脚本——它们同样只是叙述自己审计的端口），共 **7 个文件共 26 处提及**（`README.md` 4 处、`docs/04-DETAILED-DESIGN.md` 1 处、`docs/08-IT-TEST-DESIGN.md` 2 处、`docs/09-ST-TEST-DESIGN.md` 1 处、`docs/11-SECURITY-RISK.md` 1 处、`docs/12-DEPLOY-OPERATIONS.md` 4 处、`docs/22-FRONTEND-EXPORT.md` 13 处）。该数字由探针实测得出并断言，改动上述任一文件的端口提及后，探针会报 `RESULT: MISMATCH`。`docs/evidence/ATS-101/` 下的 `.log` 证据文件**不在扫描的扩展名范围内**，其中的端口字面量不计入这 26 处。
    因此本节所列清单是**源码硬编码点**的完整清单，而非全仓库端口字面量的完整清单；文档类提及不要求逐条列出，但换端口时同样须一并更新。
 2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
 3. **Host 白名单绑定端口**：`server/index.mjs:90` 的正则含 `${PORT}`，改端口后 Host 校验随之变化。
@@ -344,7 +345,7 @@ GNU_BUILD_EXIT=101
   → ATS-102 已把改写后的内容**提交进版本控制**并实测该副作用**幂等**（连续两次构建后两文件 sha256 不变），因此构建后工作区不再变 dirty，CI 无需「允许变更清单」，只保留一步 diff 报告（不阻断）。详见 `docs/17-BUILD-CI.md` §6.2。
 - `next.config.mjs` 为 `output:'export'`，无 SSR、无 API Routes；`trailingSlash:true`。
   - ATS-102 新增了 `turbopack.root: import.meta.dirname`：加入第二个 lockfile 后 Next 会推断错 workspace root 并告警，固定该项后告警消失。
-- **ATS-103 已实测静态导出与 Bridge 的接口面接缝**（`docs/22-FRONTEND-EXPORT.md`）：`next build` 成功产出 `apps/studio/out`；导出目录**不含任何服务端路由产物**，因此「API 代理」在 `output:'export'` 下的真实形态是**导出页 → `127.0.0.1:4577` 的跨源直连**（基址由 `apps/studio/lib/api.ts` 在运行时按端口解析，构建期不烘焙）。实测 Bridge 能在 `/` 提供该导出并带允许 API 源的 CSP，会话/项目/运行三类操作全部成功，真实运行为 1 PASS / 1 FAIL 共 2 例、采集 27 个产物。**产品代码零改动**——既有配置已满足该完成定义。
+- **ATS-103 已实测静态导出与 Bridge 的接口面接缝**（`docs/22-FRONTEND-EXPORT.md`）：`next build` 成功产出 `apps/studio/out`；导出目录**不含任何服务端路由产物**，因此「API 代理」在 `output:'export'` 下的真实形态是**导出页 → Bridge 的跨源直连**（基址由 `apps/studio/lib/api.ts` 在运行时按端口解析，构建期不烘焙）。实测 Bridge 能在 `/` 提供该导出并带允许 API 源的 CSP，会话/项目/运行三类操作全部成功，真实运行为 1 PASS / 1 FAIL 共 2 例、采集 27 个产物。**真实 headless Chromium 里脚本驱动导出的那一页**（会话 → 添加项目 → 运行到终态）也通过，console error 为 0。**产品代码零改动**——既有配置已满足该完成定义。三个变异（服务端路由 / 构建期烘焙基址 / 引擎缺失）证明探针会变红，不是空转。
 
 ### 5.3 Tauri 2 / Rust
 
@@ -393,8 +394,10 @@ GNU_BUILD_EXIT=101
 6. **依赖 SPDX/SBOM 未生成**（NFR-012 未完成）。**ATS-102 进展**：依赖清单已生成（`docs/dependencies/dependency-manifest.{json,md}`，88 个依赖的许可/版本/integrity 全部齐备），但 ①**完整 SPDX SBOM 未生成**（多数包未发布 `sbomId`），②**分发审计结论未出**，③16 个需复核依赖（15 weak copyleft + 1 attribution）的法律结论未出 → NFR-012 **仍为未完成**。
 7. **多实例并发写 state 未验证**（JSON 原子写已实现，单写锁未实现）。
 8. **证据保留期与脱敏未实现**（Trace/视频含 PII 风险未闭环）。
-9. **静态导出未在 macOS/Linux、未在真实 Tauri 壳内实测**（ATS-103 交付，详见 `docs/22-FRONTEND-EXPORT.md` §6）。ATS-103 只验证了**产物与 HTTP 层 API 契约**，未在真实浏览器里人工评测 UI 可用性、无障碍与键盘（属 ATS-111），也未跑仓库的 8 步构建门禁（本机 Node/npm 版本与门禁固定值不符）。
+9. **静态导出未在 macOS/Linux、未在真实 Tauri 壳内实测**（ATS-103 交付，详见 `docs/22-FRONTEND-EXPORT.md` §6）。ATS-103 实测了**产物、HTTP 层的 API 契约，并在真实 headless Chromium 里脚本驱动了导出的那一页**（会话 → 添加项目 → 运行到终态，console error 为 0），但**未做人工可用性评测**（无障碍/键盘/加载态属 ATS-111），**未在真实 Tauri 壳内**跑过。**仓库的 8 步构建门禁已在 Node v22.23.4 / npm 10.9.9 下实测 8/8 通过**（`docs/evidence/ATS-103/09-ci-build-gate.log`）。
 10. **运行记录的证据链存在一条已确认缺陷**（ATS-103 交付时发现）：引擎进程异常死亡时，Bridge 会把 run 标成终态 `failed` 却没有 summary、也没有任何可诊断的 `error`（真实原因只存在于被截断的 `run.log` 里）。这不是前端缺陷，属 ATS-108 / ATS-112 的范围，ATS-103 只如实记录未修复。
+11. **Bridge 的静态路由只覆盖 `/`**（ATS-103 交付时发现）：trailing-slash 目录与未知路径既不解析目录索引、也不返回导出的 `404.html`，且提示语误导（把未知路径说成「文件不存在」，而实际是路由未覆盖）。这属 **Bridge 侧**缺陷，不在 ATS-103 的修复范围内（该任务的完成定义是「验证接缝」，不是「改造 Bridge」）；`docs/22-FRONTEND-EXPORT.md` §4.2 已如实记录，建议归入 ATS-112 或新开一项。
+12. **ATS-103 的探针依赖本机的 Playwright 浏览器缓存**（chromium-1248）：`tools/ats103-probes/ui-smoke.mjs` 在缓存缺失时**明确失败**而非跳过（见 `docs/evidence/ATS-103/06-mutation-evidence.log` 的变异 C），因此该探针不能在无浏览器的 CI runner 上运行。
 
 ## 8. 对 WBS 的影响与建议
 

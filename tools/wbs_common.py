@@ -81,9 +81,11 @@ NARRATIVE_FRAGMENTS = {
         'D7': 'CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md',
     },
     '【ATS-103】': {
-        'D6': 'Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过（ATS-103）',
+        'D6': 'Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过，'
+              '真实 headless Chromium 驱动导出页 7/7 通过（ATS-103）',
         'D7': '静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；'
-              '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112，'
+              '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112；'
+              'Bridge 静态路由只覆盖 /，目录索引与 404 未实现；'
               '详见 docs/22-FRONTEND-EXPORT.md',
     },
     '【ATS-401】': {

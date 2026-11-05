@@ -1,252 +1,2398 @@
 === ATS-103 evidence: npm test regression ===
-date      : 2026-11-05T12:52:51Z (UTC)
-commit    : 4e68b000b573f23ae7061f0e13c61cb75ff86e5b
-node      : v24.19.0
-npm       : 12.2.0
+date      : 2026-11-05T16:32:43Z (UTC)
+commit    : 7c04b8a0cf8b8aa2b6e63a137224502156ada949
+node      : v22.23.4
+npm       : 10.9.9
 command   : npm test
 
-npm notice run ai-test-studio@0.1.0 test
-npm notice run node --test tests/*.test.mjs
-✔ UT-PWA-001: the Playwright adapter reports the probed options as proven (112.7121ms)
-✔ UT-PWA-002: the Playwright adapter never claims --screenshot / --video (220.4064ms)
-✔ UT-PWA-003: a project without the CLI reports every capability unsupported with a reason (1.3401ms)
-✔ UT-PWA-004: an unreadable --help does NOT produce a proven capability (105.7531ms)
-✔ UT-PWA-004B: a usage line WITHOUT a positional filter means filterByFile is unsupported (91.6012ms)
-✔ UT-PWA-004C: a usage line WITH a positional filter means filterByFile is supported (92.4961ms)
-✔ UT-PWA-005: the Playwright argument vector contains only probed options (91.1788ms)
-✔ UT-WDA-001: the WDIO adapter reports the reporter packages it found (90.8205ms)
-✔ UT-WDA-002: the WDIO adapter refuses to claim an HTML report (81.4451ms)
-✔ UT-WDA-003: the WDIO adapter refuses to claim trace / screenshot / video (264.8545ms)
-✔ UT-WDA-004: a project without the WDIO CLI reports every capability unsupported (0.3692ms)
-✔ UT-WDA-005: mapWdioStatus normalises every WDIO state (0.116ms)
-✔ UT-WDA-006: mergeWdioReports merges per-worker ResultSets (0.4597ms)
-✔ UT-WDA-007: a worker with several spec files does not guess the case file (0.1008ms)
-✔ UT-WDA-008: parseWdioReport rejects a payload that is not a ResultSet (0.1047ms)
-✔ UT-WDA-009: fileUrlToRelative converts a file:// URL to a path (0.0758ms)
-✔ UT-WDA-010: the generated WDIO config points the reporter at the run output dir (0.3674ms)
-✔ UT-REG-001: the registry knows both runners (0.6532ms)
-✔ UT-REG-002: getAdapter rejects an unknown runner (0.1658ms)
-✔ UT-REG-003: the capability matrix reports every runner for a project (88.9105ms)
-✔ UT-REG-004: selectAdapter picks a runner that supports the request (76.8651ms)
-✔ UT-REG-005: selectAdapter explains why every runner was rejected (71.6604ms)
-✔ UT-REG-006: a pinned runner does NOT fall back to another engine (0.3165ms)
-✔ UT-REG-007: a pinned runner that satisfies the request is returned (71.4334ms)
-✔ UT-CLEANUP: removes the generated fixture (8.3393ms)
-✔ IT-ADP-001: both engines expose the same four operations (1.6963ms)
-✔ IT-ADP-002: both engines return the same discover() shape (2.2547ms)
-✔ IT-ADP-003: the Playwright fixture is discovered (0.7005ms)
-✔ IT-ADP-004: the WDIO fixture is discovered (0.4298ms)
-✔ IT-ADP-005: negotiation over the real Playwright project proves the CLI options (689.5203ms)
-✔ IT-ADP-005B: the real Playwright CLI declares a positional test filter (1037.5404ms)
-✔ IT-ADP-005C: the real Playwright run passes the filtered file as a positional argument (529.4325ms)
-﹣ IT-ADP-006: negotiation over the real WDIO project proves the reporter (0.159ms) # examples/sample-wdio has no node_modules
-﹣ IT-ADP-007: an unsupported capability is DETECTABLE, not an exception (0.1095ms) # examples/sample-wdio has no node_modules
-✔ IT-ADP-008: Playwright start -> collect produces one PASS and one FAIL (7279.0006ms)
-﹣ IT-ADP-009: WDIO start -> collect produces one PASS and one FAIL (0.151ms) # examples/sample-wdio has no node_modules
-﹣ IT-ADP-010: both engines map their results onto the SAME model (0.0495ms) # the fixtures have no node_modules
-✔ IT-ADP-011: stop() terminates a Playwright run that is in flight (8149.9104ms)
-﹣ IT-ADP-011B: stop() terminates a WebdriverIO run that is in flight (0.3397ms) # examples/sample-wdio has no node_modules
-✔ IT-ADP-CLEANUP: removes the generated fixture (37.6468ms)
-✔ UT-ADP-001: contract version is 1 and the operation set is fixed (2.6263ms)
-✔ UT-ADP-002: every vocabulary entry declares a kind (0.2212ms)
-✔ UT-ADP-003: an unsupported capability must carry a reason (0.1926ms)
-✔ UT-ADP-004: a supported capability must carry evidence (0.108ms)
-✔ UT-ADP-005: an unknown capability name is rejected (0.1181ms)
-✔ UT-ADP-006: assertAdapter rejects an adapter missing an operation (0.4524ms)
-✔ UT-ADP-007: assertAdapter rejects a contract version mismatch (0.2287ms)
-✔ UT-ADP-008: a conforming adapter passes assertAdapter (0.1458ms)
-✔ UT-ADP-009: negotiation over supported capabilities succeeds (0.4999ms)
-✔ UT-ADP-010: negotiation reports the missing capability with its reason (0.2711ms)
-✔ UT-ADP-011: negotiation reports a capability the adapter does not declare (0.1986ms)
-✔ UT-ADP-012: requireCapability throws CAPABILITY_UNSUPPORTED with the reasons (0.1796ms)
-✔ UT-ADP-013: requireCapability returns the negotiation when everything is supported (0.7865ms)
-✔ UT-ADP-014: supports() and gaps() read the same capability set (0.3341ms)
-✔ UT-ADP-015: parseCliOptions reads EVERY alias on a help line (0.5762ms)
-✔ UT-ADP-016: parseCliOptions does not invent options from the description column (0.219ms)
-✔ UT-ADP-017: parseCliUsage reads the usage line and detects the positional filter (0.4279ms)
-✔ UT-ADP-017B: hasPositionalFilter accepts a BARE usage line as well as a help text (0.1308ms)
-✔ UT-ADP-018: probeCommand never throws when the command is missing (9.6102ms)
-✔ UT-ADP-019: resolveProjectBinary returns null when nothing matches (0.4381ms)
-✔ UT-ADP-020: readPackageVersion reads a version and returns null when absent (1.6617ms)
-✔ UT-ADP-CLEANUP: removes the generated fixture (2.7004ms)
-✔ IT-AGT-SETUP: start server (201.8342ms)
-✔ IT-AGT-001: the contract description is exposed (4.7151ms)
-✔ IT-AGT-002: the contract endpoint requires a session token (3.154ms)
-✔ IT-AGT-003: a valid request is accepted by the validator (10.1716ms)
-✔ IT-AGT-004: a request asking for a forbidden capability is rejected with 400 (4.088ms)
-✔ IT-AGT-005: a request without a budget is rejected with 400 (3.7455ms)
-✔ IT-AGT-006: a request without provenance is rejected with 400 (4.2671ms)
-✔ IT-AGT-007: a request whose scope escapes the project root is rejected with 400 (3.5502ms)
-✔ IT-AGT-008: validating a request does not write to the project (4.755ms)
-✔ IT-AGT-009: the diagnostics endpoint reports the agent contract status (3.1588ms)
-✔ IT-AGT-010: a request whose digest does not match its content is rejected with 400 (4.5781ms)
-✔ IT-AGT-011: an AGENT_* error carries machine-readable details (10.44ms)
-✔ IT-AGT-012: the error details never contain a local filesystem path (3.977ms)
-✔ IT-AGT-013: a non-agent error keeps the pre-ATS-401 behaviour (4.282ms)
-✔ IT-AGT-CLEANUP: stop and cleanup (6.3243ms)
-✔ UT-AGT-001: contract version and roles are stable (3.7986ms)
-✔ UT-AGT-002: no role holds a write or commit capability (0.3152ms)
-✔ UT-AGT-003: scope requires an absolute root and at least one input target (0.9468ms)
-✔ UT-AGT-004: scope rejects paths that escape the project root (0.3269ms)
-✔ UT-AGT-005: scope outputs must be test script files (0.3795ms)
-✔ UT-AGT-006: budget must be present, integral and within platform limits (0.5483ms)
-✔ UT-AGT-007: provenance must be present and inside the declared scope (1.6985ms)
-✔ UT-AGT-008: provenance digest must be a sha256 hex digest (0.3535ms)
-✔ UT-AGT-009: a request asking for a forbidden capability is rejected (0.6754ms)
-✔ UT-AGT-010: an unknown contract version is rejected (0.303ms)
-✔ UT-AGT-011: an unknown role is rejected (0.1905ms)
-✔ UT-AGT-012: a request cannot claim a capability its role does not grant (0.373ms)
-✔ UT-AGT-013: a diff targeting a file outside scope.outputs is rejected (2.1837ms)
-✔ UT-AGT-014: a diff targeting a non test-script file is rejected (0.434ms)
-✔ UT-AGT-015: a diff escaping the project root is rejected (0.3727ms)
-✔ UT-AGT-016: scope.outputs cannot declare a path outside the project root (0.2367ms)
-✔ UT-AGT-017: the approval state of a proposal is always pending (0.5344ms)
-✔ UT-AGT-018: a script-diff proposal must cite provenance evidence (0.3427ms)
-✔ UT-AGT-019: the producer may not review its own proposal (0.5232ms)
-✔ UT-AGT-020: only a pending proposal can be reviewed (0.3583ms)
-✔ UT-AGT-021: the adapter rejects a forbidden capability at construction time (0.2831ms)
-✔ UT-AGT-022: the adapter rejects a capability the role does not grant (0.2174ms)
-✔ UT-AGT-023: the adapter rejects a request whose role it does not serve (1.1437ms)
-✔ UT-AGT-024: the adapter rejects input whose content does not match its digest (0.3425ms)
-✔ UT-AGT-025: the adapter rejects provider output that is not JSON (0.6318ms)
-✔ UT-AGT-026: the adapter rejects provider output larger than the budget (0.5776ms)
-✔ UT-AGT-027: inputs outside the declared egress kinds are not transmitted (0.9108ms)
-✔ UT-AGT-028: the described contract exposes no writable capability (0.3794ms)
-✔ UT-AGT-029: a diff that renames a file out of the scope is rejected (0.6394ms)
-✔ UT-AGT-030: a diff that copies a file out of the scope is rejected (0.3923ms)
-✔ UT-AGT-031: a diff that changes a file mode is rejected (0.2885ms)
-✔ UT-AGT-032: a CRLF-terminated diff header is still scope-checked (0.3445ms)
-✔ UT-AGT-033: a binary patch is rejected (0.376ms)
-✔ UT-AGT-034: a Binary files ... differ section is rejected (0.2687ms)
-✔ UT-AGT-035: a diff --git header naming an out-of-scope file is rejected (0.3573ms)
-✔ UT-AGT-036: a new test script inside scope.outputs is accepted (0.4458ms)
-✔ UT-AGT-037: a deleted file section is rejected (0.267ms)
-✔ UT-AGT-038: a non-100644 new file mode is rejected (0.2708ms)
-✔ UT-AGT-039: the request validator rejects a digest that does not match the content (0.1744ms)
-✔ UT-AGT-040: the budget limits are enforced on every field (0.2715ms)
-✔ UT-AGT-041: the adapter rejects input that exceeds the input byte budget (0.3501ms)
-✔ UT-AGT-042: the adapter enforces the deadline when the provider hangs (1003.0037ms)
-✔ UT-AGT-043: the adapter reports a provider failure as AGENT_PROVIDER_ERROR (0.9756ms)
-✔ UT-AGT-044: the adapter rejects a provider response without text (0.5428ms)
-✔ UT-AGT-045: the adapter passes an abort signal to the provider (0.3802ms)
-✔ UT-AGT-046: proposal actions are validated (0.3311ms)
-✔ UT-AGT-047: the proposal confidence must be a number between 0 and 1 (0.3128ms)
-✔ UT-AGT-048: evidence-kind provenance must belong to scope.runs (0.3688ms)
-✔ UT-AGT-049: evidence refs must come from the request provenance (0.1963ms)
-✔ UT-AGT-050: the contract layer source contains no I/O capability (13.1418ms)
-✔ UT-AGT-051: the scope projectId must be a non-empty string (0.2448ms)
-✔ UT-AGT-052: every provenance field is validated (0.4353ms)
-✔ UT-AGT-053: run and requirement provenance must be in the scope (0.3724ms)
-✔ UT-AGT-054: the requested capabilities and the egress kinds are validated (0.4337ms)
-✔ UT-AGT-055: a quoted diff path is accepted and a long request id is rejected (0.7658ms)
-✔ UT-AGT-056: the diff argument itself is validated (0.3165ms)
-✔ UT-AGT-057: a non-script-diff proposal must not carry a diff (0.2681ms)
-✔ UT-AGT-058: an absolute diff target is rejected (0.3049ms)
-✔ UT-AGT-059: the evidence refs argument is validated (0.3298ms)
-✔ UT-AGT-060: the proposal must be an object and its kind must match the role (0.2104ms)
-✔ UT-AGT-061: a proposal that needs a capability the request does not grant is rejected (0.2307ms)
-✔ UT-AGT-062: the provider and the adapter constructors are validated (0.3561ms)
-✔ UT-AGT-063: the adapter refuses a capability it does not hold (0.3401ms)
-✔ UT-AGT-064: the adapter describes itself (0.1371ms)
-✔ UT-AGT-065: the review arguments are validated (0.2366ms)
-✔ UT-AGT-066: a provider that fails after the deadline is reported as a budget failure (53.8113ms)
-✔ UT-AGT-067: the self-review check is not an exact string comparison (0.8927ms)
-✔ UT-AGT-068: a proposal without a platform-supplied producer is rejected (0.3667ms)
-✔ UT-AGT-069: the legacy "rename old/new" headers cannot bypass the scope check (0.283ms)
-✔ UT-AGT-070: a C-quoted diff --git header cannot bypass the scope check (0.5483ms)
-✔ UT-AGT-071: the diff header whitelist rejects the constructs outside it (0.4063ms)
-✔ UT-AGT-072: a hunk whose declared line count does not match its body is rejected (0.1621ms)
-✔ UT-AGT-073: the diff --git header may be omitted, and a quoted path is unescaped (0.4316ms)
-✔ UT-AGT-074: a blank line inside a hunk body counts as a context line (0.1506ms)
-✔ UT-AGT-075: a second file smuggled in after a blank line is rejected (0.1737ms)
-✔ UT-AGT-076: an unprefixed path is rejected because git -p1 strips one component (0.1896ms)
-✔ UT-AGT-077: a deletion via +++ /dev/null is rejected (0.2109ms)
-✔ UT-AGT-078: a hunk body that overshoots its declared counts is rejected (0.2286ms)
-✔ UT-AGT-079: the trailing newline of the diff is not a context line (0.2634ms)
-✔ UT-AGT-080: the no-newline marker right after a hunk is still legal (0.2021ms)
-✔ UT-AGT-081: a diff whose file has no trailing newline is accepted (0.1983ms)
-✔ UT-AGT-082: a real git diff of a new spec file is accepted (0.323ms)
-✔ UT-AGT-083: a real git diff with a whitespace-only context line is accepted (0.221ms)
-✔ UT-AGT-084: a quoted path that decodes to a non-UTF-8 byte is rejected (0.343ms)
-✔ UT-AGT-085: the deadline holds in a process that holds no other handle (1102.8293ms)
-✔ IT-API-SETUP: start server (198.4724ms)
-✔ IT-SEC-001: rejects unauthenticated API (3.6257ms)
-✔ IT-API-001: add existing repository (129.2376ms)
-✔ IT-API-002: import and index tests (121.9278ms)
-✔ IT-SEC-002: rejects foreign origin (3.0929ms)
-✔ IT-API-001B: add a project without the engine installed (101.2993ms)
-✔ IT-RUN-001: no deps => explicit failure rather than fake success (108.3023ms)
-✔ IT-API-003: runs survive persisted read (14.5996ms)
-✔ IT-API-010: GET /runners returns the capability matrix (626.1281ms)
-✔ IT-API-011: POST /runners with an unsatisfiable capability is 409 WITH the reason (485.6237ms)
-✔ IT-API-012: POST /runners with a PINNED runner that cannot satisfy the request is 409 WITH the reason (2.8578ms)
-✔ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (1110.8928ms)
-✔ IT-API-014: POST /run with an unsatisfiable capability is 409 WITH the reason (565.4062ms)
-✔ IT-API-015: a non-array capabilities is a 400, not a silent empty request (14.5807ms)
-✔ IT-API-CLEANUP: stop and cleanup (6.4227ms)
-✔ IT-CP-SETUP: the local Bridge and the control plane start as independent plain-Node processes (190.2335ms)
-✔ IT-CP-001: the control plane is fully usable without Tauri (5.5067ms)
-✔ IT-CP-002: the local session token is not a control-plane credential (5.6842ms)
-✔ IT-CP-003: the control-plane token is not a local Bridge credential (5.7843ms)
-✔ IT-CP-004: the control plane does not serve local Bridge endpoints (6.9794ms)
-✔ IT-CP-005: the local Bridge does not serve control-plane endpoints (4.0137ms)
-✔ IT-CP-006: registration requests carrying local paths are refused (17.1647ms)
-✔ IT-CP-007: a path or repository address used instead of a UID is refused (11.0146ms)
-✔ IT-CP-008: the local session token in a request body is refused as an inline secret (3.6101ms)
-✔ IT-CP-009: project metadata is registered and read by opaque UID; responses carry no path (3.7124ms)
-✔ IT-CP-010: another tenant gets 404 for the project; a client-chosen tenant is refused (2.1849ms)
-✔ IT-CP-012: the local Bridge still registers projects by path, and the control plane never sees them (110.7737ms)
-✔ IT-CP-011: no control-plane response contains the local data directory, a local project path or the local session token (0.7456ms)
-✔ IT-CP-013: the control plane refuses to share the local Bridge port (125.4554ms)
-✔ IT-CP-CLEANUP: child processes and the temporary data directory are removed (13.014ms)
-✔ UT-CP-001: local path forms are detected with their rule name (4.1463ms)
-✔ UT-CP-002: values that are not local paths are not flagged (0.4873ms)
-✔ UT-CP-003: percent-encoded paths are refused like the plain form; malformed encoding falls back to the raw text (0.2941ms)
-✔ UT-CP-004: body inspection covers keys and values, nested objects and arrays, without echoing the value (1.6463ms)
-✔ UT-CP-005: path, repository-address and credential field names are classified (0.4809ms)
-✔ UT-CP-006: the local session token shape (48 hex) is refused; 40/64 hex are not (0.2846ms)
-✔ UT-CP-007: nesting deeper than 32 levels is refused; 32 levels pass (0.6755ms)
-✔ UT-CP-008: the code table equals the docs/19 constraint block code by code (1.8996ms)
-✔ UT-CP-009: unknown codes are programming errors; the audit reason never reaches the body (0.572ms)
-✔ UT-CP-010: authenticators map requests to a tenant or an audit-only reason (0.8473ms)
-✔ UT-CP-011: dev token configuration is validated without echoing tokens (0.8181ms)
-✔ UT-CP-012: startup configuration defaults and accepted variants (5.6752ms)
-✔ UT-CP-013: unsafe startup configurations are refused with exit code 2 (0.6822ms)
-✔ UT-CP-014: HTTPS uses TLS 1.3 minimum; plain HTTP listens and reports the auth mode without tokens (54.0487ms)
-✔ UT-CP-015: health is public and carries no host details (6.5093ms)
-✔ UT-CP-016: the local Bridge credential is refused on every route, with or without a valid Bearer (8.1197ms)
-✔ UT-CP-017: browser Origin requests are refused (8.3019ms)
-✔ UT-CP-018: unknown routes, wrong methods and the local /api namespace are policy rejections (17.3204ms)
-✔ UT-CP-019: local paths in path segments or the query string are refused before routing (17.0573ms)
-✔ UT-CP-020: authentication failures share one code; the reason only reaches the audit trail (17.8814ms)
-✔ UT-CP-021: the tenant comes from the session; missing or mismatching tenants are refused (26.3354ms)
-✔ UT-CP-022: POST bodies must be JSON objects within 64 KiB (28.0257ms)
-✔ UT-CP-023: projects are registered and read by opaque UID only (11.6774ms)
-✔ UT-CP-024: another tenant cannot see a project; the answer equals a missing project (10.5808ms)
-✔ UT-CP-025: invalid display names, unknown fields, paths and credentials in the body are refused (20.2754ms)
-✔ UT-CP-026: a response that would carry a local path is never sent (egress guard) (8.1783ms)
-✔ UT-CP-027: an unexpected exception becomes REMOTE_INTERNAL without echoing its message; the audit trail is capped (384.1773ms)
-✔ UT-CP-028: the control-plane sources import no local Bridge module, Tauri API or child_process (2.1529ms)
-✔ UT-CP-029: the Tauri shell hosts only the local Bridge; the UI uses no Tauri API (2.9704ms)
-✔ UT-CP-030: the contract endpoint describes the boundary (4.9046ms)
-✔ UT-CORE-001: validates Playwright project (4.411ms)
-✔ UT-CORE-002: extracts static test index (2.2115ms)
-✔ UT-SEC-001: rejects path traversal (0.5825ms)
-✔ UT-CORE-003: conditional save avoids lost updates (4.6667ms)
-✔ UT-CORE-004: malformed project rejected (0.9643ms)
-✔ UT-RUN-001: missing local Playwright never auto-installs (0.6366ms)
-✔ UT-RPT-001: report summary counts passed/failed/skipped (1.355ms)
-✔ UT-CORE-005: removes generated fixture (4.1079ms)
-✔ IT-RUN-MOCK-SETUP: isolated fake CLI adapter (313.7094ms)
-✔ IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip (384.7947ms)
-✔ IT-RUN-MOCK-002: cancel marks cancelled (390.046ms)
-✔ IT-RUN-MOCK-CLEANUP: cleanup (10.5455ms)
-ℹ tests 234
-ℹ suites 0
-ℹ pass 229
-ℹ fail 0
-ℹ cancelled 0
-ℹ skipped 5
-ℹ todo 0
-ℹ duration_ms 17856.0609
+
+> ai-test-studio@0.1.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: UT-PWA-001: the Playwright adapter reports the probed options as proven
+ok 1 - UT-PWA-001: the Playwright adapter reports the probed options as proven
+  ---
+  duration_ms: 147.3964
+  type: 'test'
+  ...
+# Subtest: UT-PWA-002: the Playwright adapter never claims --screenshot / --video
+ok 2 - UT-PWA-002: the Playwright adapter never claims --screenshot / --video
+  ---
+  duration_ms: 262.034
+  type: 'test'
+  ...
+# Subtest: UT-PWA-003: a project without the CLI reports every capability unsupported with a reason
+ok 3 - UT-PWA-003: a project without the CLI reports every capability unsupported with a reason
+  ---
+  duration_ms: 1.5198
+  type: 'test'
+  ...
+# Subtest: UT-PWA-004: an unreadable --help does NOT produce a proven capability
+ok 4 - UT-PWA-004: an unreadable --help does NOT produce a proven capability
+  ---
+  duration_ms: 111.2999
+  type: 'test'
+  ...
+# Subtest: UT-PWA-004B: a usage line WITHOUT a positional filter means filterByFile is unsupported
+ok 5 - UT-PWA-004B: a usage line WITHOUT a positional filter means filterByFile is unsupported
+  ---
+  duration_ms: 111.2543
+  type: 'test'
+  ...
+# Subtest: UT-PWA-004C: a usage line WITH a positional filter means filterByFile is supported
+ok 6 - UT-PWA-004C: a usage line WITH a positional filter means filterByFile is supported
+  ---
+  duration_ms: 106.2854
+  type: 'test'
+  ...
+# Subtest: UT-PWA-005: the Playwright argument vector contains only probed options
+ok 7 - UT-PWA-005: the Playwright argument vector contains only probed options
+  ---
+  duration_ms: 114.4147
+  type: 'test'
+  ...
+# Subtest: UT-WDA-001: the WDIO adapter reports the reporter packages it found
+ok 8 - UT-WDA-001: the WDIO adapter reports the reporter packages it found
+  ---
+  duration_ms: 99.1682
+  type: 'test'
+  ...
+# Subtest: UT-WDA-002: the WDIO adapter refuses to claim an HTML report
+ok 9 - UT-WDA-002: the WDIO adapter refuses to claim an HTML report
+  ---
+  duration_ms: 89.7289
+  type: 'test'
+  ...
+# Subtest: UT-WDA-003: the WDIO adapter refuses to claim trace / screenshot / video
+ok 10 - UT-WDA-003: the WDIO adapter refuses to claim trace / screenshot / video
+  ---
+  duration_ms: 243.0284
+  type: 'test'
+  ...
+# Subtest: UT-WDA-004: a project without the WDIO CLI reports every capability unsupported
+ok 11 - UT-WDA-004: a project without the WDIO CLI reports every capability unsupported
+  ---
+  duration_ms: 0.4272
+  type: 'test'
+  ...
+# Subtest: UT-WDA-005: mapWdioStatus normalises every WDIO state
+ok 12 - UT-WDA-005: mapWdioStatus normalises every WDIO state
+  ---
+  duration_ms: 0.1029
+  type: 'test'
+  ...
+# Subtest: UT-WDA-006: mergeWdioReports merges per-worker ResultSets
+ok 13 - UT-WDA-006: mergeWdioReports merges per-worker ResultSets
+  ---
+  duration_ms: 0.3982
+  type: 'test'
+  ...
+# Subtest: UT-WDA-007: a worker with several spec files does not guess the case file
+ok 14 - UT-WDA-007: a worker with several spec files does not guess the case file
+  ---
+  duration_ms: 0.0914
+  type: 'test'
+  ...
+# Subtest: UT-WDA-008: parseWdioReport rejects a payload that is not a ResultSet
+ok 15 - UT-WDA-008: parseWdioReport rejects a payload that is not a ResultSet
+  ---
+  duration_ms: 0.0883
+  type: 'test'
+  ...
+# Subtest: UT-WDA-009: fileUrlToRelative converts a file:// URL to a path
+ok 16 - UT-WDA-009: fileUrlToRelative converts a file:// URL to a path
+  ---
+  duration_ms: 0.0592
+  type: 'test'
+  ...
+# Subtest: UT-WDA-010: the generated WDIO config points the reporter at the run output dir
+ok 17 - UT-WDA-010: the generated WDIO config points the reporter at the run output dir
+  ---
+  duration_ms: 0.3443
+  type: 'test'
+  ...
+# Subtest: UT-REG-001: the registry knows both runners
+ok 18 - UT-REG-001: the registry knows both runners
+  ---
+  duration_ms: 0.6084
+  type: 'test'
+  ...
+# Subtest: UT-REG-002: getAdapter rejects an unknown runner
+ok 19 - UT-REG-002: getAdapter rejects an unknown runner
+  ---
+  duration_ms: 0.1114
+  type: 'test'
+  ...
+# Subtest: UT-REG-003: the capability matrix reports every runner for a project
+ok 20 - UT-REG-003: the capability matrix reports every runner for a project
+  ---
+  duration_ms: 85.803
+  type: 'test'
+  ...
+# Subtest: UT-REG-004: selectAdapter picks a runner that supports the request
+ok 21 - UT-REG-004: selectAdapter picks a runner that supports the request
+  ---
+  duration_ms: 81.4525
+  type: 'test'
+  ...
+# Subtest: UT-REG-005: selectAdapter explains why every runner was rejected
+ok 22 - UT-REG-005: selectAdapter explains why every runner was rejected
+  ---
+  duration_ms: 79.6566
+  type: 'test'
+  ...
+# Subtest: UT-REG-006: a pinned runner does NOT fall back to another engine
+ok 23 - UT-REG-006: a pinned runner does NOT fall back to another engine
+  ---
+  duration_ms: 0.3555
+  type: 'test'
+  ...
+# Subtest: UT-REG-007: a pinned runner that satisfies the request is returned
+ok 24 - UT-REG-007: a pinned runner that satisfies the request is returned
+  ---
+  duration_ms: 74.0417
+  type: 'test'
+  ...
+# Subtest: UT-CLEANUP: removes the generated fixture
+ok 25 - UT-CLEANUP: removes the generated fixture
+  ---
+  duration_ms: 14.4773
+  type: 'test'
+  ...
+# Subtest: IT-ADP-001: both engines expose the same four operations
+ok 26 - IT-ADP-001: both engines expose the same four operations
+  ---
+  duration_ms: 1.5701
+  type: 'test'
+  ...
+# Subtest: IT-ADP-002: both engines return the same discover() shape
+ok 27 - IT-ADP-002: both engines return the same discover() shape
+  ---
+  duration_ms: 5.9685
+  type: 'test'
+  ...
+# Subtest: IT-ADP-003: the Playwright fixture is discovered
+ok 28 - IT-ADP-003: the Playwright fixture is discovered
+  ---
+  duration_ms: 3.4391
+  type: 'test'
+  ...
+# Subtest: IT-ADP-004: the WDIO fixture is discovered
+ok 29 - IT-ADP-004: the WDIO fixture is discovered
+  ---
+  duration_ms: 0.8488
+  type: 'test'
+  ...
+# Subtest: IT-ADP-005: negotiation over the real Playwright project proves the CLI options
+ok 30 - IT-ADP-005: negotiation over the real Playwright project proves the CLI options
+  ---
+  duration_ms: 912.6066
+  type: 'test'
+  ...
+# Subtest: IT-ADP-005B: the real Playwright CLI declares a positional test filter
+ok 31 - IT-ADP-005B: the real Playwright CLI declares a positional test filter
+  ---
+  duration_ms: 1094.8821
+  type: 'test'
+  ...
+# Subtest: IT-ADP-005C: the real Playwright run passes the filtered file as a positional argument
+ok 32 - IT-ADP-005C: the real Playwright run passes the filtered file as a positional argument
+  ---
+  duration_ms: 507.0733
+  type: 'test'
+  ...
+# Subtest: IT-ADP-006: negotiation over the real WDIO project proves the reporter
+ok 33 - IT-ADP-006: negotiation over the real WDIO project proves the reporter # SKIP examples/sample-wdio has no node_modules
+  ---
+  duration_ms: 0.1158
+  type: 'test'
+  ...
+# Subtest: IT-ADP-007: an unsupported capability is DETECTABLE, not an exception
+ok 34 - IT-ADP-007: an unsupported capability is DETECTABLE, not an exception # SKIP examples/sample-wdio has no node_modules
+  ---
+  duration_ms: 0.2048
+  type: 'test'
+  ...
+# Subtest: IT-ADP-008: Playwright start -> collect produces one PASS and one FAIL
+ok 35 - IT-ADP-008: Playwright start -> collect produces one PASS and one FAIL
+  ---
+  duration_ms: 7118.1839
+  type: 'test'
+  ...
+# Subtest: IT-ADP-009: WDIO start -> collect produces one PASS and one FAIL
+ok 36 - IT-ADP-009: WDIO start -> collect produces one PASS and one FAIL # SKIP examples/sample-wdio has no node_modules
+  ---
+  duration_ms: 0.3566
+  type: 'test'
+  ...
+# Subtest: IT-ADP-010: both engines map their results onto the SAME model
+ok 37 - IT-ADP-010: both engines map their results onto the SAME model # SKIP the fixtures have no node_modules
+  ---
+  duration_ms: 0.108
+  type: 'test'
+  ...
+# Subtest: IT-ADP-011: stop() terminates a Playwright run that is in flight
+ok 38 - IT-ADP-011: stop() terminates a Playwright run that is in flight
+  ---
+  duration_ms: 8208.424
+  type: 'test'
+  ...
+# Subtest: IT-ADP-011B: stop() terminates a WebdriverIO run that is in flight
+ok 39 - IT-ADP-011B: stop() terminates a WebdriverIO run that is in flight # SKIP examples/sample-wdio has no node_modules
+  ---
+  duration_ms: 0.2551
+  type: 'test'
+  ...
+# Subtest: IT-ADP-CLEANUP: removes the generated fixture
+ok 40 - IT-ADP-CLEANUP: removes the generated fixture
+  ---
+  duration_ms: 50.2546
+  type: 'test'
+  ...
+# Subtest: UT-ADP-001: contract version is 1 and the operation set is fixed
+ok 41 - UT-ADP-001: contract version is 1 and the operation set is fixed
+  ---
+  duration_ms: 2.3034
+  type: 'test'
+  ...
+# Subtest: UT-ADP-002: every vocabulary entry declares a kind
+ok 42 - UT-ADP-002: every vocabulary entry declares a kind
+  ---
+  duration_ms: 0.4389
+  type: 'test'
+  ...
+# Subtest: UT-ADP-003: an unsupported capability must carry a reason
+ok 43 - UT-ADP-003: an unsupported capability must carry a reason
+  ---
+  duration_ms: 0.3647
+  type: 'test'
+  ...
+# Subtest: UT-ADP-004: a supported capability must carry evidence
+ok 44 - UT-ADP-004: a supported capability must carry evidence
+  ---
+  duration_ms: 0.2318
+  type: 'test'
+  ...
+# Subtest: UT-ADP-005: an unknown capability name is rejected
+ok 45 - UT-ADP-005: an unknown capability name is rejected
+  ---
+  duration_ms: 0.3106
+  type: 'test'
+  ...
+# Subtest: UT-ADP-006: assertAdapter rejects an adapter missing an operation
+ok 46 - UT-ADP-006: assertAdapter rejects an adapter missing an operation
+  ---
+  duration_ms: 0.4694
+  type: 'test'
+  ...
+# Subtest: UT-ADP-007: assertAdapter rejects a contract version mismatch
+ok 47 - UT-ADP-007: assertAdapter rejects a contract version mismatch
+  ---
+  duration_ms: 0.3492
+  type: 'test'
+  ...
+# Subtest: UT-ADP-008: a conforming adapter passes assertAdapter
+ok 48 - UT-ADP-008: a conforming adapter passes assertAdapter
+  ---
+  duration_ms: 0.2187
+  type: 'test'
+  ...
+# Subtest: UT-ADP-009: negotiation over supported capabilities succeeds
+ok 49 - UT-ADP-009: negotiation over supported capabilities succeeds
+  ---
+  duration_ms: 0.8443
+  type: 'test'
+  ...
+# Subtest: UT-ADP-010: negotiation reports the missing capability with its reason
+ok 50 - UT-ADP-010: negotiation reports the missing capability with its reason
+  ---
+  duration_ms: 0.6394
+  type: 'test'
+  ...
+# Subtest: UT-ADP-011: negotiation reports a capability the adapter does not declare
+ok 51 - UT-ADP-011: negotiation reports a capability the adapter does not declare
+  ---
+  duration_ms: 0.3363
+  type: 'test'
+  ...
+# Subtest: UT-ADP-012: requireCapability throws CAPABILITY_UNSUPPORTED with the reasons
+ok 52 - UT-ADP-012: requireCapability throws CAPABILITY_UNSUPPORTED with the reasons
+  ---
+  duration_ms: 1.3362
+  type: 'test'
+  ...
+# Subtest: UT-ADP-013: requireCapability returns the negotiation when everything is supported
+ok 53 - UT-ADP-013: requireCapability returns the negotiation when everything is supported
+  ---
+  duration_ms: 0.1944
+  type: 'test'
+  ...
+# Subtest: UT-ADP-014: supports() and gaps() read the same capability set
+ok 54 - UT-ADP-014: supports() and gaps() read the same capability set
+  ---
+  duration_ms: 0.2681
+  type: 'test'
+  ...
+# Subtest: UT-ADP-015: parseCliOptions reads EVERY alias on a help line
+ok 55 - UT-ADP-015: parseCliOptions reads EVERY alias on a help line
+  ---
+  duration_ms: 0.5096
+  type: 'test'
+  ...
+# Subtest: UT-ADP-016: parseCliOptions does not invent options from the description column
+ok 56 - UT-ADP-016: parseCliOptions does not invent options from the description column
+  ---
+  duration_ms: 0.1588
+  type: 'test'
+  ...
+# Subtest: UT-ADP-017: parseCliUsage reads the usage line and detects the positional filter
+ok 57 - UT-ADP-017: parseCliUsage reads the usage line and detects the positional filter
+  ---
+  duration_ms: 0.4224
+  type: 'test'
+  ...
+# Subtest: UT-ADP-017B: hasPositionalFilter accepts a BARE usage line as well as a help text
+ok 58 - UT-ADP-017B: hasPositionalFilter accepts a BARE usage line as well as a help text
+  ---
+  duration_ms: 0.1383
+  type: 'test'
+  ...
+# Subtest: UT-ADP-018: probeCommand never throws when the command is missing
+ok 59 - UT-ADP-018: probeCommand never throws when the command is missing
+  ---
+  duration_ms: 9.038
+  type: 'test'
+  ...
+# Subtest: UT-ADP-019: resolveProjectBinary returns null when nothing matches
+ok 60 - UT-ADP-019: resolveProjectBinary returns null when nothing matches
+  ---
+  duration_ms: 0.4047
+  type: 'test'
+  ...
+# Subtest: UT-ADP-020: readPackageVersion reads a version and returns null when absent
+ok 61 - UT-ADP-020: readPackageVersion reads a version and returns null when absent
+  ---
+  duration_ms: 1.8089
+  type: 'test'
+  ...
+# Subtest: UT-ADP-CLEANUP: removes the generated fixture
+ok 62 - UT-ADP-CLEANUP: removes the generated fixture
+  ---
+  duration_ms: 5.0646
+  type: 'test'
+  ...
+# Subtest: IT-AGT-SETUP: start server
+ok 63 - IT-AGT-SETUP: start server
+  ---
+  duration_ms: 214.5378
+  type: 'test'
+  ...
+# Subtest: IT-AGT-001: the contract description is exposed
+ok 64 - IT-AGT-001: the contract description is exposed
+  ---
+  duration_ms: 4.5894
+  type: 'test'
+  ...
+# Subtest: IT-AGT-002: the contract endpoint requires a session token
+ok 65 - IT-AGT-002: the contract endpoint requires a session token
+  ---
+  duration_ms: 3.1712
+  type: 'test'
+  ...
+# Subtest: IT-AGT-003: a valid request is accepted by the validator
+ok 66 - IT-AGT-003: a valid request is accepted by the validator
+  ---
+  duration_ms: 9.9658
+  type: 'test'
+  ...
+# Subtest: IT-AGT-004: a request asking for a forbidden capability is rejected with 400
+ok 67 - IT-AGT-004: a request asking for a forbidden capability is rejected with 400
+  ---
+  duration_ms: 5.7374
+  type: 'test'
+  ...
+# Subtest: IT-AGT-005: a request without a budget is rejected with 400
+ok 68 - IT-AGT-005: a request without a budget is rejected with 400
+  ---
+  duration_ms: 5.4772
+  type: 'test'
+  ...
+# Subtest: IT-AGT-006: a request without provenance is rejected with 400
+ok 69 - IT-AGT-006: a request without provenance is rejected with 400
+  ---
+  duration_ms: 4.0981
+  type: 'test'
+  ...
+# Subtest: IT-AGT-007: a request whose scope escapes the project root is rejected with 400
+ok 70 - IT-AGT-007: a request whose scope escapes the project root is rejected with 400
+  ---
+  duration_ms: 5.6092
+  type: 'test'
+  ...
+# Subtest: IT-AGT-008: validating a request does not write to the project
+ok 71 - IT-AGT-008: validating a request does not write to the project
+  ---
+  duration_ms: 4.6191
+  type: 'test'
+  ...
+# Subtest: IT-AGT-009: the diagnostics endpoint reports the agent contract status
+ok 72 - IT-AGT-009: the diagnostics endpoint reports the agent contract status
+  ---
+  duration_ms: 2.7285
+  type: 'test'
+  ...
+# Subtest: IT-AGT-010: a request whose digest does not match its content is rejected with 400
+ok 73 - IT-AGT-010: a request whose digest does not match its content is rejected with 400
+  ---
+  duration_ms: 3.319
+  type: 'test'
+  ...
+# Subtest: IT-AGT-011: an AGENT_* error carries machine-readable details
+ok 74 - IT-AGT-011: an AGENT_* error carries machine-readable details
+  ---
+  duration_ms: 3.903
+  type: 'test'
+  ...
+# Subtest: IT-AGT-012: the error details never contain a local filesystem path
+ok 75 - IT-AGT-012: the error details never contain a local filesystem path
+  ---
+  duration_ms: 3.9528
+  type: 'test'
+  ...
+# Subtest: IT-AGT-013: a non-agent error keeps the pre-ATS-401 behaviour
+ok 76 - IT-AGT-013: a non-agent error keeps the pre-ATS-401 behaviour
+  ---
+  duration_ms: 4.1327
+  type: 'test'
+  ...
+# Subtest: IT-AGT-CLEANUP: stop and cleanup
+ok 77 - IT-AGT-CLEANUP: stop and cleanup
+  ---
+  duration_ms: 7.235
+  type: 'test'
+  ...
+# Subtest: UT-AGT-001: contract version and roles are stable
+ok 78 - UT-AGT-001: contract version and roles are stable
+  ---
+  duration_ms: 4.1192
+  type: 'test'
+  ...
+# Subtest: UT-AGT-002: no role holds a write or commit capability
+ok 79 - UT-AGT-002: no role holds a write or commit capability
+  ---
+  duration_ms: 0.3961
+  type: 'test'
+  ...
+# Subtest: UT-AGT-003: scope requires an absolute root and at least one input target
+ok 80 - UT-AGT-003: scope requires an absolute root and at least one input target
+  ---
+  duration_ms: 1.0294
+  type: 'test'
+  ...
+# Subtest: UT-AGT-004: scope rejects paths that escape the project root
+ok 81 - UT-AGT-004: scope rejects paths that escape the project root
+  ---
+  duration_ms: 0.4649
+  type: 'test'
+  ...
+# Subtest: UT-AGT-005: scope outputs must be test script files
+ok 82 - UT-AGT-005: scope outputs must be test script files
+  ---
+  duration_ms: 0.3982
+  type: 'test'
+  ...
+# Subtest: UT-AGT-006: budget must be present, integral and within platform limits
+ok 83 - UT-AGT-006: budget must be present, integral and within platform limits
+  ---
+  duration_ms: 0.5304
+  type: 'test'
+  ...
+# Subtest: UT-AGT-007: provenance must be present and inside the declared scope
+ok 84 - UT-AGT-007: provenance must be present and inside the declared scope
+  ---
+  duration_ms: 1.7617
+  type: 'test'
+  ...
+# Subtest: UT-AGT-008: provenance digest must be a sha256 hex digest
+ok 85 - UT-AGT-008: provenance digest must be a sha256 hex digest
+  ---
+  duration_ms: 0.426
+  type: 'test'
+  ...
+# Subtest: UT-AGT-009: a request asking for a forbidden capability is rejected
+ok 86 - UT-AGT-009: a request asking for a forbidden capability is rejected
+  ---
+  duration_ms: 1.2391
+  type: 'test'
+  ...
+# Subtest: UT-AGT-010: an unknown contract version is rejected
+ok 87 - UT-AGT-010: an unknown contract version is rejected
+  ---
+  duration_ms: 0.6536
+  type: 'test'
+  ...
+# Subtest: UT-AGT-011: an unknown role is rejected
+ok 88 - UT-AGT-011: an unknown role is rejected
+  ---
+  duration_ms: 0.4283
+  type: 'test'
+  ...
+# Subtest: UT-AGT-012: a request cannot claim a capability its role does not grant
+ok 89 - UT-AGT-012: a request cannot claim a capability its role does not grant
+  ---
+  duration_ms: 0.4628
+  type: 'test'
+  ...
+# Subtest: UT-AGT-013: a diff targeting a file outside scope.outputs is rejected
+ok 90 - UT-AGT-013: a diff targeting a file outside scope.outputs is rejected
+  ---
+  duration_ms: 2.7121
+  type: 'test'
+  ...
+# Subtest: UT-AGT-014: a diff targeting a non test-script file is rejected
+ok 91 - UT-AGT-014: a diff targeting a non test-script file is rejected
+  ---
+  duration_ms: 0.7064
+  type: 'test'
+  ...
+# Subtest: UT-AGT-015: a diff escaping the project root is rejected
+ok 92 - UT-AGT-015: a diff escaping the project root is rejected
+  ---
+  duration_ms: 0.5364
+  type: 'test'
+  ...
+# Subtest: UT-AGT-016: scope.outputs cannot declare a path outside the project root
+ok 93 - UT-AGT-016: scope.outputs cannot declare a path outside the project root
+  ---
+  duration_ms: 0.2003
+  type: 'test'
+  ...
+# Subtest: UT-AGT-017: the approval state of a proposal is always pending
+ok 94 - UT-AGT-017: the approval state of a proposal is always pending
+  ---
+  duration_ms: 0.5238
+  type: 'test'
+  ...
+# Subtest: UT-AGT-018: a script-diff proposal must cite provenance evidence
+ok 95 - UT-AGT-018: a script-diff proposal must cite provenance evidence
+  ---
+  duration_ms: 0.3777
+  type: 'test'
+  ...
+# Subtest: UT-AGT-019: the producer may not review its own proposal
+ok 96 - UT-AGT-019: the producer may not review its own proposal
+  ---
+  duration_ms: 0.594
+  type: 'test'
+  ...
+# Subtest: UT-AGT-020: only a pending proposal can be reviewed
+ok 97 - UT-AGT-020: only a pending proposal can be reviewed
+  ---
+  duration_ms: 0.4919
+  type: 'test'
+  ...
+# Subtest: UT-AGT-021: the adapter rejects a forbidden capability at construction time
+ok 98 - UT-AGT-021: the adapter rejects a forbidden capability at construction time
+  ---
+  duration_ms: 0.4548
+  type: 'test'
+  ...
+# Subtest: UT-AGT-022: the adapter rejects a capability the role does not grant
+ok 99 - UT-AGT-022: the adapter rejects a capability the role does not grant
+  ---
+  duration_ms: 0.1778
+  type: 'test'
+  ...
+# Subtest: UT-AGT-023: the adapter rejects a request whose role it does not serve
+ok 100 - UT-AGT-023: the adapter rejects a request whose role it does not serve
+  ---
+  duration_ms: 2.1354
+  type: 'test'
+  ...
+# Subtest: UT-AGT-024: the adapter rejects input whose content does not match its digest
+ok 101 - UT-AGT-024: the adapter rejects input whose content does not match its digest
+  ---
+  duration_ms: 0.4221
+  type: 'test'
+  ...
+# Subtest: UT-AGT-025: the adapter rejects provider output that is not JSON
+ok 102 - UT-AGT-025: the adapter rejects provider output that is not JSON
+  ---
+  duration_ms: 0.7429
+  type: 'test'
+  ...
+# Subtest: UT-AGT-026: the adapter rejects provider output larger than the budget
+ok 103 - UT-AGT-026: the adapter rejects provider output larger than the budget
+  ---
+  duration_ms: 0.6028
+  type: 'test'
+  ...
+# Subtest: UT-AGT-027: inputs outside the declared egress kinds are not transmitted
+ok 104 - UT-AGT-027: inputs outside the declared egress kinds are not transmitted
+  ---
+  duration_ms: 0.7566
+  type: 'test'
+  ...
+# Subtest: UT-AGT-028: the described contract exposes no writable capability
+ok 105 - UT-AGT-028: the described contract exposes no writable capability
+  ---
+  duration_ms: 0.2926
+  type: 'test'
+  ...
+# Subtest: UT-AGT-029: a diff that renames a file out of the scope is rejected
+ok 106 - UT-AGT-029: a diff that renames a file out of the scope is rejected
+  ---
+  duration_ms: 0.5463
+  type: 'test'
+  ...
+# Subtest: UT-AGT-030: a diff that copies a file out of the scope is rejected
+ok 107 - UT-AGT-030: a diff that copies a file out of the scope is rejected
+  ---
+  duration_ms: 0.3327
+  type: 'test'
+  ...
+# Subtest: UT-AGT-031: a diff that changes a file mode is rejected
+ok 108 - UT-AGT-031: a diff that changes a file mode is rejected
+  ---
+  duration_ms: 0.8114
+  type: 'test'
+  ...
+# Subtest: UT-AGT-032: a CRLF-terminated diff header is still scope-checked
+ok 109 - UT-AGT-032: a CRLF-terminated diff header is still scope-checked
+  ---
+  duration_ms: 0.7665
+  type: 'test'
+  ...
+# Subtest: UT-AGT-033: a binary patch is rejected
+ok 110 - UT-AGT-033: a binary patch is rejected
+  ---
+  duration_ms: 0.4713
+  type: 'test'
+  ...
+# Subtest: UT-AGT-034: a Binary files ... differ section is rejected
+ok 111 - UT-AGT-034: a Binary files ... differ section is rejected
+  ---
+  duration_ms: 0.3659
+  type: 'test'
+  ...
+# Subtest: UT-AGT-035: a diff --git header naming an out-of-scope file is rejected
+ok 112 - UT-AGT-035: a diff --git header naming an out-of-scope file is rejected
+  ---
+  duration_ms: 0.517
+  type: 'test'
+  ...
+# Subtest: UT-AGT-036: a new test script inside scope.outputs is accepted
+ok 113 - UT-AGT-036: a new test script inside scope.outputs is accepted
+  ---
+  duration_ms: 0.4728
+  type: 'test'
+  ...
+# Subtest: UT-AGT-037: a deleted file section is rejected
+ok 114 - UT-AGT-037: a deleted file section is rejected
+  ---
+  duration_ms: 0.3663
+  type: 'test'
+  ...
+# Subtest: UT-AGT-038: a non-100644 new file mode is rejected
+ok 115 - UT-AGT-038: a non-100644 new file mode is rejected
+  ---
+  duration_ms: 0.3878
+  type: 'test'
+  ...
+# Subtest: UT-AGT-039: the request validator rejects a digest that does not match the content
+ok 116 - UT-AGT-039: the request validator rejects a digest that does not match the content
+  ---
+  duration_ms: 0.4069
+  type: 'test'
+  ...
+# Subtest: UT-AGT-040: the budget limits are enforced on every field
+ok 117 - UT-AGT-040: the budget limits are enforced on every field
+  ---
+  duration_ms: 0.4513
+  type: 'test'
+  ...
+# Subtest: UT-AGT-041: the adapter rejects input that exceeds the input byte budget
+ok 118 - UT-AGT-041: the adapter rejects input that exceeds the input byte budget
+  ---
+  duration_ms: 0.5359
+  type: 'test'
+  ...
+# Subtest: UT-AGT-042: the adapter enforces the deadline when the provider hangs
+ok 119 - UT-AGT-042: the adapter enforces the deadline when the provider hangs
+  ---
+  duration_ms: 1009.308
+  type: 'test'
+  ...
+# Subtest: UT-AGT-043: the adapter reports a provider failure as AGENT_PROVIDER_ERROR
+ok 120 - UT-AGT-043: the adapter reports a provider failure as AGENT_PROVIDER_ERROR
+  ---
+  duration_ms: 0.651
+  type: 'test'
+  ...
+# Subtest: UT-AGT-044: the adapter rejects a provider response without text
+ok 121 - UT-AGT-044: the adapter rejects a provider response without text
+  ---
+  duration_ms: 0.2869
+  type: 'test'
+  ...
+# Subtest: UT-AGT-045: the adapter passes an abort signal to the provider
+ok 122 - UT-AGT-045: the adapter passes an abort signal to the provider
+  ---
+  duration_ms: 0.2822
+  type: 'test'
+  ...
+# Subtest: UT-AGT-046: proposal actions are validated
+ok 123 - UT-AGT-046: proposal actions are validated
+  ---
+  duration_ms: 0.2927
+  type: 'test'
+  ...
+# Subtest: UT-AGT-047: the proposal confidence must be a number between 0 and 1
+ok 124 - UT-AGT-047: the proposal confidence must be a number between 0 and 1
+  ---
+  duration_ms: 0.2386
+  type: 'test'
+  ...
+# Subtest: UT-AGT-048: evidence-kind provenance must belong to scope.runs
+ok 125 - UT-AGT-048: evidence-kind provenance must belong to scope.runs
+  ---
+  duration_ms: 0.3185
+  type: 'test'
+  ...
+# Subtest: UT-AGT-049: evidence refs must come from the request provenance
+ok 126 - UT-AGT-049: evidence refs must come from the request provenance
+  ---
+  duration_ms: 0.1577
+  type: 'test'
+  ...
+# Subtest: UT-AGT-050: the contract layer source contains no I/O capability
+ok 127 - UT-AGT-050: the contract layer source contains no I/O capability
+  ---
+  duration_ms: 16.2605
+  type: 'test'
+  ...
+# Subtest: UT-AGT-051: the scope projectId must be a non-empty string
+ok 128 - UT-AGT-051: the scope projectId must be a non-empty string
+  ---
+  duration_ms: 0.1976
+  type: 'test'
+  ...
+# Subtest: UT-AGT-052: every provenance field is validated
+ok 129 - UT-AGT-052: every provenance field is validated
+  ---
+  duration_ms: 0.2892
+  type: 'test'
+  ...
+# Subtest: UT-AGT-053: run and requirement provenance must be in the scope
+ok 130 - UT-AGT-053: run and requirement provenance must be in the scope
+  ---
+  duration_ms: 0.1814
+  type: 'test'
+  ...
+# Subtest: UT-AGT-054: the requested capabilities and the egress kinds are validated
+ok 131 - UT-AGT-054: the requested capabilities and the egress kinds are validated
+  ---
+  duration_ms: 0.2706
+  type: 'test'
+  ...
+# Subtest: UT-AGT-055: a quoted diff path is accepted and a long request id is rejected
+ok 132 - UT-AGT-055: a quoted diff path is accepted and a long request id is rejected
+  ---
+  duration_ms: 0.5823
+  type: 'test'
+  ...
+# Subtest: UT-AGT-056: the diff argument itself is validated
+ok 133 - UT-AGT-056: the diff argument itself is validated
+  ---
+  duration_ms: 0.2633
+  type: 'test'
+  ...
+# Subtest: UT-AGT-057: a non-script-diff proposal must not carry a diff
+ok 134 - UT-AGT-057: a non-script-diff proposal must not carry a diff
+  ---
+  duration_ms: 0.1693
+  type: 'test'
+  ...
+# Subtest: UT-AGT-058: an absolute diff target is rejected
+ok 135 - UT-AGT-058: an absolute diff target is rejected
+  ---
+  duration_ms: 0.133
+  type: 'test'
+  ...
+# Subtest: UT-AGT-059: the evidence refs argument is validated
+ok 136 - UT-AGT-059: the evidence refs argument is validated
+  ---
+  duration_ms: 0.2144
+  type: 'test'
+  ...
+# Subtest: UT-AGT-060: the proposal must be an object and its kind must match the role
+ok 137 - UT-AGT-060: the proposal must be an object and its kind must match the role
+  ---
+  duration_ms: 0.145
+  type: 'test'
+  ...
+# Subtest: UT-AGT-061: a proposal that needs a capability the request does not grant is rejected
+ok 138 - UT-AGT-061: a proposal that needs a capability the request does not grant is rejected
+  ---
+  duration_ms: 0.1463
+  type: 'test'
+  ...
+# Subtest: UT-AGT-062: the provider and the adapter constructors are validated
+ok 139 - UT-AGT-062: the provider and the adapter constructors are validated
+  ---
+  duration_ms: 0.1932
+  type: 'test'
+  ...
+# Subtest: UT-AGT-063: the adapter refuses a capability it does not hold
+ok 140 - UT-AGT-063: the adapter refuses a capability it does not hold
+  ---
+  duration_ms: 0.2763
+  type: 'test'
+  ...
+# Subtest: UT-AGT-064: the adapter describes itself
+ok 141 - UT-AGT-064: the adapter describes itself
+  ---
+  duration_ms: 0.227
+  type: 'test'
+  ...
+# Subtest: UT-AGT-065: the review arguments are validated
+ok 142 - UT-AGT-065: the review arguments are validated
+  ---
+  duration_ms: 0.34
+  type: 'test'
+  ...
+# Subtest: UT-AGT-066: a provider that fails after the deadline is reported as a budget failure
+ok 143 - UT-AGT-066: a provider that fails after the deadline is reported as a budget failure
+  ---
+  duration_ms: 52.8179
+  type: 'test'
+  ...
+# Subtest: UT-AGT-067: the self-review check is not an exact string comparison
+ok 144 - UT-AGT-067: the self-review check is not an exact string comparison
+  ---
+  duration_ms: 0.6471
+  type: 'test'
+  ...
+# Subtest: UT-AGT-068: a proposal without a platform-supplied producer is rejected
+ok 145 - UT-AGT-068: a proposal without a platform-supplied producer is rejected
+  ---
+  duration_ms: 0.4166
+  type: 'test'
+  ...
+# Subtest: UT-AGT-069: the legacy "rename old/new" headers cannot bypass the scope check
+ok 146 - UT-AGT-069: the legacy "rename old/new" headers cannot bypass the scope check
+  ---
+  duration_ms: 0.287
+  type: 'test'
+  ...
+# Subtest: UT-AGT-070: a C-quoted diff --git header cannot bypass the scope check
+ok 147 - UT-AGT-070: a C-quoted diff --git header cannot bypass the scope check
+  ---
+  duration_ms: 0.4794
+  type: 'test'
+  ...
+# Subtest: UT-AGT-071: the diff header whitelist rejects the constructs outside it
+ok 148 - UT-AGT-071: the diff header whitelist rejects the constructs outside it
+  ---
+  duration_ms: 0.7934
+  type: 'test'
+  ...
+# Subtest: UT-AGT-072: a hunk whose declared line count does not match its body is rejected
+ok 149 - UT-AGT-072: a hunk whose declared line count does not match its body is rejected
+  ---
+  duration_ms: 0.2456
+  type: 'test'
+  ...
+# Subtest: UT-AGT-073: the diff --git header may be omitted, and a quoted path is unescaped
+ok 150 - UT-AGT-073: the diff --git header may be omitted, and a quoted path is unescaped
+  ---
+  duration_ms: 0.51
+  type: 'test'
+  ...
+# Subtest: UT-AGT-074: a blank line inside a hunk body counts as a context line
+ok 151 - UT-AGT-074: a blank line inside a hunk body counts as a context line
+  ---
+  duration_ms: 0.244
+  type: 'test'
+  ...
+# Subtest: UT-AGT-075: a second file smuggled in after a blank line is rejected
+ok 152 - UT-AGT-075: a second file smuggled in after a blank line is rejected
+  ---
+  duration_ms: 0.2677
+  type: 'test'
+  ...
+# Subtest: UT-AGT-076: an unprefixed path is rejected because git -p1 strips one component
+ok 153 - UT-AGT-076: an unprefixed path is rejected because git -p1 strips one component
+  ---
+  duration_ms: 0.2087
+  type: 'test'
+  ...
+# Subtest: UT-AGT-077: a deletion via +++ /dev/null is rejected
+ok 154 - UT-AGT-077: a deletion via +++ /dev/null is rejected
+  ---
+  duration_ms: 0.2017
+  type: 'test'
+  ...
+# Subtest: UT-AGT-078: a hunk body that overshoots its declared counts is rejected
+ok 155 - UT-AGT-078: a hunk body that overshoots its declared counts is rejected
+  ---
+  duration_ms: 0.2164
+  type: 'test'
+  ...
+# Subtest: UT-AGT-079: the trailing newline of the diff is not a context line
+ok 156 - UT-AGT-079: the trailing newline of the diff is not a context line
+  ---
+  duration_ms: 0.2109
+  type: 'test'
+  ...
+# Subtest: UT-AGT-080: the no-newline marker right after a hunk is still legal
+ok 157 - UT-AGT-080: the no-newline marker right after a hunk is still legal
+  ---
+  duration_ms: 0.2532
+  type: 'test'
+  ...
+# Subtest: UT-AGT-081: a diff whose file has no trailing newline is accepted
+ok 158 - UT-AGT-081: a diff whose file has no trailing newline is accepted
+  ---
+  duration_ms: 0.2428
+  type: 'test'
+  ...
+# Subtest: UT-AGT-082: a real git diff of a new spec file is accepted
+ok 159 - UT-AGT-082: a real git diff of a new spec file is accepted
+  ---
+  duration_ms: 0.2568
+  type: 'test'
+  ...
+# Subtest: UT-AGT-083: a real git diff with a whitespace-only context line is accepted
+ok 160 - UT-AGT-083: a real git diff with a whitespace-only context line is accepted
+  ---
+  duration_ms: 0.2348
+  type: 'test'
+  ...
+# Subtest: UT-AGT-084: a quoted path that decodes to a non-UTF-8 byte is rejected
+ok 161 - UT-AGT-084: a quoted path that decodes to a non-UTF-8 byte is rejected
+  ---
+  duration_ms: 0.3242
+  type: 'test'
+  ...
+# Subtest: UT-AGT-085: the deadline holds in a process that holds no other handle
+ok 162 - UT-AGT-085: the deadline holds in a process that holds no other handle
+  ---
+  duration_ms: 1103.7667
+  type: 'test'
+  ...
+# Subtest: UT-AGT-086: a path that differs from git's is rejected
+ok 163 - UT-AGT-086: a path that differs from git's is rejected
+  ---
+  duration_ms: 0.4178
+  type: 'test'
+  ...
+# Subtest: UT-AGT-087: a CRLF-terminated header line is still accepted
+ok 164 - UT-AGT-087: a CRLF-terminated header line is still accepted
+  ---
+  duration_ms: 0.176
+  type: 'test'
+  ...
+# Subtest: UT-AGT-088: a traditional diff that removes every line is rejected
+ok 165 - UT-AGT-088: a traditional diff that removes every line is rejected
+  ---
+  duration_ms: 0.1426
+  type: 'test'
+  ...
+# Subtest: UT-AGT-089: the same diff with a diff --git header is accepted
+ok 166 - UT-AGT-089: the same diff with a diff --git header is accepted
+  ---
+  duration_ms: 0.141
+  type: 'test'
+  ...
+# Subtest: UT-AGT-090: a traditional diff that only removes SOME lines is accepted
+ok 167 - UT-AGT-090: a traditional diff that only removes SOME lines is accepted
+  ---
+  duration_ms: 0.1108
+  type: 'test'
+  ...
+# Subtest: IT-API-SETUP: start server
+ok 168 - IT-API-SETUP: start server
+  ---
+  duration_ms: 278.8526
+  type: 'test'
+  ...
+# Subtest: IT-SEC-001: rejects unauthenticated API
+ok 169 - IT-SEC-001: rejects unauthenticated API
+  ---
+  duration_ms: 3.6573
+  type: 'test'
+  ...
+# Subtest: IT-API-001: add existing repository
+ok 170 - IT-API-001: add existing repository
+  ---
+  duration_ms: 152.1048
+  type: 'test'
+  ...
+# Subtest: IT-API-002: import and index tests
+ok 171 - IT-API-002: import and index tests
+  ---
+  duration_ms: 139.2137
+  type: 'test'
+  ...
+# Subtest: IT-SEC-002: rejects foreign origin
+ok 172 - IT-SEC-002: rejects foreign origin
+  ---
+  duration_ms: 3.955
+  type: 'test'
+  ...
+# Subtest: IT-API-001B: add a project without the engine installed
+ok 173 - IT-API-001B: add a project without the engine installed
+  ---
+  duration_ms: 121.1839
+  type: 'test'
+  ...
+# Subtest: IT-RUN-001: no deps => explicit failure rather than fake success
+ok 174 - IT-RUN-001: no deps => explicit failure rather than fake success
+  ---
+  duration_ms: 115.7307
+  type: 'test'
+  ...
+# Subtest: IT-API-003: runs survive persisted read
+ok 175 - IT-API-003: runs survive persisted read
+  ---
+  duration_ms: 2.8777
+  type: 'test'
+  ...
+# Subtest: IT-API-010: GET /runners returns the capability matrix
+ok 176 - IT-API-010: GET /runners returns the capability matrix
+  ---
+  duration_ms: 719.1407
+  type: 'test'
+  ...
+# Subtest: IT-API-011: POST /runners with an unsatisfiable capability is 409 WITH the reason
+ok 177 - IT-API-011: POST /runners with an unsatisfiable capability is 409 WITH the reason
+  ---
+  duration_ms: 498.9442
+  type: 'test'
+  ...
+# Subtest: IT-API-012: POST /runners with a PINNED runner that cannot satisfy the request is 409 WITH the reason
+ok 178 - IT-API-012: POST /runners with a PINNED runner that cannot satisfy the request is 409 WITH the reason
+  ---
+  duration_ms: 2.2289
+  type: 'test'
+  ...
+# Subtest: IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape
+ok 179 - IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape
+  ---
+  duration_ms: 997.9206
+  type: 'test'
+  ...
+# Subtest: IT-API-014: POST /run with an unsatisfiable capability is 409 WITH the reason
+ok 180 - IT-API-014: POST /run with an unsatisfiable capability is 409 WITH the reason
+  ---
+  duration_ms: 526.2198
+  type: 'test'
+  ...
+# Subtest: IT-API-015: a non-array capabilities is a 400, not a silent empty request
+ok 181 - IT-API-015: a non-array capabilities is a 400, not a silent empty request
+  ---
+  duration_ms: 4.0103
+  type: 'test'
+  ...
+# Subtest: IT-API-016: the same project under a different spelling is refused
+ok 182 - IT-API-016: the same project under a different spelling is refused
+  ---
+  duration_ms: 288.7621
+  type: 'test'
+  ...
+# Subtest: IT-API-CLEANUP: stop and cleanup
+ok 183 - IT-API-CLEANUP: stop and cleanup
+  ---
+  duration_ms: 7.3993
+  type: 'test'
+  ...
+# Subtest: IT-CP-SETUP: the local Bridge and the control plane start as independent plain-Node processes
+ok 184 - IT-CP-SETUP: the local Bridge and the control plane start as independent plain-Node processes
+  ---
+  duration_ms: 270.2482
+  type: 'test'
+  ...
+# Subtest: IT-CP-001: the control plane is fully usable without Tauri
+ok 185 - IT-CP-001: the control plane is fully usable without Tauri
+  ---
+  duration_ms: 6.5273
+  type: 'test'
+  ...
+# Subtest: IT-CP-002: the local session token is not a control-plane credential
+ok 186 - IT-CP-002: the local session token is not a control-plane credential
+  ---
+  duration_ms: 5.9564
+  type: 'test'
+  ...
+# Subtest: IT-CP-003: the control-plane token is not a local Bridge credential
+ok 187 - IT-CP-003: the control-plane token is not a local Bridge credential
+  ---
+  duration_ms: 3.779
+  type: 'test'
+  ...
+# Subtest: IT-CP-004: the control plane does not serve local Bridge endpoints
+ok 188 - IT-CP-004: the control plane does not serve local Bridge endpoints
+  ---
+  duration_ms: 7.4759
+  type: 'test'
+  ...
+# Subtest: IT-CP-005: the local Bridge does not serve control-plane endpoints
+ok 189 - IT-CP-005: the local Bridge does not serve control-plane endpoints
+  ---
+  duration_ms: 4.3364
+  type: 'test'
+  ...
+# Subtest: IT-CP-006: registration requests carrying local paths are refused
+ok 190 - IT-CP-006: registration requests carrying local paths are refused
+  ---
+  duration_ms: 17.1009
+  type: 'test'
+  ...
+# Subtest: IT-CP-007: a path or repository address used instead of a UID is refused
+ok 191 - IT-CP-007: a path or repository address used instead of a UID is refused
+  ---
+  duration_ms: 12.0747
+  type: 'test'
+  ...
+# Subtest: IT-CP-008: the local session token in a request body is refused as an inline secret
+ok 192 - IT-CP-008: the local session token in a request body is refused as an inline secret
+  ---
+  duration_ms: 5.2677
+  type: 'test'
+  ...
+# Subtest: IT-CP-009: project metadata is registered and read by opaque UID; responses carry no path
+ok 193 - IT-CP-009: project metadata is registered and read by opaque UID; responses carry no path
+  ---
+  duration_ms: 6.2481
+  type: 'test'
+  ...
+# Subtest: IT-CP-010: another tenant gets 404 for the project; a client-chosen tenant is refused
+ok 194 - IT-CP-010: another tenant gets 404 for the project; a client-chosen tenant is refused
+  ---
+  duration_ms: 2.6885
+  type: 'test'
+  ...
+# Subtest: IT-CP-012: the local Bridge still registers projects by path, and the control plane never sees them
+ok 195 - IT-CP-012: the local Bridge still registers projects by path, and the control plane never sees them
+  ---
+  duration_ms: 148.0839
+  type: 'test'
+  ...
+# Subtest: IT-CP-011: no control-plane response contains the local data directory, a local project path or the local session token
+ok 196 - IT-CP-011: no control-plane response contains the local data directory, a local project path or the local session token
+  ---
+  duration_ms: 0.5114
+  type: 'test'
+  ...
+# Subtest: IT-CP-013: the control plane refuses to share the local Bridge port
+ok 197 - IT-CP-013: the control plane refuses to share the local Bridge port
+  ---
+  duration_ms: 145.3315
+  type: 'test'
+  ...
+# Subtest: IT-CP-CLEANUP: child processes and the temporary data directory are removed
+ok 198 - IT-CP-CLEANUP: child processes and the temporary data directory are removed
+  ---
+  duration_ms: 12.4258
+  type: 'test'
+  ...
+# Subtest: UT-CP-001: local path forms are detected with their rule name
+ok 199 - UT-CP-001: local path forms are detected with their rule name
+  ---
+  duration_ms: 4.9213
+  type: 'test'
+  ...
+# Subtest: UT-CP-002: values that are not local paths are not flagged
+ok 200 - UT-CP-002: values that are not local paths are not flagged
+  ---
+  duration_ms: 0.609
+  type: 'test'
+  ...
+# Subtest: UT-CP-003: percent-encoded paths are refused like the plain form; malformed encoding falls back to the raw text
+ok 201 - UT-CP-003: percent-encoded paths are refused like the plain form; malformed encoding falls back to the raw text
+  ---
+  duration_ms: 0.2718
+  type: 'test'
+  ...
+# Subtest: UT-CP-004: body inspection covers keys and values, nested objects and arrays, without echoing the value
+ok 202 - UT-CP-004: body inspection covers keys and values, nested objects and arrays, without echoing the value
+  ---
+  duration_ms: 1.7986
+  type: 'test'
+  ...
+# Subtest: UT-CP-005: path, repository-address and credential field names are classified
+ok 203 - UT-CP-005: path, repository-address and credential field names are classified
+  ---
+  duration_ms: 0.5616
+  type: 'test'
+  ...
+# Subtest: UT-CP-006: the local session token shape (48 hex) is refused; 40/64 hex are not
+ok 204 - UT-CP-006: the local session token shape (48 hex) is refused; 40/64 hex are not
+  ---
+  duration_ms: 0.2845
+  type: 'test'
+  ...
+# Subtest: UT-CP-007: nesting deeper than 32 levels is refused; 32 levels pass
+ok 205 - UT-CP-007: nesting deeper than 32 levels is refused; 32 levels pass
+  ---
+  duration_ms: 1.2315
+  type: 'test'
+  ...
+# Subtest: UT-CP-008: the code table equals the docs/19 constraint block code by code
+ok 206 - UT-CP-008: the code table equals the docs/19 constraint block code by code
+  ---
+  duration_ms: 2.2354
+  type: 'test'
+  ...
+# Subtest: UT-CP-009: unknown codes are programming errors; the audit reason never reaches the body
+ok 207 - UT-CP-009: unknown codes are programming errors; the audit reason never reaches the body
+  ---
+  duration_ms: 1.1962
+  type: 'test'
+  ...
+# Subtest: UT-CP-010: authenticators map requests to a tenant or an audit-only reason
+ok 208 - UT-CP-010: authenticators map requests to a tenant or an audit-only reason
+  ---
+  duration_ms: 1.9658
+  type: 'test'
+  ...
+# Subtest: UT-CP-011: dev token configuration is validated without echoing tokens
+ok 209 - UT-CP-011: dev token configuration is validated without echoing tokens
+  ---
+  duration_ms: 0.9504
+  type: 'test'
+  ...
+# Subtest: UT-CP-012: startup configuration defaults and accepted variants
+ok 210 - UT-CP-012: startup configuration defaults and accepted variants
+  ---
+  duration_ms: 6.8992
+  type: 'test'
+  ...
+# Subtest: UT-CP-013: unsafe startup configurations are refused with exit code 2
+ok 211 - UT-CP-013: unsafe startup configurations are refused with exit code 2
+  ---
+  duration_ms: 2.2331
+  type: 'test'
+  ...
+# Subtest: UT-CP-014: HTTPS uses TLS 1.3 minimum; plain HTTP listens and reports the auth mode without tokens
+ok 212 - UT-CP-014: HTTPS uses TLS 1.3 minimum; plain HTTP listens and reports the auth mode without tokens
+  ---
+  duration_ms: 70.5634
+  type: 'test'
+  ...
+# Subtest: UT-CP-015: health is public and carries no host details
+ok 213 - UT-CP-015: health is public and carries no host details
+  ---
+  duration_ms: 21.1234
+  type: 'test'
+  ...
+# Subtest: UT-CP-016: the local Bridge credential is refused on every route, with or without a valid Bearer
+ok 214 - UT-CP-016: the local Bridge credential is refused on every route, with or without a valid Bearer
+  ---
+  duration_ms: 15.3405
+  type: 'test'
+  ...
+# Subtest: UT-CP-017: browser Origin requests are refused
+ok 215 - UT-CP-017: browser Origin requests are refused
+  ---
+  duration_ms: 12.024
+  type: 'test'
+  ...
+# Subtest: UT-CP-018: unknown routes, wrong methods and the local /api namespace are policy rejections
+ok 216 - UT-CP-018: unknown routes, wrong methods and the local /api namespace are policy rejections
+  ---
+  duration_ms: 18.4601
+  type: 'test'
+  ...
+# Subtest: UT-CP-019: local paths in path segments or the query string are refused before routing
+ok 217 - UT-CP-019: local paths in path segments or the query string are refused before routing
+  ---
+  duration_ms: 21.7183
+  type: 'test'
+  ...
+# Subtest: UT-CP-020: authentication failures share one code; the reason only reaches the audit trail
+ok 218 - UT-CP-020: authentication failures share one code; the reason only reaches the audit trail
+  ---
+  duration_ms: 16.7024
+  type: 'test'
+  ...
+# Subtest: UT-CP-021: the tenant comes from the session; missing or mismatching tenants are refused
+ok 219 - UT-CP-021: the tenant comes from the session; missing or mismatching tenants are refused
+  ---
+  duration_ms: 23.428
+  type: 'test'
+  ...
+# Subtest: UT-CP-022: POST bodies must be JSON objects within 64 KiB
+ok 220 - UT-CP-022: POST bodies must be JSON objects within 64 KiB
+  ---
+  duration_ms: 32.9365
+  type: 'test'
+  ...
+# Subtest: UT-CP-023: projects are registered and read by opaque UID only
+ok 221 - UT-CP-023: projects are registered and read by opaque UID only
+  ---
+  duration_ms: 13.38
+  type: 'test'
+  ...
+# Subtest: UT-CP-024: another tenant cannot see a project; the answer equals a missing project
+ok 222 - UT-CP-024: another tenant cannot see a project; the answer equals a missing project
+  ---
+  duration_ms: 16.1111
+  type: 'test'
+  ...
+# Subtest: UT-CP-025: invalid display names, unknown fields, paths and credentials in the body are refused
+ok 223 - UT-CP-025: invalid display names, unknown fields, paths and credentials in the body are refused
+  ---
+  duration_ms: 29.7008
+  type: 'test'
+  ...
+# Subtest: UT-CP-026: a response that would carry a local path is never sent (egress guard)
+ok 224 - UT-CP-026: a response that would carry a local path is never sent (egress guard)
+  ---
+  duration_ms: 11.2895
+  type: 'test'
+  ...
+# Subtest: UT-CP-027: an unexpected exception becomes REMOTE_INTERNAL without echoing its message; the audit trail is capped
+ok 225 - UT-CP-027: an unexpected exception becomes REMOTE_INTERNAL without echoing its message; the audit trail is capped
+  ---
+  duration_ms: 595.6667
+  type: 'test'
+  ...
+# Subtest: UT-CP-028: the control-plane sources import no local Bridge module, Tauri API or child_process
+ok 226 - UT-CP-028: the control-plane sources import no local Bridge module, Tauri API or child_process
+  ---
+  duration_ms: 1.5542
+  type: 'test'
+  ...
+# Subtest: UT-CP-029: the Tauri shell hosts only the local Bridge; the UI uses no Tauri API
+ok 227 - UT-CP-029: the Tauri shell hosts only the local Bridge; the UI uses no Tauri API
+  ---
+  duration_ms: 1.5891
+  type: 'test'
+  ...
+# Subtest: UT-CP-030: the contract endpoint describes the boundary
+ok 228 - UT-CP-030: the contract endpoint describes the boundary
+  ---
+  duration_ms: 4.4456
+  type: 'test'
+  ...
+# Subtest: UT-CORE-001: validates Playwright project
+ok 229 - UT-CORE-001: validates Playwright project
+  ---
+  duration_ms: 5.104
+  type: 'test'
+  ...
+# Subtest: UT-CORE-002: extracts static test index
+ok 230 - UT-CORE-002: extracts static test index
+  ---
+  duration_ms: 5.6503
+  type: 'test'
+  ...
+# Subtest: UT-SEC-001: rejects path traversal
+ok 231 - UT-SEC-001: rejects path traversal
+  ---
+  duration_ms: 0.4599
+  type: 'test'
+  ...
+# Subtest: UT-CORE-003: conditional save avoids lost updates
+ok 232 - UT-CORE-003: conditional save avoids lost updates
+  ---
+  duration_ms: 4.8805
+  type: 'test'
+  ...
+# Subtest: UT-CORE-004: malformed project rejected
+ok 233 - UT-CORE-004: malformed project rejected
+  ---
+  duration_ms: 1.0995
+  type: 'test'
+  ...
+# Subtest: UT-RUN-001: missing local Playwright never auto-installs
+ok 234 - UT-RUN-001: missing local Playwright never auto-installs
+  ---
+  duration_ms: 0.6537
+  type: 'test'
+  ...
+# Subtest: UT-RPT-001: report summary counts passed/failed/skipped
+ok 235 - UT-RPT-001: report summary counts passed/failed/skipped
+  ---
+  duration_ms: 1.4227
+  type: 'test'
+  ...
+# Subtest: UT-CORE-005: removes generated fixture
+ok 236 - UT-CORE-005: removes generated fixture
+  ---
+  duration_ms: 4.8244
+  type: 'test'
+  ...
+# Subtest: UT-MIG-REG-001: the lock is held by the process that took it
+ok 237 - UT-MIG-REG-001: the lock is held by the process that took it
+  ---
+  duration_ms: 6.1527
+  type: 'test'
+  ...
+# Subtest: UT-MIG-REG-002: a lock of a dead process does not block
+ok 238 - UT-MIG-REG-002: a lock of a dead process does not block
+  ---
+  duration_ms: 3.58
+  type: 'test'
+  ...
+# Subtest: UT-MIG-REG-003: a second owner is refused while the lock is held
+ok 239 - UT-MIG-REG-003: a second owner is refused while the lock is held
+  ---
+  duration_ms: 2.9289
+  type: 'test'
+  ...
+# Subtest: UT-MIG-REG-004: the migration is refused while a Bridge holds the lock
+ok 240 - UT-MIG-REG-004: the migration is refused while a Bridge holds the lock
+  ---
+  duration_ms: 168.8256
+  type: 'test'
+  ...
+# Subtest: UT-MIG-REG-005: the migration runs when the lock is free
+ok 241 - UT-MIG-REG-005: the migration runs when the lock is free
+  ---
+  duration_ms: 154.2226
+  type: 'test'
+  ...
+# Subtest: UT-MIG-REG-006: the rollback restores the state AND the run folders
+ok 242 - UT-MIG-REG-006: the rollback restores the state AND the run folders
+  ---
+  duration_ms: 263.072
+  type: 'test'
+  ...
+# Subtest: UT-MIG-REG-007: a rollback without a backup is refused
+ok 243 - UT-MIG-REG-007: a rollback without a backup is refused
+  ---
+  duration_ms: 112.7139
+  type: 'test'
+  ...
+# Subtest: UT-MIG-REG-008: the Bridge refuses to start while a migration holds the lock
+ok 244 - UT-MIG-REG-008: the Bridge refuses to start while a migration holds the lock
+  ---
+  duration_ms: 154.3431
+  type: 'test'
+  ...
+# Subtest: UT-MIG-REG-009: the Bridge releases the lock when it stops
+ok 245 - UT-MIG-REG-009: the Bridge releases the lock when it stops
+  ---
+  duration_ms: 1131.5329
+  type: 'test'
+  ...
+# Subtest: UT-MIG-REG-010: cleanup removes the temporary fixture
+ok 246 - UT-MIG-REG-010: cleanup removes the temporary fixture
+  ---
+  duration_ms: 6.9073
+  type: 'test'
+  ...
+# Subtest: UT-MIG-001: a legacy state is detected as not migrated
+ok 247 - UT-MIG-001: a legacy state is detected as not migrated
+  ---
+  duration_ms: 1.7262
+  type: 'test'
+  ...
+# Subtest: UT-MIG-002: the project UID is recomputed from the root path
+ok 248 - UT-MIG-002: the project UID is recomputed from the root path
+  ---
+  duration_ms: 1.9292
+  type: 'test'
+  ...
+# Subtest: UT-MIG-003: the run UIDs are recomputed and stay distinct
+ok 249 - UT-MIG-003: the run UIDs are recomputed and stay distinct
+  ---
+  duration_ms: 0.61
+  type: 'test'
+  ...
+# Subtest: UT-MIG-004: the migrated state passes the migrated check
+ok 250 - UT-MIG-004: the migrated state passes the migrated check
+  ---
+  duration_ms: 0.7122
+  type: 'test'
+  ...
+# Subtest: UT-MIG-005: migrating twice produces the same result
+ok 251 - UT-MIG-005: migrating twice produces the same result
+  ---
+  duration_ms: 1.709
+  type: 'test'
+  ...
+# Subtest: UT-MIG-006: the run order of the history is preserved
+ok 252 - UT-MIG-006: the run order of the history is preserved
+  ---
+  duration_ms: 0.5864
+  type: 'test'
+  ...
+# Subtest: UT-MIG-007: the run UID matches the one the bridge computes
+ok 253 - UT-MIG-007: the run UID matches the one the bridge computes
+  ---
+  duration_ms: 0.599
+  type: 'test'
+  ...
+# Subtest: UT-MIG-008: the run folders are renamed on disk
+ok 254 - UT-MIG-008: the run folders are renamed on disk
+  ---
+  duration_ms: 4.1297
+  type: 'test'
+  ...
+# Subtest: UT-MIG-009: the CLI migrates a state file and is idempotent
+ok 255 - UT-MIG-009: the CLI migrates a state file and is idempotent
+  ---
+  duration_ms: 334.3333
+  type: 'test'
+  ...
+# Subtest: UT-MIG-010: the dry run writes nothing
+ok 256 - UT-MIG-010: the dry run writes nothing
+  ---
+  duration_ms: 141.8895
+  type: 'test'
+  ...
+# Subtest: UT-MIG-011: a broken state file is reported, not silently overwritten
+ok 257 - UT-MIG-011: a broken state file is reported, not silently overwritten
+  ---
+  duration_ms: 121.2103
+  type: 'test'
+  ...
+# Subtest: UT-MIG-012: the backup keeps the original file
+ok 258 - UT-MIG-012: the backup keeps the original file
+  ---
+  duration_ms: 122.7135
+  type: 'test'
+  ...
+# Subtest: UT-MIG-014: the migrated run still points at its project
+ok 259 - UT-MIG-014: the migrated run still points at its project
+  ---
+  duration_ms: 0.2724
+  type: 'test'
+  ...
+# Subtest: UT-MIG-015: the durable run counter survives the migration
+ok 260 - UT-MIG-015: the durable run counter survives the migration
+  ---
+  duration_ms: 0.2142
+  type: 'test'
+  ...
+# Subtest: UT-MIG-016: the counter is derived from the migrated runs when it is absent
+ok 261 - UT-MIG-016: the counter is derived from the migrated runs when it is absent
+  ---
+  duration_ms: 0.1253
+  type: 'test'
+  ...
+# Subtest: UT-MIG-013: cleanup removes the temporary fixture
+ok 262 - UT-MIG-013: cleanup removes the temporary fixture
+  ---
+  duration_ms: 11.1684
+  type: 'test'
+  ...
+# Subtest: IT-PLG-SETUP: start server
+ok 263 - IT-PLG-SETUP: start server
+  ---
+  duration_ms: 272.1713
+  type: 'test'
+  ...
+# Subtest: IT-PLG-001: the plugin contract is exposed over HTTP
+ok 264 - IT-PLG-001: the plugin contract is exposed over HTTP
+  ---
+  duration_ms: 4.9999
+  type: 'test'
+  ...
+# Subtest: IT-PLG-002: the plugin endpoints need a session token
+ok 265 - IT-PLG-002: the plugin endpoints need a session token
+  ---
+  duration_ms: 3.9484
+  type: 'test'
+  ...
+# Subtest: IT-PLG-003: a valid manifest is accepted and the granted set is reported
+ok 266 - IT-PLG-003: a valid manifest is accepted and the granted set is reported
+  ---
+  duration_ms: 9.5533
+  type: 'test'
+  ...
+# Subtest: IT-PLG-004: the tier is the ceiling -- the same manifest grants more under a higher tier
+ok 267 - IT-PLG-004: the tier is the ceiling -- the same manifest grants more under a higher tier
+  ---
+  duration_ms: 9.1135
+  type: 'test'
+  ...
+# Subtest: IT-PLG-005: a manifest requesting a forbidden permission is a 400 with the code
+ok 268 - IT-PLG-005: a manifest requesting a forbidden permission is a 400 with the code
+  ---
+  duration_ms: 4.3406
+  type: 'test'
+  ...
+# Subtest: IT-PLG-006: a manifest requesting an unknown permission is a 400 with the code
+ok 269 - IT-PLG-006: a manifest requesting an unknown permission is a 400 with the code
+  ---
+  duration_ms: 5.1378
+  type: 'test'
+  ...
+# Subtest: IT-PLG-007: an unsupported manifest version is a 400 with the code
+ok 270 - IT-PLG-007: an unsupported manifest version is a 400 with the code
+  ---
+  duration_ms: 3.9656
+  type: 'test'
+  ...
+# Subtest: IT-PLG-008: an unknown capability is a 400 with the code
+ok 271 - IT-PLG-008: an unknown capability is a 400 with the code
+  ---
+  duration_ms: 4.018
+  type: 'test'
+  ...
+# Subtest: IT-PLG-009: a runner without the four required capabilities is a 400
+ok 272 - IT-PLG-009: a runner without the four required capabilities is a 400
+  ---
+  duration_ms: 4.4591
+  type: 'test'
+  ...
+# Subtest: IT-PLG-010: the error response carries no local filesystem path
+ok 273 - IT-PLG-010: the error response carries no local filesystem path
+  ---
+  duration_ms: 4.1621
+  type: 'test'
+  ...
+# Subtest: IT-PLG-011: the validation endpoint does not load or run anything
+ok 274 - IT-PLG-011: the validation endpoint does not load or run anything
+  ---
+  duration_ms: 4.1844
+  type: 'test'
+  ...
+# Subtest: IT-PLG-012: the diagnostics endpoint reports the plugin contract status
+ok 275 - IT-PLG-012: the diagnostics endpoint reports the plugin contract status
+  ---
+  duration_ms: 2.4044
+  type: 'test'
+  ...
+# Subtest: IT-PLG-013: a non-plugin error keeps its pre-ATS-512 behaviour
+ok 276 - IT-PLG-013: a non-plugin error keeps its pre-ATS-512 behaviour
+  ---
+  duration_ms: 4.0469
+  type: 'test'
+  ...
+# Subtest: IT-PLG-CLEANUP: stop and cleanup
+ok 277 - IT-PLG-CLEANUP: stop and cleanup
+  ---
+  duration_ms: 3.7081
+  type: 'test'
+  ...
+# Subtest: UT-PLG-001: the contract and manifest versions are fixed
+ok 278 - UT-PLG-001: the contract and manifest versions are fixed
+  ---
+  duration_ms: 1.5353
+  type: 'test'
+  ...
+# Subtest: UT-PLG-002: a valid manifest is normalised
+ok 279 - UT-PLG-002: a valid manifest is normalised
+  ---
+  duration_ms: 1.4703
+  type: 'test'
+  ...
+# Subtest: UT-PLG-003: an unsupported manifest version is rejected
+ok 280 - UT-PLG-003: an unsupported manifest version is rejected
+  ---
+  duration_ms: 0.2246
+  type: 'test'
+  ...
+# Subtest: UT-PLG-004: malformed manifest fields are rejected
+ok 281 - UT-PLG-004: malformed manifest fields are rejected
+  ---
+  duration_ms: 0.7537
+  type: 'test'
+  ...
+# Subtest: UT-PLG-005: a forbidden permission is rejected whatever the tier is
+ok 282 - UT-PLG-005: a forbidden permission is rejected whatever the tier is
+  ---
+  duration_ms: 0.9253
+  type: 'test'
+  ...
+# Subtest: UT-PLG-006: a permission outside the vocabulary is rejected
+ok 283 - UT-PLG-006: a permission outside the vocabulary is rejected
+  ---
+  duration_ms: 0.2649
+  type: 'test'
+  ...
+# Subtest: UT-PLG-007: a duplicate permission is rejected
+ok 284 - UT-PLG-007: a duplicate permission is rejected
+  ---
+  duration_ms: 0.3246
+  type: 'test'
+  ...
+# Subtest: UT-PLG-008: a capability outside the ATS-301 vocabulary is rejected
+ok 285 - UT-PLG-008: a capability outside the ATS-301 vocabulary is rejected
+  ---
+  duration_ms: 0.2318
+  type: 'test'
+  ...
+# Subtest: UT-PLG-009: a runner plugin must declare the four required capabilities
+ok 286 - UT-PLG-009: a runner plugin must declare the four required capabilities
+  ---
+  duration_ms: 0.4981
+  type: 'test'
+  ...
+# Subtest: UT-PLG-010: a non-runner plugin needs no capabilities
+ok 287 - UT-PLG-010: a non-runner plugin needs no capabilities
+  ---
+  duration_ms: 0.7096
+  type: 'test'
+  ...
+# Subtest: UT-PLG-011: the effective permission set is the declared set intersected with the tier
+ok 288 - UT-PLG-011: the effective permission set is the declared set intersected with the tier
+  ---
+  duration_ms: 0.4394
+  type: 'test'
+  ...
+# Subtest: UT-PLG-012: a permission above the tier is denied, not granted
+ok 289 - UT-PLG-012: a permission above the tier is denied, not granted
+  ---
+  duration_ms: 0.2306
+  type: 'test'
+  ...
+# Subtest: UT-PLG-013: the tier is the ceiling -- a plugin cannot raise it by declaring
+ok 290 - UT-PLG-013: the tier is the ceiling -- a plugin cannot raise it by declaring
+  ---
+  duration_ms: 0.3056
+  type: 'test'
+  ...
+# Subtest: UT-PLG-014: a forbidden permission is reported as forbidden, not as above-tier
+ok 291 - UT-PLG-014: a forbidden permission is reported as forbidden, not as above-tier
+  ---
+  duration_ms: 0.1128
+  type: 'test'
+  ...
+# Subtest: UT-PLG-015: an unknown permission is reported as unknown
+ok 292 - UT-PLG-015: an unknown permission is reported as unknown
+  ---
+  duration_ms: 0.1054
+  type: 'test'
+  ...
+# Subtest: UT-PLG-016: every tier grants a subset of the permission vocabulary
+ok 293 - UT-PLG-016: every tier grants a subset of the permission vocabulary
+  ---
+  duration_ms: 0.2726
+  type: 'test'
+  ...
+# Subtest: UT-PLG-017: no tier grants a forbidden permission
+ok 294 - UT-PLG-017: no tier grants a forbidden permission
+  ---
+  duration_ms: 0.1282
+  type: 'test'
+  ...
+# Subtest: UT-PLG-018: an operation is authorised only when its permission is granted
+ok 295 - UT-PLG-018: an operation is authorised only when its permission is granted
+  ---
+  duration_ms: 0.2128
+  type: 'test'
+  ...
+# Subtest: UT-PLG-019: an unknown operation is not authorised
+ok 296 - UT-PLG-019: an unknown operation is not authorised
+  ---
+  duration_ms: 0.1116
+  type: 'test'
+  ...
+# Subtest: UT-PLG-020: describe needs no permission
+ok 297 - UT-PLG-020: describe needs no permission
+  ---
+  duration_ms: 0.0916
+  type: 'test'
+  ...
+# Subtest: UT-PLG-021: the SDK exposes exactly the declared surface
+ok 298 - UT-PLG-021: the SDK exposes exactly the declared surface
+  ---
+  duration_ms: 0.7592
+  type: 'test'
+  ...
+# Subtest: UT-PLG-022: the SDK is frozen -- a plugin cannot add a method to it
+ok 299 - UT-PLG-022: the SDK is frozen -- a plugin cannot add a method to it
+  ---
+  duration_ms: 0.633
+  type: 'test'
+  ...
+# Subtest: UT-PLG-023: describe reports the granted and the denied permissions
+ok 300 - UT-PLG-023: describe reports the granted and the denied permissions
+  ---
+  duration_ms: 0.3202
+  type: 'test'
+  ...
+# Subtest: UT-PLG-024: an operation above the tier is refused
+ok 301 - UT-PLG-024: an operation above the tier is refused
+  ---
+  duration_ms: 2.0507
+  type: 'test'
+  ...
+# Subtest: UT-PLG-025: a DENIED call is audited
+ok 302 - UT-PLG-025: a DENIED call is audited
+  ---
+  duration_ms: 0.4788
+  type: 'test'
+  ...
+# Subtest: UT-PLG-026: the audit sequence is monotonic and matches the sink
+ok 303 - UT-PLG-026: the audit sequence is monotonic and matches the sink
+  ---
+  duration_ms: 0.6767
+  type: 'test'
+  ...
+# Subtest: UT-PLG-027: the plugin cannot choose its own audit sequence
+ok 304 - UT-PLG-027: the plugin cannot choose its own audit sequence
+  ---
+  duration_ms: 0.2449
+  type: 'test'
+  ...
+# Subtest: UT-PLG-028: reading a file outside the host-granted scope is refused
+ok 305 - UT-PLG-028: reading a file outside the host-granted scope is refused
+  ---
+  duration_ms: 0.4038
+  type: 'test'
+  ...
+# Subtest: UT-PLG-029: with no scope at all nothing is readable
+ok 306 - UT-PLG-029: with no scope at all nothing is readable
+  ---
+  duration_ms: 0.2521
+  type: 'test'
+  ...
+# Subtest: UT-PLG-030: a manifest cannot widen its own scope
+ok 307 - UT-PLG-030: a manifest cannot widen its own scope
+  ---
+  duration_ms: 0.2259
+  type: 'test'
+  ...
+# Subtest: UT-PLG-031: an outcome without evidence is refused
+ok 308 - UT-PLG-031: an outcome without evidence is refused
+  ---
+  duration_ms: 0.3676
+  type: 'test'
+  ...
+# Subtest: UT-PLG-032: an outcome carries the digest the HOST computed
+ok 309 - UT-PLG-032: an outcome carries the digest the HOST computed
+  ---
+  duration_ms: 0.3051
+  type: 'test'
+  ...
+# Subtest: UT-PLG-033: a plugin-supplied digest is not accepted
+ok 310 - UT-PLG-033: a plugin-supplied digest is not accepted
+  ---
+  duration_ms: 0.2387
+  type: 'test'
+  ...
+# Subtest: UT-PLG-034: an outcome is a proposal with approval=pending
+ok 311 - UT-PLG-034: an outcome is a proposal with approval=pending
+  ---
+  duration_ms: 0.2239
+  type: 'test'
+  ...
+# Subtest: UT-PLG-035: an outcome cannot set the run status directly
+ok 312 - UT-PLG-035: an outcome cannot set the run status directly
+  ---
+  duration_ms: 0.2029
+  type: 'test'
+  ...
+# Subtest: UT-PLG-036: reporting an outcome is audited
+ok 313 - UT-PLG-036: reporting an outcome is audited
+  ---
+  duration_ms: 0.2049
+  type: 'test'
+  ...
+# Subtest: UT-PLG-037: the producer may not review its own proposal
+ok 314 - UT-PLG-037: the producer may not review its own proposal
+  ---
+  duration_ms: 0.3992
+  type: 'test'
+  ...
+# Subtest: UT-PLG-038: the self-review check is not an exact string comparison
+ok 315 - UT-PLG-038: the self-review check is not an exact string comparison
+  ---
+  duration_ms: 0.2657
+  type: 'test'
+  ...
+# Subtest: UT-PLG-039: an independent reviewer can approve
+ok 316 - UT-PLG-039: an independent reviewer can approve
+  ---
+  duration_ms: 0.1887
+  type: 'test'
+  ...
+# Subtest: UT-PLG-040: only a pending proposal can be reviewed
+ok 317 - UT-PLG-040: only a pending proposal can be reviewed
+  ---
+  duration_ms: 0.1743
+  type: 'test'
+  ...
+# Subtest: UT-PLG-041: an invalid review decision is refused
+ok 318 - UT-PLG-041: an invalid review decision is refused
+  ---
+  duration_ms: 0.1463
+  type: 'test'
+  ...
+# Subtest: UT-PLG-042: the contract description is complete and honest
+ok 319 - UT-PLG-042: the contract description is complete and honest
+  ---
+  duration_ms: 0.6851
+  type: 'test'
+  ...
+# Subtest: UT-PLG-043: every SDK operation names a permission that exists in the vocabulary
+ok 320 - UT-PLG-043: every SDK operation names a permission that exists in the vocabulary
+  ---
+  duration_ms: 0.2288
+  type: 'test'
+  ...
+# Subtest: UT-PLG-044: the description does not claim the plugin host exists
+ok 321 - UT-PLG-044: the description does not claim the plugin host exists
+  ---
+  duration_ms: 0.1561
+  type: 'test'
+  ...
+# Subtest: UT-PLG-045: the contract description lists every error code the modules can raise
+ok 322 - UT-PLG-045: the contract description lists every error code the modules can raise
+  ---
+  duration_ms: 1.1032
+  type: 'test'
+  ...
+# Subtest: UT-PLG-046: the SDK construction rejects an incomplete host
+ok 323 - UT-PLG-046: the SDK construction rejects an incomplete host
+  ---
+  duration_ms: 0.3344
+  type: 'test'
+  ...
+# Subtest: UT-PLG-047: a plugin cannot read outside the scope even with the permission
+ok 324 - UT-PLG-047: a plugin cannot read outside the scope even with the permission
+  ---
+  duration_ms: 0.49
+  type: 'test'
+  ...
+# Subtest: UT-PLG-048: an absolute path is refused even when it is inside the scope prefix
+ok 325 - UT-PLG-048: an absolute path is refused even when it is inside the scope prefix
+  ---
+  duration_ms: 0.2547
+  type: 'test'
+  ...
+# Subtest: UT-PLG-049: the host grants the scope, the manifest does not
+ok 326 - UT-PLG-049: the host grants the scope, the manifest does not
+  ---
+  duration_ms: 0.237
+  type: 'test'
+  ...
+# Subtest: UT-PLG-050: the SDK never touches the file system itself
+ok 327 - UT-PLG-050: the SDK never touches the file system itself
+  ---
+  duration_ms: 0.5443
+  type: 'test'
+  ...
+# Subtest: UT-PLG-051: a forbidden permission never appears in a granted set
+ok 328 - UT-PLG-051: a forbidden permission never appears in a granted set
+  ---
+  duration_ms: 0.2461
+  type: 'test'
+  ...
+# Subtest: UT-PLG-052: the temporary fixture is empty -- the SDK wrote nothing
+ok 329 - UT-PLG-052: the temporary fixture is empty -- the SDK wrote nothing
+  ---
+  duration_ms: 0.3247
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-SETUP: isolated fake CLI adapter
+ok 330 - IT-RUN-MOCK-SETUP: isolated fake CLI adapter
+  ---
+  duration_ms: 395.1603
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip
+ok 331 - IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip
+  ---
+  duration_ms: 449.7584
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-002: cancel marks cancelled
+ok 332 - IT-RUN-MOCK-002: cancel marks cancelled
+  ---
+  duration_ms: 353.1232
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-CLEANUP: cleanup
+ok 333 - IT-RUN-MOCK-CLEANUP: cleanup
+  ---
+  duration_ms: 17.2416
+  type: 'test'
+  ...
+# Subtest: IT-UID-SETUP: start server
+ok 334 - IT-UID-SETUP: start server
+  ---
+  duration_ms: 281.5313
+  type: 'test'
+  ...
+# Subtest: IT-UID-001: a registered project carries a stable UID
+ok 335 - IT-UID-001: a registered project carries a stable UID
+  ---
+  duration_ms: 155.2434
+  type: 'test'
+  ...
+# Subtest: IT-UID-002: the test catalog exposes the UID and its source
+ok 336 - IT-UID-002: the test catalog exposes the UID and its source
+  ---
+  duration_ms: 140.8745
+  type: 'test'
+  ...
+# Subtest: IT-UID-003: the UID registry is persisted in the state file
+ok 337 - IT-UID-003: the UID registry is persisted in the state file
+  ---
+  duration_ms: 0.5206
+  type: 'test'
+  ...
+# Subtest: IT-UID-004: the project is reachable through its UID
+ok 338 - IT-UID-004: the project is reachable through its UID
+  ---
+  duration_ms: 217.4644
+  type: 'test'
+  ...
+# Subtest: IT-UID-005: the run carries a UID in the v1 format
+ok 339 - IT-UID-005: the run carries a UID in the v1 format
+  ---
+  duration_ms: 7887.6717
+  type: 'test'
+  ...
+# Subtest: IT-UID-006: the run is reachable through its UID
+ok 340 - IT-UID-006: the run is reachable through its UID
+  ---
+  duration_ms: 4.5507
+  type: 'test'
+  ...
+# Subtest: IT-UID-007: a second run of the same project gets a new UID
+ok 341 - IT-UID-007: a second run of the same project gets a new UID
+  ---
+  duration_ms: 1002.9664
+  type: 'test'
+  ...
+# Subtest: IT-UID-CLEANUP: stop and cleanup
+ok 342 - IT-UID-CLEANUP: stop and cleanup
+  ---
+  duration_ms: 31.9332
+  type: 'test'
+  ...
+# Subtest: UT-UID-LEX-001: a regular expression literal does not cut the body
+ok 343 - UT-UID-LEX-001: a regular expression literal does not cut the body
+  ---
+  duration_ms: 1.7579
+  type: 'test'
+  ...
+# Subtest: UT-UID-LEX-002: a division is not read as a regular expression
+ok 344 - UT-UID-LEX-002: a division is not read as a regular expression
+  ---
+  duration_ms: 0.3748
+  type: 'test'
+  ...
+# Subtest: UT-UID-LEX-003: a template literal with a nested substitution is skipped
+ok 345 - UT-UID-LEX-003: a template literal with a nested substitution is skipped
+  ---
+  duration_ms: 0.3085
+  type: 'test'
+  ...
+# Subtest: UT-UID-LEX-004: a line comment inside the body does not cut it
+ok 346 - UT-UID-LEX-004: a line comment inside the body does not cut it
+  ---
+  duration_ms: 0.2614
+  type: 'test'
+  ...
+# Subtest: UT-UID-LEX-005: a block comment inside the body does not cut it
+ok 347 - UT-UID-LEX-005: a block comment inside the body does not cut it
+  ---
+  duration_ms: 0.3405
+  type: 'test'
+  ...
+# Subtest: UT-UID-LEX-006: a string with an escaped quote does not cut the body
+ok 348 - UT-UID-LEX-006: a string with an escaped quote does not cut the body
+  ---
+  duration_ms: 0.2191
+  type: 'test'
+  ...
+# Subtest: UT-UID-LEX-007: a body that is too large is refused instead of truncated
+ok 349 - UT-UID-LEX-007: a body that is too large is refused instead of truncated
+  ---
+  duration_ms: 0.4046
+  type: 'test'
+  ...
+# Subtest: UT-UID-LEX-008: a call without a callback has no body
+ok 350 - UT-UID-LEX-008: a call without a callback has no body
+  ---
+  duration_ms: 0.155
+  type: 'test'
+  ...
+# Subtest: UT-UID-LEX-009: a regex after an opening parenthesis is a regex
+ok 351 - UT-UID-LEX-009: a regex after an opening parenthesis is a regex
+  ---
+  duration_ms: 0.4732
+  type: 'test'
+  ...
+# Subtest: UT-UID-COL-001: an explicit claim wins over a registry claim
+ok 352 - UT-UID-COL-001: an explicit claim wins over a registry claim
+  ---
+  duration_ms: 2.8385
+  type: 'test'
+  ...
+# Subtest: UT-UID-COL-002: two cases that derive the same uid do not keep both of them
+ok 353 - UT-UID-COL-002: two cases that derive the same uid do not keep both of them
+  ---
+  duration_ms: 0.4713
+  type: 'test'
+  ...
+# Subtest: UT-UID-COL-003: a collision without a usable fallback ends in the ambiguity report
+ok 354 - UT-UID-COL-003: a collision without a usable fallback ends in the ambiguity report
+  ---
+  duration_ms: 0.6348
+  type: 'test'
+  ...
+# Subtest: UT-UID-COL-004: a registry claim and a derived claim for the same uid are adjudicated
+ok 355 - UT-UID-COL-004: a registry claim and a derived claim for the same uid are adjudicated
+  ---
+  duration_ms: 0.5711
+  type: 'test'
+  ...
+# Subtest: UT-UID-COL-005: a registry that maps one body to two uids is a reported conflict
+ok 356 - UT-UID-COL-005: a registry that maps one body to two uids is a reported conflict
+  ---
+  duration_ms: 0.6127
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-001: a reported case is never bound to the uid of another case
+ok 357 - UT-UID-REG-001: a reported case is never bound to the uid of another case
+  ---
+  duration_ms: 7.5172
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-002: a file-line hit with a matching title still binds
+ok 358 - UT-UID-REG-002: a file-line hit with a matching title still binds
+  ---
+  duration_ms: 0.4969
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-003: a file-line hit with a DIFFERENT title falls through to the title lookup
+ok 359 - UT-UID-REG-003: a file-line hit with a DIFFERENT title falls through to the title lookup
+  ---
+  duration_ms: 0.4109
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-004: the registry holds one entry per uid
+ok 360 - UT-UID-REG-004: the registry holds one entry per uid
+  ---
+  duration_ms: 4.421
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-005: a changed body does not make the case unbound
+ok 361 - UT-UID-REG-005: a changed body does not make the case unbound
+  ---
+  duration_ms: 3.6221
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-006: a stale entry does not block the rule that keeps the uid
+ok 362 - UT-UID-REG-006: a stale entry does not block the rule that keeps the uid
+  ---
+  duration_ms: 0.5217
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-007: a retitled case keeps its uid when a copy is added
+ok 363 - UT-UID-REG-007: a retitled case keeps its uid when a copy is added
+  ---
+  duration_ms: 9.7641
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-008: an explicit annotation is never taken over by the registry
+ok 364 - UT-UID-REG-008: an explicit annotation is never taken over by the registry
+  ---
+  duration_ms: 4.2033
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-009: a duplicated explicit uid is reported as an ambiguity
+ok 365 - UT-UID-REG-009: a duplicated explicit uid is reported as an ambiguity
+  ---
+  duration_ms: 2.6575
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-010: an attempt records the result level status, not the case level status
+ok 366 - UT-UID-REG-010: an attempt records the result level status, not the case level status
+  ---
+  duration_ms: 1.5221
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-011: the registry does not grow without bound
+ok 367 - UT-UID-REG-011: the registry does not grow without bound
+  ---
+  duration_ms: 8.8131
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-012: a deleted case does not keep its registry entry alive
+ok 368 - UT-UID-REG-012: a deleted case does not keep its registry entry alive
+  ---
+  duration_ms: 3.5748
+  type: 'test'
+  ...
+# Subtest: UT-UID-REG-013: cleanup removes the temporary fixture
+ok 369 - UT-UID-REG-013: cleanup removes the temporary fixture
+  ---
+  duration_ms: 3.6905
+  type: 'test'
+  ...
+# Subtest: UT-UID-001: project UID is deterministic and format-checked
+ok 370 - UT-UID-001: project UID is deterministic and format-checked
+  ---
+  duration_ms: 2.2976
+  type: 'test'
+  ...
+# Subtest: UT-UID-002: project UID ignores path separator and trailing slash
+ok 371 - UT-UID-002: project UID ignores path separator and trailing slash
+  ---
+  duration_ms: 0.3338
+  type: 'test'
+  ...
+# Subtest: UT-UID-003: legacy project id is mapped to the recomputed UID
+ok 372 - UT-UID-003: legacy project id is mapped to the recomputed UID
+  ---
+  duration_ms: 0.3705
+  type: 'test'
+  ...
+# Subtest: UT-UID-004: explicit @TC annotation is extracted and normalised
+ok 373 - UT-UID-004: explicit @TC annotation is extracted and normalised
+  ---
+  duration_ms: 0.5261
+  type: 'test'
+  ...
+# Subtest: UT-UID-005: title key drops the annotation and the case
+ok 374 - UT-UID-005: title key drops the annotation and the case
+  ---
+  duration_ms: 0.4079
+  type: 'test'
+  ...
+# Subtest: UT-UID-006: callback body is extracted after the title literal
+ok 375 - UT-UID-006: callback body is extracted after the title literal
+  ---
+  duration_ms: 0.7337
+  type: 'test'
+  ...
+# Subtest: UT-UID-007: a string containing a comma does not truncate the body
+ok 376 - UT-UID-007: a string containing a comma does not truncate the body
+  ---
+  duration_ms: 0.3124
+  type: 'test'
+  ...
+# Subtest: UT-UID-008: a call without a callback has no body
+ok 377 - UT-UID-008: a call without a callback has no body
+  ---
+  duration_ms: 0.2046
+  type: 'test'
+  ...
+# Subtest: UT-UID-009: explicit UID wins over every derived key
+ok 378 - UT-UID-009: explicit UID wins over every derived key
+  ---
+  duration_ms: 1.8323
+  type: 'test'
+  ...
+# Subtest: UT-UID-010: the UID survives a file rename
+ok 379 - UT-UID-010: the UID survives a file rename
+  ---
+  duration_ms: 1.4602
+  type: 'test'
+  ...
+# Subtest: UT-UID-011: the UID survives a retitle when the body is unchanged
+ok 380 - UT-UID-011: the UID survives a retitle when the body is unchanged
+  ---
+  duration_ms: 0.61
+  type: 'test'
+  ...
+# Subtest: UT-UID-012: two cases with the same title but different bodies get different UIDs
+ok 381 - UT-UID-012: two cases with the same title but different bodies get different UIDs
+  ---
+  duration_ms: 0.752
+  type: 'test'
+  ...
+# Subtest: UT-UID-013: identical title and identical body is reported as ambiguous
+ok 382 - UT-UID-013: identical title and identical body is reported as ambiguous
+  ---
+  duration_ms: 0.8175
+  type: 'test'
+  ...
+# Subtest: UT-UID-014: compareIdentities separates same title from same case
+ok 383 - UT-UID-014: compareIdentities separates same title from same case
+  ---
+  duration_ms: 2.4699
+  type: 'test'
+  ...
+# Subtest: UT-UID-015: derived UID is reproducible from the basis key
+ok 384 - UT-UID-015: derived UID is reproducible from the basis key
+  ---
+  duration_ms: 0.2884
+  type: 'test'
+  ...
+# Subtest: UT-UID-016: run UID is deterministic and format-checked
+ok 385 - UT-UID-016: run UID is deterministic and format-checked
+  ---
+  duration_ms: 0.4761
+  type: 'test'
+  ...
+# Subtest: UT-UID-017: attempt UID is derived from run, test and retry
+ok 386 - UT-UID-017: attempt UID is derived from run, test and retry
+  ---
+  duration_ms: 0.3297
+  type: 'test'
+  ...
+# Subtest: UT-UID-018: discoverStatic assigns a stable UID and keeps the legacy id field
+ok 387 - UT-UID-018: discoverStatic assigns a stable UID and keeps the legacy id field
+  ---
+  duration_ms: 4.1287
+  type: 'test'
+  ...
+# Subtest: UT-UID-019: attempts are bound to the TestDefinition UID
+ok 388 - UT-UID-019: attempts are bound to the TestDefinition UID
+  ---
+  duration_ms: 3.7545
+  type: 'test'
+  ...
+# Subtest: UT-UID-022: two cases with the same file and title get distinct attempt UIDs
+ok 389 - UT-UID-022: two cases with the same file and title get distinct attempt UIDs
+  ---
+  duration_ms: 4.0275
+  type: 'test'
+  ...
+# Subtest: UT-UID-023: the attempt lookup prefers the file and the line
+ok 390 - UT-UID-023: the attempt lookup prefers the file and the line
+  ---
+  duration_ms: 0.324
+  type: 'test'
+  ...
+# Subtest: UT-UID-024: an attempt without a registry match keeps a null testUid
+ok 391 - UT-UID-024: an attempt without a registry match keeps a null testUid
+  ---
+  duration_ms: 0.4244
+  type: 'test'
+  ...
+# Subtest: UT-UID-020: the UID registry survives a restart of the discovery
+ok 392 - UT-UID-020: the UID registry survives a restart of the discovery
+  ---
+  duration_ms: 5.0236
+  type: 'test'
+  ...
+# Subtest: UT-UID-025: a report path relative to the Playwright rootDir is bound to the registry
+ok 393 - UT-UID-025: a report path relative to the Playwright rootDir is bound to the registry
+  ---
+  duration_ms: 0.3977
+  type: 'test'
+  ...
+# Subtest: UT-UID-026: the static scanner numbers the line of the test call
+ok 394 - UT-UID-026: the static scanner numbers the line of the test call
+  ---
+  duration_ms: 2.1935
+  type: 'test'
+  ...
+# Subtest: UT-UID-027: a retried case produces one attempt per retry
+ok 395 - UT-UID-027: a retried case produces one attempt per retry
+  ---
+  duration_ms: 0.7236
+  type: 'test'
+  ...
+# Subtest: UT-UID-021: cleanup removes the temporary fixture
+ok 396 - UT-UID-021: cleanup removes the temporary fixture
+  ---
+  duration_ms: 3.6166
+  type: 'test'
+  ...
+1..396
+# tests 396
+# suites 0
+# pass 391
+# fail 0
+# cancelled 0
+# skipped 5
+# todo 0
+# duration_ms 18039.5565
 TEST_EXIT=0

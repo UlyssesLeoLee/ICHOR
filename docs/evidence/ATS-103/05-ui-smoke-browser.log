@@ -1,0 +1,47 @@
+=== ATS-103 evidence: ST: a real browser drives the exported UI ===
+date      : 2026-11-05T16:32:43Z (UTC)
+commit    : 7c04b8a0cf8b8aa2b6e63a137224502156ada949
+node      : v22.23.4
+npm       : 10.9.9
+command   : node tools/ats103-probes/ui-smoke.mjs
+
+PASS  the exported page loads in a real browser  --  HTTP 200, http://127.0.0.1:4577/
+PASS  the page's own session call succeeds  --  GET /api/session -> 200, GET /api/session -> 200
+PASS  adding a project through the UI registers it and lists the catalog  --  toast=项目添加成功：未修改原仓库, catalog items=2
+PASS  running through the UI reaches a terminal state  --  toast=已提交到本地 Playwright Runner, status=failed
+PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 27 artefacts
+PASS  the page produced no console error and no failed request  --  console errors: none; failed requests: none
+
+--- API calls the page made ---
+  GET /api/session -> 200
+  GET /api/session -> 200
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/runs -> 200
+  POST /api/projects -> 201
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/projects/proj_1_7e214ca21e1b1c7d8ed67958/tests -> 200
+  GET /api/projects/proj_1_7e214ca21e1b1c7d8ed67958/lineage -> 200
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/runs -> 200
+  POST /api/projects/proj_1_7e214ca21e1b1c7d8ed67958/run -> 202
+  GET /api/runs -> 200
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_4264a88da7837f130e4d72fd -> 200
+  GET /api/runs/run_1_4264a88da7837f130e4d72fd -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_4264a88da7837f130e4d72fd -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_4264a88da7837f130e4d72fd -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_4264a88da7837f130e4d72fd -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_4264a88da7837f130e4d72fd -> 200
+--- end ---
+PASS  the probe executed every registered check  --  7/7 checks executed
+
+RESULT: OK -- 7/7 checks passed.
+PROBE_EXIT=0

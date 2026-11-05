@@ -66,12 +66,69 @@ header 01-export-and-proxy-verification.log "static export + Bridge API seam ver
 node tools/ats103-probes/verify-export-and-proxy.mjs >> "$OUT/01-export-and-proxy-verification.log" 2>&1
 echo "PROBE_EXIT=$?" >> "$OUT/01-export-and-proxy-verification.log"
 
-# --- 2. the repository regression -----------------------------------------
+# --- 2. the real browser driving the exported UI (ST) ---------------------
+header 05-ui-smoke-browser.log "ST: a real browser drives the exported UI" \
+  "node tools/ats103-probes/ui-smoke.mjs"
+node tools/ats103-probes/ui-smoke.mjs >> "$OUT/05-ui-smoke-browser.log" 2>&1
+echo "PROBE_EXIT=$?" >> "$OUT/05-ui-smoke-browser.log"
+
+# --- 3. the same ST path from a whitelisted cross-origin ------------------
+header 05b-ui-smoke-cross-origin.log "ST: the exported UI from a whitelisted cross-origin" \
+  "node tools/ats103-probes/ui-smoke.mjs --page-origin http://127.0.0.1:3000"
+node tools/ats103-probes/ui-smoke.mjs --page-origin http://127.0.0.1:3000 \
+  >> "$OUT/05b-ui-smoke-cross-origin.log" 2>&1
+echo "PROBE_EXIT=$?" >> "$OUT/05b-ui-smoke-cross-origin.log"
+
+# --- 4. the mutation evidence ---------------------------------------------
+# The script mutates the product source temporarily and restores it. It
+# writes its own log; the header is prepended here so the log carries the
+# same provenance block as the others.
+#
+# The script is told where to write via ATS103_MUTATION_LOG, and the pieces
+# are assembled with `cat` into a third file. Writing the body straight to
+# the final path would make the assembly step overwrite the script's own
+# log -- the mutation details would be lost.
+{
+  echo "=== ATS-103 evidence: mutation evidence ==="
+  echo "date      : $STAMP (UTC)"
+  echo "commit    : $COMMIT"
+  echo "node      : $NODE_V"
+  echo "npm       : $NPM_V"
+  echo "command   : bash tools/ats103-probes/mutation-evidence.sh"
+  echo ""
+} > "$OUT/06-mutation-evidence.log.head"
+ATS103_MUTATION_LOG="$OUT/06-mutation-evidence.log.body" \
+  bash tools/ats103-probes/mutation-evidence.sh > /dev/null 2>&1
+MUT_EXIT=$?
+cat "$OUT/06-mutation-evidence.log.head" "$OUT/06-mutation-evidence.log.body" \
+  > "$OUT/06-mutation-evidence.log"
+rm -f "$OUT/06-mutation-evidence.log.head" "$OUT/06-mutation-evidence.log.body"
+echo "MUTATION_SCRIPT_EXIT=$MUT_EXIT" >> "$OUT/06-mutation-evidence.log"
+
+# --- 5. the ATS-101 port audit (this task must not regress it) ------------
+header 07-port-audit.log "ATS-101 hardcoded default-port audit" \
+  "node tools/ats101-probes/scenario-d-port-audit.mjs"
+node tools/ats101-probes/scenario-d-port-audit.mjs >> "$OUT/07-port-audit.log" 2>&1
+echo "PORT_AUDIT_EXIT=$?" >> "$OUT/07-port-audit.log"
+
+# --- 6. the ADR citation check --------------------------------------------
+header 08-adr-citations.log "ADR citation check" \
+  "python tools/check_adr_citations.py"
+python tools/check_adr_citations.py >> "$OUT/08-adr-citations.log" 2>&1
+echo "ADR_EXIT=$?" >> "$OUT/08-adr-citations.log"
+
+# --- 7. the repository build gate -----------------------------------------
+header 09-ci-build-gate.log "the repository 8-step build gate" \
+  "node tools/ci_build_gate.mjs"
+node tools/ci_build_gate.mjs >> "$OUT/09-ci-build-gate.log" 2>&1
+echo "GATE_EXIT=$?" >> "$OUT/09-ci-build-gate.log"
+
+# --- 8. the repository regression -----------------------------------------
 header 03-npm-test-regression.log "npm test regression" "npm test"
 npm test >> "$OUT/03-npm-test-regression.log" 2>&1
 echo "TEST_EXIT=$?" >> "$OUT/03-npm-test-regression.log"
 
-# --- 3. the WBS coexistence regression ------------------------------------
+# --- 9. the WBS coexistence regression ------------------------------------
 header 04-wbs-updater-regression.log \
   "WBS updater coexistence regression (all tools/update_wbs_*.py)" \
   "python tools/test_wbs_common.py && bash tools/ats501-probes/check-wbs-updaters.sh"
@@ -85,7 +142,7 @@ header 04-wbs-updater-regression.log \
   echo "EXIT=$?"
 } >> "$OUT/04-wbs-updater-regression.log" 2>&1
 
-# --- 4. the WBS row update (LAST: the regression above restores the sheet) --
+# --- 10. the WBS row update (LAST: the regression above restores the sheet) --
 python tools/update_wbs_ats103.py --status 待审核 > /dev/null
 
 # The WBS updater leaves a .bak behind; it is not part of the delivery.
