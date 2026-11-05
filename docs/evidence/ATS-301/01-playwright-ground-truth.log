@@ -1,5 +1,10 @@
+=== ATS-301 probe: the real Playwright ground truth ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-8bd534310547/worktree
+node      : v24.19.0
+date      : 2026-11-05T11:37:09Z
+
 === ATS-301 Playwright ground truth ===
-fixture : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-9ac72405ff1c\worktree\examples\sample-playwright
+fixture : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-8bd534310547\worktree\examples\sample-playwright
 out dir : C:\Users\seiko\AppData\Local\Temp\ats301-pw-ground-truth
 
 --- parsed CLI options ---
@@ -28,11 +33,11 @@ top-level keys : config, suites, errors, stats
   suite.file : "home.spec.ts"
   spec keys=title,ok,tags,tests,id,file,line,column title="首页响应正常 @REQ-001" file="home.spec.ts"
     test keys=timeout,annotations,expectedStatus,projectId,projectName,results,status status=expected title="首页响应正常 @REQ-001"
-    test.results n=1 durations=[276]
+    test.results n=1 durations=[136]
     test.error=none
   spec keys=title,ok,tags,tests,id,file,line,column title="导航入口正常 @REQ-002" file="home.spec.ts"
     test keys=timeout,annotations,expectedStatus,projectId,projectName,results,status status=unexpected title="导航入口正常 @REQ-002"
-    test.results n=1 durations=[5118]
+    test.results n=1 durations=[5097]
     test.error=none
 
-stats : {"startTime":"2026-11-05T10:02:58.876Z","duration":6630.799,"expected":1,"skipped":0,"unexpected":1,"flaky":0}
+stats : {"startTime":"2026-11-05T11:37:10.267Z","duration":6129.134,"expected":1,"skipped":0,"unexpected":1,"flaky":0}
