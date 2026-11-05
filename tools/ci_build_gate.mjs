@@ -123,13 +123,32 @@ function npmVersion() {
   return (res.stdout || '').trim() || 'unknown';
 }
 
+/**
+ * Quote an argument for the Windows command shell.
+ *
+ * With `shell: true` the args are CONCATENATED into one command line, not
+ * passed as an argv array, so an argument that contains a space is split in
+ * the wrong place. A repository path with a space in it ("C:\\Users\\Me\\My
+ * Project") made the gate fail with "Cannot find module 'C:\\Users\\Me\\My'".
+ *
+ * The value is wrapped in double quotes; a literal `"` inside it is escaped,
+ * because cmd.exe has no other way to carry one.
+ */
+function quoteForShell(value) {
+  return `"${String(value).replace(/"/g, '\\"')}"`;
+}
+
 function run(cmd) {
   const started = Date.now();
-  const res = spawnSync(cmd.cmd, cmd.args, {
+  const useShell = process.platform === 'win32';
+  // On Windows the .cmd shims need the shell; on POSIX they must not get one.
+  // When the shell is used, every argument has to be quoted by hand because
+  // the arguments are concatenated rather than passed as an argv array.
+  const args = useShell ? cmd.args.map(quoteForShell) : cmd.args;
+  const res = spawnSync(cmd.cmd, args, {
     cwd: cmd.cwd,
     stdio: 'inherit',
-    shell: process.platform === 'win32',
-    // On Windows the .cmd shims need the shell; on POSIX they must not get one.
+    shell: useShell,
     env: process.env,
   });
   const ms = Date.now() - started;
