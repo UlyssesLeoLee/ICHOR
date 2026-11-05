@@ -1,0 +1,30 @@
+=== the environment profile API suite ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-f66f8db44ab3/worktree
+commit    : 6088afd
+branch    : agent/m2/seikoist-170
+node      : v24.19.0
+python    : Python 3.11.16
+
+✔ IT-ENV-SETUP: start the bridge (378.8305ms)
+✔ IT-ENV-001: a project is registered (88.0557ms)
+✔ IT-ENV-002: a profile is created and the answer carries the NAMES, not the values (16.533ms)
+✔ IT-ENV-003: GET /env lists the profiles and the whitelist (7.7426ms)
+✔ IT-ENV-004: a variable that is not on the whitelist is REFUSED with the reason (15.0021ms)
+✔ IT-ENV-005: a credential-shaped name is REFUSED even when the whitelist allows it (31.3057ms)
+✔ IT-ENV-006: a whitelist that authorises a credential is REFUSED (14.5919ms)
+✔ IT-ENV-007: a run names the profile it ran under and the NAMES of its variables (101.3101ms)
+✔ IT-ENV-008: a run that names a profile that does not exist is REFUSED (117.3836ms)
+✔ IT-ENV-009: the profile lives in the data directory and NOT in the project (1.0104ms)
+✔ IT-ENV-010: the profile survives a restart of the bridge (406.1137ms)
+✔ IT-ENV-011: the profile is deleted (61.9686ms)
+✔ IT-ENV-CLEANUP: stop the bridge (2.9048ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1339.8904
+
+exit code : 0
