@@ -1,6 +1,6 @@
 === the ATS-301 gate: WBS helper + ADR citations + port audit ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-f66f8db44ab3/worktree
-commit    : e82aa6a
+commit    : 1993293
 branch    : agent/m2/seikoist-170
 node      : v24.19.0
 python    : Python 3.11.16
@@ -24,6 +24,7 @@ PASS 【ATS-103】 is idempotent
 PASS 【ATS-201】 is idempotent
 PASS 【ATS-202】 is idempotent
 PASS 【ATS-205】 is idempotent
+PASS 【ATS-206】 is idempotent
 PASS 【ATS-208】 is idempotent
 PASS 【ATS-212】 is idempotent
 PASS 【ATS-301】 is idempotent
@@ -44,6 +45,8 @@ PASS update_wbs_ats202.py declares exactly one marker
 PASS 【ATS-202】 (from update_wbs_ats202.py) is registered in MARKERS
 PASS update_wbs_ats205.py declares exactly one marker
 PASS 【ATS-205】 (from update_wbs_ats205.py) is registered in MARKERS
+PASS update_wbs_ats206.py declares exactly one marker
+PASS 【ATS-206】 (from update_wbs_ats206.py) is registered in MARKERS
 PASS update_wbs_ats208.py declares exactly one marker
 PASS 【ATS-208】 (from update_wbs_ats208.py) is registered in MARKERS
 PASS update_wbs_ats212.py declares exactly one marker
@@ -125,9 +128,9 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:3417  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:3483  "input": "Host=evil.example:4577",
-  tests/test-cases.json:4638  "input": "同 LAN 他机尝试访问 4577",
+  tests/test-cases.json:3835  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:3901  "input": "Host=evil.example:4577",
+  tests/test-cases.json:5056  "input": "同 LAN 他机尝试访问 4577",
   tools/generate_test_docs.py:290  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
   tools/generate_test_docs.py:296  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
   tools/generate_test_docs.py:382  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
