@@ -1,0 +1,37 @@
+=== ATS-502 evidence: scheduling service integration tests ===
+date        : 2026-11-05T12:30:12Z (UTC)
+commit      : 34f39f20522f13dfdabb13ddb89a17f8ca7a41a5
+node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+default enc : gbk (what the same interpreter would use without the forcing)
+command     : node --test tests/scheduler.test.mjs
+
+✔ IT-SCHED-SETUP: start the scheduler (33.4128ms)
+✔ IT-SCHED-001: the health endpoint reports the queue snapshot (4.4332ms)
+✔ IT-SCHED-002: dispatch returns 202 and the job is queued (6.6165ms)
+✔ IT-SCHED-003: the same dispatch again is a 200 replay of the first job (12.4031ms)
+✔ IT-SCHED-004: the same key with a different body is 409 REMOTE_IDEMPOTENCY_CONFLICT (15.1213ms)
+✔ IT-SCHED-005: dispatch without an idempotency key is 403 (6.4434ms)
+✔ IT-SCHED-006: a node must be bound before it can lease (8.2084ms)
+✔ IT-SCHED-007: leasing a job of an unbound node is 403 REMOTE_TENANT_REQUIRED (15.5031ms)
+✔ IT-SCHED-008: leasing a job hands out a lease (14.648ms)
+✔ IT-SCHED-009: a second node cannot lease the same job (no double run) (46.3818ms)
+✔ IT-SCHED-010: a heartbeat renews the lease over the wire (14.3747ms)
+✔ IT-SCHED-011: after the lease expires the job is recoverable (requeued and re-leasable) (45.9224ms)
+✔ IT-SCHED-012: the stale node cannot report the result after the re-dispatch (16.5886ms)
+✔ IT-SCHED-013: a replayed result returns the first result and does not change the state (46.1634ms)
+✔ IT-SCHED-014: a job of another tenant is not found (15.3583ms)
+✔ IT-SCHED-015: releasing a node returns its jobs to the queue (61.3537ms)
+✔ IT-SCHED-016: an unknown job is 404 REMOTE_JOB_NOT_FOUND (15.0196ms)
+✔ IT-SCHED-017: an unknown route is 404 REMOTE_RESOURCE_NOT_FOUND (1.7158ms)
+✔ IT-SCHED-CLEANUP: stop the scheduler (1.5019ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 515.7042
+exit code   : 0

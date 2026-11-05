@@ -37,6 +37,11 @@ const NON_RUNTIME = new Set([
   'start.sh',             // launcher script: prints a URL
   'tests/test-cases.json', // test-case data (input strings)
   'tools/generate_test_docs.py', // generator for tests/test-cases.json -- rewrites the old port
+  // A verification script that NAMES the port in a comment to explain that a
+  // host:port pair is not a file citation. The literal takes no effect at
+  // runtime -- it is prose inside a regex's docstring -- so it belongs to the
+  // display-only bucket, not to the runtime bucket.
+  'tools/check_adr_citations.py',
 ]);
 
 /**
@@ -56,7 +61,7 @@ const NON_RUNTIME = new Set([
  * a new probe script, or a port mention added to this README, must not be
  * reported as a runtime hardcoding site.
  */
-const DOC_MENTION_DIRS = ['tools/ats101-probes', 'tools/ats501-probes'];
+const DOC_MENTION_DIRS = ['tools/ats101-probes', 'tools/ats501-probes', 'tools/ats502-probes'];
 /**
  * Every Markdown file is prose, whatever directory it sits in, so a port
  * mention in one is never a runtime hardcoding. The extension is the rule --
@@ -207,13 +212,19 @@ console.log('');
 
 // --- documentation mentions -------------------------------------------------
 // 16 §3.1 states how many mentions the (c) class carries. The (c) class is
-// every Markdown file in the tree plus the probe directory; the COUNTED
-// scope excludes the baseline document itself (it enumerates the list, so it
-// mentions the port by construction) and the probe directory (which names the
-// port it audits). That number must come from the tree, not from prose.
+// every MARKDOWN file in the tree plus the probe directories; the COUNTED
+// scope is what the document states verbatim: "every .md file except this
+// document itself and the probe directories". That number must come from the
+// tree, not from prose.
+//
+// The scope is therefore .md files only. A probe SCRIPT (a .mjs under a
+// probe directory) is a mention in the broad sense -- it names the port it
+// audits -- but it is not part of the (c) class the document counts, and
+// counting it would make the guard fail whenever a new probe is added.
 const docMentions = docMentionFindings.filter(
   (f) => f.rel !== 'docs/16-BASELINE-ADR.md'
-    && !f.rel.startsWith('tools/ats101-probes/'),
+    && path.extname(f.rel) === '.md'
+    && !DOC_MENTION_DIRS.some((d) => f.rel.startsWith(`${d}/`)),
 );
 const docMentionFiles = [...new Set(docMentions.map((f) => f.rel))].sort();
 const docMentionOccurrences = docMentions.reduce((n, f) => n + f.occurrences, 0);
