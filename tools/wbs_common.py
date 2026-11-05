@@ -98,6 +98,39 @@ def _text(value):
     return value
 
 
+def xml_escape(value):
+    """Escape a string so it can be the text of an XML element.
+
+    The sheet XML is written by hand, so any value that goes into a
+    `<x:v>` element has to be escaped. Without this a note containing
+    `<24hex>` or `a & b` is written verbatim: the `<` starts what the
+    parser reads as a tag and the workbook is damaged (Excel refuses to
+    open it).
+    """
+    return (str(value)
+            .replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;'))
+
+
+def xml_unescape(value):
+    """Reverse `xml_escape`.
+
+    The merge helpers work on plain text (a note is compared against plain
+    strings such as '已完成'), so the stored value has to be decoded before
+    it is merged and re-encoded on the way out. Decoding on read and
+    encoding on write is what keeps the round trip stable: running an
+    updater twice must not change the file.
+    """
+    text = _text(value) or ''
+    return (text
+            .replace('&lt;', '<')
+            .replace('&gt;', '>')
+            .replace('&quot;', '"')
+            .replace('&apos;', "'")
+            .replace('&amp;', '&'))
+
+
 def format_rate(rate):
     """Render a completion rate the way the workbook's cached values do.
 
@@ -113,7 +146,16 @@ def cell_text(xml, rid, col):
     if m is None:
         return ''
     v = re.search(r'<x:v>(.*?)</x:v>', m.group(1), re.S)
-    return v.group(1) if v else ''
+    return xml_unescape(v.group(1)) if v else ''
+
+
+def cell_number(xml, rid, col):
+    """Return the numeric value of one cell, or 0.0 when it is not a number."""
+    raw = cell_text(xml, rid, col)
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def set_cell(xml, col, value, *, numeric=False):
@@ -126,7 +168,7 @@ def set_cell(xml, col, value, *, numeric=False):
     f = re.search(r'<x:f>(.*?)</x:f>', body, re.S)
     open_tag = re.sub(r'\st="[^"]*"', '', open_tag)
     open_tag = open_tag[:-1] + (' t="n">' if numeric else ' t="str">')
-    new_body = (f.group(0) if f else '') + f'<x:v>%s</x:v>' % value
+    new_body = (f.group(0) if f else '') + '<x:v>%s</x:v>' % xml_escape(value)
     return xml[:m.start()] + open_tag + new_body + close + xml[m.end():]
 
 
@@ -303,8 +345,8 @@ def set_narrative_cell(xml, rid, cell_name):
     if m is None:
         raise SystemExit(f'{cell_name} not found')
     cur = re.search(r'<x:v>(.*?)</x:v>', m.group(1), re.S)
-    merged = compose_narrative(cur.group(1) if cur else '', cell_name)
-    new_cell = '<x:c r="%s%d" t="str"><x:v>%s</x:v></x:c>' % (column, rid, merged)
+    merged = compose_narrative(xml_unescape(cur.group(1)) if cur else '', cell_name)
+    new_cell = '<x:c r="%s%d" t="str"><x:v>%s</x:v></x:c>' % (column, rid, xml_escape(merged))
     return xml[:m.start()] + new_cell + xml[m.end():]
 
 
@@ -316,9 +358,9 @@ def set_marked_cell(xml, rid, col, marker, new_text,
     if m is None:
         raise SystemExit(f'{col}{rid} not found')
     cur = re.search(r'<x:v>(.*?)</x:v>', m.group(1), re.S)
-    merged = merge_marked(cur.group(1) if cur else '', marker, new_text,
+    merged = merge_marked(xml_unescape(cur.group(1)) if cur else '', marker, new_text,
                           stale_prefixes, stale_fragments, drop_unmarked, plain)
-    new_cell = '<x:c r="%s%d" t="str"><x:v>%s</x:v></x:c>' % (col, rid, merged)
+    new_cell = '<x:c r="%s%d" t="str"><x:v>%s</x:v></x:c>' % (col, rid, xml_escape(merged))
     return xml[:m.start()] + new_cell + xml[m.end():]
 
 
@@ -375,9 +417,13 @@ def read_parts(path=None):
 
 
 def sheet_cells(parts, sheet_name):
-    """Map row number -> {column letter: cell text} for one worksheet."""
+    """Map row number -> {column letter: cell text} for one worksheet.
+
+    The stored text is XML-escaped (see `xml_escape`), so it is decoded
+    here: a reader sees the same plain text that a writer put in.
+    """
     ss_xml = _text(parts.get(SHARED_STRINGS, ''))
-    shared = [re.sub(r'<[^>]+>', '', s)
+    shared = [xml_unescape(re.sub(r'<[^>]+>', '', s))
               for s in re.findall(r'<x:si>(.*?)</x:si>', ss_xml, re.S)]
     xml = _text(parts[sheet_name])
     rows = {}
@@ -387,7 +433,7 @@ def sheet_cells(parts, sheet_name):
         for cm in re.finditer(r'<x:c r="([A-Z]+)\d+"([^>]*)>(.*?)</x:c>', rm.group(2), re.S):
             col, attrs, body = cm.group(1), cm.group(2), cm.group(3)
             vm = re.search(r'<x:v>(.*?)</x:v>', body, re.S)
-            val = vm.group(1) if vm else ''
+            val = xml_unescape(vm.group(1)) if vm else ''
             if 't="s"' in attrs and val != '':
                 val = shared[int(val)]
             cells[col] = val
