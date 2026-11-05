@@ -246,9 +246,15 @@ GATE_EXIT_CODE=0
 | `09-manifest-check-autocrlf-true-false.log` | 依赖清单 `--check` 在 `core.autocrlf=true` 与 `false` 两种检出下均退出码 0；并附修复前生成器在同一 LF 检出上退出码 1 的对照 |
 | `10-path-with-space-and-cjk.log` | 检出目录含空格（`sp ace`）与含中日文（`中文目录`）时的门禁：修复前报错、修复后摘要校验通过 |
 | `11-manifest-tamper-regression.log` | **门禁有效性回归**：篡改清单一条 `integrity` 后，现行 CI 序列退出码 1、旧序列退出码 0 |
-| `08-manifest-drift-and-line-endings.log` | 清单漂移门禁的「先校验后重生成」对照、lockfile 哈希的 git 重算、以及含空格/非 ASCII 检出路径下的门禁运行（`tools/ats102-probes/collect-evidence.sh` 采集） |
+| `16-manifest-drift-and-line-endings.log` | 清单漂移门禁的「先校验后重生成」对照、lockfile 哈希的 git 重算、以及含空格/非 ASCII 检出路径下的门禁运行（`tools/ats102-probes/collect-evidence.sh` 采集） |
 | `05-windows-shell-path-pitfall.log` | Windows/Git-Bash 下的 PATH 形态坑（`spawn taskkill ENOENT` 导致 Bridge 崩溃）与修正 |
 | `03-lockfile-reproducibility.log` | 两个独立克隆各装一次，安装树 sha256 一致；两个 lockfile 安装前后哈希不变 |
+| `01-clean-clone-build-gate.log` | 首轮全新克隆的门禁运行（记录了 `npm : unknown`——当时 npm 版本读取的缺陷，见 §4.3） |
+| `02-first-run-failures-found.log` | 首轮门禁暴露的失败项清单（同一 `npm : unknown` 前提下的首轮结果） |
+| `04-final-clean-clone-gate.log` | npm 版本读取修正后的全新克隆门禁运行 |
+| `06-independent-verification.log` | 独立复核轮次的门禁与摘要验证 |
+| `07-final-gate-6-steps.log` | 6 步门禁的验收运行（`installdigest` 步加入之前的形态） |
+| `12-verify-merged-dev.log` | 合并后的 `dev` 树上的独立复跑 |
 
 ### 4.2 `npm test` 在 Node 22 上的结果
 

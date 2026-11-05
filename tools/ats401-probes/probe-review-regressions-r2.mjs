@@ -258,14 +258,42 @@ print((v.group(1) if v else '').count('【ATS-401】'))
   return (py.stdout || '').trim();
 };
 
+/**
+ * The CONTENT of the workbook, independent of how the zip was compressed.
+ *
+ * Comparing the raw bytes is not a stable check: zlib's output differs
+ * between CPython versions, so a workbook written by 3.11 and the same
+ * workbook written by 3.14 hold identical members but differ byte for
+ * byte. The member CONTENT is what the workbook actually means, so that
+ * is what the stability check compares.
+ */
+const workbookContent = (file) => {
+  const py = spawnSync('python', ['-c', `
+import hashlib, sys, zipfile
+h = hashlib.sha256()
+with zipfile.ZipFile(sys.argv[1]) as z:
+    for n in sorted(z.namelist()):
+        h.update(n.encode('utf-8'))
+        h.update(z.read(n))
+print(h.hexdigest())
+`, file], { encoding: 'utf8' });
+  return (py.stdout || '').trim();
+};
+
 check('the ATS-401 WBS updater runs', run1.status === 0 && run2.status === 0,
   `exit1=${run1.status} exit2=${run2.status} ${String(run1.stderr || '').slice(0, 160)}`);
 check('the note keeps exactly one 【ATS-401】 marker after two runs',
   markerCount(scratchXlsx) === '1', `markers=${markerCount(scratchXlsx)}`);
 check('running the updater twice leaves the file byte-identical',
   after1.equals(after2), `${after1.length}B vs ${after2.length}B`);
+check('running the updater twice leaves the workbook CONTENT identical',
+  workbookContent(scratchXlsx) === workbookContent(path.join(scratchRepo, 'docs', 'WBS.xlsx')),
+  'the second run changed the content');
 check('the updater is stable against the committed baseline',
   after2.equals(before), 'the second run differs from the committed workbook');
+check('the updater is content-stable against the committed baseline',
+  workbookContent(scratchXlsx) === workbookContent(path.join(REPO_ROOT, 'docs', 'WBS.xlsx')),
+  'the second run differs from the committed workbook content');
 check("the repository's own workbook was not touched",
   fs.readFileSync(path.join(REPO_ROOT, 'docs', 'WBS.xlsx')).equals(before),
   'docs/WBS.xlsx changed on disk');
