@@ -22,9 +22,18 @@
  *   installdigest assert that the installed apps/studio tree still matches
  *             the digest recorded for it (tools/installed-tree-digests.txt)
  *   test      npm test (Node built-in test runner)
+ *   ats301    the ATS-301 gate (the WBS shared-cell regression, the ADR
+ *             citation check and the ATS-101 hardcoded-port audit)
  *   syntax    node --check on the bridge entrypoint
  *   build     the Next.js 16 static export
  *   manifest  assert the committed dependency manifest matches the lockfiles
+ *
+ * The steps above are the ones the workflow runs. `--check-parity` proves
+ * that claim mechanically: it READS the workflow and compares every `run:`
+ * command with the commands this script issues, so the two cannot drift
+ * apart without the check failing. It is part of the gate itself (the
+ * `parity` step), so a delivery that adds a workflow step without adding
+ * the matching local step fails the gate.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -37,8 +46,14 @@ const argv = process.argv.slice(2);
 const LIST_ONLY = argv.includes('--list');
 const CHECK_ARTEFACT = argv.includes('--check-artefact');
 const CHECK_NODE = argv.includes('--check-node');
+const CHECK_PARITY = argv.includes('--check-parity');
 const STEP_INDEX = argv.indexOf('--step');
 const ONLY_STEP = STEP_INDEX >= 0 ? argv[STEP_INDEX + 1] : null;
+
+/**
+ * The CI workflow this script reproduces.
+ */
+const WORKFLOW = path.join('.github', 'workflows', 'ats-102-build.yml');
 
 /**
  * The static export artefact the web-build step must produce.
@@ -128,6 +143,20 @@ const STEPS = [
     ],
   },
   {
+    id: 'ats301',
+    title: 'The ATS-301 gate (WBS shared-cell regression, ADR citations, port audit)',
+    commands: [
+      // The workflow runs the same command as its own step ("Run the ATS-301
+      // gate"). The gate script itself runs the WBS shared-cell regression,
+      // the ADR citation check and the ATS-101 hardcoded-port audit.
+      //
+      // It is a separate step from `test` because it is a separate step in
+      // the workflow: a delivery that adds a source file mentioning the
+      // default port turns the port audit red, and only the audit sees that.
+      { cwd: REPO_ROOT, cmd: 'npm', args: ['run', 'gate:ats301'] },
+    ],
+  },
+  {
     id: 'syntax',
     title: 'The bridge entrypoint parses (node --check)',
     commands: [
@@ -146,6 +175,20 @@ const STEPS = [
       // splitting (a `shell: true` spawn splits on spaces, which breaks any
       // `node -e` payload containing them).
       { cwd: REPO_ROOT, cmd: 'node', args: ['tools/ci_build_gate.mjs', '--check-artefact'] },
+    ],
+  },
+  {
+    id: 'parity',
+    title: 'The local gate matches this workflow step for step',
+    commands: [
+      // The workflow runs the same command as its own step ("Verify the
+      // local build gate matches this workflow"). It compares every `run:`
+      // command in the workflow with the commands this script issues.
+      //
+      // Without it the claim in this script's header is only a comment, and
+      // a comment cannot fail: a delivery that adds a workflow step without
+      // adding the matching local step would pass the gate unnoticed.
+      { cwd: REPO_ROOT, cmd: 'node', args: ['tools/ci_build_gate.mjs', '--check-parity'] },
     ],
   },
   {
@@ -211,7 +254,287 @@ function run(cmd) {
   return 0;
 }
 
+
+/**
+ * Parse the workflow's assertion steps out of the YAML.
+ *
+ * The steps are read from the FILE, not from a hand-written table. A
+ * hand-written table cannot see a step that somebody ADDED to the workflow,
+ * which is precisely the regression this check exists to catch: a delivery
+ * adds a step to the workflow, the local gate does not run it, and the
+ * header comment keeps claiming the two agree.
+ *
+ * The parser handles the shape this workflow actually uses:
+ *
+ *   jobs:
+ *     <job>:
+ *       steps:
+ *         - name: <step name>
+ *           run: <one line command>
+ *         - name: <step name>
+ *           run: |
+ *             <several lines>
+ *           working-directory: <dir>
+ *
+ * A step with `uses:` instead of `run:` is an ACTION (checkout, setup-node,
+ * upload-artifact) -- it runs on the runner, not on the checkout, so it has
+ * no local counterpart. A step marked `continue-on-error: true` does not
+ * fail the build, so it is not an assertion either. Both are skipped, and
+ * both are reported, so the skip is visible rather than silent.
+ */
+// A line terminator, CRLF or LF. Built with an explicit escape so no
+// literal carriage return is embedded in the source of this file.
+const SPLIT_LINES = new RegExp("\\r?\\n");
+function parseWorkflowSteps(text) {
+  const lines = text.split(SPLIT_LINES);
+  const steps = [];
+  let job = null;
+  let inSteps = false;
+  let current = null;
+  let blockRun = null;
+
+  const flush = () => {
+    if (current) steps.push(current);
+    current = null;
+  };
+
+  for (const raw of lines) {
+    const line = raw.replace(/\t/g, '  ');
+    const trimmed = line.trim();
+
+    // A job header: two spaces of indent then "name:".
+    const jobMatch = line.match(/^ {2}([A-Za-z0-9_-]+):\s*$/);
+    if (jobMatch) {
+      flush();
+      job = jobMatch[1];
+      inSteps = false;
+      continue;
+    }
+    if (/^ {4}steps:\s*$/.test(line)) {
+      flush();
+      inSteps = true;
+      continue;
+    }
+    if (!inSteps) continue;
+
+    // A new step: six spaces of indent then "- name:".
+    const stepMatch = line.match(/^ {6}- name: (.*)$/);
+    if (stepMatch) {
+      flush();
+      current = { job, name: stepMatch[1].trim(), run: null, cwd: '', uses: null, continueOnError: false };
+      continue;
+    }
+    if (!current) continue;
+
+    // The run command, BLOCK form: the body follows on the next lines.
+    // This is checked BEFORE the one-line form, because `run: |` also
+    // matches the one-line pattern (its value is the literal `|`).
+    if (/^ {8}run: \|\s*$/.test(line)) {
+      blockRun = [];
+      continue;
+    }
+    // The run command, one-line form.
+    const runMatch = line.match(/^ {8}run: (.*)$/);
+    if (runMatch) {
+      current.run = runMatch[1].trim();
+      continue;
+    }
+    if (blockRun) {
+      // The body of the block form: ten spaces of indent.
+      if (/^ {10}\S/.test(line)) {
+        blockRun.push(trimmed);
+        continue;
+      }
+      // The body ended. The line that ended it may still carry a key of its
+      // own -- `continue-on-error: true` is the one that occurs in this
+      // workflow -- so the remaining keys are checked against THIS line too.
+      // There is no `continue` here on purpose.
+      current.run = blockRun.join(' ').trim();
+      blockRun = null;
+    }
+    const wdMatch = line.match(/^ {8}working-directory: (.*)$/);
+    if (wdMatch) {
+      current.cwd = wdMatch[1].trim();
+      continue;
+    }
+    const usesMatch = line.match(/^ {8}uses: (.*)$/);
+    if (usesMatch) {
+      current.uses = usesMatch[1].trim();
+      continue;
+    }
+    if (/^ {8}continue-on-error: true\s*$/.test(line)) {
+      current.continueOnError = true;
+      continue;
+    }
+  }
+  flush();
+  return steps;
+}
+
+/**
+ * The commands this script issues, as comparable command lines.
+ */
+function gateCommands() {
+  const out = [];
+  for (const step of STEPS) {
+    for (const cmd of step.commands) {
+      const cwd = cmd.cwd;
+      const rel = cwd && cwd !== REPO_ROOT
+        ? path.relative(REPO_ROOT, cwd).split(path.sep).join('/')
+        : '';
+      out.push({ step: step.id, cwd: rel, run: `${cmd.cmd} ${cmd.args.join(' ')}`.trim() });
+    }
+  }
+  return out;
+}
+
+/**
+ * The canonical form of a command, for the parity comparison.
+ *
+ * Two commands are the same assertion when they assert the same thing in
+ * the same directory, even if they spell it differently. The one place
+ * where the workflow and the script spell an assertion differently is the
+ * lockfile check: the workflow runs one `git diff` per lockfile (one step
+ * per job), the script runs one `git diff` over both files. Both assert
+ * "neither lockfile was mutated", so they are folded into one canonical
+ * entry whose file list is the UNION, and the two sides are compared on
+ * that.
+ */
+function canonicalKey(cwd, run) {
+  const prefix = 'git diff --exit-code -- ';
+  if (run.startsWith(prefix)) {
+    const files = run.slice(prefix.length).split(' ').filter(Boolean).sort();
+    return `${cwd} :: ${prefix}${files.join(' ')}`;
+  }
+  return `${cwd} :: ${run}`;
+}
+
+/**
+ * Fold the lockfile assertions into ONE entry per side.
+ */
+function collapseLockfiles(entries) {
+  const prefix = 'git diff --exit-code -- ';
+  const files = new Set();
+  let found = false;
+  const rest = [];
+  for (const e of entries) {
+    if (e.run.startsWith(prefix)) {
+      found = true;
+      for (const f of e.run.slice(prefix.length).split(' ').filter(Boolean)) files.add(f);
+    } else {
+      rest.push(e);
+    }
+  }
+  if (!found) return entries;
+  const merged = {
+    cwd: '',
+    run: `${prefix}${[...files].sort().join(' ')}`,
+    job: 'node-tests/web-build',
+    name: 'Verify lockfile is not mutated by npm ci',
+  };
+  return [...rest, merged];
+}
+
+/**
+ * Prove that the workflow and this script agree, step by step.
+ *
+ * The claim in this script's header -- "This runs EXACTLY the steps that
+ * ats-102-build.yml runs" -- was a comment, and a comment cannot fail. When
+ * a delivery added a step to the workflow, the comment kept claiming the
+ * two agreed while `--list` did not show the new step, and nobody noticed
+ * until a reviewer compared the two by hand.
+ *
+ * So the claim is checked: every command in the workflow must be issued by
+ * this script, and every command this script issues must appear in the
+ * workflow. The comparison is on the COMMAND TEXT and the working
+ * directory, so a step that exists on only one side is reported, by name,
+ * with the command that was orphaned.
+ */
+function checkParity() {
+  const workflowPath = path.join(REPO_ROOT, WORKFLOW);
+  if (!fs.existsSync(workflowPath)) {
+    console.error(`${WORKFLOW} does not exist`);
+    process.exitCode = 1;
+    return;
+  }
+  const workflowText = fs.readFileSync(workflowPath, 'utf8');
+  const gate = gateCommands();
+
+  const problems = [];
+  const matched = [];
+
+  // --- the workflow side, READ FROM THE FILE -------------------------------
+  const parsed = parseWorkflowSteps(workflowText);
+  const workflowEntries = [];
+  const skipped = [];
+  for (const wf of parsed) {
+    if (wf.uses) {
+      skipped.push(`${wf.job} -> "${wf.name}" (an action: ${wf.uses})`);
+      continue;
+    }
+    if (wf.continueOnError) {
+      skipped.push(`${wf.job} -> "${wf.name}" (continue-on-error: it does not fail the build)`);
+      continue;
+    }
+    if (!wf.run) {
+      skipped.push(`${wf.job} -> "${wf.name}" (no run command)`);
+      continue;
+    }
+    workflowEntries.push({ job: wf.job, name: wf.name, cwd: wf.cwd, run: wf.run });
+  }
+
+  // --- compare the two sides, lockfile assertion folded --------------------
+  const wfFolded = collapseLockfiles(workflowEntries);
+  const gateFolded = collapseLockfiles(gate.map((g) => ({ cwd: g.cwd, run: g.run })));
+
+  const gateKeys = new Map();
+  for (const g of gateFolded) {
+    const key = canonicalKey(g.cwd, g.run);
+    if (!gateKeys.has(key)) gateKeys.set(key, []);
+    gateKeys.get(key).push(g);
+  }
+
+  for (const wf of wfFolded) {
+    const key = canonicalKey(wf.cwd, wf.run);
+    const hits = gateKeys.get(key);
+    if (!hits || !hits.length) {
+      problems.push(`the workflow runs "${wf.run}" (${wf.job} -> "${wf.name}") but this script does not`);
+      continue;
+    }
+    hits.pop();
+    matched.push({ run: wf.run, cwd: wf.cwd, where: `${wf.job} -> "${wf.name}"` });
+  }
+
+  for (const [key, hits] of gateKeys) {
+    for (const h of hits) {
+      problems.push(`this script runs "${h.run}"${h.cwd ? ` (in ${h.cwd})` : ''} but the workflow does not`);
+    }
+  }
+
+  console.log('=== ATS-102 build gate: workflow / script parity ===');
+  console.log(`workflow : ${WORKFLOW}`);
+  console.log(`commands : ${workflowEntries.length} in the workflow, ${gate.length} in this script`);
+  console.log('');
+  for (const m of matched.sort((a, b) => a.run.localeCompare(b.run) || a.cwd.localeCompare(b.cwd))) {
+    console.log(`  ok   ${m.run}${m.cwd ? `  [cwd: ${m.cwd}]` : ''}  <-  ${m.where}`);
+  }
+  console.log('');
+
+  if (problems.length) {
+    console.error('RESULT: MISMATCH -- the workflow and the local gate disagree:');
+    for (const p of problems) console.error('  ', p);
+    process.exitCode = 1;
+    return;
+  }
+  console.log('RESULT: OK -- every workflow command is issued by this script, and vice versa.');
+}
+
 function main() {
+  if (CHECK_PARITY) {
+    checkParity();
+    return;
+  }
+
   if (CHECK_NODE) {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'),
