@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid, normalizeTestPath } from './uid.mjs';
+import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, scanTestCases, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid, normalizeTestPath, bodyKeyOf } from './uid.mjs';
 import { buildPlaywrightArgs, probePlaywrightCli } from './adapters/playwright-cli.mjs';
 
 export const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
@@ -56,11 +56,51 @@ export function isProcessAlive(pid) {
 }
 
 /**
+ * The start time of a process, as the operating system reports it.
+ *
+ * The start time is what makes a process identifier VERIFIABLE: a pid alone
+ * does not identify a process, because the operating system reuses pids. The
+ * pair (pid, start time) does -- as long as both are read with the same
+ * source, the same process always yields the same value.
+ *
+ * Returns null when the process does not exist or when the platform cannot
+ * report the value.
+ */
+export function processStartTime(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  if (process.platform === 'win32') {
+    const r = spawnSync('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-Command',
+      `(Get-Process -Id ${pid} -ErrorAction SilentlyContinue).StartTime.ToUniversalTime().ToString("o")`
+    ], { encoding: 'utf8', windowsHide: true, timeout: 10000 });
+    const out = (r.stdout ?? '').trim();
+    return out || null;
+  }
+  const r = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8', timeout: 10000 });
+  const out = (r.stdout ?? '').trim();
+  return out || null;
+}
+
+/**
  * The holder of the lock, or null when the lock is free.
  *
- * A lock whose holder is gone is a STALE lock: the process was killed and
- * left the file behind. A stale lock does not block anybody -- it is
- * overwritten by the next owner.
+ * A lock is free when it cannot be attributed to a live holder:
+ *
+ *   * the file does not exist, or it cannot be parsed;
+ *   * the recorded pid is gone -- the process was killed and left the file
+ *     behind. That is a STALE lock, and it does not block anybody;
+ *   * the recorded pid is alive but it is a DIFFERENT process than the one
+ *     that took the lock -- the pid was reused. That is a STALE lock too, and
+ *     it does not block anybody.
+ *
+ * The last case is the reason the lock records the start time of the holder:
+ * without it, a reused pid looks exactly like a live holder and a leftover
+ * lock file keeps the Bridge from starting.
+ *
+ * A lock that carries no verifiable identity -- one written by an older
+ * version, or by hand -- is reported as HELD: its holder cannot be told from
+ * a reused pid, and the state it guards may really be in use. The caller
+ * answers such a lock with the recovery steps, not with a guess.
  */
 export function readBridgeLock(file = lockPath()) {
   if (!fs.existsSync(file)) return null;
@@ -69,6 +109,13 @@ export function readBridgeLock(file = lockPath()) {
   catch { return null; }
   if (!raw || !Number.isInteger(raw.pid)) return null;
   if (!isProcessAlive(raw.pid)) return null;
+  // The holder is alive. Is it the process that took the lock?
+  if (raw.processStartedAt) {
+    const now = processStartTime(raw.pid);
+    // The pid is alive but its start time is not the recorded one: the pid
+    // was reused by another process, so the lock is stale.
+    if (now !== null && now !== raw.processStartedAt) return null;
+  }
   return raw;
 }
 
@@ -85,7 +132,14 @@ export function acquireBridgeLock(file = lockPath()) {
     throw e;
   }
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify({ pid: process.pid, startedAt: now() }), 'utf8');
+  // The start time of this process makes the lock verifiable: the next reader
+  // can tell that the recorded pid is still THIS process and not a process
+  // that happens to reuse the pid.
+  fs.writeFileSync(file, JSON.stringify({
+    pid: process.pid,
+    startedAt: now(),
+    processStartedAt: processStartTime(process.pid)
+  }), 'utf8');
   return file;
 }
 
@@ -139,18 +193,14 @@ export function discoverStatic(project, registry) {
  const files=walkTests(project.root);const discovered=[];
  for(const file of files){
    const content=fs.readFileSync(path.join(project.root,file),'utf8');
-   const re=/(?:^|\n)[ \t]*(?:test|it)(?:\.(?:only|skip|fixme))?\s*\(\s*(['"`])([^\n]*?)\1/g;
-   let m;while((m=re.exec(content))!==null){
-     // The line of the `test(` call itself, not the line of the whitespace
-     // that precedes it: a Playwright report numbers the line of the call.
-     const title=m[2].slice(0,180);
-     const line=content.slice(0,m.index+m[0].length).split('\n').length;
-     const body=extractCallbackBody(content,m.index+m[0].length);
-     discovered.push({file,title,line,bodyText:body.text});
-   }
+   for(const c of scanTestCases(content))discovered.push({file,...c});
  }
  const projectUid=projectUidOf(project);
- const resolved=resolveIdentities({projectUid,discovered,registry});
+ // The scope of this discovery is the set of files it covered. The registry
+ // only prunes entries whose file is INSIDE the scope: a file that is not part
+ // of this discovery says nothing about the cases inside it, and pruning its
+ // entries would drop the identity of a case that still exists.
+ const resolved=resolveIdentities({projectUid,discovered,registry,scope:new Set(files)});
  const tests=resolved.items.map(t=>({
    id:t.uid,uid:t.uid,uidSource:t.uidSource,uidStable:t.uidStable,
    file:t.file,title:t.title,line:t.line,source:'static',level:'ST',
@@ -266,6 +316,44 @@ export function parseReport(report){
 }
 
 /**
+ * The body fingerprint of the case a report names.
+ *
+ * A report names a case by file, title and line. The source of the file is
+ * read and scanned, and the case that sits at the reported line with the
+ * reported title is located; its body is fingerprinted. The fingerprint is
+ * what tells two cases that share a title apart.
+ *
+ * Returns null when the file cannot be read, when the case is not in the file
+ * any more, or when several cases share the title and the line does not pick
+ * one of them. A null fingerprint leaves the case unbound, which is the honest
+ * answer: it is better to report no UID than the UID of a different case.
+ *
+ * `cache` holds the scanned cases per file, so a file is read and scanned at
+ * most once per run.
+ */
+export function reportedBodyKey(projectRoot, file, reported, cache = new Map()) {
+  if (!projectRoot || !file) return null;
+  let cases = cache.get(file);
+  if (cases === undefined) {
+    let content = null;
+    try {
+      const full = path.resolve(projectRoot, file);
+      if (fs.existsSync(full) && fs.statSync(full).isFile()) content = fs.readFileSync(full, 'utf8');
+    } catch { content = null; }
+    cases = content === null ? null : scanTestCases(content);
+    cache.set(file, cases);
+  }
+  if (!cases) return null;
+  const titled = cases.filter((x) => x.title === reported.title);
+  if (!titled.length) return null;
+  if (titled.length === 1) return bodyKeyOf(titled[0].bodyText ?? null);
+  // Several cases share the title: the reported line picks one of them.
+  const atLine = titled.filter((x) => x.line === reported.line);
+  if (atLine.length === 1) return bodyKeyOf(atLine[0].bodyText ?? null);
+  return null;
+}
+
+/**
  * Builds the Attempt records of one Run.
  *
  * One Attempt is the execution of one test case inside one Run; a retried
@@ -284,13 +372,26 @@ export function attemptsForRun(run, summary, registry) {
   const projectRoot = run.projectRoot ?? null;
   const rootDir = summary.rootDir ?? null;
   const occurrence = new Map();
+  const bodyCache = new Map();
   const attempts = [];
   for (const c of summary.cases) {
     // The report names the file relative to the Playwright rootDir, the
     // registry stores it relative to the project root. Both are reduced to
     // the project relative spelling before they are compared.
     const file = normalizeTestPath(c.file, { rootDir, projectRoot });
-    const found = findTestUid(registry, projectUid, { file, title: c.title, line: c.line });
+    // A title that several cases in the same file share does not identify one
+    // of them, and the line cannot make it one: the case at the reported line
+    // may be a different case than the one that was there when the registry
+    // was written. The BODY FINGERPRINT of the reported case is what tells
+    // them apart, so it is computed from the source of THIS run and handed to
+    // the lookup. The source is read only when the file is known and only
+    // once per file.
+    const found = findTestUid(registry, projectUid, {
+      file,
+      title: c.title,
+      line: c.line,
+      resolveBodyKey: () => reportedBodyKey(projectRoot, file, c, bodyCache)
+    });
     const key = `${file} ${c.title} ${c.line}`;
     const index = occurrence.get(key) ?? 0;
     occurrence.set(key, index + 1);

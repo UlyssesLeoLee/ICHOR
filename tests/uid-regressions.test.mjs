@@ -264,16 +264,127 @@ test('UT-UID-REG-011: the registry does not grow without bound', () => {
   assert.equal(entries.length, 1, 'one case, one entry -- not one entry per discovery');
 });
 
-test('UT-UID-REG-012: a deleted case does not keep its registry entry alive', () => {
+test('UT-UID-REG-012: a case that is gone from a file that is still there loses its entry', () => {
   const first = discover('a.spec.ts', "import {test} from '@playwright/test';\ntest('alpha', async () => { await 1; });\n");
-  const second = discover('b.spec.ts', "import {test} from '@playwright/test';\ntest('beta', async () => { await 2; });\n", first.registry);
+  // The same file, but the case is gone.
+  const second = discover('a.spec.ts', "import {test} from '@playwright/test';\ntest('beta', async () => { await 2; });\n", first.registry);
   const entries = second.registry.projects[second.projectUid].entries;
   const uids = entries.map((e) => e.uid);
   assert.equal(new Set(uids).size, uids.length);
   assert.ok(!uids.includes(first.tests[0].uid), 'the entry of the deleted case is pruned');
 });
 
-test('UT-UID-REG-013: cleanup removes the temporary fixture', () => {
+/* ------------------------------------------------------------------ */
+/* CE7 -- a title that several cases share does not bind by position    */
+/* ------------------------------------------------------------------ */
+
+test('UT-UID-REG-014: two cases with the same title keep their own uid when a line shifts', () => {
+  // One file, two describe blocks, one test with the same title in each.
+  const source = (pad) => "import {test} from '@playwright/test';\n" + '\n'.repeat(pad) +
+    "test.describe('login', () => {\n  test('works', async () => { await 1; });\n});\n" +
+    "test.describe('logout', () => {\n  test('works', async () => { await 2; });\n});\n";
+  const full = path.join(projectDir, 'tests', 'dup.spec.ts');
+  fs.writeFileSync(full, source(0));
+  const first = discoverStatic(project, emptyRegistry());
+  const login = first.tests[0];
+  const logout = first.tests[1];
+  assert.equal(login.title, logout.title);
+  assert.notEqual(login.uid, logout.uid);
+
+  // Three lines are inserted at the top: login/works moves to line 6, which is
+  // the line logout/works used to sit on. The run reports login/works at
+  // line 6. Binding it by position would hand it logout's uid.
+  fs.writeFileSync(full, source(3));
+  const attempts = attemptsForRun(
+    { uid: 'run_1_' + '0'.repeat(24), projectUid: first.projectUid, projectRoot: projectDir },
+    { cases: [{ file: 'tests/dup.spec.ts', title: 'works', line: 6, status: 'expected', duration: 1, retry: 0 }] },
+    first.registry
+  );
+  assert.equal(attempts.length, 1);
+  assert.notEqual(attempts[0].testUid, logout.uid, 'the case must not be bound to the other case');
+  if (attempts[0].testUid !== null) assert.equal(attempts[0].testUid, login.uid);
+  fs.rmSync(full);
+});
+test('UT-UID-REG-015: a same-titled case whose body is unknown stays unbound', () => {
+  // The registry holds two entries with the same title in the same file, and
+  // the body of the reported case cannot be computed. Position is the only
+  // evidence left, and it is not an identity: the case stays unbound.
+  const registry = {
+    version: 1,
+    projects: {
+      [projectUid]: {
+        version: 1,
+        entries: [
+          { uid: 'tc_1_d_aaaaaaaaaaaaaaaa', bodyKey: 'k1', file: 'tests/a.spec.ts', title: 'works', line: 3 },
+          { uid: 'tc_1_d_bbbbbbbbbbbbbbbb', bodyKey: 'k2', file: 'tests/a.spec.ts', title: 'works', line: 6 }
+        ]
+      }
+    }
+  };
+  const hit = findTestUid(registry, projectUid, {
+    file: 'tests/a.spec.ts',
+    title: 'works',
+    line: 6,
+    resolveBodyKey: () => null
+  });
+  assert.equal(hit.uid, null);
+  assert.equal(hit.basis, 'file-title-ambiguous');
+});
+
+test('UT-UID-REG-016: the body fingerprint picks the right one of two same-titled cases', () => {
+  const registry = {
+    version: 1,
+    projects: {
+      [projectUid]: {
+        version: 1,
+        entries: [
+          { uid: 'tc_1_d_aaaaaaaaaaaaaaaa', bodyKey: 'k1', file: 'tests/a.spec.ts', title: 'works', line: 3 },
+          { uid: 'tc_1_d_bbbbbbbbbbbbbbbb', bodyKey: 'k2', file: 'tests/a.spec.ts', title: 'works', line: 6 }
+        ]
+      }
+    }
+  };
+  const hit = findTestUid(registry, projectUid, {
+    file: 'tests/a.spec.ts',
+    title: 'works',
+    line: 6,
+    resolveBodyKey: () => 'k2'
+  });
+  assert.equal(hit.uid, 'tc_1_d_bbbbbbbbbbbbbbbb');
+  assert.equal(hit.basis, 'file-title-body');
+});
+
+/* ------------------------------------------------------------------ */
+/* CE8 -- a file that is absent does not delete its cases              */
+/* ------------------------------------------------------------------ */
+
+test('UT-UID-REG-017: a case keeps its uid while its file is absent from the discovery', () => {
+  const source = "import {test} from '@playwright/test';\ntest('checkout works', async () => { await 3; });\n";
+  const full = path.join(projectDir, 'tests', 'c.spec.ts');
+  fs.writeFileSync(full, source);
+  const first = discoverStatic(project, emptyRegistry());
+  const u0 = first.tests[0].uid;
+  assert.ok(u0);
+
+  // The file is gone for this discovery -- a branch that does not contain it.
+  fs.rmSync(full);
+  const other = path.join(projectDir, 'tests', 'other.spec.ts');
+  fs.writeFileSync(other, "import {test} from '@playwright/test';\ntest('other', async () => { await 9; });\n");
+  const second = discoverStatic(project, first.registry);
+  const kept = second.registry.projects[second.projectUid].entries.map((e) => e.uid);
+  assert.ok(kept.includes(u0), 'the entry of a case in an absent file is kept');
+
+  // The file comes back: the case keeps its uid.
+  fs.writeFileSync(full, source);
+  const third = discoverStatic(project, second.registry);
+  const back = third.tests.find((t) => t.file === 'tests/c.spec.ts');
+  assert.equal(back.uid, u0, 'the case comes back with the same uid');
+  assert.equal(back.uidSource, 'registry');
+  fs.rmSync(full);
+  fs.rmSync(other);
+});
+
+test('UT-UID-REG-018: cleanup removes the temporary fixture', () => {
   fs.rmSync(dir, { recursive: true, force: true });
   assert.equal(fs.existsSync(dir), false);
 });

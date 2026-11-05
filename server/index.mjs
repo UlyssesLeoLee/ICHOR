@@ -21,7 +21,21 @@ const jobs=new Map();
 // overwrite the migrated state with its own in-memory copy on the next
 // save, and the state would point at run folders that no longer exist.
 try{acquireBridgeLock();}
-catch(e){console.error(`another process holds the data directory lock (${lockPath()}): ${e.message}`);process.exit(1);}
+catch(e){
+  // The lock is held by a process that is still running. The holder may be a
+  // Bridge that is working, or a leftover file whose pid was reused -- the
+  // lock file alone cannot tell the two apart, so the answer states both the
+  // check and the recovery step instead of guessing.
+  console.error(
+    `another process holds the data directory lock (${lockPath()}): ${e.message}\n` +
+    `The lock file records the process that took it. To recover:\n` +
+    `  1. check whether that process is a Bridge: tasklist /FI "PID eq ${e.holder?.pid ?? '<pid>'}"\n` +
+    `  2. if no Bridge is running, delete the lock file and start the Bridge again:\n` +
+    `     del "${lockPath()}"\n` +
+    `Deleting the lock file is safe only after step 1 confirms that no Bridge is running.`
+  );
+  process.exit(1);
+}
 process.on('exit',()=>releaseBridgeLock());
 let store=loadState();
 for(const run of store.runs){if(['queued','running'].includes(run.status)){run.status='interrupted';run.finishedAt=now();run.error='Server restarted while run was active';}}
