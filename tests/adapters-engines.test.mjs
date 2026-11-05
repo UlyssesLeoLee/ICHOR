@@ -105,6 +105,40 @@ test('UT-PWA-004: an unreadable --help does NOT produce a proven capability', ()
   assert.ok(FALLBACK_PLAYWRIGHT_OPTIONS.includes('output'));
 });
 
+test('UT-PWA-004B: a usage line WITHOUT a positional filter means filterByFile is unsupported', () => {
+  // The negative half of the ATS-301 review finding C1: the fix must not
+  // turn the capability into an unconditional `true`. A CLI whose usage line
+  // declares no positional test filter must report it as unsupported, WITH
+  // a reason.
+  const p = makeProject('pw-nopositional', 'node_modules/@playwright/test/cli.js', [
+    'Usage: npx playwright test [options]',
+    '',
+    'Options:',
+    '  --output <dir>       Folder for output artifacts',
+    '  --reporter <r>      Reporter to use',
+  ].join('\n'));
+  const a = createPlaywrightAdapter();
+  const c = capOf(a, p, 'filterByFile');
+  assert.equal(c.supported, false, JSON.stringify(c, null, 2));
+  assert.match(c.reason, /no positional test-filter/);
+  assert.equal(c.evidence, '');
+  // The probed usage line is still reported, so the reason is auditable.
+  assert.match(c.detail.usage, /npx playwright test \[options\]/);
+});
+
+test('UT-PWA-004C: a usage line WITH a positional filter means filterByFile is supported', () => {
+  // The positive half, on a FORGED probe -- so it does not depend on the
+  // real engine being installed.
+  const p = makeProject('pw-positional', 'node_modules/@playwright/test/cli.js', PLAYWRIGHT_HELP);
+  const a = createPlaywrightAdapter();
+  const c = capOf(a, p, 'filterByFile');
+  assert.equal(c.supported, true, JSON.stringify(c, null, 2));
+  assert.equal(c.reason, '');
+  assert.match(c.evidence, /positional argument/);
+  // The evidence quotes the SAME usage line the capability was derived from.
+  assert.ok(c.evidence.includes(c.detail.usage), `${c.evidence} does not quote ${c.detail.usage}`);
+});
+
 test('UT-PWA-005: the Playwright argument vector contains only probed options', () => {
   const a = createPlaywrightAdapter();
   const handle = a.start({

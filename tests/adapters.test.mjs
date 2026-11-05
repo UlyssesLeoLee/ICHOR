@@ -217,6 +217,20 @@ test('UT-ADP-017: parseCliUsage reads the usage line and detects the positional 
   assert.equal(hasPositionalFilter('Usage: wdio.js run <configPath>'), false);
 });
 
+test('UT-ADP-017B: hasPositionalFilter accepts a BARE usage line as well as a help text', () => {
+  // The adapter extracts the usage line ONCE and then asks about the
+  // positional filter. Feeding that extracted line back must still work --
+  // otherwise `filterByFile` is reported unsupported while `start()` passes
+  // the file as a positional argument (the ATS-301 review finding C1).
+  const usage = 'npx playwright test [options] [test-filter...]';
+  assert.equal(hasPositionalFilter(usage), true);
+  assert.equal(parseCliUsage(usage), '', 'a bare usage line has no Usage: prefix');
+  // A usage line WITHOUT the positional filter must stay false.
+  assert.equal(hasPositionalFilter('wdio.js run <configPath>'), false);
+  assert.equal(hasPositionalFilter('npx playwright test [options]'), false);
+  assert.equal(hasPositionalFilter(''), false);
+});
+
 test('UT-ADP-018: probeCommand never throws when the command is missing', () => {
   const r = probeCommand('this-command-does-not-exist-ats301', ['--help']);
   assert.equal(r.ok, false);
