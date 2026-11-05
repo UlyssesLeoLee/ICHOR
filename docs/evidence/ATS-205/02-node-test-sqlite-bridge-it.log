@@ -1,0 +1,14 @@
+✔ IT-SQL-001: the bridge starts and creates the metadata database (321.877ms)
+✔ IT-SQL-002: the metadata database carries the schema version (2.6137ms)
+✔ IT-SQL-003: a registered project appears in the metadata database (65.2083ms)
+✔ IT-SQL-004: the mirror holds exactly what the JSON state holds (1.9411ms)
+✔ IT-SQL-005: the bridge still serves the API after the mirror is in place (63.0259ms)
+✔ IT-SQL-CLEANUP: stop and cleanup (2.8978ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 554.4597

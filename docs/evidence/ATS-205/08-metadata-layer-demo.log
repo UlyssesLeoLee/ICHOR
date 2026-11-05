@@ -1,0 +1,31 @@
+=== 1. a fresh database ===
+file            : C:\Users\seiko\AppData\Local\Temp\ats205-demo-2rZs80\metadata.db
+schema version  : 2
+journal mode    : wal
+busy timeout    : 5000 ms
+synchronous     : 1 (1 = NORMAL)
+foreign keys    : 1
+wal sidecar     : true
+
+=== 2. import the state and verify the mirror ===
+imported        : {"projects":1,"runs":1,"uidRegistry":1,"runCounters":1,"schemaVersion":2}
+row counts      : {"projects":1,"runs":1,"uidRegistry":1,"runCounters":1,"testAttempts":1,"artifacts":1}
+mirror          : OK
+
+=== 3. downgrade to version 1 (explicit, lossy) ===
+downgrade       : {"from":2,"to":1,"applied":[2]}
+schema version  : 1
+row counts      : {"projects":1,"runs":1,"uidRegistry":1,"runCounters":1,"testAttempts":0,"artifacts":0}  <- the v2 tables and their data are gone
+artifacts table : 0
+
+=== 4. upgrade again (forward-only, additive) ===
+migrate         : {"from":1,"to":2,"applied":[2]}
+schema version  : 2
+row counts      : {"projects":1,"runs":1,"uidRegistry":1,"runCounters":1,"testAttempts":0,"artifacts":0}  <- the tables are back, empty
+
+=== 5. two concurrent writers, no record lost ===
+rows written    : 100 + 100
+rows present    : 201 (the imported state already held 1)
+verdict         : OK -- no record was lost
+
+RESULT: OK

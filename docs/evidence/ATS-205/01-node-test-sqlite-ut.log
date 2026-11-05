@@ -1,0 +1,38 @@
+✔ UT-SQL-001: the metadata layer is available on this Node build (0.9363ms)
+✔ UT-SQL-002: the database runs in WAL mode (11.1644ms)
+✔ UT-SQL-003: a blocked writer waits instead of failing at once (9.2352ms)
+✔ UT-SQL-004: the busy timeout is configurable (9.7122ms)
+✔ UT-SQL-005: a WAL database leaves the -wal sidecar behind (10.1193ms)
+✔ UT-SQL-010: a committed transaction is visible to a reader (0.5789ms)
+✔ UT-SQL-011: a transaction that throws is rolled back whole (0.765ms)
+✔ UT-SQL-012: the state is written in ONE transaction, so a reader never sees half of it (0.7378ms)
+✔ UT-SQL-020: a fresh database is at the newest known version (0.5841ms)
+✔ UT-SQL-021: the schema version lives INSIDE the database (0.5141ms)
+✔ UT-SQL-022: the migration is idempotent (0.8858ms)
+✔ UT-SQL-023: a migration to an older version applies only the missing steps (13.5075ms)
+✔ UT-SQL-024: a failed migration step leaves the version and the objects untouched (0.5426ms)
+✔ UT-SQL-025: a database that is NEWER than the code is refused, not downgraded silently (0.5099ms)
+✔ UT-SQL-026: a downgrade drops the higher version and its data (1.0687ms)
+✔ UT-SQL-027: a downgrade to version 0 removes every table (0.6964ms)
+✔ UT-SQL-028: a downgrade to a version the database does not have is refused (0.4547ms)
+✔ UT-SQL-029: every migration step declares an up AND a down script (0.1171ms)
+✔ UT-SQL-030: a step that fails leaves no half-applied objects behind (0.5256ms)
+✔ UT-SQL-040: the database holds exactly the state that was imported (0.8713ms)
+✔ UT-SQL-041: the import is idempotent (0.765ms)
+✔ UT-SQL-042: a record keeps every field, including one the layer does not model (0.6205ms)
+✔ UT-SQL-043: the mirror reports a difference instead of hiding it (0.6291ms)
+✔ UT-SQL-044: the layer answers the queries it exists for (0.6259ms)
+✔ UT-SQL-050: two concurrent writers lose no record (92.3978ms)
+✔ UT-SQL-051: a reader sees the committed state while a writer is working (17.885ms)
+✔ UT-SQL-060: the tool reports the status of a database (63.6553ms)
+✔ UT-SQL-061: the tool imports the state and verifies the mirror (139.9843ms)
+✔ UT-SQL-062: the tool migrates and downgrades on demand (205.11ms)
+✔ UT-SQL-063: the tool refuses an unknown command (64.3075ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 745.6694

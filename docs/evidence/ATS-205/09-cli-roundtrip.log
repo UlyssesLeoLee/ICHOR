@@ -1,0 +1,55 @@
+=== the tool with no database yet (status is read-only) ===
+database    : C:\Users\seiko\AppData\Local\Temp\ats205-cli-ev\metadata.db (does not exist yet)
+schema      : 0 (the code knows up to 2)
+pending     : the database will be created at version 2
+
+=== import the state ===
+imported    : {"projects":1,"runs":1,"uidRegistry":0,"runCounters":1,"schemaVersion":2}
+mirror      : OK
+
+=== status ===
+database    : C:\Users\seiko\AppData\Local\Temp\ats205-cli-ev\metadata.db
+schema      : 2 (the code knows up to 2)
+journal     : wal
+row counts  :
+  projects     1
+  runs         1
+  uidRegistry  0
+  runCounters  1
+  testAttempts 0
+  artifacts    0
+
+=== verify the mirror ===
+schema      : 2
+mirror      : OK
+
+=== downgrade to version 1 (explicit, lossy) ===
+downgraded  : {"from":2,"to":1,"applied":[2]}
+database    : C:\Users\seiko\AppData\Local\Temp\ats205-cli-ev\metadata.db
+schema      : 1 (the code knows up to 2)
+journal     : wal
+row counts  :
+  projects     1
+  runs         1
+  uidRegistry  0
+  runCounters  1
+  testAttempts 0
+  artifacts    0
+pending     : migration to version 2 is available
+
+=== migrate back to the newest version ===
+migrated    : {"from":1,"to":2,"applied":[2]}
+database    : C:\Users\seiko\AppData\Local\Temp\ats205-cli-ev\metadata.db
+schema      : 2 (the code knows up to 2)
+journal     : wal
+row counts  :
+  projects     1
+  runs         1
+  uidRegistry  0
+  runCounters  1
+  testAttempts 0
+  artifacts    0
+
+=== the state file was NOT modified by the import ===
+{"schema":1,"projects":[{"id":"proj_1_aaaaaaaa","uid":"proj_1_aaaaaaaa","name":"alpha","root":"/tmp/alpha","addedAt":"2026-01-01T00:00:00.000Z"}],"runs":[{"id":"run_1_0001","uid":"run_1_0001","seq":1,"projectId":"proj_1_aaaaaaaa","projectUid":"proj_1_aaaaaaaa","status":"passed","createdAt":"2026-01-01T00:00:01.000Z","attempts":[],"artifacts":[]}],"uidRegistry":{"version":1,"projects":{}},"runCounters":{"proj_1_aaaaaaaa":1}}
+
