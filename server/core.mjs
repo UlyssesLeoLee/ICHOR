@@ -216,7 +216,13 @@ export function discoverStatic(project, registry) {
  // but the memory of the past cases is inconsistent and a reader has to know.
  const conflicts=tests.filter(t=>t.ambiguity&&t.ambiguity.reason!=='identical-title'&&t.ambiguity.reason!=='identical-title-and-body');
  const duplicatedExplicit=tests.filter(t=>t.ambiguity?.reason==='duplicate-explicit-uid').length;
- let warning='静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试请以 Playwright --list 为准。';
+ // The static index is the HEURISTIC one: it sees the literal test()/it()
+ // calls and nothing else. The authoritative index (`playwright test
+ // --list`) sees the dynamic and parameterised cases too, but it EXECUTES
+ // the project's code, so it only runs on a project the user has vouched
+ // for. The warning therefore points at the way to get it, not at the raw
+ // command.
+ let warning='静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试不在其中。';
  if(ambiguous)warning+=` ${ambiguous} 个用例的 UID 为临时值（标题重复且无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
  if(duplicatedExplicit)warning+=` ${duplicatedExplicit} 个用例标注了同一个 @TC-xxx（重复的显式 UID），这些用例都没有绑定到该 UID，需要人工消歧。`;
  if(conflicts.length)warning+=` ${conflicts.length} 个用例的注册表记录与本次发现不一致（${[...new Set(conflicts.map(t=>t.ambiguity.reason))].join('、')}），其 UID 由本次发现派生，需要人工复核。`;
@@ -277,16 +283,19 @@ export function discoverTests(project, state, registry, options = {}) {
 
  if (!wantsAuthoritative) {
    const base = staticResult();
-   if (force === true) {
-     // The caller asked for the authoritative index and did not get it. The
-     // reason is part of the answer, not a detail.
-     return {
-       ...base,
-       discovery: DISCOVERY.STATIC,
-       warning: `${base.warning} 未可信仓库不可调用 --list（${trust.reason}），已使用静态索引。`
-     };
-   }
-   return base;
+   // The untrusted project never runs `--list`. The reason is part of the
+   // answer -- and so is the way to get the authoritative index, which is
+   // to vouch for the project (the decision is per project and revocable).
+   //
+   // The forced case (`?authoritative=true`) and the default case get the
+   // SAME answer: the force says WHICH index to use, the trust says whether
+   // it is ALLOWED to, and the trust wins.
+   return {
+     ...base,
+     discovery: DISCOVERY.STATIC,
+     warning: `${base.warning} 未可信仓库不可调用 --list（${trust.reason}），已使用静态索引；`
+       + `把该仓库标记为可信（POST /api/projects/:id/trust {trust:"trusted"}）后即可使用权威索引。`
+   };
  }
 
  const listed = listTests(project, { timeoutMs: options.timeoutMs });
