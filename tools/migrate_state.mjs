@@ -55,12 +55,13 @@ const USAGE = `usage: node tools/migrate_state.mjs <plan|apply|verify|rollback> 
   --import-db       also import the migrated state into the metadata database
   --no-rollback     on a failure, do NOT undo the steps that were done
   --force           roll back even when the state changed since the migration
+  --dry-run         report what would happen, write nothing
 `;
 
 function parseArgs(argv) {
   const out = {
     command: argv[0], dataDir: null, state: null,
-    importDb: false, rollbackOnFailure: true, force: false,
+    importDb: false, rollbackOnFailure: true, force: false, dryRun: false,
   };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
@@ -69,6 +70,7 @@ function parseArgs(argv) {
     if (a === '--import-db') { out.importDb = true; continue; }
     if (a === '--no-rollback') { out.rollbackOnFailure = false; continue; }
     if (a === '--force') { out.force = true; continue; }
+    if (a === '--dry-run') { out.dryRun = true; continue; }
     if (a === '--help' || a === '-h') { out.help = true; continue; }
     const e = new Error(`unknown argument: ${a}`);
     e.code = 'UNKNOWN_ARGUMENT';
@@ -191,6 +193,7 @@ function commandApply(args) {
       importDatabase: args.importDb,
       rollbackOnFailure: args.rollbackOnFailure,
       statePath: paths.statePath,
+      dryRun: args.dryRun,
     });
   } catch (e) {
     // A failure of the engine itself is reported as a failure, not as a

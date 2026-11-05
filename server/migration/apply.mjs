@@ -119,6 +119,8 @@ export class MigrationJournal {
     this.file = data.file ?? null;
     /** @type {string|null} the sha256 of the state the migration wrote */
     this.appliedDigest = data.appliedDigest ?? null;
+    /** @type {string|null} the digest of the INVENTORY the migration wrote */
+    this.appliedIdentityDigest = data.appliedIdentityDigest ?? null;
     /** @type {string|null} the path of the state file that is migrated */
     this.statePath = data.statePath ?? null;
   }
@@ -149,6 +151,7 @@ export class MigrationJournal {
       renamedFolders: this.renamedFolders,
       backups: this.backups,
       appliedDigest: this.appliedDigest,
+      appliedIdentityDigest: this.appliedIdentityDigest,
       statePath: this.statePath,
     };
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
@@ -175,9 +178,9 @@ export class MigrationJournal {
  * @param {string} statePath the state file that was written
  * @param {string} digest the sha256 of the written state
  */
-export function writeMarker(dataDir, statePath, digest) {
+export function writeMarker(dataDir, statePath, digest, identityDigest = null) {
   const file = path.join(dataDir, MARKER_SUFFIX);
-  const data = { statePath, digest, at: new Date().toISOString() };
+  const data = { statePath, digest, identityDigest, at: new Date().toISOString() };
   fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
 }
 
@@ -185,7 +188,7 @@ export function writeMarker(dataDir, statePath, digest) {
  * Reads the marker of a completed migration, or null when there is none.
  *
  * @param {string} dataDir the data directory
- * @returns {{statePath:string,digest:string,at:string}|null}
+ * @returns {{statePath:string,digest:string,identityDigest:string|null,at:string}|null}
  */
 export function readMarker(dataDir) {
   const file = path.join(dataDir, MARKER_SUFFIX);
@@ -235,10 +238,11 @@ export function undoMigration(journal, paths) {
     switch (step) {
       case 'folders': {
         // The folders are renamed BACK to the identifiers the restored state
-        // file refers to.
+        // file refers to. The rename goes from the NEW name to the OLD one,
+        // so the report says "new -> old".
         const back = journal.renamedFolders.map((f) => ({ from: f.to, to: f.from }));
         const renamed = renameRunFolders(paths.runsDir, back);
-        for (const f of renamed) undone.push(`run folder renamed back: ${f.to} -> ${f.from}`);
+        for (const f of renamed) undone.push(`run folder renamed back: ${f.from} -> ${f.to}`);
         break;
       }
       case 'state': {
@@ -309,20 +313,77 @@ export function importAndVerify(state, dbPath, options = {}) {
 }
 
 /**
- * The runs of a state that the v0.1 backup does NOT have.
+ * The digest of the INVENTORY of a state: the projects and the runs it
+ * holds, by identity.
  *
- * These are the runs that a rollback would DISCARD: they were created
- * after the migration and their evidence would become unreachable.
+ * This is NOT the digest of the file. The Bridge adds fields to the runs
+ * it reads -- the events of a run, for instance -- so the bytes of the
+ * state file change whenever the Bridge is started, even though nothing
+ * was added to or removed from the history. A rollback that refused on
+ * such a change would refuse after every restart of the Bridge, and the
+ * operator would have to reach for `--force` every time.
+ *
+ * What the rollback has to protect is the INVENTORY: the runs that exist.
+ * That is what the identity digest compares.
+ *
+ * @param {object} state the state
+ * @returns {string|null} the hex digest
+ */
+export function identityDigestOf(state) {
+  if (!state || typeof state !== 'object') return null;
+  try {
+    const projects = (state.projects ?? [])
+      .map((p) => String(p.id))
+      .sort();
+    const runs = (state.runs ?? [])
+      .map((r) => `${String(r.id)}|${String(r.legacyId ?? '')}`)
+      .sort();
+    return crypto
+      .createHash('sha256')
+      .update(JSON.stringify({ projects, runs }))
+      .digest('hex');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The runs that a rollback would DISCARD.
+ *
+ * A run is identified by its LEGACY identity, not by the identifier the
+ * migration gave it: the migration rewrites every run id, so comparing the
+ * identifiers directly would report EVERY migrated run as a run that the
+ * rollback would lose -- including the ones that came from the v0.1 state
+ * and are therefore in the backup.
+ *
+ * A run is only really lost when the current state holds a run that the
+ * backup does NOT hold -- in either identity:
+ *   - the run has a legacy id and the backup does not have that legacy id
+ *     (the run was recorded after the migration), or
+ *   - the run was recorded after the migration and the backup has neither
+ *     its id nor its legacy id.
  *
  * @param {object} currentState the state file as it is now
- * @param {object} backupState the state the backup holds
+ * @param {object} backupState the v0.1 state in the backup
  * @returns {string[]} the identifiers of the runs that would be lost
  */
 export function runsLostByRollback(currentState, backupState) {
   const backupIds = new Set((backupState?.runs ?? []).map((r) => String(r.id)));
-  return (currentState?.runs ?? [])
-    .map((r) => String(r.id))
-    .filter((id) => !backupIds.has(id));
+  const backupLegacyIds = new Set(
+    (backupState?.runs ?? []).map((r) => String(r.legacyId ?? '')).filter(Boolean)
+  );
+  const lost = [];
+  for (const r of currentState?.runs ?? []) {
+    const id = String(r.id);
+    const legacyId = r.legacyId ? String(r.legacyId) : null;
+    // The run is in the backup under either of its identities: it is not
+    // lost, it is only being renamed back.
+    if (backupIds.has(id)) continue;
+    if (legacyId && backupLegacyIds.has(legacyId)) continue;
+    if (legacyId && backupIds.has(legacyId)) continue;
+    lost.push(id);
+  }
+  return lost;
 }
 
 /**
@@ -360,11 +421,36 @@ export function applyMigration(dataDir, options = {}) {
   // through. The migration is finished here, or refused with the recovery
   // steps -- but never silently reported as a success over a directory
   // whose evidence is unreachable.
+  //
+  // A journal that cannot be PARSED is the worst case: it says nothing
+  // about what the interrupted run did, so the migration cannot know
+  // whether the state file was already written. The migration refuses
+  // rather than guess -- and it keeps the journal, so that the operator
+  // can look at it.
+  const journalFile = path.join(dataDir, JOURNAL_SUFFIX);
+  if (fs.existsSync(journalFile) && !readJournal(dataDir)) {
+    report.problems.push(
+      `JOURNAL_UNREADABLE: the journal ${journalFile} cannot be parsed, so it is not known ` +
+      'whether an earlier migration was interrupted. Look at the journal, remove it once you ' +
+      'have checked the state file, and run "apply" again.'
+    );
+    report.failed = true;
+    report.refused = true;
+    return report;
+  }
   const pending = readJournal(dataDir);
   if (pending) {
     const recovery = recoverInterrupted(dataDir, paths, pending, options);
     Object.assign(report, recovery.report);
     if (!recovery.ok) return report;
+    // The recovery FINISHED the migration: the state file already holds the
+    // migrated identifiers and the run folders are back in step with it.
+    // The migration is therefore complete -- and it is NOT migrated again,
+    // because a second migration would replace the v0.1 backup.
+    if (recovery.finished) {
+      report.ok = true;
+      return report;
+    }
   }
 
   let raw;
@@ -405,6 +491,7 @@ export function applyMigration(dataDir, options = {}) {
     }
     if (!options.importDatabase) {
       report.problems.push('ALREADY_MIGRATED: the state file is already migrated; nothing was written');
+      report.failed = true;
       report.refused = true;
       return report;
     }
@@ -505,6 +592,7 @@ export function applyMigration(dataDir, options = {}) {
       // --- the state file --------------------------------------------------
       writeStateAtomic(paths.statePath, plan.state);
       journal.appliedDigest = digestOf(paths.statePath);
+      journal.appliedIdentityDigest = identityDigestOf(plan.state);
       journal.done('state');
 
       // --- the run folders -------------------------------------------------
@@ -553,7 +641,7 @@ export function applyMigration(dataDir, options = {}) {
     // the marker records what was written, so that a later rollback can
     // tell whether the state has changed since.
     journal.clear();
-    writeMarker(dataDir, paths.statePath, journal.appliedDigest);
+    writeMarker(dataDir, paths.statePath, journal.appliedDigest, journal.appliedIdentityDigest);
     report.ok = true;
     return report;
   } finally {
@@ -622,10 +710,19 @@ export function recoverInterrupted(dataDir, paths, journal, options = {}) {
         `an interrupted migration was FINISHED: ${renamed.length} run folder(s) were renamed`
       );
       journal.clear();
+      // The marker records what the state file holds, so that a later
+      // rollback can tell whether the state has changed since the
+      // migration. The interrupted run never got to write one.
+      writeMarker(
+        dataDir,
+        paths.statePath,
+        digestOf(paths.statePath),
+        identityDigestOf(current)
+      );
       report.before = summarizeState(current);
       report.after = report.before;
       report.ok = true;
-      return { ok: true, report };
+      return { ok: true, finished: true, report };
     } catch (e) {
       report.problems.push(
         `an interrupted migration was found and could NOT be finished: ${e.message}. ` +
@@ -690,6 +787,14 @@ export function rollbackMigration(dataDir, options = {}) {
   // (and in the journal of an interrupted migration). The rollback
   // compares the current state file against it and knows whether the state
   // has changed since the migration.
+  //
+  // The comparison is on the INVENTORY, not on the bytes: the Bridge
+  // fills in the fields of a run it reads (the events of a run, for
+  // instance), so the bytes of the state file change on every restart of
+  // the Bridge even though the history is unchanged. A rollback that
+  // refused on such a change would refuse every time -- and the operator
+  // would have to reach for `--force` every time, which makes `--force`
+  // meaningless.
   const journal = readJournal(dataDir);
   const marker = readMarker(dataDir);
   let current = null;
@@ -704,10 +809,13 @@ export function rollbackMigration(dataDir, options = {}) {
     lost.push(...runsLostByRollback(current, backupState));
   }
 
-  const appliedDigest = journal?.appliedDigest ?? marker?.digest ?? null;
-  const currentDigest = digestOf(paths.statePath);
+  const appliedIdentityDigest = journal?.appliedIdentityDigest ?? marker?.identityDigest ?? null;
+  const currentIdentityDigest = identityDigestOf(current);
   const diverged = Boolean(
-    current && appliedDigest && currentDigest && appliedDigest !== currentDigest
+    current &&
+    appliedIdentityDigest &&
+    currentIdentityDigest &&
+    appliedIdentityDigest !== currentIdentityDigest
   );
 
   if (diverged && !options.force) {
@@ -735,7 +843,7 @@ export function rollbackMigration(dataDir, options = {}) {
   const { renamedFolders } = planMigration(backupState);
   const back = renamedFolders.map((f) => ({ from: f.to, to: f.from }));
   const renamed = renameRunFolders(paths.runsDir, back);
-  for (const f of renamed) undone.push(`run folder renamed back: ${f.to} -> ${f.from}`);
+  for (const f of renamed) undone.push(`run folder renamed back: ${f.from} -> ${f.to}`);
 
   if (restoreBackup(paths.statePath)) undone.push(`state file restored: ${paths.statePath}`);
   else problems.push('the state file could not be restored');

@@ -379,6 +379,24 @@ test('ATS-206-UT-039g: the --state option points at the state file directly', ()
   assert.match(res.stdout, /the counts are preserved/);
 });
 
+test('ATS-206-UT-039g2: the --state option points the apply at that file', () => {
+  // The `--state` option has to hold for `apply` and `rollback` too, not
+  // only for `plan`: the file the operator named is the file that is
+  // migrated and the file that is restored.
+  const dataDir = makeDataDir(legacyState(), 'cli-stateopt-apply');
+  const statePath = path.join(dataDir, 'state.json');
+  const original = fs.readFileSync(statePath, 'utf8');
+
+  let res = spawnSync(process.execPath, [cli, 'apply', '--state', statePath], { encoding: 'utf8' });
+  assert.equal(res.status, 0, res.stderr);
+  const migrated = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  assert.equal(isMigrated(migrated), true);
+
+  res = spawnSync(process.execPath, [cli, 'rollback', '--state', statePath], { encoding: 'utf8' });
+  assert.equal(res.status, 0, res.stderr);
+  assert.equal(fs.readFileSync(statePath, 'utf8'), original);
+});
+
 test('ATS-206-UT-039h: the default data directory comes from ATS_DATA_DIR', () => {
   const dataDir = makeDataDir(legacyState(), 'cli-env');
   const res = spawnSync(process.execPath, [cli, 'plan'], {
@@ -398,12 +416,18 @@ test('ATS-206-UT-040: a failed migration is undone automatically', () => {
   const paths = pathsOf(dataDir);
   const original = fs.readFileSync(paths.statePath, 'utf8');
 
-  // A run folder named after the legacy identifier.
-  fs.mkdirSync(path.join(paths.runsDir, LEGACY_RUN_A), { recursive: true });
-  fs.writeFileSync(path.join(paths.runsDir, LEGACY_RUN_A, 'manifest.json'), '{}');
-
   // The state file is written and the folders are renamed; the database
   // import then FAILS. The failure has to undo both steps.
+  //
+  // The fixture is the REAL situation after a rename: the folder exists
+  // under the NEW name and NOT under the old one. The round-1 fixture
+  // named a target that did not exist at all, so the undo was a no-op and
+  // the test only ever proved that the state file came back.
+  const newFolder = path.join(paths.runsDir, 'run_1_000000000000000000000000');
+  fs.mkdirSync(newFolder, { recursive: true });
+  fs.writeFileSync(path.join(newFolder, 'manifest.json'), '{}');
+  assert.equal(fs.existsSync(path.join(paths.runsDir, LEGACY_RUN_A)), false);
+
   const journal = new MigrationJournal();
   backupFile(paths.statePath);
   writeStateAtomic(paths.statePath, { ...JSON.parse(original), uidVersion: 1 });
@@ -414,6 +438,15 @@ test('ATS-206-UT-040: a failed migration is undone automatically', () => {
   const undone = undoMigration(journal, paths);
   assert.ok(undone.some((u) => u.includes('state file restored')), undone.join('; '));
   assert.equal(fs.readFileSync(paths.statePath, 'utf8'), original);
+
+  // The folder was REALLY renamed back: it is under the legacy name again,
+  // and the new name is gone.
+  assert.ok(
+    undone.some((u) => u.includes('run folder renamed back')),
+    `the undo report names no renamed folder: ${undone.join('; ')}`
+  );
+  assert.equal(fs.existsSync(path.join(paths.runsDir, LEGACY_RUN_A, 'manifest.json')), true);
+  assert.equal(fs.existsSync(newFolder), false);
 });
 
 test('ATS-206-UT-041: a failed import leaves the old state and database in place', () => {
