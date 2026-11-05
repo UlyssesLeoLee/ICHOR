@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # ATS-501 regression: the WBS updaters must not fight over the workbook.
 #
-# The workbook is shared by FIVE updaters -- ATS-101, ATS-101 (post-review),
-# ATS-102, ATS-401 and ATS-501 -- and every one of them writes into the same
-# 总览 narrative cells D6/D7. The regression therefore checks:
+# The workbook is shared by EVERY updater under tools/update_wbs_*.py --
+# ATS-101, ATS-101 (post-review), ATS-102, ATS-301, ATS-401 and ATS-501 --
+# and every one of them writes into the same 总览 narrative cells D6/D7. The
+# regression therefore checks:
 #
 # 1. an accepted row is not downgraded -- with a SEEDED 已完成 row, so the
 #    check can never pass by having nothing to protect;
@@ -13,8 +14,30 @@
 # 5. every task's marked note survives a run of the other updaters;
 # 6. no updater erases another task's text in the shared D6/D7 cells.
 #
+# The updater list is DISCOVERED from tools/update_wbs_*.py, so a script added
+# later (e.g. update_wbs_ats301.py) is covered without touching this file.
+# A hardcoded list silently stops guarding the moment a new updater lands.
+#
+# ENCODING: every Python invocation below prints Chinese text (状态 values,
+# 总览 narrative cells, markers). On a default Windows console the Python
+# stdout encoding is the ANSI code page (gbk / cp936 / cp1252), so the bytes
+# the shell compares against its UTF-8 literals do not match and the whole
+# regression fails on a clean machine. UTF-8 is therefore forced at the entry
+# of this script; the effective Python version and stdout encoding are
+# printed so the evidence log records the environment the PASS was produced
+# in. The same forcing lives in collect-evidence.sh.
+#
 # Usage: bash tools/ats501-probes/check-wbs-updaters.sh
 set -u
+
+# --- force UTF-8 for every Python invocation in this script ---------------
+# PYTHONUTF8 makes the interpreter use UTF-8 for stdout/stderr and for the
+# filesystem encoding; PYTHONIOENCODING pins the standard streams for
+# interpreters that predate PYTHONUTF8 (3.7+). Both are set BEFORE the first
+# python call, so the script behaves the same on a bare Windows box, in CI
+# and inside the Hermes runtime (which happens to set them already).
+export PYTHONUTF8=1
+export PYTHONIOENCODING=utf-8
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT" || exit 1
@@ -30,35 +53,75 @@ TMP_NATIVE="$(cygpath -w "$TMP" 2>/dev/null || echo "$TMP")"
 XLSX="docs/WBS.xlsx"
 BASE="$TMP/WBS.base.xlsx"
 
-# Every updater that may write into the shared workbook.
-UPDATERS=(
-  tools/update_wbs_ats101.py
-  tools/update_wbs_ats101_done.py
-  tools/update_wbs_ats102.py
-  tools/update_wbs_ats401.py
-  tools/update_wbs_ats501.py
-)
+# Every updater that may write into the shared workbook, DISCOVERED.
+# The list is sorted (LC_ALL=C, so the order does not depend on the
+# machine's locale) and it is the ONLY list: a new tools/update_wbs_*.py is
+# picked up automatically.
+UPDATERS=()
+while IFS= read -r u; do
+  [ -n "$u" ] && UPDATERS+=("$u")
+done < <(LC_ALL=C ls -1 tools/update_wbs_*.py 2>/dev/null | LC_ALL=C sort)
+
+if [ "${#UPDATERS[@]}" -eq 0 ]; then
+  printf 'FATAL: no tools/update_wbs_*.py found -- the guard would be vacuous\n'
+  exit 1
+fi
 
 fail=0
 ok()   { printf '  PASS  %s\n' "$*"; }
 bad()  { printf '  FAIL  %s\n' "$*"; fail=1; }
 note() { printf '%s\n' "$*"; }
 
+# --- the Python environment this run actually used ------------------------
+PY_VERSION="$(python -c 'import sys; print(sys.version.replace(chr(10), " "))' 2>&1)"
+PY_STDOUT_ENCODING="$(python -c 'import sys; print(sys.stdout.encoding)' 2>&1)"
+# The encoding the SAME interpreter would use without the forcing above.
+# It is recorded because it is the reason the forcing exists: on a default
+# Windows console it is the ANSI code page, not UTF-8.
+PY_DEFAULT_ENCODING="$(env -u PYTHONUTF8 -u PYTHONIOENCODING \
+  python -c 'import sys; print(sys.stdout.encoding)' 2>&1)"
+
 # BASE is the COMMITTED state of the branch: it is the reference the
 # marked-note check compares against.
 git show "HEAD:$XLSX" > "$BASE"
 
+# Every Python fragment below reconfigures its own stdout as well, so the
+# script stays correct even when it is called with the environment stripped
+# (the export above is the belt, the reconfigure is the braces).
+# The dump is the SHEET, value by value. A numeric cell is normalised to
+# its float value before it is printed: the updaters do not agree on how to
+# SPELL a number (wbs_common.format_rate writes '%.15f', some updaters write
+# repr() of the same float), and that spelling difference is not a
+# difference of the sheet. Without the normalisation a mere re-ordering of
+# the updaters would look like a disagreement -- and the next updater added
+# to tools/ would trip the guard over a cosmetic detail.
 dump() { python - "$1" <<'PY'
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 sys.path.insert(0, 'tools')
 from wbs_common import read_parts, sheet_cells
+
+
+def normalise(value):
+    """Return the float value of a numeric cell, or the text unchanged."""
+    if value is None:
+        return ''
+    text = value.strip()
+    if not text:
+        return ''
+    try:
+        return repr(float(text))
+    except ValueError:
+        return repr(value)
+
+
 parts = read_parts(sys.argv[1])
 for sheet in ('xl/worksheets/sheet1.xml', 'xl/worksheets/sheet2.xml'):
     rows = sheet_cells(parts, sheet)
     for rid in sorted(rows):
         cells = rows[rid]
         for col in sorted(cells):
-            print(sheet, rid, col, repr(cells[col]))
+            print(sheet, rid, col, normalise(cells[col]))
 PY
 }
 
@@ -76,11 +139,13 @@ restore() { cp "$SNAPSHOT" "$XLSX"; }
 # comparing 待审核 with 待审核 -- a vacuous pass.
 seed_done() {
   python - "$XLSX" <<'PY'
+import os
 import re
 import shutil
 import sys
 import zipfile
 
+sys.stdout.reconfigure(encoding='utf-8')
 target = sys.argv[1]
 zin = zipfile.ZipFile(target)
 parts = {n: zin.read(n) for n in zin.namelist()}
@@ -110,13 +175,13 @@ with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zout:
         zi.external_attr = info.external_attr
         zout.writestr(zi, data)
 shutil.copy2(tmp, target)
-import os
 os.unlink(tmp)
 PY
 }
 
 status_of() { python - "$1" "$2" <<'PY'
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 sys.path.insert(0, 'tools')
 from wbs_common import read_parts, sheet_cells
 parts = read_parts(sys.argv[1])
@@ -133,6 +198,10 @@ run_all() { for u in "${UPDATERS[@]}"; do python "$u" > /dev/null || return 1; d
 note '=== ATS-501 regression: WBS updater interaction ==='
 note "repo root : $ROOT"
 note "updaters  : ${UPDATERS[*]}"
+note "updater # : ${#UPDATERS[@]} (discovered from tools/update_wbs_*.py)"
+note "python    : $PY_VERSION"
+note "stdout enc: $PY_STDOUT_ENCODING (forced: PYTHONUTF8=$PYTHONUTF8 PYTHONIOENCODING=$PYTHONIOENCODING)"
+note "default enc: $PY_DEFAULT_ENCODING (what the same interpreter would use without the forcing)"
 note ''
 
 # --- 1. an accepted row is not downgraded ----------------------------------
@@ -172,7 +241,7 @@ done
 dump "$XLSX" > "$TMP/orderB.txt"
 
 if diff -u "$TMP/orderA.txt" "$TMP/orderB.txt" > "$TMP/diffAB.txt"; then
-  ok 'the five updaters produce the same sheet in either order'
+  ok "the ${#UPDATERS[@]} updaters produce the same sheet in either order"
 else
   bad 'the two orders disagree:'
   sed -n '1,40p' "$TMP/diffAB.txt"
@@ -187,7 +256,7 @@ dump "$XLSX" > "$TMP/once.txt"
 run_all || bad 'an updater exited non-zero on the second pass'
 dump "$XLSX" > "$TMP/twice.txt"
 if diff -u "$TMP/once.txt" "$TMP/twice.txt" > "$TMP/diffII.txt"; then
-  ok 'running the five updaters twice changes nothing'
+  ok "running the ${#UPDATERS[@]} updaters twice changes nothing"
 else
   bad 'the updaters are not idempotent:'
   sed -n '1,40p' "$TMP/diffII.txt"
@@ -198,6 +267,7 @@ note ''
 note '--- 4. the derived 总览 totals match the sheet ---'
 python - <<'PY'
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 sys.path.insert(0, 'tools')
 from wbs_common import read_parts, sheet_cells, totals
 
@@ -211,15 +281,29 @@ cached_remaining = s1[10]['B']
 problems = []
 if str(t['completed']) != cached_completed:
     problems.append(f'B8: sheet says {cached_completed}, derived {t["completed"]}')
-if '%.15f' % t['completion_rate'] != cached_rate:
+
+# The cached B9 is a NUMBER; the workbook renders it with 15 decimal places
+# ('%.15f'), while some updaters write the repr() of the same float. Both
+# spellings describe the same value, so the comparison is numeric with a
+# tolerance of half a unit in the 15th decimal place -- a STALE cache (a
+# different sheet) differs by far more than that. The raw text is printed
+# as well, so a change of spelling stays visible.
+TOL = 0.5 * 10 ** -15
+try:
+    rate_delta = abs(float(cached_rate) - t['completion_rate'])
+except ValueError:
+    rate_delta = float('inf')
+if rate_delta > TOL:
     problems.append(f'B9: sheet says {cached_rate}, derived {t["completion_rate"]}')
+
 if str(int(t['sum_remaining'])) != cached_remaining:
     problems.append(f'B10: sheet says {cached_remaining}, derived {t["sum_remaining"]}')
 
 print(f'  derived: completed={t["completed"]} '
       f'rate={t["completion_rate"]:.15f} remaining={t["sum_remaining"]:.0f}')
 print(f'  cached : completed={cached_completed} '
-      f'rate={cached_rate} remaining={cached_remaining}')
+      f'rate={cached_rate} (delta {rate_delta:.3e}, tolerance {TOL:.1e}) '
+      f'remaining={cached_remaining}')
 if problems:
     for p in problems:
         print('  FAIL  ' + p)
@@ -235,6 +319,7 @@ restore
 run_all || bad 'an updater exited non-zero'
 python - "$TMP_NATIVE/WBS.base.xlsx" <<'PY'
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 sys.path.insert(0, 'tools')
 from wbs_common import MARKERS, read_parts, sheet_cells
 
@@ -272,21 +357,20 @@ restore
 run_all || bad 'an updater exited non-zero'
 python - "$TMP_NATIVE/WBS.base.xlsx" <<'PY'
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 sys.path.insert(0, 'tools')
-from wbs_common import read_parts, sheet_cells
+from wbs_common import NARRATIVE_FRAGMENTS, read_parts, sheet_cells
 
 # Each task's own contribution to the shared narrative cells. The fragments
-# are the ones the shared composition is built from.
-FRAGMENTS = {
-    'D6': ['Next.js 16 静态导出构建已实测通过',
-           '锁文件、依赖清单与 CI 构建门禁已交付',
-           'Agent 契约层已实现',
-           '远程执行面协议已冻结'],
-    'D7': ['详见 docs/16-BASELINE-ADR.md',
-           'docs/17-BUILD-CI.md',
-           'docs/17-AGENT-CONTRACT.md',
-           'docs/19-REMOTE-RUNNER-PROTOCOL.md'],
-}
+# are taken from the SHARED source of truth (wbs_common.NARRATIVE_FRAGMENTS)
+# instead of being listed here, so a task that contributes a fragment is
+# covered as soon as it registers one -- no edit to this probe needed.
+FRAGMENTS = {'D6': [], 'D7': []}
+for marker, cells in NARRATIVE_FRAGMENTS.items():
+    for cell_name in ('D6', 'D7'):
+        fragment = cells.get(cell_name)
+        if fragment:
+            FRAGMENTS[cell_name].append(fragment)
 
 s1 = sheet_cells(read_parts(), 'xl/worksheets/sheet1.xml')
 problems = []
@@ -308,7 +392,7 @@ if [ $? -ne 0 ]; then fail=1; fi
 restore
 note ''
 if [ "$fail" -eq 0 ]; then
-  note 'RESULT: OK -- the five WBS updaters coexist, are idempotent, do not undo'
+  note "RESULT: OK -- the ${#UPDATERS[@]} WBS updaters coexist, are idempotent, do not undo"
   note '        an accepted review, and the 总览 cache always matches 开发WBS.'
   exit 0
 fi

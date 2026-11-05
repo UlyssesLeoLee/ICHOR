@@ -1,35 +1,43 @@
-=== ATS-501 evidence: WBS updater coexistence regression (five updaters) ===
-date        : 2026-11-04T08:32:07Z (UTC)
-commit      : b9298dfc69a5c0057ee936eac7a497e9403899ea
+=== ATS-501 evidence: WBS updater coexistence regression (all tools/update_wbs_*.py) ===
+date        : 2026-11-05T09:27:10Z (UTC)
+commit      : 8a4f03678f4a8c58258774d665d5f951b6671043
 node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+default enc : gbk (what the same interpreter would use without the forcing)
 command     : bash tools/ats501-probes/check-wbs-updaters.sh
 
 === ATS-501 regression: WBS updater interaction ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-21-09825c30b24a/worktree
-updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py
+repo root : /d/ICHOR
+updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py
+updater # : 6 (discovered from tools/update_wbs_*.py)
+python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+default enc: gbk (what the same interpreter would use without the forcing)
 
 --- 1. a seeded 已完成 row stays 已完成 ---
   PASS  the seed took: ATS-502 reads 已完成
   PASS  tools/update_wbs_ats101.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats101_done.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats102.py leaves the accepted ATS-502 row at 已完成
+  PASS  tools/update_wbs_ats301.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats401.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats501.py leaves the accepted ATS-502 row at 已完成
 
 --- 2. the updaters, in either order ---
-  PASS  the five updaters produce the same sheet in either order
+  PASS  the 6 updaters produce the same sheet in either order
 
 --- 3. idempotency ---
-  PASS  running the five updaters twice changes nothing
+  PASS  running the 6 updaters twice changes nothing
 
 --- 4. the derived 总览 totals match the sheet ---
-  derived: completed=1 rate=0.031914893617021 remaining=455
-  cached : completed=1 rate=0.031914893617021 remaining=455
+  derived: completed=1 rate=0.042553191489362 remaining=450
+  cached : completed=1 rate=0.042553191489362 (delta 3.469e-16, tolerance 5.0e-16) remaining=450
   PASS  the cached 总览 values equal the values derived from 开发WBS
 
 --- 5. the marked notes of every task survive ---
-  baseline markers: {'【ATS-102】': 5, '【ATS-101】': 5, '【ATS-401】': 1}
-  current markers : {'【ATS-102】': 5, '【ATS-101】': 5, '【ATS-401】': 1, '【ATS-501】': 11}
+  baseline markers: {'【ATS-102】': 5, '【ATS-101】': 5, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11}
+  current markers : {'【ATS-102】': 5, '【ATS-101】': 5, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11}
   PASS  every marked note of the baseline is still in the sheet
 
 --- 6. the shared D6/D7 cells keep every task's text ---
@@ -37,6 +45,6 @@ updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/upd
   D7: 真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；详见 docs/16-BASELINE-ADR.md；CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md；详见 docs/17-AGENT-CONTRACT.md；远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；详见 docs/19-REMOTE-RUNNER-PROTOCOL.md。
   PASS  D6 and D7 still carry every task's contribution
 
-RESULT: OK -- the five WBS updaters coexist, are idempotent, do not undo
+RESULT: OK -- the 6 WBS updaters coexist, are idempotent, do not undo
         an accepted review, and the 总览 cache always matches 开发WBS.
 exit code   : 0
