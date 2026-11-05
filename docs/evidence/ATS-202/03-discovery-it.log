@@ -1,0 +1,25 @@
+=== command ===
+node --test tests/discovery-it.test.mjs
+=== output ===
+✔ IT-ATS202-SETUP: the real Playwright is installed (0.6242ms)
+✔ IT-ATS202-001: the listing reports the cases of the project (482.2658ms)
+✔ IT-ATS202-002: a DYNAMIC case is in the authoritative index and not in the static one (481.0544ms)
+✔ IT-ATS202-003: the trusted project gets the authoritative index (436.9795ms)
+✔ IT-ATS202-004: the UNTRUSTED project never runs --list (1.8943ms)
+✔ IT-ATS202-005: the trusted project DOES execute the listing (483.1895ms)
+✔ IT-ATS202-006: the agreement with the CLI is measured, not asserted (431.629ms)
+✔ IT-ATS202-007: the UID of a case does not move when the index switches (433.1002ms)
+✔ IT-ATS202-008: a broken project config falls back and says why (457.2726ms)
+✔ IT-ATS202-009: a project without a local Playwright CLI is reported, not installed (1.2261ms)
+✔ IT-ATS202-010: a listing that does not finish in time is reported as a timeout (10.6931ms)
+✔ IT-ATS202-011: a CLI that reports an error is a failure, not an empty index (489.1551ms)
+✔ IT-ATS202-CLEANUP: remove the temporary fixture (90.2044ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4715.1223
+=== exit code: 0 ===

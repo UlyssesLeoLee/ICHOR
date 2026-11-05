@@ -242,6 +242,40 @@ test('IT-ATS202-009: a project without a local Playwright CLI is reported, not i
   assert.equal(fs.existsSync(path.join(bare, 'node_modules')), false);
 });
 
+test('IT-ATS202-010: a listing that does not finish in time is reported as a timeout', { skip: installed ? false : 'no real Playwright' }, () => {
+  // A timeout of 1 ms cannot be met by a real listing. The outcome is
+  // PLAYWRIGHT_LIST_TIMEOUT, not a generic failure: the caller has to be
+  // able to tell "the project is broken" from "the project is slow".
+  const listed = listTests(project, { timeoutMs: 1 });
+  assert.equal(listed.ok, false);
+  assert.equal(listed.outcome, LIST_OUTCOME.TIMEOUT);
+  assert.match(listed.reason, /did not finish within/);
+  assert.equal(listed.tests.length, 0);
+});
+
+test('IT-ATS202-011: a CLI that reports an error is a failure, not an empty index', { skip: installed ? false : 'no real Playwright' }, () => {
+  // A duplicate title makes the CLI write a report whose `errors[]` is not
+  // empty and exit non-zero. The listing is NOT a usable index.
+  write('tests/plain.spec.ts', [
+    "import { test } from '@playwright/test';",
+    "test('plain case', async ({ page }) => {});",
+    ''
+  ].join('\n'));
+  write('tests/dup.spec.ts', [
+    "import { test } from '@playwright/test';",
+    "for (const n of ['x', 'x']) {",
+    "  test(`same ${n}`, async ({ page }) => {});",
+    "}",
+    ''
+  ].join('\n'));
+  const listed = listTests(project);
+  assert.equal(listed.ok, false);
+  assert.equal(listed.outcome, LIST_OUTCOME.FAILED);
+  assert.ok(listed.errors.length > 0, 'the CLI error is carried over');
+  assert.match(JSON.stringify(listed.errors), /duplicate test title/);
+  fs.rmSync(path.join(FIXTURE, 'tests', 'dup.spec.ts'), { force: true });
+});
+
 test('IT-ATS202-CLEANUP: remove the temporary fixture', () => {
   fs.rmSync(WORK, { recursive: true, force: true });
 });

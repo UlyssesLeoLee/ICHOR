@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：71；已执行通过：57；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：91；已执行通过：77；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -64,6 +64,26 @@
 |IT-PLG-012|FR-028|正常|诊断端点报告插件契约状态|GET /api/diagnostics|pluginContract.version=plugin-contract/v1，status=CONTRACT_ONLY|node --test|PASS|
 |IT-PLG-013|NFR-011|异常|非插件错误保持 ATS-512 之前的行为|POST /api/projects 指向不存在的目录|500 + 原始 ENOENT 消息，无插件 details|node --test|PASS|
 |IT-PLG-CLEANUP|NFR-005|清理|插件 API 子进程与夹清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
+|IT-DSC-SETUP|FR-021|正常|真实 Playwright 装入夹具|临时目录 npm install @playwright/test 1.64.1|node_modules/@playwright/test/cli.js 存在|node --test|PASS|
+|IT-DSC-001|FR-021|正常|列举报告项目的用例|真实 CLI --list|得到 file/title/line 与 CLI 版本|node --test|PASS|
+|IT-DSC-002|FR-021|正常|动态用例只在权威索引里|一个模板生成两个渲染标题|权威索引有两个，静态索引只有一个模板条目|node --test|PASS|
+|IT-DSC-003|FR-021|正常|可信项目得到权威索引|信任状态 trusted|discovery=authoritative，动态用例 UID 互不相同|node --test|PASS|
+|IT-DSC-004|FR-021|安全|未可信项目不调用 --list|夹具里放一个会写标记文件的 spec|未可信项目下标记文件不存在，attempted=false|node --test|PASS|
+|IT-DSC-005|FR-021|安全|可信项目确实执行了列举|同一夹具，信任状态 trusted|标记文件存在（实测 --list 会执行仓库代码）|node --test|PASS|
+|IT-DSC-006|FR-021|正常|与 CLI 的一致性被度量|权威与静态两个索引|consistency 报告只有权威可见的用例|node --test|PASS|
+|IT-DSC-007|FR-021|正常|切换索引不改变已有 UID|先静态后权威|普通用例的 UID 相同|node --test|PASS|
+|IT-DSC-008|FR-021|异常|坏配置回退并说明|playwright.config.ts 语法错误|discovery=static，outcome=FAILED，warning 含原因|node --test|PASS|
+|IT-DSC-009|FR-021|安全|没有本地 CLI 时不安装|项目无 node_modules|outcome=PLAYWRIGHT_NOT_INSTALLED，node_modules 未被创建|node --test|PASS|
+|IT-DSC-010|FR-021|边界|列举超时被单独报告|timeoutMs=1|outcome=PLAYWRIGHT_LIST_TIMEOUT，不与失败混淆|node --test|PASS|
+|IT-DSC-011|FR-021|异常|CLI 报错时不是空索引|重名用例|outcome=FAILED，errors 含 duplicate test title|node --test|PASS|
+|IT-DSC-API-001|FR-021|安全|项目初始为未可信|GET /api/projects/:id/trust|trust=untrusted，带原因|node --test|PASS|
+|IT-DSC-API-002|FR-021|安全|未可信项目得到静态索引|GET /api/projects/:id/tests|discovery=static，outcome=SKIPPED_UNTRUSTED|node --test|PASS|
+|IT-DSC-API-003|FR-021|异常|非法信任值被拒|POST trust {trust: maybe}|400 INVALID_TRUST_VALUE|node --test|PASS|
+|IT-DSC-API-004|FR-021|安全|强制请求权威索引也被拒|GET /tests?authoritative=true（未可信）|仍为 static，warning 说明未可信仓库不可调用|node --test|PASS|
+|IT-DSC-API-005|FR-021|正常|授予信任后索引切换|POST trust {trust: trusted}|discovery=authoritative，动态用例在索引里|node --test|PASS|
+|IT-DSC-API-006|FR-021|正常|信任跨重启保留|重启 Bridge 后再读|trust 仍为 trusted|node --test|PASS|
+|IT-DSC-API-007|FR-021|安全|撤销信任后回退|POST trust {trust: untrusted}|trust=untrusted 且索引回到 static|node --test|PASS|
+|IT-DSC-CLEANUP|NFR-005|清理|临时夹与进程清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
 |IT-CP-SETUP|NFR-011|正常|本地 Bridge 与控制面以纯 Node 进程并行启动|随机端口、隔离数据目录、dev-static 令牌|两者 health=200，取得本地会话 token|node --test|PASS|
 |IT-CP-001|FR-028|正常|控制面无 Tauri 即可使用|GET /cp/v1/health 与 /cp/v1/contract|200，tauriRequired=false|node --test|PASS|
 |IT-CP-002|NFR-002|安全|本地会话 Token 不是控制面凭据|X-ATS-Token、Bearer 本地 Token、二者并带|401 REMOTE_UNAUTHENTICATED|node --test|PASS|

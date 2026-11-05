@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：175；已执行通过：158；待执行/未实现：17。**PENDING 不是测试通过**。
+> 设计总数：205；已执行通过：188；待执行/未实现：17。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -153,6 +153,36 @@
 |UT-PLG-050|FR-028|安全|SDK 自己不碰文件系统|检查 sdk.mjs 源码|不 import node:fs / node:child_process，不 spawn|node --test|PASS|
 |UT-PLG-051|FR-028|安全|禁止权限永不出现在生效集合里|每个档位下解析全量申请|granted 与禁止清单无交集|node --test|PASS|
 |UT-PLG-052|FR-028|正常|SDK 没有写任何文件|检查临时夹目录|目录为空|node --test|PASS|
+|UT-DSC-001|FR-021|正常|CLI 报告解析为用例|--list 报告含一个 spec|得到 file/title/line/describePath|node --test|PASS|
+|UT-DSC-002|FR-021|正常|文件相对 rootDir 归一|rootDir=项目/tests，报告写 a.spec.ts|用例文件为 项目相对 tests/a.spec.ts|node --test|PASS|
+|UT-DSC-003|FR-021|安全|项目外的文件被排除并报告|报告的文件解析后落在项目外|用例列表不含它，skipped 里说明|node --test|PASS|
+|UT-DSC-004|FR-021|正常|describe 路径取自 suite 嵌套|outer > inner > 用例|describePath 为 [outer, inner]|node --test|PASS|
+|UT-DSC-005|FR-021|正常|项目矩阵合并为一条用例|同一用例两个 project|一条用例带两个 project 的 spec id|node --test|PASS|
+|UT-DSC-006|FR-021|正常|CLI 错误原样带出|errors[] 含 duplicate test title|错误信息与 location 原样保留|node --test|PASS|
+|UT-DSC-007|FR-021|正常|用例按文件与行排序|b.spec.ts 在前、a.spec.ts 在后|排序后 a 在前|node --test|PASS|
+|UT-DSC-008|FR-021|安全|项目外的路径被拒绝|解析后落在项目外的绝对路径|projectRelativeFile 返回 null|node --test|PASS|
+|UT-DSC-009|FR-021|正常|列举结果码稳定|四个结果码|OK/PLAYWRIGHT_NOT_INSTALLED/PLAYWRIGHT_LIST_FAILED/PLAYWRIGHT_LIST_TIMEOUT|node --test|PASS|
+|UT-DSC-010|FR-021|安全|未背书的项目未可信|state 里没有信任记录|trust=untrusted，reason=未背书|node --test|PASS|
+|UT-DSC-011|FR-021|正常|背书后项目可信|withTrust(trusted)|trust=trusted，带时间戳|node --test|PASS|
+|UT-DSC-012|FR-021|安全|信任可撤销并保留原因|withTrust(untrusted, reason)|trust=untrusted，reason 保留|node --test|PASS|
+|UT-DSC-013|FR-021|安全|信任不串项目|两个不同项目 UID|另一个项目仍为未可信|node --test|PASS|
+|UT-DSC-014|FR-021|正常|信任写入不改原状态|withTrust 不改传入的 state|原对象不变，返回新对象|node --test|PASS|
+|UT-DSC-015|FR-021|正常|唯一标题沿用 ATS-201 标题键|权威用例表里一个用例|uidSource=derived，basis=title-key|node --test|PASS|
+|UT-DSC-016|FR-021|正常|显式标注优先|标题含 @TC-001|uid=tc-001，uidSource=explicit|node --test|PASS|
+|UT-DSC-017|FR-021|安全|重复显式标注不绑定|两个用例都写 @TC-001|两者 uidStable=false，报告 duplicate-explicit-uid|node --test|PASS|
+|UT-DSC-018|FR-021|正常|describe 路径消解同名歧义|同名用例在不同 describe 下|两者 uidStable=true，basis=scope-title|node --test|PASS|
+|UT-DSC-019|FR-021|正常|同 describe 下同名仍歧义|同名同 describe 的两个用例|两者 uidStable=false，报告 identical-title，UID 不合并|node --test|PASS|
+|UT-DSC-020|FR-021|正常|执行体指纹可消解同名|同名同 describe、执行体不同|basis=body-key，两者 UID 不同|node --test|PASS|
+|UT-DSC-020b|FR-021|正常|动态用例不用模板的执行体判定|一个模板生成两个渲染标题|两个用例 UID 不同，basis=title-key|node --test|PASS|
+|UT-DSC-021|FR-021|正常|普通用例的 UID 与静态索引一致|权威表里一个普通用例|UID 等于 deriveTestUid(projectUid, titleKey)|node --test|PASS|
+|UT-DSC-021b|FR-021|正常|切换索引不改变已有 UID|普通用例旁有一个同名动态用例|普通用例 UID 不变，动态用例 basis=scope-title|node --test|PASS|
+|UT-DSC-022|FR-021|正常|注册表保存 CLI 的 spec id|一个用例两个 project|entry.specIds 含两个 spec id|node --test|PASS|
+|UT-DSC-023|FR-021|正常|缺席文件的注册表条目不裁剪|条目文件不在本次发现范围|条目仍在注册表里|node --test|PASS|
+|UT-DSC-024|FR-021|正常|已消失用例的条目被裁剪|条目文件在范围内但用例没了|条目被裁掉|node --test|PASS|
+|UT-DSC-025|FR-021|正常|两个索引的差异被报告|权威多两个动态用例|consistency.onlyAuthoritative 列出两条，agrees=false|node --test|PASS|
+|UT-DSC-026|FR-021|正常|两个索引一致时 agrees 为真|两个索引用例相同|consistency.agrees=true|node --test|PASS|
+|UT-DSC-027|FR-021|正常|词法 describe 路径|两个嵌套 describe 下的用例|describePathAt 给出嵌套路径|node --test|PASS|
+|UT-DSC-028|FR-021|正常|用例键的拼写|文件+路径+标题|caseKey 为 文件 > 路径 > 标题|node --test|PASS|
 |UT-CP-001|FR-028|安全|本地路径形态判定矩阵|盘符、UNC、POSIX、file:、家目录、环境变量、路径穿越、仓库地址各形态|逐一返回对应规则名|node --test|PASS|
 |UT-CP-002|FR-028|边界|非路径值不误判|https 地址、prj UID、40 位 SHA、相对片段、ns:name、非字符串|均返回 null|node --test|PASS|
 |UT-CP-003|FR-028|安全|百分号编码的路径同等拒绝|C%3A%5Crepo、%2Fhome%2Fa、损坏编码|前两者命中规则；损坏编码按原文判定不抛错|node --test|PASS|

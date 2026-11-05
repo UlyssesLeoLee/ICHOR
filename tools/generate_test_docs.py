@@ -148,6 +148,36 @@ UT=[
 ('UT-PLG-050','FR-028','安全','SDK 自己不碰文件系统','检查 sdk.mjs 源码','不 import node:fs / node:child_process，不 spawn','node --test','PASS'),
 ('UT-PLG-051','FR-028','安全','禁止权限永不出现在生效集合里','每个档位下解析全量申请','granted 与禁止清单无交集','node --test','PASS'),
 ('UT-PLG-052','FR-028','正常','SDK 没有写任何文件','检查临时夹目录','目录为空','node --test','PASS'),
+('UT-DSC-001','FR-021','正常','CLI 报告解析为用例','--list 报告含一个 spec','得到 file/title/line/describePath','node --test','PASS'),
+('UT-DSC-002','FR-021','正常','文件相对 rootDir 归一','rootDir=项目/tests，报告写 a.spec.ts','用例文件为 项目相对 tests/a.spec.ts','node --test','PASS'),
+('UT-DSC-003','FR-021','安全','项目外的文件被排除并报告','报告的文件解析后落在项目外','用例列表不含它，skipped 里说明','node --test','PASS'),
+('UT-DSC-004','FR-021','正常','describe 路径取自 suite 嵌套','outer > inner > 用例','describePath 为 [outer, inner]','node --test','PASS'),
+('UT-DSC-005','FR-021','正常','项目矩阵合并为一条用例','同一用例两个 project','一条用例带两个 project 的 spec id','node --test','PASS'),
+('UT-DSC-006','FR-021','正常','CLI 错误原样带出','errors[] 含 duplicate test title','错误信息与 location 原样保留','node --test','PASS'),
+('UT-DSC-007','FR-021','正常','用例按文件与行排序','b.spec.ts 在前、a.spec.ts 在后','排序后 a 在前','node --test','PASS'),
+('UT-DSC-008','FR-021','安全','项目外的路径被拒绝','解析后落在项目外的绝对路径','projectRelativeFile 返回 null','node --test','PASS'),
+('UT-DSC-009','FR-021','正常','列举结果码稳定','四个结果码','OK/PLAYWRIGHT_NOT_INSTALLED/PLAYWRIGHT_LIST_FAILED/PLAYWRIGHT_LIST_TIMEOUT','node --test','PASS'),
+('UT-DSC-010','FR-021','安全','未背书的项目未可信','state 里没有信任记录','trust=untrusted，reason=未背书','node --test','PASS'),
+('UT-DSC-011','FR-021','正常','背书后项目可信','withTrust(trusted)','trust=trusted，带时间戳','node --test','PASS'),
+('UT-DSC-012','FR-021','安全','信任可撤销并保留原因','withTrust(untrusted, reason)','trust=untrusted，reason 保留','node --test','PASS'),
+('UT-DSC-013','FR-021','安全','信任不串项目','两个不同项目 UID','另一个项目仍为未可信','node --test','PASS'),
+('UT-DSC-014','FR-021','正常','信任写入不改原状态','withTrust 不改传入的 state','原对象不变，返回新对象','node --test','PASS'),
+('UT-DSC-015','FR-021','正常','唯一标题沿用 ATS-201 标题键','权威用例表里一个用例','uidSource=derived，basis=title-key','node --test','PASS'),
+('UT-DSC-016','FR-021','正常','显式标注优先','标题含 @TC-001','uid=tc-001，uidSource=explicit','node --test','PASS'),
+('UT-DSC-017','FR-021','安全','重复显式标注不绑定','两个用例都写 @TC-001','两者 uidStable=false，报告 duplicate-explicit-uid','node --test','PASS'),
+('UT-DSC-018','FR-021','正常','describe 路径消解同名歧义','同名用例在不同 describe 下','两者 uidStable=true，basis=scope-title','node --test','PASS'),
+('UT-DSC-019','FR-021','正常','同 describe 下同名仍歧义','同名同 describe 的两个用例','两者 uidStable=false，报告 identical-title，UID 不合并','node --test','PASS'),
+('UT-DSC-020','FR-021','正常','执行体指纹可消解同名','同名同 describe、执行体不同','basis=body-key，两者 UID 不同','node --test','PASS'),
+('UT-DSC-020b','FR-021','正常','动态用例不用模板的执行体判定','一个模板生成两个渲染标题','两个用例 UID 不同，basis=title-key','node --test','PASS'),
+('UT-DSC-021','FR-021','正常','普通用例的 UID 与静态索引一致','权威表里一个普通用例','UID 等于 deriveTestUid(projectUid, titleKey)','node --test','PASS'),
+('UT-DSC-021b','FR-021','正常','切换索引不改变已有 UID','普通用例旁有一个同名动态用例','普通用例 UID 不变，动态用例 basis=scope-title','node --test','PASS'),
+('UT-DSC-022','FR-021','正常','注册表保存 CLI 的 spec id','一个用例两个 project','entry.specIds 含两个 spec id','node --test','PASS'),
+('UT-DSC-023','FR-021','正常','缺席文件的注册表条目不裁剪','条目文件不在本次发现范围','条目仍在注册表里','node --test','PASS'),
+('UT-DSC-024','FR-021','正常','已消失用例的条目被裁剪','条目文件在范围内但用例没了','条目被裁掉','node --test','PASS'),
+('UT-DSC-025','FR-021','正常','两个索引的差异被报告','权威多两个动态用例','consistency.onlyAuthoritative 列出两条，agrees=false','node --test','PASS'),
+('UT-DSC-026','FR-021','正常','两个索引一致时 agrees 为真','两个索引用例相同','consistency.agrees=true','node --test','PASS'),
+('UT-DSC-027','FR-021','正常','词法 describe 路径','两个嵌套 describe 下的用例','describePathAt 给出嵌套路径','node --test','PASS'),
+('UT-DSC-028','FR-021','正常','用例键的拼写','文件+路径+标题','caseKey 为 文件 > 路径 > 标题','node --test','PASS'),
 ]
 IT=[
 ('IT-API-SETUP','NFR-011','正常','Node bridge 成功监听','使用隔离 ATS_DATA_DIR 和随机端口','/api/health=200','node --test','PASS'),
@@ -206,6 +236,26 @@ IT=[
 ('IT-PLG-012','FR-028','正常','诊断端点报告插件契约状态','GET /api/diagnostics','pluginContract.version=plugin-contract/v1，status=CONTRACT_ONLY','node --test','PASS'),
 ('IT-PLG-013','NFR-011','异常','非插件错误保持 ATS-512 之前的行为','POST /api/projects 指向不存在的目录','500 + 原始 ENOENT 消息，无插件 details','node --test','PASS'),
 ('IT-PLG-CLEANUP','NFR-005','清理','插件 API 子进程与夹清理','结束 IT suite','释放进程及临时目录','node --test','PASS'),
+('IT-DSC-SETUP','FR-021','正常','真实 Playwright 装入夹具','临时目录 npm install @playwright/test 1.64.1','node_modules/@playwright/test/cli.js 存在','node --test','PASS'),
+('IT-DSC-001','FR-021','正常','列举报告项目的用例','真实 CLI --list','得到 file/title/line 与 CLI 版本','node --test','PASS'),
+('IT-DSC-002','FR-021','正常','动态用例只在权威索引里','一个模板生成两个渲染标题','权威索引有两个，静态索引只有一个模板条目','node --test','PASS'),
+('IT-DSC-003','FR-021','正常','可信项目得到权威索引','信任状态 trusted','discovery=authoritative，动态用例 UID 互不相同','node --test','PASS'),
+('IT-DSC-004','FR-021','安全','未可信项目不调用 --list','夹具里放一个会写标记文件的 spec','未可信项目下标记文件不存在，attempted=false','node --test','PASS'),
+('IT-DSC-005','FR-021','安全','可信项目确实执行了列举','同一夹具，信任状态 trusted','标记文件存在（实测 --list 会执行仓库代码）','node --test','PASS'),
+('IT-DSC-006','FR-021','正常','与 CLI 的一致性被度量','权威与静态两个索引','consistency 报告只有权威可见的用例','node --test','PASS'),
+('IT-DSC-007','FR-021','正常','切换索引不改变已有 UID','先静态后权威','普通用例的 UID 相同','node --test','PASS'),
+('IT-DSC-008','FR-021','异常','坏配置回退并说明','playwright.config.ts 语法错误','discovery=static，outcome=FAILED，warning 含原因','node --test','PASS'),
+('IT-DSC-009','FR-021','安全','没有本地 CLI 时不安装','项目无 node_modules','outcome=PLAYWRIGHT_NOT_INSTALLED，node_modules 未被创建','node --test','PASS'),
+('IT-DSC-010','FR-021','边界','列举超时被单独报告','timeoutMs=1','outcome=PLAYWRIGHT_LIST_TIMEOUT，不与失败混淆','node --test','PASS'),
+('IT-DSC-011','FR-021','异常','CLI 报错时不是空索引','重名用例','outcome=FAILED，errors 含 duplicate test title','node --test','PASS'),
+('IT-DSC-API-001','FR-021','安全','项目初始为未可信','GET /api/projects/:id/trust','trust=untrusted，带原因','node --test','PASS'),
+('IT-DSC-API-002','FR-021','安全','未可信项目得到静态索引','GET /api/projects/:id/tests','discovery=static，outcome=SKIPPED_UNTRUSTED','node --test','PASS'),
+('IT-DSC-API-003','FR-021','异常','非法信任值被拒','POST trust {trust: maybe}','400 INVALID_TRUST_VALUE','node --test','PASS'),
+('IT-DSC-API-004','FR-021','安全','强制请求权威索引也被拒','GET /tests?authoritative=true（未可信）','仍为 static，warning 说明未可信仓库不可调用','node --test','PASS'),
+('IT-DSC-API-005','FR-021','正常','授予信任后索引切换','POST trust {trust: trusted}','discovery=authoritative，动态用例在索引里','node --test','PASS'),
+('IT-DSC-API-006','FR-021','正常','信任跨重启保留','重启 Bridge 后再读','trust 仍为 trusted','node --test','PASS'),
+('IT-DSC-API-007','FR-021','安全','撤销信任后回退','POST trust {trust: untrusted}','trust=untrusted 且索引回到 static','node --test','PASS'),
+('IT-DSC-CLEANUP','NFR-005','清理','临时夹与进程清理','结束 IT suite','释放进程及临时目录','node --test','PASS'),
 ]
 ST=[
 ('ST-001','FR-001','功能','首次打开并添加项目','Windows 11, Playwright 已安装，选择已有 repo','工作台显示项目与测试，不复制测试文件','浏览器/录屏','PENDING'),
@@ -299,7 +349,12 @@ emit('09-ST-TEST-DESIGN.md','ATS-ST-001 システムテスト設計書','系统�
 rtm=[]
 manual={'FR-001':'B01/UC-01','FR-002':'B01','FR-003':'B02','FR-004':'B02','FR-005':'UI-002','FR-006':'B03/UI-004','FR-007':'B03','FR-008':'B06/UI-003','FR-009':'B04','FR-010':'B04','FR-011':'B04','FR-012':'B05','FR-013':'B05/UI-005','FR-014':'B05','FR-015':'B05','FR-016':'B05','FR-017':'B07/UI-007','FR-018':'B05','FR-019':'B03','FR-020':'B06','FR-021':'P1 AST/CLI','FR-022':'P1 AST','FR-023':'P1 WDIO','FR-024':'P1 Agent','FR-025':'P1 Agent','FR-026':'P1 Graph','FR-027':'P1 Secret','FR-028':'P2 Remote','FR-029':'P2 Explore','FR-030':'P2 RBAC'}
 for i in range(1,31):
- fid=f'FR-{i:03d}';cases=[x[0] for x in UT+IT+ST if x[1]==fid];implemented=i<=20
+ fid=f'FR-{i:03d}';cases=[x[0] for x in UT+IT+ST if x[1]==fid]
+ # FR-021 is IMPLEMENTED as of ATS-202 (v0.2.0): the authoritative discovery
+ # (`playwright test --list`) and its trust gate are delivered, with a
+ # measured contract against the real CLI. The ST rows it owns are still
+ # PENDING -- the RTM header says so explicitly.
+ implemented=i<=20 or i==21
  rtm.append((fid,manual.get(fid,'P1/P2'),'、'.join(cases) or 'TBD', '部分实现' if fid in ['FR-004','FR-008','FR-014','FR-020'] else 'IMPLEMENTED' if implemented else 'DESIGNED'))
 for i in range(1,13):
  fid=f'NFR-{i:03d}';cases=[x[0] for x in UT+IT+ST if x[1]==fid];rtm.append((fid,'NFR / SEC / OPS','、'.join(cases) or 'TBD','PARTIAL' if i in [1,2,4,7,10,11] else 'DESIGNED / P1' if i in [6,12] else 'IMPLEMENTED'))
