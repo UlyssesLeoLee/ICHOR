@@ -145,7 +145,15 @@ const REGEX_ALLOWED_BEFORE = new Set([
   '<', '>', '~', '^', '\n'
 ]);
 
-function regexAllowedAt(src, i) {
+/**
+ * True when a `/` at `i` opens a regular expression literal.
+ *
+ * Exported because the lexical readers of the discovery modules have to
+ * agree with the body extraction on what a regular expression is. Two
+ * lexers that disagree would read different code as a string and different
+ * code as a pattern.
+ */
+export function regexAllowedAt(src, i) {
   for (let j = i - 1; j >= 0; j--) {
     const c = src[j];
     if (c === ' ' || c === '\t' || c === '\r' || c === '\n') continue;
@@ -168,7 +176,7 @@ function skipBlockComment(src, i) {
   return i;
 }
 
-function skipQuoted(src, i, quote) {
+export function skipQuoted(src, i, quote) {
   i++;
   while (i < src.length) {
     const c = src[i];
@@ -179,7 +187,7 @@ function skipQuoted(src, i, quote) {
   return i;
 }
 
-function skipTemplate(src, i) {
+export function skipTemplate(src, i) {
   i++;
   while (i < src.length) {
     const c = src[i];
@@ -205,7 +213,7 @@ function skipTemplate(src, i) {
   return i;
 }
 
-function skipRegexLiteral(src, i) {
+export function skipRegexLiteral(src, i) {
   i++;
   let inClass = false;
   while (i < src.length) {
@@ -266,27 +274,207 @@ export function extractCallbackBody(content, afterTitle, maxLength = 200000) {
   return { text, reason: null };
 }
 
+/* ------------------------------------------------------------------ */
+/* Test cases: the source scanner                                      */
+/* ------------------------------------------------------------------ */
+
+/** The modifiers a test call may carry. */
+const CALL_MODIFIERS = new Set(['only', 'skip', 'fixme']);
+
+/** True for the characters an identifier may start with. */
+const IDENT_START_RE = /[A-Za-z_$]/;
+/** True for the characters an identifier may continue with. */
+const IDENT_PART_RE = /[A-Za-z0-9_$]/;
+
+/**
+ * The positions of the line breaks of a source.
+ *
+ * They are counted once per file, so that the line of a call is a binary
+ * search instead of a scan of the whole prefix of the file.
+ */
+function newlineOffsets(src) {
+  const out = [];
+  for (let i = 0; i < src.length; i++) if (src[i] === '\n') out.push(i);
+  return out;
+}
+
+/** The line (1-based) the character at `index` sits on. */
+function lineAt(offsets, index) {
+  let lo = 0;
+  let hi = offsets.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (offsets[mid] < index) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo + 1;
+}
+
+/**
+ * Decodes the escape sequences of a string literal.
+ *
+ * Only the escapes a test title realistically carries are decoded; an
+ * unknown escape yields the escaped character itself, which is what
+ * JavaScript does for a non-standard escape in a string.
+ */
+function decodeEscapes(raw) {
+  if (!raw.includes('\\')) return raw;
+  let out = '';
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] !== '\\') { out += raw[i]; continue; }
+    const e = raw[i + 1];
+    if (e === undefined) { out += '\\'; break; }
+    if (e === 'n') out += '\n';
+    else if (e === 't') out += '\t';
+    else if (e === 'r') out += '\\r';
+    else out += e;
+    i++;
+  }
+  return out;
+}
+
+/**
+ * The title literal at `i`, decoded.
+ *
+ * The DECODED value is what the source MEANS: `test('user\'s profile')` is
+ * the title `user's profile`. The scanner used to cut the title at the first
+ * quote -- escaped or not -- so it read `user\`, a title the CLI never
+ * reports. The two indexes then derived different UIDs from the same case,
+ * and switching between them moved the UID of every case with an escape in
+ * its title.
+ *
+ * A template literal is read as it is WRITTEN: the scanner cannot know what
+ * a template renders to, and the template is what the static index reports.
+ *
+ * Returns null when there is no literal at `i`.
+ */
+export function readTitleLiteral(src, i) {
+  const quote = src[i];
+  if (quote === '`') {
+    const end = skipTemplate(src, i);
+    if (end <= i + 1) return null;
+    return { value: src.slice(i + 1, end - 1), end };
+  }
+  if (quote !== '"' && quote !== "'") return null;
+  const end = skipQuoted(src, i, quote);
+  if (end <= i + 1) return null;
+  return { value: decodeEscapes(src.slice(i + 1, end - 1)), end };
+}
+
+/**
+ * Skips a quoted literal, but only when it is closed on its own line.
+ *
+ * A quote that never closes would otherwise swallow the rest of the file --
+ * and with it every test case in it. A literal that is not closed on its
+ * line is not a literal, so the scan simply steps over the quote.
+ */
+export function skipStringLiteral(src, i, quote) {
+  const end = skipQuoted(src, i, quote);
+  if (end >= src.length || src.indexOf('\n', i) < end) return i + 1;
+  return end;
+}
+
+/**
+ * The test call that starts with the identifier at [wordStart, wordEnd).
+ *
+ * Returns null when the identifier is not a call the scanner indexes.
+ */
+function readTestCall(src, wordStart, wordEnd, newlines) {
+  // The call must OPEN A LINE: only whitespace may precede it. That is the
+  // restriction the first scanner had, and it keeps a `test` that is a
+  // property or a variable out of the index.
+  const lineStart = src.lastIndexOf('\n', wordStart - 1) + 1;
+  for (let k = lineStart; k < wordStart; k++) {
+    const c = src[k];
+    if (c !== ' ' && c !== '\t') return null;
+  }
+  let i = wordEnd;
+  // An optional modifier: `test.only(`, `test.skip(`, `test.fixme(`.
+  let j = i;
+  while (j < src.length && (src[j] === ' ' || src[j] === '\t')) j++;
+  if (src[j] === '.') {
+    let k = j + 1;
+    while (k < src.length && IDENT_PART_RE.test(src[k])) k++;
+    if (CALL_MODIFIERS.has(src.slice(j + 1, k))) i = k;
+  }
+  // The opening parenthesis, then the title argument.
+  let k = i;
+  while (k < src.length && /\s/.test(src[k])) k++;
+  if (src[k] !== '(') return null;
+  let m = k + 1;
+  while (m < src.length && /\s/.test(src[m])) m++;
+  const literal = readTitleLiteral(src, m);
+  if (!literal) return null;
+  return {
+    title: literal.value,
+    // The line of the CALL, not of the title. A Playwright report numbers
+    // the call, and a call whose title sits on the next line has to be
+    // found at the position the CLI reports -- otherwise the case is not
+    // recognised as a source case and its identity stops being tracked
+    // across a retitle.
+    line: lineAt(newlines, wordStart),
+    afterTitle: literal.end,
+    end: literal.end
+  };
+}
+
+/**
+ * The test calls of a source file, in the order they appear.
+ *
+ * The scanner walks the file with the same restricted lexer the body
+ * extraction uses: strings, template literals, comments and regular
+ * expressions are SKIPPED, so a `test(` that only appears inside one of
+ * them is not indexed.
+ */
+function findTestCalls(src) {
+  const calls = [];
+  const n = src.length;
+  const newlines = newlineOffsets(src);
+  let i = 0;
+  while (i < n) {
+    const c = src[i];
+    if (c === '/' && src[i + 1] === '/') { i = skipLineComment(src, i); continue; }
+    if (c === '/' && src[i + 1] === '*') { i = skipBlockComment(src, i); continue; }
+    if (c === '"' || c === "'") { i = skipStringLiteral(src, i, c); continue; }
+    if (c === '`') { i = skipTemplate(src, i); continue; }
+    if (c === '/' && regexAllowedAt(src, i)) { i = skipRegexLiteral(src, i); continue; }
+    if (IDENT_START_RE.test(c)) {
+      const start = i;
+      while (i < n && IDENT_PART_RE.test(src[i])) i++;
+      const word = src.slice(start, i);
+      if (word === 'test' || word === 'it') {
+        const call = readTestCall(src, start, i, newlines);
+        if (call) { calls.push(call); i = call.end; continue; }
+      }
+      continue;
+    }
+    i++;
+  }
+  return calls;
+}
+
 /**
  * Scans one source file for the test cases it declares.
  *
  * The scanner recognises the common `test()` / `it()` forms, including the
- * `.only` / `.skip` / `.fixme` modifiers. For every case it reports the title,
- * the line of the CALL (a Playwright report numbers the call, not the
+ * `.only` / `.skip` / `.fixme` modifiers. For every case it reports the
+ * title, the line of the CALL (a Playwright report numbers the call, not the
  * whitespace in front of it) and the text of the callback body.
+ *
+ * The title is the title the source MEANS: it is read as a literal, so an
+ * escape inside it is decoded, and it is NOT cut to a fixed length. A title
+ * that is cut or mis-read is a title the CLI does not report, and the UID
+ * derived from it is therefore a UID the other index cannot reproduce.
  *
  * It is pure: it reads the source text that is handed to it and touches
  * nothing else.
  */
 export function scanTestCases(content) {
   const src = String(content ?? '');
-  const re = /(?:^|\n)[ \t]*(?:test|it)(?:\.(?:only|skip|fixme))?\s*\(\s*(['"`])([^\n]*?)\1/g;
   const cases = [];
-  let m;
-  while ((m = re.exec(src)) !== null) {
-    const title = m[2].slice(0, 180);
-    const line = src.slice(0, m.index + m[0].length).split('\n').length;
-    const body = extractCallbackBody(src, m.index + m[0].length);
-    cases.push({ title, line, bodyText: body.text });
+  for (const call of findTestCalls(src)) {
+    const body = extractCallbackBody(src, call.afterTitle);
+    cases.push({ title: call.title, line: call.line, bodyText: body.text });
   }
   return cases;
 }

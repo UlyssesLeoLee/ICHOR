@@ -1,14 +1,14 @@
 === command ===
 python tools/update_wbs_ats202.py
 === output ===
+overview: 已完成=1 完成率=0.12340425531914889 剩余人日=412.0
+IDEMPOTENT: row ATS-202 unchanged
+overview: 已完成=1 完成率=0.12340425531914889 剩余人日=412.0
+IDEMPOTENT: a second run leaves row ATS-202 byte-identical
+verify: ATS-202 row 23 状态=待审核 完成率=1 剩余人日=0 marker×1
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-overview: 已完成=1 完成率=0.09999999999999998 剩余人日=423.0
-IDEMPOTENT: row ATS-202 unchanged
-overview: 已完成=1 完成率=0.09999999999999998 剩余人日=423.0
-IDEMPOTENT: a second run leaves row ATS-202 byte-identical
-verify: ATS-202 row 23 状态=待审核 完成率=1 剩余人日=0 marker×1
 verify: openpyxl loads the workbook in the normal and the data_only mode
 === exit code: 0 ===

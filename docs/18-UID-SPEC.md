@@ -355,6 +355,10 @@ node tools/migrate_uids.mjs --state <path to state.json> --rollback
 在权威发现（ATS-202）中，动态用例的 UID 由 describe 路径判定（`uidBasis='scope-title'`），
 仍无法判定时保持临时值并报告歧义。
 
+权威发现下的 UID 不变性**不是无条件的**：两个索引必须读到**同一个标题、同一个位置**，
+「切换索引不改变已有 UID」才成立。成立条件、反例与修法见
+`docs/23-AUTHORITATIVE-DISCOVERY.md` §4.5。
+
 ### 7.1 实测确认的边界
 
 以下边界是**实测确认**的，不是推测。每一条都对应一个可重跑的复现用例。
