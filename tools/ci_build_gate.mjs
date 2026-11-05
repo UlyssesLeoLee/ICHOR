@@ -124,17 +124,11 @@ const STEPS = [
     id: 'manifest',
     title: 'Dependency manifest is in sync with the lockfiles',
     commands: [
-      // Same order as the workflow: check the COMMITTED manifest first, then
-      // regenerate and prove the regeneration changes nothing. Checking after
-      // a regeneration would compare the file with itself and could never
-      // detect drift.
+      // Check the COMMITTED manifest. Checking after a regeneration would
+      // compare the file with itself and could never detect drift, and
+      // regenerating first would silently OVERWRITE a tampered manifest, so
+      // the check has to come first and is the only step that can fail.
       { cwd: REPO_ROOT, cmd: 'node', args: ['tools/gen_dep_manifest.mjs', '--check'] },
-      { cwd: REPO_ROOT, cmd: 'node', args: ['tools/gen_dep_manifest.mjs'] },
-      {
-        cwd: REPO_ROOT,
-        cmd: 'git',
-        args: ['diff', '--exit-code', '--', 'docs/dependencies/'],
-      },
     ],
   },
 ];

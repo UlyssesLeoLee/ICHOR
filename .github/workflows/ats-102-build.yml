@@ -4,7 +4,7 @@ name: ATS-102 build gate
 #
 # 门禁内容（对应 docs/02-REQUIREMENTS.md NFR-007 / NFR-012）：
 #   1. Node 22 + `npm ci`（严格按 lockfile 安装）→ 锁文件可重现性门禁；
-#   2. `npm test`（Node 内置 test runner，59 项 UT/IT）→ 回归门禁；
+#   2. `npm test`（Node 内置 test runner）→ 回归门禁；
 #   3. `apps/studio` 的 `npm ci` + 安装树摘要校验 + `next build`
 #      → 静态导出构建门禁；
 #   4. 依赖清单生成 + 漂移校验 → 依赖清单门禁。
@@ -159,11 +159,6 @@ jobs:
       # `git diff --exit-code` 判断有没有改动。
       - name: Verify the committed manifest matches the lockfiles
         run: node tools/gen_dep_manifest.mjs --check
-
-      - name: Regenerate the manifest and fail if it differs from the committed one
-        run: |
-          node tools/gen_dep_manifest.mjs
-          git diff --exit-code -- docs/dependencies/
 
       - name: Upload the dependency manifest
         if: always()
