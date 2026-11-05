@@ -105,9 +105,33 @@ function projectRows(db) {
 function runRows(db) {
   return db
     .prepare(
-      `SELECT id,uid,seq,project_id,project_uid,status,created_at,finished_at,git_commit,doc
+      `SELECT id,uid,seq,project_id,project_uid,status,created_at,finished_at,git_commit,env_uid,doc
        FROM runs`
     )
+    .all();
+}
+
+/**
+ * The indexed columns of the `env_profiles` table (ATS-212).
+ *
+ * The `variables` column holds the NAMES of the variables, never their
+ * values -- so the row can be read out of a shared database without
+ * carrying a value that might be sensitive. The values live in the `doc`
+ * column, which is the profile's own record.
+ */
+function envProfileRows(db) {
+  return db
+    .prepare(
+      `SELECT uid,project_uid,name,environment,variables,created_at,updated_at,doc
+       FROM env_profiles`
+    )
+    .all();
+}
+
+/** The indexed columns of the `env_whitelists` table (ATS-212). */
+function envWhitelistRows(db) {
+  return db
+    .prepare('SELECT project_uid,names,updated_at FROM env_whitelists')
     .all();
 }
 
@@ -168,6 +192,18 @@ const PROJECT_COLUMNS = {
 const RUN_COLUMNS = {
   id: 'id', uid: 'uid', seq: 'seq', project_id: 'projectId', project_uid: 'projectUid',
   status: 'status', created_at: 'createdAt', finished_at: 'finishedAt', git_commit: 'gitCommit',
+  env_uid: 'envUid',
+};
+/**
+ * The indexed columns of an environment profile (ATS-212).
+ *
+ * `variables` is compared against the NAMES of the record's variables, not
+ * against the record's variables themselves -- the column holds names, and
+ * the values live in the `doc` column.
+ */
+const ENV_PROFILE_COLUMNS = {
+  uid: 'uid', project_uid: 'projectUid', name: 'name', environment: 'environment',
+  created_at: 'createdAt', updated_at: 'updatedAt',
 };
 const ATTEMPT_COLUMNS = {
   uid: 'uid', run_uid: 'runUid', test_uid: 'testUid', retry: 'retry',
@@ -305,6 +341,77 @@ export function verifyMirror(db, state) {
     );
     if (!found) {
       problems.push(`registry entry ${row.project_uid}/${row.uid} is not in the state`);
+    }
+  }
+
+  // --- the environment profiles (ATS-212) ---------------------------------
+  // Every profile of the state must be in the database, with the same
+  // content and the same indexed columns. The `variables` column holds the
+  // NAMES of the variables, so it is compared against the names, not
+  // against the values -- the values live in the `doc` column, which the
+  // `diffValues` comparison above already checks field by field.
+  const stateEnvProfiles = state.envProfiles?.profiles ?? [];
+  const dbEnvProfiles = envProfileRows(db);
+  for (const profile of stateEnvProfiles) {
+    const uid = String(profile.uid ?? profile.id ?? '');
+    const row = dbEnvProfiles.find((r) => String(r.uid) === uid);
+    if (!row) {
+      problems.push(`environment profile ${uid} is missing from the database`);
+      continue;
+    }
+    let doc = null;
+    try { doc = JSON.parse(row.doc); } catch (e) { problems.push(`environment profile ${uid}: the doc column is not JSON (${e.message})`); }
+    if (doc) {
+      for (const d of diffValues(profile, doc, `environment profile ${uid}`)) problems.push(d);
+    }
+    checkColumns(row, profile, ENV_PROFILE_COLUMNS, problems, `environment profile ${uid}`);
+    // The names of the variables are the indexed part, and they must agree
+    // with the record -- a row that lists a different set of names than
+    // its own document answers a query with something the state does not
+    // say.
+    const expectedNames = JSON.stringify(Object.keys(profile.variables ?? {}).sort());
+    let storedNames = null;
+    try { storedNames = JSON.stringify(JSON.parse(row.variables)); } catch { /* reported below */ }
+    if (storedNames !== expectedNames) {
+      problems.push(
+        `environment profile ${uid}.variables: the indexed column holds ${row.variables} but the record says ${expectedNames}`
+      );
+    }
+  }
+  for (const row of dbEnvProfiles) {
+    const uid = String(row.uid);
+    if (!stateEnvProfiles.some((p) => String(p.uid ?? p.id ?? '') === uid)) {
+      problems.push(`environment profile ${uid} is not in the state`);
+    }
+  }
+
+  // --- the environment whitelists (ATS-212) -------------------------------
+  // The whitelist a project configured must be in the database with the
+  // same names. A project that uses the built-in default has no row -- and
+  // a row for it would be a difference, because the state does not
+  // configure one.
+  const stateWhitelists = state.envProfiles?.whitelists ?? {};
+  const dbWhitelists = envWhitelistRows(db);
+  for (const [projectUid, names] of Object.entries(stateWhitelists)) {
+    const row = dbWhitelists.find((r) => String(r.project_uid) === String(projectUid));
+    if (!row) {
+      problems.push(`the environment whitelist of ${projectUid} is missing from the database`);
+      continue;
+    }
+    let stored = null;
+    try { stored = JSON.parse(row.names); } catch (e) {
+      problems.push(`the environment whitelist of ${projectUid}: the names column is not JSON (${e.message})`);
+    }
+    if (stored && JSON.stringify(stored) !== JSON.stringify(names)) {
+      problems.push(
+        `the environment whitelist of ${projectUid}: the indexed column holds ${row.names} but the state says ${JSON.stringify(names)}`
+      );
+    }
+  }
+  for (const row of dbWhitelists) {
+    const projectUid = String(row.project_uid);
+    if (!Object.prototype.hasOwnProperty.call(stateWhitelists, projectUid)) {
+      problems.push(`the environment whitelist of ${projectUid} is not in the state`);
     }
   }
 

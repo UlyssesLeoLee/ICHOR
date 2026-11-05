@@ -42,6 +42,73 @@ HTTP/1.1 200
 {"file":"...","hash":"new SHA256","changed":true}
 ```
 
+```http
+GET /api/projects/:id/env
+X-ATS-Token: <local token>
+
+HTTP/1.1 200
+{"profiles":[{"uid":"env_1_...","name":"staging","environment":"staging",
+              "variables":["BASE_URL","TENANT"],"variableCount":2,
+              "createdAt":"...","updatedAt":"..."}],
+ "environments":["dev","staging","prod"],
+ "whitelist":{"names":["BASE_URL","TENANT"],"source":"default"}}
+```
+
+```http
+POST /api/projects/:id/env
+{"name":"staging","environment":"staging",
+ "variables":{"BASE_URL":"https://staging.example","TENANT":"acme"}}
+
+HTTP/1.1 200
+{"profile":{"uid":"env_1_...","name":"staging","environment":"staging",
+            "variables":["BASE_URL","TENANT"], ...}}
+```
+
+```http
+POST /api/projects/:id/env
+{"name":"bad","environment":"dev","variables":{"NOT_ON_THE_LIST":"x"}}
+
+HTTP/1.1 400
+{"error":"ENV_VARIABLE_NOT_ALLOWED",
+ "rejected":[{"name":"NOT_ON_THE_LIST","reason":"the name is not on the environment whitelist of this project"}]}
+```
+
+```http
+PUT /api/projects/:id/env-whitelist
+{"names":["BASE_URL","TENANT"]}
+
+HTTP/1.1 200
+{"whitelist":{"names":["BASE_URL","TENANT"],"source":"custom"}}
+```
+
+```http
+DELETE /api/projects/:id/env?ref=staging
+X-ATS-Token: <local token>
+
+HTTP/1.1 200
+{"removed":"staging"}
+```
+
+```http
+POST /api/projects/:id/run
+{"file":"tests/login.spec.ts","env":"staging"}
+
+HTTP/1.1 202
+{"run":{"id":"run_uuid","status":"queued|running|error",
+        "envUid":"env_1_...","envName":"staging","envTier":"staging",
+        "envVariables":["BASE_URL","TENANT"], ...}}
+```
+
+环境档案相关的响应**只含变量名，不含值**（见 §5A.5）。运行引用不存在的档案时：
+
+```http
+POST /api/projects/:id/run
+{"env":"no-such-profile"}
+
+HTTP/1.1 404
+{"error":"ENV_PROFILE_NOT_FOUND"}
+```
+
 ## 3. 状态机
 
 ```mermaid
@@ -108,6 +175,73 @@ v0.1：`fs.readdirSync({withFileTypes:true})` 深度 14、最多 2000 文件，�
 
 P1 变更流程：AST parse → calculate supported subset → generate JSON patch → print diff → syntax check → approve → atomic write → invalidate index。禁止 UI 自动修改业务断言的 expected 值。
 
+## 5A. 项目级环境档案与安全参数绑定（ATS-212，已实现）
+
+### 5A.1 档案模型
+
+环境档案是**项目级**的：档案属于一个项目，同名档案在另一个项目里是另一个档案。
+
+| 字段 | 说明 |
+|---|---|
+| `uid` | `env_1_` + sha256(项目 UID + NUL + 名称) 的前 24 位。派生而非自增，所以同一项目同一名称永远是同一个档案 |
+| `projectUid` | 所属项目 |
+| `name` | 档案名（同一项目内唯一，不区分大小写） |
+| `environment` | 层级，恰为 `dev` / `staging` / `prod` |
+| `variables` | 变量名 → 值。**值只存在于档案自身** |
+| `createdAt` / `updatedAt` | 创建与更新时间 |
+
+项目与名称之间用 NUL 分隔：不分隔的话，`proj_1_aa` + `bc` 与 `proj_1_aab` + `c` 会哈希出同一个字符串。替换同名档案时 `uid` 不变，因此已引用它的运行仍指向同一个档案。
+
+档案存放在 Bridge 状态里的 `state.envProfiles`，而不是单独一份文件：状态已经是真相源，原子写入、SQLite 镜像与导入导出往返都能覆盖它，另起一份旁路文件只会多一处会与状态分叉的地方。
+
+### 5A.2 白名单：拒绝，而不是丢弃
+
+变量名不在白名单上时，它**不入档案**，并连同**理由**一起报回调用方。静默丢弃会让调用方以为变量已生效——那是一个只会在生产里出现的 bug。
+
+白名单条目只能是名称或**结尾单星号**（`FEATURE_*`）。通用 glob 不支持；裸 `*` 被拒——一个把范围写错的条目不该把白名单撑大到全体。
+
+白名单按项目配置；未配置时用内置默认。配置的清单**替换**默认，不是叠加。
+
+### 5A.3 凭据不进档案
+
+名称呈凭据形态的变量（`*_TOKEN` / `*_PASSWORD` / `*_SECRET` / `*_API_KEY`，不区分大小写）一律被拒。
+
+凭据形态的判定**先于**白名单判定：白名单从来就不是凭据能去的地方，把调用方指向白名单只会让它去错地方，所以理由直接指向凭据存储。
+
+白名单本身也不能授权凭据形态的名称——配置这样的白名单会被整体拒绝且**不生效**（原白名单保持不变）。
+
+保留名（`LD_PRELOAD` / `DYLD_INSERT_LIBRARIES` / `NODE_OPTIONS` / `PLAYWRIGHT_JSON_OUTPUT_FILE` 等）即使被白名单放行也拒绝。
+
+**本任务不实现凭据存储。** 独立安全凭据存储是 FR-027 的另一半，不在 ATS-212 的范围内；这里做的是把凭据**挡在档案之外**，并说清它该去哪里。
+
+### 5A.4 封口的 runner 环境
+
+runner 子进程的环境是**封口**的：
+
+```text
+runner 环境 = 平台基础键 + 经白名单筛选的档案变量
+```
+
+宿主 `process.env` **一律不继承**。改造前适配器用的是 `{...process.env, ...}`，操作者在 shell 里的云凭据与 CI token 会一路进到被测代码，再被写进归档为证据的报告。
+
+- 没有档案时环境同样封口（平台基础键仍在，子进程照样跑得起来）
+- 平台关键键（`PATH` / `SystemRoot` / `ComSpec` 等）在构造环境时**无条件最后覆盖**，档案改不掉它
+- 适配器自有的输出变量（报告写到哪里）也最后生效——引擎的契约是报告写在适配器指定的地方
+
+### 5A.5 不进 Git
+
+档案只落在 Bridge 的数据目录。项目目录**一个文件都不多**，档案的值不出现在项目树里的任何文件中。
+
+API 响应、运行记录与 manifest 只带档案的 `uid` / `name` / `environment` 和变量**名**，不带值。
+
+运行引用不存在的档案时返回 `404 ENV_PROFILE_NOT_FOUND`，**不静默降级**成「没有档案」——本该打 staging 的运行不能悄悄打了默认环境。
+
+### 5A.6 SQLite
+
+schema version 4，migration 4（`environment-profiles`）新增 `env_profiles` 表、`env_whitelists` 表与 `runs.env_uid` 列（additive，旧运行照旧）。
+
+索引列只存变量**名**不存值，完整档案在 `doc` 列。镜像校验覆盖档案与白名单：缺档案、被篡改、索引列与记录矛盾、白名单不一致，都会被**报出来**而不是藏起来。
+
 ## 6. 本地存储与 Evidence
 
 `state.json` 包含 schema=1、projects、runs。每次更新先写临时文件再 rename；仅支持单本地服务进程。Run 文件目录包含 `stdout.log`, `events.jsonl`, `report.json`, `html/`, `results/**`, `manifest.json`。Manifest 保存 Evidence `file,size,sha256` 及 Git commit。下载前 realpath + isSubpath，目录跳转/软链接越界必须拒绝。
@@ -129,6 +263,11 @@ JSON report 中取 suite/spec/test/results，生成 `summary.total,passed,failed
 | `INVALID_SESSION` | 没有或错误 token | 401 | 重新访问本地会话 |
 | `ORIGIN_NOT_ALLOWED` | 跨站 | 403 | 阻断 |
 | `UNSUPPORTED_DATABASE` | state 版本错误 | 服务启动失败 | 手工备份/升级 |
+| `ENV_VARIABLE_NOT_ALLOWED` | 变量不在白名单 / 是凭据形态 / 是保留名 | 400 | 拒绝并给出理由（附 `rejected` 数组） |
+| `INVALID_ENV_WHITELIST` | 白名单含凭据形态或非法名称 | 400 | 拒绝；原白名单保持不变 |
+| `INVALID_ENV_PROFILE` | 档案缺名称 / 层级未知 | 400 | 拒绝并附 `problems` |
+| `ENV_PROFILE_NOT_FOUND` | 运行引用了不存在的档案 | 404 | 不静默降级为「无档案」 |
+| `ENV_PROFILE_REF_REQUIRED` | 删除档案时未给引用 | 400 | 要求给出档案名或 UID |
 
 注：`STALE_EDIT_CONFLICT` 根据通用错误映射为 HTTP 409。系统错误在 HTTP 500 可能包含异常消息，正式版应限制敏感信息显示。
 

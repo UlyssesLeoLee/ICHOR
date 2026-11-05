@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：252；已执行通过：235；待执行/未实现：17。**PENDING 不是测试通过**。
+> 设计总数：291；已执行通过：274；待执行/未实现：17。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -230,6 +230,45 @@
 |UT-DSC-026|FR-021|正常|两个索引一致时 agrees 为真|两个索引用例相同|consistency.agrees=true|node --test|PASS|
 |UT-DSC-027|FR-021|正常|词法 describe 路径|两个嵌套 describe 下的用例|describePathAt 给出嵌套路径|node --test|PASS|
 |UT-DSC-028|FR-021|正常|用例键的拼写|文件+路径+标题|caseKey 为 文件 > 路径 > 标题|node --test|PASS|
+|UT-ENV-001|FR-027|正常|档案 ID 由项目与名称派生|同一项目同一名称|UID 相同且格式为 env_1_ + 24 位十六进制|node --test|PASS|
+|UT-ENV-002|FR-027|边界|档案 ID 不跨名称边界碰撞|项目 proj_1_aa 名称 bc 与项目 proj_1_aab 名称 c|两个 UID 不同|node --test|PASS|
+|UT-ENV-003|FR-027|边界|变量名必须是大写单词|BASE_URL / base_url / A=B / 空串 / 数字开头|只有大写单词形式有效|node --test|PASS|
+|UT-ENV-010|FR-027|安全|不在白名单的变量名被拒绝并给出原因|白名单为 BASE_URL，请求 SOME_UNKNOWN|allowed=false 且理由提到白名单|node --test|PASS|
+|UT-ENV-011|FR-027|安全|未授权变量被拒绝而不是被静默丢弃|白名单为 BASE_URL，请求 BASE_URL 与 NOT_ON_THE_LIST|保留 BASE_URL；NOT_ON_THE_LIST 不入档案且被报告|node --test|PASS|
+|UT-ENV-012|FR-027|安全|凭据形态的变量名即使白名单允许也被拒绝|白名单含 API_TOKEN/DB_PASSWORD/MY_SECRET|三个全部 allowed=false 且理由提到 credential|node --test|PASS|
+|UT-ENV-013|FR-027|安全|凭据形态判定不区分大小写|api_token / Api_Token / API_TOKEN|三者皆为凭据形态；BASE_URL 不是|node --test|PASS|
+|UT-ENV-014|FR-027|边界|白名单条目只能是名称或结尾单星号|BASE_URL / FEATURE_* / * / BASE_?RL|星号前缀为空时拒绝，通用 glob 不支持|node --test|PASS|
+|UT-ENV-015|FR-027|安全|白名单不能授权凭据形态的名称|白名单含 BASE_URL/API_TOKEN/BAD NAME/FEATURE_*|只留 BASE_URL 与 FEATURE_*，两个问题被报告|node --test|PASS|
+|UT-ENV-016|FR-027|正常|项目的白名单报告其来源|未配置与已配置两种状态|source 为 default 或 custom，名称列表对应|node --test|PASS|
+|UT-ENV-020|FR-027|安全|保留名即使白名单允许也被拒绝|白名单含 PATH/NODE_OPTIONS|两者均被拒绝且理由提到 reserved|node --test|PASS|
+|UT-ENV-021|FR-027|安全|保留名覆盖加载器劫持与引擎输出变量|LD_PRELOAD / DYLD_INSERT_LIBRARIES / NODE_OPTIONS / PLAYWRIGHT_JSON_OUTPUT_FILE|四个都在保留名列表内|node --test|PASS|
+|UT-ENV-030|FR-027|安全|runner 环境不携带宿主环境|宿主环境含 AWS_SECRET_ACCESS_KEY 与 GITHUB_TOKEN|档案变量在，宿主密钥不在，PATH/HOME 在|node --test|PASS|
+|UT-ENV-031|FR-027|安全|runner 环境只含基础键与档案变量|宿主环境含 RANDOM_HOST_VAR|环境键集合恰为基础键加档案变量名|node --test|PASS|
+|UT-ENV-032|FR-027|安全|没有档案时 runner 环境仍被封口|baseEnv 含 AWS_SECRET_ACCESS_KEY|密钥不在；PATH 在；无档案变量|node --test|PASS|
+|UT-ENV-033|FR-027|正常|适配器自有变量最后生效|档案声明 PLAYWRIGHT_JSON_OUTPUT_FILE|最终值取适配器传入的值|node --test|PASS|
+|UT-ENV-034|FR-027|安全|档案不能覆盖平台关键键|档案声明 PATH，baseEnv 有 PATH 与 SystemRoot|PATH 取基础键值，SystemRoot 保留|node --test|PASS|
+|UT-ENV-040|FR-027|正常|档案在构建前先按白名单校验|含白名单变量与越界变量的档案输入|合法变量保留，越界变量进入 rejected|node --test|PASS|
+|UT-ENV-041|FR-027|边界|档案缺少名称或层级未知被拒绝|空名称与 environment=production|各自产出一个问题；层级恰为 dev/staging/prod|node --test|PASS|
+|UT-ENV-042|FR-027|异常|构建非法档案抛出并附带问题列表|空名称的档案|抛错 code=INVALID_ENV_PROFILE 且 problems 为数组|node --test|PASS|
+|UT-ENV-043|FR-027|安全|运行只记录变量名不记录值|档案含 BASE_URL 与 TENANT|返回名称数组，且不含值|node --test|PASS|
+|UT-ENV-050|FR-027|回归|旧状态没有该字段也能加载|state 无 envProfiles 字段|档案为空、白名单为空，且字段被补充写入|node --test|PASS|
+|UT-ENV-051|FR-027|正常|档案的建立、查找与删除|一个项目与一个档案|归属项目正确；按名称与 UID 都能找到；删除后找不到|node --test|PASS|
+|UT-ENV-052|FR-027|正常|替换档案保持其标识|同名档案写入两次|UID 不变，值更新，档案数仍为一|node --test|PASS|
+|UT-ENV-053|FR-027|安全|档案跨项目不可见|项目 A 的档案|在项目 B 中查不到|node --test|PASS|
+|UT-ENV-054|FR-027|安全|配置的白名单优先于内置默认|项目配置白名单 ONLY_THIS|source=custom；默认中的 BASE_URL 被拒绝|node --test|PASS|
+|UT-ENV-055|FR-027|安全|授权凭据的白名单被拒绝|设置白名单 API_TOKEN|抛错 code=INVALID_ENV_WHITELIST|node --test|PASS|
+|UT-ENV-056|FR-027|安全|档案的公开视图只含变量名|含 BASE_URL 与 TENANT 的档案|variables 为名称数组，且序列化后不含值|node --test|PASS|
+|UT-SQL-ENV-001|FR-027|正常|schema 认识环境相关表|schema version 4|存在 env_profiles 与 env_whitelists；runs 含 env_uid|node --test|PASS|
+|UT-SQL-ENV-002|FR-027|完整性|档案与白名单完整往返|含档案与白名单的 state|读回的档案、白名单、run 的 envUid 与写入一致|node --test|PASS|
+|UT-SQL-ENV-003|FR-027|安全|索引列只存变量名不存值|一个含两个变量的档案|索引列是名称数组且不含值；doc 列保留完整记录|node --test|PASS|
+|UT-SQL-ENV-004|FR-027|完整性|行数统计包含环境表|导入含档案与白名单的 state|envProfiles 与 envWhitelists 计数为 1|node --test|PASS|
+|UT-SQL-ENV-005|FR-027|完整性|镜像报告缺失的档案|删除 env_profiles 一行|verifyMirror 报出该档案缺失|node --test|PASS|
+|UT-SQL-ENV-006|FR-027|完整性|镜像报告被篡改的档案|改档案 doc 中的 BASE_URL 值|verifyMirror 报出 BASE_URL 的差异|node --test|PASS|
+|UT-SQL-ENV-007|FR-027|完整性|镜像报告索引列与记录矛盾|把索引列改成另一个名称集合|verifyMirror 报出 variables 差异|node --test|PASS|
+|UT-SQL-ENV-008|FR-027|完整性|镜像报告不一致的白名单|改白名单的 names 列|verifyMirror 报出该白名单的差异|node --test|PASS|
+|UT-SQL-ENV-009|FR-027|回归|没有环境字段的旧状态镜像正常|state 无 envProfiles|verifyMirror 通过，读回为空档案与空白名单|node --test|PASS|
+|UT-SQL-ENV-010|FR-027|回归|含档案时导入仍幂等|连续导入同一 state 两次|两次读回结果相同，verifyMirror 通过|node --test|PASS|
+|UT-SQL-ENV-011|FR-027|完整性|迁移回滚清除环境表与列|手工执行第 4 步的 down|表与 env_uid 列都不存在|node --test|PASS|
 |UT-CP-001|FR-028|安全|本地路径形态判定矩阵|盘符、UNC、POSIX、file:、家目录、环境变量、路径穿越、仓库地址各形态|逐一返回对应规则名|node --test|PASS|
 |UT-CP-002|FR-028|边界|非路径值不误判|https 地址、prj UID、40 位 SHA、相对片段、ns:name、非字符串|均返回 null|node --test|PASS|
 |UT-CP-003|FR-028|安全|百分号编码的路径同等拒绝|C%3A%5Crepo、%2Fhome%2Fa、损坏编码|前两者命中规则；损坏编码按原文判定不抛错|node --test|PASS|
