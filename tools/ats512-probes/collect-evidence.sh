@@ -99,35 +99,30 @@ run 07-adr-citation-check.log \
   'every file:line citation in the baseline ADR still resolves' \
   python tools/check_adr_citations.py || fail=1
 
-# The two checks below are KNOWN to be red on `dev` itself, for reasons that
-# predate this task and are not caused by it. They are recorded (not skipped)
-# so the state is visible, but they do NOT fail this script -- otherwise the
+# The one check below is KNOWN to be red on `dev` itself, for reasons that
+# predate this task and are not caused by it. It is recorded (not skipped) so
+# the state is visible, but it does NOT fail this script -- otherwise the
 # script would be reporting someone else's defect as this task's.
 #
-#   * the ATS-101 hardcoded-port audit: ATS-103 added runtime port mentions
-#     (tools/ats103-probes/verify-export-and-proxy.mjs,
-#     tools/update_wbs_ats103.py) that the baseline ADR's port list does not
-#     enumerate. Verified by running the audit on `dev` itself: it is red
-#     there too, with the same two files missing.
 #   * the full node --test suite: IT-API-013 fails because
 #     examples/sample-playwright/ has no node_modules in this checkout. See
 #     09-baseline-regression.log, which reproduces the failure on the
 #     untouched reference tree.
 
 run 08-port-audit.log \
-  'the ATS-101 hardcoded-port audit (KNOWN red on dev since ATS-103)' \
-  node tools/ats101-probes/scenario-d-port-audit.mjs || known_fail=1
+  'the ATS-101 hardcoded-port audit' \
+  node tools/ats101-probes/scenario-d-port-audit.mjs || fail=1
 
 run 09-baseline-regression.log \
-  'the one failing suite test is reproduced on the untouched baseline tree' \
+  'the one failing suite test is reproduced on the untouched reference tree' \
   bash tools/ats512-probes/prove-baseline-regression.sh || known_fail=1
 
 echo
 if [ "$fail" -eq 0 ]; then
   echo 'RESULT: OK -- every ATS-512 check passed.'
   if [ "$known_fail" -ne 0 ]; then
-    echo 'NOTE: the known pre-existing failures (recorded, not caused by this task) are in'
-    echo '      08-port-audit.log and 09-baseline-regression.log.'
+    echo 'NOTE: the full suite still reports IT-API-013, which 09-baseline-regression.log'
+    echo '      reproduces on a tree without any ATS-512 code (pre-existing, ATS-301).'
   fi
   exit 0
 fi

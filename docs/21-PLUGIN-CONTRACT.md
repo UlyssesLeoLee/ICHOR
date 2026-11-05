@@ -157,7 +157,7 @@ SDK 的每个方法按同一顺序做三件事：**授权判定 → 作用域判
 
 ### 5.4 全量套件与既有失败
 
-`npm test` 在合并 dev 后的树上：**290 通过 / 1 失败 / 10 跳过**（`docs/evidence/ATS-512/04-full-test-suite.log`）。
+`npm test` 在合并 dev 后的树上：**380 通过 / 1 失败 / 10 跳过**（`docs/evidence/ATS-512/04-full-test-suite.log`）。
 
 唯一的失败是 **IT-API-013**，属 ATS-301：示例工程 `examples/sample-playwright/` 在本检出里没有 `node_modules`，适配器因此把必需能力报为不支持，协商返回 409 而不是 200。`tools/ats512-probes/prove-baseline-regression.sh` 用 `git archive` 导出 **dev 树**（不含本任务任何代码）复跑，**同一个测试在参考树上同样失败**——因此它是既有失败，不是本任务引入的回归（`docs/evidence/ATS-512/09-baseline-regression.log`）。它**不计为 PASS**。
 
@@ -165,12 +165,10 @@ SDK 的每个方法按同一顺序做三件事：**授权判定 → 作用域判
 
 | 检查 | 结果 | 输出 |
 |---|---|---|
-| WBS 更新器共存回归（9 个更新器） | OK | `docs/evidence/ATS-512/05-wbs-updater-regression.log` |
+| WBS 更新器共存回归（10 个更新器） | OK | `docs/evidence/ATS-512/05-wbs-updater-regression.log` |
 | ATS-501 远程协议契约审计（本任务消费它） | 108/108 OK | `docs/evidence/ATS-512/06-ats501-protocol-audit.log` |
 | 基线 ADR 的 `file:line` 引用全部解析 | OK | `docs/evidence/ATS-512/07-adr-citation-check.log` |
-| ATS-101 端口审计 | **红（dev 上同样红）** | `docs/evidence/ATS-512/08-port-audit.log` |
-
-端口审计为红的原因是 **ATS-103** 在 dev 上新增了运行时端口提及（`tools/ats103-probes/verify-export-and-proxy.mjs`、`tools/update_wbs_ats103.py`），基线 ADR 的端口清单未枚举它们。**本任务新增的任何文件都不含端口字面量**，因此与 ATS-512 无关；该状态记录在案，不计为本任务的失败。
+| ATS-101 硬编码端口审计 | OK | `docs/evidence/ATS-512/08-port-audit.log` |
 
 ## 6. API 面
 

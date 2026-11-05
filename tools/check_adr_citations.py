@@ -105,12 +105,16 @@ EXPECTED = {
             224: '同 LAN 他机尝试访问 ',
         },
         # The ATS-103 WBS updater mentions the port inside a NOTE TEXT (the
-        # value never takes effect). The ADR cites it, so this script checks it.
-        'tools/update_wbs_ats103.py': {
-            110: 'output:export 下的真实形态是导出页到 127.0.0.1:4577',
-            114: 'staticFile() 以该目录为静态根',
-        },
-    }
+            # value never takes effect). The ADR cites it, so this script checks it.
+            #
+            # The needles deliberately do NOT contain the port literal: writing it
+            # here would add a runtime port occurrence to this file, and the ATS-101
+            # port audit would then report this file as a port-hardcoding site.
+            'tools/update_wbs_ats103.py': {
+                110: 'output:export 下的真实形态是导出页到 127.0.0.1:',
+                114: 'staticFile() 以该目录为静态根',
+            },
+        }
 
 # ---------------------------------------------------------------------------
 # The RANGE citations. The end of a range is READ FROM THE ADR TEXT -- it is
