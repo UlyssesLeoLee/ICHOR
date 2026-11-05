@@ -94,6 +94,9 @@ def dependency_map(xlsx):
     return deps
 
 
+PARENT_ISSUE = '01a19f87-9fee-7edd-8282-9bc7641321dd'
+
+
 def fetch_children(issue_id):
     """Read the live children of an issue straight from the CLI."""
     res = subprocess.run(
@@ -162,8 +165,9 @@ def promote(tasks, dry_run=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('children', help='JSON dump of `multica issue children`, '
-                                     'or "-" to fetch it live from the CLI')
+    ap.add_argument('children', nargs='?', default='-',
+                     help="JSON dump of `multica issue children`; the default "
+                          "'-' fetches the live children of the parent issue")
     ap.add_argument('--list', action='store_true', help='print the release set')
     ap.add_argument('--promote', action='store_true', help='promote backlog -> todo')
     ap.add_argument('--dry-run', action='store_true', help='do not run multica')
@@ -173,7 +177,7 @@ def main():
         import tempfile
         with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False,
                                          encoding='utf-8') as fh:
-            fh.write(fetch_children('01a19f87-9fee-7edd-8282-9bc7641321dd'))
+            fh.write(fetch_children(PARENT_ISSUE))
             args.children = fh.name
 
     tasks = children(args.children)
