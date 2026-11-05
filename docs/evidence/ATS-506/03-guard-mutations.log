@@ -1,6 +1,6 @@
 === ATS-506 evidence: guard mutations on a temporary copy (each must be caught) ===
-date        : 2026-11-05T12:36:01Z (UTC)
-commit      : a1acd4ef7d3d599a604632790ee0f97373ff3ac0
+date        : 2026-11-05T12:39:10Z (UTC)
+commit      : bf34fdf3f03f03cfa873a9d4a77748a17beb4dd8
 node        : v24.19.0
 python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)

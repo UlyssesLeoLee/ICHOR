@@ -1,6 +1,6 @@
 === ATS-506 evidence: WBS updater coexistence regression (discovers tools/update_wbs_ats506.py) ===
-date        : 2026-11-05T12:36:01Z (UTC)
-commit      : a1acd4ef7d3d599a604632790ee0f97373ff3ac0
+date        : 2026-11-05T12:39:10Z (UTC)
+commit      : bf34fdf3f03f03cfa873a9d4a77748a17beb4dd8
 node        : v24.19.0
 python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -36,7 +36,7 @@ default enc: gbk (what the same interpreter would use without the forcing)
   PASS  the cached 总览 values equal the values derived from 开发WBS
 
 --- 5. the marked notes of every task survive ---
-  baseline markers: {'【ATS-102】': 5, '【ATS-101】': 5, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11}
+  baseline markers: {'【ATS-102】': 5, '【ATS-101】': 5, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11, '【ATS-506】': 1}
   current markers : {'【ATS-102】': 5, '【ATS-101】': 5, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11, '【ATS-506】': 1}
   PASS  every marked note of the baseline is still in the sheet
 

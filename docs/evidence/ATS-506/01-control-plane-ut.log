@@ -1,41 +1,41 @@
 === ATS-506 evidence: control-plane unit tests (UT-CP-001..030) with coverage of server/control-plane/* ===
-date        : 2026-11-05T12:36:01Z (UTC)
-commit      : a1acd4ef7d3d599a604632790ee0f97373ff3ac0
+date        : 2026-11-05T12:39:10Z (UTC)
+commit      : bf34fdf3f03f03cfa873a9d4a77748a17beb4dd8
 node        : v24.19.0
 python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command     : node --test --experimental-test-coverage --test-coverage-include=server/control-plane/** tests/control-plane.test.mjs
 
-✔ UT-CP-001: local path forms are detected with their rule name (1.5359ms)
-✔ UT-CP-002: values that are not local paths are not flagged (0.2182ms)
-✔ UT-CP-003: percent-encoded paths are refused like the plain form; malformed encoding falls back to the raw text (0.1155ms)
-✔ UT-CP-004: body inspection covers keys and values, nested objects and arrays, without echoing the value (0.9334ms)
-✔ UT-CP-005: path, repository-address and credential field names are classified (0.2204ms)
-✔ UT-CP-006: the local session token shape (48 hex) is refused; 40/64 hex are not (0.1406ms)
-✔ UT-CP-007: nesting deeper than 32 levels is refused; 32 levels pass (0.3224ms)
-✔ UT-CP-008: the code table equals the docs/19 constraint block code by code (0.7323ms)
-✔ UT-CP-009: unknown codes are programming errors; the audit reason never reaches the body (0.4736ms)
-✔ UT-CP-010: authenticators map requests to a tenant or an audit-only reason (0.8673ms)
-✔ UT-CP-011: dev token configuration is validated without echoing tokens (0.4597ms)
-✔ UT-CP-012: startup configuration defaults and accepted variants (3.4815ms)
-✔ UT-CP-013: unsafe startup configurations are refused with exit code 2 (0.3896ms)
-✔ UT-CP-014: HTTPS uses TLS 1.3 minimum; plain HTTP listens and reports the auth mode without tokens (30.4832ms)
-✔ UT-CP-015: health is public and carries no host details (3.858ms)
-✔ UT-CP-016: the local Bridge credential is refused on every route, with or without a valid Bearer (5.12ms)
-✔ UT-CP-017: browser Origin requests are refused (4.7385ms)
-✔ UT-CP-018: unknown routes, wrong methods and the local /api namespace are policy rejections (6.9018ms)
-✔ UT-CP-019: local paths in path segments or the query string are refused before routing (7.8282ms)
-✔ UT-CP-020: authentication failures share one code; the reason only reaches the audit trail (6.5642ms)
-✔ UT-CP-021: the tenant comes from the session; missing or mismatching tenants are refused (9.1274ms)
-✔ UT-CP-022: POST bodies must be JSON objects within 64 KiB (11.7358ms)
-✔ UT-CP-023: projects are registered and read by opaque UID only (6.9262ms)
-✔ UT-CP-024: another tenant cannot see a project; the answer equals a missing project (4.8395ms)
-✔ UT-CP-025: invalid display names, unknown fields, paths and credentials in the body are refused (10.5051ms)
-✔ UT-CP-026: a response that would carry a local path is never sent (egress guard) (4.5427ms)
-✔ UT-CP-027: an unexpected exception becomes REMOTE_INTERNAL without echoing its message; the audit trail is capped (302.4826ms)
-✔ UT-CP-028: the control-plane sources import no local Bridge module, Tauri API or child_process (1.4379ms)
-✔ UT-CP-029: the Tauri shell hosts only the local Bridge; the UI uses no Tauri API (1.1809ms)
-✔ UT-CP-030: the contract endpoint describes the boundary (3.6482ms)
+✔ UT-CP-001: local path forms are detected with their rule name (1.5098ms)
+✔ UT-CP-002: values that are not local paths are not flagged (0.2723ms)
+✔ UT-CP-003: percent-encoded paths are refused like the plain form; malformed encoding falls back to the raw text (0.1213ms)
+✔ UT-CP-004: body inspection covers keys and values, nested objects and arrays, without echoing the value (1.6145ms)
+✔ UT-CP-005: path, repository-address and credential field names are classified (0.2349ms)
+✔ UT-CP-006: the local session token shape (48 hex) is refused; 40/64 hex are not (0.1312ms)
+✔ UT-CP-007: nesting deeper than 32 levels is refused; 32 levels pass (0.3564ms)
+✔ UT-CP-008: the code table equals the docs/19 constraint block code by code (0.7709ms)
+✔ UT-CP-009: unknown codes are programming errors; the audit reason never reaches the body (0.4694ms)
+✔ UT-CP-010: authenticators map requests to a tenant or an audit-only reason (1.1986ms)
+✔ UT-CP-011: dev token configuration is validated without echoing tokens (0.9797ms)
+✔ UT-CP-012: startup configuration defaults and accepted variants (3.67ms)
+✔ UT-CP-013: unsafe startup configurations are refused with exit code 2 (0.4153ms)
+✔ UT-CP-014: HTTPS uses TLS 1.3 minimum; plain HTTP listens and reports the auth mode without tokens (33.464ms)
+✔ UT-CP-015: health is public and carries no host details (3.9808ms)
+✔ UT-CP-016: the local Bridge credential is refused on every route, with or without a valid Bearer (5.3445ms)
+✔ UT-CP-017: browser Origin requests are refused (4.6806ms)
+✔ UT-CP-018: unknown routes, wrong methods and the local /api namespace are policy rejections (6.8529ms)
+✔ UT-CP-019: local paths in path segments or the query string are refused before routing (8.8184ms)
+✔ UT-CP-020: authentication failures share one code; the reason only reaches the audit trail (6.8325ms)
+✔ UT-CP-021: the tenant comes from the session; missing or mismatching tenants are refused (9.6865ms)
+✔ UT-CP-022: POST bodies must be JSON objects within 64 KiB (12.7752ms)
+✔ UT-CP-023: projects are registered and read by opaque UID only (6.0458ms)
+✔ UT-CP-024: another tenant cannot see a project; the answer equals a missing project (5ms)
+✔ UT-CP-025: invalid display names, unknown fields, paths and credentials in the body are refused (11.0854ms)
+✔ UT-CP-026: a response that would carry a local path is never sent (egress guard) (5.1185ms)
+✔ UT-CP-027: an unexpected exception becomes REMOTE_INTERNAL without echoing its message; the audit trail is capped (307.2066ms)
+✔ UT-CP-028: the control-plane sources import no local Bridge module, Tauri API or child_process (1.9144ms)
+✔ UT-CP-029: the Tauri shell hosts only the local Bridge; the UI uses no Tauri API (1.2699ms)
+✔ UT-CP-030: the contract endpoint describes the boundary (4.1298ms)
 ℹ tests 30
 ℹ suites 0
 ℹ pass 30
@@ -43,7 +43,7 @@ command     : node --test --experimental-test-coverage --test-coverage-include=s
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 548.6137
+ℹ duration_ms 572.7006
 ℹ start of coverage report
 ℹ ----------------------------------------------------------------
 ℹ file            | line % | branch % | funcs % | uncovered lines
