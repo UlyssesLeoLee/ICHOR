@@ -259,7 +259,27 @@ const server=http.createServer(async(req,res)=>{
    // this project is listed.
    const forced=u.searchParams.get('authoritative');
    const catalog=await discoverTestsAsync(project,store,store.uidRegistry,forced===null?{}:{authoritative:forced==='true'});
-   store.uidRegistry=catalog.registry;saveState(store);
+   // The registry is written back CELL BY CELL, not as a whole.
+   //
+   // The listing is AWAITED, so between the moment the registry was read
+   // and the moment the answer is built, OTHER requests may have written
+   // their own cells into `store.uidRegistry`. Writing the whole snapshot
+   // back would therefore ERASE them: a slow listing of project A that
+   // finished after project B had been discovered would drop B's entries
+   // (measured by the round-2 reviewer: B's entries went from 2 to 0).
+   //
+   // So only the cell of THIS project is merged into the CURRENT registry,
+   // and the cells of the other projects are kept as they are now.
+   const cell=catalog.registry?.projects?.[project.uid]??catalog.registry?.projects?.[project.id];
+   store.uidRegistry={
+    ...store.uidRegistry,
+    version:catalog.registry?.version??store.uidRegistry?.version??1,
+    projects:{
+     ...(store.uidRegistry?.projects??{}),
+     ...(cell?{[catalog.projectUid??project.uid]:cell}:{})
+    }
+   };
+   saveState(store);
    return respond(res,200,{...catalog,project:cleanProject(project)});
   }
   if(action==='trust'&&req.method==='GET'){
