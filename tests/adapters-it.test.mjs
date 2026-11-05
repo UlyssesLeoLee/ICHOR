@@ -95,6 +95,47 @@ test('IT-ADP-005: negotiation over the real Playwright project proves the CLI op
   assert.ok(cli.detail.options.includes('output'));
 });
 
+test('IT-ADP-005B: the real Playwright CLI declares a positional test filter', { skip: !pwInstalled && 'examples/sample-playwright has no node_modules' }, () => {
+  // The negotiation and the execution must AGREE. `start()` passes the test
+  // file as a POSITIONAL argument, so `filterByFile` has to be reported as
+  // supported -- otherwise the adapter would refuse a capability it uses on
+  // every filtered run.
+  const a = createPlaywrightAdapter();
+  const cap = a.capabilities(pwProject).find((c) => c.name === 'filterByFile');
+  assert.equal(cap.supported, true, JSON.stringify(cap, null, 2));
+  // The reason must not survive on a supported capability.
+  assert.equal(cap.reason, '');
+  // The evidence must quote the SAME usage line the capability was derived
+  // from -- a claim that is not backed by the probed text is not evidence.
+  assert.match(cap.evidence, /positional argument/);
+  assert.ok(cap.detail.usage.length > 0);
+  assert.match(cap.evidence, new RegExp(cap.detail.usage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  // The usage line really does declare the positional filter.
+  assert.match(cap.detail.usage, /\[test-filter/i);
+
+  // ...and asking for it as a REQUIREMENT must NOT raise.
+  const r = requireCapability(a, pwProject, ['filterByFile']);
+  assert.equal(r.supported, true);
+  assert.equal(r.missing.length, 0);
+});
+
+test('IT-ADP-005C: the real Playwright run passes the filtered file as a positional argument', { skip: !pwInstalled && 'examples/sample-playwright has no node_modules' }, () => {
+  // The claim "filterByFile is supported" is only honest if the file really
+  // reaches the CLI as the positional argument. This asserts the argument
+  // vector, which is what the execution actually uses.
+  const a = createPlaywrightAdapter();
+  const out = path.join(tmp, 'pw-positional');
+  fs.mkdirSync(out, { recursive: true });
+  const handle = a.start({ project: pwProject, run: {}, file: 'tests/home.spec.ts', outputDir: out });
+  try {
+    const last = handle.args[handle.args.length - 1];
+    assert.equal(last, 'tests/home.spec.ts', JSON.stringify(handle.args));
+    assert.ok(!handle.args.some((a2) => a2.startsWith('--file')), 'the file must not be passed as an option');
+  } finally {
+    handle.child.kill();
+  }
+});
+
 test('IT-ADP-006: negotiation over the real WDIO project proves the reporter', { skip: !wdioInstalled && 'examples/sample-wdio has no node_modules' }, () => {
   const a = createWdioAdapter();
   const r = negotiate(a, wdioProject, ['discover', 'start', 'stop', 'collect', 'structuredReport']);
@@ -192,16 +233,75 @@ test('IT-ADP-010: both engines map their results onto the SAME model', { skip: (
   }
 });
 
-test('IT-ADP-011: stop() terminates a run that is in flight', { skip: !pwInstalled && 'examples/sample-playwright has no node_modules' }, async () => {
-  // A run that is cancelled must not keep the engine alive.
+/**
+ * Assert that stop() really terminated an in-flight run.
+ *
+ * The assertion has to be FALSIFIABLE: an earlier version of this test only
+ * checked "the exit code is not 0", which is constant for these fixtures
+ * (each contains a deliberately failing case), so a stop() that did nothing
+ * still passed. Two independent, falsifiable facts are asserted here:
+ *
+ *   1. the stopped run did NOT complete all cases -- the engine was killed
+ *      before it could produce a full report;
+ *   2. the stopped run finished measurably faster than the same run left
+ *      alone.
+ *
+ * Fact 1 is checked against the case count the fixture has (2). Fact 2 is
+ * checked against a natural baseline measured in the SAME test, so the
+ * threshold follows the machine instead of a magic number.
+ */
+async function assertStopTerminates(adapter, project, label, { settleMs = 500 } = {}) {
+  // --- baseline: the same run, left alone --------------------------------
+  const naturalOut = path.join(tmp, `${label}-natural`);
+  fs.mkdirSync(naturalOut, { recursive: true });
+  const t0 = Date.now();
+  const natural = adapter.start({ project, run: {}, file: null, outputDir: naturalOut });
+  const naturalCode = await waitForExit(natural.child);
+  const naturalMs = Date.now() - t0;
+  const naturalCollected = adapter.collect({ outputDir: naturalOut });
+  assert.ok(naturalCollected, `${label}: the natural run must produce a report`);
+  const naturalTotal = naturalCollected.summary.total;
+  assert.ok(naturalTotal > 0, `${label}: the natural run must report at least one case`);
+
+  // --- the run under test: stopped while in flight ----------------------
+  const stoppedOut = path.join(tmp, `${label}-stopped`);
+  fs.mkdirSync(stoppedOut, { recursive: true });
+  const t1 = Date.now();
+  const handle = adapter.start({ project, run: {}, file: null, outputDir: stoppedOut });
+  assert.ok(handle.pid > 0, `${label}: the run must have a pid`);
+  // Let the engine actually get going, then stop it mid-flight.
+  await new Promise((r) => setTimeout(r, settleMs));
+  adapter.stop(handle);
+  await waitForExit(handle.child, 30000);
+  const stoppedMs = Date.now() - t1;
+
+  // FACT 1: the stopped run did not complete all cases.
+  const stoppedCollected = adapter.collect({ outputDir: stoppedOut });
+  const stoppedTotal = stoppedCollected ? stoppedCollected.summary.total : 0;
+  assert.ok(
+    stoppedTotal < naturalTotal,
+    `${label}: a stopped run must not complete all cases (stopped=${stoppedTotal}, natural=${naturalTotal})`,
+  );
+
+  // FACT 2: the stopped run finished measurably faster than the natural one.
+  assert.ok(
+    stoppedMs < naturalMs,
+    `${label}: a stopped run must be faster than a natural run (stopped=${stoppedMs}ms, natural=${naturalMs}ms)`,
+  );
+
+  return { naturalMs, stoppedMs, naturalTotal, stoppedTotal, naturalCode };
+}
+
+test('IT-ADP-011: stop() terminates a Playwright run that is in flight', { skip: !pwInstalled && 'examples/sample-playwright has no node_modules' }, async () => {
   const a = createPlaywrightAdapter();
-  const out = path.join(tmp, 'pw-cancel');
-  fs.mkdirSync(out, { recursive: true });
-  const handle = a.start({ project: pwProject, run: {}, file: null, outputDir: out });
-  assert.ok(handle.pid > 0);
-  a.stop(handle);
-  const code = await waitForExit(handle.child, 30000);
-  assert.notEqual(code, 0, 'a cancelled run must not report success');
+  const r = await assertStopTerminates(a, pwProject, 'pw-stop');
+  assert.ok(r.stoppedTotal < r.naturalTotal, JSON.stringify(r));
+});
+
+test('IT-ADP-011B: stop() terminates a WebdriverIO run that is in flight', { skip: !wdioInstalled && 'examples/sample-wdio has no node_modules' }, async () => {
+  const a = createWdioAdapter();
+  const r = await assertStopTerminates(a, wdioProject, 'wdio-stop');
+  assert.ok(r.stoppedTotal < r.naturalTotal, JSON.stringify(r));
 });
 
 test('IT-ADP-CLEANUP: removes the generated fixture', () => {

@@ -264,8 +264,28 @@ WDIO は**設定ファイル駆動**である。flat な引数ベクタでエン
 | `CAPABILITY_UNSUPPORTED` | 409 | 指定された runner が要求を満たせない（`preferred` 指定時のフォールバック禁止） |
 | `NO_RUNNER_SUPPORTS_REQUEST` | 409 | どの runner も要求を満たせない |
 | `UNKNOWN_RUNNER` | 404 | 未知の runner 名 |
+| `CAPABILITIES_NOT_AN_ARRAY` | 400 | `capabilities` が配列でない（黙って空要求にしない） |
+
+**409 のレスポンスには理由が伴う。** `error` コードだけでは呼び出し側に「何が足りなかったのか」が伝わらないので、409 のボディは失敗した要求の理由を持つ:
+
+```json
+{
+  "error": "NO_RUNNER_SUPPORTS_REQUEST",
+  "missing": [ { "name": "filterByFile", "kind": "capability", "reason": "..." } ],
+  "rejected": [ { "kind": "playwright", "missing": [ { "name": "...", "kind": "...", "reason": "..." } ] } ]
+}
+```
+
+- `missing[]` — 要求された capability のうち満たせなかったもの。`name` / `kind` / `reason`（アダプタが返した説明）を運ぶ。`runner` 指定で落ちた場合は `runner` も付く。
+- `rejected[]` — 順に試した runner ごとの理由。どの runner がなぜ落ちたかを区別したい場合に見る。
+
+`reason` は**アダプタが返した文言をそのまま**運ぶ（ Bridge 側で文言を作り直さない）。
 
 **既定の `/run` は v0.1 の契約を保つ。**  要求が明示されていない既定呼び出しでは、202 を返し `status='error'` と理由（エンジン未インストール等）で**明示的に失敗**する（`docs/04-DETAILED-DESIGN.md` §7 の `PLAYWRIGHT_NOT_INSTALLED...` 相当）。一方、**明示的な能力要求**が交渉（negotiation）失敗した場合は 409 と理由を返す（500 ではない）。
+
+**`runner` を指定した呼び出しはフォールバックしない。** 別のエンジンを勝手に走らせると、呼び出し側が要求していないエンジンを実行することになるため、その runner で満たせない場合は 409 を返す。
+
+**`capabilities` が配列でない場合は 400。** 黙って空の要求（=全 capability 相当）に落とすと、要求したつもりではないものが走る。
 
 ---
 
@@ -291,6 +311,21 @@ Playwright CLI には `--screenshot` / `--video` が無い。これらは `playw
 
 ## 9. 未実装・未実測（正直な Declarations）
 
+### 9.0 Bridge 側の経路の正確な範囲
+
+**Bridge が契約メソッドを呼ぶのは `start` と `collect` だけである。** `discover` と `stop` は v0.1 の経路のまま:
+
+| 操作 | Bridge の経路 | 契約か否か |
+|---|---|---|
+| discover | `GET /api/projects/:id/tests` → `discoverStatic()`（`server/core.mjs`） | **契約ではない**（v0.1 経路） |
+| start | `adapter.start({project, run, file, outputDir})` | 契約 |
+| stop | `POST /api/runs/:id/stop` → `cancelRun()` が `taskkill` を inline 実行（`server/index.mjs`） | **契約ではない**（v0.1 経路） |
+| collect | `adapter.collect({outputDir})` | 契約 |
+
+したがって**「Bridge 側 只调用契约方法」という主張は成り立たない**。アダプタ層（`server/adapters/*`）だけが 4 操作を契約として実装しており、HTTP 層はそのうち 2 つしか契約を通していない。`discover` / `stop` を契約へ寄せる作業は Bridge 経路の差し替えを伴い本項のスコープ外なので、§9 に明記する。
+
+### 9.1 未実装・未実測の一覧
+
 | 項目 | 状態 | 理由 / 担当 |
 |---|---|---|
 | `filterByTestUid`（両エンジン） | DESIGNED | 安定 UID 仕様は FR-021 / ATS-307（別 WBS） |
@@ -301,6 +336,8 @@ Playwright CLI には `--screenshot` / `--video` が無い。これらは `playw
 | 複数 spec を 1 ワーカーで走らせた場合の WDIO ケース→ファイル割当 | 部分 | reporter が suite に file を持たないため、空欄＋`unattributedCases` で表現する |
 | macOS / Linux での実測 | 未実測 | 本机和は Windows 11 のみ。CI は Windows |
 | 複数ワーカー（`maxInstances>1`）での WDIO 統合 | 実測済（2 ワーカー） | fixture は `maxInstances:1` だが、実測では 2 ワーカーが生成された（spec ごとにワーカー） |
+| `capabilities()` の同期プローブとキャッシュ | 実装済（既知の弱点） | `spawnSync` による同期プローブでキャッシュが無い。実測で PW 約 0.5s / WDIO 約 1.1s。Bridge のイベントループをブロックする。`GET /runners` の実測応答は約 824ms |
+| `stop` / `cancel` / `discover` / `nativeBrowser` の `evidence` | 静的文言 | これらの evidence 文言は**この場で測定した事実ではなく**、実装に基づく説明である。§4 ルール 2（証明されたものだけを supported:true にする）の観点では、`cliContract` / `structuredReport` / `filterByFile` のように実測で裏付けられたものと区別して読むこと |
 
 ---
 
@@ -312,7 +349,29 @@ Playwright CLI には `--screenshot` / `--video` が無い。これらは `playw
 | `docs/04-DETAILED-DESIGN.md` §3/§4/§7 | 状態機械、Playwright 実行命令、エラー码 |
 | `docs/16-BASELINE-ADR.md` §4 B-01 | 本契約が存在する理由（引数ベクタの推測禁止） |
 | `docs/07-UT-TEST-DESIGN.md` / `docs/08-IT-TEST-DESIGN.md` | 本書の UT/IT 該当範囲 |
-| `docs/evidence/ATS-301/` | 実測ログ |
+| `docs/evidence/ATS-301/` | 実測ログ（下表） |
 | `tools/ats301-probes/` | 再現スクリプト（ground truth / repeat / debug） |
 | `server/adapters/` | 実装（contract / playwright / playwright-cli / wdio / registry） |
 | `tests/adapters.test.mjs` / `tests/adapters-engines.test.mjs` / `tests/adapters-it.test.mjs` | UT / UT(エンジン) / IT |
+| `tests/api.test.mjs` | HTTP 層（capability 协商 / 409 の理由 / 400） |
+
+### 10.1 実測ログの一覧（`docs/evidence/ATS-301/`）
+
+| ファイル | 何の証拠か | 再現コマンド |
+|---|---|---|
+| `00-npm-test-full.log` | 全量テスト 177/177 pass | `npm test` |
+| `01-playwright-ground-truth.log` | 実 Playwright（`@playwright/test` 1.64.1）での ground truth | `node tools/ats301-probes/playwright-ground-truth.mjs` |
+| `02-wdio-ground-truth.log` | 実 WebdriverIO 10.1.0 での ground truth | `node tools/ats301-probes/wdio-ground-truth.mjs` |
+| `03-adr-citations.log` | ADR の全 `path:line` 引用が解決し、fix script が冪等であることの実測 | `PYTHONUTF8=1 python tools/check_adr_citations.py` |
+| `04-stop-noop-mutation.log` | `stop()` の no-op 変異で stop の IT が赤くなる（assertion が恒真でない）ことの実測 | `node --test tests/adapters-it.test.mjs` |
+| `05-http-409-reason-mutation.log` | 409 の理由生成を潰すと HTTP IT が赤くなることの実測 | `node --test tests/api.test.mjs` |
+
+### 10.2 門禁
+
+```
+bash tools/ats301-probes/check-ats301-gate.sh
+```
+
+WBS の共有セル回帰テスト（`tools/test_wbs_common.py`）と ADR 引用チェック（`tools/check_adr_citations.py`）をまとめて走らせる。
+スクリプト自身が `PYTHONUTF8=1` / `PYTHONIOENCODING=utf-8` を設定し、解釈系と stdout エンコーディングを evidence に記録する
+（既定の Windows コンソールは stdout が ANSI コードページ (gbk/cp936) になり、中国語を含む出力が壊れる）。

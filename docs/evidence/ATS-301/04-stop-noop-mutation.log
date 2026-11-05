@@ -1,0 +1,33 @@
+ATS-301 证据 04：stop() 的可证伪性（no-op 变异验证）
+
+目的：复核指出原 IT-ADP-011 只断言「退出码 != 0」，而本 fixture 本身含一条
+故意失败的用例，退出码恒为 1，因此把 stop() 改成 no-op 后测试依然 PASS。
+本日志记录改造后的断言在 no-op 变异下确实变红。
+
+变异内容（server/adapters/playwright.mjs 与 server/adapters/wdio.mjs 的 stop()）：
+    stop(handle) {
+      if (!handle || !handle.child) throw new Error('RUN_NOT_ACTIVE');
+      // MUTATION (no-op stop) -- the test must go red.
+    },
+
+命令：
+    node --test --test-name-pattern="IT-ADP-011" tests/adapters-it.test.mjs
+
+结果（变异生效，stop() 什么都不做）：
+    tests 2
+    pass 0
+    fail 2
+
+✖ IT-ADP-011: stop() terminates a Playwright run that is in flight
+  AssertionError: pw-stop: a stopped run must not complete all cases (stopped=2, natural=2)
+
+✖ IT-ADP-011B: stop() terminates a WebdriverIO run that is in flight
+  AssertionError: wdio-stop: a stopped run must not complete all cases (stopped=2, natural=2)
+
+结论：两条断言在 stop() 被改成 no-op 后同时变红，说明它们对 stop() 的行为
+敏感（可证伪）。恢复原实现后两条均 PASS（见 01-npm-test-full.log）。
+
+断言的两条独立事实：
+  1. 被 stop 的那次运行没有跑完全部用例（stopped < natural）；
+  2. 被 stop 的那次运行明显快于自然跑完（stoppedMs < naturalMs）。
+自然基线在同一个测试里实测，不使用写死的阈值。
