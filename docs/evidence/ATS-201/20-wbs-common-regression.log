@@ -15,6 +15,7 @@ PASS 【ATS-301】 is idempotent
 PASS 【ATS-401】 is idempotent
 PASS 【ATS-501】 is idempotent
 PASS 【ATS-506】 is idempotent
+PASS 【ATS-512】 is idempotent
 PASS at least one updater declares a marker
 PASS update_wbs_ats101.py declares exactly one marker
 PASS 【ATS-101】 (from update_wbs_ats101.py) is registered in MARKERS
@@ -32,6 +33,8 @@ PASS update_wbs_ats501.py declares exactly one marker
 PASS 【ATS-501】 (from update_wbs_ats501.py) is registered in MARKERS
 PASS update_wbs_ats506.py declares exactly one marker
 PASS 【ATS-506】 (from update_wbs_ats506.py) is registered in MARKERS
+PASS update_wbs_ats512.py declares exactly one marker
+PASS 【ATS-512】 (from update_wbs_ats512.py) is registered in MARKERS
 PASS the declared markers are exactly MARKERS
 
 all checks passed

@@ -9,10 +9,10 @@ HTTP 201
     "uid": "proj_1_1f1412feeb30225786dfe25c",
     "name": "sample-playwright",
     "root": "C:\\Users\\seiko\\multica_workspaces_desktop-api.multica.ai\\triton-n4hv-4bc6c5b98085\\seikoist-16-fc995df3961a\\worktree\\examples\\sample-playwright",
-    "addedAt": "2026-11-05T17:02:45.377Z",
+    "addedAt": "2026-11-05T17:14:40.439Z",
     "git": {
       "branch": "agent/m3/seikoist-162-fc995df3961a",
-      "commit": "0871819",
+      "commit": "89d8cbd",
       "dirty": true
     }
   }
@@ -55,19 +55,19 @@ HTTP 201
 --- POST /api/projects/:uid/run ---
 {
   "status": "error",
-  "id": "run_1_a5fb9b9010f8b33c3ecb5f1d",
-  "uid": "run_1_a5fb9b9010f8b33c3ecb5f1d",
+  "id": "run_1_f5a3aeb3ad796972b64163d6",
+  "uid": "run_1_f5a3aeb3ad796972b64163d6",
   "seq": 1,
   "projectId": "proj_1_1f1412feeb30225786dfe25c",
   "projectUid": "proj_1_1f1412feeb30225786dfe25c",
-  "gitCommit": "0871819"
+  "gitCommit": "89d8cbd"
 }
 
 --- GET /api/runs (abridged) ---
 [
   {
-    "id": "run_1_a5fb9b9010f8b33c3ecb5f1d",
-    "uid": "run_1_a5fb9b9010f8b33c3ecb5f1d",
+    "id": "run_1_f5a3aeb3ad796972b64163d6",
+    "uid": "run_1_f5a3aeb3ad796972b64163d6",
     "seq": 1,
     "status": "error",
     "projectUid": "proj_1_1f1412feeb30225786dfe25c"
@@ -79,7 +79,7 @@ HTTP 201
   "runtime": "v24.19.0",
   "server": "Node.js bridge",
   "platform": "win32",
-  "pid": 16088,
+  "pid": 35760,
   "environment": "local",
   "limitations": [
     "Local trusted repositories only",
@@ -93,6 +93,14 @@ HTTP 201
     "status": "CONTRACT_ONLY",
     "note": "The agent contract is defined and enforced; no model provider is wired, so no agent request can reach a model.",
     "writePolicy": "Agents produce diffs only; applying a diff, updating expected results and committing are platform-side operations performed after review."
+  },
+  "pluginContract": {
+    "version": "plugin-contract/v1",
+    "status": "CONTRACT_ONLY",
+    "note": "The plugin contract, the permission list and the SDK operation surface are defined and enforced; no plugin host, loader or sandbox exists, so no plugin can be loaded or run.",
+    "grantPolicy": "A manifest declares permissions; the host grants them. The effective set is the declared set intersected with the host policy tier.",
+    "auditPolicy": "Every SDK call produces an audit event in the host sink, including the denied ones. The plugin cannot suppress it.",
+    "evidencePolicy": "The SHA-256 of an evidence reference is computed by the host resolver, never supplied by the plugin."
   }
 }
 === exit code: 0 ===
