@@ -1,39 +1,39 @@
 === the execution model unit suite ===
 repo root : /d/ICHOR
-commit    : 3055ad2
+commit    : a916ad4
 branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ UT-EXE-001: every engine status maps onto the common vocabulary (0.6953ms)
-✔ UT-EXE-002: an unknown status becomes unknown, not a guess (0.1098ms)
-✔ UT-EXE-003: the terminal run statuses are the ones a run never leaves (0.1026ms)
-✔ UT-EXE-004: a retried case is ONE case that keeps EVERY attempt (0.5952ms)
-✔ UT-EXE-005: the counters count the CASES, never the executions (0.2644ms)
-✔ UT-EXE-006: the aggregation of the attempts follows the documented order (0.3471ms)
-✔ UT-EXE-007: two cases with the same title in one file stay two cases (0.2575ms)
-✔ UT-EXE-008: a case with no execution still exists and is counted once (0.1599ms)
-✔ UT-EXE-009: the attempts of one case share the TestDefinition UID (2.4977ms)
-✔ UT-EXE-010: the events of a run replay into its terminal status (0.7598ms)
-✔ UT-EXE-011: an interrupted run replays into `interrupted` (0.1192ms)
-✔ UT-EXE-012: the replay follows the SEQUENCE, not the order of the array (0.1072ms)
-✔ UT-EXE-013: a hole in the sequence is reported, not hidden (0.1223ms)
-✔ UT-EXE-014: an empty stream determines no status (0.0926ms)
-✔ UT-EXE-015: the sequence of a run is gap-free and starts at 1 (0.0934ms)
-✔ UT-EXE-016: the state machine refuses the transitions it can disprove (0.0786ms)
-✔ UT-EXE-017: the event that names the status is the last one of the stream (0.1421ms)
-✔ UT-EXE-018: the unified view carries the run, the cases and the attempts (0.3517ms)
-✔ UT-EXE-019: an empty report does not crash and reports zero (0.0697ms)
-✔ UT-EXE-020: an expected failure is a PASSED case, not a failed one (0.1216ms)
-✔ UT-EXE-021: an UNEXPECTED pass is a FAILED case, not a passed one (0.0969ms)
-✔ UT-EXE-022: the counters of a run agree with the engine's own stats (0.1898ms)
-✔ UT-EXE-023: an execution without a declared expectation is not a guess (0.0681ms)
-✔ UT-EXE-023B: the per-project verdicts decide the case, not the attempt mix (0.1006ms)
-✔ UT-EXE-024: a stream that violates the state machine is NOT valid (0.0972ms)
-✔ UT-EXE-025: a stream that obeys the state machine is valid (0.0773ms)
-✔ UT-EXE-026: a torn line is skipped and REPORTED, not fatal (0.2129ms)
-✔ UT-EXE-027: an intact log reports no damage (0.0874ms)
-✔ UT-EXE-028: the state diagram of the design document agrees with the code (0.745ms)
+✔ UT-EXE-001: every engine status maps onto the common vocabulary (0.7611ms)
+✔ UT-EXE-002: an unknown status becomes unknown, not a guess (0.1157ms)
+✔ UT-EXE-003: the terminal run statuses are the ones a run never leaves (0.1146ms)
+✔ UT-EXE-004: a retried case is ONE case that keeps EVERY attempt (0.6056ms)
+✔ UT-EXE-005: the counters count the CASES, never the executions (0.1684ms)
+✔ UT-EXE-006: the aggregation of the attempts follows the documented order (0.1494ms)
+✔ UT-EXE-007: two cases with the same title in one file stay two cases (0.149ms)
+✔ UT-EXE-008: a case with no execution still exists and is counted once (0.1439ms)
+✔ UT-EXE-009: the attempts of one case share the TestDefinition UID (2.5419ms)
+✔ UT-EXE-010: the events of a run replay into its terminal status (0.764ms)
+✔ UT-EXE-011: an interrupted run replays into `interrupted` (0.1208ms)
+✔ UT-EXE-012: the replay follows the SEQUENCE, not the order of the array (0.1196ms)
+✔ UT-EXE-013: a hole in the sequence is reported, not hidden (0.108ms)
+✔ UT-EXE-014: an empty stream determines no status (0.0744ms)
+✔ UT-EXE-015: the sequence of a run is gap-free and starts at 1 (0.07ms)
+✔ UT-EXE-016: the state machine refuses the transitions it can disprove (0.0608ms)
+✔ UT-EXE-017: the event that names the status is the last one of the stream (0.1731ms)
+✔ UT-EXE-018: the unified view carries the run, the cases and the attempts (0.3714ms)
+✔ UT-EXE-019: an empty report does not crash and reports zero (0.0802ms)
+✔ UT-EXE-020: an expected failure is a PASSED case, not a failed one (0.1305ms)
+✔ UT-EXE-021: an UNEXPECTED pass is a FAILED case, not a passed one (0.0854ms)
+✔ UT-EXE-022: the counters of a run agree with the engine's own stats (0.1752ms)
+✔ UT-EXE-023: an execution without a declared expectation is not a guess (0.0759ms)
+✔ UT-EXE-023B: the per-project verdicts decide the case, not the attempt mix (0.1048ms)
+✔ UT-EXE-024: a stream that violates the state machine is NOT valid (0.0889ms)
+✔ UT-EXE-025: a stream that obeys the state machine is valid (0.0715ms)
+✔ UT-EXE-026: a torn line is skipped and REPORTED, not fatal (0.2177ms)
+✔ UT-EXE-027: an intact log reports no damage (0.09ms)
+✔ UT-EXE-028: the state diagram of the design document agrees with the code (0.7447ms)
 ℹ tests 29
 ℹ suites 0
 ℹ pass 29
@@ -41,6 +41,6 @@ python    : Python 3.11.16
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 96.8414
+ℹ duration_ms 95.9863
 
 exit code : 0

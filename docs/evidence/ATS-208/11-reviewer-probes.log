@@ -1,6 +1,6 @@
 === the probes of the first review round ===
 repo root : /d/ICHOR
-commit    : 3055ad2
+commit    : a916ad4
 node      : v24.19.0
 
 probes    : .work/r1/probes/probes
@@ -55,10 +55,10 @@ ok   S1 the tip Bridge starts and recovers the run
 == S2: the last line of events.jsonl is torn ==
    tip : up {"replayHttp":200,"eventsHttp":200,"runStatus":"interrupted","replayedStatus":"interrupted"}
    events.jsonl after the tip boot:
-     {"seq":1,"at":"2026-11-05T21:43:40.813Z","type":"run.queued","data":{"file":"tests/slow.spec.ts","runner":"playwright"}}
-     {"seq":2,"at":"2026-11-05T21:43:40.880Z","type":"run.started","data":{"pid":35740,"runner":"playwright"}}
+     {"seq":1,"at":"2026-11-05T22:07:29.191Z","type":"run.queued","data":{"file":"tests/slow.spec.ts","runner":"playwright"}}
+     {"seq":2,"at":"2026-11-05T22:07:29.259Z","type":"run.started","data":{"pid":39220,"runner":"playwright"}}
      {"seq":3,"at":"2026-11-06T00:00:00.000Z","ty
-     {"seq":3,"at":"2026-11-05T21:43:46.437Z","type":"run.interrupted","data":{"reason":"Server restarted while run was active"}}
+     {"seq":3,"at":"2026-11-05T22:07:34.774Z","type":"run.interrupted","data":{"reason":"Server restarted while run was active"}}
      
 ok   S2 the run stays readable after a torn tail (replay 200)  -- {"replayHttp":200,"eventsHttp":200,"runStatus":"interrupted","replayedStatus":"interrupted"}
 == S3: the Bridge died after appending run.finished, before saveState (the finishRun collect window) ==
