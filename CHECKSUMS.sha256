@@ -59,7 +59,7 @@ cf76362fbd72a1122ea44ef70624345b655428010928747e1e1513cbd810c9e8  docs/evidence/
 e7c93b1f68387de31ade40680aad2f08d87ca73f505dd1efdd075646d63fa047  docs/evidence/ATS-102/15-node22-gate-8-steps-final.log
 e62f0b640c16ffeca99a09db630ed14d0f8174b90080bfb3c238a6a193bc76c6  docs/evidence/ATS-102/16-manifest-drift-and-line-endings.log
 0c40a572db05465b4015ff30c3080f3daf23cbd4693c44c1ddf61c2932af6c05  docs/evidence/ATS-102/17-line-ending-independent-digest.log
-1cd1046154084a69f02b2a6a1e15acd9f3688b4690b88e69066dec607604028d  docs/evidence/ATS-301/00-npm-test-full.log
+00afbcf139fd38b591b694bc0fa03adeb82e08f40b7ecfdca44829f7b2c93764  docs/evidence/ATS-301/00-npm-test-full.log
 6e9600f91c11576f76a8848451f49606cbcf3e2ad90eb97038dddccf4ece519f  docs/evidence/ATS-301/01-playwright-ground-truth.log
 64b89f5c8e2acfee0974bea36ef04332026d363a980ea4bc8322bfc03ed4a6d4  docs/evidence/ATS-301/02-wdio-ground-truth.log
 e568acf58a9af9910a443aa3dfc1c6c87da19c3e0f8b79deec078aa3c983de37  docs/evidence/ATS-301/03-adr-citations.log
