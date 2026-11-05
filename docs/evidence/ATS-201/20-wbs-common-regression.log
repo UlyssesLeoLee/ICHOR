@@ -9,15 +9,19 @@ PASS the foreign marker survives
 PASS the own marker is present
 PASS 【ATS-101】 is idempotent
 PASS 【ATS-102】 is idempotent
+PASS 【ATS-103】 is idempotent
 PASS 【ATS-201】 is idempotent
 PASS 【ATS-301】 is idempotent
 PASS 【ATS-401】 is idempotent
 PASS 【ATS-501】 is idempotent
+PASS 【ATS-506】 is idempotent
 PASS at least one updater declares a marker
 PASS update_wbs_ats101.py declares exactly one marker
 PASS 【ATS-101】 (from update_wbs_ats101.py) is registered in MARKERS
 PASS update_wbs_ats102.py declares exactly one marker
 PASS 【ATS-102】 (from update_wbs_ats102.py) is registered in MARKERS
+PASS update_wbs_ats103.py declares exactly one marker
+PASS 【ATS-103】 (from update_wbs_ats103.py) is registered in MARKERS
 PASS update_wbs_ats201.py declares exactly one marker
 PASS 【ATS-201】 (from update_wbs_ats201.py) is registered in MARKERS
 PASS update_wbs_ats301.py declares exactly one marker
@@ -26,6 +30,8 @@ PASS update_wbs_ats401.py declares exactly one marker
 PASS 【ATS-401】 (from update_wbs_ats401.py) is registered in MARKERS
 PASS update_wbs_ats501.py declares exactly one marker
 PASS 【ATS-501】 (from update_wbs_ats501.py) is registered in MARKERS
+PASS update_wbs_ats506.py declares exactly one marker
+PASS 【ATS-506】 (from update_wbs_ats506.py) is registered in MARKERS
 PASS the declared markers are exactly MARKERS
 
 all checks passed

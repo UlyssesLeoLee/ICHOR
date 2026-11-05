@@ -6,7 +6,7 @@ node tools/ats201-probes/attempt-binding-real-pw.mjs
 --- 1. a real Playwright run produces the report ---
    playwright rootDir : C:/Users/seiko/AppData/Local/Temp/ats201-real-pw/project/tests
    reported spec.file : dup-a.spec.ts, dup-b.spec.ts
-PASS  the real Playwright ran  -- {"startTime":"2026-11-05T13:14:01.098Z","duration":846.0640000000001,"expected":2,"skipped":0,"unexpected":0,"flaky":0}
+PASS  the real Playwright ran  -- {"startTime":"2026-11-05T17:02:33.296Z","duration":1056.702,"expected":2,"skipped":0,"unexpected":0,"flaky":0}
 
 --- 2. the registry of the product code ---
    tc_1_d_d01dd015b12962dc  (derived-body)  tests/dup-a.spec.ts:2  duplicate title

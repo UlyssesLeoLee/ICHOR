@@ -5,14 +5,14 @@ node tools/ats201-probes/api-surface.mjs
 HTTP 201
 {
   "project": {
-    "id": "proj_1_ca6839ba65ccad2b83b768f6",
-    "uid": "proj_1_ca6839ba65ccad2b83b768f6",
+    "id": "proj_1_1f1412feeb30225786dfe25c",
+    "uid": "proj_1_1f1412feeb30225786dfe25c",
     "name": "sample-playwright",
-    "root": "C:\\Users\\seiko\\multica_workspaces_desktop-api.multica.ai\\triton-n4hv-4bc6c5b98085\\seikoist-16-ef22b10e5916\\worktree\\examples\\sample-playwright",
-    "addedAt": "2026-11-05T13:14:11.768Z",
+    "root": "C:\\Users\\seiko\\multica_workspaces_desktop-api.multica.ai\\triton-n4hv-4bc6c5b98085\\seikoist-16-fc995df3961a\\worktree\\examples\\sample-playwright",
+    "addedAt": "2026-11-05T17:02:45.377Z",
     "git": {
-      "branch": "agent/m3/seikoist-162-ef22b10e5916",
-      "commit": "c8f8ed1",
+      "branch": "agent/m3/seikoist-162-fc995df3961a",
+      "commit": "0871819",
       "dirty": true
     }
   }
@@ -21,15 +21,15 @@ HTTP 201
 --- GET /api/projects/:uid/tests (abridged) ---
 {
   "uidVersion": 1,
-  "projectUid": "proj_1_ca6839ba65ccad2b83b768f6",
+  "projectUid": "proj_1_1f1412feeb30225786dfe25c",
   "warning": "静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试请以 Playwright --list 为准。",
   "files": [
     "tests/home.spec.ts"
   ],
   "tests": [
     {
-      "id": "tc_1_d_336cfa6b5f75b01c",
-      "uid": "tc_1_d_336cfa6b5f75b01c",
+      "id": "tc_1_d_5d05985a0720cfff",
+      "uid": "tc_1_d_5d05985a0720cfff",
       "uidSource": "derived",
       "uidStable": true,
       "file": "tests/home.spec.ts",
@@ -39,8 +39,8 @@ HTTP 201
       "level": "ST"
     },
     {
-      "id": "tc_1_d_c12ca4d0c30f424c",
-      "uid": "tc_1_d_c12ca4d0c30f424c",
+      "id": "tc_1_d_b022ac53aa9a011f",
+      "uid": "tc_1_d_b022ac53aa9a011f",
       "uidSource": "derived",
       "uidStable": true,
       "file": "tests/home.spec.ts",
@@ -54,23 +54,23 @@ HTTP 201
 
 --- POST /api/projects/:uid/run ---
 {
-  "status": "running",
-  "id": "run_1_2f7fc542344d87b2ecd702e3",
-  "uid": "run_1_2f7fc542344d87b2ecd702e3",
+  "status": "error",
+  "id": "run_1_a5fb9b9010f8b33c3ecb5f1d",
+  "uid": "run_1_a5fb9b9010f8b33c3ecb5f1d",
   "seq": 1,
-  "projectId": "proj_1_ca6839ba65ccad2b83b768f6",
-  "projectUid": "proj_1_ca6839ba65ccad2b83b768f6",
-  "gitCommit": "c8f8ed1"
+  "projectId": "proj_1_1f1412feeb30225786dfe25c",
+  "projectUid": "proj_1_1f1412feeb30225786dfe25c",
+  "gitCommit": "0871819"
 }
 
 --- GET /api/runs (abridged) ---
 [
   {
-    "id": "run_1_2f7fc542344d87b2ecd702e3",
-    "uid": "run_1_2f7fc542344d87b2ecd702e3",
+    "id": "run_1_a5fb9b9010f8b33c3ecb5f1d",
+    "uid": "run_1_a5fb9b9010f8b33c3ecb5f1d",
     "seq": 1,
-    "status": "running",
-    "projectUid": "proj_1_ca6839ba65ccad2b83b768f6"
+    "status": "error",
+    "projectUid": "proj_1_1f1412feeb30225786dfe25c"
   }
 ]
 
@@ -79,7 +79,7 @@ HTTP 201
   "runtime": "v24.19.0",
   "server": "Node.js bridge",
   "platform": "win32",
-  "pid": 30080,
+  "pid": 16088,
   "environment": "local",
   "limitations": [
     "Local trusted repositories only",
