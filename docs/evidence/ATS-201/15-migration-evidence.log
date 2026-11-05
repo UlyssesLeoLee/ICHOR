@@ -1,3 +1,6 @@
+=== command ===
+node tools/ats201-probes/migration-evidence.mjs
+=== output ===
 # ATS-201 migration evidence
 
 ## legacy state file (input)
@@ -54,6 +57,7 @@ projects: 1, runs: 1, changes: 2
 backup written: C:\Users\seiko\AppData\Local\Temp\ats201-migration-evidence\state.json.bak
 run folder renamed: run_22222222-2222-2222-2222-222222222222 -> run_1_fc33f5d2e0b8d82d8af99184
 migrated: C:\Users\seiko\AppData\Local\Temp\ats201-migration-evidence\state.json
+rollback: node tools/migrate_uids.mjs --state C:\Users\seiko\AppData\Local\Temp\ats201-migration-evidence\state.json --rollback
 
 ## idempotency
 
@@ -127,3 +131,4 @@ exit code: 1
 file content afterwards: { not json
 
 RESULT: ALL CHECKS PASSED
+=== exit code: 0 ===

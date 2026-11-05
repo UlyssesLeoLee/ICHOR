@@ -1,0 +1,50 @@
+=== command ===
+node tools/ats201-probes/review-regressions.mjs
+=== output ===
+=== ATS-201 review regressions (first review) ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-ef22b10e5916\worktree
+
+--- CE1: no silent mis-binding ---
+  PASS  CE1 the reported case is not bound to the other case's uid
+  PASS  CE1 the reported case is bound to its own uid or to nothing
+  PASS  CE1 the binding basis is not a bare file-line hit
+--- CE2: the registry stays unique ---
+  PASS  CE2 the registry holds one entry per uid
+  PASS  CE2 the changed case is still bound
+  PASS  CE2 the binding is not ambiguous
+--- CE4: the retitled case keeps its uid ---
+  PASS  CE4 the retitle keeps the uid
+  PASS  CE4 the original keeps its uid when a copy is added
+  PASS  CE4 the undecidable copy is reported
+  PASS  CE4 the conflict is in the warning
+  PASS  CE4 the original still has its uid after the copy changed
+--- CE5/CE6: the explicit annotation wins and duplicates are reported ---
+  PASS  CE5 the explicit annotation wins over the registry
+  PASS  CE5 the explicit claim is the source
+  PASS  CE5 the other case does not get the claimed uid
+  PASS  CE6 both cases carry an ambiguity
+  PASS  CE6 the reason is the duplicated explicit uid
+  PASS  CE6 the warning mentions it
+--- H1: the same project is not registered twice ---
+  PASS  H1 the uid normalisation folds the case
+  PASS  H1 the two spellings are one project
+--- H2: the migration is refused while the Bridge runs ---
+  PASS  H2 the migration is refused
+  PASS  H2 the refusal names the reason
+  PASS  H2 the state file is untouched
+  PASS  H2 the run folder was not renamed
+--- H2': the rollback restores the state AND the folders ---
+  PASS  H2' the migration succeeded
+  PASS  H2' the run folder was renamed
+  PASS  H2' the rollback succeeded
+  PASS  H2' the run folder is back under its legacy name
+  PASS  H2' the renamed folder is gone
+  PASS  H2' the state is back to the legacy identifiers
+--- A1: the attempt records the result level status ---
+  PASS  A1 the first retry is failed
+  PASS  A1 the second retry is passed
+  PASS  A1 the case level status is kept next to it
+
+checks: 32, failures: 0
+RESULT: OK -- every review counterexample behaves as required.
+=== exit code: 0 ===

@@ -1,9 +1,13 @@
+=== command ===
+node tools/ats201-probes/migration-seq-collision.mjs
+=== output ===
 --- 1. the migration ---
    project: proj_11111111-1111-1111-1111-111111111111 -> proj_1_64aaca1b21dc24dcea5bd00f
    run: run_22222222-2222-2222-2222-222222222222 -> run_1_b9b3ee2d41023ec1a6d1d398
    run folder rename required: run_22222222-2222-2222-2222-222222222222 -> run_1_b9b3ee2d41023ec1a6d1d398
    projects: 1, runs: 1, changes: 2
    migrated: C:\Users\seiko\AppData\Local\Temp\ats201-mig-seq\data\state.json
+   rollback: node tools/migrate_uids.mjs --state C:\Users\seiko\AppData\Local\Temp\ats201-mig-seq\data\state.json --rollback
 PASS  the migration exits 0
    project.id     = proj_1_64aaca1b21dc24dcea5bd00f
    run.projectId  = proj_1_64aaca1b21dc24dcea5bd00f
@@ -26,3 +30,4 @@ PASS  the next run does not collide with a migrated run UID  -- run_1_6147b171d2
 PASS  the migrated run is listed under its new UID
 
 RESULT: ALL CHECKS PASSED
+=== exit code: 0 ===

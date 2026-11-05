@@ -368,3 +368,25 @@ Chromium）在一次性夹具项目上跑一次真实运行，再用产品代码
 
 复现脚本：`tools/ats201-probes/it-port-collision-repro.mjs`
 （强制两个 Bridge 抢同一端口，展示 `EADDRINUSE`）。
+
+### 8.3 证据索引
+
+`docs/evidence/ATS-201/` 下的每一份日志都由
+`tools/ats201-probes/collect-evidence.sh` 在当前的树上实际执行并原样捕获，
+因此该脚本就是证据的复现脚本。
+
+| 日志 | 内容 |
+|---|---|
+| `08-node-test-full.log` | 完整的 Node UT/IT 输出 |
+| `09-line-coverage.log` | `server/uid.mjs` 与 `server/core.mjs` 的行覆盖率 |
+| `10-review-regressions.log` | 第 1 次复核的全部反例（32 项断言） |
+| `11-real-playwright-contract.log` | 真实 `@playwright/test` 的报告→UID 绑定契约 |
+| `12-real-playwright-flaky-status.log` | 真实 Playwright 的 flaky 用例：retry0=failed、retry1=passed |
+| `13-uid-e2e.log` | 发现→注册表→运行→attempt 的端到端流程 |
+| `14-migration-seq-collision.log` | 迁移后下一次运行的序号不撞号 |
+| `15-migration-evidence.log` | 迁移的幂等、失败不毁数据、备份 |
+| `16-api-surface.log` | HTTP 接口面 |
+| `17-port-audit.log` | ATS-101 端口审计（16 §3.1 的行号与清单） |
+| `18-wbs-updater.log` | WBS 更新脚本的 XML 转义与幂等性 |
+| `19-wbs-updaters-coexist.log` | 7 个 WBS 更新脚本共存 |
+| `20-wbs-common-regression.log` | 标记合并的回归 |
