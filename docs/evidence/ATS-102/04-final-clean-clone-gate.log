@@ -1,0 +1,433 @@
+=== ATS-102 build gate ===
+node   : v22.23.4
+npm    : 10.9.9
+repo   : D:\hermes-multica\home\cache\scratch\final-clone
+
+--- [install] Clean install from the committed lockfiles (npm ci)
+  $ npm ci --no-audit --no-fund
+
+up to date in 695ms
+  ok (1101 ms)
+  $ npm ci --no-audit --no-fund
+
+added 57 packages in 37s
+  ok (37880 ms)
+--- [install] PASSED (38982 ms)
+
+--- [lockcheck] npm ci did not mutate either lockfile
+  $ git diff --exit-code -- package-lock.json apps/studio/package-lock.json
+  ok (65 ms)
+--- [lockcheck] PASSED (65 ms)
+
+--- [test] Unit / integration tests (node --test)
+  $ npm test
+
+> ai-test-studio@0.1.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: IT-AGT-SETUP: start server
+ok 1 - IT-AGT-SETUP: start server
+  ---
+  duration_ms: 193.6516
+  type: 'test'
+  ...
+# Subtest: IT-AGT-001: the contract description is exposed
+ok 2 - IT-AGT-001: the contract description is exposed
+  ---
+  duration_ms: 3.8495
+  type: 'test'
+  ...
+# Subtest: IT-AGT-002: the contract endpoint requires a session token
+ok 3 - IT-AGT-002: the contract endpoint requires a session token
+  ---
+  duration_ms: 2.9598
+  type: 'test'
+  ...
+# Subtest: IT-AGT-003: a valid request is accepted by the validator
+ok 4 - IT-AGT-003: a valid request is accepted by the validator
+  ---
+  duration_ms: 8.7088
+  type: 'test'
+  ...
+# Subtest: IT-AGT-004: a request asking for a forbidden capability is rejected with 400
+ok 5 - IT-AGT-004: a request asking for a forbidden capability is rejected with 400
+  ---
+  duration_ms: 3.1846
+  type: 'test'
+  ...
+# Subtest: IT-AGT-005: a request without a budget is rejected with 400
+ok 6 - IT-AGT-005: a request without a budget is rejected with 400
+  ---
+  duration_ms: 3.4777
+  type: 'test'
+  ...
+# Subtest: IT-AGT-006: a request without provenance is rejected with 400
+ok 7 - IT-AGT-006: a request without provenance is rejected with 400
+  ---
+  duration_ms: 3.0467
+  type: 'test'
+  ...
+# Subtest: IT-AGT-007: a request whose scope escapes the project root is rejected with 400
+ok 8 - IT-AGT-007: a request whose scope escapes the project root is rejected with 400
+  ---
+  duration_ms: 4.4436
+  type: 'test'
+  ...
+# Subtest: IT-AGT-008: validating a request does not write to the project
+ok 9 - IT-AGT-008: validating a request does not write to the project
+  ---
+  duration_ms: 4.1675
+  type: 'test'
+  ...
+# Subtest: IT-AGT-009: the diagnostics endpoint reports the agent contract status
+ok 10 - IT-AGT-009: the diagnostics endpoint reports the agent contract status
+  ---
+  duration_ms: 3.1778
+  type: 'test'
+  ...
+# Subtest: IT-AGT-CLEANUP: stop and cleanup
+ok 11 - IT-AGT-CLEANUP: stop and cleanup
+  ---
+  duration_ms: 10.7698
+  type: 'test'
+  ...
+# Subtest: UT-AGT-001: contract version and roles are stable
+ok 12 - UT-AGT-001: contract version and roles are stable
+  ---
+  duration_ms: 1.5701
+  type: 'test'
+  ...
+# Subtest: UT-AGT-002: no role holds a write or commit capability
+ok 13 - UT-AGT-002: no role holds a write or commit capability
+  ---
+  duration_ms: 0.2646
+  type: 'test'
+  ...
+# Subtest: UT-AGT-003: scope requires an absolute root and at least one input target
+ok 14 - UT-AGT-003: scope requires an absolute root and at least one input target
+  ---
+  duration_ms: 0.9074
+  type: 'test'
+  ...
+# Subtest: UT-AGT-004: scope rejects paths that escape the project root
+ok 15 - UT-AGT-004: scope rejects paths that escape the project root
+  ---
+  duration_ms: 0.3941
+  type: 'test'
+  ...
+# Subtest: UT-AGT-005: scope outputs must be test script files
+ok 16 - UT-AGT-005: scope outputs must be test script files
+  ---
+  duration_ms: 0.3696
+  type: 'test'
+  ...
+# Subtest: UT-AGT-006: budget must be present, integral and within platform limits
+ok 17 - UT-AGT-006: budget must be present, integral and within platform limits
+  ---
+  duration_ms: 0.4621
+  type: 'test'
+  ...
+# Subtest: UT-AGT-007: provenance must be present and inside the declared scope
+ok 18 - UT-AGT-007: provenance must be present and inside the declared scope
+  ---
+  duration_ms: 1.6724
+  type: 'test'
+  ...
+# Subtest: UT-AGT-008: provenance digest must be a sha256 hex digest
+ok 19 - UT-AGT-008: provenance digest must be a sha256 hex digest
+  ---
+  duration_ms: 0.2775
+  type: 'test'
+  ...
+# Subtest: UT-AGT-009: a request asking for a forbidden capability is rejected
+ok 20 - UT-AGT-009: a request asking for a forbidden capability is rejected
+  ---
+  duration_ms: 1.2343
+  type: 'test'
+  ...
+# Subtest: UT-AGT-010: an unknown contract version is rejected
+ok 21 - UT-AGT-010: an unknown contract version is rejected
+  ---
+  duration_ms: 0.6518
+  type: 'test'
+  ...
+# Subtest: UT-AGT-011: an unknown role is rejected
+ok 22 - UT-AGT-011: an unknown role is rejected
+  ---
+  duration_ms: 0.279
+  type: 'test'
+  ...
+# Subtest: UT-AGT-012: a request cannot claim a capability its role does not grant
+ok 23 - UT-AGT-012: a request cannot claim a capability its role does not grant
+  ---
+  duration_ms: 0.2593
+  type: 'test'
+  ...
+# Subtest: UT-AGT-013: a diff targeting a file outside scope.outputs is rejected
+ok 24 - UT-AGT-013: a diff targeting a file outside scope.outputs is rejected
+  ---
+  duration_ms: 3.7083
+  type: 'test'
+  ...
+# Subtest: UT-AGT-014: a diff targeting a non test-script file is rejected
+ok 25 - UT-AGT-014: a diff targeting a non test-script file is rejected
+  ---
+  duration_ms: 0.3934
+  type: 'test'
+  ...
+# Subtest: UT-AGT-015: a diff escaping the project root is rejected
+ok 26 - UT-AGT-015: a diff escaping the project root is rejected
+  ---
+  duration_ms: 0.5474
+  type: 'test'
+  ...
+# Subtest: UT-AGT-016: scope.outputs cannot declare a path outside the project root
+ok 27 - UT-AGT-016: scope.outputs cannot declare a path outside the project root
+  ---
+  duration_ms: 0.2677
+  type: 'test'
+  ...
+# Subtest: UT-AGT-017: the approval state of a proposal is always pending
+ok 28 - UT-AGT-017: the approval state of a proposal is always pending
+  ---
+  duration_ms: 0.6052
+  type: 'test'
+  ...
+# Subtest: UT-AGT-018: a script-diff proposal must cite provenance evidence
+ok 29 - UT-AGT-018: a script-diff proposal must cite provenance evidence
+  ---
+  duration_ms: 0.3863
+  type: 'test'
+  ...
+# Subtest: UT-AGT-019: the producer may not review its own proposal
+ok 30 - UT-AGT-019: the producer may not review its own proposal
+  ---
+  duration_ms: 0.3286
+  type: 'test'
+  ...
+# Subtest: UT-AGT-020: only a pending proposal can be reviewed
+ok 31 - UT-AGT-020: only a pending proposal can be reviewed
+  ---
+  duration_ms: 0.3514
+  type: 'test'
+  ...
+# Subtest: UT-AGT-021: the adapter rejects a forbidden capability at construction time
+ok 32 - UT-AGT-021: the adapter rejects a forbidden capability at construction time
+  ---
+  duration_ms: 0.2348
+  type: 'test'
+  ...
+# Subtest: UT-AGT-022: the adapter rejects a capability the role does not grant
+ok 33 - UT-AGT-022: the adapter rejects a capability the role does not grant
+  ---
+  duration_ms: 0.1027
+  type: 'test'
+  ...
+# Subtest: UT-AGT-023: the adapter rejects a request whose role it does not serve
+ok 34 - UT-AGT-023: the adapter rejects a request whose role it does not serve
+  ---
+  duration_ms: 1.4146
+  type: 'test'
+  ...
+# Subtest: UT-AGT-024: the adapter rejects input whose content does not match its digest
+ok 35 - UT-AGT-024: the adapter rejects input whose content does not match its digest
+  ---
+  duration_ms: 0.4023
+  type: 'test'
+  ...
+# Subtest: UT-AGT-025: the adapter rejects provider output that is not JSON
+ok 36 - UT-AGT-025: the adapter rejects provider output that is not JSON
+  ---
+  duration_ms: 0.3184
+  type: 'test'
+  ...
+# Subtest: UT-AGT-026: the adapter rejects provider output larger than the budget
+ok 37 - UT-AGT-026: the adapter rejects provider output larger than the budget
+  ---
+  duration_ms: 0.3471
+  type: 'test'
+  ...
+# Subtest: UT-AGT-027: inputs outside the declared egress kinds are not transmitted
+ok 38 - UT-AGT-027: inputs outside the declared egress kinds are not transmitted
+  ---
+  duration_ms: 0.3306
+  type: 'test'
+  ...
+# Subtest: UT-AGT-028: the described contract exposes no writable capability
+ok 39 - UT-AGT-028: the described contract exposes no writable capability
+  ---
+  duration_ms: 0.241
+  type: 'test'
+  ...
+# Subtest: IT-API-SETUP: start server
+ok 40 - IT-API-SETUP: start server
+  ---
+  duration_ms: 194.1054
+  type: 'test'
+  ...
+# Subtest: IT-SEC-001: rejects unauthenticated API
+ok 41 - IT-SEC-001: rejects unauthenticated API
+  ---
+  duration_ms: 2.8633
+  type: 'test'
+  ...
+# Subtest: IT-API-001: add existing repository
+ok 42 - IT-API-001: add existing repository
+  ---
+  duration_ms: 113.7811
+  type: 'test'
+  ...
+# Subtest: IT-API-002: import and index tests
+ok 43 - IT-API-002: import and index tests
+  ---
+  duration_ms: 99.1094
+  type: 'test'
+  ...
+# Subtest: IT-SEC-002: rejects foreign origin
+ok 44 - IT-SEC-002: rejects foreign origin
+  ---
+  duration_ms: 2.3744
+  type: 'test'
+  ...
+# Subtest: IT-RUN-001: no deps => explicit failure rather than fake success
+ok 45 - IT-RUN-001: no deps => explicit failure rather than fake success
+  ---
+  duration_ms: 112.4944
+  type: 'test'
+  ...
+# Subtest: IT-API-003: runs survive persisted read
+ok 46 - IT-API-003: runs survive persisted read
+  ---
+  duration_ms: 1.9598
+  type: 'test'
+  ...
+# Subtest: IT-API-CLEANUP: stop and cleanup
+ok 47 - IT-API-CLEANUP: stop and cleanup
+  ---
+  duration_ms: 4.9389
+  type: 'test'
+  ...
+# Subtest: UT-CORE-001: validates Playwright project
+ok 48 - UT-CORE-001: validates Playwright project
+  ---
+  duration_ms: 3.748
+  type: 'test'
+  ...
+# Subtest: UT-CORE-002: extracts static test index
+ok 49 - UT-CORE-002: extracts static test index
+  ---
+  duration_ms: 1.7932
+  type: 'test'
+  ...
+# Subtest: UT-SEC-001: rejects path traversal
+ok 50 - UT-SEC-001: rejects path traversal
+  ---
+  duration_ms: 0.381
+  type: 'test'
+  ...
+# Subtest: UT-CORE-003: conditional save avoids lost updates
+ok 51 - UT-CORE-003: conditional save avoids lost updates
+  ---
+  duration_ms: 9.9478
+  type: 'test'
+  ...
+# Subtest: UT-CORE-004: malformed project rejected
+ok 52 - UT-CORE-004: malformed project rejected
+  ---
+  duration_ms: 1.6439
+  type: 'test'
+  ...
+# Subtest: UT-RUN-001: missing local Playwright never auto-installs
+ok 53 - UT-RUN-001: missing local Playwright never auto-installs
+  ---
+  duration_ms: 0.6767
+  type: 'test'
+  ...
+# Subtest: UT-RPT-001: report summary counts passed/failed/skipped
+ok 54 - UT-RPT-001: report summary counts passed/failed/skipped
+  ---
+  duration_ms: 2.3088
+  type: 'test'
+  ...
+# Subtest: UT-CORE-005: removes generated fixture
+ok 55 - UT-CORE-005: removes generated fixture
+  ---
+  duration_ms: 6.6757
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-SETUP: isolated fake CLI adapter
+ok 56 - IT-RUN-MOCK-SETUP: isolated fake CLI adapter
+  ---
+  duration_ms: 304.9149
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip
+ok 57 - IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip
+  ---
+  duration_ms: 279.9611
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-002: cancel marks cancelled
+ok 58 - IT-RUN-MOCK-002: cancel marks cancelled
+  ---
+  duration_ms: 260.5893
+  type: 'test'
+  ...
+# Subtest: IT-RUN-MOCK-CLEANUP: cleanup
+ok 59 - IT-RUN-MOCK-CLEANUP: cleanup
+  ---
+  duration_ms: 35.4054
+  type: 'test'
+  ...
+1..59
+# tests 59
+# suites 0
+# pass 59
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1123.927
+  ok (1676 ms)
+--- [test] PASSED (1676 ms)
+
+--- [build] Next.js 16 static export
+  $ npm run build
+
+> @ai-test-studio/ui@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 29ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1458ms
+  Running TypeScript ...
+  Finished TypeScript in 2.1s ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/3) ...
+✓ Generating static pages using 4 workers (3/3) in 1012ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+
+  ok (7814 ms)
+  $ node D:\hermes-multica\home\cache\scratch\final-clone\tools\ci_build_gate.mjs --check-artefact
+artefact ok: apps\studio\out\index.html (12927 bytes)
+  ok (128 ms)
+--- [build] PASSED (7942 ms)
+
+--- [manifest] Dependency manifest is in sync with the lockfiles
+  $ node tools/gen_dep_manifest.mjs --check
+RESULT: OK -- the committed dependency manifest matches the lockfiles.
+  packages=88 licenceKnown=88 reviewRequired=16
+  ok (174 ms)
+--- [manifest] PASSED (174 ms)
+
+RESULT: OK -- every build-gate step passed.

@@ -1,0 +1,40 @@
+=== ATS-401 probe: the diff whitelist agrees with git apply ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-a915d6d68c12/worktree
+date      : 2026-11-05T03:56:31Z
+git       : git version 2.55.0.windows.4
+
+=== ATS-401 probe: the diff whitelist agrees with git apply ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-a915d6d68c12\worktree
+work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-a915d6d68c12\worktree\.ats-evidence-work\parity
+
+--- A. every diff the contract layer ACCEPTS is one git agrees with ---
+  [PASS] the contract layer accepts a full diff --git header -- code=null
+  [PASS] git apply accepts a full diff --git header
+  [PASS] git apply touches only the in-scope file for a full diff --git header -- paths=tests/login.spec.ts
+  [PASS] git apply reports no rename/copy/mode/delete for a full diff --git header -- summary=
+  [PASS] the contract layer accepts a bare unified diff -- code=null
+  [PASS] git apply accepts a bare unified diff
+  [PASS] git apply touches only the in-scope file for a bare unified diff -- paths=tests/login.spec.ts
+  [PASS] git apply reports no rename/copy/mode/delete for a bare unified diff -- summary=
+  [PASS] the contract layer accepts a diff without an index header -- code=null
+  [PASS] git apply accepts a diff without an index header
+  [PASS] git apply touches only the in-scope file for a diff without an index header -- paths=tests/login.spec.ts
+  [PASS] git apply reports no rename/copy/mode/delete for a diff without an index header -- summary=
+
+--- B. every diff the contract layer REJECTS, git agrees is not a plain in-scope edit ---
+  [PASS] the contract layer rejects the legacy "rename old/new" headers -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+       git view: git would have written outside the scope -- ok=true paths=tests/login.spec.ts, server/pwned.mjs summary=rename server/{index.mjs => pwned.mjs} (0%)
+  [PASS] the contract layer rejects a C-quoted diff --git header naming another file -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+       git view: git rejects it too -- ok=false paths=(none) summary=error: git diff header lacks filename information when removing 1 leading pathname component at C:/c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-a915d6d68c12/worktree/.ats-evidence-work/parity/candidate.diff:10
+  [PASS] the contract layer rejects an out-of-scope diff --git header -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+       git view: git treats it as a no-op on the in-scope file (rejection is conservative) -- ok=true paths=tests/login.spec.ts summary=(none)
+  [PASS] the contract layer rejects a diff --git header naming a path outside scope.outputs -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+       git view: git would have written outside the scope -- ok=true paths=tests/login.spec.ts, server/other.mjs summary=(none)
+  [PASS] the contract layer rejects a copy header -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+       git view: git would have written outside the scope -- ok=true paths=tests/login.spec.ts, server/copied.mjs summary=copy tests/login.spec.ts => server/copied.mjs (0%)
+
+--- C. the rejections are justified by git's own behaviour ---
+  [PASS] every rejection is either rejected by git or would have escaped the scope -- conservative rejections: an out-of-scope diff --git header
+
+--- verdict ---
+PASS: the contract whitelist and git apply agree

@@ -16,16 +16,27 @@
 ### Next.js 界面（需要联网完成依赖安装）
 
 ```powershell
-npm --prefix apps/studio install
+npm --prefix apps/studio ci      # 严格按已提交的 lockfile 安装（推荐）
 npm run build:web
 npm start
 ```
 
 完成构建后，打开 <http://127.0.0.1:4577/>，将使用正式 Next.js 工作台（Monaco 编辑器 + 流程投影）。开发模式：开一个终端运行 `npm start`，另一个运行 `npm run dev:next`，浏览器进入 <http://localhost:3000>。
 
+> 依赖已冻结（ATS-102）：根与 `apps/studio` 各有 `package-lock.json`，Node 版本见 `.nvmrc`（22.23.4）。**请用 `npm ci` 而非 `npm install`**，以保证装出来的依赖树与 lockfile 一致。依赖清单见 `docs/dependencies/`，构建门禁见 `docs/17-BUILD-CI.md`。
+
 ### Tauri 2 开发模式（需要本地 Rust 工具链、Windows WebView2）
 
-先执行 `npm --prefix apps/studio install`；在本机安装 `rustup` 和 Tauri CLI，然后在项目根目录运行 `npx tauri dev`（或通过 npm 安装 `@tauri-apps/cli@^2` 后运行）。Tauri shell 会尝试通过 PATH 的 `node` 启动 `server/index.mjs`；如果 4577 已有服务器监听，先关闭另一个实例。**未在此离线环境编译或验证 Tauri 安装包**；本版 `bundle.active=false`，不提供假的 exe。
+先执行 `npm --prefix apps/studio install`；在本机安装 `rustup` 和 Tauri CLI，然后在项目根目录运行 `npx tauri dev`（或通过 npm 安装 `@tauri-apps/cli@^2` 后运行）。Tauri shell 会尝试通过 PATH 的 `node` 启动 `server/index.mjs`；如果 4577 已有服务器监听，先关闭另一个实例。
+
+**Windows 构建的前置条件**（v0.1.1 基线实测，见 `docs/16-BASELINE-ADR.md` §4 B-02）：
+
+> 以下是**已知的必要条件，不是充分条件**——B-02 的成因清单尚未穷尽（msvc 链的最终链接在本机无法验证）。
+
+1. VS「使用 C++ 的桌面开发」工作负载（msvc 工具链必需）；
+2. 仓库需提供 `src-tauri/icons/icon.ico`——`tauri-build` 对任何 Windows target 都会回退到该路径，当前仓库只含 3 个 PNG，**全新 clone 无法直接完成 Windows 编译**；
+3. 验收须以 **`cargo build`（含最终链接）** 为准，不能以 `cargo check` 为准——类型检查不链接最终产物；`cargo check` 通过而 `cargo build` 在链接 cdylib 时因导出序号超限失败的情形已实测出现；
+4. 本版 `bundle.active=false`，不提供假的 exe。
 
 ## 已实现 / 尚未实现
 
@@ -52,6 +63,8 @@ npm start
 - `tests/`：Node 原生 UT 与 HTTP IT 验证。
 - `docs/`：IPA 方法对齐的要件定义、基本/详细设计、UT/IT/ST、RTM、风险、运维、迭代路线图。
 - `test-cases.xlsx`：UT/IT/ST 结构化测试设计与需求追踪矩阵。
+- `.github/workflows/ats-102-build.yml`：CI 构建门禁（Node 22 clean install + 测试 + 静态导出 + 依赖清单漂移校验）。
+- `docs/dependencies/`：依赖清单（机读 JSON + 人读 MD），由 lockfile 派生。
 
 ## 原则
 
@@ -64,7 +77,18 @@ npm test
 node --check server/index.mjs
 ```
 
-离线环境内已验证：20/20 UT/IT 通过。真正的 Playwright E2E 测试必须在配备依赖和浏览器的目标机器上执行；尚不能据此宣称 ST 已通过。
+离线环境内已验证：20/20 UT/IT 通过（**仅 Playwright CLI 以测试双桩替代**；其余为真实 HTTP / 文件 IO / 进程执行）。真正的 Playwright E2E 测试必须在配备依赖和浏览器的目标机器上执行；尚不能据此宣称 ST 已通过。
+
+### 构建门禁（CI 等价本地复现）
+
+```bash
+npm ci --prefix apps/studio     # 严格按 lockfile 安装
+node tools/ci_build_gate.mjs     # 跑完 CI workflow 的全部步骤
+```
+
+`tools/ci_build_gate.mjs` 与 `.github/workflows/ats-102-build.yml` 的步骤一一对应，因此「CI 会不会绿」可在推送之前本地验证。实测结果与未验证项见 `docs/17-BUILD-CI.md`。
+
+> **v0.1.1 基线限定（2026-11-03 实测）**：Bridge 传给 `playwright test` 的参数向量含两个不存在的选项（`--screenshot`/`--video`），**真实浏览器执行当前必然失败**；另有一项重启后 Run 卡死、永久占用运行锁的缺陷。详见 `docs/16-BASELINE-ADR.md` §4 与 `docs/evidence/ATS-101/`。上表「已实现」列中涉及真实浏览器执行与产物归档的行，请按该基线文档的分类口径理解。
 
 ## 外部参考及声明
 

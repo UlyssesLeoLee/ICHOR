@@ -1,0 +1,277 @@
+# ATS-101 证据 02 — Runner 缺陷复现（B-01 / B-03）
+
+本文件记录**实际执行命令与实际输出**。所有复现脚本已入库，可在仓库内直接重跑：
+
+| 场景 | 脚本 | 命令 | 产品源码 |
+|---|---|---|---|
+| A | B-01 真实 Playwright CLI 参数向量 | `node tools/ats101-probes/scenario-a-b01-cli-args.mjs` | **未修改** |
+| B | B-01 对照实验（去两选项） | `node tools/ats101-probes/scenario-b-b01-control.mjs` | **未修改**（改的是沙箱副本） |
+| C | B-03 cancelling 状态锁死 | `node tools/ats101-probes/scenario-c-b03-cancelling-lock.mjs` | **未修改** |
+| D | 硬编码端口清单核对 | `node tools/ats101-probes/scenario-d-port-audit.mjs` | 只读 |
+
+脚本自建夹具：真实 `@playwright/test` 1.64.1（装在夹具自己的 `node_modules`）+ 本机已缓存的真实 Chromium，
+**不是测试双桩**。夹具与沙箱落在 `$ATS_PROBE_WORKDIR`（默认 `$TMPDIR/ats101-probes`），不进版本控制。
+
+---
+
+## 场景 A：真实 Playwright 项目经 Bridge 启动运行（当前基线行为，B-01）
+
+**命令**
+
+```
+$ node tools/ats101-probes/scenario-a-b01-cli-args.mjs
+```
+
+**夹具 `playwright.config.ts`（脚本自建，真实 Playwright 项目）**
+
+```ts
+import { defineConfig } from '@playwright/test';
+export default defineConfig({
+  testDir: './tests',
+  use: { screenshot: 'only-on-failure', video: 'retain-on-failure', trace: 'on' },
+});
+```
+
+**实际输出**
+
+```
+POST /api/projects            -> 201 {"project":{"id":"proj_1605bb7e-...","name":"pwcap","root":"...\\fixtures\\pwcap",...}
+POST /api/projects/:id/run    -> 202 initial status=running
+
+--- terminal state ---
+status      = failed
+exitCode    = 1
+summary     = null
+artifacts   = []
+artifacts n = 0
+stdout tail :
+  | error: unknown option '--screenshot'
+events      = ["run.queued#1","run.started#2","run.finished#3"]
+
+--- verdict ---
+CLI rejected the argument vector : true
+browser ever started             : false
+RESULT: B-01 CONFIRMED -- the run died in CLI argument parsing, before any browser launch.
+```
+
+**结论**：真实浏览器运行链路在 CLI 参数解析阶段即失败，未进入浏览器执行，summary 为 null，artifacts 为空。
+
+**独立佐证（`playwright test --help` 实际输出）**
+
+```
+$ node node_modules/@playwright/test/cli.js test --help
+Options:
+  --add-reporter <reporter> ... --browser <browser> ... --config <file> ... --debug [mode]
+  --fail-on-flaky-tests ... --forbid-only ... --fully-parallel ... -g, --grep <grep>
+  -G, --grep-invert <grep> ... --global-timeout <timeout> ... --headed ... --ignore-snapshots
+  -j, --workers <workers> ... --last-failed ... --list ... --max-failures <N> ... --no-deps
+  --only-changed [ref] ... --output <dir> ... --pass-with-no-tests ... --project <project-name...>
+  --quiet ... --repeat-each <N> ... --reporter <reporter> ... --retries <retries>
+  -u, --update-snapshots [mode] ... --ui ... --ui-host <host> ... --ui-port <port>
+  --update-source-method <method> ... -x ... -h, --help
+```
+
+输出中**没有** `--screenshot`，也**没有** `--video`（截图/视频属 `playwright.config.ts` 的 `use` 选项，不是 CLI 选项）。
+
+---
+
+## 场景 B：仅修正 CLI 参数向量后的对照实验（沙箱副本，产品源码未改）
+
+**命令**
+
+```
+$ node tools/ats101-probes/scenario-b-b01-control.mjs
+```
+
+**沙箱补丁**（脚本把 `server/` 复制到 `$ATS_PROBE_WORKDIR/sandbox-scenario-b` 后，只改这一行）
+
+```
+--- sandbox patch (server/core.mjs safeRunArgs) ---
+  -  const args=[cli,'test','--reporter=line,json,html','--output',path.join(output,'results'),'--trace','on','--screenshot','only-on-failure','--video','retain-on-failure','--workers','1'];
+  +  const args=[cli,'test','--reporter=line,json,html','--output',path.join(output,'results'),'--trace','on','--workers','1'];
+```
+
+**实际输出**
+
+```
+--- B-1: fixture WITH use:{screenshot,video} ---
+status = failed exitCode = 1
+summary = {"total":2,"passed":1,"failed":1,"skipped":0,"flaky":0}
+artifacts n = 31
+png present = true | webm present = true | report.json present = true
+first 12 artefacts: ["html/data/4d89d8c6872e4e17d02ab0e88dfd359f62d2380d.png","html/data/92b1238206d911fe8c661519e9bc978b5c7e639f.md","html/data/d09238f8d1ee1937f987003325990fb229c9ceb7.zip","html/data/db5652353ad5978035f919ca11f1055790adc7cd.webm","html/data/ec4266486c30ed645e120eb6c237574d3b68f428.zip","html/index.html","html/trace/assets/codeMirrorModule-BEB2e8M3.js",...]
+
+--- B-2: fixture WITHOUT use:{screenshot,video} ---
+status = failed exitCode = 1
+summary = {"total":2,"passed":1,"failed":1,"skipped":0,"flaky":0}
+artifacts n = 27
+png present = false | webm present = false | report.json present = true
+
+--- verdict ---
+png/webm come from the FIXTURE config, not the Bridge : true
+removing the two options makes the real run work    : true
+```
+
+**结论**
+
+1. 去掉 `--screenshot`/`--video` 后，真实 Chromium 执行成功，1 passed + 1 failed 被正确解析，
+   trace.zip / report.json / html/ 全部产出 → 阻塞点唯一，且 `parseReport()` 能正确解析真实 report.json。
+2. **png/webm 来自夹具自身的 `playwright.config.ts` 的 `use:{screenshot,video}` 配置，不是 Bridge 产出的**。
+   同一脚本用不含该配置的夹具复跑，产物数从 31 降到 27，且**没有 png/webm**。
+   即：**Bridge 当前不注入 screenshot/video 策略，产物完全取决于被测项目自己的配置。**
+
+**对照实验的效力边界**：沙箱副本验证的只是「去掉这两个选项即可工作」。
+**产品源码未修改**，因此**不得**据此宣称产品已具备该能力——修复方向另见 `docs/16-BASELINE-ADR.md` §4 B-01。
+
+---
+
+## 场景 C：重启后卡在 `cancelling` 的 Run（B-03）
+
+**命令**
+
+```
+$ node tools/ats101-probes/scenario-c-b03-cancelling-lock.mjs
+```
+
+三种方式独立复现：
+
+- **C1 自然竞态（产品源码未修改）**：启动真实 Run → `POST /stop` 返回 200 `{"status":"cancelling"}`
+  → `taskkill /F` 硬杀 Bridge（取消流程来不及完成）→ 重启。
+- **C2 自然竞态（活着的 Playwright 子进程）**：在 **B-01 已修复的沙箱副本**上跑同一次竞态，
+  此时子进程是一个真实的 Playwright 慢用例（`page.waitForTimeout(60000)`）。
+  **该场景使用沙箱副本，产品源码未改。**
+- **C3 预置持久化状态**：直接写入 `state.json`，其中 run 的 `status` 已是 `cancelling`。
+  **该场景为预置状态，非自然产生。**
+
+**实际输出**
+
+```
+--- C1 natural race, UNMODIFIED product source ---
+POST /api/projects        -> 201
+POST /run                 -> 202 initial status=running
+POST /stop                -> 200 {"status":"cancelling"}
+bridge hard-killed (taskkill /F) while the run was still `cancelling`
+after restart, run status  = cancelling   (expected: interrupted)
+POST /run on same project -> 409 {"error":"PROJECT_ALREADY_RUNNING"}
+POST /stop on stuck run   -> 500 {"error":"RUN_NOT_ACTIVE"}
+
+--- C2 natural race, live Playwright child (B-01-patched SANDBOX COPY -- product source unchanged) ---
+POST /api/projects        -> 201
+POST /run                 -> 202 initial status=running
+POST /stop                -> 200 {"status":"cancelling"}
+bridge hard-killed (taskkill /F) while the run was still `cancelling`
+after restart, run status  = cancelling   (expected: interrupted)
+POST /run on same project -> 409 {"error":"PROJECT_ALREADY_RUNNING"}
+POST /stop on stuck run   -> 500 {"error":"RUN_NOT_ACTIVE"}
+
+--- C3 pre-seeded state.json (run already `cancelling`) ---
+pre-seeded : .../data/scenario-c3/state.json  (status="cancelling", run=run_22222222-...)
+after restart, run status  = cancelling   (expected: interrupted)
+POST /run on same project -> 409 {"error":"PROJECT_ALREADY_RUNNING"}
+POST /stop on stuck run   -> 500 {"error":"RUN_NOT_ACTIVE"}
+
+--- verdict ---
+C1 natural race, UNMODIFIED product source: stuck=true lockHeld=true unreleasable=true
+C2 natural race, live Playwright child (B-01-patched SANDBOX COPY -- product source unchanged): stuck=true lockHeld=true unreleasable=true
+C3 pre-seeded state: stuck=true lockHeld=true unreleasable=true
+```
+
+**结论**：该 Run 永久占用同项目的运行锁，且无法通过 API 解除（`RUN_NOT_ACTIVE` 返回 500）。
+三种方式结论一致，说明这是持久化状态与启动恢复代码的确定性缺陷，而非偶发竞态。
+
+### C1 的复现稳定性（连跑 3 次）
+
+C1 在**未修改的产品源码**上连跑 3 次，3/3 命中同一结果（每次使用独立的 `ATS_PROBE_WORKDIR`）：
+
+```
+########## RUN 1 ##########
+C1 natural race, UNMODIFIED product source: stuck=true lockHeld=true unreleasable=true
+C2 natural race, live Playwright child (B-01-patched SANDBOX COPY -- product source unchanged): stuck=true lockHeld=true unreleasable=true
+C3 pre-seeded state: stuck=true lockHeld=true unreleasable=true
+########## RUN 2 ##########
+C1 natural race, UNMODIFIED product source: stuck=true lockHeld=true unreleasable=true
+C2 natural race, live Playwright child (B-01-patched SANDBOX COPY -- product source unchanged): stuck=true lockHeld=true unreleasable=true
+C3 pre-seeded state: stuck=true lockHeld=true unreleasable=true
+########## RUN 3 ##########
+C1 natural race, UNMODIFIED product source: stuck=true lockHeld=true unreleasable=true
+C2 natural race, live Playwright child (B-01-patched SANDBOX COPY -- product source unchanged): stuck=true lockHeld=true unreleasable=true
+C3 pre-seeded state: stuck=true lockHeld=true unreleasable=true
+```
+
+**C1 与 C2 的意义**：
+
+- **C1 在当前产品源码下即可触发 B-03**——只要 `POST /stop` 落在 CLI 因参数错误（B-01）退出之前的短窗口内。这不是「B-01 修好后才会出现」的问题，而是**当前就存在的缺陷**。
+- **C2 证明 B-01 修好后窗口会扩大**：此时子进程是一个真实的 Playwright 慢用例，`/stop` 落在整个运行期的任意时刻都能命中。
+- 因此 **B-01 与 B-03 必须同批修复与回归**。
+
+---
+
+## 场景 D：硬编码端口清单核对
+
+**命令**
+
+```
+$ node tools/ats101-probes/scenario-d-port-audit.mjs
+```
+
+**实际输出**
+
+```
+--- RUNTIME hardcoding in shipped source ---
+  apps/studio/app/page.tsx:81  ... LOCAL RUNNER · 127.0.0.1:4577 ...
+  apps/studio/lib/api.ts:6  const root=()=>...window.location.port==='4577'...
+  apps/studio/public/fallback.html:3  ... LOCAL BRIDGE · 127.0.0.1:4577 ...
+  server/index.mjs:11  const PORT=Number(process.env.ATS_PORT||4577);
+  server/index.mjs:71  ...connect-src 'self' http://127.0.0.1:4577 http://localhost:4577...
+  src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
+total = 6
+
+--- NON-runtime mentions (documented separately) ---
+  README.md:9, README.md:24, README.md:28, README.md:52
+  start.ps1:8, start.ps1:9, start.sh:4
+  tests/test-cases.json:491, tests/test-cases.json:557, tests/test-cases.json:711
+  tools/generate_test_docs.py:52, tools/generate_test_docs.py:58, tools/generate_test_docs.py:74
+  test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)
+total = 14
+
+--- distinct RUNTIME files ---
+  apps/studio/app/page.tsx
+  apps/studio/lib/api.ts
+  apps/studio/public/fallback.html
+  server/index.mjs
+  src-tauri/src/lib.rs
+
+--- files listed in 16 §3.1 (port list) ---
+  README.md
+  apps/studio/app/page.tsx
+  apps/studio/lib/api.ts
+  apps/studio/public/fallback.html
+  server/index.mjs
+  src-tauri/src/lib.rs
+  start.ps1
+  start.sh
+  test-cases.xlsx
+  tests/test-cases.json
+  tools/ats101-probes/scenario-d-port-audit.mjs
+  tools/generate_test_docs.py
+
+--- verdict ---
+runtime occurrences in source   : 6
+distinct runtime files          : 5
+non-runtime files               : 6
+runtime files missing from §3.1 : (none)
+non-runtime missing from §3.1   : (none)
+runtime positions missing       : (none)
+listed but not found at runtime : (none)
+count claimed in 16 §3.1        : 6
+actual runtime occurrence count : 6
+count matches source            : true
+
+RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
+```
+
+**结论**：默认端口 4577 在**运行时**源码中被硬编码在 **6 处**（5 个文件，其中 `server/index.mjs` 占 2 处）。
+另有 6 个文件共 14 处**非运行时**引用（README、启动脚本、测试用例数据及其生成器、`test-cases.xlsx`），不影响运行时行为但会显示过期端口。
+该清单在 `docs/16-BASELINE-ADR.md` §3.1 中按 `file:line` 逐条列出，并由本脚本自动校验。
+
+**审计范围**（与 16 §3.1 的「审计范围」段一致）：扫描仓库内全部 `.mjs/.js/.ts/.tsx/.html/.rs/.json/.md/.ps1/.sh/.py` 文件，另加 `test-cases.xlsx` 这一个 zip 容器——其单元格数据是 deflate 压缩的，**必须解压后扫描**，直接搜原始字节会漏掉（`test-cases.xlsx` 中 3 处，分别在 `xl/worksheets/sheet3.xml` 与 `sheet4.xml`）。

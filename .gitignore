@@ -9,3 +9,26 @@ src-tauri/target/
 playwright-report/
 test-results/
 .atstest/
+__pycache__/
+*.pyc
+
+# Fixture dependency trees. The example projects are checked in as SOURCES
+# (package.json + spec files); their node_modules are produced by
+# `npm install` in the example directory and are not part of the repository.
+examples/*/node_modules/
+
+# Locally produced lock files for the example projects. The repository's own
+# package-lock.json IS tracked (ATS-102 requires a reproducible install).
+examples/*/package-lock.json
+
+# Agent run metadata (Multica runtime), not product source.
+.multica/
+
+# The Multica agent instructions file is injected into every worktree by the
+# runtime, not by the project. It is not product source and must not be
+# committed.
+AGENTS.md
+
+# The WBS updater's backup of the workbook it is about to rewrite. It is a
+# local recovery copy of a binary file, not a deliverable.
+docs/WBS.xlsx.bak
