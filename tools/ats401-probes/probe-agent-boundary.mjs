@@ -335,6 +335,33 @@ const bypassAttempts = [
     label: 'a diff --git header naming a file outside the scope',
     diff: `${LEGIT_HUNK}\ndiff --git a/server/index.mjs b/server/index.mjs\n`,
   },
+  // --- the counterexamples of the 2nd review round ------------------------
+  // The blacklist above did not name these forms, and `git apply` honours
+  // the first one, so they used to pass the scope check.
+  {
+    label: 'a legacy "rename old/new" header (git apply honours it)',
+    diff: `${LEGIT_HUNK}\ndiff --git a/tests/login.spec.ts b/tests/login.spec.ts\nrename old server/index.mjs\nrename new server/pwned.mjs\n`,
+  },
+  {
+    label: 'a C-quoted diff --git header naming another file',
+    diff: `${LEGIT_HUNK}\ndiff --git "a/tests/login.spec.ts" "b/server/evil.mjs"\nnew file mode 100644\n`,
+  },
+  {
+    label: 'a context diff header (*** style)',
+    diff: `${LEGIT_HUNK}\ndiff --git a/tests/login.spec.ts b/tests/login.spec.ts\n*** a/tests/login.spec.ts\n`,
+  },
+  {
+    label: 'a similarity index header',
+    diff: `${LEGIT_HUNK}\ndiff --git a/tests/login.spec.ts b/tests/login.spec.ts\nsimilarity index 90%\n`,
+  },
+  {
+    label: 'an Index: header',
+    diff: `${LEGIT_HUNK}\ndiff --git a/tests/login.spec.ts b/tests/login.spec.ts\nIndex: tests/login.spec.ts\n`,
+  },
+  {
+    label: 'a hunk whose declared line count does not match its body',
+    diff: `${LEGIT_HUNK}\ndiff --git a/tests/login.spec.ts b/tests/login.spec.ts\n--- a/tests/login.spec.ts\n+++ b/tests/login.spec.ts\n@@ -1,5 +1,5 @@\n-x\n+y\n`,
+  },
 ];
 
 for (const attempt of bypassAttempts) {

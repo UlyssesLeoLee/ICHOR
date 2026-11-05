@@ -1,6 +1,10 @@
 === ATS-401 probe: Agent contract v1 permission boundary ===
-repo root : D:\ICHOR
-work root : C:\Users\seiko\AppData\Local\Temp\multica-task-1633316846\ats401-probes
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-a915d6d68c12/worktree
+date      : 2026-11-05T03:56:23Z
+
+=== ATS-401 probe: Agent contract v1 permission boundary ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-a915d6d68c12\worktree
+work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-a915d6d68c12\worktree\.ats-evidence-work\boundary
 
 --- signal 1a: static analysis of server/agent.mjs ---
   imports: node:crypto, node:path
@@ -11,6 +15,8 @@ work root : C:\Users\seiko\AppData\Local\Temp\multica-task-1633316846\ats401-pro
   [PASS] agent.mjs does not reference the process global
   [PASS] agent.mjs does not reference the globalThis global
   [PASS] agent.mjs does not reference the global global
+  [PASS] agent.mjs does not reference the eval global
+  [PASS] agent.mjs does not reference the Function global
   [PASS] the contract layer source contains no I/O capability -- forbidden modules: none; forbidden globals: none
 
 --- signal 1c: negative control -- the detector must fire on a broken copy ---
@@ -60,6 +66,12 @@ work root : C:\Users\seiko\AppData\Local\Temp\multica-task-1633316846\ats401-pro
   [PASS] a binary patch creating a file outside the scope is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
   [PASS] a Binary files ... differ section targeting a file outside the scope is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
   [PASS] a diff --git header naming a file outside the scope is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a legacy "rename old/new" header (git apply honours it) is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a C-quoted diff --git header naming another file is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a context diff header (*** style) is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a similarity index header is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] an Index: header is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a hunk whose declared line count does not match its body is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
   [PASS] a new test script inside scope.outputs is accepted
 
 --- verdict ---
