@@ -157,7 +157,7 @@ SDK 的每个方法按同一顺序做三件事：**授权判定 → 作用域判
 
 ### 5.4 全量套件与既有失败
 
-`npm test` 在合并 dev 后的树上：**380 通过 / 1 失败 / 10 跳过**（`docs/evidence/ATS-512/04-full-test-suite.log`）。
+`npm test` 在合并 dev 后的树上：**385 通过 / 1 失败 / 10 跳过**（`docs/evidence/ATS-512/04-full-test-suite.log`）。
 
 唯一的失败是 **IT-API-013**，属 ATS-301：示例工程 `examples/sample-playwright/` 在本检出里没有 `node_modules`，适配器因此把必需能力报为不支持，协商返回 409 而不是 200。`tools/ats512-probes/prove-baseline-regression.sh` 用 `git archive` 导出 **dev 树**（不含本任务任何代码）复跑，**同一个测试在参考树上同样失败**——因此它是既有失败，不是本任务引入的回归（`docs/evidence/ATS-512/09-baseline-regression.log`）。它**不计为 PASS**。
 
