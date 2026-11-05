@@ -109,6 +109,10 @@ def test_tc006_overview_is_derived_from_the_sheet(copy):
 
 
 def test_tc007_only_the_owned_cells_change(copy):
+    # Seed a state the update must change, so the check holds whether or not
+    # the input workbook already carries the ATS-506 update.
+    rid = ats_rid(copy)
+    rewrite_sheet2(copy, lambda xml: set_cell_in_row(xml, rid, 'N', '进行中'))
     before = read_parts(copy)
     with zipfile.ZipFile(copy) as z:
         raw_before = {i.filename: z.read(i.filename) for i in z.infolist()}
