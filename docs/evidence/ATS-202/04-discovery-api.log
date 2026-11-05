@@ -1,17 +1,17 @@
 === command ===
 node --test tests/discovery-api.test.mjs
 === output ===
-✔ IT-ATS202-API-SETUP: start the bridge (494.69ms)
-✔ IT-ATS202-API-001: a project starts untrusted (82.8247ms)
-✔ IT-ATS202-API-002: an untrusted project gets the STATIC index (69.2007ms)
-✔ IT-ATS202-API-003: an invalid trust value is refused (18.6371ms)
-✔ IT-ATS202-API-004: forcing the authoritative index on an untrusted project is refused (81.6434ms)
-✔ IT-ATS202-API-005: the trust can be granted, and the index switches (673.0085ms)
-✔ IT-ATS202-API-006: the trust survives a restart of the bridge (686.4064ms)
-✔ IT-ATS202-API-007: the trust can be revoked, and the index falls back (146.2251ms)
-✔ IT-ATS202-API-008: a TRUSTED project that asks for the static index is not reported as untrusted (141.375ms)
-✔ IT-ATS202-API-009: the Bridge keeps answering while a project is listed (4979.8731ms)
-✔ IT-ATS202-API-CLEANUP: stop and cleanup (172.9631ms)
+✔ IT-ATS202-API-SETUP: start the bridge (402.377ms)
+✔ IT-ATS202-API-001: a project starts untrusted (73.8128ms)
+✔ IT-ATS202-API-002: an untrusted project gets the STATIC index (64.49ms)
+✔ IT-ATS202-API-003: an invalid trust value is refused (7.7518ms)
+✔ IT-ATS202-API-004: forcing the authoritative index on an untrusted project is refused (75.2295ms)
+✔ IT-ATS202-API-005: the trust can be granted, and the index switches (640.2709ms)
+✔ IT-ATS202-API-006: the trust survives a restart of the bridge (685.901ms)
+✔ IT-ATS202-API-007: the trust can be revoked, and the index falls back (112.9669ms)
+✔ IT-ATS202-API-008: a TRUSTED project that asks for the static index is not reported as untrusted (143.6695ms)
+✔ IT-ATS202-API-009: the Bridge keeps answering while a project is listed (4906.2651ms)
+✔ IT-ATS202-API-CLEANUP: stop and cleanup (151.6758ms)
 ℹ tests 11
 ℹ suites 0
 ℹ pass 11
@@ -19,5 +19,5 @@ node --test tests/discovery-api.test.mjs
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 8742.3571
+ℹ duration_ms 8168.6477
 === exit code: 0 ===

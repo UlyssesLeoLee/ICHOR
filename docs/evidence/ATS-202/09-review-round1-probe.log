@@ -15,17 +15,17 @@ node tools/ats202-probes/review-round1-probe.mjs C:/Users/seiko/multica_workspac
 
 [CE-C] 切换索引不改变已有 UID — literal case whose title contains an escaped quote
   expected: static uid === authoritative uid
-  actual:   static {title:"user's profile", uid:tc_1_d_d7d792d38d7ba901} vs authoritative {title:"user's profile", uid:tc_1_d_d7d792d38d7ba901, basis:body-key}
+  actual:   static {title:"user's profile", uid:tc_1_d_3c0e95709ca25ded} vs authoritative {title:"user's profile", uid:tc_1_d_3c0e95709ca25ded, basis:body-key}
   VERDICT:  OK
 
 [CE-D] 切换索引不改变已有 UID — literal case with a >180-char title
   expected: static uid === authoritative uid
-  actual:   static tc_1_d_0fd34b9d8f6c3c45 (title len 199) vs authoritative tc_1_d_0fd34b9d8f6c3c45 (title len 199, basis body-key)
+  actual:   static tc_1_d_79a93c94888dce26 (title len 199) vs authoritative tc_1_d_79a93c94888dce26 (title len 199, basis body-key)
   VERDICT:  OK
 
 [CE-E1] static index after an authoritative one: the TEMPLATE case must not inherit the UID of a rendered dynamic case
-  expected: template uid === fresh static uid (tc_1_d_477a3e512594a810) and !== 'dynamic alpha' uid (tc_1_d_4c68f48c72da6aa5)
-  actual:   template uid after auth = tc_1_d_477a3e512594a810 (uidSource=derived)
+  expected: template uid === fresh static uid (tc_1_d_d6b0abbaab04ea2e) and !== 'dynamic alpha' uid (tc_1_d_c561f908d8e85acc)
+  actual:   template uid after auth = tc_1_d_d6b0abbaab04ea2e (uidSource=derived)
   VERDICT:  OK
 
 [CE-E2] static index after an authoritative one: no spurious registry conflict for the template case
@@ -41,18 +41,18 @@ node tools/ats202-probes/review-round1-probe.mjs C:/Users/seiko/multica_workspac
   VERDICT:  OK
 
 [CE-G] (control) a run result for a dynamic case binds to its own authoritative UID
-  expected: uid=tc_1_d_8df70c5712bc432f
-  actual:   uid=tc_1_d_8df70c5712bc432f basis=file-line
+  expected: uid=tc_1_d_08fc18564bc3b418
+  actual:   uid=tc_1_d_08fc18564bc3b418 basis=file-line
   VERDICT:  OK
 
 [CE-H] (control) a retitled source case keeps its UID under the authoritative index
-  expected: uid=tc_1_d_2ce55a08ad40a588
-  actual:   uid=tc_1_d_2ce55a08ad40a588 source=registry
+  expected: uid=tc_1_d_7585a4ac9b57795b
+  actual:   uid=tc_1_d_7585a4ac9b57795b source=registry
   VERDICT:  OK
 
 [CE-I] a retitled source case written as a multi-line test( call keeps its UID under the authoritative index (static does)
-  expected: uid=tc_1_d_56caa567e3c405f8
-  actual:   uid=tc_1_d_56caa567e3c405f8 source=registry; CLI line=2, scanner line=2
+  expected: uid=tc_1_d_62bc281205caaa2b
+  actual:   uid=tc_1_d_62bc281205caaa2b source=registry; CLI line=2, scanner line=2
   VERDICT:  OK
 
 SUMMARY: 10/10 OK; counterexamples: none
