@@ -3,13 +3,15 @@ name: ATS-102 build gate
 # ATS-102 (SEIKOIST-147) -- 锁文件、依赖与 Windows CI 构建脚本
 #
 # 门禁内容（对应 docs/02-REQUIREMENTS.md NFR-007 / NFR-012）：
-#   1. Node 22 + `npm ci`（严格按 lockfile 安装）→ 锁文件可重现性门禁；
+#   1. Node 22 版本断言 + `npm ci`（严格按 lockfile 安装）→ 锁文件可重现性门禁；
 #   2. `npm test`（Node 内置 test runner）→ 回归门禁；
 #   3. `apps/studio` 的 `npm ci` + 安装树摘要校验 + `next build`
 #      → 静态导出构建门禁；
-#   4. 依赖清单生成 + 漂移校验 → 依赖清单门禁。
+#   4. 依赖清单漂移校验 → 依赖清单门禁。
 #
 # 本地等价门禁：node tools/ci_build_gate.mjs（步骤与本 workflow 一一对应）。
+#
+# 测试总数随仓库演进变化，门禁不断言具体数量，只断言 `npm test` 的退出码。
 #
 # 镜像说明（依据 docs/16-BASELINE-ADR.md §4 B-02）：
 #   Windows job 固定在带 Visual Studio 2022 C++ 生成工具的镜像上，
@@ -151,16 +153,19 @@ jobs:
         with:
           node-version-file: '.nvmrc'
 
-      # 直接校验**提交进仓库的那一份**清单与 lockfile 一致。
+      # The manifest is derived from the COMMITTED lockfiles, not from a live
+      # node_modules, so this check needs no install step: the generator reads
+      # package-lock.json and the npm registry metadata for the licences.
       #
-      # 这里**不能**先重新生成再 --check：那样比对的是刚写出的文件与它自身，
-      # 任何漂移都检测不到（门禁形同虚设）。正确顺序是 --check 在前；
-      # 需要看清单长什么样时，用单独的 regenerate 步骤，且必须用
-      # `git diff --exit-code` 判断有没有改动。
+      # The check compares the COMMITTED manifest against the lockfiles. It
+      # must NOT regenerate the manifest first: regenerating writes the file
+      # that is then compared with itself, so any drift in the committed
+      # manifest would be silently overwritten and never detected. A tampered
+      # manifest therefore fails this job with exit code 1.
       - name: Verify the committed manifest matches the lockfiles
         run: node tools/gen_dep_manifest.mjs --check
 
-      - name: Upload the dependency manifest
+      - name: Upload the committed manifest
         if: always()
         uses: actions/upload-artifact@v4
         with:

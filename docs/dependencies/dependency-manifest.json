@@ -1,6 +1,6 @@
 {
   "schema": "ai-test-studio/dependency-manifest/1",
-  "licenceSource": "npm-registry-metadata",
+  "licenceSource": "lockfile-metadata",
   "node": {
     "required": ">=22",
     "note": "The engines field of the root package.json is the single source of truth for the Node version."

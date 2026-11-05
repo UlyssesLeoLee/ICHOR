@@ -3,7 +3,7 @@
 > 本文件由 `tools/gen_dep_manifest.mjs` 从**已提交的 lockfile** 生成，请勿手工编辑。
 > 重新生成：`node tools/gen_dep_manifest.mjs`；校验漂移：`node tools/gen_dep_manifest.mjs --check`。
 
-- 许可数据来源：npm registry 元数据（`npm-registry-metadata`），非本机 `node_modules`——因此清单在各平台一致
+- 许可数据来源：已提交的 lockfile（`lockfile-metadata`），非本机 `node_modules`——因此清单在各平台一致，且校验无需联网
 - 依赖总数：**88**（直接依赖 10）
 - 许可已知：**88**；许可未知：**0**
 - 需法务复核的许可：**16**（强 copyleft 0，弱 copyleft 15，署名义务 1）
