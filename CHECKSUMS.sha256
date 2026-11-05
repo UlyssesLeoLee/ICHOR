@@ -31,7 +31,7 @@ c14cbd21bb7f44271dfee73df03c120fe45bc766d2ec195d8daee866b62cb804  docs/13-ROADMA
 4ab09c31a6731526c771be7b60bcc5c8cc35952effe43bc80a4ff9d6b6460f64  docs/15-REFERENCES-LICENSES.md
 d49fe5d71e95d18247a0ed171032f74a399827f159a3f5f1802229d0be860369  docs/16-BASELINE-ADR.md
 342b67e08d8806671898694165f8e8fcf73dd0c4aca8b4f6e845e6d479536ef1  docs/17-AGENT-CONTRACT.md
-daf342a2d40323e736711808cc8b6c578ba63387c36bacb64def44f07d06c760  docs/17-BUILD-CI.md
+43e815bfb4a73b3e25078a949dc40cf75c2e24cf6e5e10af1701ecc8ff782d94  docs/17-BUILD-CI.md
 82b2b1ed417ed1783b60e6c02cc090910d20c9ad53996910e3a0947198c3c7ba  docs/18-RUNNER-ADAPTER-CONTRACT.md
 7b5f86d5a740ce30852b93f68b59de826bd45b4103bf28104f27b93b3dbd2a78  docs/19-REMOTE-RUNNER-PROTOCOL.md
 f5475cc08d25a908e74b17e2e04bf3b8bd19c2ab03ca6ec56dd436c61dda2cbc  docs/20-PARALLEL-ORCHESTRATION.md
@@ -54,9 +54,9 @@ f485f4b2fe7468b050237330d95b8505b667b26bf2da09e057e39bf793e819a6  docs/evidence/
 9dadb05b404536a2439a9dfc6a5f7a6b53ba1a8d64b0fcc801ce9b6069ebb73e  docs/evidence/ATS-102/10-path-with-space-and-cjk.log
 d801bae500e9c25bd0fd7097bfe88d7d5c088a0ce52d321d25953dfecea1e9e5  docs/evidence/ATS-102/11-manifest-tamper-regression.log
 679ad596c97a4f2e5c158445857f8de38d8954968c55af6e42c5a1dd692eea3b  docs/evidence/ATS-102/12-verify-merged-dev.log
-f65db45ab6c1198e6d174347bf1a8b882856fc1b1c4c2e8f093e987f3faa4792  docs/evidence/ATS-102/13-manifest-drift-committed-tamper.log
-ed6e8ac4befa1a4aeab5bdbd04516b20df8a2748c2b8884e2804ec1b5707994c  docs/evidence/ATS-102/14-npm-version-and-install-digest.log
-5c832dfda1de07d385bbf91abc4ce4ba31fb55804963cc5c7d6b04db00faa64a  docs/evidence/ATS-102/15-node22-gate-8-steps-final.log
+417829bc33f1c0c1b2a09b184b03d0c8357ebc483740564f5b58858d710e961b  docs/evidence/ATS-102/13-manifest-drift-committed-tamper.log
+cf76362fbd72a1122ea44ef70624345b655428010928747e1e1513cbd810c9e8  docs/evidence/ATS-102/14-npm-version-and-install-digest.log
+d7bf3910e0c74e57cd2cc2b3c8693935254c2fe018d53f9bdb583cc66a86442c  docs/evidence/ATS-102/15-node22-gate-8-steps-final.log
 c26b236aa65bd1aefeb987e8bc7b209d3d90c91552dad0dfdd9452c0b37aa986  docs/evidence/ATS-401/01-node-test.log
 68cf94da14348eaa92af8e35b34320e6620aad3f08ba917d6ee99e326d49ae18  docs/evidence/ATS-401/02-agent-boundary.log
 ba1c6dd2629bcdef7abb6bd61e96ed8eab44b77ee362bf04a8f1feb2b44f0917  docs/evidence/ATS-401/03-port-audit.log
