@@ -103,7 +103,8 @@ function runSuite(rootDir) {
   const r = spawnSync(process.execPath, ['--test', '--test-timeout=60000', '--test-reporter=spec', path.join(rootDir, 'tests/control-plane.test.mjs')],
     { encoding: 'utf8', cwd: rootDir, timeout: 240000 });
   const failed = [...String(r.stdout || '').matchAll(/^\s*✖ (UT-CP-\d+)/gm)].map((m) => m[1]);
-  return { status: r.status === null ? `killed(${r.signal})` : r.status, failed: [...new Set(failed)] };
+  const tail = `${r.stdout || ''}\n${r.stderr || ''}${r.error ? `\n${r.error.message}` : ''}`.trim().split('\n').slice(-8).join('\n');
+  return { status: r.status === null ? `killed(${r.signal})` : r.status, failed: [...new Set(failed)], tail };
 }
 
 console.log('=== ATS-506 negative controls: control-plane guard mutations ===');
@@ -134,7 +135,10 @@ try {
     const r = runSuite(dir);
     const caught = r.status !== 0 && r.failed.includes(m.expect);
     console.log(`  ${caught ? 'PASS' : 'FAIL'}  ${m.id} ${m.guard}: suite exit=${r.status}, failing=[${r.failed.join(', ')}] (expected ${m.expect})`);
-    if (!caught) bad++;
+    if (!caught) {
+      bad++;
+      console.log(r.tail.split('\n').map((l) => `        | ${l}`).join('\n'));
+    }
   }
 } finally {
   fs.rmSync(base, { recursive: true, force: true });

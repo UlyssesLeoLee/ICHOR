@@ -120,7 +120,16 @@ header 07-baseline-regression.log "baseline regression: npm test / node --check 
   echo "--- ATS-501 protocol audit (docs/19 was edited by ATS-506) ---"; node tools/ats501-probes/audit-remote-protocol.mjs 2>&1 | tail -4; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
   echo "--- ATS-501 protocol mutation tests ---"; node tools/ats501-probes/mutation-tests.mjs 2>&1 | tail -3; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
   echo "--- ADR citations ---"; python tools/check_adr_citations.py 2>&1 | tail -6; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
-  echo "--- dependency manifest ---"; node tools/gen_dep_manifest.mjs --check 2>&1 | tail -2; echo "exit code   : ${PIPESTATUS[0]}"
+  echo "--- dependency manifest ---"; node tools/gen_dep_manifest.mjs --check 2>&1 | tail -2; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
+  # A failure of a test this task did not touch is attributed by running the
+  # same file on a clean export of the integration branch: if it fails there
+  # too, it predates ATS-506.
+  BASE_REF="dev"
+  BASE_DIR="$(mktemp -d)"
+  echo "--- tests/api.test.mjs on a clean export of $BASE_REF ($(git rev-parse --short "$BASE_REF")) ---"
+  git archive "$BASE_REF" server tests examples package.json | tar -x -C "$BASE_DIR"
+  (cd "$BASE_DIR" && node --test tests/api.test.mjs 2>&1 | grep -E '^✖|^ℹ (tests|pass|fail)')
+  rm -rf "$BASE_DIR"
 } >> "$OUT/07-baseline-regression.log" 2>&1
 
 echo "evidence regenerated in $OUT:"
