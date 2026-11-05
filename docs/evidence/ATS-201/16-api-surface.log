@@ -1,0 +1,98 @@
+=== command ===
+node tools/ats201-probes/api-surface.mjs
+=== output ===
+--- POST /api/projects ---
+HTTP 201
+{
+  "project": {
+    "id": "proj_1_ca6839ba65ccad2b83b768f6",
+    "uid": "proj_1_ca6839ba65ccad2b83b768f6",
+    "name": "sample-playwright",
+    "root": "C:\\Users\\seiko\\multica_workspaces_desktop-api.multica.ai\\triton-n4hv-4bc6c5b98085\\seikoist-16-ef22b10e5916\\worktree\\examples\\sample-playwright",
+    "addedAt": "2026-11-05T13:14:11.768Z",
+    "git": {
+      "branch": "agent/m3/seikoist-162-ef22b10e5916",
+      "commit": "c8f8ed1",
+      "dirty": true
+    }
+  }
+}
+
+--- GET /api/projects/:uid/tests (abridged) ---
+{
+  "uidVersion": 1,
+  "projectUid": "proj_1_ca6839ba65ccad2b83b768f6",
+  "warning": "静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试请以 Playwright --list 为准。",
+  "files": [
+    "tests/home.spec.ts"
+  ],
+  "tests": [
+    {
+      "id": "tc_1_d_336cfa6b5f75b01c",
+      "uid": "tc_1_d_336cfa6b5f75b01c",
+      "uidSource": "derived",
+      "uidStable": true,
+      "file": "tests/home.spec.ts",
+      "title": "首页响应正常 @REQ-001",
+      "line": 18,
+      "source": "static",
+      "level": "ST"
+    },
+    {
+      "id": "tc_1_d_c12ca4d0c30f424c",
+      "uid": "tc_1_d_c12ca4d0c30f424c",
+      "uidSource": "derived",
+      "uidStable": true,
+      "file": "tests/home.spec.ts",
+      "title": "导航入口正常 @REQ-002",
+      "line": 22,
+      "source": "static",
+      "level": "ST"
+    }
+  ]
+}
+
+--- POST /api/projects/:uid/run ---
+{
+  "status": "running",
+  "id": "run_1_2f7fc542344d87b2ecd702e3",
+  "uid": "run_1_2f7fc542344d87b2ecd702e3",
+  "seq": 1,
+  "projectId": "proj_1_ca6839ba65ccad2b83b768f6",
+  "projectUid": "proj_1_ca6839ba65ccad2b83b768f6",
+  "gitCommit": "c8f8ed1"
+}
+
+--- GET /api/runs (abridged) ---
+[
+  {
+    "id": "run_1_2f7fc542344d87b2ecd702e3",
+    "uid": "run_1_2f7fc542344d87b2ecd702e3",
+    "seq": 1,
+    "status": "running",
+    "projectUid": "proj_1_ca6839ba65ccad2b83b768f6"
+  }
+]
+
+--- GET /api/diagnostics ---
+{
+  "runtime": "v24.19.0",
+  "server": "Node.js bridge",
+  "platform": "win32",
+  "pid": 30080,
+  "environment": "local",
+  "limitations": [
+    "Local trusted repositories only",
+    "No process/container sandbox",
+    "No account/RBAC",
+    "AI provider not connected",
+    "WDIO adapter planned"
+  ],
+  "agentContract": {
+    "version": "agent-contract/v1",
+    "status": "CONTRACT_ONLY",
+    "note": "The agent contract is defined and enforced; no model provider is wired, so no agent request can reach a model.",
+    "writePolicy": "Agents produce diffs only; applying a diff, updating expected results and committing are platform-side operations performed after review."
+  }
+}
+=== exit code: 0 ===

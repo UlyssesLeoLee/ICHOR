@@ -79,7 +79,7 @@ node <project>/node_modules/@playwright/test/cli.js test
 
 ## 5. 测试发现及脚本 ID
 
-v0.1：`fs.readdirSync({withFileTypes:true})` 深度 14、最多 2000 文件，跳过 `.git,node_modules,dist,out,coverage` 等；从文件中识别常见 `test('literal')`/`it('literal')`。映射 ID 为 `sha256(projectId:file:title)[0:16]`；**此 ID 仅为临时索引 ID，不是重命名稳定 UID**。动态参数化、`test.each`、代码生成、describe 嵌套语义不完整。P1 使用 Playwright `--list` + AST/显式 `@TC-UID`，在文件重命名后保持 UID，双视图稳定匹配。
+v0.1：`fs.readdirSync({withFileTypes:true})` 深度 14、最多 2000 文件，跳过 `.git,node_modules,dist,out,coverage` 等；从文件中识别常见 `test('literal')`/`it('literal')`。**脚本 ID 采用稳定 UID 规范 v1**（`docs/18-UID-SPEC.md`）：显式 `@TC-xxx` 标注优先（显式标注是作者的声明，注册表不得把它交给别的用例），其次按标题键或执行体指纹派生，无法唯一判定时给出临时标识并报告歧义；UID 在**文件改名后保持不变**，**标题改写后在执行体未变时保持不变**（靠 UID 注册表找回原 UID），同名用例改了执行体后 UID 会变（`describe` 路径不参与标题键，见 `docs/18-UID-SPEC.md` §7.1）。动态参数化、`test.each`、代码生成、describe 嵌套语义不完整。P1 使用 Playwright `--list` + AST，在动态与参数化用例上补齐权威身份。
 
 ### P1 AST 子集
 

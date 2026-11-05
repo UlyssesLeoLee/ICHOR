@@ -1,7 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {spawn} from 'node:child_process';
+import { freePort } from './helpers/free-port.mjs';
 const root=path.resolve(import.meta.dirname,'..');
 const base=path.resolve(root,'examples/sample-playwright');
-const data=fs.mkdtempSync(path.join(os.tmpdir(),'ats-api-'));const port=19000+Math.floor(Math.random()*10000);
+const data=fs.mkdtempSync(path.join(os.tmpdir(),'ats-api-'));const port=await freePort();
 // A project that satisfies the Bridge's validation but has NO local Playwright
 // install. IT-RUN-001 needs "the engine is missing => explicit failure", so it
 // owns this fixture instead of depending on whether the repository example
@@ -92,5 +93,28 @@ test('IT-API-015: a non-array capabilities is a 400, not a silent empty request'
  const r=await api(`/api/projects/${projectId}/runners`,'POST',{capabilities:'filterByFile'});
  assert.equal(r[0],400);
  assert.equal(r[1].error,'CAPABILITIES_NOT_AN_ARRAY');
+});
+// --- ATS-201: the duplicate check uses the UID normalisation ---------------
+// `realpathSync` keeps the case of the path it was given, so on a case
+// insensitive filesystem `D:\Proj` and `D:\proj` are the same directory but
+// two different strings. The duplicate check has to use the SAME
+// normalisation as the UID, otherwise the same repository is registered
+// twice under ONE identifier: two records, one id.
+test('IT-API-016: the same project under a different spelling is refused',async()=>{
+ // Its own fixture: the repository example is already registered above.
+ const fixture=fs.mkdtempSync(path.join(os.tmpdir(),'ats-case-proj-'));
+ fs.writeFileSync(path.join(fixture,'package.json'),'{}');
+ fs.writeFileSync(path.join(fixture,'playwright.config.ts'),'export default {}');
+ const first=await api('/api/projects','POST',{path:fixture});
+ assert.equal(first[0],201);
+ const id=first[1].project.id;
+ const second=await api('/api/projects','POST',{path:fixture.toUpperCase()});
+ assert.equal(second[0],409);
+ assert.equal(second[1].error,'PROJECT_ALREADY_REGISTERED');
+ const list=await api('/api/projects');
+ const ids=list[1].projects.map(p=>p.id);
+ assert.equal(new Set(ids).size,ids.length,'every registered project has its own identifier');
+ assert.ok(ids.includes(id));
+ fs.rmSync(fixture,{recursive:true,force:true});
 });
 test('IT-API-CLEANUP: stop and cleanup',()=>{cp.kill();fs.rmSync(data,{recursive:true,force:true});fs.rmSync(noDeps,{recursive:true,force:true});});
