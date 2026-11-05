@@ -13,7 +13,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractCallbackBody, resolveIdentities, emptyRegistry } from '../server/uid.mjs';
+import { extractCallbackBody, resolveIdentities, emptyRegistry, deriveTestUid, bodyKeyOf } from '../server/uid.mjs';
 
 const projectUid = 'proj_1_aaaaaaaaaaaaaaaaaaaaaaaa';
 
@@ -153,4 +153,82 @@ test('UT-UID-COL-003: a collision without a usable fallback ends in the ambiguit
     assert.equal(i.uidStable, false);
     assert.ok(i.ambiguity);
   }
+});
+
+test('UT-UID-COL-004: a registry claim and a derived claim for the same uid are adjudicated', () => {
+  // The registry remembers that the body of 'alpha' belonged to the uid that
+  // 'beta' DERIVES from its own title. Both cases claim that uid, so the
+  // collision has to be adjudicated: the registry-backed claim keeps it, the
+  // derived one falls back to the body key.
+  const contested = deriveTestUid(projectUid, 'beta');
+  const registry = {
+    version: 1,
+    projects: {
+      [projectUid]: {
+        version: 1,
+        entries: [
+          {
+            uid: contested,
+            uidSource: 'registry',
+            titleKey: 'alpha',
+            bodyKey: bodyKeyOf('body alpha'),
+            file: 'tests/a.spec.ts',
+            title: 'alpha',
+            line: 2
+          }
+        ]
+      }
+    }
+  };
+  const { items } = resolveIdentities({
+    projectUid,
+    discovered: [
+      { file: 'tests/a.spec.ts', title: 'alpha', line: 2, bodyText: 'body alpha' },
+      { file: 'tests/b.spec.ts', title: 'beta', line: 3, bodyText: 'body beta' }
+    ],
+    registry
+  });
+  const alpha = items.find((i) => i.title === 'alpha');
+  const beta = items.find((i) => i.title === 'beta');
+  // The registry-backed claim keeps the uid ...
+  assert.equal(alpha.uid, contested);
+  assert.equal(alpha.uidSource, 'registry');
+  // ... and the derived claim falls back to the body key, which is unique.
+  assert.notEqual(beta.uid, contested);
+  assert.equal(beta.uidSource, 'derived-body');
+  assert.equal(beta.uidStable, true);
+});
+
+test('UT-UID-COL-005: a registry that maps one body to two uids is a reported conflict', () => {
+  // The registry maps the SAME body to TWO different uids -- the memory of the
+  // past cases is inconsistent. The claim cannot be decided, so the case falls
+  // back to the title key and the conflict is reported rather than swallowed.
+  const shared = bodyKeyOf('shared body');
+  const registry = {
+    version: 1,
+    projects: {
+      [projectUid]: {
+        version: 1,
+        entries: [
+          { uid: 'tc_1_d_cccccccccccccccc', uidSource: 'registry', titleKey: 'one', bodyKey: shared, file: 'tests/a.spec.ts', title: 'one', line: 2 },
+          { uid: 'tc_1_d_dddddddddddddddd', uidSource: 'registry', titleKey: 'one', bodyKey: shared, file: 'tests/a.spec.ts', title: 'one', line: 9 }
+        ]
+      }
+    }
+  };
+  const { items } = resolveIdentities({
+    projectUid,
+    discovered: [
+      { file: 'tests/a.spec.ts', title: 'one', line: 2, bodyText: 'shared body' }
+    ],
+    registry
+  });
+  const one = items.find((i) => i.title === 'one');
+  // The registry could not decide -- two entries claim the same body with
+  // different uids -- so the case is not bound to a remembered uid and the
+  // conflict is reported.
+  assert.notEqual(one.uid, 'tc_1_d_cccccccccccccccc');
+  assert.notEqual(one.uid, 'tc_1_d_dddddddddddddddd');
+  assert.ok(one.ambiguity);
+  assert.equal(one.ambiguity.reason, 'ambiguous-registry-match');
 });

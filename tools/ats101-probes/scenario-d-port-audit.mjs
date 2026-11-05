@@ -37,6 +37,12 @@ const NON_RUNTIME = new Set([
   'start.sh',             // launcher script: prints a URL
   'tests/test-cases.json', // test-case data (input strings)
   'tools/generate_test_docs.py', // generator for tests/test-cases.json -- rewrites the old port
+  // The ADR citation checker names the port only inside a COMMENT, to show
+  // that a `host:port` pair is not a file citation. The value never takes
+  // effect, so it is a mention and not a runtime hardcoding. (ATS-301 added
+  // the file; ATS-101's audit classified it as runtime until the baseline
+  // list was corrected.)
+  'tools/check_adr_citations.py',
 ]);
 
 /**
