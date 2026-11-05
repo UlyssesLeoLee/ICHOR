@@ -11,9 +11,17 @@
 # It runs:
 #   1. tools/test_wbs_common.py  -- the shared marked-cell merge regression
 #   2. tools/check_adr_citations.py -- every ADR `path:line` citation resolves
+#   3. tools/ats101-probes/scenario-d-port-audit.mjs -- the hardcoded default
+#      port list in 16 §3.1 still matches the source
 #
-# Both are read-only with respect to docs/WBS.xlsx: the WBS test only merges
-# strings in memory, and the citation checker only reads files.
+# All three are read-only with respect to docs/WBS.xlsx: the WBS test only
+# merges strings in memory, the citation checker only reads files, and the
+# port audit only reads the tree.
+#
+# The port audit belongs in this gate because the ATS-301 delivery added a
+# source file that mentions the port, which turned the ATS-101 port audit
+# red. A gate that does not run the port audit cannot see that class of
+# regression, so a delivery can pass the gate while the ATS-101 audit fails.
 #
 # ENCODING: the WBS test prints Chinese text (markers). On a default Windows
 # console the Python stdout encoding is the ANSI code page (gbk / cp936), so
@@ -35,11 +43,12 @@ fail=0
 ok()  { printf '  PASS  %s\n' "$*"; }
 bad() { printf '  FAIL  %s\n' "$*"; fail=1; }
 
-printf '=== ATS-301 gate: WBS helper + ADR citations ===\n'
+printf '=== ATS-301 gate: WBS helper + ADR citations + port audit ===\n'
 printf 'repo root : %s\n' "$ROOT"
 printf 'python    : %s\n' "$(python -c 'import sys; print(sys.version.replace(chr(10), " "))' 2>&1)"
 printf 'stdout enc: %s (forced: PYTHONUTF8=%s PYTHONIOENCODING=%s)\n' \
   "$(python -c 'import sys; print(sys.stdout.encoding)' 2>&1)" "$PYTHONUTF8" "$PYTHONIOENCODING"
+printf 'node      : %s\n' "$(node --version 2>&1)"
 printf '\n'
 
 printf -- '--- 1. the WBS shared-cell merge regression ---\n'
@@ -58,8 +67,16 @@ else
 fi
 
 printf '\n'
+printf -- '--- 3. the hardcoded default port list in 16 §3.1 matches the source ---\n'
+if node tools/ats101-probes/scenario-d-port-audit.mjs; then
+  ok 'tools/ats101-probes/scenario-d-port-audit.mjs'
+else
+  bad 'tools/ats101-probes/scenario-d-port-audit.mjs'
+fi
+
+printf '\n'
 if [ "$fail" -eq 0 ]; then
-  printf 'RESULT: OK -- the WBS helper regression and the ADR citation check both pass.\n'
+  printf 'RESULT: OK -- the WBS helper regression, the ADR citation check and the port audit all pass.\n'
   exit 0
 fi
 printf 'RESULT: MISMATCH -- the ATS-301 gate does not pass.\n'

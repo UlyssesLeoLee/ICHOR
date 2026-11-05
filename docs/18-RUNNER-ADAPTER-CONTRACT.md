@@ -324,10 +324,24 @@ Playwright CLI には `--screenshot` / `--video` が無い。これらは `playw
 
 したがって**「Bridge 側 只调用契约方法」という主張は成り立たない**。アダプタ層（`server/adapters/*`）だけが 4 操作を契約として実装しており、HTTP 層はそのうち 2 つしか契約を通していない。`discover` / `stop` を契約へ寄せる作業は Bridge 経路の差し替えを伴い本項のスコープ外なので、§9 に明記する。
 
+#### 9.0.1 プロジェクトの登録条件（WDIO のみ的项目は登録できない）
+
+**Bridge にプロジェクトを登録する API は、Playwright の設定ファイルを要求する。** `validateProjectPath()`（`server/core.mjs`）は `package.json` に加えて `playwright.config.[cm]?[jt]s` の存在を要求し、無ければ `PLAYWRIGHT_CONFIG_REQUIRED` を投げる。
+
+| 登録するプロジェクト | 登録結果 |
+|---|---|
+| Playwright プロジェクト（`playwright.config.*` あり） | 登録できる |
+| **WDIO のみ的项目**（`wdio.conf.*` あり、`playwright.config.*` なし） | **`PLAYWRIGHT_CONFIG_REQUIRED` で登録できない** |
+
+そのため §6 と §7 の「WDIO と PW は同一プロジェクトの runner である」という記述は、**Bridge の HTTP 経路では、WDIO を明示指定した呼び出しが到達できるプロジェクトに限定して**成り立つ。`GET /api/projects/:id/runners` と `POST /api/projects/:id/run {runner:'wdio'}` は、`playwright.config.*` を持つプロジェクトに対してのみ WDIO runner を選べる。WDIO だけを持つプロジェクトは Bridge 側に登録の入口がない。
+
+**この制約は v0.1 の登録要件（Playwright プロジェクト前提）に由来するもので、アダプタ契約の制限ではない。** WDIO のみ的项目の受付は登録条件の緩和を要する別件であり、本項のスコープ外である。§9.1 に「未実装」として明記する。
+
 ### 9.1 未実装・未実測の一覧
 
 | 項目 | 状態 | 理由 / 担当 |
 |---|---|---|
+| WDIO のみ的プロジェクトの登録 | 未実装 | 登録 API が `playwright.config.*` を要求するため、WDIO のみのプロジェクトは `PLAYWRIGHT_CONFIG_REQUIRED` で登録できない（§9.0.1）。登録条件の緩和は本項のスコープ外 |
 | `filterByTestUid`（両エンジン） | DESIGNED | 安定 UID 仕様は FR-021 / ATS-307（別 WBS） |
 | WDIO の `htmlReport` | DESIGNED（かつ不可能） | `@wdio/html-reporter` パッケージが存在しない。WDIO 側で HTML を作るなら自前実装が必要（ATS-302 范畴） |
 | WDIO の `trace` / `screenshot` / `video` | DESIGNED | ATS-302（WDIO Tauri Service / Runner 原型）范畴 |
@@ -359,19 +373,32 @@ Playwright CLI には `--screenshot` / `--video` が無い。これらは `playw
 
 | ファイル | 何の証拠か | 再現コマンド |
 |---|---|---|
-| `00-npm-test-full.log` | 全量テスト 177/177 pass | `npm test` |
+| `00-npm-test-full.log` | 全量テスト 189/189 pass | `npm test` |
 | `01-playwright-ground-truth.log` | 実 Playwright（`@playwright/test` 1.64.1）での ground truth | `node tools/ats301-probes/playwright-ground-truth.mjs` |
 | `02-wdio-ground-truth.log` | 実 WebdriverIO 10.1.0 での ground truth | `node tools/ats301-probes/wdio-ground-truth.mjs` |
 | `03-adr-citations.log` | ADR の全 `path:line` 引用が解決し、fix script が冪等であることの実測 | `PYTHONUTF8=1 python tools/check_adr_citations.py` |
 | `04-stop-noop-mutation.log` | `stop()` の no-op 変異で stop の IT が赤くなる（assertion が恒真でない）ことの実測 | `node --test tests/adapters-it.test.mjs` |
 | `05-http-409-reason-mutation.log` | 409 の理由生成を潰すと HTTP IT が赤くなることの実測 | `node --test tests/api.test.mjs` |
+| `06-wbs-updaters-gate.log` | 全 updater（ATS-301 を含む）の冪等性の実測 | `bash tools/ats501-probes/check-wbs-updaters.sh` |
+| `07-ats301-gate.log` | 門禁（WBS 回帰 + ADR 引用 + ポート監査）の実測 | `bash tools/ats301-probes/check-ats301-gate.sh` |
+| `08-wbs-xml-escaping.log` | WBS updater の XML エスケープが必要であることの実測 | `bash tools/ats401-probes/collect-evidence.sh`（`09-wbs-xml-escape.log`） |
+| `09-filterbyfile-c1.log` | C1（Playwright の位置引数フィルタ）が本物であることの実測 | `bash tools/ats401-probes/collect-evidence.sh`（`05-review-regressions.log`） |
+| `10-port-audit.log` | ATS-101 シナリオ D のハードコードポート監査の実測 | `node tools/ats101-probes/scenario-d-port-audit.mjs` |
+| `11-wbs-ats301-note.log` | 合併後の工作簿における ATS-301 行の実テキストと updater の出力の比対 | `PYTHONUTF8=1 python tools/ats301-probes/show-ats301-note.py` |
 
 ### 10.2 門禁
 
 ```
 bash tools/ats301-probes/check-ats301-gate.sh
+# あるいは
+npm run gate:ats301
 ```
 
-WBS の共有セル回帰テスト（`tools/test_wbs_common.py`）と ADR 引用チェック（`tools/check_adr_citations.py`）をまとめて走らせる。
+WBS の共有セル回帰テスト（`tools/test_wbs_common.py`）、ADR 引用チェック（`tools/check_adr_citations.py`）、および ATS-101 のハードコードポート監査（`tools/ats101-probes/scenario-d-port-audit.mjs`）をまとめて走らせる。
+
+**ポート監査を門禁に含める理由**：ATS-301 の納品で「ポート番号を含むソースファイル」を追加したことで ATS-101 のポート監査が赤くなったが、ポート監査を走らせていない門禁ではこの型の回帰を検出できない。門禁が通ってもポート監査が落ちるという状態を作り出さないため、監査を門禁の一部として組み込む。
+
+この門禁は CI（`.github/workflows/ats-102-build.yml`）でも `npm run gate:ats301` として走る。
+
 スクリプト自身が `PYTHONUTF8=1` / `PYTHONIOENCODING=utf-8` を設定し、解釈系と stdout エンコーディングを evidence に記録する
 （既定の Windows コンソールは stdout が ANSI コードページ (gbk/cp936) になり、中国語を含む出力が壊れる）。

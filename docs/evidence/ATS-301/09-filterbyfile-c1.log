@@ -1,66 +1,46 @@
-ATS-301 / review item 1 (C1) -- Playwright's positional test filter
-================================================================
+=== ATS-301 / review item 1 (C1) -- Playwright's positional test filter ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-8bd534310547/worktree
+node      : v24.19.0
+date      : 2026-11-05T11:38:25Z
 
-THE DEFECT
-  hasPositionalFilter() only understood a FULL `--help` text. The adapter
-  however probes the CLI and already extracts the bare USAGE line, then
-  handed THAT to the check. The check found no 'Usage:' prefix, parsed
-  nothing, and reported filterByFile as unsupported -- a false negative on
-  a capability the adapter uses on every filtered run.
+=== ATS-401 probe: 1st-review-round regressions ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-8bd534310547\worktree
+work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-8bd534310547\worktree\.ats-evidence-work\c1
 
-THE FIX
-  server/adapters/contract.mjs -- hasPositionalFilter() now accepts either the
-  full help text or the already-extracted bare usage line; a bare usage line
-  is matched directly against the positional-filter marker.
+--- A. the diff-target scope cannot be bypassed ---
+  [PASS] a rename section moving a file out of scope is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a copy section is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a mode change is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a CRLF-terminated header section is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a GIT binary patch is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a Binary files ... differ section is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a diff --git header naming an out-of-scope file is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
 
---- PROOF 1: the real Playwright project reports filterByFile supported ---
-command: node --test --test-name-pattern=IT-ADP-005 tests/adapters-it.test.mjs
-exit code: 0
-  ✔ IT-ADP-005: negotiation over the real Playwright project proves the CLI options (413.835ms)
-  ✔ IT-ADP-005B: the real Playwright CLI declares a positional test filter (815.9371ms)
-  ✔ IT-ADP-005C: the real Playwright run passes the filtered file as a positional argument (415.9683ms)
-  ℹ tests 3
-  ℹ pass 3
-  ℹ fail 0
-  ℹ skipped 0
+--- B. the I/O detector covers the four spellings the review found ---
+  [PASS] the detector flags process.getBuiltinModule("node:fs") -- modules: node:fs; globals: process
+  [PASS] the detector flags a bare global fetch() -- modules: none; globals: fetch
+  [PASS] the detector flags a dynamic import("node:child_process") -- modules: node:child_process; globals: none
+  [PASS] the detector flags a double-quoted from "node:fs" -- modules: node:fs; globals: none
+  [PASS] the real contract layer is still pure -- imports: node:crypto, node:path
 
-  IT-ADP-005B asserts, over the REAL @playwright/test project:
-    - cap.supported === true
-    - cap.reason === ''            (a supported capability carries no reason)
-    - cap.evidence quotes the SAME usage line the capability came from
-    - cap.detail.usage matches /\[test-filter/i
-    - requireCapability(a, project, ['filterByFile']) does NOT raise
-  IT-ADP-005C asserts the claim matches the EXECUTION: the file reaches
-  the CLI as the last POSITIONAL argument, never as an option.
+--- C. the digest is recomputed at the request-validation layer ---
+  [PASS] a digest mismatch is rejected by validateAgentRequest -- code=AGENT_PROVENANCE_DIGEST_MISMATCH
+  [PASS] the adapter rejects a digest mismatch too -- code=AGENT_PROVENANCE_DIGEST_MISMATCH
 
---- PROOF 2: the negative case -- a usage line WITHOUT a test filter ---
-  tools/test_wbs_common.py style unit coverage in tests/adapters.test.mjs
-  (UT-ADP-017) and tests/adapters-engines.test.mjs (UT-PWA-004) use a
-  FORGED probe whose usage text has no test-filter marker and assert the
-  capability is NOT supported.
+--- D. the deadline is enforced against a hung provider ---
+  [PASS] a hung provider is cut off at the deadline -- rejected AGENT_BUDGET_EXCEEDED after 1001ms
 
---- PROOF 3: the positive tests are NOT constant -- mutation ---
-  server/adapters/contract.mjs -- the positional-filter match is disabled
-  (the check is forced to 'no positional filter'), i.e. the pre-fix
-  behaviour. The real-project assertions must then go red.
-command: node --test --test-name-pattern=IT-ADP-005 tests/adapters-it.test.mjs
-exit code: 1
-Failing tests under the mutation:
-  ✖ IT-ADP-005B: the real Playwright CLI declares a positional test filter (420.2692ms)
+--- E. only AGENT_* errors are remapped ---
+  [PASS] the validate endpoint rejects a digest mismatch -- 400 {"error":"AGENT_PROVENANCE_DIGEST_MISMATCH","details":{"ref":"tests/login.spec.ts"}}
+  [PASS] an AGENT_* error carries machine-readable details -- 400 {"error":"AGENT_BUDGET_INVALID","details":{"field":"maxSteps","limit":10}}
+  [PASS] a non-agent error keeps the pre-ATS-401 behaviour -- 500 {"error":"ENOENT: no such file or directory, lstat 'C:\\c\\Users\\seiko\\multica_workspaces_desktop-api.multica.ai\\triton-n4hv-4bc6c5b98085\\seikoist-18-8bd534310547\\worktree\\.ats-evidence-work\\c1\\no-such-dir'"}
 
-  -> the real-project assertions turn RED when the check is disabled, so
-     they are not constant. The file was restored byte-identically.
+--- F. the self-review check is not an exact string comparison ---
+  [PASS] "gen-1" cannot review its own proposal -- code=AGENT_REVIEW_SELF_FORBIDDEN
+  [PASS] "gen-1 " cannot review its own proposal -- code=AGENT_REVIEW_SELF_FORBIDDEN
+  [PASS] " GEN-1" cannot review its own proposal -- code=AGENT_REVIEW_SELF_FORBIDDEN
+  [PASS] "Gen-1" cannot review its own proposal -- code=AGENT_REVIEW_SELF_FORBIDDEN
+  [PASS] a proposal without a platform-supplied producer is rejected -- code=AGENT_PROPOSAL_INVALID
 
---- the forged-usage negative tests ---
-command: node --test --test-name-pattern=UT-ADP-017 tests/adapters.test.mjs
-exit code: 0
-  ✔ UT-ADP-017: parseCliUsage reads the usage line and detects the positional filter (0.8987ms)
-  ✔ UT-ADP-017B: hasPositionalFilter accepts a BARE usage line as well as a help text (0.1093ms)
-  ℹ tests 2
-  ℹ pass 2
-  ℹ fail 0
-
-ENVIRONMENT
-  node     : v24.19.0
-  playwright: 1.64.1 (@playwright/test, real project)
-  date     : 2026-11-05T19:25:13
+--- verdict ---
+PASS: every 1st-review-round regression is closed
