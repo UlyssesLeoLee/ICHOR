@@ -1,0 +1,39 @@
+================================================================================
+ATS-512 evidence log -- the one failing test is PRE-EXISTING, not a regression
+================================================================================
+commit        : 6ae6bc0cc5171e5b71713e3c1697766430fda049 (this task's content commit)
+baseline      : 28ddbeaa8490700d2eee64cbea264ff0f085a56b (the commit this task started from)
+timestamp     : 2026-11-05T13:06:31Z (UTC)
+node          : v24.19.0
+command       : git archive 28ddbea | tar -x -C <tmp> && cd <tmp> && node --test tests/api.test.mjs
+================================================================================
+
+The BASELINE tree is exported with git archive, so it contains no ATS-512 code
+at all. The same test fails there, therefore IT-API-013 is a pre-existing
+failure and not caused by this task.
+
+--- baseline (28ddbea, WITHOUT any ATS-512 code) ---
+✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (2.3334ms)
+ℹ pass 14
+ℹ fail 1
+ℹ skipped 0
+✖ failing tests:
+✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (2.3334ms)
+
+--- this branch (6ae6bc0, WITH the ATS-512 code) ---
+✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (15.5142ms)
+ℹ pass 14
+ℹ fail 1
+ℹ skipped 0
+✖ failing tests:
+✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (15.5142ms)
+
+--- why it fails ---
+examples/sample-playwright/ has no node_modules in this checkout, so the
+Playwright adapter reports the required capabilities as unsupported and the
+negotiation returns 409 instead of 200. The example project's dependencies are
+NOT part of the repository (.gitignore: examples/*/node_modules/), so this
+failure depends on whether the example was installed locally -- not on the
+product code. It is an ATS-301 environment dependency, not an ATS-512 defect,
+and it is NOT counted as a PASS.
+

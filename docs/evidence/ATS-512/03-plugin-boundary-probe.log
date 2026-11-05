@@ -1,0 +1,64 @@
+================================================================================
+ATS-512 evidence log -- plugin permission boundary probe (includes the negative control)
+================================================================================
+commit        : 6ae6bc0cc5171e5b71713e3c1697766430fda049
+timestamp     : 2026-11-05T13:03:11Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-c720363925af/worktree
+node          : v24.19.0
+python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+default enc   : gbk (what the same interpreter would use without the forcing)
+command       : node tools/ats512-probes/probe-plugin-boundary.mjs
+================================================================================
+
+=== ATS-512 probe: the plugin permission boundary ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-22-c720363925af\worktree
+work root : C:\Users\seiko\AppData\Local\Temp\multica-task-1763796546\ats512-probes
+
+--- signal 0: the sample plugin is a valid protocol sample ---
+  [PASS] the sample manifest satisfies the plugin contract
+  [PASS] the sample declares only permissions from the vocabulary -- test.read,requirements.read
+  [PASS] the sample declares no forbidden permission
+  [PASS] the sample plugin exports a run() function
+
+--- signal 1: a plugin that exceeds its permission is refused ---
+  [PASS] the over-privileged call is refused -- code=PLUGIN_PERMISSION_DENIED
+  [PASS] the refusal is audited -- events=1
+  [PASS] the audit event names the missing permission
+
+--- signal 2: a plugin cannot approve its own outcome ---
+  [PASS] the outcome is a proposal, not a state change
+  [PASS] the proposal names the plugin as its producer -- plugin:sample-demo-runner
+  [PASS] the plugin cannot review its own proposal -- code=PLUGIN_REVIEW_SELF_FORBIDDEN
+  [PASS] an independent reviewer can approve
+
+--- signal 3: the evidence digest comes from the host ---
+  [PASS] the host resolver was consulted -- calls=1
+  [PASS] the digest in the proposal is the host's
+  [PASS] a plugin-supplied digest is refused -- code=PLUGIN_PROPOSAL_INVALID
+  [PASS] an outcome without evidence is refused -- code=PLUGIN_EVIDENCE_REQUIRED
+
+--- signal 3b: a plugin cannot read outside the granted scope ---
+  [PASS] a file outside the scope is refused -- code=PLUGIN_SCOPE_INVALID
+  [PASS] the scope refusal is audited
+
+--- signal 4: negative control -- the refusal is caused by the permission list ---
+  [PASS] the very same call is ALLOWED under the reporter tier
+  [PASS] readonly grants fewer permissions than reporter -- readonly=test.read reporter=outcome.report,test.read
+
+--- signal 5: the sample plugin runs inside its permission ---
+  [PASS] the sample plugin read the file it was given -- [{"file":"tests/login.spec.ts","hash":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}]
+  [PASS] the sample plugin reports the granted permissions
+  [PASS] the read was audited
+  [PASS] the sample plugin triggered no denial
+
+--- signal 6: the permission vocabulary is closed ---
+  [PASS] an unknown permission is denied
+  [PASS] the denial says why -- [{"permission":"not.a.permission","reason":"unknown","detail":"this permission is not in the plugin permission vocabulary"}]
+  [PASS] every tier grants only vocabulary permissions
+  [PASS] the SDK surface matches the operation table
+
+--- verdict ---
+PASS: a plugin cannot exceed its declared permissions, review its own outcome, or forge evidence
+
+--- exit code: 0 ---
