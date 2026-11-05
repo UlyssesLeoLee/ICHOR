@@ -1,11 +1,14 @@
 === ATS-501 evidence: protocol audit mutation tests (negative fixtures) ===
-date        : 2026-11-04T08:32:07Z (UTC)
-commit      : b9298dfc69a5c0057ee936eac7a497e9403899ea
+date        : 2026-11-05T09:10:03Z (UTC)
+commit      : 04054a62a3061c117b5df4b6e742d9ea7d10100e
 node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+default enc : gbk (what the same interpreter would use without the forcing)
 command     : node tools/ats501-probes/mutation-tests.mjs
 
 === ATS-501 probe: protocol audit mutation tests ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-21-09825c30b24a\worktree
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-21-bb02e736c9fe\worktree
 
   PASS  control: the unmutated document passes the audit
   PASS  M1: a REMOTE_ typo in the prose fails the audit
