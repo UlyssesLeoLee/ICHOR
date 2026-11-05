@@ -157,6 +157,7 @@
 
 - UT（`tests/control-plane.test.mjs`）：边界判定矩阵、字段名规则、Token 形态、深度上限、码表与 `docs/19` 约束块一致、认证器、启动配置矩阵、进程内 HTTP 管线（每个拒绝分支与成功路径）、出站拦截、静态导入守护、`lib.rs` 命令守护。
 - IT（`tests/control-plane-it.test.mjs`）：以子进程同时启动本地 Bridge 与控制面（随机端口、隔离数据目录），验证两面凭据互不通用、路由互不服务、路径与 Token 入站拒绝、跨租户 404、本地数据目录与本地 Token 从不出现在控制面的任何响应中，以及控制面在没有 Tauri 的情况下完整可用。
+- 负向夹具：`node tools/ats506-probes/mutation-tests.mjs` 把控制面、UT 套件、`docs/19`、`lib.rs` 与前端源码复制到临时目录，逐一破坏 8 个守护（导入白名单、盘符规则、本地凭据拒绝、出站拦截、码表一致、Tauri 命令清单、跨租户隔离、原始 `..` 段拒绝），每个变异都必须被拥有该守护的用例捕获，未修改的副本必须通过；仓库本身不被修改。
 - 证据：`bash tools/ats506-probes/collect-evidence.sh` 生成 `docs/evidence/ATS-506/` 下的日志（命令、提交、Node/Python 版本与原样输出）。
 
 ## 11. 未验证项（PENDING ≠ PASS）

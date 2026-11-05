@@ -1,7 +1,7 @@
 // ATS-506 unit tests: the deployable control-plane API (/cp/v1) and its
 // boundary against the desktop local Bridge. Catalog: UT-CP-001..030 in
 // tools/generate_test_docs.py; design: docs/21-CONTROL-PLANE-API.md.
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -18,10 +18,21 @@ const TOKEN_B = 'b'.repeat(16) + 'B'.repeat(16) + '-dev-token-tenant-b';
 const HEX48 = '0123456789abcdef'.repeat(3);
 const UID_RE = /^prj_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
+// Every server a test starts is closed at the end even when an assertion
+// fails half-way, so a failing test never keeps the process alive.
+const servers = [];
+const track = (server) => { servers.push(server); return server; };
+after(() => {
+  for (const s of servers) {
+    s.closeAllConnections?.();
+    s.close(() => {});
+  }
+});
+
 /** Start the handler in-process; `opts` override createControlPlane options. */
 async function startApp(opts = {}) {
   const app = createControlPlane({ authenticate: staticBearerAuthenticator({ [TOKEN_A]: 'ten_a', [TOKEN_B]: 'ten_b' }), authMode: 'dev-static', ...opts });
-  const server = http.createServer((req, res) => { app.handler(req, res); });
+  const server = track(http.createServer((req, res) => { app.handler(req, res); }));
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   return { app, server, port: server.address().port };
 }
@@ -248,6 +259,7 @@ test('UT-CP-014: HTTPS uses TLS 1.3 minimum; plain HTTP listens and reports the 
     createHttpServer: () => { httpCalled = true; throw new Error('unexpected'); },
     log: (line) => logs.push(line),
   });
+  track(started.server);
   assert.equal(httpCalled, false);
   assert.equal(httpsOptions.minVersion, 'TLSv1.3');
   assert.equal(httpsOptions.key.toString(), 'content-of-key.pem');
@@ -257,6 +269,7 @@ test('UT-CP-014: HTTPS uses TLS 1.3 minimum; plain HTTP listens and reports the 
 
   const env = { ATS_CP_DEV_TOKENS: JSON.stringify({ [TOKEN_A]: 'ten_a' }) };
   const plain = await startControlPlane({ host: '127.0.0.1', port: 0, tls: null, authMode: 'dev-static' }, { env, log: (line) => logs.push(line) });
+  track(plain.server);
   assert.ok(plain.address.port > 0);
   const health = await call(plain.address.port, 'GET', '/cp/v1/health');
   assert.equal(health.json.auth, 'dev-static');
@@ -266,7 +279,7 @@ test('UT-CP-014: HTTPS uses TLS 1.3 minimum; plain HTTP listens and reports the 
   plain.server.close();
 
   // A listen failure (port already in use) is reported, not swallowed.
-  const blocker = http.createServer();
+  const blocker = track(http.createServer());
   await new Promise((resolve) => blocker.listen(0, '127.0.0.1', resolve));
   await assert.rejects(startControlPlane({ host: '127.0.0.1', port: blocker.address().port, tls: null, authMode: 'none' }, { log: () => {} }), /EADDRINUSE/);
   blocker.close();
@@ -281,6 +294,7 @@ test('UT-CP-014: HTTPS uses TLS 1.3 minimum; plain HTTP listens and reports the 
   // runMain: a valid configuration starts the server.
   const port = 20000 + Math.floor(Math.random() * 9000);
   const ran = await runMain({ ATS_CP_PORT: String(port) }, { log: () => {} });
+  track(ran.server);
   assert.equal(ran.address.port, port);
   ran.server.close();
   // runMain: any other failure propagates.

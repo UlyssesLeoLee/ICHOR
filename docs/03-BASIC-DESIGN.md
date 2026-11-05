@@ -14,9 +14,24 @@ flowchart TB
  PRJ --> GIT[原本地 Git 仓库]
  PW --> EVID
  P1[未来的 RunnerAdapter / AgentAdapter] -. 扩展 .-> API
+ CLI[任意 HTTP 客户端 / 未来 CI 与团队 UI] -->|Bearer 令牌 + TLS| CP[部署式控制面 API /cp/v1<br/>server/control-plane]
+ CP --> CPM[租户内项目元数据（不透明 UID）]
+ API -. 无调用通路 .- CP
 ```
 
 Tauri 的 Next.js 静态构建使用 `output: export`，不包含 Next.js API Routes/SSR。正式桌面部署的 Node sidecar 打包、安装、启动健康检查属于 P1 的发行工程；当前 Rust 壳为开发源代码。
+
+系统有两个互不调用的 API 面（ATS-506，详见 `docs/21-CONTROL-PLANE-API.md`）：
+
+| 项 | 桌面本地 Bridge API（P1） | 部署式控制面 API（P2） |
+|---|---|---|
+| 入口 | `server/index.mjs`，由 `npm start` 或 Tauri 壳启动 | `server/control-plane/main.mjs`，`npm run start:control-plane`，不由 Tauri 启动 |
+| 前缀 / 凭据 | `/api/*`，进程级会话 Token（`X-ATS-Token`） | `/cp/v1/*`，`Authorization: Bearer`；出示 `X-ATS-Token` 即拒绝 |
+| 资源引用 | 本地绝对路径（只在本面存在） | 只用不透明 UID；路径、仓库地址与本地 Token 形态一律拒绝 |
+| 错误码 | 本地码（`INVALID_SESSION` 等） | 只用 `REMOTE_` 命名空间 |
+| 实现状态 | IMPLEMENTED | API 边界骨架 IMPLEMENTED；用户 OIDC、持久化、作业与节点为 DESIGNED（ATS-502/503/507/508/509） |
+
+控制面源码不导入本地 Bridge 模块、不依赖 Tauri、不启动子进程；Tauri 壳只托管本地 Bridge。两条边界都由 `tests/control-plane.test.mjs` 静态守护。
 
 ## 2. 模块分解
 
@@ -66,6 +81,15 @@ Run 创建后不会通过二次执行来恢复失败脚本；用户可再次触�
 | `/api/runs/:id/events` | GET | token | 事件列表 |
 | `/api/runs/:id/artifact?file=` | GET | token | 附件下载 |
 | `/api/diagnostics` | GET | token | 运行限制/平台信息 |
+
+部署式控制面 API（独立进程与端口，详见 `docs/21-CONTROL-PLANE-API.md` §3）：
+
+| URL | Method | 权限 | 用途 |
+|---|---|---|---|
+| `/cp/v1/health` | GET | public | 存活与平面标识 |
+| `/cp/v1/contract` | GET | Bearer | 机读的边界契约 |
+| `/cp/v1/projects` | GET/POST | Bearer | 本租户项目元数据列表/登记（只接受 `displayName`，服务端生成 `projectUid`） |
+| `/cp/v1/projects/:projectUid` | GET | Bearer | 项目元数据；不存在或属他租户一律 404 |
 
 ## 7. 外部接口标准与扩展方式（P1）
 
