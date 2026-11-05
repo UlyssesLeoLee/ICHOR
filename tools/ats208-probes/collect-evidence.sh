@@ -163,16 +163,24 @@ echo "wrote $EV/11-reviewer-probes.log"
   OLD="${ATS208_OLD_TIP:-8c9dd79}"
   SCRATCH="${TMPDIR:-/tmp}/ats208-mutation"
   rm -rf "$SCRATCH"; mkdir -p "$SCRATCH/tree"
-  if git archive "$OLD" > "$SCRATCH/old.tar" 2>/dev/null; then
-    tar -xf "$SCRATCH/old.tar" -C "$SCRATCH/tree"
+  if git archive --format=tar "$OLD" > "$SCRATCH/old.tar" 2>/dev/null; then
+    # `tar -x` with a WINDOWS path fails ("Cannot connect to D: resolve
+    # failed"), so the archive is extracted with git itself, which knows
+    # the repository and does not care about the path syntax.
+    ( cd "$SCRATCH/tree" && git --git-dir="$(git -C "$(pwd)" rev-parse --absolute-git-dir)" archive --format=tar "$OLD" | tar -xf - ) 2>/dev/null \
+      || ( cd "$SCRATCH/tree" && git archive --format=tar "$OLD" | tar -xf - )
     # The NEW test files are copied onto the OLD tree: the cases are the
     # ones of this delivery, the code is the one of the previous delivery.
-    cp tests/execution-model.test.mjs tests/execution-model-it.test.mjs "$SCRATCH/tree/tests/"
-    echo "old tree  : $OLD (extracted from git archive)"
-    echo "test files: the NEW ones of this delivery"
-    echo
-    ( cd "$SCRATCH/tree" && node --test tests/execution-model.test.mjs tests/execution-model-it.test.mjs 2>&1 )
-    echo "exit code : $? (non-zero is EXPECTED: the cases must be red on the old tree)"
+    if [ -d "$SCRATCH/tree/tests" ]; then
+      cp tests/execution-model.test.mjs tests/execution-model-it.test.mjs "$SCRATCH/tree/tests/"
+      echo "old tree  : $OLD (extracted from git archive)"
+      echo "test files: the NEW ones of this delivery"
+      echo
+      ( cd "$SCRATCH/tree" && node --test tests/execution-model.test.mjs tests/execution-model-it.test.mjs 2>&1 )
+      echo "exit code : $? (non-zero is EXPECTED: the cases must be red on the old tree)"
+    else
+      echo "NOT RUN: the archive of $OLD could not be extracted."
+    fi
   else
     echo "NOT RUN: the commit $OLD is not in this repository."
   fi
