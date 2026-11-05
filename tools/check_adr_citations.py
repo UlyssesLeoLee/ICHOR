@@ -56,26 +56,26 @@ ADR = ROOT / 'docs' / '16-BASELINE-ADR.md'
 # ---------------------------------------------------------------------------
 EXPECTED = {
     'server/index.mjs': {
-        16: 'const PORT=Number(process.env.ATS_PORT||',
-        42: "['queued','running'].includes(run.status)",
-        97: 'function cancelRun(run){',
-        98: "throw new Error('RUN_NOT_ACTIVE')",
-        104: 'new RegExp',
-        115: 'Content-Security-Policy',
-        177: "'cancelling'].includes(x.status)",
+        17: 'const PORT=Number(process.env.ATS_PORT||',
+        43: "['queued','running'].includes(run.status)",
+        98: 'function cancelRun(run){',
+        99: "throw new Error('RUN_NOT_ACTIVE')",
+        105: 'new RegExp',
+        116: 'Content-Security-Policy',
+        199: "'cancelling'].includes(x.status)",
         # The AGENT_* error mapping. The ADR cites this position for the
         # statement "AGENT_* 前缀的错误统一映射为 400".
-        269: 'const isAgentError=/^AGENT_/.test(code);',
+        291: 'const isAgentError=/^AGENT_/.test(code);',
         # The unified error STATUS mapping: the ADR cites this position for
         # the statement "该处用正则匹配错误消息，未命中即返回 500".
-        286: 'const status=/NOT_FOUND/.test(message)?404:',
+        308: 'const status=/NOT_FOUND/.test(message)?404:',
         # The message echo: the ADR cites this position for "把 e.message
         # 原样回显".
-        287: 'return err(res,status,message);',
+        309: 'return err(res,status,message);',
     },
     'server/core.mjs': {
-        156: "throw new Error('NOT_A_DIRECTORY')",
-        249: 'export function safeRunArgs(',
+        160: "throw new Error('NOT_A_DIRECTORY')",
+        491: 'export function safeRunArgs(',
     },
     # The crate-type declaration. It is NOT a port reference, so the ATS-101
     # port audit does NOT cover it -- this script checks it itself.
@@ -100,9 +100,9 @@ EXPECTED = {
         9: "Start-Process 'http://127.0.0.1:",
     },
     'tools/generate_test_docs.py': {
-            172: "'localhost:3000 + ",
-            178: "'Host=evil.example:",
-            224: '同 LAN 他机尝试访问 ',
+            202: "'localhost:3000 + ",
+            208: "'Host=evil.example:",
+            274: '同 LAN 他机尝试访问 ',
         },
         # The ATS-103 WBS updater mentions the port inside a NOTE TEXT (the
             # value never takes effect). The ADR cites it, so this script checks it.
