@@ -1,0 +1,23 @@
+=== ATS-506 evidence: guard mutations on a temporary copy (each must be caught) ===
+date        : 2026-11-05T12:36:01Z (UTC)
+commit      : a1acd4ef7d3d599a604632790ee0f97373ff3ac0
+node        : v24.19.0
+python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command     : node tools/ats506-probes/mutation-tests.mjs
+
+=== ATS-506 negative controls: control-plane guard mutations ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-21-602f98649a68\worktree
+
+  PASS  M0 unmodified copy: suite exit=0, failing=[]
+  PASS  M1 UT-CP-028 import allow-list: suite exit=1, failing=[UT-CP-028] (expected UT-CP-028)
+  PASS  M2 UT-CP-001 Windows drive-path rule: suite exit=1, failing=[UT-CP-001, UT-CP-003, UT-CP-004, UT-CP-019, UT-CP-026] (expected UT-CP-001)
+  PASS  M3 UT-CP-016 local credential refusal: suite exit=1, failing=[UT-CP-016] (expected UT-CP-016)
+  PASS  M4 UT-CP-026 egress guard: suite exit=1, failing=[UT-CP-026] (expected UT-CP-026)
+  PASS  M5 UT-CP-008 code table vs docs/19: suite exit=1, failing=[UT-CP-008, UT-CP-009, UT-CP-019, UT-CP-025] (expected UT-CP-008)
+  PASS  M6 UT-CP-029 Tauri command list: suite exit=1, failing=[UT-CP-029] (expected UT-CP-029)
+  PASS  M7 UT-CP-024 cross-tenant isolation: suite exit=1, failing=[UT-CP-024] (expected UT-CP-024)
+  PASS  M8 UT-CP-019 raw dot-segment refusal: suite exit=1, failing=[UT-CP-019] (expected UT-CP-019)
+
+RESULT: OK -- the unmodified copy passes and all 8 mutations are caught by the guard that owns them.
+exit code   : 0

@@ -1,0 +1,52 @@
+=== ATS-506 evidence: WBS/catalog tooling tests and line coverage ===
+date        : 2026-11-05T12:36:01Z (UTC)
+commit      : a1acd4ef7d3d599a604632790ee0f97373ff3ac0
+node        : v24.19.0
+python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command     : python tools/test_wbs_common.py && python -m pytest -q -p no:cacheprovider tools/test_wbs_common_helpers.py tools/test_update_wbs_ats506.py tools/test_generate_test_docs.py --cov=tools --cov-report=term
+
+--- python tools/test_wbs_common.py ---
+PASS ATS-401 note carrying its own marker is not doubled
+PASS ATS-401 note without the marker yields the same cell
+PASS a second merge of the same block is a no-op
+PASS the merged cell carries the marker exactly once
+PASS the foreign marker survives
+PASS the own marker is present
+PASS 【ATS-101】 is idempotent
+PASS 【ATS-102】 is idempotent
+PASS 【ATS-301】 is idempotent
+PASS 【ATS-401】 is idempotent
+PASS 【ATS-501】 is idempotent
+PASS 【ATS-506】 is idempotent
+PASS at least one updater declares a marker
+PASS update_wbs_ats101.py declares exactly one marker
+PASS 【ATS-101】 (from update_wbs_ats101.py) is registered in MARKERS
+PASS update_wbs_ats102.py declares exactly one marker
+PASS 【ATS-102】 (from update_wbs_ats102.py) is registered in MARKERS
+PASS update_wbs_ats301.py declares exactly one marker
+PASS 【ATS-301】 (from update_wbs_ats301.py) is registered in MARKERS
+PASS update_wbs_ats401.py declares exactly one marker
+PASS 【ATS-401】 (from update_wbs_ats401.py) is registered in MARKERS
+PASS update_wbs_ats501.py declares exactly one marker
+PASS 【ATS-501】 (from update_wbs_ats501.py) is registered in MARKERS
+PASS update_wbs_ats506.py declares exactly one marker
+PASS 【ATS-506】 (from update_wbs_ats506.py) is registered in MARKERS
+PASS the declared markers are exactly MARKERS
+
+all checks passed
+exit code   : 0
+
+--- pytest + coverage ---
+Name                               Stmts   Miss  Cover
+------------------------------------------------------
+tools\generate_test_docs.py           28      0   100%
+tools\test_generate_test_docs.py      53      0   100%
+tools\test_update_wbs_ats506.py      109      0   100%
+tools\test_wbs_common.py              70     70     0%
+tools\update_wbs_ats506.py            65      1    98%
+tools\wbs_common.py                  233      6    97%
+------------------------------------------------------
+TOTAL                               2148   1573    27%
+24 passed in 0.92s
+exit code   : 0

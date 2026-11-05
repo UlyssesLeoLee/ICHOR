@@ -1,0 +1,32 @@
+=== ATS-506 evidence: local Bridge + control plane as real processes (IT-CP-SETUP..CLEANUP) ===
+date        : 2026-11-05T12:36:01Z (UTC)
+commit      : a1acd4ef7d3d599a604632790ee0f97373ff3ac0
+node        : v24.19.0
+python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command     : node --test tests/control-plane-it.test.mjs
+
+✔ IT-CP-SETUP: the local Bridge and the control plane start as independent plain-Node processes (157.5827ms)
+✔ IT-CP-001: the control plane is fully usable without Tauri (3.581ms)
+✔ IT-CP-002: the local session token is not a control-plane credential (3.1763ms)
+✔ IT-CP-003: the control-plane token is not a local Bridge credential (2.0773ms)
+✔ IT-CP-004: the control plane does not serve local Bridge endpoints (4.4612ms)
+✔ IT-CP-005: the local Bridge does not serve control-plane endpoints (2.4539ms)
+✔ IT-CP-006: registration requests carrying local paths are refused (7.5647ms)
+✔ IT-CP-007: a path or repository address used instead of a UID is refused (5.9003ms)
+✔ IT-CP-008: the local session token in a request body is refused as an inline secret (1.9587ms)
+✔ IT-CP-009: project metadata is registered and read by opaque UID; responses carry no path (2.7235ms)
+✔ IT-CP-010: another tenant gets 404 for the project; a client-chosen tenant is refused (1.1775ms)
+✔ IT-CP-012: the local Bridge still registers projects by path, and the control plane never sees them (60.0572ms)
+✔ IT-CP-011: no control-plane response contains the local data directory, a local project path or the local session token (0.4571ms)
+✔ IT-CP-013: the control plane refuses to share the local Bridge port (84.5282ms)
+✔ IT-CP-CLEANUP: child processes and the temporary data directory are removed (6.7929ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 436.9122
+exit code   : 0
