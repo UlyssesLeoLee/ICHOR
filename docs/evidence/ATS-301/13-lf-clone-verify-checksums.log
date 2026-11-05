@@ -1,7 +1,7 @@
 === ATS-301 / D3: verify_checksums.py on an LF checkout ===
 
 CONDITIONS (the reviewer asked for these to be stated explicitly):
-  commit             : 81a2d719f3a6fe2de3ffecfcadde656167b83904
+  commit             : 47e435331d5ae959034ca9995639855523d26415
   clone              : fresh local clone (git clone --no-hardlinks)
   core.autocrlf      : false  (set AT CLONE TIME, so the checkout
                         itself is written with LF)
@@ -9,7 +9,7 @@ CONDITIONS (the reviewer asked for these to be stated explicitly):
   fixtures installed : NONE (not relevant to this check)
   node               : v24.19.0
   python             : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
-  date               : 2026-11-05T15:48:29Z
+  date               : 2026-11-05T15:51:56Z
 
 WHY THIS RUN MATTERS:
   The 3rd review found that verify_checksums.py split the manifest on
@@ -20,28 +20,21 @@ WHY THIS RUN MATTERS:
   the CRLF case.
 
 --- the checkout state ---
-HEAD: 81a2d719f3a6fe2de3ffecfcadde656167b83904
+HEAD: 47e435331d5ae959034ca9995639855523d26415
 core.autocrlf: false
 core.eol: lf
 
 --- the manifest's line terminators in THIS checkout ---
-CHECKSUMS.sha256 : 31347 bytes, 0 CRLF, 304 bare LF
+CHECKSUMS.sha256 : 31727 bytes, 0 CRLF, 307 bare LF
 => this is the LF case the reviewer reported as broken
 
 --- the committed blob (the bytes git actually stores) ---
-blob : 31347 bytes, 0 CRLF, 304 bare LF
+blob : 31727 bytes, 0 CRLF, 307 bare LF
 
 COMMAND: python tools/verify_checksums.py
 
-manifest entries : 304
-digest mismatches: 7
-    .github/workflows/ats-102-build.yml 52a4327a4af914055e93b682f8b1569e67e9825a0ff29e4b7ae13bb7709783f4 != 3d6100be4447159ede6e5d84d77f71cdb2dd19057c6759a5baeb528291e0695b
-    ats501_conclusion.md no blob at HEAD
-    docs/18-RUNNER-ADAPTER-CONTRACT.md 07e2a165a53bc1d710732e2d367711e5a9eb8df8a22792571207c57dc5e1b832 != 44598340f37ade8b5ddbb4646ff9ea8b5487341e347f39886d6609525c8a2da8
-    tests/api.test.mjs 59ee31a8f28468dfd581a1bd268a4f6b4a634b896ff76609902bfd667b6c0dd6 != 127828820cbc7127a2c92ac0a9d4a835a8ee2a5e1e50acae047c11e75422f37e
-    tools/ci_build_gate.mjs eb00590e024c571093e6eaee898e0bf9edc9bf9bcaa9bd380d4d0fd4cbcd2aa3 != 8b980eaba1d7b5d542ac4aa2434779425952ff94c58c0d4333eb1ca00e2aa718
-    tools/update_checksums.py d39e790055cb2853d9556f7303a11d96bbaacad92560abc4878567351b6250b0 != 73a4ccc8ead06fa301b7777db26e0c72e55e82e0858492773a600d1d010553e2
-    tools/verify_checksums.py c5d746d100c7720b5eeac361f3e7626d61815b1ccf91c2f97ed31e3efa88264f != 57650a0baa09fb1f54077e2d376e3ab1bb3d535b350448b992f6b4d4ec14e173
-tracked-not-listed: 1 ['tools/ats301-probes/collect-review4-evidence.sh']
-listed-not-tracked: 1 ['ats501_conclusion.md']
-RESULT: MISMATCH
+manifest entries : 307
+digest mismatches: 0
+tracked-not-listed: 0 []
+listed-not-tracked: 0 []
+RESULT: OK

@@ -1,9 +1,9 @@
 === ATS-301 / D2: the local build gate vs the CI workflow ===
 
 CONDITIONS:
-  commit : 81a2d719f3a6fe2de3ffecfcadde656167b83904
+  commit : 47e435331d5ae959034ca9995639855523d26415
   node   : v24.19.0
-  date   : 2026-11-05T15:48:35Z
+  date   : 2026-11-05T15:52:03Z
 
 WHAT THIS CHECKS:
   tools/ci_build_gate.mjs claims in its header to run EXACTLY the
