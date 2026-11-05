@@ -210,21 +210,21 @@ node tools/ci_build_gate.mjs --step test
 
 方法：`git clone --no-local` 出**全新克隆**（无 `node_modules`、无 `.next`、无 `out/`），在其中跑门禁脚本。
 
-**最终验收运行**（门禁 8 步，退出码 **0**）：
+**最终验收运行**（门禁 8 步，退出码 **0**，采集于 commit `c6b8d6b`）：
 
 ```
 === ATS-102 build gate ===
 node   : v22.23.4
 npm    : 10.9.9
 
---- [checknode] PASSED (390 ms)
---- [install] PASSED (41372 ms)
---- [lockcheck] PASSED (50 ms)
---- [installdigest] PASSED (2803 ms)   # digest ok: all-files win32-x64 = 0915e9b2...
---- [test] PASSED (1831 ms)            # tests 165 / pass 158 / fail 0 / cancelled 0 / skipped 7
---- [syntax] PASSED (73 ms)
---- [build] PASSED (5940 ms)           # artefact ok: apps/studio/out/index.html (12927 bytes)
---- [manifest] PASSED (104 ms)         # packages=88 licenceKnown=88 reviewRequired=16
+--- [checknode] PASSED (481 ms)
+--- [install] PASSED (49111 ms)
+--- [lockcheck] PASSED (192 ms)
+--- [installdigest] PASSED (10872 ms)   # digest ok: all-files win32-x64 = 0915e9b2...
+--- [test] PASSED (2236 ms)             # tests 165 / pass 158 / fail 0 / cancelled 0 / skipped 7
+--- [syntax] PASSED (78 ms)
+--- [build] PASSED (8110 ms)            # artefact ok: apps/studio/out/index.html (12927 bytes)
+--- [manifest] PASSED (131 ms)          # packages=88 licenceKnown=88 reviewRequired=16
 
 RESULT: OK -- every build-gate step passed.
 GATE_EXIT_CODE=0
