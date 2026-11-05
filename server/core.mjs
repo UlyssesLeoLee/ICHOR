@@ -5,6 +5,8 @@ import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, scanTestCases, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid, normalizeTestPath, bodyKeyOf } from './uid.mjs';
 import { buildPlaywrightArgs, probePlaywrightCli } from './adapters/playwright-cli.mjs';
+import { openDatabase as openMetadataDatabase } from './sqlite/db.mjs';
+import { storeState } from './sqlite/store.mjs';
 import { listTests, listTestsAsync, LIST_OUTCOME } from './discovery/playwright-list.mjs';
 import { resolveAuthoritativeIdentities } from './discovery/authoritative.mjs';
 import { compareDiscoveries, readBodies, staticCasesWithScope, DISCOVERY } from './discovery/index.mjs';
@@ -26,9 +28,109 @@ export function loadState() {
   if (!v.uidRegistry || typeof v.uidRegistry!=='object') v.uidRegistry=emptyRegistry();
   return v;
 }
+/**
+ * Writes the state to `state.json`.
+ *
+ * The JSON file stays the SOURCE OF TRUTH. The SQLite metadata layer
+ * (ATS-205) is a MIRROR of it: the same state is written into the
+ * metadata database as queryable rows, so the history of the projects and
+ * the runs can be queried without parsing the JSON.
+ *
+ * The mirror is best-effort on purpose: a bridge that cannot open the
+ * metadata database still has to serve the API, so a failure of the mirror
+ * is reported on stderr and the JSON file remains authoritative. It is
+ * never the other way round -- the mirror can never break the bridge.
+ */
 export function saveState(v) {
   ensureData(); const file=path.join(dataDir(),'state.json'), tmp=file+'.tmp';
   fs.writeFileSync(tmp,JSON.stringify(v,null,2),'utf8'); fs.renameSync(tmp,file);
+  mirrorToSqlite(v);
+}
+
+/**
+ * The metadata mirror is BEST-EFFORT, and a failure is not permanent.
+ *
+ * The JSON state file is the source of truth, so a failure of the mirror
+ * must never take the bridge down -- but it must also never LOSE records.
+ * The earlier revision of this module set a flag on the FIRST failure and
+ * never wrote the mirror again for the lifetime of the process: one
+ * transient failure (a concurrent writer holding the database lock, a full
+ * disk, an antivirus scanner holding the file) silently dropped every
+ * later project, run, attempt and artifact from SQLite. The mirror writes
+ * the WHOLE state in one transaction, so a retry is self-healing: the next
+ * successful write replaces the whole table set and the mirror catches up.
+ *
+ * The only failure that disables the mirror for good is
+ * `SQLITE_NOT_AVAILABLE` -- the running Node build has no `node:sqlite`
+ * at all, and no retry can change that.
+ */
+
+/** True when the Node build has no SQLite support at all: the mirror is off. */
+let metaDbUnavailable = false;
+
+/** The path of the metadata database inside the data directory. */
+export const metadataPath = (dir = dataDir()) => path.join(dir, 'metadata.db');
+
+/**
+ * The busy timeout of the MIRROR connection, in milliseconds.
+ *
+ * The mirror runs SYNCHRONOUSLY on the bridge's event loop, so the wait
+ * for a write lock has to be BOUNDED, and the bound has to be SHORT: a
+ * mirror that waits for the layer's default 5000 ms blocks the event loop
+ * for five seconds, and during those five seconds the bridge does not
+ * answer a single request -- `GET /api/health` waited 5274 ms in the
+ * measurement that motivated this value.
+ *
+ * The mirror therefore uses a SHORT timeout (1 second). When it expires
+ * the mirror write is abandoned and the NEXT save tries again: the mirror
+ * replaces the whole table set in one transaction, so a retry is
+ * self-healing and the mirror catches up as soon as the obstruction is
+ * gone. The state file is the truth and it is written before the mirror
+ * runs, so nothing is lost by giving up on a write.
+ *
+ * §5.3 of the data design states this as the bound on how long a single
+ * `saveState` can block the bridge.
+ */
+export const MIRROR_BUSY_TIMEOUT_MS = 1000;
+
+/**
+ * Writes the state into the metadata database.
+ *
+ * The database is opened for the write and closed again right after it.
+ * The handle is deliberately NOT kept open: on Windows an open file
+ * cannot be deleted, and a bridge that holds the metadata database open
+ * would keep the data directory locked for every tool that tries to
+ * clean it up. Opening a SQLite database is cheap, and the state is
+ * written a handful of times per run.
+ *
+ * A failure is retried on the NEXT save: the write replaces the whole
+ * table set, so the mirror heals itself as soon as the obstruction is
+ * gone.
+ *
+ * @returns {boolean} true when the state was mirrored
+ */
+export function mirrorToSqlite(v) {
+  if (metaDbUnavailable) return false;
+  let db = null;
+  try {
+    db = openMetadataDatabase(metadataPath(), { busyTimeoutMs: MIRROR_BUSY_TIMEOUT_MS });
+    storeState(db, v);
+    return true;
+  } catch (e) {
+    // A mirror failure must not take the bridge down: the JSON state file
+    // is the truth and it was written already.
+    if (e?.code === 'SQLITE_NOT_AVAILABLE') {
+      // The Node build has no SQLite at all. No retry can change that, so
+      // the mirror stays off for the lifetime of the process.
+      metaDbUnavailable = true;
+    }
+    console.error(`the SQLite metadata mirror failed: ${e.message}`);
+    return false;
+  } finally {
+    if (db) {
+      try { db.close(); } catch { /* already closed */ }
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */

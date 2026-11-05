@@ -1,0 +1,23 @@
+=== the mirror recovers after a transient failure ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-f2bf44f89533/worktree
+commit    : 25b3c3d
+branch    : agent/m2/seikoist-164
+node      : v24.19.0
+python    : Python 3.11.16
+
+=== the mirror recovers after a transient failure ===
+the mirror busy timeout : 1000 ms
+the work directory      : C:\Users\seiko\AppData\Local\Temp\ats205-mirror-qEk8Yg
+
+1. the first mirror        : OK
+2. the lock is held by another process (3000 ms)
+the SQLite metadata mirror failed: database is locked
+3. the blocked mirror      : FAILED (as expected)
+4. the lock is released
+5. the mirror again        : OK
+6. the database            : {"projects":1,"runs":0}
+   the JSON state          : {"projects":1,"runs":0}
+
+RESULT: the mirror recovered
+
+exit code : 0
