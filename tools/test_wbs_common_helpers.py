@@ -24,7 +24,12 @@ ROW = ('<x:row r="5"><x:c r="A5" t="str"><x:v>ATS-001</x:v></x:c>'
 
 
 def test_tc002_ats506_marker_and_narrative():
-    assert w.MARKERS[-1] == '【ATS-506】'
+    # The assertion is MEMBERSHIP, not position. It used to assert that
+    # ATS-506 was the LAST marker, which stopped being true as soon as a
+    # later task (ATS-512) added its own marker -- a test that fails on a
+    # change it does not care about is a gate that gets ignored, and a
+    # gate that gets ignored stops catching real breakage.
+    assert '【ATS-506】' in w.MARKERS
     assert len(set(w.MARKERS)) == len(w.MARKERS)
     d6 = w.compose_narrative('', 'D6')
     d7 = w.compose_narrative('', 'D7')

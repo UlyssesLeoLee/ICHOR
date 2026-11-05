@@ -100,13 +100,26 @@ v0.1 の Bridge は Playwright Test CLI を直接起動していた。引数ベ�
   contractVersion: 1,              // ADAPTER_CONTRACT_VERSION と一致すること
   capabilities(project) -> Cap[],  // プロジェクトごとの能力行列
   discover(project) -> { tests, files, warning, runner },
-  start({project, run, file, outputDir}) -> { child, pid, command, args, ... },
+  start({project, run, file, outputDir, env}) -> { child, pid, command, args, ... },
   stop(handle),
   collect({outputDir}) -> { summary, ... } | null,
 }
 ```
 
 `assertAdapter()` が登録時に形を検証する（欠落 operation / バージョン不一致は登録時に落ちる）。
+
+#### 4.1.1 `env` — 渡される子プロセス環境（ATS-212）
+
+`start` は `env` を受け取る。これは **子プロセスが受け取る環境そのもの**であり、既定は「宿主の環境を複製する」ではない。
+
+Bridge 側（`server/index.mjs`）は `buildRunnerEnv(profile, {baseEnv})` で環境を組み立て、アダプタはそれをそのまま `spawn` の `env` に渡す。环境は**封口**されている:
+
+- 平台基础键（`PATH` / `SystemRoot` / `ComSpec` 等）+ 白名单で筛选された档案変数のみ
+- **宿主の `process.env` は継承しない**（改造前只剩 `{...process.env, ...}` のため、操作者の shell 里的云凭据会进到被测代码，再被写进归档为证据的报告）
+- 档案がない場合も同样封口（基础键仍齐全，子进程照样跑得起来）
+- アダプタ自身の出力変数（報告の書き先）は**最後に**適用される——エンジンの契約は、報告がアダプタ指定の場所に書かれることだから
+
+この `env` を受け取るのは **Runner 境界**（`server/adapters/playwright.mjs` と `server/adapters/wdio.mjs`）だけである。`discover` のような宿主側の経路は `process.env` を参照してよい——それはBridge自身のプロセスであり、被测代码ではない。
 
 ### 4.2 能力行列はプロジェクトごとに計算する
 
@@ -318,7 +331,7 @@ Playwright CLI には `--screenshot` / `--video` が無い。これらは `playw
 | 操作 | Bridge の経路 | 契約か否か |
 |---|---|---|
 | discover | `GET /api/projects/:id/tests` → `discoverStatic()`（`server/core.mjs`） | **契約ではない**（v0.1 経路） |
-| start | `adapter.start({project, run, file, outputDir})` | 契約 |
+| start | `adapter.start({project, run, file, outputDir, env})` | 契約 |
 | stop | `POST /api/runs/:id/stop` → `cancelRun()` が `taskkill` を inline 実行（`server/index.mjs`） | **契約ではない**（v0.1 経路） |
 | collect | `adapter.collect({outputDir})` | 契約 |
 

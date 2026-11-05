@@ -426,8 +426,13 @@ export function createWdioAdapter() {
      * no local WDIO installation. This is deliberate: the adapter reports the
      * capability as unsupported, so the caller must not reach this point
      * without having negotiated first.
+     *
+     * ATS-212: the environment of the child is SEALED -- the runtime's
+     * prepared environment (the environment profile plus the platform base
+     * keys), not the host's own environment. See the Playwright adapter for
+     * the reasoning.
      */
-    start({ project, run, file, outputDir }) {
+    start({ project, run, file, outputDir, env: runEnv }) {
       const probe = probeWdio(project.root);
       if (!probe) throw new Error('WDIO_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT');
       const cap = this.capabilities(project).find((c) => c.name === 'start');
@@ -444,7 +449,7 @@ export function createWdioAdapter() {
       const args = [probe.cli, 'run', configFile];
       const child = spawn(process.execPath, args, {
         cwd: project.root,
-        env: { ...process.env, CI: '1', FORCE_COLOR: '0' },
+        env: { ...(runEnv ?? {}), CI: '1', FORCE_COLOR: '0' },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
         shell: false,
