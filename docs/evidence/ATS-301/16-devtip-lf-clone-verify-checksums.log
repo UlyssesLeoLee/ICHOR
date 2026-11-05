@@ -1,0 +1,40 @@
+=== ATS-301 / D3: verify_checksums.py on an LF checkout ===
+
+CONDITIONS (the reviewer asked for these to be stated explicitly):
+  commit             : 59c92124e437b726a0919aaf343d8fe66ba59c1f
+  clone              : fresh local clone (git clone --no-hardlinks)
+  core.autocrlf      : false  (set AT CLONE TIME, so the checkout
+                        itself is written with LF)
+  core.eol           : lf
+  fixtures installed : NONE (not relevant to this check)
+  node               : v24.19.0
+  python             : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+  date               : 2026-11-05T16:45:45Z
+
+WHY THIS RUN MATTERS:
+  The 3rd review found that verify_checksums.py split the manifest on
+  CRLF only. The committed blob of CHECKSUMS.sha256 is LF, so an
+  autocrlf=false checkout -- and every Linux / macOS checkout -- read
+  the whole manifest as ONE line and reported a bogus MISMATCH
+  (tracked-not-listed: 197). The previous round only ever verified
+  the CRLF case.
+
+--- the checkout state ---
+HEAD: 59c92124e437b726a0919aaf343d8fe66ba59c1f
+core.autocrlf: false
+core.eol: lf
+
+--- the manifest's line terminators in THIS checkout ---
+CHECKSUMS.sha256 : 31727 bytes, 0 CRLF, 307 bare LF
+=> this is the LF case the reviewer reported as broken
+
+--- the committed blob (the bytes git actually stores) ---
+blob : 31727 bytes, 0 CRLF, 307 bare LF
+
+COMMAND: python tools/verify_checksums.py
+
+manifest entries : 307
+digest mismatches: 0
+tracked-not-listed: 0 []
+listed-not-tracked: 0 []
+RESULT: OK
