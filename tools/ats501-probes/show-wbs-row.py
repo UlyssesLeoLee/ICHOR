@@ -7,6 +7,15 @@ the workbook would see it, rather than as the updater script wrote it.
 import sys
 from pathlib import Path
 
+# The row state is Chinese text (状态 values, 风险/说明). On a default
+# Windows console the Python stdout encoding is the ANSI code page, so the
+# output would be mojibake and the evidence log would record unreadable
+# bytes. Force UTF-8 on the standard stream before anything is printed.
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except (AttributeError, ValueError):   # Python < 3.7 / detached stream
+    pass
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
 
 from wbs_common import read_parts, sheet_cells, totals  # noqa: E402
