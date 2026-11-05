@@ -1,6 +1,6 @@
 === ATS-102 evidence: the installed-tree digest does not depend on the checkout line-ending style ===
-date  : 2026-11-05T09:25:15Z
-commit: 912bee6  fix(ATS-102): 让安装树摘要与检出的换行风格无关
+date  : 2026-11-05T09:38:41Z
+commit: 56ea64e  chore(ATS-102): 按最终提交的树重新生成 CHECKSUMS.sha256
 repo  : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-14-43971fe3dca4/worktree
 
 TWO fresh clones of the SAME commit are installed with the SAME npm, and
@@ -22,7 +22,7 @@ command line.
 [clone A]  line-ending style: crlf   core.autocrlf=true
                 path: D:/hermes-multica/home/cache/scratch/ats102-eol-crlf-clone
 ===================================================================
-cloned commit      : 912bee6  fix(ATS-102): 让安装树摘要与检出的换行风格无关
+cloned commit      : 56ea64e  chore(ATS-102): 按最终提交的树重新生成 CHECKSUMS.sha256
 core.autocrlf      : true
 
 --- the checkout really has the intended line endings ---
@@ -33,7 +33,7 @@ core.autocrlf      : true
 node : v22.23.4
 npm  : 10.9.9
 
-added 57 packages in 42s
+added 57 packages in 46s
 
 --- the hidden lockfile npm wrote (this is where the line endings differ) ---
     .package-lock.json bytes      : 25501
@@ -64,7 +64,7 @@ added 57 packages in 42s
 [clone B]  line-ending style: lf   core.autocrlf=false
                 path: D:/hermes-multica/home/cache/scratch/ats102-eol-lf-clone
 ===================================================================
-cloned commit      : 912bee6  fix(ATS-102): 让安装树摘要与检出的换行风格无关
+cloned commit      : 56ea64e  chore(ATS-102): 按最终提交的树重新生成 CHECKSUMS.sha256
 core.autocrlf      : false
 
 --- the checkout really has the intended line endings ---
@@ -75,7 +75,7 @@ core.autocrlf      : false
 node : v22.23.4
 npm  : 10.9.9
 
-added 57 packages in 37s
+added 57 packages in 41s
 
 --- the hidden lockfile npm wrote (this is where the line endings differ) ---
     .package-lock.json bytes      : 24749
