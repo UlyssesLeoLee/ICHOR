@@ -15,7 +15,7 @@ mkdir -p "$EV"
 
 stamp() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
-echo "== 1/9 npm test"
+echo "== 1/10 npm test"
 {
   echo "=== ATS-401 evidence: npm test ==="
   echo "node: $(node --version)"
@@ -26,7 +26,7 @@ echo "== 1/9 npm test"
 } > "$EV/01-node-test.log"
 echo "   exit=$?"
 
-echo "== 2/9 probe-agent-boundary"
+echo "== 2/10 probe-agent-boundary"
 {
   echo "=== ATS-401 probe: Agent contract v1 permission boundary ==="
   echo "repo root : $ROOT"
@@ -36,7 +36,7 @@ echo "== 2/9 probe-agent-boundary"
 } > "$EV/02-agent-boundary.log"
 echo "   exit=$?"
 
-echo "== 3/9 scenario-d-port-audit"
+echo "== 3/10 scenario-d-port-audit"
 {
   echo "=== ATS-101 scenario D: hardcoded default-port audit ==="
   echo "repo root : $ROOT"
@@ -54,7 +54,7 @@ echo "== 3/9 scenario-d-port-audit"
 } > "$EV/03-port-audit.log"
 echo "   exit=$?"
 
-echo "== 4/9 coverage"
+echo "== 4/10 coverage"
 {
   echo "=== ATS-401 coverage measurement ==="
   echo "node: $(node --version)"
@@ -65,7 +65,7 @@ echo "== 4/9 coverage"
 } > "$EV/04-coverage.log"
 echo "   exit=$?"
 
-echo "== 5/9 probe-review-regressions (1st round)"
+echo "== 5/10 probe-review-regressions (1st round)"
 {
   echo "=== ATS-401 probe: 1st-review-round regressions ==="
   echo "repo root : $ROOT"
@@ -75,7 +75,7 @@ echo "== 5/9 probe-review-regressions (1st round)"
 } > "$EV/05-review-regressions.log"
 echo "   exit=$?"
 
-echo "== 6/9 probe-review-regressions-r2 (2nd round)"
+echo "== 6/10 probe-review-regressions-r2 (2nd round)"
 {
   echo "=== ATS-401 probe: 2nd-review-round regressions ==="
   echo "repo root : $ROOT"
@@ -85,7 +85,7 @@ echo "== 6/9 probe-review-regressions-r2 (2nd round)"
 } > "$EV/06-review-regressions-r2.log"
 echo "   exit=$?"
 
-echo "== 7/9 probe-git-apply-parity"
+echo "== 7/10 probe-git-apply-parity"
 {
   echo "=== ATS-401 probe: the diff whitelist agrees with git apply ==="
   echo "repo root : $ROOT"
@@ -96,7 +96,7 @@ echo "== 7/9 probe-git-apply-parity"
 } > "$EV/07-git-apply-parity.log"
 echo "   exit=$?"
 
-echo "== 8/9 probe-git-apply-bidirectional (3rd round)"
+echo "== 8/10 probe-git-apply-bidirectional (3rd round)"
 {
   echo "=== ATS-401 probe: the diff whitelist agrees with git apply, both ways ==="
   echo "repo root : $ROOT"
@@ -107,7 +107,18 @@ echo "== 8/9 probe-git-apply-bidirectional (3rd round)"
 } > "$EV/08-git-apply-bidirectional.log"
 echo "   exit=$?"
 
-echo "== 9/9 check_wbs_xml_escape"
+echo "== 9/10 probe-review-regressions-r4 (4th round)"
+{
+  echo "=== ATS-401 probe: 4th-review-round regressions ==="
+  echo "repo root : $ROOT"
+  echo "date      : $(stamp)"
+  echo "git       : $(git --version)"
+  echo
+  ATS_PROBE_WORKDIR="$WORK/r4" node tools/ats401-probes/probe-review-regressions-r4.mjs 2>&1
+} > "$EV/10-review-regressions-r4.log"
+echo "   exit=$?"
+
+echo "== 10/10 check_wbs_xml_escape"
 {
   echo "=== ATS-401 check: the WBS updater escapes the text it writes ==="
   echo "repo root : $ROOT"
