@@ -57,7 +57,57 @@ erDiagram
 - 归档 Manifest 包含 sha256；当前未签名，攻击者拥有本地文件写权限可同时修改文件和 manifest，因此不应宣称 WORM 或防篡改等级。
 - Evidence 可能含 PII/Secret；生产版需要保留期、视觉脱敏、可审计删除和加密。
 
-## 5. 目标 SQLite schema（设计草案）
+## 5. SQLite 元数据层（ATS-205，v0.2.0 已实现）
+
+ATS-205 交付了 SQLite 元数据层。**当前实现是 `state.json` 的镜像**，不是第二份事实源：`state.json` 仍然是事实源，SQLite 库里存的是同一份状态的可查询行。
+
+实现在 `server/sqlite/`：
+
+| 文件 | 职责 |
+|---|---|
+| `server/sqlite/schema.mjs` | schema 定义与版本化迁移步骤（每步带 `up` 与 `down`） |
+| `server/sqlite/db.mjs` | 打开数据库（WAL / busy_timeout / synchronous）、事务、迁移与降级 |
+| `server/sqlite/store.mjs` | 把 Bridge 状态写成可查询的行，并读回 |
+| `server/sqlite/import.mjs` | 从 `state.json` 导入与镜像校验 |
+| `tools/sqlite_meta.mjs` | 命令行：`status` / `import` / `migrate` / `downgrade` / `verify` |
+
+### 5.1 当前已部署的表（schema version 2）
+
+```sql
+CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);   -- schema_version 存放在这里
+CREATE TABLE projects(id TEXT PRIMARY KEY, uid TEXT, name TEXT NOT NULL, root TEXT NOT NULL,
+                      added_at TEXT, legacy_id TEXT, doc TEXT NOT NULL);
+CREATE TABLE runs(id TEXT PRIMARY KEY, uid TEXT, seq INTEGER, project_id TEXT, project_uid TEXT,
+                  status TEXT, created_at TEXT, finished_at TEXT, git_commit TEXT, doc TEXT NOT NULL);
+CREATE TABLE uid_registry(project_uid TEXT NOT NULL, uid TEXT NOT NULL, file TEXT, title TEXT,
+                          body_key TEXT, entry TEXT NOT NULL, PRIMARY KEY(project_uid, uid));
+CREATE TABLE run_counters(project_id TEXT PRIMARY KEY, seq INTEGER NOT NULL);
+CREATE TABLE artifacts(uid TEXT PRIMARY KEY, run_uid TEXT NOT NULL, attempt_uid TEXT,
+                       file TEXT NOT NULL, sha256 TEXT NOT NULL, size_bytes INTEGER NOT NULL, doc TEXT NOT NULL);
+CREATE TABLE test_attempts(uid TEXT PRIMARY KEY, run_uid TEXT NOT NULL, test_uid TEXT, retry INTEGER NOT NULL,
+                           status TEXT NOT NULL, case_status TEXT, duration INTEGER, doc TEXT NOT NULL);
+```
+
+每一张表都带一个 `doc`（或 `entry`）列，保存原始记录的 JSON 原文：**层没有建模的字段也不会丢失**，因此 JSON 状态文件与 SQLite 层不会对「一条记录包含什么」产生分歧。
+
+### 5.2 版本与迁移策略
+
+- **schema 版本存放在数据库内部**（`meta` 表的 `schema_version` 键），不由外部文件推导，代码与文件无法各说各话。
+- **升级只向前且只做增量**：一个步骤可以建表、加列、建索引或回填数据，但不删除后续版本仍在使用的列。
+- **降级是显式的且有损**：`down` 可以删表删列，数据随之消失。降级**永不隐式发生**，只能是运维显式调用 `tools/sqlite_meta.mjs downgrade --to <version>` 或 `downgradeDatabase()`。
+- **每个步骤在自己的事务里执行**，版本号与该步骤的对象写在同一个事务里；步骤失败则版本不动、对象不残留，重跑迁移即可重试。
+- 比代码更新的数据库被**拒绝**（`SCHEMA_TOO_NEW`），而不是被静默降级。
+
+### 5.3 并发与一致性
+
+- `journal_mode=WAL`：读者不阻塞写者，写者不阻塞读者。
+- `busy_timeout`（默认 5000ms，可配置）：撞上写锁的写入者**等待**而不是立刻失败，两个并发写入者会串行化而不是丢掉其中一份。
+- `synchronous=NORMAL`（WAL 下）：已提交的事务不会因为断电丢失。
+- 事务用 `BEGIN IMMEDIATE` / `COMMIT`，抛错时 `ROLLBACK`；Bridge 的整份状态在**一个事务**内写入，读者看不到写了一半的状态。
+
+### 5.4 目标 schema（后续版本的迁移输入）
+
+下面这份 DDL 是**后续版本**（P1）的迁移输入，**尚未部署**，不能当作已实现：
 
 ```sql
 CREATE TABLE projects(uid TEXT PRIMARY KEY, root TEXT NOT NULL UNIQUE, name TEXT NOT NULL, added_at TEXT NOT NULL);
@@ -71,4 +121,4 @@ CREATE INDEX idx_runs_project_created ON runs(project_uid,created_at DESC);
 CREATE INDEX idx_attempt_run_status ON test_attempts(run_uid,status);
 ```
 
-这份 DDL 仅作未来迁移输入，并未在 v0.1 实际部署。
+向这份目标 schema 迁移时，遵循上面 §5.2 的策略：**只向前、只做增量、降级显式**。

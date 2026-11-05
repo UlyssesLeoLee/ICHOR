@@ -5,6 +5,8 @@ import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, scanTestCases, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid, normalizeTestPath, bodyKeyOf } from './uid.mjs';
 import { buildPlaywrightArgs, probePlaywrightCli } from './adapters/playwright-cli.mjs';
+import { openDatabase as openMetadataDatabase } from './sqlite/db.mjs';
+import { storeState } from './sqlite/store.mjs';
 
 export const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 export const safeId = (prefix) => `${prefix}_${crypto.randomUUID()}`;
@@ -22,9 +24,81 @@ export function loadState() {
   if (!v.uidRegistry || typeof v.uidRegistry!=='object') v.uidRegistry=emptyRegistry();
   return v;
 }
+/**
+ * Writes the state to `state.json`.
+ *
+ * The JSON file stays the SOURCE OF TRUTH. The SQLite metadata layer
+ * (ATS-205) is a MIRROR of it: the same state is written into the
+ * metadata database as queryable rows, so the history of the projects and
+ * the runs can be queried without parsing the JSON.
+ *
+ * The mirror is best-effort on purpose: a bridge that cannot open the
+ * metadata database still has to serve the API, so a failure of the mirror
+ * is reported on stderr and the JSON file remains authoritative. It is
+ * never the other way round -- the mirror can never break the bridge.
+ */
 export function saveState(v) {
   ensureData(); const file=path.join(dataDir(),'state.json'), tmp=file+'.tmp';
   fs.writeFileSync(tmp,JSON.stringify(v,null,2),'utf8'); fs.renameSync(tmp,file);
+  mirrorToSqlite(v);
+}
+
+/**
+ * The metadata database handle, opened once and kept open for the
+ * lifetime of the process. It is `null` when `node:sqlite` is not
+ * available in this Node build.
+ */
+let metaDb = null;
+let metaDbFailed = false;
+
+/** The path of the metadata database inside the data directory. */
+export const metadataPath = (dir = dataDir()) => path.join(dir, 'metadata.db');
+
+/**
+ * Writes the state into the metadata database.
+ *
+ * The database is opened for the write and closed again right after it.
+ * The handle is deliberately NOT kept open: on Windows an open file
+ * cannot be deleted, and a bridge that holds the metadata database open
+ * would keep the data directory locked for every tool that tries to
+ * clean it up. Opening a SQLite database is cheap, and the state is
+ * written a handful of times per run.
+ *
+ * @returns {boolean} true when the state was mirrored
+ */
+export function mirrorToSqlite(v) {
+  if (metaDbFailed) return false;
+  let db = null;
+  try {
+    db = openMetadataDatabase(metadataPath());
+    storeState(db, v);
+    return true;
+  } catch (e) {
+    // A mirror failure must not take the bridge down: the JSON state file
+    // is the truth and it was written already.
+    metaDbFailed = true;
+    console.error(`the SQLite metadata mirror failed: ${e.message}`);
+    return false;
+  } finally {
+    if (db) {
+      try { db.close(); } catch { /* already closed */ }
+    }
+  }
+}
+
+/**
+ * The metadata database handle, opened for reading. It is `null` when the
+ * layer is not available in this Node build.
+ */
+export function metadataDb() {
+  if (metaDb || metaDbFailed) return metaDb;
+  try {
+    metaDb = openMetadataDatabase(metadataPath(), { migrate: false });
+  } catch (e) {
+    metaDbFailed = true;
+    console.error(`the SQLite metadata layer is not available: ${e.message}`);
+  }
+  return metaDb;
 }
 
 /* ------------------------------------------------------------------ */

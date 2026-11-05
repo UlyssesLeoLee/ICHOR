@@ -74,8 +74,8 @@ EXPECTED = {
         287: 'return err(res,status,message);',
     },
     'server/core.mjs': {
-        156: "throw new Error('NOT_A_DIRECTORY')",
-        249: 'export function safeRunArgs(',
+        230: "throw new Error('NOT_A_DIRECTORY')",
+        323: 'export function safeRunArgs(',
     },
     # The crate-type declaration. It is NOT a port reference, so the ATS-101
     # port audit does NOT cover it -- this script checks it itself.
@@ -100,9 +100,9 @@ EXPECTED = {
         9: "Start-Process 'http://127.0.0.1:",
     },
     'tools/generate_test_docs.py': {
-            172: "'localhost:3000 + ",
-            178: "'Host=evil.example:",
-            224: '同 LAN 他机尝试访问 ',
+            203: "'localhost:3000 + ",
+            209: "'Host=evil.example:",
+            255: '同 LAN 他机尝试访问 ',
         },
         # The ATS-103 WBS updater mentions the port inside a NOTE TEXT (the
             # value never takes effect). The ADR cites it, so this script checks it.

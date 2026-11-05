@@ -130,7 +130,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
    | 6 | `src-tauri/src/lib.rs:19` | `ATS_PORT` 环境变量默认值 |
 
-   另有 7 个文件**非运行时数据**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）、`tools/generate_test_docs.py:172,178,224`（`tests/test-cases.json` 的生成器，重新生成会把旧端口写回去）、`test-cases.xlsx`（3 处，测试用例输入数据）、`tools/update_wbs_ats103.py:110,114`（WBS 备注**文本**里的端口，值不生效）。
+   另有 7 个文件**非运行时数据**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）、`tools/generate_test_docs.py:203,209,255`（`tests/test-cases.json` 的生成器，重新生成会把旧端口写回去）、`test-cases.xlsx`（3 处，测试用例输入数据）、`tools/update_wbs_ats103.py:110,114`（WBS 备注**文本**里的端口，值不生效）。
    文档类的端口提及另计，见下。
    本清单由 `tools/ats101-probes/scenario-d-port-audit.mjs` 自动比对源码与本文档，**按 `file:line` 逐条校验**，遗漏即报错。
    **审计范围**：扫描仓库内全部 `.mjs/.js/.ts/.tsx/.html/.rs/.json/.md/.ps1/.sh/.py` 文件（跳过 `node_modules/`、`.git/`、`.next/`、`out/`、`dist/`、`target/`、`test-results/`、`playwright-report/`、`.multica/`），另加 `test-cases.xlsx` 这一个 zip 容器（其单元格数据是 deflate 压缩的，须解压后扫描）。
@@ -160,7 +160,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 | 登记不存在的路径 | **500** + `ENOENT: ... lstat 'D:\definitely'` | 400 | **泄漏宿主绝对路径** | ATS-112 |
 | 下载不存在的附件 | **500** + 泄漏 `ATS_DATA_DIR` 绝对路径 | 404 | **泄漏宿主绝对路径** | ATS-112 |
 
-> **归属说明**：以上 4 项的**根因位置是 `server/index.mjs:286` 的统一错误状态映射**——该处用正则匹配错误消息，未命中即返回 500；`server/index.mjs:287` 随即把 `e.message` 原样回显。因此既造成**归类错误**，也造成**宿主绝对路径泄漏**。其中 `NOT_A_DIRECTORY` 由 `server/core.mjs:156` 抛出，`RUN_NOT_ACTIVE` 由 `server/index.mjs:98` 的 `cancelRun()` 抛出。
+> **归属说明**：以上 4 项的**根因位置是 `server/index.mjs:286` 的统一错误状态映射**——该处用正则匹配错误消息，未命中即返回 500；`server/index.mjs:287` 随即把 `e.message` 原样回显。因此既造成**归类错误**，也造成**宿主绝对路径泄漏**。其中 `NOT_A_DIRECTORY` 由 `server/core.mjs:230` 抛出，`RUN_NOT_ACTIVE` 由 `server/index.mjs:98` 的 `cancelRun()` 抛出。
 > **归属**：全部 4 项均为 **ATS-112**（错误归类与路径泄漏）。仅 `RUN_NOT_ACTIVE` 与 **B-03** 相交——B-03 的自愈路径缺失另在 `server/index.mjs:42`（启动恢复集合遗漏 `cancelling`），二者是**两处不同的缺陷**，不可视为同一处状态机缺口。
 > 本基线的阻断项只有 B-01/B-02/B-03 三项（§4），**不存在编号 B-04**。
 
@@ -171,7 +171,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 
 ### B-01（严重 / P0）Playwright CLI 参数向量含不存在的选项，真实浏览器执行 100% 失败
 
-- **位置**：`server/core.mjs:249` `safeRunArgs()`
+- **位置**：`server/core.mjs:323` `safeRunArgs()`
 - **现状**：传入 `--screenshot only-on-failure --video retain-on-failure`。但 `playwright test` CLI **没有** `--screenshot` 与 `--video` 选项（截图/视频是 `playwright.config.ts` 的 `use` 选项，不是 CLI 选项）。实测 `playwright test --help` 输出中无此二者。
 - **复现脚本**：`tools/ats101-probes/scenario-a-b01-cli-args.mjs`（**产品源码未修改**，用真实 `@playwright/test` + 真实 Chromium）
   ```

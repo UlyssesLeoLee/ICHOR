@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：71；已执行通过：57；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：77；已执行通过：63；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -79,6 +79,12 @@
 |IT-CP-012|FR-001|回归|本地 Bridge 仍按路径登记项目且控制面看不到|本地 POST /api/projects 示例仓库后查控制面列表|本地 201；控制面列表不含该项目|node --test|PASS|
 |IT-CP-013|NFR-002|安全|控制面拒绝与本地 Bridge 共用端口|ATS_CP_PORT 等于 ATS_PORT 启动控制面|退出码 2，stderr 点名 ATS_CP_PORT|node --test|PASS|
 |IT-CP-CLEANUP|NFR-005|清理|控制面 IT 子进程与夹清理|结束 IT suite|两个子进程退出，临时目录删除|node --test|PASS|
+|IT-SQL-001|NFR-010|正常|Bridge 启动并创建元数据数据库|隔离 ATS_DATA_DIR 启动 server/index.mjs|数据目录出现 metadata.db|node --test|PASS|
+|IT-SQL-002|NFR-010|正常|元数据库携带 schema 版本|读 metadata.db 的 meta 表|schema_version 大于 0|node --test|PASS|
+|IT-SQL-003|NFR-010|正常|登记的项目出现在元数据库|POST /api/projects|projects 表有一行且 uid 非空|node --test|PASS|
+|IT-SQL-004|NFR-010|正常|镜像与 JSON 状态一致|比对行数与 state.json|projects/runs/run_counters 行数相同|node --test|PASS|
+|IT-SQL-005|NFR-010|回归|加入镜像后 Bridge 仍正常提供 API|GET /api/projects|200 且项目列表完整|node --test|PASS|
+|IT-SQL-CLEANUP|NFR-005|清理|元数据层 IT 子进程与夹清理|结束 IT suite|子进程退出，临时目录删除|node --test|PASS|
 
 ## 进入与退出条件
 

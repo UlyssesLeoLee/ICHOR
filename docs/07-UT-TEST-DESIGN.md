@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：175；已执行通过：158；待执行/未实现：17。**PENDING 不是测试通过**。
+> 设计总数：205；已执行通过：188；待执行/未实现：17。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -153,6 +153,36 @@
 |UT-PLG-050|FR-028|安全|SDK 自己不碰文件系统|检查 sdk.mjs 源码|不 import node:fs / node:child_process，不 spawn|node --test|PASS|
 |UT-PLG-051|FR-028|安全|禁止权限永不出现在生效集合里|每个档位下解析全量申请|granted 与禁止清单无交集|node --test|PASS|
 |UT-PLG-052|FR-028|正常|SDK 没有写任何文件|检查临时夹目录|目录为空|node --test|PASS|
+|UT-SQL-001|NFR-010|正常|元数据层在当前 Node 构建上可用|node:sqlite 无需 flag|sqliteAvailable() 为 true|node --test|PASS|
+|UT-SQL-002|NFR-010|正常|数据库以 WAL 模式运行|在临时目录打开 metadata.db|PRAGMA journal_mode = wal|node --test|PASS|
+|UT-SQL-003|NFR-010|正常|被锁住的写入者会等待而不是立即失败|打开数据库后读 PRAGMA|busy_timeout = 5000ms|node --test|PASS|
+|UT-SQL-004|NFR-010|正常|忙等待超时可配置|busyTimeoutMs=1234|PRAGMA busy_timeout = 1234|node --test|PASS|
+|UT-SQL-005|NFR-010|正常|WAL 模式留下 -wal 伴生文件|写入状态后检查目录|存在 metadata.db-wal|node --test|PASS|
+|UT-SQL-010|NFR-010|正常|已提交的事务对读者可见|在事务中插入计数器行|提交后能查到该行|node --test|PASS|
+|UT-SQL-011|NFR-010|异常|抛错的事务整体回滚|事务内先写一行再抛错|该行不存在，先前提交的行仍在|node --test|PASS|
+|UT-SQL-012|NFR-010|正常|状态在单个事务内写入|连续两次 storeState|第二次后旧行全部消失，无中间态|node --test|PASS|
+|UT-SQL-020|NFR-010|正常|新库处于最新 schema 版本|打开空数据库|currentVersion = latestVersion|node --test|PASS|
+|UT-SQL-021|NFR-010|正常|schema 版本存放在数据库内部|查 meta 表|存在 schema_version 行|node --test|PASS|
+|UT-SQL-022|NFR-010|正常|迁移是幂等的|对已迁移的库再迁移一次|applied 为空，版本不变|node --test|PASS|
+|UT-SQL-023|NFR-010|正常|升级只应用缺失的步骤|先建 version 1 的库，再升级|version 2 的表先不存在后存在|node --test|PASS|
+|UT-SQL-024|NFR-010|异常|迁移失败不改变版本也不留半成品|目标版本无对应步骤|applied 为空，版本不变|node --test|PASS|
+|UT-SQL-025|NFR-010|异常|比代码更新的库被拒绝而不是被静默降级|把 schema_version 改成未来版本|抛 SCHEMA_TOO_NEW，版本不变|node --test|PASS|
+|UT-SQL-026|NFR-010|异常|降级删除高版本表及其数据|降到 version 1|artifacts/test_attempts 表与其数据消失|node --test|PASS|
+|UT-SQL-027|NFR-010|异常|降到 version 0 清除全部表|降到 version 0|除 sqlite_ 外没有任何表|node --test|PASS|
+|UT-SQL-028|NFR-010|异常|降级到更高版本被拒绝|降到 version 99|抛 SCHEMA_TOO_NEW，版本不变|node --test|PASS|
+|UT-SQL-029|NFR-010|正常|每个迁移步骤都有 up 与 down 脚本|遍历 MIGRATIONS|每步都有非空 up 与 down，版本连续|node --test|PASS|
+|UT-SQL-030|NFR-010|异常|步骤失败不留半应用的对象|事务内先建表再执行非法语句|半应用的表不存在，版本不变|node --test|PASS|
+|UT-SQL-040|NFR-010|正常|数据库内容与导入的状态完全一致|导入夹具状态后校验|verifyMirror().ok 为 true|node --test|PASS|
+|UT-SQL-041|NFR-010|正常|导入是幂等的|同一状态导入两次|两次读回的 JSON 相同|node --test|PASS|
+|UT-SQL-042|NFR-010|边界|记录保留层未建模的字段|给项目加一个未来字段|读回时该字段仍在|node --test|PASS|
+|UT-SQL-043|NFR-010|异常|镜像差异被报告而不是被掩盖|导入后比对不同状态|ok 为 false 且列出差异|node --test|PASS|
+|UT-SQL-044|NFR-010|正常|层能回答它存在的理由|按项目与按运行查询|项目运行按时间倒序，尝试可查|node --test|PASS|
+|UT-SQL-050|NFR-010|正常|两个并发写入者不丢记录|两个独立进程同时写 40 行|最终 80 行全在|node --test|PASS|
+|UT-SQL-051|NFR-010|正常|写入进行时读者仍能读|写者持事务时另开连接读|读者能读到提交前状态|node --test|PASS|
+|UT-SQL-060|NFR-010|正常|命令行报告数据库状态|sqlite_meta.mjs status|输出 schema 版本与行数|node --test|PASS|
+|UT-SQL-061|NFR-010|正常|命令行导入并校验镜像|sqlite_meta.mjs import/verify|输出 mirror: OK，state.json 未被改动|node --test|PASS|
+|UT-SQL-062|NFR-010|正常|命令行按需迁移与降级|sqlite_meta.mjs migrate/downgrade|版本按要求变化|node --test|PASS|
+|UT-SQL-063|NFR-010|异常|命令行拒绝未知命令|sqlite_meta.mjs nonsense|退出码 2|node --test|PASS|
 |UT-CP-001|FR-028|安全|本地路径形态判定矩阵|盘符、UNC、POSIX、file:、家目录、环境变量、路径穿越、仓库地址各形态|逐一返回对应规则名|node --test|PASS|
 |UT-CP-002|FR-028|边界|非路径值不误判|https 地址、prj UID、40 位 SHA、相对片段、ns:name、非字符串|均返回 null|node --test|PASS|
 |UT-CP-003|FR-028|安全|百分号编码的路径同等拒绝|C%3A%5Crepo、%2Fhome%2Fa、损坏编码|前两者命中规则；损坏编码按原文判定不抛错|node --test|PASS|
