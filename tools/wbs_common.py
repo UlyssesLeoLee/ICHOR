@@ -37,8 +37,8 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-205】', '【ATS-301】',
-           '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】')
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-205】', '【ATS-208】',
+           '【ATS-301】', '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -99,6 +99,12 @@ NARRATIVE_FRAGMENTS = {
         'D6': 'SQLite 元数据层已实现（ATS-205：WAL、版本迁移与事务；state.json 的镜像）',
         'D7': '元数据层当前只做 state.json 的镜像，不提供查询 API；'
               '详见 docs/06-DATA-DESIGN.md §5',
+    },
+    '【ATS-208】': {
+        'D6': '执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，'
+              '事件可按 run+sequence 复演）',
+        'D7': '执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；'
+              '详见 docs/06-DATA-DESIGN.md §5.4',
     },
     '【ATS-501】': {
             'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',

@@ -62,7 +62,15 @@ stateDiagram-v2
  interrupted --> [*]
 ```
 
-P0 实现是单项目至多一个并发 run；不同项目可同时执行。`runs` 写入 state 后再 spawn；退出事件在同一 Node 进程内串行处理。`events.jsonl` 记录 `run.queued`, `run.started`, `run.finished`, `run.cancelling`, `run.error` 等。对信号停止采取 best effort：Unix 直接 SIGTERM 子进程，Windows 尝试 `taskkill /T /F`；Unix 子进程后代清理仍有限制，因此长远需要进程组与沙箱。
+P0 实现是单项目至多一个并发 run；不同项目可同时执行。`runs` 写入 state 后再 spawn；退出事件在同一 Node 进程内串行处理。对信号停止采取 best effort：Unix 直接 SIGTERM 子进程，Windows 尝试 `taskkill /T /F`；Unix 子进程后代清理仍有限制，因此长远需要进程组与沙箱。
+
+**事件流（ATS-208 已实现）**：事件记录 `run.queued`, `run.started`, `run.cancelling`, `run.finished`, `run.error`, `run.interrupted`。三条性质是这条流的设计目标，定义在 `server/execution/model.mjs`：
+
+1. **只追加**：事件永不重写；
+2. **序号无空洞**：一个 run 的序号是 1..N，中间没有洞，所以读者能分辨「事件丢了」和「事件还没发生」；
+3. **可复演**：把事件按序号折叠起来，得到 run 当时的状态——`GET /api/runs/:id/replay` 就是这个折叠。
+
+实现上事件写在**状态变更之前**（`run.queued` 除外），于是事件流的最后一个事件决定终态；状态机会拒绝不可能的迁移并把拒绝记到 stderr，而不是默默写下一条与状态机矛盾的事件。Bridge 崩溃时写下 `run.interrupted`，因此被打断的 run 也能复演为 `interrupted`（此前它的事件流推不出任何状态）。事件的模型、Case/Attempt 的聚合规则与 SQLite 的 `events` 表见 `docs/06-DATA-DESIGN.md` §5.4。
 
 ## 4. Playwright 运行命令（无 shell）
 

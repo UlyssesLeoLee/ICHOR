@@ -76,7 +76,7 @@ ATS-205 交付了 SQLite 元数据层。**当前实现是 `state.json` 的镜像
 | `server/sqlite/import.mjs` | 从 `state.json` 导入与镜像校验 |
 | `tools/sqlite_meta.mjs` | 命令行：`status` / `import` / `migrate` / `downgrade` / `verify` |
 
-### 5.1 当前已部署的表（schema version 2）
+### 5.1 当前已部署的表（schema version 3）
 
 ```sql
 CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);   -- schema_version 存放在这里
@@ -91,9 +91,13 @@ CREATE TABLE artifacts(uid TEXT PRIMARY KEY, run_uid TEXT NOT NULL, attempt_uid 
                        file TEXT NOT NULL, sha256 TEXT NOT NULL, size_bytes INTEGER NOT NULL, doc TEXT NOT NULL);
 CREATE TABLE test_attempts(uid TEXT PRIMARY KEY, run_uid TEXT NOT NULL, test_uid TEXT, retry INTEGER NOT NULL,
                            status TEXT NOT NULL, case_status TEXT, duration INTEGER, doc TEXT NOT NULL);
+CREATE TABLE events(run_uid TEXT NOT NULL, seq INTEGER NOT NULL, at TEXT, type TEXT NOT NULL,
+                    data TEXT NOT NULL, PRIMARY KEY(run_uid, seq));   -- ATS-208
 ```
 
 每一张表都带一个 `doc`（或 `entry`）列，保存原始记录的 JSON 原文：**层没有建模的字段也不会丢失**，因此 JSON 状态文件与 SQLite 层不会对「一条记录包含什么」产生分歧。
+
+`events` 的复合主键 `(run_uid, seq)` 就是事件的身份：序号是**按 run** 的，单独用 `seq` 会在同一项目的两次运行之间撞号。该主键同时**强制**了验收标准要求的性质——一个 run 不会有两条同序号的事件，所以序号永不复用、事件流不会有重复。
 
 ### 5.2 版本与迁移策略
 
@@ -124,7 +128,66 @@ CREATE TABLE test_attempts(uid TEXT PRIMARY KEY, run_uid TEXT NOT NULL, test_uid
 - **镜像是可恢复的**：只有 `SQLITE_NOT_AVAILABLE`（本 Node 构建根本没有 `node:sqlite`）才让镜像在进程内永久停用；其余任何失败（锁冲突、磁盘满、杀软占用）都只是让**这一次**写入失败，**下一次 `saveState` 会重试**。因为镜像是整表替换，一次成功就等于全量追平，镜像会自愈。
 - **镜像的阻塞上限是 1 秒**：镜像是同步跑在 Bridge 事件循环上的，它用**更短**的 `busy_timeout`（`MIRROR_BUSY_TIMEOUT_MS = 1000`，而不是层的默认 5000ms），否则一次锁冲突会把事件循环堵住 5 秒——实测 `GET /api/health` 等待 5274ms。超时后本次写入放弃，下次保存重试。**因此单次 `saveState` 最多阻塞事件循环 1 秒**。
 
-### 5.4 目标 schema（后续版本的迁移输入）
+### 5.4 执行模型：Run / Test / Attempt / ExecutionEvent（ATS-208，v0.2.0 已实现）
+
+ATS-208 把执行模型的四个概念收敛到**一处**定义：`server/execution/model.mjs`。此前它们分散在四个地方、各说各话：`core.mjs` 解析报告的词汇、`index.mjs` 写事件的词汇、两个适配器各自的「通用模型」、以及 SQLite 层的列名。可测量的后果有两个：
+
+- **重试的用例被计了两次，初次尝试被丢弃**。旧适配器把每次执行摊平成独立的「case」，于是「先失败后通过」的用例得到 `total: 2, passed: 0, flaky: 2`——初次尝试的 `failed` 状态和它自己的错误都消失了。
+- **被崩溃打断的 run 的事件无法复演**。Bridge 死后把 run 标记为 `interrupted`，但事件流里只有 `run.queued` / `run.started`，复演得不到任何状态。
+
+#### 5.4.1 三个层级，两个状态词表
+
+| 层级 | 含义 | 状态词表 |
+|---|---|---|
+| Run | 一次执行的**生命周期** | `queued` / `running` / `cancelling` / `passed` / `failed` / `cancelled` / `error` / `interrupted` |
+| Case | 一个**用例整体** | `passed` / `failed` / `skipped` / `flaky` / `unknown` |
+| Attempt | 用例的**一次执行** | 同上（但描述的是这一次执行） |
+
+Case 的状态是它**所有 attempt 的聚合**，规则是确定的（不是实现细节）：
+
+1. 全部 skipped → `skipped`；
+2. 全部 passed → `passed`；
+3. 有 passed 也有 failed → `flaky`（重试救回来了）；
+4. 全部 failed → `failed`；
+5. 其余（含 `unknown`）→ `unknown`。
+
+「先失败后通过」的用例是 **flaky 而不是 passed**：它需要过一次重试，只看 `passed` 的读者不会知道这一点。
+
+引擎词表到通用词表的映射在模型里只有**一张表**（`mapEngineStatus`），Playwright 的 `expected`/`unexpected`/`flaky`/`skipped`/`timedOut` 与 WebdriverIO 的 `passed`/`failed`/`pending` 都从这里过。**未知的状态映射为 `unknown`，不做猜测**：报 `failed` 是凭空造一次失败，报 `passed` 是凭空造一次成功。
+
+#### 5.4.2 「重试不覆盖初次尝试」
+
+- 一个 spec 是**一个 case**；`results[]` 里的每一项是该 case 的**一个 attempt**。
+- 计数器按 **case** 统计，执行次数单独记为 `executions`——重试过的用例仍然只算**一个**用例。
+- **每一次 attempt 都被保留**，按顺序，各自带自己的状态、耗时和错误；初次尝试的 `failed` 和它自己的错误不会被重试覆盖。
+- Case 报告的错误是它**第一次失败**的 attempt 的错误——读者要看的失败是最先发生的那次。
+- 同一 case 的各 attempt 绑定到**同一个** TestDefinition UID（逐条绑定会让一个 flaky 用例的两个 attempt 落到两个 UID 上，历史就没法读了）。
+
+#### 5.4.3 「事件可按 run+sequence 复演」
+
+事件流的性质：
+
+1. **只追加**——事件永不重写；
+2. **序号无空洞且严格递增**——一个 run 的序号是 1..N，中间没有洞，所以读者能分辨「run 到了第 7 个事件」和「第 7 个事件丢了」；
+3. **可复演**——把事件按序号折叠起来，得到 run 当时的状态。
+
+实现上：事件写在**状态变更之前**（`run.queued` 除外，它在 run 仍是 `queued` 时写下），所以每个事件记录的是 run **正在离开**的那个状态；于是事件流的最后一个事件就是决定终态的那个事件。状态机（`RUN_TRANSITIONS`）会**拒绝**不可能的迁移并把拒绝记到 stderr，而不是默默写下去——一条与状态机矛盾的事件流会让复演失去意义。
+
+ATS-208 补上了缺失的 `run.interrupted` 事件：Bridge 崩溃时它写下这个事件，run 因此可复演为 `interrupted`。
+
+事件写在三处，且由**同一个事件对象**写出，所以三者不会互相矛盾：
+
+| 位置 | 作用 |
+|---|---|
+| `runs/<run>/events.jsonl` | 追加写的持久日志（既有） |
+| `state.json` 的 `run.events` | 随 run 记录一起走，并被 SQLite 镜像索引（ATS-208 新增） |
+| SQLite `events` 表 | 可按 `(run_uid, seq)` 查询（ATS-208 新增） |
+
+旧 run 记录没有 `events` 数组，Bridge 启动时从自己的 `events.jsonl` 读回并对齐 `eventSeq` 计数器。
+
+复演由 `GET /api/runs/:id/replay` 暴露：它返回复演出的状态、与 run 记录是否一致、以及序号中的空洞。
+
+### 5.5 目标 schema（后续版本的迁移输入）
 
 下面这份 DDL 是**后续版本**（P1）的迁移输入，**尚未部署**，不能当作已实现：
 

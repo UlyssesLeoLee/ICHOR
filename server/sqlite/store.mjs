@@ -155,9 +155,34 @@ export function storeState(db, state) {
         );
       }
     }
+
+    // --- the execution events of the runs ----------------------------------
+    // ATS-208: the events become queryable rows, keyed by (run, seq). The
+    // key is the IDENTITY of an event, and it also ENFORCES the property
+    // the acceptance criterion asks for: a run cannot have two events with
+    // the same sequence number, so the sequence is never reused and the
+    // stream cannot have a duplicate.
+    d.exec('DELETE FROM events');
+    const insEvent = d.prepare(
+      `INSERT INTO events(run_uid,seq,at,type,data) VALUES(?,?,?,?,?)`
+    );
+    for (const r of runs) {
+      for (const e of r.events ?? []) {
+        // The sequence number is required: an event without one cannot be
+        // placed in the stream, so it is not written. The event is not lost
+        // -- it is still in the state file and in `events.jsonl`.
+        if (!Number.isInteger(e.seq)) continue;
+        insEvent.run(
+          String(r.uid ?? r.id ?? ''),
+          e.seq,
+          e.at ?? null,
+          String(e.type ?? 'unknown'),
+          asDoc(e.data ?? {})
+        );
+      }
+    }
   });
 }
-
 /**
  * Reads the state back out of the database.
  *
@@ -212,6 +237,30 @@ export function attemptsOfRun(db, runUid) {
     .all(String(runUid));
 }
 
+/**
+ * The execution events of one run, in their sequence order.
+ *
+ * ATS-208: the events are queryable rows, so the audit trail of a run can
+ * be read out of the metadata layer instead of out of the run folder. The
+ * ORDER BY the sequence number is what makes the rows a STREAM again: the
+ * order of the rows is the order the events happened in.
+ */
+export function eventsOfRun(db, runUid) {
+  return db
+    .prepare(
+      `SELECT run_uid,seq,at,type,data FROM events
+       WHERE run_uid = ? ORDER BY seq`
+    )
+    .all(String(runUid))
+    .map((row) => ({
+      runUid: row.run_uid,
+      seq: row.seq,
+      at: row.at,
+      type: row.type,
+      data: JSON.parse(row.data),
+    }));
+}
+
 /** The projects, keyed by their identifier. */
 export function listProjects(db) {
   return db.prepare('SELECT id,uid,name,root,added_at FROM projects ORDER BY added_at, id').all();
@@ -240,5 +289,6 @@ export function counts(db) {
     runCounters: one('run_counters'),
     testAttempts: one('test_attempts'),
     artifacts: one('artifacts'),
+    events: one('events'),
   };
 }
