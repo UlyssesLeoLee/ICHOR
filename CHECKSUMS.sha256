@@ -31,7 +31,7 @@ c14cbd21bb7f44271dfee73df03c120fe45bc766d2ec195d8daee866b62cb804  docs/13-ROADMA
 4ab09c31a6731526c771be7b60bcc5c8cc35952effe43bc80a4ff9d6b6460f64  docs/15-REFERENCES-LICENSES.md
 d49fe5d71e95d18247a0ed171032f74a399827f159a3f5f1802229d0be860369  docs/16-BASELINE-ADR.md
 342b67e08d8806671898694165f8e8fcf73dd0c4aca8b4f6e845e6d479536ef1  docs/17-AGENT-CONTRACT.md
-f7b49487407d05dcabc50b0dae37efba44a0c00463fc9713a554e33dbb4e7907  docs/17-BUILD-CI.md
+2d51e8079cf4f0bc66e3d6ff8b837ff226ffb7e0ffc14f1dd879823dd4f3c7ab  docs/17-BUILD-CI.md
 82b2b1ed417ed1783b60e6c02cc090910d20c9ad53996910e3a0947198c3c7ba  docs/18-RUNNER-ADAPTER-CONTRACT.md
 7b5f86d5a740ce30852b93f68b59de826bd45b4103bf28104f27b93b3dbd2a78  docs/19-REMOTE-RUNNER-PROTOCOL.md
 f5475cc08d25a908e74b17e2e04bf3b8bd19c2ab03ca6ec56dd436c61dda2cbc  docs/20-PARALLEL-ORCHESTRATION.md
@@ -57,7 +57,7 @@ d801bae500e9c25bd0fd7097bfe88d7d5c088a0ce52d321d25953dfecea1e9e5  docs/evidence/
 cf76362fbd72a1122ea44ef70624345b655428010928747e1e1513cbd810c9e8  docs/evidence/ATS-102/14-npm-version-and-install-digest.log
 e7c93b1f68387de31ade40680aad2f08d87ca73f505dd1efdd075646d63fa047  docs/evidence/ATS-102/15-node22-gate-8-steps-final.log
 e62f0b640c16ffeca99a09db630ed14d0f8174b90080bfb3c238a6a193bc76c6  docs/evidence/ATS-102/16-manifest-drift-and-line-endings.log
-850a7a08953274be1df839409b8ad42ccf8df1f666173558bd7e8a19efc9d136  docs/evidence/ATS-102/17-line-ending-independent-digest.log
+0c40a572db05465b4015ff30c3080f3daf23cbd4693c44c1ddf61c2932af6c05  docs/evidence/ATS-102/17-line-ending-independent-digest.log
 c26b236aa65bd1aefeb987e8bc7b209d3d90c91552dad0dfdd9452c0b37aa986  docs/evidence/ATS-401/01-node-test.log
 68cf94da14348eaa92af8e35b34320e6620aad3f08ba917d6ee99e326d49ae18  docs/evidence/ATS-401/02-agent-boundary.log
 ba1c6dd2629bcdef7abb6bd61e96ed8eab44b77ee362bf04a8f1feb2b44f0917  docs/evidence/ATS-401/03-port-audit.log
