@@ -64,11 +64,11 @@ ba1c6dd2629bcdef7abb6bd61e96ed8eab44b77ee362bf04a8f1feb2b44f0917  docs/evidence/
 623e5235bd3471d69aff98f19732ca038c9eefdb5bb5c7d8444606344331d79b  docs/evidence/ATS-401/05-review-regressions.log
 d191d7dac43f9bd910052a9ba02c2fabe3cb6f02c8424e487d84a182aa4ac12b  docs/evidence/ATS-401/06-review-regressions-r2.log
 4dfc551fa3f50b7250d7bb6d663ee11670b54117c2b6acc7177cbe11ee103323  docs/evidence/ATS-401/07-git-apply-parity.log
-5e9498456f70cb7c331075eea9ec6d8fd3f1c6bd5507e3ae0d1b66c71f9a7d4d  docs/evidence/ATS-501/01-protocol-contract-audit.log
-9fc1bb13325a5ac7b4b778e8d741adae4613cfe3a82774e562d174c02d94d6c1  docs/evidence/ATS-501/02-mutation-tests.log
-59da47391e8e68d00b084be468ebdfd6ff903a6c3b0e64b3ec09964f94f62263  docs/evidence/ATS-501/03-wbs-updater-regression.log
-c2b8d4ac556748dbae96eba4f9fcf262b53e46077aff89f90eabe3289d21af19  docs/evidence/ATS-501/04-wbs-state.log
-1854a7f25c8ee257e227a4768963cbe2fdf3dcc9e7951ddbddb53e34c069add8  docs/evidence/ATS-501/05-baseline-regression.log
+57651e2bd6ad62fb14993f59c094de97c20121ecd14c089bb0b74adf55ea4a70  docs/evidence/ATS-501/01-protocol-contract-audit.log
+14ef3166b67f31495832309372ca590bd978425c314af9f3e92e7361ba1e7bdf  docs/evidence/ATS-501/02-mutation-tests.log
+57448f027c9b5f082410c7ba0335651ef6b6a5c526f3582b1495674d514906ae  docs/evidence/ATS-501/03-wbs-updater-regression.log
+04a7cb5a3d792daa429b78a575c77dcc92560fea1515af79c6dbdae06d02d2f8  docs/evidence/ATS-501/04-wbs-state.log
+ecdb90f2f501907d65a9a2b38e7556085a2d033183d65f4d86ffc40ef2a109a3  docs/evidence/ATS-501/05-baseline-regression.log
 034cfd1216e9869aa7c09c0b071249855c0e9afdd1c69da002a364323c3473eb  examples/sample-playwright/.aitest/requirements.json
 a38fd6cabd33c52acd8530e91f9a6fab1e19f200fe25d38e3101500137835275  examples/sample-playwright/.aitest/traceability.json
 08c3f2bbe3c2bdd973ecf9b085c1f0e36dab30233ceda7f23a5e6678c61ae944  examples/sample-playwright/package.json
