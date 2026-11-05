@@ -26,8 +26,8 @@ bash tools/ats501-probes/collect-evidence.sh
 |---|---|---|
 | `audit-remote-protocol.mjs` | 协议契约块是合法 JSON 且满足自身不变量；契约块与 §2/§3/§4/§5/§6/§9 正文表格**双向一致**；**全文**所有 `REMOTE_` 令牌都是已登记的拒绝码；`REMOTE_` 拒绝码与本地 Bridge 错误码**不重名**；拒绝策略表（§6.1）与契约块在码、HTTP 状态、可重试性上一致；ATS-501 行在 WBS 中的状态/完成率/剩余人日三元组自洽；五项验收要素各有专章；FR-028/FR-030 仍为 `DESIGNED`；ADR 编号与基线登记不冲突；文档没有「已实现」的无条件表述 | 19 §1/§2/§3/§6/§7/§10/§11/§13 |
 | `mutation-tests.mjs` | 上述校验**非空转**：11 组负向夹具（码表外的 `REMOTE_` 令牌、拼写错误、未限定的「已实现」表述、控制平面下发私钥、节点存在性泄漏、策略拒绝落到 500、删除代码获取章节、反转连接方向、工作簿缺行、非法状态值）逐一都会让审计变红 | 19 §13 |
-| `check-wbs-updaters.sh` | **五个** WBS 更新脚本（ATS-101 / ATS-101_done / ATS-102 / ATS-401 / ATS-501）**不互相覆盖**：任一顺序结果相同、重复执行不变、总览缓存与开发WBS 一致、已验收（已完成）状态不被回退、共享的 D6/D7 保留每个任务各自的文字 | 19 §13、WBS「开发WBS」ATS-501 行 |
-| `collect-evidence.sh` | 把上述命令的**实际输出**连同 commit、时间戳写进 `docs/evidence/ATS-501/` | — |
+| `check-wbs-updaters.sh` | **全部** `tools/update_wbs_*.py` 更新脚本（当前 ATS-101 / ATS-101_done / ATS-102 / ATS-301 / ATS-401 / ATS-501，**按文件名自动发现**）**不互相覆盖**：任一顺序结果相同、重复执行不变、总览缓存与开发WBS 一致、已验收（已完成）状态不被回退、共享的 D6/D7 保留每个任务各自的文字 | 19 §13、WBS「开发WBS」ATS-501 行 |
+| `collect-evidence.sh` | 把上述命令的**实际输出**连同 commit、时间戳、**Python 版本与 stdout 编码**写进 `docs/evidence/ATS-501/` | — |
 | `show-wbs-row.py` | 只读地打印 ATS-501 行与总览缓存，作为证据日志的一部分 | — |
 
 ## 纪律（务必遵守）
@@ -53,6 +53,20 @@ bash tools/ats501-probes/collect-evidence.sh
 5. **Windows 上原生程序路径**：`python` 是原生程序，不做 MSYS 路径转换；
    脚本内传给它的路径须先用 `cygpath -w` 转换（`check-wbs-updaters.sh`
    已如此处理）。
+6. **Python 输出必须是 UTF-8**：这些脚本比较中文（状态值、总览叙述、
+   `【ATS-xxx】` 标记）。Windows 默认控制台的 `sys.stdout.encoding` 是 ANSI
+   代码页（gbk / cp936 / cp1252），按 GBK 输出的字节与 shell 里的 UTF-8
+   字面量比不上，回归会**整片误报**（表现为「种子行没写进去」加上每个
+   更新脚本各报一次「把行回退了」）。因此
+   `check-wbs-updaters.sh` 与 `collect-evidence.sh` 在入口
+   `export PYTHONUTF8=1` / `export PYTHONIOENCODING=utf-8`，每个内嵌
+   Python 片段再各自 `sys.stdout.reconfigure(encoding='utf-8')`；
+   证据日志的**每份头部**都记录 Python 版本与 stdout 编码（含「不强制时
+   会是什么编码」），因为一个 PASS 只有连同它的编码环境才是可复现的。
+7. **更新脚本清单必须自动发现**：`check-wbs-updaters.sh` 按
+   `tools/update_wbs_*.py` 列出被测脚本。写死清单会在新增脚本（例如
+   `update_wbs_ats301.py`）落地的那一刻**悄悄失去守护**。同理，第 6 项
+   的 D6/D7 片段取自 `wbs_common.NARRATIVE_FRAGMENTS`，不另列一份。
 
 ## 依赖
 
