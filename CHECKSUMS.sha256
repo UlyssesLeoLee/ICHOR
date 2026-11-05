@@ -47,11 +47,13 @@ abc77d87b0175f92909f4da8cf55b90f89570c91dc60927a8d6725a8fdd37d67  docs/evidence/
 8bfd1a6451ac09d7e3d326b0f4ecc5c6d6f8c5bad4ff13d54ba52d85f1979ae9  docs/evidence/ATS-102/05-windows-shell-path-pitfall.log
 ae3ae7b8f1c206ebb02c9e388692146069a30d50228cb5786340370cae6b1d1b  docs/evidence/ATS-102/06-independent-verification.log
 4d6b1225762421482f6287c2532a6c1ed5ea146e5ad45c69a50a71edd3630989  docs/evidence/ATS-102/07-final-gate-6-steps.log
-c22e3203a56c8828c7890a1097e892fd41756963aa560b643dd997b241711813  docs/evidence/ATS-401/01-node-test.log
-d74f875fdd07f0536a1b7c9e7ae6da599ddbd30ab28a4942e5587f6d804cf03c  docs/evidence/ATS-401/02-agent-boundary.log
-d6e497d3302aa69527268c06e6a3a5d3f6daad69552c9ce0c6f7d982a5caeaf2  docs/evidence/ATS-401/03-port-audit.log
-5ac08746e36569f4dbb3c3f867031bda0b394e4194435666cdc33635a97f8544  docs/evidence/ATS-401/04-coverage.log
-40d5dfed5ed9ae730ab1a12481d9c43bc3454de3732fe57985fd661d4a1ba199  docs/evidence/ATS-401/05-review-regressions.log
+c26b236aa65bd1aefeb987e8bc7b209d3d90c91552dad0dfdd9452c0b37aa986  docs/evidence/ATS-401/01-node-test.log
+68cf94da14348eaa92af8e35b34320e6620aad3f08ba917d6ee99e326d49ae18  docs/evidence/ATS-401/02-agent-boundary.log
+ba1c6dd2629bcdef7abb6bd61e96ed8eab44b77ee362bf04a8f1feb2b44f0917  docs/evidence/ATS-401/03-port-audit.log
+59663cefccf181d58d5257f038026b5979238d88728af7d0083855c770197d00  docs/evidence/ATS-401/04-coverage.log
+623e5235bd3471d69aff98f19732ca038c9eefdb5bb5c7d8444606344331d79b  docs/evidence/ATS-401/05-review-regressions.log
+d191d7dac43f9bd910052a9ba02c2fabe3cb6f02c8424e487d84a182aa4ac12b  docs/evidence/ATS-401/06-review-regressions-r2.log
+4dfc551fa3f50b7250d7bb6d663ee11670b54117c2b6acc7177cbe11ee103323  docs/evidence/ATS-401/07-git-apply-parity.log
 8d2db7d3a44171418d619fc1544697ec9fd609be00d1c167ec1ffbf9fa90402b  docs/evidence/ATS-501/01-protocol-contract-audit.log
 b2d1988d2a228f011f97e73f2846d3d6eeb37197407c7733cd86338f21a283d2  docs/evidence/ATS-501/02-mutation-tests.log
 6a25de3b2d313c7100f501500d1761ce2fb416bd66ab36bfe3df8ae9606a85fc  docs/evidence/ATS-501/03-wbs-updater-regression.log
@@ -117,6 +119,7 @@ db1e34836cd28ac312d65d25fe22bc99c07677044832a4bb56f1a314096ae19a  tools/ats301-p
 b4763775e612d9f67a7b5d031e36c9aac4d3c1fcc660e55667d71c4723abc29d  tools/ats301-probes/wdio-flush-race.mjs
 f8a99dbbded234f39eff678fb524544dbba725aafa106c5fa381f82b2416523e  tools/ats301-probes/wdio-ground-truth.mjs
 4b9362b6a075c5fc564b2c6e7a80bde0c47278392553fdb9e06b76b5a956f669  tools/ats301-probes/wdio-repeat.mjs
+198081d65b228bc737dfe62c233bcba30daa41068d6c39c10bfe95562e0efdb8  tools/ats401-probes/collect-evidence.sh
 920ff9002be54e76110ca28a254ca5a2b1a048a63afff071ed86ee0ce4b461af  tools/ats401-probes/lib/contract-purity.mjs
 ae95f818678331c468ff6f494a6c10e9899015a2805a3bd1febf743646ee1beb  tools/ats401-probes/probe-agent-boundary.mjs
 10548a63e72f7e0ce8418d2a8f9ac5a945f07151522f54e3b977f7ea9c90951d  tools/ats401-probes/probe-git-apply-parity.mjs
