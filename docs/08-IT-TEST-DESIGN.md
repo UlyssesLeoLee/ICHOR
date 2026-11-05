@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：41；已执行通过：27；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：56；已执行通过：42；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -49,6 +49,21 @@
 |IT-AGT-012|FR-024|安全|错误响应不含本机路径|scope 越界请求|响应体中不含本地 root 或盘符路径|node --test|PASS|
 |IT-AGT-013|NFR-011|异常|非 agent 错误保持 ATS-401 之前的行为|POST /api/projects 指向不存在的目录|500 + 原始 ENOENT 消息，无 agent details|node --test|PASS|
 |IT-AGT-CLEANUP|NFR-005|清理|Agent API 子进程与夹清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
+|IT-PLG-SETUP|NFR-011|正常|插件契约 API 的 bridge 启动|隔离 ATS_DATA_DIR 与随机端口|/api/health=200 并取得 token|node --test|PASS|
+|IT-PLG-001|FR-028|正常|插件契约经 API 暴露|GET /api/plugins/contract|200 + contract=plugin-contract/v1 + 权限清单 + SDK 操作面|node --test|PASS|
+|IT-PLG-002|NFR-002|安全|插件端点需要会话 token|不带 X-ATS-Token GET /api/plugins/contract|401 INVALID_SESSION|node --test|PASS|
+|IT-PLG-003|FR-028|正常|合法清单通过校验|POST /api/plugins/validate 合法清单|200 + valid=true + grantedPermissions 回显|node --test|PASS|
+|IT-PLG-004|FR-028|安全|档位是权限上限|同一清单在 readonly 与 reporter 下校验|两个档位给出不同的 grantedPermissions|node --test|PASS|
+|IT-PLG-005|FR-028|安全|禁止权限被拒|清单声明 source.write|400 + PLUGIN_PERMISSION_FORBIDDEN|node --test|PASS|
+|IT-PLG-006|FR-028|安全|表外权限被拒|清单声明 files.delete|400 + PLUGIN_PERMISSION_UNKNOWN|node --test|PASS|
+|IT-PLG-007|FR-028|异常|清单版本不支持被拒|contract=plugin-manifest/v2|400 + PLUGIN_MANIFEST_VERSION_UNSUPPORTED|node --test|PASS|
+|IT-PLG-008|FR-028|安全|未知能力被拒|capabilities 含 teleport|400 + PLUGIN_CAPABILITY_UNKNOWN|node --test|PASS|
+|IT-PLG-009|FR-028|异常|runner 缺必需能力被拒|capabilities 只含 discover|400 + PLUGIN_CAPABILITY_REQUIRED|node --test|PASS|
+|IT-PLG-010|NFR-002|安全|错误响应不含本机路径|entry=C:/Windows/win.ini|400 + 响应体不含仓库路径|node --test|PASS|
+|IT-PLG-011|NFR-005|安全|校验端点不加载也不运行任何东西|校验前后对比数据目录|目录内容不变|node --test|PASS|
+|IT-PLG-012|FR-028|正常|诊断端点报告插件契约状态|GET /api/diagnostics|pluginContract.version=plugin-contract/v1，status=CONTRACT_ONLY|node --test|PASS|
+|IT-PLG-013|NFR-011|异常|非插件错误保持 ATS-512 之前的行为|POST /api/projects 指向不存在的目录|500 + 原始 ENOENT 消息，无插件 details|node --test|PASS|
+|IT-PLG-CLEANUP|NFR-005|清理|插件 API 子进程与夹清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
 
 ## 进入与退出条件
 

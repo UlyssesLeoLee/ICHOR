@@ -48,22 +48,22 @@ ADR = ROOT / 'docs' / '16-BASELINE-ADR.md'
 # ---------------------------------------------------------------------------
 EXPECTED = {
     'server/index.mjs': {
-        14: 'const PORT=Number(process.env.ATS_PORT||',
-        18: "['queued','running'].includes(run.status)",
-        60: 'function cancelRun(run){',
-        61: "throw new Error('RUN_NOT_ACTIVE')",
-        67: 'new RegExp',
-        78: 'Content-Security-Policy',
-        123: "'cancelling'].includes(x.status)",
+        15: 'const PORT=Number(process.env.ATS_PORT||',
+        19: "['queued','running'].includes(run.status)",
+        61: 'function cancelRun(run){',
+        62: "throw new Error('RUN_NOT_ACTIVE')",
+        68: 'new RegExp',
+        79: 'Content-Security-Policy',
+        124: "'cancelling'].includes(x.status)",
         # The AGENT_* error mapping. The ADR cites this position for the
         # statement "AGENT_* 前缀的错误统一映射为 400".
-        194: 'const isAgentError=/^AGENT_/.test(code);',
+        206: 'const isAgentError=/^AGENT_/.test(code);',
         # The unified error STATUS mapping: the ADR cites this position for
         # the statement "该处用正则匹配错误消息，未命中即返回 500".
-        202: 'const status=/NOT_FOUND/.test(message)?404:',
+        223: 'const status=/NOT_FOUND/.test(message)?404:',
         # The message echo: the ADR cites this position for "把 e.message
         # 原样回显".
-        203: 'return err(res,status,message);',
+        224: 'return err(res,status,message);',
     },
     'server/core.mjs': {
         27: "throw new Error('NOT_A_DIRECTORY')",

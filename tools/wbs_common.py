@@ -37,7 +37,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-301】', '【ATS-401】', '【ATS-501】')
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-301】', '【ATS-401】', '【ATS-501】', '【ATS-512】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -84,11 +84,16 @@ NARRATIVE_FRAGMENTS = {
         'D7': '详见 docs/17-AGENT-CONTRACT.md',
     },
     '【ATS-501】': {
-        'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',
-        'D7': '远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；'
-              '详见 docs/19-REMOTE-RUNNER-PROTOCOL.md',
-    },
-}
+            'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',
+            'D7': '远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；'
+                  '详见 docs/19-REMOTE-RUNNER-PROTOCOL.md',
+        },
+        '【ATS-512】': {
+            'D6': '插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）',
+            'D7': '插件宿主与沙箱未实现（ATS-512 只交付契约层）；'
+                  '详见 docs/21-PLUGIN-CONTRACT.md',
+        },
+    }
 
 
 def _text(value):

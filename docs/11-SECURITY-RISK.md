@@ -27,6 +27,7 @@ flowchart LR
 | SEC-007 | 附件隔离 | 每 Run 独立目录；附件下载 token 与 `Content-Disposition` |
 | SEC-008 | 不自动向云端上传 | 无云账户/AI 服务自动调用；本机 UI/运行服务 |
 | SEC-009 | Agent 契约层无写入能力 | `server/agent.mjs` 只 import `node:crypto`/`node:path` 且源码不含任何 I/O 调用（静态检查守护）；写入与提交类能力在请求层被拒；提案 `approval` 恒为 `pending` 且提案人不得自审。**运行时隔离（模块沙箱/只读挂载/子进程）未实现，属 ATS-403** |
+| SEC-010 | 插件契约层的权限边界 | `server/plugins/contract.mjs` + `server/plugins/sdk.mjs`：插件 Manifest **声明**权限，宿主按策略档位**授予**，生效集合 = 声明 ∩ 档位 ∩ 封闭词汇表；越权调用被拒且**被拒本身进审计**；插件作用域由宿主授予（Manifest 不带 scope）；证据 SHA-256 由宿主 resolver 计算，插件不能自报；插件结论是提案（`approval` 恒为 `pending`）且提案人不得自审。**插件宿主与沙箱未实现，属 ATS-502/503/506 与 ATS-403** |
 
 ## 3. 不可忽略的剩余风险
 
