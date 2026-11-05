@@ -100,9 +100,9 @@ EXPECTED = {
         9: "Start-Process 'http://127.0.0.1:",
     },
     'tools/generate_test_docs.py': {
-                279: "'localhost:3000 + ",
-                285: "'Host=evil.example:",
-                351: '同 LAN 他机尝试访问 ',
+                250: "'localhost:3000 + ",
+                256: "'Host=evil.example:",
+                322: '同 LAN 他机尝试访问 ',
             },
         # The ATS-103 WBS updater mentions the port inside a NOTE TEXT (the
             # value never takes effect). The ADR cites it, so this script checks it.

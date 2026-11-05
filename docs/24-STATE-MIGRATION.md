@@ -135,6 +135,22 @@ tools/migrate_uids.mjs                 ATS-201 的工具，改为复用同一内
 迁移前后各算一次，逐项比对（`compareCounts`），不一致即**拒绝迁移**。
 计数在**写入之前**算，因此拒绝不会留下任何痕迹。
 
+### 3.4.1 项目 UID 撞车：迁移表示不了的状态必须直接拒绝
+
+两个项目共用同一个 `root` 时，会导出**同一个项目 UID**。第二个会覆盖第一个：
+它的用例登记条目、信任记录和计数器全部消失。计数比对能发现"条目数少了"，
+但那已经是损失发生**之后**；而且丢的是哪一个项目的条目，从计数上看不出来。
+
+所以撞车在**改键之前**就被拒绝，错误码 `PROJECT_UID_COLLISION`，并且
+**点名两个项目**（`name`）与撞车的 UID：
+
+```
+the migration is refused: PROJECT_UID_COLLISION: the projects "app" and
+"app-clone" both map to proj_1_c77e43e0a9c125f3ba9daf1e (the same root ...)
+```
+
+拒绝时状态文件逐字节未变。
+
 ### 3.5 CLI
 
 ```

@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：280；已执行通过：263；待执行/未实现：17。**PENDING 不是测试通过**。
+> 设计总数：290；已执行通过：273；待执行/未实现：17。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -200,34 +200,6 @@
 |UT-SQL-066|NFR-010|正常|只读命令不创建数据库文件|status/verify 指向不存在的库|退出码 0/1，文件仍不存在|node --test|PASS|
 |UT-SQL-067|NFR-010|异常|命令行报告它无法恢复的错误|状态文件不存在 / 不是状态 / 库不存在|退出码 1 并打印原因|node --test|PASS|
 |UT-SQL-068|NFR-010|异常|命令行报告镜像不一致并失败|改状态后 verify|退出码 1，输出 MISMATCH 与问题清单|node --test|PASS|
-|ATS-206-UT-001|NFR-010|正常|状态的可数项被逐项计数|一个含项目/运行/重试/产物/登记的状态|五项计数都与内容相符|node --test|PASS|
-|ATS-206-UT-002|NFR-010|正常|迁移保持项目与历史的数量一致|迁移一个 v0.1 状态|迁移前后五项计数逐项相等|node --test|PASS|
-|ATS-206-UT-003|NFR-010|异常|计数不一致的迁移被拒绝|迁移前后计数不同|抛 MIGRATION_COUNT_MISMATCH|node --test|PASS|
-|ATS-206-UT-010|NFR-010|正常|信任映射在迁移中存活|状态带 trust|迁移结果仍带 trust|node --test|PASS|
-|ATS-206-UT-011|NFR-010|正常|信任映射改键到新的项目 UID|旧键 proj_<uuid>|trust[newUid].trust 为 trusted，旧键消失|node --test|PASS|
-|ATS-206-UT-012|NFR-010|正常|用例登记表在迁移中存活|状态带 uidRegistry|迁移结果仍带 uidRegistry|node --test|PASS|
-|ATS-206-UT-013|NFR-010|正常|用例登记表改键到新的项目 UID|旧键下的登记条目|新键下能查到条目且条目数不变|node --test|PASS|
-|ATS-206-UT-014|NFR-010|正常|非旧标识符的键原地保留|已是当前格式的键|该键与值原样保留|node --test|PASS|
-|ATS-206-UT-015|NFR-010|正常|新键下已有值时旧值不覆盖|新键已有当前值|保留当前值，旧键消失|node --test|PASS|
-|ATS-206-UT-016|NFR-010|正常|迁移不认识的字段也原样带过|状态带一个未来字段|该字段仍在迁移结果里|node --test|PASS|
-|ATS-206-UT-020|NFR-010|正常|状态文件是原子写入的|写入状态文件|内容正确且不残留 .tmp|node --test|PASS|
-|ATS-206-UT-021|NFR-010|异常|不是状态的对象被拒绝|null / 缺 projects|报 STATE_NOT_AN_OBJECT / UNSUPPORTED_DATABASE|node --test|PASS|
-|ATS-206-UT-022|NFR-010|异常|缺失的状态文件被报告|读不存在的状态文件|报 STATE_FILE_MISSING|node --test|PASS|
-|ATS-206-UT-030|NFR-010|正常|plan 命令不写任何东西|对一个数据目录跑 plan|文件逐字节不变，输出称数量保持|node --test|PASS|
-|ATS-206-UT-031|NFR-010|正常|apply 命令迁移并留下备份|对一个数据目录跑 apply|状态已迁移且 .bak 是原始文件|node --test|PASS|
-|ATS-206-UT-032|NFR-010|正常|apply 命令保持数量一致|apply 前后各数一次|五项计数逐项相等|node --test|PASS|
-|ATS-206-UT-033|NFR-010|正常|rollback 命令还原原始状态|apply 之后跑 rollback|状态文件与原始逐字节相同|node --test|PASS|
-|ATS-206-UT-034|NFR-010|正常|回滚把运行目录改回旧名|磁盘上有旧名运行目录|回滚后旧名目录在、新名目录不在|node --test|PASS|
-|ATS-206-UT-035|NFR-010|异常|没有备份时拒绝回滚|没有 .bak 就跑 rollback|退出码 1，报 NO_BACKUP_TO_RESTORE|node --test|PASS|
-|ATS-206-UT-036|NFR-010|异常|Bridge 运行中拒绝迁移|数据目录里有活进程的 bridge.lock|退出码 3 并说明 Bridge 在运行|node --test|PASS|
-|ATS-206-UT-037|NFR-010|异常|未知命令是用法错误|跑一个不存在的命令|退出码 2|node --test|PASS|
-|ATS-206-UT-040|NFR-010|正常|失败的迁移被自动撤销|写完状态与目录后导入失败|状态文件被还原为原始内容|node --test|PASS|
-|ATS-206-UT-041|NFR-010|异常|失败的导入不留下半成品|导入因约束失败|旧状态与旧数据库都在，无 .importing 残留|node --test|PASS|
-|ATS-206-UT-042|NFR-010|正常|备份先于状态文件的改写|apply 之后|.bak 内容是迁移前的原始文件|node --test|PASS|
-|ATS-206-UT-043|NFR-010|正常|备份与还原成对|写文件、备份、改写、还原|文件回到原始内容|node --test|PASS|
-|ATS-206-UT-050|NFR-010|正常|迁移后的状态能导入元数据库|apply --import-db|镜像导入成功且 verify 通过|node --test|PASS|
-|ATS-206-UT-051|NFR-010|正常|镜像里的数量与迁移后一致|导入后读镜像|项目数与运行数与状态相同|node --test|PASS|
-|ATS-206-UT-052|NFR-010|异常|镜像不一致时 verify 失败|改状态使其与库不符|退出码 1 并列出差异|node --test|PASS|
 |UT-DSC-001|FR-021|正常|CLI 报告解析为用例|--list 报告含一个 spec|得到 file/title/line/describePath|node --test|PASS|
 |UT-DSC-002|FR-021|正常|文件相对 rootDir 归一|rootDir=项目/tests，报告写 a.spec.ts|用例文件为 项目相对 tests/a.spec.ts|node --test|PASS|
 |UT-DSC-003|FR-021|安全|项目外的文件被排除并报告|报告的文件解析后落在项目外|用例列表不含它，skipped 里说明|node --test|PASS|
@@ -288,6 +260,44 @@
 |UT-CP-028|FR-028|安全|控制面源码导入白名单|扫描 server/control-plane/*.mjs|不导入本地 Bridge 模块、Tauri、child_process，不发起外呼|node --test|PASS|
 |UT-CP-029|FR-028|安全|桌面侧调用边界|扫描 src-tauri/src/lib.rs 与 apps/studio|Tauri 只注册 local_bridge_status 且只托管本地 Bridge；前端无 Tauri API|node --test|PASS|
 |UT-CP-030|FR-028|正常|契约端点描述边界|GET /cp/v1/contract|tauriRequired=false，localBridgeReachable=false，本地凭据不接受|node --test|PASS|
+|ATS-206-UT-001|NFR-010|正常|状态的可数项被逐项计数|一个含项目/运行/重试/产物/登记的状态|五项计数都与内容相符|node --test|PASS|
+|ATS-206-UT-002|NFR-010|正常|迁移保持项目与历史的数量一致|迁移一个 v0.1 状态|迁移前后五项计数逐项相等|node --test|PASS|
+|ATS-206-UT-003|NFR-010|异常|计数不一致的迁移被拒绝|迁移前后计数不同|抛 MIGRATION_COUNT_MISMATCH|node --test|PASS|
+|ATS-206-UT-010|NFR-010|正常|信任映射在迁移中存活|状态带 trust|迁移结果仍带 trust|node --test|PASS|
+|ATS-206-UT-011|NFR-010|正常|信任映射改键到新的项目 UID|旧键 proj_<uuid>|trust[newUid].trust 为 trusted，旧键消失|node --test|PASS|
+|ATS-206-UT-012|NFR-010|正常|用例登记表在迁移中存活|状态带 uidRegistry|迁移结果仍带 uidRegistry|node --test|PASS|
+|ATS-206-UT-013|NFR-010|正常|用例登记表改键到新的项目 UID|旧键下的登记条目|新键下能查到条目且条目数不变|node --test|PASS|
+|ATS-206-UT-014|NFR-010|正常|非旧标识符的键原地保留|已是当前格式的键|该键与值原样保留|node --test|PASS|
+|ATS-206-UT-015|NFR-010|正常|新键下已有值时旧值不覆盖|新键已有当前值|保留当前值，旧键消失|node --test|PASS|
+|ATS-206-UT-016|NFR-010|正常|迁移不认识的字段也原样带过|状态带一个未来字段|该字段仍在迁移结果里|node --test|PASS|
+|ATS-206-UT-020|NFR-010|正常|状态文件是原子写入的|写入状态文件|内容正确且不残留 .tmp|node --test|PASS|
+|ATS-206-UT-021|NFR-010|异常|不是状态的对象被拒绝|null / 缺 projects|报 STATE_NOT_AN_OBJECT / UNSUPPORTED_DATABASE|node --test|PASS|
+|ATS-206-UT-022|NFR-010|异常|缺失的状态文件被报告|读不存在的状态文件|报 STATE_FILE_MISSING|node --test|PASS|
+|ATS-206-UT-030|NFR-010|正常|plan 命令不写任何东西|对一个数据目录跑 plan|文件逐字节不变，输出称数量保持|node --test|PASS|
+|ATS-206-UT-031|NFR-010|正常|apply 命令迁移并留下备份|对一个数据目录跑 apply|状态已迁移且 .bak 是原始文件|node --test|PASS|
+|ATS-206-UT-032|NFR-010|正常|apply 命令保持数量一致|apply 前后各数一次|五项计数逐项相等|node --test|PASS|
+|ATS-206-UT-033|NFR-010|正常|rollback 命令还原原始状态|apply 之后跑 rollback|状态文件与原始逐字节相同|node --test|PASS|
+|ATS-206-UT-034|NFR-010|正常|回滚把运行目录改回旧名|磁盘上有旧名运行目录|回滚后旧名目录在、新名目录不在|node --test|PASS|
+|ATS-206-UT-035|NFR-010|异常|没有备份时拒绝回滚|没有 .bak 就跑 rollback|退出码 1，报 NO_BACKUP_TO_RESTORE|node --test|PASS|
+|ATS-206-UT-036|NFR-010|异常|Bridge 运行中拒绝迁移|数据目录里有活进程的 bridge.lock|退出码 3 并说明 Bridge 在运行|node --test|PASS|
+|ATS-206-UT-037|NFR-010|异常|未知命令是用法错误|跑一个不存在的命令|退出码 2|node --test|PASS|
+|ATS-206-UT-040|NFR-010|正常|失败的迁移被自动撤销|写完状态与目录后导入失败|状态文件被还原为原始内容|node --test|PASS|
+|ATS-206-UT-041|NFR-010|异常|失败的导入不留下半成品|导入因约束失败|旧状态与旧数据库都在，无 .importing 残留|node --test|PASS|
+|ATS-206-UT-042|NFR-010|正常|备份先于状态文件的改写|apply 之后|.bak 内容是迁移前的原始文件|node --test|PASS|
+|ATS-206-UT-043|NFR-010|正常|备份与还原成对|写文件、备份、改写、还原|文件回到原始内容|node --test|PASS|
+|ATS-206-UT-050|NFR-010|正常|迁移后的状态能导入元数据库|apply --import-db|镜像导入成功且 verify 通过|node --test|PASS|
+|ATS-206-UT-051|NFR-010|正常|镜像里的数量与迁移后一致|导入后读镜像|项目数与运行数与状态相同|node --test|PASS|
+|ATS-206-UT-052|NFR-010|异常|镜像不一致时 verify 失败|改状态使其与库不符|退出码 1 并列出差异|node --test|PASS|
+|ATS-206-UT-038|NFR-010|异常|未知参数是用法错误|跑一个不存在的选项|退出码 2 并打印用法|node --test|PASS|
+|ATS-206-UT-039|NFR-010|异常|没有命令时打印用法|不带命令运行|退出码 2 并打印用法|node --test|PASS|
+|ATS-206-UT-039b|NFR-010|正常|--help 打印用法并成功|带 --help 运行|退出码 0 并打印用法|node --test|PASS|
+|ATS-206-UT-039c|NFR-010|异常|迁移不了的态被拒绝|两个项目共用一个 root|报 PROJECT_UID_COLLISION 并点名两个项目|node --test|PASS|
+|ATS-206-UT-039d|NFR-010|异常|缺失的状态文件被报告|对没有状态文件的目录跑 apply|退出码 1 并说明状态文件不存在|node --test|PASS|
+|ATS-206-UT-039e|NFR-010|异常|失败的迁移报告已撤销的内容|导入因约束失败|退出码 1 并说明已撤销哪些步骤|node --test|PASS|
+|ATS-206-UT-039f|NFR-010|异常|缺失的元数据库被报告|对没有库的目录跑 verify|退出码 1 并说明没有元数据库|node --test|PASS|
+|ATS-206-UT-039g|NFR-010|正常|--state 直接指向状态文件|用 --state 指定状态文件|plan 成功并称数量保持|node --test|PASS|
+|ATS-206-UT-039h|NFR-010|正常|默认数据目录来自 ATS_DATA_DIR|设置 ATS_DATA_DIR 后跑 plan|plan 成功并称数量保持|node --test|PASS|
+|ATS-206-UT-060|NFR-010|正常|迁移夹具用完即清理|测试跑完之后|临时目录被删除|node --test|PASS|
 
 ## 进入与退出条件
 
