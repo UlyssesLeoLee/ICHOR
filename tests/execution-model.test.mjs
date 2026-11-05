@@ -21,6 +21,7 @@ import path from 'node:path';
 import {
   CASE_STATUS,
   EVENT_TYPE,
+  OUTCOME,
   RESULT_STATUSES,
   RUN_STATUS,
   aggregateAttempts,
@@ -30,6 +31,8 @@ import {
   isTerminalRunStatus,
   mapEngineStatus,
   nextEventSeq,
+  outcomeOf,
+  parseEventLog,
   parseReport,
   replayEvents,
   runView,
@@ -416,4 +419,302 @@ test('UT-EXE-019: an empty report does not crash and reports zero', () => {
   // A report with no `suites` at all behaves the same way.
   const broken = parseReport({ suites: null });
   assert.equal(broken.total, 0);
+});
+
+/* ------------------------------------------------------------------ */
+/* The declared expectation (B1)                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The defect B1 is about.
+ *
+ * A case that declares `test.fail()` and then fails is what the engine
+ * calls an `expected` outcome. The old model only looked at the RAW
+ * result status, so it called that failure a `failed` case -- while
+ * Playwright's own `stats` counted it as `expected`, and the engine exited
+ * with code 0. The summary therefore contradicted the exit code.
+ *
+ * The measured symptom: a run that Playwright judged `passed` reported
+ * `summary.failed = 1`.
+ */
+test('UT-EXE-020: an expected failure is a PASSED case, not a failed one', () => {
+  const report = {
+    suites: [{
+      file: 'tests/xfail.spec.ts',
+      specs: [{
+        title: 'expected failure via test.fail',
+        line: 3,
+        file: 'tests/xfail.spec.ts',
+        tests: [{
+          // The engine's verdict: the case behaved as it declared.
+          status: 'expected',
+          // What the case declared it wanted: a failure.
+          expectedStatus: 'failed',
+          results: [{ status: 'failed', duration: 5, retry: 0, error: { message: 'boom' } }],
+        }],
+      }],
+    }],
+  };
+  const summary = parseReport(report);
+  assert.equal(summary.total, 1);
+  // The case is PASSED: the failure was the declared outcome.
+  assert.equal(summary.cases[0].status, CASE_STATUS.PASSED, JSON.stringify(summary.cases[0]));
+  assert.equal(summary.passed, 1);
+  assert.equal(summary.failed, 0);
+  // The OUTCOME says why: the execution behaved as declared.
+  assert.equal(summary.cases[0].outcome, OUTCOME.EXPECTED);
+  assert.equal(summary.cases[0].attempts[0].outcome, OUTCOME.EXPECTED);
+  // The RAW status of the attempt is still there: the attempt really did
+  // fail, and that fact must not be lost.
+  assert.equal(summary.cases[0].attempts[0].status, CASE_STATUS.FAILED);
+  assert.equal(summary.cases[0].attempts[0].expectedStatus, 'failed');
+});
+
+test('UT-EXE-021: an UNEXPECTED pass is a FAILED case, not a passed one', () => {
+  // The mirror image of UT-EXE-020: a case that declared `test.fail()` but
+  // PASSED is a defect, and the run must say so. Reporting it as `passed`
+  // would hide a broken test.
+  const report = {
+    suites: [{
+      file: 'tests/xfail.spec.ts',
+      specs: [{
+        title: 'unexpected pass of a test.fail case',
+        line: 8,
+        file: 'tests/xfail.spec.ts',
+        tests: [{
+          status: 'unexpected',
+          expectedStatus: 'failed',
+          results: [{ status: 'passed', duration: 3, retry: 0 }],
+        }],
+      }],
+    }],
+  };
+  const summary = parseReport(report);
+  assert.equal(summary.cases[0].status, CASE_STATUS.FAILED, JSON.stringify(summary.cases[0]));
+  assert.equal(summary.failed, 1);
+  assert.equal(summary.passed, 0);
+  assert.equal(summary.cases[0].outcome, OUTCOME.UNEXPECTED);
+  // The raw status of the attempt is still `passed`: the execution itself
+  // passed -- it just was not supposed to.
+  assert.equal(summary.cases[0].attempts[0].status, CASE_STATUS.PASSED);
+});
+
+test('UT-EXE-022: the counters of a run agree with the engine\'s own stats', () => {
+  // The property that matters: the model's summary and Playwright's `stats`
+  // count the same cases the same way. This is the shape of the measured
+  // report (2 projects x 5 cases).
+  const report = {
+    suites: [{
+      file: 'tests/semantics.spec.ts',
+      specs: [
+        {
+          title: 'expected failure via test.fail', line: 3, file: 'tests/semantics.spec.ts',
+          tests: [{ status: 'expected', expectedStatus: 'failed', results: [{ status: 'failed', duration: 5, retry: 0 }] }],
+        },
+        {
+          title: 'unexpected pass of a test.fail case', line: 8, file: 'tests/semantics.spec.ts',
+          tests: [{ status: 'unexpected', expectedStatus: 'failed', results: [{ status: 'passed', duration: 0, retry: 0 }, { status: 'passed', duration: 4, retry: 1 }] }],
+        },
+        {
+          title: 'flaky: fails first try then passes', line: 21, file: 'tests/semantics.spec.ts',
+          tests: [{ status: 'flaky', expectedStatus: 'passed', results: [{ status: 'failed', duration: 1, retry: 0 }, { status: 'passed', duration: 3, retry: 1 }] }],
+        },
+        {
+          title: 'skipped case', line: 30, file: 'tests/semantics.spec.ts',
+          tests: [{ status: 'skipped', expectedStatus: 'skipped', results: [{ status: 'skipped', duration: 1, retry: 0 }] }],
+        },
+      ],
+    }],
+  };
+  const summary = parseReport(report);
+  assert.equal(summary.total, 4);
+  assert.equal(summary.passed, 1, JSON.stringify(summary.cases.map((c) => c.status)));
+  assert.equal(summary.failed, 1, JSON.stringify(summary.cases.map((c) => c.status)));
+  assert.equal(summary.flaky, 1, JSON.stringify(summary.cases.map((c) => c.status)));
+  assert.equal(summary.skipped, 1, JSON.stringify(summary.cases.map((c) => c.status)));
+  // SIX EXECUTIONS: 1 + 2 (the unexpected pass was retried) + 2 (the flaky
+  // case) + 1.
+  assert.equal(summary.executions, 6);
+  // The OUTCOME of every case says why it got that status.
+  assert.deepEqual(
+    summary.cases.map((c) => c.outcome),
+    [OUTCOME.EXPECTED, OUTCOME.UNEXPECTED, OUTCOME.FLAKY, OUTCOME.SKIPPED]
+  );
+});
+
+test('UT-EXE-023: an execution without a declared expectation is not a guess', () => {
+  // The outcome of an execution whose engine declares no expectation is
+  // `unknown`: it cannot be called expected or unexpected. The status
+  // aggregation still decides the case, so an engine that says nothing
+  // about expectations keeps working.
+  assert.equal(outcomeOf('passed', null), OUTCOME.UNKNOWN);
+  assert.equal(outcomeOf('failed', undefined), OUTCOME.UNKNOWN);
+  assert.equal(outcomeOf('passed', 'passed'), OUTCOME.EXPECTED);
+  assert.equal(outcomeOf('failed', 'failed'), OUTCOME.EXPECTED);
+  assert.equal(outcomeOf('passed', 'failed'), OUTCOME.UNEXPECTED);
+  assert.equal(outcomeOf('failed', 'passed'), OUTCOME.UNEXPECTED);
+  assert.equal(outcomeOf('skipped', 'passed'), OUTCOME.SKIPPED);
+  assert.equal(outcomeOf('', 'passed'), OUTCOME.UNKNOWN);
+
+  // A case whose attempts declare no expectation keeps the raw status
+  // aggregation: the outcome never decides a case it knows nothing about.
+  const agg = aggregateAttempts([{ status: CASE_STATUS.FAILED }, { status: CASE_STATUS.FAILED }]);
+  assert.equal(agg.status, CASE_STATUS.FAILED);
+  assert.equal(agg.outcome, OUTCOME.UNKNOWN);
+});
+
+/**
+ * A case that ran in SEVERAL projects.
+ *
+ * The two situations look the same to the attempt statuses -- "some attempt
+ * failed, some attempt passed" -- but they are different verdicts:
+ *
+ *   * the case failed in project b only -> it FAILED;
+ *   * the case failed once and passed on the retry -> it is FLAKY.
+ *
+ * Only the engine's per-project verdicts tell them apart, so the model
+ * uses them. This is the case the review flagged as unverified, and it is
+ * now covered.
+ */
+test('UT-EXE-023B: the per-project verdicts decide the case, not the attempt mix', () => {
+  // The case failed in project b only.
+  const failedInB = {
+    suites: [{
+      file: 'tests/multi.spec.ts',
+      specs: [{
+        title: 'fails in project b only', line: 1, file: 'tests/multi.spec.ts',
+        tests: [
+          { projectName: 'a', status: 'expected', expectedStatus: 'passed', results: [{ status: 'passed', duration: 4, retry: 0 }] },
+          { projectName: 'b', status: 'unexpected', expectedStatus: 'passed', results: [{ status: 'failed', duration: 5, retry: 0 }, { status: 'failed', duration: 7, retry: 1 }] },
+        ],
+      }],
+    }],
+  };
+  const summary = parseReport(failedInB);
+  assert.equal(summary.total, 1);
+  // FAILED, not flaky: the retry did not recover it, and the engine says
+  // the case was unexpected in project b.
+  assert.equal(summary.cases[0].status, CASE_STATUS.FAILED, JSON.stringify(summary.cases[0]));
+  assert.equal(summary.failed, 1);
+  assert.equal(summary.flaky, 0);
+
+  // The same attempt mix, but the case recovered on the retry: FLAKY.
+  const recovered = {
+    suites: [{
+      file: 'tests/multi.spec.ts',
+      specs: [{
+        title: 'flaky: fails first try then passes', line: 2, file: 'tests/multi.spec.ts',
+        tests: [
+          { projectName: 'a', status: 'flaky', expectedStatus: 'passed', results: [{ status: 'failed', duration: 1, retry: 0 }, { status: 'passed', duration: 3, retry: 1 }] },
+        ],
+      }],
+    }],
+  };
+  const flakySummary = parseReport(recovered);
+  assert.equal(flakySummary.cases[0].status, CASE_STATUS.FLAKY, JSON.stringify(flakySummary.cases[0]));
+  assert.equal(flakySummary.flaky, 1);
+  assert.equal(flakySummary.failed, 0);
+});
+
+/* ------------------------------------------------------------------ */
+/* The state machine check of the replay (B3)                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The defect B3 is about.
+ *
+ * The old `/replay` endpoint folded the events and took the status of the
+ * LAST event that implies one. It never checked the state machine, so a
+ * stream that violates `RUN_TRANSITIONS` -- for example
+ * `[queued, started, finished(passed), interrupted]` -- was reported as
+ * `agrees: true`. That stream describes a run that never existed: a
+ * finished run does not get interrupted afterwards.
+ */
+test('UT-EXE-024: a stream that violates the state machine is NOT valid', () => {
+  const events = [
+    { seq: 1, type: EVENT_TYPE.QUEUED, data: {} },
+    { seq: 2, type: EVENT_TYPE.STARTED, data: {} },
+    { seq: 3, type: EVENT_TYPE.FINISHED, data: { status: RUN_STATUS.PASSED } },
+    { seq: 4, type: EVENT_TYPE.INTERRUPTED, data: { reason: 'too late' } },
+  ];
+  const replay = replayEvents(events);
+  assert.equal(replay.valid, false, JSON.stringify(replay.violations));
+  assert.equal(replay.violations.length, 1, JSON.stringify(replay.violations));
+  // The violation names the event and the status it was not allowed from.
+  assert.equal(replay.violations[0].seq, 4);
+  assert.equal(replay.violations[0].type, EVENT_TYPE.INTERRUPTED);
+  assert.equal(replay.violations[0].from, RUN_STATUS.PASSED);
+  // The status is still folded -- the reader gets the facts -- but the
+  // stream is marked invalid.
+  assert.equal(replay.status, RUN_STATUS.INTERRUPTED);
+});
+
+test('UT-EXE-025: a stream that obeys the state machine is valid', () => {
+  const events = [
+    { seq: 1, type: EVENT_TYPE.QUEUED, data: {} },
+    { seq: 2, type: EVENT_TYPE.STARTED, data: {} },
+    { seq: 3, type: EVENT_TYPE.INTERRUPTED, data: { reason: 'the bridge died' } },
+  ];
+  const replay = replayEvents(events);
+  assert.equal(replay.valid, true, JSON.stringify(replay.violations));
+  assert.deepEqual(replay.violations, []);
+  assert.equal(replay.status, RUN_STATUS.INTERRUPTED);
+
+  // A cancelled run is a valid stream too.
+  const cancelled = replayEvents([
+    { seq: 1, type: EVENT_TYPE.QUEUED, data: {} },
+    { seq: 2, type: EVENT_TYPE.STARTED, data: {} },
+    { seq: 3, type: EVENT_TYPE.CANCELLING, data: {} },
+    { seq: 4, type: EVENT_TYPE.FINISHED, data: { status: RUN_STATUS.CANCELLED } },
+  ]);
+  assert.equal(cancelled.valid, true, JSON.stringify(cancelled.violations));
+  assert.equal(cancelled.status, RUN_STATUS.CANCELLED);
+});
+
+/* ------------------------------------------------------------------ */
+/* The durable event log (B5)                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The defect B5 is about.
+ *
+ * A crash in the middle of an append leaves the last line of
+ * `events.jsonl` torn: a fragment of JSON that does not parse. The old
+ * reader parsed the WHOLE file with `JSON.parse` per line and let the
+ * exception escape, so `/events` and `/replay` answered 500 for the rest of
+ * the run's life -- and the writer then appended the next event onto the
+ * fragment, making the file unreadable for good.
+ */
+test('UT-EXE-026: a torn line is skipped and REPORTED, not fatal', () => {
+  const good = JSON.stringify({ seq: 1, type: EVENT_TYPE.QUEUED, data: {} });
+  const good2 = JSON.stringify({ seq: 2, type: EVENT_TYPE.STARTED, data: {} });
+  const text = `${good}\n${good2}\n{"seq":3,"at":"2026-11-06T00:00:00.000Z","ty`;
+  const parsed = parseEventLog(text);
+  // The two readable events survive.
+  assert.equal(parsed.events.length, 2);
+  assert.equal(parsed.events[0].seq, 1);
+  assert.equal(parsed.events[1].seq, 2);
+  // The torn line is REPORTED: a reader has to know that something was
+  // skipped, otherwise it cannot tell "the run did that" from "the log
+  // lost that".
+  assert.deepEqual(parsed.unreadable, [3]);
+  // The file does not end with a newline: the tail may be torn.
+  assert.equal(parsed.truncated, true);
+});
+
+test('UT-EXE-027: an intact log reports no damage', () => {
+  const good = JSON.stringify({ seq: 1, type: EVENT_TYPE.QUEUED, data: {} });
+  const parsed = parseEventLog(`${good}\n`);
+  assert.equal(parsed.events.length, 1);
+  assert.deepEqual(parsed.unreadable, []);
+  assert.equal(parsed.truncated, false);
+  // An empty log is not an error.
+  const empty = parseEventLog('');
+  assert.deepEqual(empty.events, []);
+  assert.deepEqual(empty.unreadable, []);
+  assert.equal(empty.truncated, false);
+  // A line that is valid JSON but not an object is unreadable too.
+  const notAnObject = parseEventLog('42\n');
+  assert.deepEqual(notAnObject.events, []);
+  assert.deepEqual(notAnObject.unreadable, [1]);
 });

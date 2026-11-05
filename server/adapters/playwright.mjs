@@ -336,11 +336,19 @@ export function createPlaywrightAdapter() {
                 title: c.title,
                 file: c.file,
                 status: c.status,
+                // The OUTCOME of the case: what the ENGINE concluded about
+                // it (`expected` / `unexpected` / `flaky` / `skipped`).
+                // It is what makes the counters agree with the engine's own
+                // `stats` -- a case that declares `test.fail()` and fails
+                // is an `expected` outcome, not a failed case.
+                outcome: c.outcome,
                 duration: c.duration,
                 error: c.error,
                 attemptsCount: c.attemptsCount,
                 attempts: c.attempts.map((a) => ({
                   status: a.status,
+                  expectedStatus: a.expectedStatus ?? null,
+                  outcome: a.outcome,
                   retry: a.retry,
                   duration: a.duration,
                   error: a.error,
