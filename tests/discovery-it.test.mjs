@@ -48,6 +48,21 @@ const write = (rel, body) => {
   fs.writeFileSync(full, body, 'utf8');
 };
 
+/**
+ * Empties the fixture's test directory.
+ *
+ * The fixture is SHARED by the whole file, so a spec file an earlier test
+ * wrote is still there for the next one. A test that asserts "the two
+ * indexes agree" would then fail because of a case that has nothing to do
+ * with it -- the `dynamic.spec.ts` of IT-ATS202-002 is a real difference
+ * between the indexes (the static one sees the template, the CLI sees the
+ * rendered titles), and it is not what the test is about.
+ */
+const clearSpecs = () => {
+  const dir = path.join(FIXTURE, 'tests');
+  for (const name of fs.readdirSync(dir)) fs.rmSync(path.join(dir, name), { recursive: true, force: true });
+};
+
 const project = { id: 'proj_1_0123456789abcdef01234567', uid: 'proj_1_0123456789abcdef01234567', root: FIXTURE };
 
 test('IT-ATS202-SETUP: the real Playwright is installed', { skip: installed ? false : 'the real @playwright/test could not be installed' }, () => {
@@ -274,6 +289,124 @@ test('IT-ATS202-011: a CLI that reports an error is a failure, not an empty inde
   assert.ok(listed.errors.length > 0, 'the CLI error is carried over');
   assert.match(JSON.stringify(listed.errors), /duplicate test title/);
   fs.rmSync(path.join(FIXTURE, 'tests', 'dup.spec.ts'), { force: true });
+});
+
+/* ------------------------------------------------------------------ */
+/* the round-1 review findings, against the REAL CLI                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The consistency must not report a difference for a case BOTH indexes see.
+ *
+ * The round-1 reviewer drove this against the real CLI: the lexical
+ * describe reader only ever pushed a title, so a case after a CLOSED
+ * `describe` block still carried the block's title. The two indexes then
+ * disagreed about a case both of them saw, and the user got a false
+ * warning: "1 个用例仅静态索引可见".
+ */
+test('IT-ATS202-012: the consistency agrees for a case after a CLOSED describe', { skip: installed ? false : 'no real Playwright' }, () => {
+  clearSpecs();
+  write('tests/plain.spec.ts', [
+    "import { test } from '@playwright/test';",
+    "test.describe('group', () => {",
+    "  test('inside', async () => {});",
+    "});",
+    "test('after', async () => {});",
+    ''
+  ].join('\n'));
+  const state = withTrust({}, project, { trust: TRUST.TRUSTED });
+  const result = discoverTests(project, state, { version: 1, projects: {} });
+  assert.equal(result.discovery, 'authoritative');
+  assert.equal(result.consistency.agrees, true, JSON.stringify(result.consistency));
+  assert.deepEqual(result.consistency.onlyStatic, []);
+  assert.deepEqual(result.consistency.onlyAuthoritative, []);
+});
+
+test('IT-ATS202-013: the consistency agrees for the describe MODIFIERS', { skip: installed ? false : 'no real Playwright' }, () => {
+  clearSpecs();
+  write('tests/plain.spec.ts', [
+    "import { test } from '@playwright/test';",
+    "test.describe.serial('serial group', () => {",
+    "  test('s1', async () => {});",
+    "});",
+    "test.describe.skip('skipped group', () => {",
+    "  test('k1', async () => {});",
+    "});",
+    ''
+  ].join('\n'));
+  const state = withTrust({}, project, { trust: TRUST.TRUSTED });
+  const result = discoverTests(project, state, { version: 1, projects: {} });
+  assert.equal(result.consistency.agrees, true, JSON.stringify(result.consistency));
+});
+
+test('IT-ATS202-014: the UID of a case with an ESCAPED QUOTE does not move', { skip: installed ? false : 'no real Playwright' }, () => {
+  clearSpecs();
+  write('tests/plain.spec.ts', [
+    "import { test, expect } from '@playwright/test';",
+    "test('user\\'s profile', async () => { expect(1).toBe(1); });",
+    "test('other', async () => { expect(2).toBe(2); });",
+    ''
+  ].join('\n'));
+  const staticResult = discoverTests(project, {}, { version: 1, projects: {} }, { authoritative: false });
+  const staticCase = staticResult.tests.find((t) => t.title === "user's profile");
+  const state = withTrust({}, project, { trust: TRUST.TRUSTED });
+  const authResult = discoverTests(project, state, staticResult.registry);
+  const authCase = authResult.tests.find((t) => t.title === "user's profile");
+  assert.ok(staticCase && authCase, 'the case is in both indexes');
+  assert.equal(authCase.uid, staticCase.uid, 'the UID did not move when the index switched');
+});
+
+test('IT-ATS202-015: the UID of a case with a LONG title does not move', { skip: installed ? false : 'no real Playwright' }, () => {
+  const long = 'checkout ' + 'x'.repeat(190);
+  clearSpecs();
+  write('tests/plain.spec.ts', [
+    "import { test, expect } from '@playwright/test';",
+    `test('${long}', async () => { expect(3).toBe(3); });`,
+    ''
+  ].join('\n'));
+  const staticResult = discoverTests(project, {}, { version: 1, projects: {} }, { authoritative: false });
+  const state = withTrust({}, project, { trust: TRUST.TRUSTED });
+  const authResult = discoverTests(project, state, staticResult.registry);
+  assert.equal(staticResult.tests[0].title.length, 199, 'the static index reports the WHOLE title');
+  assert.equal(authResult.tests[0].uid, staticResult.tests[0].uid, 'the UID did not move');
+});
+
+test('IT-ATS202-016: the UID of a MULTI-LINE test( call survives a retitle', { skip: installed ? false : 'no real Playwright' }, () => {
+  const source = (title) => [
+    "import { test, expect } from '@playwright/test';",
+    'test(',
+    `  '${title}',`,
+    '  async () => { expect(7).toBe(7); }',
+    ');',
+    ''
+  ].join('\n');
+  write('tests/plain.spec.ts', source('multi line old'));
+  const state = withTrust({}, project, { trust: TRUST.TRUSTED });
+  const before = discoverTests(project, state, { version: 1, projects: {} });
+  write('tests/plain.spec.ts', source('multi line new'));
+  const after = discoverTests(project, state, before.registry);
+  assert.equal(after.tests[0].uid, before.tests[0].uid, 'the UID survived the retitle');
+});
+
+test('IT-ATS202-017: the TEMPLATE of a dynamic case does not inherit a rendered UID', { skip: installed ? false : 'no real Playwright' }, () => {
+  clearSpecs();
+  write('tests/plain.spec.ts', [
+    "import { test, expect } from '@playwright/test';",
+    "for (const n of ['alpha', 'beta']) {",
+    "  test(`dynamic ${n}`, async () => { expect(n).toBeTruthy(); });",
+    "}",
+    ''
+  ].join('\n'));
+  const state = withTrust({}, project, { trust: TRUST.TRUSTED });
+  const auth = discoverTests(project, state, { version: 1, projects: {} });
+  const alpha = auth.tests.find((t) => t.title === 'dynamic alpha');
+  assert.ok(alpha);
+  // The static index over the SAME registry.
+  const statics = discoverTests(project, {}, auth.registry, { authoritative: false });
+  const template = statics.tests.find((t) => t.title === 'dynamic ${n}');
+  assert.ok(template, 'the static index reports the template');
+  assert.notEqual(template.uid, alpha.uid, 'the template did NOT inherit the rendered case UID');
+  assert.doesNotMatch(statics.warning, /注册表记录与本次发现不一致/, 'no bogus registry conflict');
 });
 
 test('IT-ATS202-CLEANUP: remove the temporary fixture', () => {

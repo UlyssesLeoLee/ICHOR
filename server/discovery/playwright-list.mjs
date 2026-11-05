@@ -52,7 +52,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { PLAYWRIGHT_CLI_CANDIDATES } from '../adapters/playwright-cli.mjs';
 import { readPackageVersion, resolveProjectBinary } from '../adapters/contract.mjs';
 
@@ -225,6 +225,124 @@ export function parseListReport(report, { projectRoot = null } = {}) {
  * working directory -- the same trust boundary the run path has.
  */
 export function listTests(project, { timeoutMs = DEFAULT_LIST_TIMEOUT_MS } = {}) {
+  const prep = prepareListing(project, timeoutMs);
+  if (prep.error) return prep.error;
+  const r = spawnSync(process.execPath, [prep.cli, 'test', '--list', '--reporter=json'], {
+    cwd: prep.root,
+    encoding: 'utf8',
+    timeout: timeoutMs,
+    windowsHide: true,
+    shell: false,
+    maxBuffer: 64 * 1024 * 1024,
+    env: {
+      ...process.env,
+      PLAYWRIGHT_JSON_OUTPUT_FILE: prep.reportFile,
+      CI: '1',
+      FORCE_COLOR: '0',
+    },
+  });
+  prep.durationMs = Date.now() - prep.started;
+  return finishListing(prep, r);
+}
+
+/**
+ * The asynchronous variant of `listTests`.
+ *
+ * WHY IT EXISTS
+ * -------------
+ * The listing is a CHILD PROCESS that runs the PROJECT'S OWN CODE: it loads
+ * the config (executing its top level) and it evaluates the test files. A
+ * project whose config takes four seconds therefore takes four seconds.
+ *
+ * The synchronous variant blocks the CALLER for those four seconds -- and
+ * the caller is the Bridge's request handler, so the whole Bridge stops
+ * answering: the health check, the catalogue of another project, and the
+ * STOP BUTTON of a running test all wait for the listing to finish. A user
+ * who opens a catalogue cannot stop the test they are watching.
+ *
+ * The asynchronous variant awaits the child instead, so the event loop keeps
+ * turning and the Bridge keeps answering while a project is listed.
+ *
+ * The two variants build the SAME answer: the parsing, the failure modes
+ * and the report normalisation are shared, so the two cannot drift apart.
+ */
+export async function listTestsAsync(project, { timeoutMs = DEFAULT_LIST_TIMEOUT_MS } = {}) {
+  const prep = prepareListing(project, timeoutMs);
+  if (prep.error) return prep.error;
+  const r = await spawnAsync(process.execPath, [prep.cli, 'test', '--list', '--reporter=json'], {
+    cwd: prep.root,
+    encoding: 'utf8',
+    timeout: timeoutMs,
+    windowsHide: true,
+    shell: false,
+    maxBuffer: 64 * 1024 * 1024,
+    env: {
+      ...process.env,
+      PLAYWRIGHT_JSON_OUTPUT_FILE: prep.reportFile,
+      CI: '1',
+      FORCE_COLOR: '0',
+    },
+  });
+  prep.durationMs = Date.now() - prep.started;
+  return finishListing(prep, r);
+}
+
+/**
+ * Spawns a child process and resolves with its result.
+ *
+ * The result has the same shape as the one `spawnSync` returns, so the two
+ * listing variants can share the parsing.
+ *
+ * The timeout is enforced HERE rather than by the operating system: a
+ * child that ignores the timeout is KILLED, and the outcome is the same
+ * `PLAYWRIGHT_LIST_TIMEOUT` the synchronous variant reports.
+ */
+function spawnAsync(command, args, options) {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, {
+      ...options,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const timer = options.timeout > 0
+      ? setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        try { child.kill('SIGKILL'); } catch { /* the child is already gone */ }
+        resolve({
+          error: Object.assign(new Error(`spawnSync ${command} ETIMEDOUT`), { code: 'ETIMEDOUT' }),
+          stdout,
+          stderr,
+          status: null,
+          signal: 'SIGKILL'
+        });
+      }, options.timeout)
+      : null;
+
+    child.stdout?.on('data', (chunk) => { stdout += chunk.toString('utf8'); });
+    child.stderr?.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
+    child.on('error', (error) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      resolve({ error, stdout, stderr, status: null, signal: null });
+    });
+    child.on('close', (status, signal) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      resolve({ error: undefined, stdout, stderr, status, signal });
+    });
+  });
+}
+
+/**
+ * The shared preparation of a listing: the CLI, the report file and the
+ * failure answers that do not need a child process at all.
+ */
+function prepareListing(project, timeoutMs) {
   const root = project?.root;
   const empty = (outcome, reason, extra = {}) => ({
     ok: false,
@@ -242,37 +360,59 @@ export function listTests(project, { timeoutMs = DEFAULT_LIST_TIMEOUT_MS } = {})
     ...extra,
   });
 
-  if (!root) return empty(LIST_OUTCOME.NO_CLI, 'the project has no root directory');
+  if (!root) return { error: empty(LIST_OUTCOME.NO_CLI, 'the project has no root directory') };
   const cli = resolveProjectBinary(root, PLAYWRIGHT_CLI_CANDIDATES);
   if (!cli) {
-    return empty(
-      LIST_OUTCOME.NO_CLI,
-      'the project has no local Playwright CLI (node_modules/@playwright/test/cli.js); the adapter never installs one'
-    );
+    return {
+      error: empty(
+        LIST_OUTCOME.NO_CLI,
+        'the project has no local Playwright CLI (node_modules/@playwright/test/cli.js); the adapter never installs one'
+      )
+    };
   }
-
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats202-list-'));
-  const reportFile = path.join(work, 'list.json');
-  const started = Date.now();
-  try {
-    const r = spawnSync(process.execPath, [cli, 'test', '--list', '--reporter=json'], {
-      cwd: root,
-      encoding: 'utf8',
-      timeout: timeoutMs,
-      windowsHide: true,
-      shell: false,
-      maxBuffer: 64 * 1024 * 1024,
-      env: {
-        ...process.env,
-        PLAYWRIGHT_JSON_OUTPUT_FILE: reportFile,
-        CI: '1',
-        FORCE_COLOR: '0',
-      },
-    });
-    const durationMs = Date.now() - started;
+  return {
+    root,
+    cli,
+    work,
+    reportFile: path.join(work, 'list.json'),
+    timeoutMs,
+    started: Date.now(),
+    durationMs: 0,
+    error: null
+  };
+}
 
+/**
+ * The shared completion of a listing: the report is read, parsed and turned
+ * into the normalised result, and the temporary directory is removed.
+ */
+function finishListing(prep, r) {
+  const { cli, root, reportFile, work } = prep;
+  const durationMs = prep.durationMs;
+  const empty = (outcome, reason, extra = {}) => ({
+    ok: false,
+    outcome,
+    reason,
+    cli: null,
+    version: null,
+    rootDir: null,
+    tests: [],
+    files: [],
+    errors: [],
+    skipped: [],
+    exitCode: null,
+    durationMs: 0,
+    ...extra,
+  });
+  try {
     if (r.error && /ETIMEDOUT|timed out/i.test(String(r.error.message))) {
-      return empty(LIST_OUTCOME.TIMEOUT, `the listing did not finish within ${timeoutMs}ms`, {
+      return empty(LIST_OUTCOME.TIMEOUT, `the listing did not finish within ${prep.timeoutMs ?? DEFAULT_LIST_TIMEOUT_MS}ms`, {
+        cli, durationMs, exitCode: r.status ?? null,
+      });
+    }
+    if (r.error && r.error.code === 'ENOENT') {
+      return empty(LIST_OUTCOME.NO_CLI, `the Playwright CLI could not be started: ${r.error.message}`, {
         cli, durationMs, exitCode: r.status ?? null,
       });
     }

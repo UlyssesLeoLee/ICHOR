@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,discoverTests,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath } from './core.mjs';
+import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,discoverTests,discoverTestsAsync,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath } from './core.mjs';
 import { projectUidFor, projectUidOf, runUidFor, attemptUidFor, nextRunSeq, UID_SCHEME_VERSION } from './uid.mjs';
 // ATS-208: the unified execution model. The event vocabulary, the state
 // machine and the replay live in `server/execution/model.mjs`; the bridge
@@ -251,8 +251,14 @@ const server=http.createServer(async(req,res)=>{
    // because that command executes the project config and the test files.
    // `?authoritative=true` asks for the authoritative index explicitly; the
    // trust still decides whether it is allowed.
+   //
+   // The listing is AWAITED, not run synchronously: it executes the
+   // project's own config, which may take seconds. Awaiting it keeps the
+   // event loop free, so the Bridge keeps answering (health check, the
+   // catalogue of another project, the stop button of a running test) while
+   // this project is listed.
    const forced=u.searchParams.get('authoritative');
-   const catalog=discoverTests(project,store,store.uidRegistry,forced===null?{}:{authoritative:forced==='true'});
+   const catalog=await discoverTestsAsync(project,store,store.uidRegistry,forced===null?{}:{authoritative:forced==='true'});
    store.uidRegistry=catalog.registry;saveState(store);
    return respond(res,200,{...catalog,project:cleanProject(project)});
   }

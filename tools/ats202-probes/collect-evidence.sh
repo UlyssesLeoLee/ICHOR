@@ -58,5 +58,57 @@ run 07-wbs-updater.log python tools/update_wbs_ats202.py
 echo '--- 8. the marked-cell merge regression ---'
 run 08-wbs-common-regression.log python tools/test_wbs_common.py
 
+# --- 9-11: the round-1 review findings -----------------------------------------
+#
+# The reviewer's own probes are kept in the repository so that the finding
+# stays reproducible: they drive the product's own discoverTests() against
+# the REAL Playwright CLI and print EXPECTED vs ACTUAL per counterexample.
+#
+# The probes need a node_modules that holds @playwright/test 1.64.1. The
+# sample project of this repository has one; when it is absent the probe is
+# SKIPPED and says so -- never reported as a pass.
+PW_NM="$ROOT/examples/sample-playwright/node_modules"
+# The probes resolve the tree themselves, so only the node_modules path is
+# passed. It has to be a NATIVE path: on an MSYS shell $ROOT is a /c/...
+# path, and Node would read it as "C:\\c\\Users\\...".
+case "$PW_NM" in
+  /*) PW_NM="$(cd "$PW_NM" 2>/dev/null && pwd -W 2>/dev/null || echo "$PW_NM")" ;;
+esac
+if [ -d "$PW_NM/@playwright/test" ]; then
+  echo '--- 9. the round-1 counterexample probe (the real Playwright CLI) ---'
+  run 09-review-round1-probe.log node tools/ats202-probes/review-round1-probe.mjs "$PW_NM"
+else
+  echo '--- 9. the round-1 counterexample probe: SKIPPED (no @playwright/test) ---'
+  {
+    echo "=== command ==="
+    echo "node tools/ats202-probes/review-round1-probe.mjs <tree> <node_modules>"
+    echo "=== output ==="
+    echo "SKIPPED: examples/sample-playwright/node_modules/@playwright/test is not installed;"
+    echo "the probe needs the real Playwright CLI to enumerate the cases."
+    echo "=== exit code: 2 ==="
+  } > "$OUT/09-review-round1-probe.log"
+  echo "  wrote $OUT/09-review-round1-probe.log (skipped)"
+fi
+
+if [ -d "$PW_NM/@playwright/test" ]; then
+  echo '--- 9b. the listing must not block the Bridge (the review finding) ---'
+  run 09b-review-round1-http-probe.log node tools/ats202-probes/review-round1-http-probe.mjs "$PW_NM"
+else
+  {
+    echo "=== command ==="
+    echo "node tools/ats202-probes/review-round1-http-probe.mjs <node_modules>"
+    echo "=== output ==="
+    echo "SKIPPED: examples/sample-playwright/node_modules/@playwright/test is not installed."
+    echo "=== exit code: 2 ==="
+  } > "$OUT/09b-review-round1-http-probe.log"
+  echo "  wrote $OUT/09b-review-round1-http-probe.log (skipped)"
+fi
+
+echo '--- 10. the ATS-101 port audit (the gate the review found broken) ---'
+run 10-port-audit.log node tools/ats101-probes/scenario-d-port-audit.mjs
+
+echo '--- 11. the ADR citation check (the gate the review found broken) ---'
+run 11-adr-citations.log python tools/check_adr_citations.py
+
 echo ''
 echo 'evidence written to docs/evidence/ATS-202/'

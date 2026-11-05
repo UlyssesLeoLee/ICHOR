@@ -7,7 +7,7 @@ import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, sc
 import { buildPlaywrightArgs, probePlaywrightCli } from './adapters/playwright-cli.mjs';
 import { openDatabase as openMetadataDatabase } from './sqlite/db.mjs';
 import { storeState } from './sqlite/store.mjs';
-import { listTests, LIST_OUTCOME } from './discovery/playwright-list.mjs';
+import { listTests, listTestsAsync, LIST_OUTCOME } from './discovery/playwright-list.mjs';
 import { resolveAuthoritativeIdentities } from './discovery/authoritative.mjs';
 import { compareDiscoveries, readBodies, staticCasesWithScope, DISCOVERY } from './discovery/index.mjs';
 import { TRUST, trustOf } from './discovery/trust.mjs';
@@ -376,6 +376,86 @@ export function discoverStatic(project, registry) {
 }
 
 /**
+ * The decision the TRUST and the REQUEST make together.
+ *
+ * The trust says whether the authoritative index is ALLOWED; the request
+ * (`?authoritative=`) says whether it is WANTED. Three situations:
+ *
+ * | trust   | request          | index   | outcome              |
+ * |---------|------------------|---------|----------------------|
+ * | trusted | default / `true` | auth.   | the listing runs     |
+ * | trusted | `false`          | static  | `NOT_REQUESTED`      |
+ * | untrusted| default / `true`| static  | `SKIPPED_UNTRUSTED`  |
+ *
+ * The third row is the trust gate: a FORCE never overrides it.
+ *
+ * The second row used to be reported as `SKIPPED_UNTRUSTED` as well, which
+ * told the user that a project they had vouched for was not vouched for.
+ * The project IS trusted; the caller simply asked for the static index. The
+ * two situations need different codes, because the user's next action is
+ * different: one needs a vouch, the other needs no action at all.
+ */
+function decideDiscovery(trust, force) {
+  const trusted = trust.trust === TRUST.TRUSTED;
+  if (!trusted) {
+    return { wantsAuthoritative: false, mode: 'untrusted', forced: force === true };
+  }
+  if (force === false) {
+    return { wantsAuthoritative: false, mode: 'not-requested', forced: false };
+  }
+  return { wantsAuthoritative: true, mode: force === true ? 'forced' : 'default', forced: force === true };
+}
+
+/**
+ * The static answer, with the reason the authoritative index was not used.
+ *
+ * The warning says what actually happened. A project that is not trusted
+ * gets the trust gate; a TRUSTED project that asked for the static index
+ * gets a plain note that the request was honoured -- it must not be told
+ * that it is not trusted, because it is.
+ *
+ * The `fallback` mode is the third case: the listing was ALLOWED and it
+ * FAILED. The project is trusted, so the trust gate does not apply and the
+ * warning must not mention it -- the caller says what actually went wrong.
+ */
+function staticCatalog(project, registry, trust, decision) {
+  const base = {
+    ...discoverStatic(project, registry),
+    trust,
+    authoritative: {
+      attempted: false,
+      outcome: decision.mode === 'untrusted' ? 'SKIPPED_UNTRUSTED' : 'NOT_REQUESTED',
+      reason: decision.mode === 'untrusted' ? trust.reason : ''
+    }
+  };
+  if (decision.mode === 'not-requested') {
+    return {
+      ...base,
+      discovery: DISCOVERY.STATIC,
+      warning: `${base.warning} 已按请求使用静态索引（该项目已标记为可信，改用权威索引请去掉 authoritative 参数）。`
+    };
+  }
+  if (decision.mode === 'fallback') {
+    // The listing was allowed and it failed. The trust gate does not apply
+    // here, so the warning must not talk about it.
+    return { ...base, discovery: DISCOVERY.STATIC, warning: base.warning };
+  }
+  // The untrusted project never runs `--list`. The reason is part of the
+  // answer -- and so is the way to get the authoritative index, which is
+  // to vouch for the project (the decision is per project and revocable).
+  //
+  // The forced case (`?authoritative=true`) and the default case get the
+  // SAME answer: the force says WHICH index to use, the trust says whether
+  // it is ALLOWED to, and the trust wins.
+  return {
+    ...base,
+    discovery: DISCOVERY.STATIC,
+    warning: `${base.warning} 未可信仓库不可调用 --list（${trust.reason}），已使用静态索引；`
+      + `把该仓库标记为可信（POST /api/projects/:id/trust {trust:"trusted"}）后即可使用权威索引。`
+  };
+}
+
+/**
  * Discovers the test cases of a project: the STATIC index or the
  * AUTHORITATIVE one (`playwright test --list`), whichever the trust allows.
  *
@@ -408,116 +488,123 @@ export function discoverStatic(project, registry) {
  * case by case and the difference is reported in `consistency`. A case that
  * only the CLI knows is a dynamic case; a case that only the static scanner
  * knows is a case the CLI does not enumerate.
+ *
+ * THE TWO VARIANTS
+ * -----------------
+ * `discoverTests` runs the listing SYNCHRONOUSLY; `discoverTestsAsync` runs
+ * it asynchronously. Both build the catalogue with the SAME code, so the
+ * two answers differ in nothing but the timing.
+ *
+ * The Bridge uses the asynchronous one: the listing executes the project's
+ * config, and a project whose config takes four seconds would otherwise
+ * freeze the whole Bridge for those four seconds -- including the health
+ * check and the stop button of a running test.
  */
 export function discoverTests(project, state, registry, options = {}) {
- const trust = trustOf(state, project);
- const trusted = trust.trust === TRUST.TRUSTED;
- const force = options.authoritative;
- // A forced authoritative discovery still needs the trust: the force says
- // WHICH index to use, the trust says whether it is ALLOWED to.
- const wantsAuthoritative = force === undefined ? trusted : (Boolean(force) && trusted);
+  const trust = trustOf(state, project);
+  const decision = decideDiscovery(trust, options.authoritative);
+  if (!decision.wantsAuthoritative) {
+    return staticCatalog(project, registry, trust, decision);
+  }
+  const listed = listTests(project, { timeoutMs: options.timeoutMs });
+  return authoritativeCatalog(project, registry, trust, decision, listed);
+}
 
- const staticResult = () => ({
-   ...discoverStatic(project, registry),
-   trust,
-   authoritative: {
-     attempted: false,
-     outcome: wantsAuthoritative ? 'NOT_ATTEMPTED' : 'SKIPPED_UNTRUSTED',
-     reason: wantsAuthoritative ? '' : trust.reason
-   }
- });
+/**
+ * The asynchronous variant of `discoverTests`.
+ *
+ * The Bridge calls this one: the listing is a CHILD PROCESS that runs the
+ * project's own code, and it may take a long time. Awaiting it keeps the
+ * event loop free, so the Bridge keeps answering while a project is listed.
+ */
+export async function discoverTestsAsync(project, state, registry, options = {}) {
+  const trust = trustOf(state, project);
+  const decision = decideDiscovery(trust, options.authoritative);
+  if (!decision.wantsAuthoritative) {
+    return staticCatalog(project, registry, trust, decision);
+  }
+  const listed = await listTestsAsync(project, { timeoutMs: options.timeoutMs });
+  return authoritativeCatalog(project, registry, trust, decision, listed);
+}
 
- if (!wantsAuthoritative) {
-   const base = staticResult();
-   // The untrusted project never runs `--list`. The reason is part of the
-   // answer -- and so is the way to get the authoritative index, which is
-   // to vouch for the project (the decision is per project and revocable).
-   //
-   // The forced case (`?authoritative=true`) and the default case get the
-   // SAME answer: the force says WHICH index to use, the trust says whether
-   // it is ALLOWED to, and the trust wins.
-   return {
-     ...base,
-     discovery: DISCOVERY.STATIC,
-     warning: `${base.warning} 未可信仓库不可调用 --list（${trust.reason}），已使用静态索引；`
-       + `把该仓库标记为可信（POST /api/projects/:id/trust {trust:"trusted"}）后即可使用权威索引。`
-   };
- }
+/**
+ * The authoritative answer: the catalogue of the CLI's own case list, with
+ * the UIDs resolved and the agreement with the static index measured.
+ */
+function authoritativeCatalog(project, registry, trust, decision, listed) {
+  if (!listed.ok) {
+    const base = staticCatalog(project, registry, trust, { ...decision, mode: 'fallback', wantsAuthoritative: false });
+    const detail = listed.errors && listed.errors.length ? ` — ${listed.errors[0].message}` : '';
+    return {
+      ...base,
+      discovery: DISCOVERY.STATIC,
+      authoritative: {
+        attempted: true,
+        outcome: listed.outcome,
+        reason: listed.reason,
+        errors: listed.errors || [],
+        cli: listed.cli || null,
+        version: listed.version || null
+      },
+      warning: `${base.warning} 权威发现失败（${listed.outcome}）：${listed.reason}${detail}，已回退到静态索引。`
+    };
+  }
 
- const listed = listTests(project, { timeoutMs: options.timeoutMs });
- if (!listed.ok) {
-   const base = staticResult();
-   const detail = listed.errors && listed.errors.length ? ` — ${listed.errors[0].message}` : '';
-   return {
-     ...base,
-     discovery: DISCOVERY.STATIC,
-     authoritative: {
-       attempted: true,
-       outcome: listed.outcome,
-       reason: listed.reason,
-       errors: listed.errors || [],
-       cli: listed.cli || null,
-       version: listed.version || null
-     },
-     warning: `${base.warning} 权威发现失败（${listed.outcome}）：${listed.reason}${detail}，已回退到静态索引。`
-   };
- }
+  // The authoritative case list, with the UIDs resolved.
+  const files = listed.files;
+  const bodies = readBodies(project.root, files);
+  const projectUid = projectUidOf(project);
+  const projectRegistry = (registry && registry.projects && registry.projects[projectUid]) || { version: UID_SCHEME_VERSION, entries: [] };
+  const resolved = resolveAuthoritativeIdentities({
+    projectUid,
+    cases: listed.tests,
+    bodies,
+    registry: projectRegistry,
+    scope: new Set(files)
+  });
 
- // The authoritative case list, with the UIDs resolved.
- const files = listed.files;
- const bodies = readBodies(project.root, files);
- const projectUid = projectUidOf(project);
- const projectRegistry = (registry && registry.projects && registry.projects[projectUid]) || { version: UID_SCHEME_VERSION, entries: [] };
- const resolved = resolveAuthoritativeIdentities({
-   projectUid,
-   cases: listed.tests,
-   bodies,
-   registry: projectRegistry,
-   scope: new Set(files)
- });
+  const tests = resolved.items.map(t => ({
+    id: t.uid, uid: t.uid, uidSource: t.uidSource, uidStable: t.uidStable,
+    uidBasis: t.basis,
+    file: t.file, title: t.title, line: t.line,
+    describePath: t.scope,
+    specIds: t.specIds,
+    source: 'authoritative', level: 'ST',
+    ...(t.ambiguity ? { ambiguity: t.ambiguity } : {})
+  }));
 
- const tests = resolved.items.map(t => ({
-   id: t.uid, uid: t.uid, uidSource: t.uidSource, uidStable: t.uidStable,
-   uidBasis: t.basis,
-   file: t.file, title: t.title, line: t.line,
-   describePath: t.scope,
-   specIds: t.specIds,
-   source: 'authoritative', level: 'ST',
-   ...(t.ambiguity ? { ambiguity: t.ambiguity } : {})
- }));
+  const consistency = compareDiscoveries(listed.tests, staticCasesWithScope(project.root, files));
+  const ambiguous = tests.filter(t => !t.uidStable).length;
+  const duplicatedExplicit = tests.filter(t => t.ambiguity?.reason === 'duplicate-explicit-uid').length;
+  const outside = (listed.skipped && listed.skipped.length) || 0;
 
- const consistency = compareDiscoveries(listed.tests, staticCasesWithScope(project.root, files));
- const ambiguous = tests.filter(t => !t.uidStable).length;
- const duplicatedExplicit = tests.filter(t => t.ambiguity?.reason === 'duplicate-explicit-uid').length;
- const outside = (listed.skipped && listed.skipped.length) || 0;
+  let warning = `权威索引来自 playwright test --list（CLI ${listed.version || '?'}）：动态与参数化用例已包含在内。`;
+  if (ambiguous) warning += ` ${ambiguous} 个用例的 UID 为临时值（标题与 describe 路径都无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
+  if (duplicatedExplicit) warning += ` ${duplicatedExplicit} 个用例标注了同一个 @TC-xxx，这些用例都没有绑定到该 UID，需要人工消歧。`;
+  if (outside) warning += ` ${outside} 个用例位于项目根目录之外，已被排除。`;
+  if (!consistency.agrees) warning += ` 与静态索引的差异：${consistency.onlyAuthoritative.length} 个用例仅权威索引可见，${consistency.onlyStatic.length} 个用例仅静态索引可见。`;
 
- let warning = `权威索引来自 playwright test --list（CLI ${listed.version || '?'}）：动态与参数化用例已包含在内。`;
- if (ambiguous) warning += ` ${ambiguous} 个用例的 UID 为临时值（标题与 describe 路径都无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
- if (duplicatedExplicit) warning += ` ${duplicatedExplicit} 个用例标注了同一个 @TC-xxx，这些用例都没有绑定到该 UID，需要人工消歧。`;
- if (outside) warning += ` ${outside} 个用例位于项目根目录之外，已被排除。`;
- if (!consistency.agrees) warning += ` 与静态索引的差异：${consistency.onlyAuthoritative.length} 个用例仅权威索引可见，${consistency.onlyStatic.length} 个用例仅静态索引可见。`;
-
- return {
-   files,
-   tests,
-   discovery: DISCOVERY.AUTHORITATIVE,
-   uidVersion: resolved.registry.version,
-   projectUid,
-   registry: { version: resolved.registry.version, projects: { ...((registry && registry.projects) || {}), [projectUid]: resolved.registry } },
-   warning,
-   trust,
-   authoritative: {
-     attempted: true,
-     outcome: LIST_OUTCOME.OK,
-     reason: '',
-     cli: listed.cli,
-     version: listed.version,
-     rootDir: listed.rootDir,
-     durationMs: listed.durationMs,
-     specCount: listed.tests.length
-   },
-   consistency
- };
+  return {
+    files,
+    tests,
+    discovery: DISCOVERY.AUTHORITATIVE,
+    uidVersion: resolved.registry.version,
+    projectUid,
+    registry: { version: resolved.registry.version, projects: { ...((registry && registry.projects) || {}), [projectUid]: resolved.registry } },
+    warning,
+    trust,
+    authoritative: {
+      attempted: true,
+      outcome: LIST_OUTCOME.OK,
+      reason: '',
+      cli: listed.cli,
+      version: listed.version,
+      rootDir: listed.rootDir,
+      durationMs: listed.durationMs,
+      specCount: listed.tests.length
+    },
+    consistency
+  };
 }
 export function resolvePlaywright(project) {
  const candidates=['node_modules/@playwright/test/cli.js','node_modules/playwright/cli.js','node_modules/playwright-core/cli.js'];
