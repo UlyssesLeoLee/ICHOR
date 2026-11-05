@@ -1,34 +1,21 @@
 === the python gates under tools/ ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-1643614c08b5/worktree
-commit    : 69c783b
-branch    : agent/m3/seikoist-169
+repo root : /d/ICHOR
+commit    : 3055ad2
+branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
-......................F......                                            [100%]
-================================== FAILURES ===================================
-___________________ test_tc002_ats506_marker_and_narrative ____________________
-
-    def test_tc002_ats506_marker_and_narrative():
->       assert w.MARKERS[-1] == '【ATS-506】'
-E       AssertionError: assert '【ATS-512】' == '【ATS-506】'
-E         
-E         - 【ATS-506】
-E         ?       ^^
-E         + 【ATS-512】
-E         ?       ^^
-
-tools\test_wbs_common_helpers.py:27: AssertionError
-=========================== short test summary info ===========================
-FAILED tools/test_wbs_common_helpers.py::test_tc002_ats506_marker_and_narrative
-1 failed, 28 passed in 0.39s
+.............................                                            [100%]
+29 passed in 0.36s
 
 exit code : 0
 
 === NOTE ===
-test_tc002_ats506_marker_and_narrative fails on this tree, and it is
-PRE-EXISTING: it fails identically on the base commit acfd7fc
-(git archive acfd7fc -> pytest tools/ -q -> 1 failed, 28 passed).
-It asserts that MARKERS[-1] is 【ATS-506】, but 【ATS-512】 was appended
-to MARKERS by a later delivery (ATS-512) without updating the
-assertion. It is unrelated to the ATS-208 execution model.
+The ATS-506 marker assertion (test_tc002_ats506_marker_and_narrative)
+FAILED on the first delivery of ATS-208: it asserted that MARKERS[-1]
+is 【ATS-506】, but 【ATS-512】 had been appended to MARKERS by a later
+delivery without updating the assertion. It failed identically on the
+base commit, so it was NOT caused by ATS-208.
+
+It is FIXED in the tree this delivery was merged into (the ATS-512
+delivery updated the assertion), so the suite above is green.
