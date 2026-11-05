@@ -289,12 +289,27 @@ function collect(project, committed, fetched) {
   };
 }
 
-/** The SHA-256 of the lockfile, so the manifest states which lock it describes. */
+/**
+ * The SHA-256 of the lockfile, so the manifest states which lock it describes.
+ *
+ * The digest is taken over the file's content with CRLF normalised to LF, so
+ * it is the same value in every checkout. Hashing the raw working-tree bytes
+ * made the digest depend on `core.autocrlf`: a Windows checkout recorded a
+ * CRLF hash and an ubuntu-latest checkout (LF) recorded a different one, so
+ * `--check` failed on CI for a tree that had not changed at all.
+ *
+ * This is the same rule `tools/update_checksums.py` uses for the rest of the
+ * repository (it hashes the git blob); normalising to LF gives the same
+ * value without needing git.
+ */
 function lockDigest(project) {
   const { lockPath } = readLock(project);
-  return crypto.createHash('sha256')
-    .update(fs.readFileSync(lockPath))
-    .digest('hex');
+  const bytes = fs.readFileSync(lockPath);
+  const normalised = Buffer.from(
+    bytes.toString('utf8').replace(/\r\n/g, '\n'),
+    'utf8',
+  );
+  return crypto.createHash('sha256').update(normalised).digest('hex');
 }
 
 /** Every `name@version` the lockfiles pin. */

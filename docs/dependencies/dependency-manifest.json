@@ -81,7 +81,7 @@
         "licenseReviewAttribution": 0
       },
       "packages": [],
-      "lockfileSha256": "703557d47d0bb8b3582dbc9daf0ee1d1a0972d58f0391f77e2b08f8942ec46d9"
+      "lockfileSha256": "d0e018ffd53f971f6874bf79264aab1efd019f928cff09c2c0e426e485e01f17"
     },
     {
       "id": "studio",
@@ -1175,7 +1175,7 @@
           "licenseReviewRequired": null
         }
       ],
-      "lockfileSha256": "5931d663e33da6fc3e56a968e6100a5f275a254473a5d67714bcbd13004fee24"
+      "lockfileSha256": "c48439f68c3fabef8f3ae11fa17a4a5b0461fe3261494459b2ce753621724306"
     }
   ]
 }

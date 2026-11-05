@@ -26,7 +26,7 @@
 ## Node Bridge (server/)（`.`）
 
 - lockfile：`package-lock.json`（lockfileVersion 3）
-- lockfile SHA-256：`703557d47d0bb8b3582dbc9daf0ee1d1a0972d58f0391f77e2b08f8942ec46d9`
+- lockfile SHA-256：`d0e018ffd53f971f6874bf79264aab1efd019f928cff09c2c0e426e485e01f17`
 - 依赖 0（直接 0，dev 0，可选 0）
 - 许可已知 0 / 未知 0；需法务复核 0（强 0，弱 0，署名 0）
 
@@ -34,7 +34,7 @@
 ## Next.js 16 Studio UI（`apps/studio`）
 
 - lockfile：`apps/studio/package-lock.json`（lockfileVersion 3）
-- lockfile SHA-256：`5931d663e33da6fc3e56a968e6100a5f275a254473a5d67714bcbd13004fee24`
+- lockfile SHA-256：`c48439f68c3fabef8f3ae11fa17a4a5b0461fe3261494459b2ce753621724306`
 - 依赖 88（直接 10，dev 3，可选 40）
 - 许可已知 88 / 未知 0；需法务复核 16（强 0，弱 15，署名 1）
 
