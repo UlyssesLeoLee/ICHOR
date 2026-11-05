@@ -1,2 +1,0 @@
-{"total":2,"flaky":0,"failed":1,"passed":1,"executions":2,"cases":["same case:failed:1","same case:passed:1"]}
-NOTE never merged: every WDIO execution is its own case (caseKey includes executions.length), so the comment at wdio.mjs:129-132 does not hold
