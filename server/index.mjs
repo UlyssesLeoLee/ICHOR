@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath } from './core.mjs';
 import { projectUidFor, projectUidOf, runUidFor, attemptUidFor, nextRunSeq, UID_SCHEME_VERSION } from './uid.mjs';
 import { AGENT_CONTRACT_VERSION,describeAgentContract,validateAgentRequest } from './agent.mjs';
+import { PLUGIN_CONTRACT_VERSION,describePluginContract,validatePluginManifest,resolvePluginPermissions } from './plugins/contract.mjs';
 import { capabilityMatrix,getAdapter,listRunners,selectAdapter,selectAdapterOrThrow , negotiationFailure} from './adapters/registry.mjs';
 import { AdapterError } from './adapters/contract.mjs';
 
@@ -220,8 +221,19 @@ const server=http.createServer(async(req,res)=>{
    res.writeHead(200,{'Content-Type':type,'Content-Disposition':`attachment; filename="${path.basename(actual).replace(/[^a-zA-Z0-9._-]/g,'_')}"`,'X-Content-Type-Options':'nosniff'});return fs.createReadStream(actual).pipe(res);
   }
  }
- if(p==='/api/diagnostics'&&req.method==='GET')return respond(res,200,{runtime:process.version,server:'Node.js bridge',platform:process.platform,pid:process.pid,environment:'local',limitations:['Local trusted repositories only','No process/container sandbox','No account/RBAC','AI provider not connected','WDIO adapter planned'],agentContract:{version:AGENT_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The agent contract is defined and enforced; no model provider is wired, so no agent request can reach a model.',writePolicy:'Agents produce diffs only; applying a diff, updating expected results and committing are platform-side operations performed after review.'}});
+ if(p==='/api/diagnostics'&&req.method==='GET')return respond(res,200,{runtime:process.version,server:'Node.js bridge',platform:process.platform,pid:process.pid,environment:'local',limitations:['Local trusted repositories only','No process/container sandbox','No account/RBAC','AI provider not connected','WDIO adapter planned'],agentContract:{version:AGENT_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The agent contract is defined and enforced; no model provider is wired, so no agent request can reach a model.',writePolicy:'Agents produce diffs only; applying a diff, updating expected results and committing are platform-side operations performed after review.'},pluginContract:{version:PLUGIN_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The plugin contract, the permission list and the SDK operation surface are defined and enforced; no plugin host, loader or sandbox exists, so no plugin can be loaded or run.',grantPolicy:'A manifest declares permissions; the host grants them. The effective set is the declared set intersected with the host policy tier.',auditPolicy:'Every SDK call produces an audit event in the host sink, including the denied ones. The plugin cannot suppress it.',evidencePolicy:'The SHA-256 of an evidence reference is computed by the host resolver, never supplied by the plugin.'}});
  if(p==='/api/agent/contract'&&req.method==='GET')return respond(res,200,describeAgentContract());
+if(p==='/api/plugins/contract'&&req.method==='GET')return respond(res,200,describePluginContract());
+if(p==='/api/plugins/validate'&&req.method==='POST'){
+  // Validation only: it proves a manifest satisfies the plugin contract and
+  // reports which permissions the host would actually grant under the given
+  // policy tier. It does not load, run or install a plugin.
+  const b=await body(req);
+  const tier=b.tier===undefined?undefined:String(b.tier);
+  const validated=validatePluginManifest(b.manifest===undefined?b: b.manifest);
+  const resolution=resolvePluginPermissions(validated.permissions,tier);
+  return respond(res,200,{valid:true,contract:PLUGIN_CONTRACT_VERSION,manifest:validated,tier:resolution.tier,grantedPermissions:resolution.granted,deniedPermissions:resolution.denied});
+}
  if(p==='/api/agent/validate'&&req.method==='POST'){
   // Validation only: it proves a request satisfies the contract. It does not
   // call a model, and it never writes to the project.
@@ -242,12 +254,21 @@ const server=http.createServer(async(req,res)=>{
  // owned by ATS-112 (docs/16-BASELINE-ADR.md §3.2), not by this task.
  const isAgentError=/^AGENT_/.test(code);
  if(isAgentError){
-  const status=400;
-  // The details are contract-level values only (the offending field, the
-  // limit, the target path). They never contain a local filesystem path.
-  const details=e&&e.details&&typeof e.details==='object'?{details:e.details}:{};
-  return respond(res,status,{error:code||message,...details});
- }
+   const status=400;
+   // The details are contract-level values only (the offending field, the
+   // limit, the target path). They never contain a local filesystem path.
+   const details=e&&e.details&&typeof e.details==='object'?{details:e.details}:{};
+   return respond(res,status,{error:code||message,...details});
+  }
+  // Plugin contract violations are client errors in the same way: the manifest
+  // does not satisfy the contract. The scope of this mapping is PLUGIN_* only,
+  // so every other error keeps its pre-ATS-512 behaviour byte for byte.
+  const isPluginError=/^PLUGIN_/.test(code);
+  if(isPluginError){
+   const status=400;
+   const details=e&&e.details&&typeof e.details==='object'?{details:e.details}:{};
+   return respond(res,status,{error:code||message,...details});
+  }
  const status=/NOT_FOUND/.test(message)?404:/CONFLICT|ALREADY/.test(message)?409:/OUTSIDE|INVALID|REQUIRED|STALE|TOO_LARGE|NOT_INSTALLED/.test(message)?400:500;
  return err(res,status,message);}
 });

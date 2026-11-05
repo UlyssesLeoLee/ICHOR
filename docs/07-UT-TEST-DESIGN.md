@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：123；已执行通过：106；待执行/未实现：17。**PENDING 不是测试通过**。
+> 设计总数：175；已执行通过：158；待执行/未实现：17。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -101,6 +101,58 @@
 |UT-AGT-066|FR-024|异常|provider 失败与超时的区分|provider 在 50ms 后抛错|报 AGENT_PROVIDER_ERROR|node --test|PASS|
 |UT-AGT-067|FR-025|安全|自审检查不是精确字符串比较|producedBy=gen-1，reviewer 取 gen-1 / gen-1(空格) / GEN-1 / Gen-1|四种写法均报 AGENT_REVIEW_SELF_FORBIDDEN|node --test|PASS|
 |UT-AGT-068|FR-025|安全|提案人必须由平台侧给出|context.producedBy 缺失或为空白|报 AGENT_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-001|FR-028|正常|插件契约与清单版本固定|describePluginContract()|contract=plugin-contract/v1，manifest=plugin-manifest/v1|node --test|PASS|
+|UT-PLG-002|FR-028|正常|合法清单被归一化|合法 Manifest|字段归一化，permissions/capabilities 为数组|node --test|PASS|
+|UT-PLG-003|FR-028|异常|不支持的清单版本被拒|contract=plugin-manifest/v2|报 PLUGIN_MANIFEST_VERSION_UNSUPPORTED|node --test|PASS|
+|UT-PLG-004|FR-028|异常|清单字段形状不对被拒|id/version/kind/entry/publisher 各自非法|报 PLUGIN_MANIFEST_INVALID|node --test|PASS|
+|UT-PLG-005|FR-028|安全|禁止权限一律被拒|声明 source.write / audit.suppress / evidence.skip 等|报 PLUGIN_PERMISSION_FORBIDDEN|node --test|PASS|
+|UT-PLG-006|FR-028|安全|词汇表外的权限被拒|声明 files.delete|报 PLUGIN_PERMISSION_UNKNOWN|node --test|PASS|
+|UT-PLG-007|FR-028|边界|重复权限被拒|permissions 含两个 test.read|报 PLUGIN_MANIFEST_INVALID|node --test|PASS|
+|UT-PLG-008|FR-028|安全|能力必须在 ATS-301 词汇表内|capabilities 含 teleport|报 PLUGIN_CAPABILITY_UNKNOWN|node --test|PASS|
+|UT-PLG-009|FR-028|异常|runner 插件必须声明四个必需能力|capabilities 只含 discover|报 PLUGIN_CAPABILITY_REQUIRED|node --test|PASS|
+|UT-PLG-010|FR-028|正常|非 runner 插件无需能力|kind=reporter，capabilities 为空|校验通过|node --test|PASS|
+|UT-PLG-011|FR-028|正常|生效权限是声明与档位的交集|observer 档位申请三项|granted 为交集|node --test|PASS|
+|UT-PLG-012|FR-028|安全|超出档位的权限被拒|readonly 档位申请 evidence.read|granted 不含它，denied 记 not-in-tier|node --test|PASS|
+|UT-PLG-013|FR-028|安全|插件不能靠声明抬高自己的权限|同一份声明在三个档位下|三个档位给出三个不同的生效集合|node --test|PASS|
+|UT-PLG-014|FR-028|安全|禁止权限的拒绝原因是 forbidden|声明 source.write|denied 记 forbidden 而非 not-in-tier|node --test|PASS|
+|UT-PLG-015|FR-028|安全|表外权限的拒绝原因是 unknown|声明 files.delete|denied 记 unknown|node --test|PASS|
+|UT-PLG-016|FR-028|安全|每个档位都是词汇表的子集|遍历全部档位|无档位授予表外权限|node --test|PASS|
+|UT-PLG-017|FR-028|安全|没有档位授予禁止权限|遍历全部档位|与禁止清单无交集|node --test|PASS|
+|UT-PLG-018|FR-028|正常|操作按其权限授权|声明 test.read|readTestFile 允许，readRunEvidence 拒绝并给理由|node --test|PASS|
+|UT-PLG-019|FR-028|异常|未知操作不被授权|调用 deleteEverything|allowed=false 并列出已知操作|node --test|PASS|
+|UT-PLG-020|FR-028|正常|describe 不需要权限|permissions 为空|describe 仍被允许|node --test|PASS|
+|UT-PLG-021|FR-028|正常|SDK 的操作面与声明完全相等|比较 SDK 键与操作表|两者集合相等|node --test|PASS|
+|UT-PLG-022|FR-028|安全|SDK 是冻结的，插件不能加方法|给 sdk 赋值新方法|抛 TypeError|node --test|PASS|
+|UT-PLG-023|FR-028|正常|describe 回报生效与被拒权限|声明两项、档位只给一项|grantedPermissions 与 deniedPermissions 正确|node --test|PASS|
+|UT-PLG-024|FR-028|安全|超出档位的操作被拒|readonly 档位调用 readRunEvidence|报 PLUGIN_PERMISSION_DENIED|node --test|PASS|
+|UT-PLG-025|FR-028|安全|被拒的调用同样进审计|制造一次被拒调用|审计 sink 收到 plugin.operation.denied|node --test|PASS|
+|UT-PLG-026|FR-028|正常|审计序号单调且与 sink 一致|连续两次调用|sink 收到 seq 1、2|node --test|PASS|
+|UT-PLG-027|FR-028|安全|插件不能自选审计序号|一次调用后检查事件|seq 由 SDK 分配，pluginId 与 type 正确|node --test|PASS|
+|UT-PLG-028|FR-028|安全|作用域外的文件读不到|读 server/index.mjs|报 PLUGIN_SCOPE_INVALID|node --test|PASS|
+|UT-PLG-029|FR-028|安全|没有作用域时什么都读不到|不传 scope|报 PLUGIN_SCOPE_INVALID|node --test|PASS|
+|UT-PLG-030|FR-028|安全|清单不能扩大自己的作用域|Manifest 里塞 scope 字段|宿主 scope 仍然生效|node --test|PASS|
+|UT-PLG-031|FR-028|安全|没有证据就不许上报结论|evidenceRefs 为空|报 PLUGIN_EVIDENCE_REQUIRED|node --test|PASS|
+|UT-PLG-032|FR-028|安全|证据摘要由宿主计算|宿主 resolver 返回固定摘要|提案里的 sha256 等于宿主算出的值|node --test|PASS|
+|UT-PLG-033|FR-028|安全|插件自带的摘要不被接受|evidenceRefs 传 {ref,sha256}|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-034|FR-028|安全|结论是提案而不是改状态|reportOutcome 返回值|approval=pending，producedBy=plugin:<id>|node --test|PASS|
+|UT-PLG-035|FR-028|异常|非法 status 被拒|status=not-a-status|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-036|FR-028|安全|上报结论也进审计|调用 reportOutcome|审计 sink 收到 plugin.outcome.reported|node --test|PASS|
+|UT-PLG-037|FR-028|安全|提案人不得自审|reviewer 等于 producedBy|报 PLUGIN_REVIEW_SELF_FORBIDDEN|node --test|PASS|
+|UT-PLG-038|FR-028|安全|自审检查不是精确字符串比较|reviewer 取带空格/大写写法|四种写法均报 AGENT_REVIEW_SELF_FORBIDDEN 对应码|node --test|PASS|
+|UT-PLG-039|FR-028|正常|独立评审人可以批准|reviewer 与提案人不同|approval=approved 且内容不变|node --test|PASS|
+|UT-PLG-040|FR-028|异常|仅 pending 提案可被评审|对已批准提案再次评审|报 PLUGIN_REVIEW_STATE_INVALID|node --test|PASS|
+|UT-PLG-041|FR-028|异常|非法评审结论被拒|decision=maybe|报 PLUGIN_REVIEW_STATE_INVALID|node --test|PASS|
+|UT-PLG-042|FR-028|正常|契约描述完整且不夸大|describePluginContract()|权限/禁止/档位/操作/错误码齐全，designStatus=CONTRACT_ONLY|node --test|PASS|
+|UT-PLG-043|FR-028|正常|每个 SDK 操作所需权限都在词汇表内|遍历操作表|无操作需要表外或禁止权限|node --test|PASS|
+|UT-PLG-044|FR-028|正常|契约描述不声称宿主存在|describePluginContract().designStatus|等于 CONTRACT_ONLY|node --test|PASS|
+|UT-PLG-045|FR-028|正常|错误码清单与实际抛出的码一致|比对两个模块源码与清单|两个方向都完全相等|node --test|PASS|
+|UT-PLG-046|FR-028|异常|宿主不完整时拒绝构造 SDK|缺 audit / 缺 readTestFile|分别报 PLUGIN_AUDIT_REQUIRED / PLUGIN_MANIFEST_INVALID|node --test|PASS|
+|UT-PLG-047|FR-028|安全|有权限也读不到作用域外的文件|scope 只给一个文件|同目录另一个文件报 PLUGIN_SCOPE_INVALID 且被审计|node --test|PASS|
+|UT-PLG-048|FR-028|安全|绝对路径一律被拒|读 C:/Windows/win.ini|报 PLUGIN_SCOPE_INVALID|node --test|PASS|
+|UT-PLG-049|FR-028|安全|作用域由宿主给而不是清单给|宿主 scope 为空、清单申请全部权限|仍读不到任何文件|node --test|PASS|
+|UT-PLG-050|FR-028|安全|SDK 自己不碰文件系统|检查 sdk.mjs 源码|不 import node:fs / node:child_process，不 spawn|node --test|PASS|
+|UT-PLG-051|FR-028|安全|禁止权限永不出现在生效集合里|每个档位下解析全量申请|granted 与禁止清单无交集|node --test|PASS|
+|UT-PLG-052|FR-028|正常|SDK 没有写任何文件|检查临时夹目录|目录为空|node --test|PASS|
 |UT-CP-001|FR-028|安全|本地路径形态判定矩阵|盘符、UNC、POSIX、file:、家目录、环境变量、路径穿越、仓库地址各形态|逐一返回对应规则名|node --test|PASS|
 |UT-CP-002|FR-028|边界|非路径值不误判|https 地址、prj UID、40 位 SHA、相对片段、ns:name、非字符串|均返回 null|node --test|PASS|
 |UT-CP-003|FR-028|安全|百分号编码的路径同等拒绝|C%3A%5Crepo、%2Fhome%2Fa、损坏编码|前两者命中规则；损坏编码按原文判定不抛错|node --test|PASS|

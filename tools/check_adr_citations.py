@@ -56,26 +56,26 @@ ADR = ROOT / 'docs' / '16-BASELINE-ADR.md'
 # ---------------------------------------------------------------------------
 EXPECTED = {
     'server/index.mjs': {
-        14: 'const PORT=Number(process.env.ATS_PORT||',
-        18: "['queued','running'].includes(run.status)",
-        60: 'function cancelRun(run){',
-        61: "throw new Error('RUN_NOT_ACTIVE')",
-        67: 'new RegExp',
-        78: 'Content-Security-Policy',
-        123: "'cancelling'].includes(x.status)",
+        16: 'const PORT=Number(process.env.ATS_PORT||',
+        28: "['queued','running'].includes(run.status)",
+        83: 'function cancelRun(run){',
+        84: "throw new Error('RUN_NOT_ACTIVE')",
+        90: 'new RegExp',
+        101: 'Content-Security-Policy',
+        163: "'cancelling'].includes(x.status)",
         # The AGENT_* error mapping. The ADR cites this position for the
         # statement "AGENT_* 前缀的错误统一映射为 400".
-        194: 'const isAgentError=/^AGENT_/.test(code);',
+        255: 'const isAgentError=/^AGENT_/.test(code);',
         # The unified error STATUS mapping: the ADR cites this position for
         # the statement "该处用正则匹配错误消息，未命中即返回 500".
-        202: 'const status=/NOT_FOUND/.test(message)?404:',
+        272: 'const status=/NOT_FOUND/.test(message)?404:',
         # The message echo: the ADR cites this position for "把 e.message
         # 原样回显".
-        203: 'return err(res,status,message);',
+        273: 'return err(res,status,message);',
     },
     'server/core.mjs': {
-        27: "throw new Error('NOT_A_DIRECTORY')",
-        103: 'export function safeRunArgs(',
+        102: "throw new Error('NOT_A_DIRECTORY')",
+        199: 'export function safeRunArgs(',
     },
     # The crate-type declaration. It is NOT a port reference, so the ATS-101
     # port audit does NOT cover it -- this script checks it itself.
@@ -100,11 +100,21 @@ EXPECTED = {
         9: "Start-Process 'http://127.0.0.1:",
     },
     'tools/generate_test_docs.py': {
-        120: "'localhost:3000 + ",
-        126: "'Host=evil.example:",
-        157: '同 LAN 他机尝试访问 ',
-    },
-}
+            172: "'localhost:3000 + ",
+            178: "'Host=evil.example:",
+            224: '同 LAN 他机尝试访问 ',
+        },
+        # The ATS-103 WBS updater mentions the port inside a NOTE TEXT (the
+            # value never takes effect). The ADR cites it, so this script checks it.
+            #
+            # The needles deliberately do NOT contain the port literal: writing it
+            # here would add a runtime port occurrence to this file, and the ATS-101
+            # port audit would then report this file as a port-hardcoding site.
+            'tools/update_wbs_ats103.py': {
+                110: 'output:export 下的真实形态是导出页到 127.0.0.1:',
+                114: 'staticFile() 以该目录为静态根',
+            },
+        }
 
 # ---------------------------------------------------------------------------
 # The RANGE citations. The end of a range is READ FROM THE ADR TEXT -- it is
@@ -134,7 +144,7 @@ RANGES = [
 PORT_AUDITED = {
     # RUNTIME port hardcodings: the audit validates each of these positions
     # against the source.
-    'apps/studio/lib/api.ts': {6: 'the API base URL'},
+    'apps/studio/lib/api.ts': {7: 'the API base URL'},
     'apps/studio/app/page.tsx': {81: 'the workbench footer text'},
     'apps/studio/public/fallback.html': {3: 'the portable UI footer text'},
     'src-tauri/src/lib.rs': {19: 'the ATS_PORT environment default'},
