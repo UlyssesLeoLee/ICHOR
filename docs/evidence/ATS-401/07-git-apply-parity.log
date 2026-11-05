@@ -1,11 +1,11 @@
 === ATS-401 probe: the diff whitelist agrees with git apply ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-c245c91b845d/worktree
-date      : 2026-11-05T10:57:45Z
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-3a39d5f791de/worktree
+date      : 2026-11-05T13:21:24Z
 git       : git version 2.55.0.windows.4
 
 === ATS-401 probe: the diff whitelist agrees with git apply ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree
-work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree\.ats-evidence-work\parity
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-3a39d5f791de\worktree
+work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-3a39d5f791de\worktree\.ats-evidence-work\parity
 
 --- A. every diff the contract layer ACCEPTS is one git agrees with ---
   [PASS] the contract layer accepts a full diff --git header -- code=null
@@ -25,7 +25,7 @@ work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4
   [PASS] the contract layer rejects the legacy "rename old/new" headers -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
        git view: git would have written outside the scope -- ok=true paths=tests/login.spec.ts, server/pwned.mjs summary=rename server/{index.mjs => pwned.mjs} (0%)
   [PASS] the contract layer rejects a C-quoted diff --git header naming another file -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
-       git view: git rejects it too -- ok=false paths=(none) summary=error: git diff header lacks filename information when removing 1 leading pathname component at C:/c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-c245c91b845d/worktree/.ats-evidence-work/parity/candidate.diff:10
+       git view: git rejects it too -- ok=false paths=(none) summary=error: git diff header lacks filename information when removing 1 leading pathname component at C:/c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-3a39d5f791de/worktree/.ats-evidence-work/parity/candidate.diff:10
   [PASS] the contract layer rejects an out-of-scope diff --git header -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
        git view: git treats it as a no-op on the in-scope file (rejection is conservative) -- ok=true paths=tests/login.spec.ts summary=(none)
   [PASS] the contract layer rejects a diff --git header naming a path outside scope.outputs -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
