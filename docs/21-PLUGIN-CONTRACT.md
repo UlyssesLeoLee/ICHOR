@@ -127,7 +127,7 @@ SDK 的每个方法按同一顺序做三件事：**授权判定 → 作用域判
 
 ### 5.1 单元测试（UT）
 
-`tests/plugins.test.mjs` —— 52 项，覆盖清单校验、权限解析、档位天花板、SDK 操作面、审计单调性、作用域、证据来源与评审规则。
+`tests/plugins.test.mjs` —— 52 项，覆盖清单校验、权限解析、档位天花板、SDK 操作面、审计单调性、作用域、证据来源与评审规则。实测输出：`docs/evidence/ATS-512/01-plugin-ut.log`（52 通过 / 0 失败）。
 
 ### 5.2 集成测试（IT）
 
@@ -140,6 +140,8 @@ SDK 的每个方法按同一顺序做三件事：**授权判定 → 作用域判
 - 校验端点**不加载、不运行、不安装**任何东西（数据目录无变化）；
 - `PLUGIN_*` 的错误映射作用域仅限 `PLUGIN_*`，其它错误保持 ATS-512 之前的行为。
 
+实测输出：`docs/evidence/ATS-512/02-plugin-api-it.log`（15 通过 / 0 失败）。
+
 ### 5.3 边界探针
 
 `tools/ats512-probes/probe-plugin-boundary.mjs` —— 探针扮演**宿主**，用受控的档位与作用域构造 SDK 并交给样例插件，证明：
@@ -150,6 +152,25 @@ SDK 的每个方法按同一顺序做三件事：**授权判定 → 作用域判
 4. 越作用域的读取被拒，且被审计；
 5. **负控**：同一个插件、同一个调用，只把档位从 `readonly` 换成 `reporter`，同一个调用就**被允许**——因此信号 1 的拒绝确实来自权限清单，而不是一个坏掉的 SDK；
 6. 权限词汇表封闭：表外名字被拒并说明理由；每个档位都只是词汇表的子集。
+
+实测输出：`docs/evidence/ATS-512/03-plugin-boundary-probe.log`。
+
+### 5.4 全量套件与既有失败
+
+`npm test` 在合并 dev 后的树上：**290 通过 / 1 失败 / 10 跳过**（`docs/evidence/ATS-512/04-full-test-suite.log`）。
+
+唯一的失败是 **IT-API-013**，属 ATS-301：示例工程 `examples/sample-playwright/` 在本检出里没有 `node_modules`，适配器因此把必需能力报为不支持，协商返回 409 而不是 200。`tools/ats512-probes/prove-baseline-regression.sh` 用 `git archive` 导出 **dev 树**（不含本任务任何代码）复跑，**同一个测试在参考树上同样失败**——因此它是既有失败，不是本任务引入的回归（`docs/evidence/ATS-512/09-baseline-regression.log`）。它**不计为 PASS**。
+
+### 5.5 回归检查
+
+| 检查 | 结果 | 输出 |
+|---|---|---|
+| WBS 更新器共存回归（9 个更新器） | OK | `docs/evidence/ATS-512/05-wbs-updater-regression.log` |
+| ATS-501 远程协议契约审计（本任务消费它） | 108/108 OK | `docs/evidence/ATS-512/06-ats501-protocol-audit.log` |
+| 基线 ADR 的 `file:line` 引用全部解析 | OK | `docs/evidence/ATS-512/07-adr-citation-check.log` |
+| ATS-101 端口审计 | **红（dev 上同样红）** | `docs/evidence/ATS-512/08-port-audit.log` |
+
+端口审计为红的原因是 **ATS-103** 在 dev 上新增了运行时端口提及（`tools/ats103-probes/verify-export-and-proxy.mjs`、`tools/update_wbs_ats103.py`），基线 ADR 的端口清单未枚举它们。**本任务新增的任何文件都不含端口字面量**，因此与 ATS-512 无关；该状态记录在案，不计为本任务的失败。
 
 ## 6. API 面
 
