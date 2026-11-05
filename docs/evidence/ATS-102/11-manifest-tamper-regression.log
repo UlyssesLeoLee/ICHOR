@@ -1,0 +1,21 @@
+=== dependency-manifest job: does it actually detect drift? ===
+date: 2026-11-05T04:09:51Z
+
+--- tamper one integrity value in the committed manifest ---
+package   : @emnapi/runtime 1.11.3
+integrity : sha512-Xz4Tpyki7XyrpbUK1jR1AhdAd ...
+tampered  : sha512-TAMPEREDki7XyrpbUK1jR1Ahd ...
+
+--- CURRENT CI sequence: --check directly (no regeneration) ---
+$ node tools/gen_dep_manifest.mjs --check
+RESULT: MISMATCH -- the committed dependency manifest does not match the lockfiles:
+  docs\dependencies\dependency-manifest.json differs from the lockfile-derived content
+EXIT_CODE=1  <- the CI job FAILS on drift, as it must
+
+--- OLD sequence: regenerate first, then --check ---
+$ node tools/gen_dep_manifest.mjs && node tools/gen_dep_manifest.mjs --check
+wrote docs\dependencies\dependency-manifest.json and docs\dependencies\dependency-manifest.md
+  packages=88 licenceKnown=88 licenceUnknown=0 reviewRequired=16
+RESULT: OK -- the committed dependency manifest matches the lockfiles.
+  packages=88 licenceKnown=88 reviewRequired=16
+EXIT_CODE=0  <- the OLD sequence passes on a tampered manifest (drift invisible)
