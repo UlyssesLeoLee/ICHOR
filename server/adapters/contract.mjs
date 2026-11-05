@@ -255,9 +255,27 @@ export function parseCliUsage(helpText) {
   return '';
 }
 
-/** True when the usage line declares a positional test filter. */
-export function hasPositionalFilter(helpText) {
-  return /\[test-filter/i.test(parseCliUsage(helpText));
+/**
+ * True when the usage line declares a positional test filter.
+ *
+ * The argument accepts EITHER a full `--help` text or a bare usage line:
+ *
+ *   - a full help text is searched for its `Usage:` line and the filter is
+ *     looked for there;
+ *   - a bare usage line (already extracted by the caller) is matched
+ *     directly.
+ *
+ * The second form matters: the adapter extracts the usage line ONCE and
+ * then asks about the positional filter. Feeding that extracted line back
+ * through the help-text path made the search fail (there is no `Usage:`
+ * prefix left in it), so the adapter reported `filterByFile` as
+ * unsupported while `start()` happily passed the file as a positional
+ * argument -- a negotiation that contradicted the execution.
+ */
+export function hasPositionalFilter(helpOrUsage) {
+  const text = String(helpOrUsage || '');
+  const usage = /^\s*Usage:/m.test(text) ? parseCliUsage(text) : text;
+  return /\[test-filter/i.test(usage);
 }
 
 /**

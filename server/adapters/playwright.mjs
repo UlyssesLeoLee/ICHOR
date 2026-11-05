@@ -146,7 +146,13 @@ export function createPlaywrightAdapter() {
       const effective = helpReadable ? opts : [...FALLBACK_PLAYWRIGHT_OPTIONS];
       const has = (name) => effective.includes(name);
       const declared = (name) => opts.includes(name);
-      const positional = hasPositionalFilter(probe.usage);
+      // The positional filter is a property of the USAGE LINE, not of the
+      // option list. `probe.usage` is the usage line the adapter already
+      // extracted, so it is matched DIRECTLY -- the help-text path would
+      // look for a `Usage:` prefix that is no longer there and would report
+      // the capability as unsupported while `start()` still passes the file
+      // as a positional argument.
+      const positional = helpReadable && hasPositionalFilter(probe.usage);
 
       const unsupportedBecauseUnproven = 'the installed CLI\'s --help output could not be parsed, so it was not proven that the CLI accepts this option';
 
@@ -169,7 +175,11 @@ export function createPlaywrightAdapter() {
           evidence: positional
             ? `the installed CLI takes the test file as a positional argument (usage: ${probe.usage})`
             : '',
-          reason: positional ? '' : 'the installed CLI declares no positional test-filter argument in its usage line',
+          reason: positional
+            ? ''
+            : (helpReadable
+              ? 'the installed CLI declares no positional test-filter argument in its usage line'
+              : unsupportedBecauseUnproven),
           detail: { usage: probe.usage },
         }),
         capability('filterByTestUid', false, {

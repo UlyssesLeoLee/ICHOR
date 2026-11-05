@@ -45,19 +45,42 @@ FIRST_ROW, LAST_ROW = 6, 94
 
 MARKER = '【ATS-301】'
 
+
+def xml_escape(text):
+    """Escape a text for use inside an XML element body.
+
+    The cell values are written into `<x:v>` elements verbatim. A note that
+    contains `<`, `>` or `&` -- a hex digest in angle brackets, a comparison
+    operator, an ampersand -- would otherwise be written RAW into
+    sheet2.xml, which makes the workbook unparseable (Excel refuses to open
+    it and every reader of the sheet fails).
+
+    The escape is applied to the text BEFORE it goes into the cell, and it is
+    the same set of entities the XML spec defines, so the round trip through
+    the reader is lossless.
+    """
+    return (str(text)
+            .replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;'))
+
 NOTE = (
     'Runner/Reporter アダプタ契約 v1（adapter-contract/v1）已实现并实测：'
     'Playwright 与 WDIO 通过同一发现、启动、停止、采集 API（server/adapters/contract.mjs），'
     '能力协商按 scope 声明并可检测不支持的能力（requireCapability 抛 CAPABILITY_UNSUPPORTED 并给出原因）；'
     '不支持的能力是可检测的返回，不是异常崩溃。'
-    'UT/IT 共 77 项全通过，其中 7 项为真实引擎 IT（examples/sample-playwright 真实 @playwright/test + '
-    'examples/sample-wdio 真实 WebdriverIO 8），在真实浏览器上验证两个引擎映射到同一结果模型、'
-    '各产出 1 PASS + 1 FAIL、stop() 能终止在飞运行；'
-    '未安装引擎时该 7 项按设计 skip 而非 fail。'
+    '本任务相关测试共 77 项全通过，其中 10 项为真实引擎 IT（examples/sample-playwright 真实 @playwright/test 1.64.1 + '
+    'examples/sample-wdio 真实 WebdriverIO 10.1.0），在真实浏览器上验证两个引擎映射到同一结果模型、'
+    '各产出 1 PASS + 1 FAIL、stop() 能终止在飞运行（断言可证伪：被停止的运行未跑完全部用例且明显快于自然跑完，'
+    'no-op 变异下测试变红）；未安装引擎时该 10 项按设计 skip 而非 fail。'
+    'HTTP 层的能力协商有 IT 覆盖（GET /runners、带 capabilities/runner 的 /run），'
+    '409 响应体带 missing[]/rejected[] 理由。'
     '实现载体：server/adapters/{contract,registry,playwright,playwright-cli,wdio}.mjs、'
-    '探针 tools/ats301-probes/、契约文档 docs/18-RUNNER-ADAPTER-CONTRACT.md。'
+    '探针 tools/ats301-probes/、契约文档 docs/18-RUNNER-ADAPTER-CONTRACT.md、'
+    '证据 docs/evidence/ATS-301/。'
     '未实现（不属本项）：远程 Runner（ATS-501 起）、沙箱与资源隔离（ATS-402 起）、'
     'CI 上的引擎矩阵（ATS-102 的 workflow 已就位但未跑本项矩阵）。'
+    '范围声明：Bridge 层只有 start/collect 经契约，discover/stop 仍是 v0.1 路径（详见 docs/18 §9.0）。'
 )
 
 
@@ -143,7 +166,10 @@ def patch_workbook():
     xml2 = set_cell_in_row(xml2, rid, 'P', '0', numeric=True)
 
     # 风险/说明: append the ATS-301 note, replacing a previous copy of it.
-    xml2 = set_marked_cell(xml2, rid, 'T', MARKER, NOTE)
+    # The note text is XML-ESCAPED before it goes into the cell: a `<24hex>`
+    # digest or a comparison operator written raw would make sheet2.xml
+    # unparseable and the workbook unreadable.
+    xml2 = set_marked_cell(xml2, rid, 'T', MARKER, xml_escape(NOTE))
 
     parts[SHEET2] = xml2.encode('utf-8')
 

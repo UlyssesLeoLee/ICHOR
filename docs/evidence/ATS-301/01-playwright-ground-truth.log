@@ -1,0 +1,38 @@
+=== ATS-301 Playwright ground truth ===
+fixture : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-9ac72405ff1c\worktree\examples\sample-playwright
+out dir : C:\Users\seiko\AppData\Local\Temp\ats301-pw-ground-truth
+
+--- parsed CLI options ---
+G, add-reporter, browser, c, config, debug, fail-on-flaky-tests, forbid-only, fully-parallel, g, global-timeout, grep, grep-invert, h, headed, help, ignore-snapshots, j, last-failed, last-failed-file, list, max-failures, no-deps, only-changed, output, pass-with-no-tests, project, quiet, repeat-each, reporter, retries, run-agents, shard, shuffle, test-list, test-list-invert, timeout, trace, tsconfig, u, ui, ui-host, ui-port, update-snapshots, update-source-method, workers, x
+
+  accepts --reporter : true
+  accepts --output : true
+  accepts --trace : true
+  accepts --workers : true
+  accepts --grep : true
+  accepts --project : true
+  accepts --list : true
+
+--- run ---
+exit code : 1   (non-zero is expected: the fixture has one deliberate failure)
+stderr    : 
+
+--- files written into the output dir ---
+  html (0 bytes)
+  report.json (9854 bytes)
+  results (0 bytes)
+
+--- JSON report shape ---
+top-level keys : config, suites, errors, stats
+  suite keys : title,file,column,line,specs
+  suite.file : "home.spec.ts"
+  spec keys=title,ok,tags,tests,id,file,line,column title="首页响应正常 @REQ-001" file="home.spec.ts"
+    test keys=timeout,annotations,expectedStatus,projectId,projectName,results,status status=expected title="首页响应正常 @REQ-001"
+    test.results n=1 durations=[276]
+    test.error=none
+  spec keys=title,ok,tags,tests,id,file,line,column title="导航入口正常 @REQ-002" file="home.spec.ts"
+    test keys=timeout,annotations,expectedStatus,projectId,projectName,results,status status=unexpected title="导航入口正常 @REQ-002"
+    test.results n=1 durations=[5118]
+    test.error=none
+
+stats : {"startTime":"2026-11-05T10:02:58.876Z","duration":6630.799,"expected":1,"skipped":0,"unexpected":1,"flaky":0}

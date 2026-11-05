@@ -11,6 +11,8 @@ Covers the two defects that made the shared cell writer non-idempotent:
 
 Run: python tools/test_wbs_common.py
 """
+import ast
+import re
 import sys
 from pathlib import Path
 
@@ -19,6 +21,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from wbs_common import MARKERS, merge_marked
 
 FAILURES = []
+
+TOOLS = Path(__file__).resolve().parent
+UPDATER_GLOB = 'update_wbs_ats*.py'
+MARKER_RE = re.compile(r'【ATS-\d+】')
 
 
 def check(name, actual, expected):
@@ -29,6 +35,24 @@ def check(name, actual, expected):
         print(f'  expected: {expected!r}')
         print(f'  actual:   {actual!r}')
         FAILURES.append(name)
+
+
+def updater_markers():
+    """The marker each WBS updater script declares.
+
+    This is read from the SCRIPTS, not from `MARKERS`. An earlier version of
+    this test iterated `MARKERS` itself, which made it tautological: it
+    could never detect the very defect it claimed to guard against (an
+    updater whose marker is missing from `MARKERS`). Deriving the expected
+    set from the scripts makes the test falsifiable.
+    """
+    found = {}
+    for path in sorted(TOOLS.glob(UPDATER_GLOB)):
+        source = path.read_text(encoding='utf-8')
+        markers = sorted(set(MARKER_RE.findall(source)))
+        if markers:
+            found[path.name] = markers
+    return found
 
 
 def test_marker_in_note_is_not_doubled():
@@ -72,11 +96,30 @@ def test_known_markers_are_detected():
             print(f'PASS {marker} is idempotent')
 
 
+def test_updater_markers_are_registered():
+    """Every updater script's marker must be known to the shared merge.
+
+    The expected set comes from the UPDATER SCRIPTS, so removing a marker
+    from `MARKERS` makes this test FAIL -- which is exactly the defect the
+    original (tautological) version of this test could not see.
+    """
+    by_script = updater_markers()
+    check('at least one updater declares a marker', len(by_script) >= 5, True)
+    declared = set()
+    for script, markers in by_script.items():
+        for m in markers:
+            check(f'{script} declares exactly one marker', len(markers), 1)
+            check(f'{m} (from {script}) is registered in MARKERS', m in MARKERS, True)
+            declared.add(m)
+    check('the declared markers are exactly MARKERS', declared, set(MARKERS))
+
+
 if __name__ == '__main__':
     test_marker_in_note_is_not_doubled()
     test_second_run_is_a_no_op()
     test_foreign_blocks_survive()
     test_known_markers_are_detected()
+    test_updater_markers_are_registered()
     if FAILURES:
         print(f'\n{len(FAILURES)} FAILED: {FAILURES}')
         sys.exit(1)
