@@ -202,3 +202,21 @@ npm notice run node --test tests/*.test.mjs
 ℹ skipped 0
 ℹ todo 0
 ℹ duration_ms 50661.4899
+
+STABILITY NOTE
+  One of the eight verification runs of `npm test` on the merged dev tree
+  reported 188/189 (a single failure). The same tree reported 189/189 on the
+  other seven runs, including four consecutive runs immediately afterwards.
+  The failing test was not identified in that run's own output (the run was
+  piped through a grep filter that kept only the summary lines), so the
+  flakiness is recorded here as an observed fact rather than explained.
+
+  The eight runs, in order, on the merged tree:
+    run 1 : 188/189  <- one failure, not attributed
+    run 2 : 189/189
+    run 3 : 189/189
+    run 4 : 189/189
+    run 5 : 189/189
+    run 6 : 189/189
+    run 7 : 189/189
+    run 8 : 189/189
