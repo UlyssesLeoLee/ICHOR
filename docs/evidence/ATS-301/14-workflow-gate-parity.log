@@ -1,0 +1,90 @@
+=== ATS-301 / D2: the local build gate vs the CI workflow ===
+
+CONDITIONS:
+  commit : 81a2d719f3a6fe2de3ffecfcadde656167b83904
+  node   : v24.19.0
+  date   : 2026-11-05T15:48:35Z
+
+WHAT THIS CHECKS:
+  tools/ci_build_gate.mjs claims in its header to run EXACTLY the
+  steps that .github/workflows/ats-102-build.yml runs. The 3rd review
+  found the claim no longer held: the workflow had gained the
+  'Run the ATS-301 gate' step and the local gate had not.
+
+  A comment cannot fail, so the claim is now CHECKED: this mode reads
+  the workflow file and compares every 'run:' command with the
+  commands the local gate issues, in both directions.
+
+COMMAND: node tools/ci_build_gate.mjs --check-parity
+
+=== ATS-102 build gate: workflow / script parity ===
+workflow : .github\workflows\ats-102-build.yml
+commands : 13 in the workflow, 12 in this script
+
+  ok   git diff --exit-code -- apps/studio/package-lock.json package-lock.json  <-  node-tests/web-build -> "Verify lockfile is not mutated by npm ci"
+  ok   node --check server/index.mjs  <-  node-tests -> "Syntax check the bridge entrypoint"
+  ok   node tools/ci_build_gate.mjs --check-artefact  <-  web-build -> "Verify the export artefact exists"
+  ok   node tools/ci_build_gate.mjs --check-node  <-  node-tests -> "Verify Node and npm versions match the pinned toolchain"
+  ok   node tools/ci_build_gate.mjs --check-parity  <-  node-tests -> "Verify the local build gate matches this workflow"
+  ok   node tools/gen_dep_manifest.mjs --check  <-  dependency-manifest -> "Verify the committed manifest matches the lockfiles"
+  ok   node tools/tree_digest.mjs --check apps/studio/node_modules  <-  web-build -> "Verify the installed tree matches the recorded digest"
+  ok   npm ci --no-audit --no-fund  <-  node-tests -> "Clean install from lockfile (root)"
+  ok   npm ci --no-audit --no-fund  [cwd: apps/studio]  <-  web-build -> "Clean install from lockfile (apps/studio)"
+  ok   npm run build  [cwd: apps/studio]  <-  web-build -> "Build static export"
+  ok   npm run gate:ats301  <-  node-tests -> "Run the ATS-301 gate"
+  ok   npm test  <-  node-tests -> "Run unit / integration tests"
+
+RESULT: OK -- every workflow command is issued by this script, and vice versa.
+
+--- the local gate's step list, for the side-by-side ---
+COMMAND: node tools/ci_build_gate.mjs --list
+
+checknode	The Node and npm versions match the pinned toolchain
+install	Clean install from the committed lockfiles (npm ci)
+lockcheck	npm ci did not mutate either lockfile
+installdigest	The installed tree matches the digest recorded for it
+test	Unit / integration tests (node --test)
+ats301	The ATS-301 gate (WBS shared-cell regression, ADR citations, port audit)
+syntax	The bridge entrypoint parses (node --check)
+build	Next.js 16 static export
+parity	The local gate matches this workflow step for step
+manifest	Dependency manifest is in sync with the lockfiles
+
+--- the workflow's run commands, as read from the YAML ---
+45:      - name: Checkout
+48:      - name: Set up Node 22
+66:      - name: Verify Node and npm versions match the pinned toolchain
+67:        run: node tools/ci_build_gate.mjs --check-node
+69:      - name: Clean install from lockfile (root)
+70:        run: npm ci --no-audit --no-fund
+72:      - name: Verify lockfile is not mutated by npm ci
+73:        run: |
+76:      - name: Run unit / integration tests
+77:        run: npm test
+83:      - name: Run the ATS-301 gate
+84:        run: npm run gate:ats301
+86:      - name: Syntax check the bridge entrypoint
+87:        run: node --check server/index.mjs
+95:      - name: Verify the local build gate matches this workflow
+96:        run: node tools/ci_build_gate.mjs --check-parity
+98:      - name: Upload test output
+115:      - name: Checkout
+118:      - name: Set up Node 22
+125:      - name: Clean install from lockfile (apps/studio)
+126:        run: npm ci --no-audit --no-fund
+129:      - name: Verify lockfile is not mutated by npm ci
+130:        run: |
+139:      - name: Verify the installed tree matches the recorded digest
+140:        run: node tools/tree_digest.mjs --check apps/studio/node_modules
+142:      - name: Build static export
+143:        run: npm run build
+146:      - name: Verify the export artefact exists
+147:        run: node tools/ci_build_gate.mjs --check-artefact
+152:      - name: Report build side effects on tracked files
+153:        run: |
+157:      - name: Upload the static export
+173:      - name: Checkout
+176:      - name: Set up Node 22
+190:      - name: Verify the committed manifest matches the lockfiles
+191:        run: node tools/gen_dep_manifest.mjs --check
+193:      - name: Upload the committed manifest
