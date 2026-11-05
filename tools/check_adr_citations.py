@@ -74,7 +74,16 @@ ADR = ROOT / 'docs' / '16-BASELINE-ADR.md'
 EXPECTED_NEEDLES = {
     'server/index.mjs': [
         'const PORT=Number(process.env.ATS_PORT||',
-        "['queued','running'].includes(run.status)",
+        # The STARTUP RECOVERY set. ATS-208 round 2 added `cancelling` to it
+        # (the ADR's B-03), so the needle names the SET, not the old
+        # two-element form: the check must keep working when the set
+        # changes again, and it must keep failing when the recovery stops
+        # covering the statuses that can be left in flight.
+        #
+        # The needle is the WHOLE line, so it pins the recovery branch and
+        # not the degraded-recovery check above it (which mentions the same
+        # set for a different purpose).
+        "if(['queued','running','cancelling'].includes(run.status)){",
         'function cancelRun(run){',
         "throw new Error('RUN_NOT_ACTIVE')",
         'new RegExp',

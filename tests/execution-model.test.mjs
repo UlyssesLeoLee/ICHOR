@@ -24,6 +24,7 @@ import {
   OUTCOME,
   RESULT_STATUSES,
   RUN_STATUS,
+  RUN_TRANSITIONS,
   aggregateAttempts,
   aggregateCases,
   attemptsForRun,
@@ -717,4 +718,90 @@ test('UT-EXE-027: an intact log reports no damage', () => {
   const notAnObject = parseEventLog('42\n');
   assert.deepEqual(notAnObject.events, []);
   assert.deepEqual(notAnObject.unreadable, [1]);
+});
+
+/* ------------------------------------------------------------------ */
+/* The state diagram of the design document (B7)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The state diagram of `docs/04-DETAILED-DESIGN.md` §3 must agree with
+ * `RUN_TRANSITIONS`.
+ *
+ * The review found the two out of sync: the diagram carried an edge the
+ * code never takes (`running → error`) and lacked four edges the code
+ * allows. A diagram that drifts from the code is worse than no diagram,
+ * because a reader takes it for the contract.
+ *
+ * The rule this test enforces:
+ *
+ *   1. EVERY edge the diagram draws is allowed by `RUN_TRANSITIONS`
+ *      (the diagram may not invent a migration);
+ *   2. every migration the code can ACTUALLY take is on the diagram.
+ *
+ * Rule 2 needs the set of migrations that have a producer in the code.
+ * The state machine is deliberately permissive -- it allows
+ * `running → error` -- but no code path produces it (a spawn error goes
+ * through `finishRun(run, 127)`, whose terminal status is `failed`). So
+ * the transitions that are allowed but unreachable are named here, and
+ * they are exactly the ones the diagram leaves out.
+ */
+test('UT-EXE-028: the state diagram of the design document agrees with the code', () => {
+  const doc = fs.readFileSync(
+    path.resolve(import.meta.dirname, '..', 'docs', '04-DETAILED-DESIGN.md'),
+    'utf8'
+  );
+  const section = doc.split('## 3. 状态机')[1];
+  assert.ok(section, 'the section 3 of the detailed design is missing');
+  const mermaid = section.split('```mermaid')[1].split('```')[0];
+  assert.ok(mermaid, 'the state diagram is missing');
+
+  // The edges the diagram draws.
+  const drawn = new Set();
+  for (const line of mermaid.split('\n')) {
+    const m = line.match(/^\s*([a-z_]+)\s*-->\s*([a-z_*]+)\s*:/);
+    if (m && m[1] !== '[*]' && m[2] !== '[*]') drawn.add(`${m[1]}->${m[2]}`);
+  }
+  assert.ok(drawn.size >= 8, `the state diagram has only ${drawn.size} edges`);
+
+  // The migrations the code allows. `run.finished` carries the terminal
+  // status in its payload, so it can lead to any of the three.
+  const EVENT_TO_STATUS = {
+    'run.queued': 'queued',
+    'run.started': 'running',
+    'run.cancelling': 'cancelling',
+    'run.error': 'error',
+    'run.interrupted': 'interrupted',
+  };
+  const allowed = new Set();
+  for (const [status, events] of Object.entries(RUN_TRANSITIONS)) {
+    for (const ev of events) {
+      if (ev === 'run.finished') {
+        allowed.add(`${status}->passed`);
+        allowed.add(`${status}->failed`);
+        allowed.add(`${status}->cancelled`);
+      } else {
+        allowed.add(`${status}->${EVENT_TO_STATUS[ev]}`);
+      }
+    }
+  }
+
+  // The allowed migrations that no code path produces: the state machine
+  // is permissive, but the diagram shows what actually happens.
+  const UNREACHABLE = new Set([
+    // `run.queued` is written while the run is still `queued`.
+    'queued->queued',
+    // A spawn error goes through `finishRun(run, 127)` -> `failed`.
+    'running->error',
+    'running->cancelled',
+    'cancelling->passed',
+  ]);
+
+  // Rule 1: the diagram may not invent a migration.
+  const invented = [...drawn].filter((e) => !allowed.has(e));
+  assert.deepEqual(invented, [], `the diagram invents a migration: ${invented.join(', ')}`);
+
+  // Rule 2: every migration the code can take is on the diagram.
+  const missing = [...allowed].filter((e) => !drawn.has(e) && !UNREACHABLE.has(e));
+  assert.deepEqual(missing, [], `the diagram lacks a migration: ${missing.join(', ')}`);
 });

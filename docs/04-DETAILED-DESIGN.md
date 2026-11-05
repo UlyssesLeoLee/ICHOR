@@ -48,13 +48,17 @@ HTTP/1.1 200
 stateDiagram-v2
  [*] --> queued: POST run
  queued --> running: spawn success
- queued --> error: invalid CLI / spawn error
+ queued --> error: the engine could not be started
+ queued --> cancelling: stop requested before the engine started
+ queued --> interrupted: the bridge died before the engine started
  running --> passed: exit code 0
  running --> failed: exit code nonzero
  running --> cancelling: stop requested
- cancelling --> cancelled: process closes
- running --> interrupted: server restart / recovered state
- running --> error: runtime exception
+ running --> interrupted: the bridge died while the run was in flight
+ cancelling --> cancelled: the engine was stopped on request
+ cancelling --> failed: the engine exited nonzero while being stopped
+ cancelling --> error: the engine could not be reported
+ cancelling --> interrupted: the bridge died while the run was stopping
  passed --> [*]
  failed --> [*]
  cancelled --> [*]
@@ -64,6 +68,20 @@ stateDiagram-v2
 
 P0 实现是单项目至多一个并发 run；不同项目可同时执行。`runs` 写入 state 后再 spawn；退出事件在同一 Node 进程内串行处理。对信号停止采取 best effort：Unix 直接 SIGTERM 子进程，Windows 尝试 `taskkill /T /F`；Unix 子进程后代清理仍有限制，因此长远需要进程组与沙箱。
 
+**本图与代码一致（ATS-208 第 2 轮复核修正）**：图上的每一条边都是
+`server/execution/model.mjs` 的 `RUN_TRANSITIONS` 允许的迁移；反之，代码会
+走到的迁移都在图上。上一版图与代码有五处不符：图上有而代码不会走的
+`running → error`（引擎进程的 `error` 事件走 `finishRun(127)`，结果是
+`failed`；`error` 状态只在**引擎还没起来**时出现，即 `queued → error`），
+以及图上缺的四条边 `queued → cancelling`、`queued → interrupted`、
+`cancelling → error`、`cancelling → interrupted`。
+
+`RUN_TRANSITIONS` 还允许 `running → error` 与 `cancelling → error`；图中只画
+了 `cancelling → error`（它是停止过程中引擎无法上报时的出口），
+`running → error` 没有画出，因为**当前没有任何代码路径会产生它**：引擎进程
+的 `error` 事件走 `finishRun(run, 127)`，终态是 `failed`。状态机是宽松的
+（它只拒绝能被证伪的迁移），图画的是**实际会发生**的状态迁移。
+
 **事件流（ATS-208 已实现）**：事件记录 `run.queued`, `run.started`, `run.cancelling`, `run.finished`, `run.error`, `run.interrupted`。三条性质是这条流的设计目标，定义在 `server/execution/model.mjs`：
 
 1. **只追加**：事件永不重写；
@@ -71,6 +89,22 @@ P0 实现是单项目至多一个并发 run；不同项目可同时执行。`run
 3. **可复演**：把事件按序号折叠起来，得到 run 当时的状态——`GET /api/runs/:id/replay` 就是这个折叠。
 
 实现上事件写在**状态变更之前**（`run.queued` 除外），于是事件流的最后一个事件决定终态；状态机会拒绝不可能的迁移并把拒绝记到 stderr，而不是默默写下一条与状态机矛盾的事件。Bridge 崩溃时写下 `run.interrupted`，因此被打断的 run 也能复演为 `interrupted`（此前它的事件流推不出任何状态）。事件的模型、Case/Attempt 的聚合规则与 SQLite 的 `events` 表见 `docs/06-DATA-DESIGN.md` §5.4。
+
+**复演会校验状态机**：`GET /api/runs/:id/replay` 除了折叠出状态，还按
+`RUN_TRANSITIONS` 逐条检查事件流，答案里带 `valid` 与 `violations`。一条违反
+状态机的事件流（例如终态事件之后又追加了一条 `run.interrupted`）描述的是
+一个从未存在过的 run，因此它**不得**报 `agrees: true`。
+
+**恢复以持久日志为准**：Bridge 启动时读回每个 run 的 `events.jsonl`（日志是
+记录，state.json 是它的缓存），并按下列规则处理：
+
+- 日志里**已有终态事件**时，采用该终态，**不再追加任何事件**（终态事件之后
+  追加事件会让事件流违反状态机）；
+- 日志里没有终态事件、而 run 还停在 `queued` / `running` / **`cancelling`**
+  时，写下 `run.interrupted` 并进入终态（`cancelling` 也在恢复集合里：Bridge
+  在停止过程中死亡，那个 run 永远到不了终态，会一直占住项目的运行锁）；
+- **日志缺失、不可读或尾行被撕裂**时降级：记录问题、run 仍恢复为终态、
+  Bridge 照常启动（一个损坏的 run 不得拖垮整个安装）。
 
 ## 4. Playwright 运行命令（无 shell）
 

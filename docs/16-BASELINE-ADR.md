@@ -124,7 +124,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    | # | 位置（file:line） | 作用 |
    |---|---|---|
    | 1 | `server/index.mjs:21` | 默认值 `process.env.ATS_PORT\|\|4577` |
-   | 2 | `server/index.mjs:215` | CSP `connect-src` |
+   | 2 | `server/index.mjs:390` | CSP `connect-src` |
    | 3 | `apps/studio/lib/api.ts:14` | API Base |
    | 4 | `apps/studio/app/page.tsx:81` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
    | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
@@ -142,14 +142,14 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    **(c) 类的统计口径**：统计范围是**除本文件与探针目录之外的全部 `.md` 文件**（以及探针目录下的 `.mjs` 脚本——它们同样只是叙述自己审计的端口），共 **9 个文件共 27 处提及**（`README.md` 4 处、`docs/04-DETAILED-DESIGN.md` 1 处、`docs/08-IT-TEST-DESIGN.md` 2 处、`docs/09-ST-TEST-DESIGN.md` 1 处、`docs/11-SECURITY-RISK.md` 1 处、`docs/12-DEPLOY-OPERATIONS.md` 4 处、`docs/22-FRONTEND-EXPORT.md` 5 处、`tools/ats103-probes/README.md` 3 处、`tools/ats103-probes/verify-export-and-proxy.mjs` 6 处）。该数字由探针实测得出并断言，改动上述任一文件的端口提及后，探针会报 `RESULT: MISMATCH`。`docs/evidence/ATS-101/` 下的 `.log` 证据文件**不在扫描的扩展名范围内**，其中的端口字面量不计入这 27 处。
    因此本节所列清单是**源码硬编码点**的完整清单，而非全仓库端口字面量的完整清单；文档类提及不要求逐条列出，但换端口时同样须一并更新。
 2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
-3. **Host 白名单绑定端口**：`server/index.mjs:204` 的正则含 `${PORT}`，改端口后 Host 校验随之变化。
+3. **Host 白名单绑定端口**：`server/index.mjs:379` 的正则含 `${PORT}`，改端口后 Host 校验随之变化。
 4. **仅可信本地项目**：不自动安装依赖，不接受任意 CLI 字符串（`spawn(..., shell:false)`）。
 
 ### 3.2 错误码实测映射
 
 设计文档 `docs/04-DETAILED-DESIGN.md` §7 与实测一致的部分：`INVALID_PROJECT_PATH`(400)、`PROJECT_PACKAGE_JSON_REQUIRED`(400)、`PROJECT_ALREADY_REGISTERED`(409)、`INVALID_SOURCE_FILE`(400)、`PATH_OUTSIDE_PROJECT`(400)、`STALE_EDIT_CONFLICT`(409)、`PAYLOAD_TOO_LARGE`(400)、`INVALID_SESSION`(401)、`ORIGIN_NOT_ALLOWED`(403)、`INVALID_HOST`(403)、`RUN_NOT_FOUND`(404)、`NOT_FOUND`(404)。
 
-**Agent 契约错误码（ATS-401）**：`server/index.mjs:412` 把 `AGENT_*` 前缀的错误统一映射为 **400**（请求不满足契约属于客户端错误），并把错误码与 `details` 原样返回给调用方；调用方按 `err.code` 分支，不解析消息文本。**这个映射的作用域仅限 `AGENT_*`**——其它错误保持 ATS-401 之前的行为不变。25 个错误码的完整清单见 `docs/17-AGENT-CONTRACT.md` §4.3。实测覆盖：`AGENT_CAPABILITY_FORBIDDEN`、`AGENT_BUDGET_REQUIRED`、`AGENT_PROVENANCE_REQUIRED`、`AGENT_SCOPE_ESCAPE`（见 `docs/evidence/ATS-401/01-node-test.log`）。
+**Agent 契约错误码（ATS-401）**：`server/index.mjs:607` 把 `AGENT_*` 前缀的错误统一映射为 **400**（请求不满足契约属于客户端错误），并把错误码与 `details` 原样返回给调用方；调用方按 `err.code` 分支，不解析消息文本。**这个映射的作用域仅限 `AGENT_*`**——其它错误保持 ATS-401 之前的行为不变。25 个错误码的完整清单见 `docs/17-AGENT-CONTRACT.md` §4.3。实测覆盖：`AGENT_CAPABILITY_FORBIDDEN`、`AGENT_BUDGET_REQUIRED`、`AGENT_PROVENANCE_REQUIRED`、`AGENT_SCOPE_ESCAPE`（见 `docs/evidence/ATS-401/01-node-test.log`）。
 
 **实测与设计不符（缺陷）**：
 
@@ -160,8 +160,8 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 | 登记不存在的路径 | **500** + `ENOENT: ... lstat 'D:\definitely'` | 400 | **泄漏宿主绝对路径** | ATS-112 |
 | 下载不存在的附件 | **500** + 泄漏 `ATS_DATA_DIR` 绝对路径 | 404 | **泄漏宿主绝对路径** | ATS-112 |
 
-> **归属说明**：以上 4 项的**根因位置是 `server/index.mjs:429` 的统一错误状态映射**——该处用正则匹配错误消息，未命中即返回 500；`server/index.mjs:430` 随即把 `e.message` 原样回显。因此既造成**归类错误**，也造成**宿主绝对路径泄漏**。其中 `NOT_A_DIRECTORY` 由 `server/core.mjs:306` 抛出，`RUN_NOT_ACTIVE` 由 `server/index.mjs:196` 的 `cancelRun()` 抛出。
-> **归属**：全部 4 项均为 **ATS-112**（错误归类与路径泄漏）。仅 `RUN_NOT_ACTIVE` 与 **B-03** 相交——B-03 的自愈路径缺失另在 `server/index.mjs:86`（启动恢复集合遗漏 `cancelling`），二者是**两处不同的缺陷**，不可视为同一处状态机缺口。
+> **归属说明**：以上 4 项的**根因位置是 `server/index.mjs:624` 的统一错误状态映射**——该处用正则匹配错误消息，未命中即返回 500；`server/index.mjs:625` 随即把 `e.message` 原样回显。因此既造成**归类错误**，也造成**宿主绝对路径泄漏**。其中 `NOT_A_DIRECTORY` 由 `server/core.mjs:314` 抛出，`RUN_NOT_ACTIVE` 由 `server/index.mjs:361` 的 `cancelRun()` 抛出。
+> **归属**：全部 4 项均为 **ATS-112**（错误归类与路径泄漏）。仅 `RUN_NOT_ACTIVE` 与 **B-03** 相交——B-03 的自愈路径缺失另在 `server/index.mjs:163`（启动恢复集合遗漏 `cancelling`），二者是**两处不同的缺陷**，不可视为同一处状态机缺口。
 > 本基线的阻断项只有 B-01/B-02/B-03 三项（§4），**不存在编号 B-04**。
 
 ## 4. 阻断项（3 项）
@@ -171,7 +171,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 
 ### B-01（严重 / P0）Playwright CLI 参数向量含不存在的选项，真实浏览器执行 100% 失败
 
-- **位置**：`server/core.mjs:637` `safeRunArgs()`
+- **位置**：`server/core.mjs:645` `safeRunArgs()`
 - **现状**：传入 `--screenshot only-on-failure --video retain-on-failure`。但 `playwright test` CLI **没有** `--screenshot` 与 `--video` 选项（截图/视频是 `playwright.config.ts` 的 `use` 选项，不是 CLI 选项）。实测 `playwright test --help` 输出中无此二者。
 - **复现脚本**：`tools/ats101-probes/scenario-a-b01-cli-args.mjs`（**产品源码未修改**，用真实 `@playwright/test` + 真实 Chromium）
   ```
@@ -309,8 +309,8 @@ GNU_BUILD_EXIT=101
 
 ### B-03（严重 / P0）重启后 Run 卡在 `cancelling`，永久占用同项目运行锁且 API 无法解除
 
-- **位置**：`server/index.mjs:86`（启动恢复）、`server/index.mjs:195-202`（`cancelRun`）、`server/index.mjs:298`（并发判定）
-- **根因**：启动恢复只把 `queued`/`running` 标记为 `interrupted`，**遗漏 `cancelling`**（`server/index.mjs:86`：`if(['queued','running'].includes(run.status))`）。而 `cancelRun()` 在找不到活动 job 时抛 `RUN_NOT_ACTIVE`，因此这条 Run 既不会被恢复，也无法通过 `/stop` 解除。
+- **位置**：`server/index.mjs:163`（启动恢复）、`server/index.mjs:347-377`（`cancelRun`）、`server/index.mjs:473`（并发判定）
+- **根因**：启动恢复只把 `queued`/`running` 标记为 `interrupted`，**遗漏 `cancelling`**（`server/index.mjs:163`：`if(['queued','running','cancelling'].includes(run.status))`）。而 `cancelRun()` 在找不到活动 job 时抛 `RUN_NOT_ACTIVE`，因此这条 Run 既不会被恢复，也无法通过 `/stop` 解除。
 - **复现脚本**：`tools/ats101-probes/scenario-c-b03-cancelling-lock.mjs`，三种方式独立复现：
   - **C1 自然竞态（产品源码未修改）**：启动真实 Run → `POST /stop` 返回 200 `{"status":"cancelling"}` → `taskkill /F` 硬杀 Bridge（取消流程来不及完成）→ 重启；
   - **C2 自然竞态（活着的 Playwright 子进程）**：在 **B-01 已修复的沙箱副本**上跑同一次竞态，此时子进程是一个真实的 Playwright 慢用例；
@@ -324,6 +324,7 @@ GNU_BUILD_EXIT=101
 - **影响**：一次「请求停止后进程被强杀」的异常即可使该项目的运行功能**永久不可用**（无自愈路径）；ATS-108（取消/超时/子进程树回收与重启 ST）、ATS-112、NFR-008、FR-011、ST-010、ST-017 直接阻断。
 - **与 B-01 的耦合（重要）**：**当前产品源码下 B-03 即可触发**——只要 `POST /stop` 落在 CLI 因参数错误退出之前的短窗口内（探针 C1 即在**未修改的产品源码**上连续 3 次复现，3/3 命中）。B-01 修复后，子进程变成一个真实的 Playwright 运行，**该窗口扩大到整个运行期**（探针 C2，此时子进程是真实的 Playwright 慢用例）。因此 **B-01 与 B-03 的修复与回归必须同批处理**，不得只修其一。
 - **修复方向**（属 ATS-108/112）：启动恢复的状态集合补齐 `cancelling`；`/stop` 对已终结 Run 应幂等返回终态而非 500；同项目运行锁改为以「活动 job 存在性」而非「历史记录状态」判定。
+- **已修复（ATS-208 第 2 轮，2026-11-06）**：上列三点**均已实现**——启动恢复的状态集合已补齐 `cancelling`（`server/index.mjs:163`），`cancelRun()` 对没有活动 job 的在飞 Run 会写下 `run.interrupted` 并让它进入终态（`server/index.mjs:347-377`），而已终结的 Run 仍返回 `RUN_NOT_ACTIVE`（该码的**归类**归 ATS-112，本缺陷不涉及）。回归用例 `IT-EXE-011`（`cancelling` 的 run 恢复为 `interrupted`，且项目可再次运行）与复核探针 `bridge-e2e` 的 E3 守这条修复；同项目运行锁的判定**未改**（仍按历史记录状态判定），但恢复路径已保证卡住的 run 会变成终态，因此不再永久占用锁。
 
 ## 5. 构建约束清单（实测）
 
@@ -402,7 +403,7 @@ GNU_BUILD_EXIT=101
 - **建议调整 WBS 归属**：
   - B-01 → **ATS-106**（Playwright CLI 环境检测与参数安全基线）应升级为 P0 关键阻断，并新增「真实 CLI 参数契约测试」验收项；执行类任务的 ATS-107 须在其后进行。
   - B-02 → **ATS-104** 验收标准须补入「构建镜像含 MSVC C++ 构建工具工作负载」**与「仓库提供 `src-tauri/icons/icon.ico`（或 `bundle.icon` 列出 `.ico`）」**，并明确「**验收以 `cargo build`（含最终链接）为准，不以 `cargo check` 为准**」；ATS-102 的 CI 脚本须固定该镜像。**上述为已知必要条件而非充分条件**——B-02 成因清单尚未穷尽（§4 B-02）。**ATS-102 进展**：CI workflow 已用 `runs-on: windows-2022`（自带 VS 2022 生成工具）固定镜像基线；但**未加入 Rust/Tauri job**——仓库现状下该 job 必然失败（B-02），加一个必红的 job 只会使门禁失效。该 job 属 ATS-104 交付范围，届时须连同 `.ico` 与 MSVC 链一并加入（`docs/17-BUILD-CI.md` §6.4）。
-  - B-03 → **ATS-108**（取消/超时/子进程树回收与重启 ST）须明确覆盖「cancelling 状态恢复」；ATS-112 须覆盖「终态操作幂等」**与错误归类/路径泄漏**（后者根因在 `server/index.mjs:429` 的统一错误状态映射，见 §3.2）。**ATS-102 追加发现**：`cancelRun()` 用 `spawn('taskkill', ...)` 强杀子进程树，但该 spawn 的 'error' 事件**无人监听**——taskkill 不可用时 ENOENT 变成 unhandled 'error' 事件，**整个 Bridge 进程崩溃**。这与 B-03 是**两处不同的缺陷**，须一并覆盖（`docs/evidence/ATS-102/05-windows-shell-path-pitfall.log`）。
+  - B-03 → **ATS-108**（取消/超时/子进程树回收与重启 ST）须明确覆盖「cancelling 状态恢复」；ATS-112 须覆盖「终态操作幂等」**与错误归类/路径泄漏**（后者根因在 `server/index.mjs:624` 的统一错误状态映射，见 §3.2）。**ATS-102 追加发现**：`cancelRun()` 用 `spawn('taskkill', ...)` 强杀子进程树，但该 spawn 的 'error' 事件**无人监听**——taskkill 不可用时 ENOENT 变成 unhandled 'error' 事件，**整个 Bridge 进程崩溃**。这与 B-03 是**两处不同的缺陷**，须一并覆盖（`docs/evidence/ATS-102/05-windows-shell-path-pitfall.log`）。
   - **B-01 与 B-03 须同批修复与回归**（§4 B-03 耦合说明）。
 - **阶段门禁**：在 B-01/B-02/B-03 关闭前，ATS-116（v0.1.1 质量门）不应放行，阶段出厂检查「设计一致性」「UT/IT」「ST/UAT」三项保持「待检查」。
 - **文档同步**：本文件、`docs/14-REVIEW-VERIFICATION.md`、`docs/13-ROADMAP.md` 与 `README.md` 对 B-02 的描述以本文 §4 为准，且四处口径一致（含 `icon.ico` 仓库缺陷与「成因清单未穷尽」的限定）。
