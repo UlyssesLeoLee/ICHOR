@@ -18,12 +18,12 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:2471  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:2537  "input": "Host=evil.example:4577",
-  tests/test-cases.json:3406  "input": "同 LAN 他机尝试访问 4577",
-  tools/generate_test_docs.py:202  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
-  tools/generate_test_docs.py:208  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
-  tools/generate_test_docs.py:274  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
+  tests/test-cases.json:2988  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:3054  "input": "Host=evil.example:4577",
+  tests/test-cases.json:4000  "input": "同 LAN 他机尝试访问 4577",
+  tools/generate_test_docs.py:250  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
+  tools/generate_test_docs.py:256  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
+  tools/generate_test_docs.py:322  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
   tools/update_wbs_ats103.py:110  '「API 代理」在 output:export 下的真实形态是导出页到 127.0.0.1:4577 的跨源直连'
   tools/update_wbs_ats103.py:114  '的 staticFile() 以该目录为静态根），本项的 Tauri 壳可直接加载 http://127.0.0.1:4577；'
   test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)
