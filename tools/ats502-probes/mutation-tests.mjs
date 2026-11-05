@@ -68,9 +68,16 @@ function runAudit(mutate = {}) {
     for (const [file, change] of [['queue', mutate.queue], ['scheduler', mutate.scheduler]]) {
       if (!change) continue;
       const p = path.join(scratch, 'server', `${file}.mjs`);
-      const src = fs.readFileSync(p, 'utf8');
-      if (!src.includes(change.from)) throw new Error(`mutation target not found in ${file}.mjs: ${change.from}`);
-      fs.writeFileSync(p, src.replace(change.from, change.to), 'utf8');
+      // The line endings are normalised before the substitution: git's
+      // autocrlf filter makes the working tree CRLF on Windows while the
+      // committed blob is LF, so a literal that spans a line break would
+      // match in one checkout and not in the next. The mutation is about the
+      // SOURCE TEXT, not about how the file happens to be terminated.
+      const src = fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+      const from = change.from.replace(/\r\n/g, '\n');
+      const to = change.to.replace(/\r\n/g, '\n');
+      if (!src.includes(from)) throw new Error(`mutation target not found in ${file}.mjs: ${change.from}`);
+      fs.writeFileSync(p, src.replace(from, to), 'utf8');
     }
 
     const r = spawnSync(process.execPath, [path.join(scratch, AUDIT_REL)],
