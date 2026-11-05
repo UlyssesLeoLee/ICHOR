@@ -50,6 +50,24 @@ function check(label, condition, detail) {
   if (!condition) failures.push(label);
 }
 
+/**
+ * Predicates over `git diff --summary` output.
+ *
+ * These live in one place because a predicate that never matches is worse
+ * than no predicate at all: the check reports green while git is reporting
+ * exactly the thing the check claims to look for. Section E below feeds git's
+ * own output for a rename, a deletion and a mode change through these
+ * predicates to prove that each one actually fires.
+ *
+ * git's `--summary` spells them:
+ *   rename old.spec.ts => new.spec.ts (100%)
+ *   delete mode 100644 f.txt
+ *   mode change 100644 => 100755 f.txt
+ */
+const detectsDelete = (summary) => /\bdelete mode\b/i.test(summary);
+const detectsRename = (summary) => /\brename\b/i.test(summary);
+const detectsModeChange = (summary) => /\bmode change\b/i.test(summary);
+
 function codeOf(fn) {
   try {
     fn();
@@ -273,13 +291,15 @@ for (const [label, diff] of corpus) {
   check(`git creates nothing outside the scope: ${label}`, createdOutOfScope.length === 0,
     `created=${view.created.join(', ') || 'none'}`);
 
-  const noDelete = !/\bdelete mode\b/i.test(view.summary);
+  const noDelete = !detectsDelete(view.summary);
   check(`git reports no delete: ${label}`, noDelete, `summary=${view.summary || '(none)'}`);
 
-  const noRename = !/\brename (from|to)\b/i.test(view.summary);
+  // git prints `rename old => new (100%)` -- NOT `rename from` / `rename to`.
+  // Matching the wrong spelling would make this check vacuously true.
+  const noRename = !detectsRename(view.summary);
   check(`git reports no rename: ${label}`, noRename, `summary=${view.summary || '(none)'}`);
 
-  const noModeChange = !/\bmode change\b/i.test(view.summary);
+  const noModeChange = !detectsModeChange(view.summary);
   check(`git reports no mode change: ${label}`, noModeChange, `summary=${view.summary || '(none)'}`);
 }
 
@@ -338,6 +358,55 @@ console.log('--- D. the real git diff output is what git itself produces ---');
   check('git itself produces the new-file diff shape',
     r3.includes('new file mode 100644') && r3.includes('--- /dev/null'),
     r3.replace(/\n/g, ' | ').slice(0, 200));
+}
+
+console.log('');
+console.log('--- E. the scope checks are not vacuous ---');
+// A check that can never fail proves nothing. Take git's OWN output for a
+// rename, a deletion and a mode change, and show that the very predicates
+// used in section A do match it. The rename case is the interesting one:
+// git prints `rename old => new (100%)`, so a check written against
+// `rename from`/`rename to` would sit green forever while git reported a
+// rename right underneath it.
+{
+  const work = path.join(WORK_ROOT, 'verify-negative');
+  fs.rmSync(work, { recursive: true, force: true });
+  fs.mkdirSync(path.join(work, 'tests'), { recursive: true });
+  const g = (args) => spawnSync('git', args, { cwd: work, encoding: 'utf8' });
+  g(['init', '-q', '.']);
+  g(['config', 'user.email', 'probe@example.invalid']);
+  g(['config', 'user.name', 'probe']);
+  g(['config', 'core.autocrlf', 'false']);
+  fs.writeFileSync(path.join(work, 'tests/old.spec.ts'), 'test("a", () => {});\n', 'utf8');
+  g(['add', '-A']);
+  g(['commit', '-qm', 'init']);
+
+  // a rename -- git reports `rename old.spec.ts => new.spec.ts (100%)`
+  g(['mv', 'tests/old.spec.ts', 'tests/new.spec.ts']);
+  const renameSummary = g(['diff', '--cached', '--summary']).stdout;
+  check('the no-rename predicate matches git\'s own rename output',
+    detectsRename(renameSummary),
+    `summary=${renameSummary.trim() || '(none)'}`);
+  check('git spells the rename the way the predicate looks for',
+    /\brename\b/i.test(renameSummary) && !/\brename (from|to)\b/i.test(renameSummary),
+    `summary=${renameSummary.trim() || '(none)'}`
+    + ' -- a predicate written against "rename from"/"rename to" would be vacuous');
+  g(['reset', '--hard', '-q', 'HEAD']);
+
+  // a deletion
+  g(['rm', '-q', 'tests/old.spec.ts']);
+  const deleteSummary = g(['diff', '--cached', '--summary']).stdout;
+  check('the no-delete predicate matches git\'s own deletion output',
+    detectsDelete(deleteSummary),
+    `summary=${deleteSummary.trim() || '(none)'}`);
+  g(['reset', '--hard', '-q', 'HEAD']);
+
+  // a mode change
+  g(['update-index', '--chmod=+x', 'tests/old.spec.ts']);
+  const modeSummary = g(['diff', '--cached', '--summary']).stdout;
+  check('the no-mode-change predicate matches git\'s own mode change output',
+    detectsModeChange(modeSummary),
+    `summary=${modeSummary.trim() || '(none)'}`);
 }
 
 console.log('');

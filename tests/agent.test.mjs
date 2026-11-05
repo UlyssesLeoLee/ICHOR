@@ -1418,3 +1418,85 @@ test('UT-AGT-084: a quoted path that decodes to a non-UTF-8 byte is rejected', (
     'AGENT_PROPOSAL_OUT_OF_SCOPE',
   );
 });
+
+test('UT-AGT-085: the deadline holds in a process that holds no other handle', async () => {
+  // UT-AGT-042 proves the deadline ends a hung provider call, but that test
+  // runs inside the test runner, which holds handles of its own -- so it does
+  // not prove that the deadline timer itself keeps the process alive. If the
+  // timer were unref'd, the hung call would let the event loop drain and the
+  // process would exit without ever settling the promise.
+  //
+  // This test runs the adapter in a child process that has nothing else
+  // pending: the only thing that can end it is the deadline timer.
+  const { spawnSync } = await import('node:child_process');
+  const { pathToFileURL } = await import('node:url');
+  const os = await import('node:os');
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+
+  const spec = "test('login passes', async ({page}) => {});\n";
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats401-deadline-'));
+  const child = path.join(dir, 'child.mjs');
+  const agentUrl = pathToFileURL(
+    path.resolve('server/agent.mjs'),
+  ).href;
+  fs.writeFileSync(child, `
+import { pathToFileURL } from 'node:url';
+const { createAgentAdapter, createModelProvider } =
+  await import(${JSON.stringify(agentUrl)});
+
+const provider = createModelProvider({ id: 'never', complete: () => new Promise(() => {}) });
+const adapter = createAgentAdapter({
+  adapterId: 'never',
+  role: 'generator',
+  capabilities: ['propose_script_diff'],
+  provider,
+});
+
+try {
+  await adapter.execute({
+    role: 'generator',
+    scope: {
+      projectId: 'p',
+      root: ${JSON.stringify(dir)},
+      files: ['tests/login.spec.ts'],
+      outputs: ['tests/login.spec.ts'],
+      runs: [],
+      requirements: [],
+    },
+    budget: { maxInputBytes: 100000, maxOutputBytes: 100000, maxSteps: 4, deadlineMs: 1000 },
+    requestedCapabilities: ['propose_script_diff'],
+    inputs: [{
+      kind: 'file',
+      ref: 'tests/login.spec.ts',
+      digest: ${JSON.stringify(sha(spec))},
+      content: ${JSON.stringify(spec)},
+      retrievedAt: '2026-11-04T00:00:00.000Z',
+    }],
+    egress: { kinds: ['file'] },
+  });
+  console.log('OUTCOME=settled');
+  process.exitCode = 3;
+} catch (error) {
+  console.log('OUTCOME=' + error.code);
+  process.exitCode = error.code === 'AGENT_BUDGET_EXCEEDED' ? 0 : 4;
+}
+`, 'utf8');
+
+  try {
+    const run = spawnSync(process.execPath, [child], {
+      encoding: 'utf8',
+      timeout: 20000,
+    });
+    const outcome = (run.stdout || '').trim();
+    assert.equal(
+      outcome,
+      'OUTCOME=AGENT_BUDGET_EXCEEDED',
+      `expected the deadline to cut the hung call off, got ${outcome} `
+      + `(exit=${run.status}) stderr=${String(run.stderr || '').trim().slice(0, 200)}`,
+    );
+    assert.equal(run.status, 0, 'the child must exit cleanly on the deadline');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -1,6 +1,6 @@
 === ATS-401 probe: 1st-review-round regressions ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-c245c91b845d/worktree
-date      : 2026-11-05T10:28:17Z
+date      : 2026-11-05T10:37:45Z
 
 === ATS-401 probe: 1st-review-round regressions ===
 repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree
@@ -27,7 +27,7 @@ work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4
   [PASS] the adapter rejects a digest mismatch too -- code=AGENT_PROVENANCE_DIGEST_MISMATCH
 
 --- D. the deadline is enforced against a hung provider ---
-  [PASS] a hung provider is cut off at the deadline -- rejected AGENT_BUDGET_EXCEEDED after 1001ms
+  [PASS] a hung provider is cut off at the deadline -- rejected AGENT_BUDGET_EXCEEDED after 1004ms
 
 --- E. only AGENT_* errors are remapped ---
   [PASS] the validate endpoint rejects a digest mismatch -- 400 {"error":"AGENT_PROVENANCE_DIGEST_MISMATCH","details":{"ref":"tests/login.spec.ts"}}
