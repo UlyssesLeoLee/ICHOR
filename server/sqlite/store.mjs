@@ -21,10 +21,22 @@ import { withTransaction } from './db.mjs';
 const PROJECT_COLUMNS = ['id', 'uid', 'name', 'root', 'added_at', 'legacy_id'];
 const RUN_COLUMNS = [
   'id', 'uid', 'seq', 'project_id', 'project_uid', 'status',
-  'created_at', 'finished_at', 'git_commit',
+  'created_at', 'finished_at', 'git_commit', 'env_uid',
 ];
 const REGISTRY_COLUMNS = ['project_uid', 'uid', 'file', 'title', 'body_key'];
 const COUNTER_COLUMNS = ['project_id', 'seq'];
+// ATS-212: the environment profiles. The `variables` column holds the NAMES
+// of the variables, never their values -- the values stay in the `doc`
+// column, which is the profile's own record.
+const ENV_PROFILE_COLUMNS = [
+  'uid', 'project_uid', 'name', 'environment', 'variables',
+  'created_at', 'updated_at',
+];
+// ATS-212: the whitelist a project configured. A project that uses the
+// built-in default has no row.
+const ENV_WHITELIST_COLUMNS = [
+  'project_uid', 'names', 'updated_at',
+];
 
 /** The `doc` of a project, run, registry entry or counter is its JSON. */
 const asDoc = (value) => JSON.stringify(value ?? null);
@@ -45,6 +57,11 @@ export function storeState(db, state) {
   const runs = Array.isArray(state?.runs) ? state.runs : [];
   const registry = state?.uidRegistry ?? { version: 1, projects: {} };
   const counters = state?.runCounters ?? {};
+  // ATS-212: the environment profiles are a PART of the state, so they are
+  // mirrored with it. A state without the field has no profiles.
+  const envProfiles = Array.isArray(state?.envProfiles?.profiles)
+    ? state.envProfiles.profiles
+    : [];
 
   withTransaction(db, (d) => {
     // --- projects ----------------------------------------------------------
@@ -82,6 +99,7 @@ export function storeState(db, state) {
         r.createdAt ?? null,
         r.finishedAt ?? null,
         r.gitCommit ? String(r.gitCommit) : null,
+        r.envUid ? String(r.envUid) : null,
         asDoc(r)
       );
     }
@@ -156,6 +174,50 @@ export function storeState(db, state) {
       }
     }
 
+    // --- the environment profiles (ATS-212) --------------------------------
+    // The profiles become queryable rows. The `variables` column carries the
+    // NAMES of the variables, never their values: the indexed column is the
+    // part a query needs, and it is the part that is safe to read out of a
+    // database that is shared or exported. The values stay in the `doc`
+    // column, which is the profile's own record.
+    d.exec('DELETE FROM env_profiles');
+    const insEnv = d.prepare(
+      `INSERT INTO env_profiles(${ENV_PROFILE_COLUMNS.join(',')},doc)
+       VALUES(${ENV_PROFILE_COLUMNS.map(() => '?').join(',')},?)`
+    );
+    for (const p of envProfiles) {
+      const names = Object.keys(p.variables ?? {}).sort();
+      insEnv.run(
+        String(p.uid ?? p.id ?? ''),
+        String(p.projectUid ?? ''),
+        String(p.name ?? ''),
+        String(p.environment ?? ''),
+        JSON.stringify(names),
+        p.createdAt ?? null,
+        p.updatedAt ?? null,
+        asDoc(p)
+      );
+    }
+
+    // --- the environment whitelists (ATS-212) -----------------------------
+    // Only the whitelists a project CONFIGURED are written: the built-in
+    // default is not copied into the database, so the absence of a row is
+    // what "the default is in force" means.
+    d.exec('DELETE FROM env_whitelists');
+    const insWhitelist = d.prepare(
+      `INSERT INTO env_whitelists(${ENV_WHITELIST_COLUMNS.join(',')},doc)
+       VALUES(${ENV_WHITELIST_COLUMNS.map(() => '?').join(',')},?)`
+    );
+    for (const [projectUid, names] of Object.entries(state?.envProfiles?.whitelists ?? {})) {
+      const list = Array.isArray(names) ? names : [];
+      insWhitelist.run(
+        String(projectUid),
+        JSON.stringify(list),
+        null,
+        JSON.stringify({ projectUid, names: list })
+      );
+    }
+
     // --- the execution events of the runs ----------------------------------
     // ATS-208: the events become queryable rows, keyed by (run, seq). The
     // key is the IDENTITY of an event, and it also ENFORCES the property
@@ -195,6 +257,8 @@ export function loadStateFrom(db) {
   const runRows = db.prepare('SELECT doc FROM runs').all();
   const counterRows = db.prepare('SELECT project_id,seq FROM run_counters').all();
   const registryRows = db.prepare('SELECT project_uid,entry FROM uid_registry').all();
+  const envRows = db.prepare('SELECT doc FROM env_profiles').all();
+  const whitelistRows = db.prepare('SELECT project_uid,names FROM env_whitelists').all();
 
   const projects = projectRows.map((r) => JSON.parse(r.doc));
   const runs = runRows.map((r) => JSON.parse(r.doc));
@@ -210,7 +274,25 @@ export function loadStateFrom(db) {
   const runCounters = {};
   for (const row of counterRows) runCounters[row.project_id] = Number(row.seq) || 0;
 
-  return { schema: 1, projects, runs, uidRegistry: registry, runCounters };
+  // ATS-212: the environment profiles come back with the state, and so do
+  // the whitelists a project configured. A project that uses the built-in
+  // default has NO row -- the absence of a row is what "the default is in
+  // force" means, so the mirror does not carry a copy of the default that
+  // could go out of step with it.
+  const envProfiles = envRows.map((r) => JSON.parse(r.doc));
+  const whitelists = {};
+  for (const row of whitelistRows) {
+    whitelists[row.project_uid] = JSON.parse(row.names);
+  }
+
+  return {
+    schema: 1,
+    projects,
+    runs,
+    uidRegistry: registry,
+    runCounters,
+    envProfiles: { version: 1, profiles: envProfiles, whitelists },
+  };
 }
 
 /**
@@ -290,5 +372,7 @@ export function counts(db) {
     testAttempts: one('test_attempts'),
     artifacts: one('artifacts'),
     events: one('events'),
+    envProfiles: one('env_profiles'),
+    envWhitelists: one('env_whitelists'),
   };
 }

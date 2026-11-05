@@ -1,0 +1,8 @@
+== E3: the Bridge dies after POST /stop, before the engine exit is processed ==
+   stop -> {"status":"cancelling"}
+   state.json after the crash: status cancelling events []
+   after restart: run.status cancelling replay {"types":"(no /replay endpoint)"}
+FAIL E3 a run that was cancelling when the Bridge died is recovered as interrupted  -- status=cancelling, replayed=undefined, terminal=undefined
+   POST /stop on the recovered run -> 500 {"error":"RUN_NOT_ACTIVE"}
+
+RESULT: 1 failed check(s)

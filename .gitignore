@@ -41,3 +41,6 @@ taskfiles.json
 conflict_groups.json
 wupd_instr.md
 conclusion.md
+
+# The review probes are downloaded into the worktree during a review round.
+.probes/

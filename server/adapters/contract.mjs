@@ -31,6 +31,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { BASE_ENV_KEYS } from '../env/profiles.mjs';
 
 /** Contract version. Bumped when the capability set or the operation set changes. */
 export const ADAPTER_CONTRACT_VERSION = 1;
@@ -197,9 +198,34 @@ export function gaps(adapter, project) {
 /* Shared probing helpers -- used by the concrete adapters.            */
 /* ------------------------------------------------------------------ */
 
-/** Run a command and capture its outcome; never throws. */
+/**
+ * The platform base keys of the host environment -- and nothing else.
+ *
+ * This is the environment a child process gets when it must run but must
+ * not see the operator's shell.
+ */
+function baseEnv() {
+  const env = {};
+  for (const key of BASE_ENV_KEYS) {
+    const value = process.env[key];
+    if (value !== undefined && value !== null) env[key] = String(value);
+  }
+  return env;
+}
+
+/**
+ * Run a command and capture its outcome; never throws.
+ *
+ * ATS-212: the probe's environment is SEALED as well. The probe runs the
+ * PROJECT'S OWN CLI (`node <project>/node_modules/@playwright/test/cli.js
+ * --help`), so it is the same trust boundary as the run -- the code that
+ * ships with the project. Inheriting `{...process.env}` would hand an
+ * operator's cloud credentials to that code for no reason.
+ *
+ * `env` may still be passed explicitly (a caller that has a reason to).
+ */
 export function probeCommand(command, args, { cwd, timeout = 20000, env } = {}) {
-  const r = spawnSync(command, args, { cwd, timeout, encoding: 'utf8', env: env || process.env, shell: false });
+  const r = spawnSync(command, args, { cwd, timeout, encoding: 'utf8', env: env || baseEnv(), shell: false });
   return {
     ok: r.status === 0,
     status: r.status,

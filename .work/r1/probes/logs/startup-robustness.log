@@ -1,0 +1,20 @@
+crafted run run_1_6df5ba3ac57a494dee9caa76
+== S1: state says running, run folder missing ==
+   tip : exited with code 1; stderr: Error: ENOENT: no such file or directory, open 'D:\tmp\opus-169-r1\s1-data\runs\run_1_6df5ba3ac57a494dee9caa76\events.jsonl' |     at Object.writeFileSync (node:fs:2483:20)
+   base: up {"replayHttp":404,"eventsHttp":200,"runStatus":"interrupted","error":"NOT_FOUND"}
+FAIL S1 the tip Bridge starts and recovers the run
+== S2: the last line of events.jsonl is torn ==
+   tip : up {"replayHttp":500,"eventsHttp":500,"runStatus":"interrupted","error":"Expected ':' after property name in JSON at position 46 (line 1 column 47)"}
+   events.jsonl after the tip boot:
+     {"seq":1,"at":"2026-11-05T20:19:25.559Z","type":"run.queued","data":{"file":"tests/slow.spec.ts","runner":"playwright"}}
+     {"seq":2,"at":"2026-11-05T20:19:25.625Z","type":"run.started","data":{"pid":10432,"runner":"playwright"}}
+     {"seq":3,"at":"2026-11-06T00:00:00.000Z","ty{"seq":3,"at":"2026-11-05T20:19:31.748Z","type":"run.interrupted","data":{"reason":"Server restarted while run was active"}}
+     
+   base: up {"replayHttp":404,"eventsHttp":500,"runStatus":"interrupted","error":"NOT_FOUND"}
+FAIL S2 the run stays readable after a torn tail (replay 200)  -- {"replayHttp":500,"eventsHttp":500,"runStatus":"interrupted","error":"Expected ':' after property name in JSON at position 46 (line 1 column 47)"}
+== S3: the Bridge died after appending run.finished, before saveState (the finishRun collect window) ==
+   finished normally as passed
+   after restart: run.status interrupted replay {"replayedStatus":"interrupted","agrees":true,"events":["1:run.queued","2:run.started","3:run.finished(passed)","4:run.interrupted"]}
+FAIL S3 no event is appended after a terminal event (the log already says the run finished)  -- ["1:run.queued","2:run.started","3:run.finished(passed)","4:run.interrupted"]
+
+RESULT: 3 failed check(s)

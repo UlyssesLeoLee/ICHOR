@@ -67,6 +67,15 @@ import {
   isLegacyProjectUid, isLegacyRunUid, emptyRegistry, assignRunSeqs
 } from '../server/uid.mjs';
 import { acquireBridgeLock, releaseBridgeLock, readBridgeLock, lockPath } from '../server/core.mjs';
+// ATS-206: the shared migration core. The logic of this tool now lives in
+// `server/migration/state-migration.mjs`, so that the CLI of this task and
+// the ATS-201 tool cannot drift apart: there is ONE implementation of the
+// migration, and it is the one that does not lose the trust map or the UID
+// registry.
+import {
+  planMigration as planMigrationCore, renameRunFolders as renameRunFoldersCore,
+  isMigrated as isMigratedCore,
+} from '../server/migration/state-migration.mjs';
 
 function parseArgs(argv) {
   const out = { state: null, dryRun: false, backup: false, rollback: false };
@@ -92,99 +101,18 @@ function defaultStatePath() {
 /**
  * Computes the migration plan of one state object.
  * Pure: returns the new state and a list of changes, without touching disk.
+ *
+ * ATS-206: the implementation moved into `server/migration/state-migration.mjs`,
+ * so that this tool and the ATS-206 CLI share ONE implementation. The old
+ * copy of this function rebuilt the state from a fixed set of keys, which
+ * dropped every key it did not know about -- including the `trust` map
+ * (ATS-202) -- and it left the UID registry keyed by the OLD project
+ * identifier, which made the registry entries unreachable. The shared core
+ * carries the unknown keys over and re-keys the maps that are keyed by a
+ * project identifier.
  */
 export function planMigration(state) {
-  if (!state || typeof state !== 'object') throw new Error('STATE_NOT_AN_OBJECT');
-  if (!Array.isArray(state.projects) || !Array.isArray(state.runs)) throw new Error('UNSUPPORTED_DATABASE');
-
-  const changes = [];
-  const projectUidOfLegacyId = new Map();
-  const nextState = {
-    schema: state.schema,
-    uidVersion: UID_SCHEME_VERSION,
-    projects: [],
-    runs: [],
-    uidRegistry: state.uidRegistry && typeof state.uidRegistry === 'object' ? state.uidRegistry : emptyRegistry()
-  };
-
-  // --- projects -------------------------------------------------------------
-  for (const p of state.projects) {
-    const uid = p.uid && isProjectUid(p.uid) && !isLegacyProjectUid(p.uid)
-      ? p.uid
-      : projectUidFor(p.root);
-    if (p.id !== uid) {
-      changes.push({ kind: 'project', from: p.id, to: uid, root: p.root });
-    }
-    projectUidOfLegacyId.set(p.id, uid);
-    nextState.projects.push({
-      ...p,
-      id: uid,
-      uid,
-      // The previous identifier is kept so that existing links and bookmarks
-      // stay resolvable after the migration.
-      ...(p.id !== uid ? { legacyId: p.id } : {})
-    });
-  }
-
-  // --- runs -----------------------------------------------------------------
-  // The per project sequence is the discriminator that distinguishes two
-  // executions of the same target at the same commit. It is recorded on the
-  // run record so that the UID can be recomputed from the recorded fields.
-  const uidByLegacyRunId = new Map();
-  const sequenced = assignRunSeqs(state.runs);
-  for (const r of sequenced) {
-    const projectUid = projectUidOfLegacyId.get(r.projectId) ?? (r.projectUid ?? null);
-    const uid = r.uid && isRunUid(r.uid) && !isLegacyRunUid(r.uid)
-      ? r.uid
-      : runUidFor({ projectUid, gitCommit: r.gitCommit, file: r.file, seq: r.seq });
-    if (r.id !== uid) changes.push({ kind: 'run', from: r.id, to: uid, projectId: r.projectId });
-    uidByLegacyRunId.set(r.id, uid);
-    nextState.runs.push({
-      ...r,
-      id: uid,
-      uid,
-      seq: r.seq,
-      projectUid,
-      // The reference to the owning project is rewritten together with the
-      // project identifier. Leaving it at the legacy value would detach the
-      // run from its project: the bridge looks the run history up by
-      // `run.projectId === project.id` and would not find it.
-      projectId: projectUid ?? r.projectId,
-      ...(r.id !== uid ? { legacyId: r.id } : {}),
-      ...(r.attempts ? { attempts: r.attempts.map((a) => ({ ...a, runUid: uid })) } : {})
-    });
-  }
-
-  // The durable per project counter has to survive the migration: it is what
-  // keeps the sequence of the next run above every sequence already used,
-  // even when the run history was trimmed.
-  const counters = { ...(state.runCounters ?? {}) };
-  for (const [legacyId, projectUid] of projectUidOfLegacyId) {
-    const highest = nextState.runs
-      .filter((r) => r.projectId === projectUid)
-      .reduce((max, r) => Math.max(max, Number.isInteger(r.seq) ? r.seq : 0), 0);
-    const current = Number.isInteger(counters[projectUid]) ? counters[projectUid] : 0;
-    const currentLegacy = Number.isInteger(counters[legacyId]) ? counters[legacyId] : 0;
-    const next = Math.max(highest, current, currentLegacy);
-    if (next > 0) counters[projectUid] = next;
-  }
-  if (Object.keys(counters).length) nextState.runCounters = counters;
-
-  // Preserve the original ordering of the run list (newest first).
-  const order = new Map(state.runs.map((r, i) => [r.id, i]));
-  nextState.runs.sort((a, b) => (order.get(a.legacyId ?? a.id) ?? 0) - (order.get(b.legacyId ?? b.id) ?? 0));
-
-  // --- runs folder names ----------------------------------------------------
-  // The run directory on disk is named after the run id. The folder therefore
-  // has to be renamed together with the identifier, otherwise the archived
-  // evidence of that run would no longer be reachable.
-  const renamedFolders = [];
-  for (const r of state.runs) {
-    const uid = uidByLegacyRunId.get(r.id);
-    if (uid && uid !== r.id) renamedFolders.push({ from: r.id, to: uid });
-  }
-
-  return { state: nextState, changes, renamedFolders };
+  return planMigrationCore(state);
 }
 
 /**
@@ -192,26 +120,12 @@ export function planMigration(state) {
  * Returns the list of folders that were actually renamed.
  */
 export function renameRunFolders(runsDir, renamedFolders) {
-  const renamed = [];
-  if (!fs.existsSync(runsDir)) return renamed;
-  for (const f of renamedFolders) {
-    const from = path.join(runsDir, f.from);
-    const to = path.join(runsDir, f.to);
-    if (!fs.existsSync(from)) continue;
-    if (fs.existsSync(to)) continue;
-    fs.renameSync(from, to);
-    renamed.push(f);
-  }
-  return renamed;
+  return renameRunFoldersCore(runsDir, renamedFolders);
 }
 
 /** True when every identifier of the state already follows the v1 scheme. */
 export function isMigrated(state) {
-  if (!state || !Array.isArray(state.projects) || !Array.isArray(state.runs)) return false;
-  if (state.uidVersion !== UID_SCHEME_VERSION) return false;
-  if (state.projects.some((p) => p.id !== p.uid || isLegacyProjectUid(p.id))) return false;
-  if (state.runs.some((r) => r.id !== r.uid || isLegacyRunUid(r.id))) return false;
-  return true;
+  return isMigratedCore(state);
 }
 
 /**

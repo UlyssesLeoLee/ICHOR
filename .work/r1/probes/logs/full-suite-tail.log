@@ -1,0 +1,12 @@
+✔ UT-UID-026: the static scanner numbers the line of the test call (1.3785ms)
+✔ UT-UID-027: a retried case produces one attempt per retry (0.5582ms)
+✔ UT-UID-021: cleanup removes the temporary fixture (2.1688ms)
+ℹ tests 539
+ℹ suites 0
+ℹ pass 534
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 5
+ℹ todo 0
+ℹ duration_ms 20136.4796
+exit=0

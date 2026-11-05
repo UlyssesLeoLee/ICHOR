@@ -76,7 +76,7 @@ ATS-205 交付了 SQLite 元数据层。**当前实现是 `state.json` 的镜像
 | `server/sqlite/import.mjs` | 从 `state.json` 导入与镜像校验 |
 | `tools/sqlite_meta.mjs` | 命令行：`status` / `import` / `migrate` / `downgrade` / `verify` |
 
-### 5.1 当前已部署的表（schema version 3）
+### 5.1 当前已部署的表（schema version 4）
 
 ```sql
 CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);   -- schema_version 存放在这里
@@ -93,7 +93,18 @@ CREATE TABLE test_attempts(uid TEXT PRIMARY KEY, run_uid TEXT NOT NULL, test_uid
                            status TEXT NOT NULL, case_status TEXT, duration INTEGER, doc TEXT NOT NULL);
 CREATE TABLE events(run_uid TEXT NOT NULL, seq INTEGER NOT NULL, at TEXT, type TEXT NOT NULL,
                     data TEXT NOT NULL, PRIMARY KEY(run_uid, seq));   -- ATS-208
+CREATE TABLE env_profiles(uid TEXT PRIMARY KEY, project_uid TEXT NOT NULL, name TEXT NOT NULL,
+                          environment TEXT NOT NULL, variables TEXT NOT NULL, created_at TEXT,
+                          updated_at TEXT, doc TEXT NOT NULL);          -- ATS-212
+CREATE TABLE env_whitelists(project_uid TEXT PRIMARY KEY, names TEXT NOT NULL,
+                            updated_at TEXT, doc TEXT NOT NULL);        -- ATS-212
 ```
+
+`runs` 表在 migration 4 中**增列** `env_uid TEXT`（additive）：运行所处环境档案的标识。一个没有档案的旧运行该列是 NULL，运行记录照旧。
+
+`env_profiles.variables` 列存的是变量**名**的 JSON 数组，**不是值**：索引列是查询要用的部分，也是从共享/导出数据库里读出来时安全的那部分。完整档案（含值）在 `doc` 列——那是档案自身的记录。
+
+`env_whitelists` 只存**项目显式配置过**的白名单：没有行就表示「内置默认生效」，所以表里不复制一份可能与默认值脱节的默认清单。
 
 每一张表都带一个 `doc`（或 `entry`）列，保存原始记录的 JSON 原文：**层没有建模的字段也不会丢失**，因此 JSON 状态文件与 SQLite 层不会对「一条记录包含什么」产生分歧。
 
@@ -233,7 +244,39 @@ ATS-208 补上了缺失的 `run.interrupted` 事件：Bridge 崩溃时它写下�
 
 复演由 `GET /api/runs/:id/replay` 暴露：它返回复演出的状态、与 run 记录是否一致、序号中的空洞，以及 `valid` / `violations`（状态机校验结果）与日志的损坏报告（`unreadable` / `missing` / `truncated`）。
 
-### 5.5 目标 schema（后续版本的迁移输入）
+### 5.5 环境档案（ATS-212，v0.2.0 已实现）
+
+环境档案是**项目级**的实体，住在状态里的 `state.envProfiles`：
+
+```json
+{
+  "version": 1,
+  "profiles": [
+    {
+      "uid": "env_1_3f2a...", "projectUid": "proj_1_aaaa", "name": "staging",
+      "environment": "staging",
+      "variables": {"BASE_URL": "https://staging.example", "TENANT": "acme"},
+      "createdAt": "...", "updatedAt": "..."
+    }
+  ],
+  "whitelists": { "proj_1_aaaa": ["BASE_URL", "TENANT"] }
+}
+```
+
+| 事实 | 约束 |
+|---|---|
+| 归属 | `projectUid` 决定；档案在项目之间不可见 |
+| 标识 | `uid` 由「项目 UID + NUL + 名称」派生，不是自增 |
+| 唯一性 | 同一项目内名称唯一（不区分大小写）；替换时 `uid` 不变 |
+| 层级 | `environment` ∈ {dev, staging, prod} |
+| 值 | 只在 `variables` 里；**不进**运行元数据、manifest、API 响应、SQLite 索引列 |
+| 白名单 | 按项目配置；未配置用内置默认；配置的是**替换**默认不是叠加 |
+
+`whitelists` 映射只列**显式配置过**的项目：没有键就表示「内置默认生效」。这样状态里不会有一份可能与默认清单脱节的副本。
+
+运行记录侧：`RUN` 表的 `env_uid` 指向档案；`run.envVariables` 只存变量**名**。运行引用不存在的档案会被拒绝（404），不会退化成「无档案」。
+
+### 5.6 目标 schema（后续版本的迁移输入）
 
 下面这份 DDL 是**后续版本**（P1）的迁移输入，**尚未部署**，不能当作已实现：
 

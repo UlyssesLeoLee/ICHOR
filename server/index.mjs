@@ -15,6 +15,15 @@ import { AGENT_CONTRACT_VERSION,describeAgentContract,validateAgentRequest } fro
 import { PLUGIN_CONTRACT_VERSION,describePluginContract,validatePluginManifest,resolvePluginPermissions } from './plugins/contract.mjs';
 import { capabilityMatrix,getAdapter,listRunners,selectAdapter,selectAdapterOrThrow , negotiationFailure} from './adapters/registry.mjs';
 import { AdapterError } from './adapters/contract.mjs';
+// ATS-212: the environment profiles. A profile is a named, project-scoped
+// set of environment variables; the run carries the profile it ran under
+// and the runner receives the SEALED environment (the profile's variables
+// plus the platform base keys -- never the host's own environment).
+import { ENVIRONMENTS, buildRunnerEnv, envVarNames } from './env/profiles.mjs';
+import {
+  envStoreOf, profilesOfProject, findProfile, whitelistForProject,
+  upsertProfile, removeProfile, setWhitelist, publicProfile,
+} from './env/store.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const ROOT=path.resolve(HERE,'..');
@@ -320,16 +329,32 @@ function finishRun(run,code,signal){
  const folder=runDir(run.id);
  collectRunResults(run);
  const manifest={version:1,runId:run.id,projectUid:run.projectUid||null,projectId:run.projectId,sourceCommit:run.gitCommit,runner:run.runner||'playwright',status:run.status,createdAt:run.startedAt,finishedAt:run.finishedAt,artifacts:run.artifacts,attempts:run.attempts};
+ // ATS-212: the manifest names the environment profile the run ran under
+ // and the NAMES of the variables it carried -- never their values. The
+ // manifest is archived with the evidence, so a value does not travel with
+ // it; the names say WHICH configuration was in effect.
+ if(run.envUid)manifest.env={uid:run.envUid,name:run.envName||null,tier:run.envTier||null,variables:run.envVariables||[]};
  fs.writeFileSync(path.join(folder,'manifest.json'),JSON.stringify(manifest,null,2));
- jobs.delete(run.id);saveState(store);
-}
- function startRun(project,run,adapter){
-  const folder=runDir(run.id);fs.mkdirSync(folder,{recursive:true});
-  // ATS-208: the events are written BEFORE the status changes, so each
-  // event records the status the run is leaving and the stream replays.
-  writeEvent(run,EVENT_TYPE.QUEUED,{file:run.file,runner:run.runner});
-  let handle;
-  try{handle=adapter.start({project,run,file:run.file,outputDir:folder});}
+  jobs.delete(run.id);saveState(store);
+ }
+ function startRun(project,run,adapter,envProfile){
+   const folder=runDir(run.id);fs.mkdirSync(folder,{recursive:true});
+   // ATS-208: the events are written BEFORE the status changes, so each
+   // event records the status the run is leaving and the stream replays.
+   writeEvent(run,EVENT_TYPE.QUEUED,{file:run.file,runner:run.runner});
+   let handle;
+   // ATS-212: the SEALED environment of the child process.
+   //
+   // It is the profile's own variables plus the platform base keys -- NOT
+   // the host's environment. Before ATS-212 the runner was spawned with
+   // `{...process.env, ...}`, so everything the operator had in their shell
+   // (their cloud credentials, their CI tokens) reached the code under test
+   // and could be printed into a report that is archived as evidence.
+   //
+   // With no profile the environment is still SEALED: the base keys and
+   // nothing else. The host's variables do not reach the runner either way.
+   const sealedEnv=buildRunnerEnv(envProfile??{variables:{}});
+   try{handle=adapter.start({project,run,file:run.file,outputDir:folder,env:sealedEnv});}
   catch(e){
    writeEvent(run,EVENT_TYPE.ERROR,{error:e.message});
    run.status=RUN_STATUS.ERROR;run.error=e.message;run.finishedAt=now();saveState(store);return;
@@ -449,6 +474,73 @@ const server=http.createServer(async(req,res)=>{
   if(action==='runners'&&req.method==='GET'){
    return respond(res,200,{runners:listRunners(),capabilities:capabilityMatrix(project),project:cleanProject(project)});
   }
+  // --- ATS-212: the environment profiles -----------------------------------
+  //
+  // The routes are under the project, because a profile belongs to a
+  // project: its whitelist, its identifier and its variables are all
+  // scoped by the project they configure.
+  //
+  // The API answers with the PUBLIC view of a profile -- the identifier, the
+  // tier and the NAMES of the variables. The VALUES never cross the wire:
+  // a profile may hold a base URL that the caller already knows, but the
+  // rule is uniform, and a value that turns out to be sensitive later
+  // cannot leak through an API that already shipped.
+  if(action==='env'&&req.method==='GET'){
+   const store_=envStoreOf(store);
+   const profiles=profilesOfProject(store_,project.uid||project.id).map(publicProfile);
+   const whitelist=whitelistForProject(store_,project);
+   return respond(res,200,{
+    profiles,
+    environments:[...ENVIRONMENTS],
+    whitelist:{names:whitelist.names,source:whitelist.source},
+   });
+  }
+  if(action==='env'&&req.method==='POST'){
+   const b=await body(req);
+   const store_=envStoreOf(store);
+   let built;
+   try{
+    built=upsertProfile(store_,project,{name:b.name,environment:b.environment,variables:b.variables},{now:now()});
+   }catch(e){
+    // A refused variable is a REFUSAL, not a silent drop. The caller is
+    // told WHICH name was refused and WHY, so the request can be fixed.
+    if(e.code==='INVALID_ENV_PROFILE')return err(res,400,'INVALID_ENV_PROFILE',{problems:e.problems});
+    throw e;
+   }
+   if(built.rejected.length){
+    // The whole request is refused: a caller that asked for a variable
+    // that is not allowed should not be handed a partial profile that
+    // behaves differently from what they asked for.
+    return err(res,400,'ENV_VARIABLE_NOT_ALLOWED',{rejected:built.rejected});
+   }
+   saveState(store);
+   return respond(res,200,{profile:publicProfile(built.profile)});
+  }
+  if(action==='env'&&req.method==='DELETE'){
+   const store_=envStoreOf(store);
+   const ref=u.searchParams.get('ref');
+   if(!ref)return err(res,400,'ENV_PROFILE_REF_REQUIRED');
+   if(!removeProfile(store_,project,ref))return err(res,404,'ENV_PROFILE_NOT_FOUND');
+   saveState(store);
+   return respond(res,200,{removed:ref});
+  }
+  if(action==='env-whitelist'&&req.method==='GET'){
+   const store_=envStoreOf(store);
+   const whitelist=whitelistForProject(store_,project);
+   return respond(res,200,{whitelist:{names:whitelist.names,source:whitelist.source}});
+  }
+  if(action==='env-whitelist'&&req.method==='PUT'){
+   const b=await body(req);
+   const store_=envStoreOf(store);
+   try{setWhitelist(store_,project,b.names);}
+   catch(e){
+    if(e.code==='INVALID_ENV_WHITELIST')return err(res,400,'INVALID_ENV_WHITELIST',{problems:e.problems});
+    throw e;
+   }
+   saveState(store);
+   const whitelist=whitelistForProject(store_,project);
+   return respond(res,200,{whitelist:{names:whitelist.names,source:whitelist.source}});
+  }
   if(action==='runners'&&req.method==='POST'){
    const b=await body(req);if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');
    const requested=Array.isArray(b.capabilities)?b.capabilities:[];
@@ -508,8 +600,25 @@ const server=http.createServer(async(req,res)=>{
    store.runCounters=store.runCounters??{};
    store.runCounters[project.id]=seq;
    const uid=runUidFor({projectUid,gitCommit,file,seq});
-   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested};
-   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter);return respond(res,202,{run});
+   // ATS-212: the environment profile the run runs under.
+   //
+   // The run request may name a profile (`env`). The profile is looked up in
+   // the project's own profiles -- a run of project A cannot use the profile
+   // of project B -- and a name that does not exist is a REFUSAL, not a
+   // silent fallback to "no profile": a run that was supposed to run
+   // against the staging base URL must not quietly run against the default.
+   const envStore_=envStoreOf(store);
+   let envProfile=null;
+   if(b.env!==undefined&&b.env!==null&&b.env!==''){
+    envProfile=findProfile(envStore_,projectUid,b.env);
+    if(!envProfile)return err(res,404,'ENV_PROFILE_NOT_FOUND',{ref:String(b.env)});
+   }
+   // The names of the variables the run carried -- NEVER their values. The
+   // run record is archived, mirrored into SQLite and shipped as evidence;
+   // a value may be sensitive, a name is what a reader of the run needs.
+   const envVarNameList=envProfile?envVarNames(envProfile):[];
+   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null};
+   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter,envProfile);return respond(res,202,{run});
   }
   if(action==='lineage'&&req.method==='GET'){
    const dir=path.join(project.root,'.aitest');let requirements=[],links=[];

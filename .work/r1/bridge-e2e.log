@@ -1,0 +1,23 @@
+   discovery 200 tests/retry.spec.ts:flaky: fails first try then passes:tc_1_d_b11fce66596524d7 | tests/xfail.spec.ts:expected failure via test.fail:tc_1_d_ae4beccf18f922b9
+== E1: a case that fails on the first try and passes on the retry (real PW) ==
+   run.status passed summary {"passed":0,"failed":0,"skipped":0,"flaky":1,"total":1,"executions":2}
+   attempts [{"retry":0,"status":"failed","caseStatus":"flaky","testUid":"tc_1_d_b11fce66596524d7","error":"Error: first attempt failed\n\n\u001b[2mexpect("},{"retry":1,"status":"passed","caseStatus":"flaky","testUid":"tc_1_d_b11fce66596524d7","error":""}]
+ok   E1 case counted once (total=1, flaky=1, executions=2)
+ok   E1 first attempt kept as failed with its error
+ok   E1 both attempts carry the same NON-NULL testUid  -- testUid=tc_1_d_b11fce66596524d7 basis=file-line
+   replay {"status":"passed","replayedStatus":"passed","agrees":true,"sequence":[1,2,3],"gaps":[],"types":["run.queued","run.started","run.finished"]}
+ok   E1 replay agrees and sequence is 1..N
+== E2: a file whose only case is an expected failure (test.fail) ==
+   run.status passed exitCode 0 summary {"passed":0,"failed":1,"skipped":0,"flaky":0,"total":1,"executions":1}
+   attempts [{"retry":0,"status":"failed","caseStatus":"failed"}]
+FAIL E2 summary agrees with the run outcome (passed run -> 0 failed cases)  -- run=passed but summary.failed=1, case=failed
+ok   SQLite events rows == events.jsonl for tests/retry.spec.ts  -- 3 rows / 3 logged
+ok   SQLite events rows == events.jsonl for tests/xfail.spec.ts  -- 3 rows / 3 logged
+== E3: the Bridge dies after POST /stop, before the engine exit is processed ==
+   stop -> {"status":"cancelling"}
+   state.json after the crash: status cancelling events ["1:run.queued","2:run.started","3:run.cancelling"]
+   after restart: run.status cancelling replay {"replayedStatus":"cancelling","terminal":false,"types":["run.queued","run.started","run.cancelling"]}
+FAIL E3 a run that was cancelling when the Bridge died is recovered as interrupted  -- status=cancelling, replayed=cancelling, terminal=false
+   POST /stop on the recovered run -> 500 {"error":"RUN_NOT_ACTIVE"}
+
+RESULT: 2 failed check(s)
