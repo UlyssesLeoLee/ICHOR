@@ -101,6 +101,15 @@ f832986f046c9903c669d8d0df45d7b07e185e4932d96dc8e1278f549d977d39  docs/evidence/
 3887df3c003a315c84fef299663f70167e09c421e5a5a49a1730a7782686ac6e  docs/evidence/ATS-201/19-wbs-updaters-coexist.log
 5ad9b6bcea88bafe543a8e3bad80f0b16f4cc1a3b5c1804e4232410e61697965  docs/evidence/ATS-201/20-wbs-common-regression.log
 36db08f1562d8f9de61cbda9863b9e8c781a3bcdb2f31ff3eefee834fd76f4f8  docs/evidence/ATS-201/21-review-round2-regressions.log
+e875910d1ba224de1e03520a383a6e1a89a7d40536f300e8af9578b2fdd3efd9  docs/evidence/ATS-205/01-node-test-sqlite-ut.log
+2f71e562219773c3348eb96d55bac4d198fbb534621e0538176de664a0c179bf  docs/evidence/ATS-205/02-node-test-sqlite-bridge-it.log
+106657ca37c5b668abc55b4eb52cfe0f9bda4006643540a6b26cdb83fbda598a  docs/evidence/ATS-205/03-node-test-full.log
+6600e830c16d52d7a14ff1bcd14b9479ef6c7d8fd1c701d92c4a2a854fb3df79  docs/evidence/ATS-205/04-adr-citations.log
+062d9f1581b8ea572958fb1fcf28f5f97c3d6af5f710558fcb085c7cca6dd13d  docs/evidence/ATS-205/05-quality-gates.log
+743f196b1a10989603cd59f157b6ee63baae335223294a4888562b40d7946cfa  docs/evidence/ATS-205/06-wbs-row.log
+8fbf1ad2230478d7fa8f87bfde57991b802b3e5bac9b14f4ede1ad1820e4f583  docs/evidence/ATS-205/07-python-gates.log
+0b47f4b88ec4b5fa5dd3e7af508beb68ed780edaade6ddf8e116e22d1d2ce650  docs/evidence/ATS-205/08-metadata-layer-demo.log
+b8304aba6619394db4865427ac91ac8e2d52fb5a1c6df1a70d6622a1b4371416  docs/evidence/ATS-205/09-cli-roundtrip.log
 00afbcf139fd38b591b694bc0fa03adeb82e08f40b7ecfdca44829f7b2c93764  docs/evidence/ATS-301/00-npm-test-full.log
 6e9600f91c11576f76a8848451f49606cbcf3e2ad90eb97038dddccf4ece519f  docs/evidence/ATS-301/01-playwright-ground-truth.log
 64b89f5c8e2acfee0974bea36ef04332026d363a980ea4bc8322bfc03ed4a6d4  docs/evidence/ATS-301/02-wdio-ground-truth.log
@@ -252,6 +261,7 @@ f65fc9e886845eaaa6920d296fc4eb4731164b3f8d0f0d3cd68eb5970757a26c  tools/ats201-p
 e230e05e538354862a6eec0699a0d839b415f7bffd2c17218a0dfaec7654ad2e  tools/ats201-probes/review-regressions.mjs
 c1f32f1c522676baa4fb708552700a032ed8d120b318a39234e89628bd22b4d3  tools/ats201-probes/review-round2-regressions.mjs
 7d2fc8e95416f458bf7a0b26d78028c933702e40d92a42b9f2a39014bd9eaaf9  tools/ats201-probes/uid-e2e.mjs
+726d24f4f687e0d43a66722e692cc59f69876b36b62301172c9ef841b6a9c03e  tools/ats205-probes/metadata-layer-demo.mjs
 d5932518763fc65a7fbd84ba88b93f9d8676f2d6739675998f292bd48e86ddbe  tools/ats301-probes/check-ats301-gate.sh
 97cad291caf8026d3bb078a17e6296336a56dc476fdf3ebe37d7e4445e8c3c15  tools/ats301-probes/collect-evidence.sh
 4a842423e13447e9a448ed67364eda1d8c38bad7e9b70541c7c5c0cb2b8f1acb  tools/ats301-probes/collect-review4-evidence.sh
