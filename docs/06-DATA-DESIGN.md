@@ -11,7 +11,8 @@
 | Project | `proj_1_<24 hex>` | id,uid,name,root,addedAt,legacyId | `state.json.projects` |
 | Run | `run_1_<24 hex>` | id,uid,seq,projectId,projectUid,file,gitCommit,status,createdAt,startedAt,finishedAt,log,summary,eventSeq,artifacts,attempts | `state.json.runs` |
 | Attempt | `att_1_<24 hex>` | uid,runUid,testUid,file,title,line,retry,status,caseStatus,duration,error | `state.json.runs[].attempts`、`runs/<run-uid>/manifest.json` |
-| TestDefinition | `tc-*` / `tc_1_d_*` / `tcp_1_*` | uid,uidSource,uidStable,file,title,line,source,ambiguity? | 实时扫描（临时）；身份映射存于 `state.json.uidRegistry` |
+| TestDefinition | `tc-*` / `tc_1_d_*` / `tcp_1_*` | uid,uidSource,uidStable,uidBasis,file,title,line,describePath,specIds,source,ambiguity? | 实时扫描（临时）；身份映射存于 `state.json.uidRegistry` |
+| ProjectTrust | `proj_1_<24 hex>` | trust,reason,at | `state.json.trust` |
 | Requirement | uid | uid,title,type,status | 原 Git `.aitest/requirements.json` |
 | Link | from,to,type | from,to,type | 原 Git `.aitest/traceability.json` |
 | ExecutionEvent | runId+seq | seq,at,type,data | `runs/<run-id>/events.jsonl` |
@@ -21,6 +22,10 @@
 
 `state.json.uidRegistry` 记录 `{uid, uidSource, titleKey, bodyKey, file, title, aliases}`，是「改标题后仍能找回原 UID」的依据；它是**增量字段**，没有它的旧状态文件照常加载。
 注册表按 uid 去重（同一 uid 只保留一条 entry，唯一性按不同的 uid 计数），并裁剪陈旧条目——被删除的用例会永远留下一个 uid，日后把它交给别的用例。裁剪只针对「文件仍在本次发现范围内、但用例已消失」的条目；文件本身不在本次发现中的条目保留，否则切换分支就会让用例丢掉 UID（详见 `docs/18-UID-SPEC.md` §3.2）。
+
+**权威发现的增量字段（ATS-202）**：注册表条目另带 `scope`（`describe` 路径）与 `specIds`（CLI 报告的每个 Playwright project 的 spec id）。前者是动态用例的身份依据，后者让一次运行可以按 CLI 自己的标识符绑定用例，而不必靠标题猜测。权威发现的完整身份阶梯见 `docs/23-AUTHORITATIVE-DISCOVERY.md`。
+
+**`state.json.trust`** 记录每个项目的信任状态 `{trust: 'trusted'|'untrusted', reason, at}`，按项目 UID 索引。它决定该项目的索引是否允许调用 `playwright test --list`——实测该命令会执行仓库代码（见 `docs/11-SECURITY-RISK.md` SEC-011）。这是**增量字段**，旧状态文件照常加载（旧项目即未可信）。
 
 ## 3. 目标逻辑 ER（P1/P2 规划，不属于 v0.1 数据表）
 

@@ -37,7 +37,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-301】', '【ATS-401】',
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-301】', '【ATS-401】',
            '【ATS-501】', '【ATS-506】', '【ATS-512】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
@@ -89,6 +89,11 @@ NARRATIVE_FRAGMENTS = {
     '【ATS-401】': {
         'D6': 'Agent 契约层已实现',
         'D7': '详见 docs/17-AGENT-CONTRACT.md',
+    },
+    '【ATS-202】': {
+        'D6': '权威发现已实现（ATS-202：playwright test --list；未可信仓库回退静态索引）',
+        'D7': '权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；'
+              '详见 docs/23-AUTHORITATIVE-DISCOVERY.md',
     },
     '【ATS-501】': {
             'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',
