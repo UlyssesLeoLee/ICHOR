@@ -2,6 +2,11 @@ import test from 'node:test';import assert from 'node:assert/strict';import fs f
 import { freePort } from './helpers/free-port.mjs';
 const root=path.resolve(import.meta.dirname,'..');
 const base=path.resolve(root,'examples/sample-playwright');
+// Whether the repository example has a local Playwright CLI. The capability
+// negotiation over the four REQUIRED capabilities can only be asserted when
+// the engine is actually installed, so the test that needs it skips itself
+// (the same convention the IT-ADP series uses) instead of failing.
+const pwInstalled=fs.existsSync(path.join(base,'node_modules','@playwright','test','cli.js'));
 const data=fs.mkdtempSync(path.join(os.tmpdir(),'ats-api-'));const port=await freePort();
 // A project that satisfies the Bridge's validation but has NO local Playwright
 // install. IT-RUN-001 needs "the engine is missing => explicit failure", so it
@@ -66,10 +71,19 @@ test('IT-API-012: POST /runners with a PINNED runner that cannot satisfy the req
  assert.ok(m,JSON.stringify(r[1].missing));
  assert.ok(m.reason.length>0);
 });
+// The negotiation SHAPE is a property of the API, not of the engine that
+// happens to be installed under examples/sample-playwright. An EMPTY
+// capability list asks nothing of any runner, so it is satisfiable whether
+// or not the fixture has a local Playwright CLI -- which is what makes this
+// test run on a clean checkout (no node_modules) instead of failing there.
+//
+// The four REQUIRED capabilities are still asserted, but on the real fixture,
+// in IT-API-013B, which skips itself when the engine is not installed (the
+// same convention the IT-ADP series uses).
 test('IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape',async()=>{
- const unpinned=await api(`/api/projects/${projectId}/runners`,'POST',{capabilities:['discover','start','stop','collect']});
+ const unpinned=await api(`/api/projects/${projectId}/runners`,'POST',{capabilities:[]});
  assert.equal(unpinned[0],200);
- const pinned=await api(`/api/projects/${projectId}/runners`,'POST',{runner:'playwright',capabilities:['discover','start','stop','collect']});
+ const pinned=await api(`/api/projects/${projectId}/runners`,'POST',{runner:'playwright',capabilities:[]});
  assert.equal(pinned[0],200);
  // Both carry a negotiation RESULT under the same key, with the same fields.
  for(const r of [unpinned,pinned]){
@@ -79,6 +93,29 @@ test('IT-API-013: the pinned and unpinned success responses have the SAME negoti
   assert.ok(Array.isArray(r[1].negotiation.missing));
   assert.ok(Array.isArray(r[1].negotiation.capabilities));
   assert.equal(typeof r[1].negotiation.adapter,'string');
+ }
+ // An empty request is satisfiable by every runner, so the negotiation
+ // reports success and no capability is missing.
+ assert.equal(unpinned[1].negotiation.supported,true);
+ assert.deepEqual(unpinned[1].negotiation.missing,[]);
+ assert.equal(pinned[1].negotiation.supported,true);
+ assert.deepEqual(pinned[1].negotiation.missing,[]);
+});
+test('IT-API-013B: the four REQUIRED capabilities are supported on the real fixture',{skip:!pwInstalled&&'examples/sample-playwright has no node_modules'},async()=>{
+ const unpinned=await api(`/api/projects/${projectId}/runners`,'POST',{capabilities:['discover','start','stop','collect']});
+ assert.equal(unpinned[0],200);
+ const pinned=await api(`/api/projects/${projectId}/runners`,'POST',{runner:'playwright',capabilities:['discover','start','stop','collect']});
+ assert.equal(pinned[0],200);
+ for(const r of [unpinned,pinned]){
+  assert.ok(r[1].negotiation,JSON.stringify(r[1]));
+  assert.equal(typeof r[1].negotiation.supported,'boolean');
+  assert.ok(Array.isArray(r[1].negotiation.requested));
+  assert.ok(Array.isArray(r[1].negotiation.missing));
+  assert.ok(Array.isArray(r[1].negotiation.capabilities));
+  assert.equal(typeof r[1].negotiation.adapter,'string');
+  // The four required capabilities are the ones the contract declares as
+  // 'required', so they are the ones a real engine has to provide.
+  assert.equal(r[1].negotiation.supported,true,JSON.stringify(r[1].negotiation.missing));
  }
 });
 test('IT-API-014: POST /run with an unsatisfiable capability is 409 WITH the reason',async()=>{
