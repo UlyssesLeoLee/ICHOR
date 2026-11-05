@@ -103,11 +103,11 @@ f832986f046c9903c669d8d0df45d7b07e185e4932d96dc8e1278f549d977d39  docs/evidence/
 5ad9b6bcea88bafe543a8e3bad80f0b16f4cc1a3b5c1804e4232410e61697965  docs/evidence/ATS-201/20-wbs-common-regression.log
 36db08f1562d8f9de61cbda9863b9e8c781a3bcdb2f31ff3eefee834fd76f4f8  docs/evidence/ATS-201/21-review-round2-regressions.log
 0a6649e9e27c6add896cfc36d2fccbbfad63fd1881042049c7d009d1e03d383e  docs/evidence/ATS-202/01-list-ground-truth.log
-648b9176e90adc27f115d5d98afb532b2125d2ab5da0e0f20d312537a30f5487  docs/evidence/ATS-202/02-discovery-ut.log
-426487b7bc28bc9569cbe3bb214d71d96b4faaad8ac0399e244073fb077a72e2  docs/evidence/ATS-202/03-discovery-it.log
-1275adcf9ac3302ffe0d359a33544e889e5af7a388ac4f80c5f1170af06f9092  docs/evidence/ATS-202/04-discovery-api.log
-262d9da43bf655e0922fe503df87981fcc8d6018c984a80cbeb383eaaf718ba8  docs/evidence/ATS-202/05-node-test-full.log
-9246e14821664ebe024021e7867649583e24c4fdfb938725f13b5cb6f2650285  docs/evidence/ATS-202/06-line-coverage.log
+c8ee6a75e9150eefc82e50e465e4b43e5c7c7d45d34cbaecf2d7ba928045d367  docs/evidence/ATS-202/02-discovery-ut.log
+15e0dcb2afbed5e214a57651aa04d258cfd78dbcd280f775d6a23f29171766d6  docs/evidence/ATS-202/03-discovery-it.log
+4d750fcedfda85c9980b064dbcd10cbf3030a66939e30a754572929968bf47ed  docs/evidence/ATS-202/04-discovery-api.log
+50420a62468e343fec1cefeb2820f3e7ffbf737450245bf29a1870d3c75908cb  docs/evidence/ATS-202/05-node-test-full.log
+a6939bcecc34535169d401c916f2e7873e6ee27df3ab9d8df0d13a6180c67c7e  docs/evidence/ATS-202/06-line-coverage.log
 c05b5196a0305696a042fc30667868fb6da8b12d148224396e14c2d3eaf912d8  docs/evidence/ATS-202/07-wbs-updater.log
 bb6d52e35ecdf9df460ccdd57a11072d8f61b38df072225c66429bac3d9603ea  docs/evidence/ATS-202/08-wbs-common-regression.log
 00afbcf139fd38b591b694bc0fa03adeb82e08f40b7ecfdca44829f7b2c93764  docs/evidence/ATS-301/00-npm-test-full.log
