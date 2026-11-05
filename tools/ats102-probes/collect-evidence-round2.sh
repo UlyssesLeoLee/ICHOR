@@ -229,7 +229,7 @@ FINAL_CLONE="${ATS_PROBE_FINAL_CLONE:-D:/hermes-multica/home/cache/scratch/ats10
 {
   echo "=== ATS-102 final acceptance: the 8-step build gate on a clean clone ==="
   echo "clone    : $FINAL_CLONE"
-  echo "commit   : $(git -C "$ROOT" rev-parse --short HEAD)  $(git -C "$ROOT" log --oneline -1 --format=%s)"
+  echo "commit   : $(git -C "$NATIVE_ROOT" rev-parse --short HEAD)  $(git -C "$NATIVE_ROOT" log --oneline -1 --format=%s)"
   echo "node     : $(node --version)"
   echo "npm      : $(npm --version)"
   echo "registry : https://registry.npmjs.org/"

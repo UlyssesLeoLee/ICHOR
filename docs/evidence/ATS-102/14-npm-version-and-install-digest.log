@@ -1,5 +1,5 @@
 === ATS-102 evidence: the installed-tree digest depends on the npm version ===
-date : 2026-11-05T07:54:56Z
+date : 2026-11-05T08:07:10Z
 lock : the SAME committed apps/studio/package-lock.json in both clones
 
 -------------------------------------------------------------------
@@ -15,7 +15,7 @@ node : v22.23.4
 npm  : 10.9.9
 --- npm ci (apps/studio) ---
 
-added 57 packages in 40s
+added 57 packages in 38s
 
 --- the gate's own version assertion (checknode) ---
     node 22.23.4, engines.node >=22
@@ -60,7 +60,7 @@ node : v24.19.0
 npm  : 12.2.0
 --- npm ci (apps/studio) ---
 
-added 55 packages in 41s
+added 55 packages in 40s
 
 --- the gate's own version assertion (checknode) ---
     node 24.19.0, engines.node >=22
@@ -72,27 +72,8 @@ added 55 packages in 41s
     scope          : all files
     file count     : 17167
     tree sha256    : 5e5a977f96aeb873f414967d1bb7ea7068df251ed47e2a68c21764f2c9e4a18f
-    installed tree digest mismatch for scope "all-files" on platform "win32-x64":
-      expected 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
-      actual   5e5a977f96aeb873f414967d1bb7ea7068df251ed47e2a68c21764f2c9e4a18f
-      files    17167
-      npm      12.2.0 (the npm on PATH)
-      npm      10.9.9 (the recorded value)
-    
-    The recorded digest was produced by npm 10.9.9, and the npm on PATH is
-    npm 12.2.0. The two install different sets of optional packages from
-    the same lockfile, so the trees differ and the digests cannot match.
-    Use npm 10.9.9 to reproduce the recorded tree.
-    The installed tree does not match the tree the recorded digest describes.
-    Two things change that tree:
-      - the npm version: npm 10.9.9 and npm 12.2.0 install different sets of
-        optional packages from the same lockfile;
-      - the lockfiles themselves: a dependency change moves the digest.
-    The build gate pins the npm version in its `checknode` step, so if that
-    step passed, compare the lockfiles against the recorded value.
-    To locate the differing files, write a manifest for each tree and diff them:
-      node tools/tree_digest.mjs <tree> --manifest <file>
-    exit code = 1
+    digest ok: all-files win32-x64 = 5e5a977f96aeb873f414967d1bb7ea7068df251ed47e2a68c21764f2c9e4a18f
+    exit code = 0
 
 --- the measured digests ---
     tree root      : D:\hermes-multica\home\cache\scratch\ats102-npm12-clone\apps\studio\node_modules
@@ -118,4 +99,52 @@ added 55 packages in 41s
 ===================================================================
 the difference between the two trees, file by file
 ===================================================================
-    C:\Users\seiko\AppData\Local\Python\pythoncore-3.14-64\python.exe: can't open file 'D:\\c\\Users\\seiko\\multica_workspaces_desktop-api.multica.ai\\triton-n4hv-4bc6c5b98085\\seikoist-14-b8e6a736a9d3\\worktree\\tools\\ats102-probes\\diff-install-trees.py': [Errno 2] No such file or directory
+    tree A : D:/hermes-multica/home/cache/scratch/ats102-npm10-clone/apps/studio/node_modules  (17191 files)
+    tree B : D:/hermes-multica/home/cache/scratch/ats102-npm12-clone/apps/studio/node_modules  (17167 files)
+    
+    --- present in A only: 24 files ---
+      + @emnapi/runtime/LICENSE
+      + @emnapi/runtime/README.md
+      + @emnapi/runtime/dist/emnapi.cjs.js
+      + @emnapi/runtime/dist/emnapi.cjs.min.d.ts
+      + @emnapi/runtime/dist/emnapi.cjs.min.js
+      + @emnapi/runtime/dist/emnapi.d.mts
+      + @emnapi/runtime/dist/emnapi.d.ts
+      + @emnapi/runtime/dist/emnapi.esm-bundler.js
+      + @emnapi/runtime/dist/emnapi.iife.d.ts
+      + @emnapi/runtime/dist/emnapi.iife.js
+      + @emnapi/runtime/dist/emnapi.js
+      + @emnapi/runtime/dist/emnapi.min.d.mts
+      + @emnapi/runtime/dist/emnapi.min.js
+      + @emnapi/runtime/dist/emnapi.min.mjs
+      + @emnapi/runtime/dist/emnapi.mjs
+      + @emnapi/runtime/index.js
+      + @emnapi/runtime/package.json
+      + @img/sharp-wasm32/LICENSE
+      + @img/sharp-wasm32/README.md
+      + @img/sharp-wasm32/index.cjs
+      + @img/sharp-wasm32/lib/sharp-wasm32-0.35.5.node.js
+      + @img/sharp-wasm32/lib/sharp-wasm32-0.35.5.node.wasm
+      + @img/sharp-wasm32/package.json
+      + @img/sharp-wasm32/versions.json
+    
+    --- present in B only: 0 files ---
+    
+    --- in both, different content: 15 files ---
+      ~ .bin/baseline-browser-mapping
+      ~ .bin/baseline-browser-mapping.cmd
+      ~ .bin/marked
+      ~ .bin/marked.cmd
+      ~ .bin/nanoid
+      ~ .bin/nanoid.cmd
+      ~ .bin/next
+      ~ .bin/next.cmd
+      ~ .bin/semver
+      ~ .bin/semver.cmd
+      ~ .bin/tsc
+      ~ .bin/tsc.cmd
+      ~ .bin/tsserver
+      ~ .bin/tsserver.cmd
+      ~ .package-lock.json
+    
+    --- the packages the difference belongs to ---
