@@ -79,7 +79,7 @@ node <project>/node_modules/@playwright/test/cli.js test
 
 ## 5. 测试发现及脚本 ID
 
-v0.1：`fs.readdirSync({withFileTypes:true})` 深度 14、最多 2000 文件，跳过 `.git,node_modules,dist,out,coverage` 等；从文件中识别常见 `test('literal')`/`it('literal')`。**脚本 ID 采用稳定 UID 规范 v1**（`docs/18-UID-SPEC.md`）：显式 `@TC-xxx` 标注优先（显式标注是作者的声明，注册表不得把它交给别的用例），其次按标题键或执行体指纹派生，无法唯一判定时给出临时标识并报告歧义；UID 在**文件改名后保持不变**，**标题改写后在执行体未变时保持不变**（靠 UID 注册表找回原 UID），同名用例改了执行体后 UID 会变（`describe` 路径不参与标题键，见 `docs/18-UID-SPEC.md` §7.1）。动态参数化、`test.each`、代码生成、describe 嵌套语义不完整。P1 使用 Playwright `--list` + AST，在动态与参数化用例上补齐权威身份。
+v0.1：`fs.readdirSync({withFileTypes:true})` 深度 14、最多 2000 文件，跳过 `.git,node_modules,dist,out,coverage` 等；从文件中识别常见 `test('literal')`/`it('literal')`。**脚本 ID 采用稳定 UID 规范 v1**（`docs/18-UID-SPEC.md`）：显式 `@TC-xxx` 标注优先（显式标注是作者的声明，注册表不得把它交给别的用例），其次按标题键或执行体指纹派生，无法唯一判定时给出临时标识并报告歧义；UID 在**文件改名后保持不变**，**标题改写后在执行体未变时保持不变**（靠 UID 注册表找回原 UID），同名用例改了执行体后 UID 会变（`describe` 路径不参与标题键，见 `docs/18-UID-SPEC.md` §7.1）。运行结果与用例的绑定同样有边界：同一文件里标题相同的用例靠**本次执行的源码**的执行体指纹区分，指纹算不出来时该次执行保持未绑定，不绑到别的用例；注册表的裁剪只针对「文件仍在本次发现范围内、但用例已消失」的条目，文件暂时缺席（例如切换分支）不会让用例丢掉 UID（见 `docs/18-UID-SPEC.md` §7.1）。动态参数化、`test.each`、代码生成、describe 嵌套语义不完整。P1 使用 Playwright `--list` + AST，在动态与参数化用例上补齐权威身份。
 
 ### P1 AST 子集
 

@@ -57,25 +57,25 @@ ADR = ROOT / 'docs' / '16-BASELINE-ADR.md'
 EXPECTED = {
     'server/index.mjs': {
         16: 'const PORT=Number(process.env.ATS_PORT||',
-        28: "['queued','running'].includes(run.status)",
-        83: 'function cancelRun(run){',
-        84: "throw new Error('RUN_NOT_ACTIVE')",
-        90: 'new RegExp',
-        101: 'Content-Security-Policy',
-        163: "'cancelling'].includes(x.status)",
+        42: "['queued','running'].includes(run.status)",
+        97: 'function cancelRun(run){',
+        98: "throw new Error('RUN_NOT_ACTIVE')",
+        104: 'new RegExp',
+        115: 'Content-Security-Policy',
+        177: "'cancelling'].includes(x.status)",
         # The AGENT_* error mapping. The ADR cites this position for the
         # statement "AGENT_* 前缀的错误统一映射为 400".
-        255: 'const isAgentError=/^AGENT_/.test(code);',
+        269: 'const isAgentError=/^AGENT_/.test(code);',
         # The unified error STATUS mapping: the ADR cites this position for
         # the statement "该处用正则匹配错误消息，未命中即返回 500".
-        272: 'const status=/NOT_FOUND/.test(message)?404:',
+        286: 'const status=/NOT_FOUND/.test(message)?404:',
         # The message echo: the ADR cites this position for "把 e.message
         # 原样回显".
-        273: 'return err(res,status,message);',
+        287: 'return err(res,status,message);',
     },
     'server/core.mjs': {
-        102: "throw new Error('NOT_A_DIRECTORY')",
-        199: 'export function safeRunArgs(',
+        156: "throw new Error('NOT_A_DIRECTORY')",
+        249: 'export function safeRunArgs(',
     },
     # The crate-type declaration. It is NOT a port reference, so the ATS-101
     # port audit does NOT cover it -- this script checks it itself.
