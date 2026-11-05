@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
+import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid, normalizeTestPath } from './uid.mjs';
 import { buildPlaywrightArgs, probePlaywrightCli } from './adapters/playwright-cli.mjs';
 
 export const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
@@ -12,14 +13,88 @@ export const now = () => new Date().toISOString();
 export function ensureData() { fs.mkdirSync(path.join(dataDir(),'runs'), {recursive:true}); }
 export function loadState() {
   ensureData(); const name=path.join(dataDir(),'state.json');
-  if (!fs.existsSync(name)) return {schema:1, projects:[], runs:[]};
+  if (!fs.existsSync(name)) return {schema:1, projects:[], runs:[], uidRegistry:emptyRegistry()};
   const v=JSON.parse(fs.readFileSync(name,'utf8'));
   if (v.schema!==1 || !Array.isArray(v.projects) || !Array.isArray(v.runs)) throw new Error('UNSUPPORTED_DATABASE');
+  // The UID registry is additive: a state file written before ATS-201 has no
+  // registry and is loaded with an empty one, so old installations keep
+  // working until the migration script rewrites their identifiers.
+  if (!v.uidRegistry || typeof v.uidRegistry!=='object') v.uidRegistry=emptyRegistry();
   return v;
 }
 export function saveState(v) {
   ensureData(); const file=path.join(dataDir(),'state.json'), tmp=file+'.tmp';
   fs.writeFileSync(tmp,JSON.stringify(v,null,2),'utf8'); fs.renameSync(tmp,file);
+}
+
+/* ------------------------------------------------------------------ */
+/* Data directory lock                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The lock file of the data directory.
+ *
+ * The state file and the run folders are ONE piece of state: the Bridge
+ * writes `state.json` and renames the run folders, and the migration script
+ * rewrites both. When the two run at the same time, the Bridge overwrites
+ * the migrated `state.json` with its own in-memory copy -- which still holds
+ * the OLD identifiers -- while the folders on disk are already renamed. The
+ * result is a state that points at run folders that no longer exist.
+ *
+ * The lock is therefore EXCLUSIVE and it is held for the whole lifetime of
+ * the Bridge, and for the whole duration of a migration. The migration
+ * refuses to run while the Bridge holds it, and the Bridge refuses to start
+ * while a migration holds it.
+ */
+export const lockPath = (dir = dataDir()) => path.join(dir, 'bridge.lock');
+
+/** True when the process is still running. */
+export function isProcessAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; }
+  catch (e) { return e.code === 'EPERM'; }
+}
+
+/**
+ * The holder of the lock, or null when the lock is free.
+ *
+ * A lock whose holder is gone is a STALE lock: the process was killed and
+ * left the file behind. A stale lock does not block anybody -- it is
+ * overwritten by the next owner.
+ */
+export function readBridgeLock(file = lockPath()) {
+  if (!fs.existsSync(file)) return null;
+  let raw;
+  try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch { return null; }
+  if (!raw || !Number.isInteger(raw.pid)) return null;
+  if (!isProcessAlive(raw.pid)) return null;
+  return raw;
+}
+
+/**
+ * Acquires the exclusive lock of the data directory.
+ * Throws `BRIDGE_ALREADY_RUNNING` when a live process holds it.
+ */
+export function acquireBridgeLock(file = lockPath()) {
+  const holder = readBridgeLock(file);
+  if (holder) {
+    const e = new Error('BRIDGE_ALREADY_RUNNING');
+    e.code = 'BRIDGE_ALREADY_RUNNING';
+    e.holder = holder;
+    throw e;
+  }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ pid: process.pid, startedAt: now() }), 'utf8');
+  return file;
+}
+
+/** Releases the lock -- but only when this process is the holder. */
+export function releaseBridgeLock(file = lockPath()) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (raw && raw.pid === process.pid) fs.rmSync(file, { force: true });
+  } catch { /* the lock is not ours, or it is already gone */ }
 }
 export function validateProjectPath(input) {
   if(typeof input!=='string'||input.length>1024) throw new Error('INVALID_PROJECT_PATH');
@@ -60,17 +135,38 @@ export function walkTests(root,rel='',depth=0,acc=[]) {
     else if(ent.isFile()&&/\.(spec|test)\.[cm]?[jt]sx?$/.test(ent.name))acc.push(child.replace(/\\/g,'/'));
   }return acc;
 }
-export function discoverStatic(project) {
- const files=walkTests(project.root);const tests=[];
+export function discoverStatic(project, registry) {
+ const files=walkTests(project.root);const discovered=[];
  for(const file of files){
    const content=fs.readFileSync(path.join(project.root,file),'utf8');
-   const re=/(?:^|\n)\s*(?:test|it)(?:\.(?:only|skip|fixme))?\s*\(\s*(['"`])([^\n]*?)\1/g;
+   const re=/(?:^|\n)[ \t]*(?:test|it)(?:\.(?:only|skip|fixme))?\s*\(\s*(['"`])([^\n]*?)\1/g;
    let m;while((m=re.exec(content))!==null){
-     const title=m[2].slice(0,180),line=content.slice(0,m.index).split('\n').length;
-     tests.push({id:sha(`${project.id}:${file}:${title}`).slice(0,16),file,title,line,source:'static',level:'ST'});
+     // The line of the `test(` call itself, not the line of the whitespace
+     // that precedes it: a Playwright report numbers the line of the call.
+     const title=m[2].slice(0,180);
+     const line=content.slice(0,m.index+m[0].length).split('\n').length;
+     const body=extractCallbackBody(content,m.index+m[0].length);
+     discovered.push({file,title,line,bodyText:body.text});
    }
  }
- return {files,tests,discovery:'static',warning:'静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试请以 Playwright --list 为准。'};
+ const projectUid=projectUidOf(project);
+ const resolved=resolveIdentities({projectUid,discovered,registry});
+ const tests=resolved.items.map(t=>({
+   id:t.uid,uid:t.uid,uidSource:t.uidSource,uidStable:t.uidStable,
+   file:t.file,title:t.title,line:t.line,source:'static',level:'ST',
+   ...(t.ambiguity?{ambiguity:t.ambiguity}:{})
+ }));
+ const ambiguous=tests.filter(t=>!t.uidStable).length;
+ // Every kind of uncertainty is REPORTED. A case that got a uid but whose
+ // registry entry disagreed with it is reported as well: the uid is usable,
+ // but the memory of the past cases is inconsistent and a reader has to know.
+ const conflicts=tests.filter(t=>t.ambiguity&&t.ambiguity.reason!=='identical-title'&&t.ambiguity.reason!=='identical-title-and-body');
+ const duplicatedExplicit=tests.filter(t=>t.ambiguity?.reason==='duplicate-explicit-uid').length;
+ let warning='静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试请以 Playwright --list 为准。';
+ if(ambiguous)warning+=` ${ambiguous} 个用例的 UID 为临时值（标题重复且无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
+ if(duplicatedExplicit)warning+=` ${duplicatedExplicit} 个用例标注了同一个 @TC-xxx（重复的显式 UID），这些用例都没有绑定到该 UID，需要人工消歧。`;
+ if(conflicts.length)warning+=` ${conflicts.length} 个用例的注册表记录与本次发现不一致（${[...new Set(conflicts.map(t=>t.ambiguity.reason))].join('、')}），其 UID 由本次发现派生，需要人工复核。`;
+ return {files,tests,discovery:'static',uidVersion:UID_SCHEME_VERSION,projectUid,registry:resolved.registry,warning};
 }
 export function resolvePlaywright(project) {
  const candidates=['node_modules/@playwright/test/cli.js','node_modules/playwright/cli.js','node_modules/playwright-core/cli.js'];
@@ -109,7 +205,7 @@ export function safeRunArgs(project,testFile,output) {
  if(testFile)sourcePath(project,testFile);
  return args;
 }
-export function runDir(id){if(!/^run_[0-9a-f-]{36}$/.test(id)) throw new Error('INVALID_RUN_ID');return path.join(dataDir(),'runs',id);}
+export function runDir(id){if(!/^run_(?:[0-9a-f-]{36}|1_[0-9a-f]{24})$/.test(id)) throw new Error('INVALID_RUN_ID');return path.join(dataDir(),'runs',id);}
 export function filesInRun(id){const root=runDir(id);const result=[];
  function recur(dir,depth){if(depth>8||result.length>400)return;for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
  const full=path.join(dir,entry.name);if(entry.isSymbolicLink())continue;if(entry.isDirectory())recur(full,depth+1);else if(entry.isFile()){
@@ -122,13 +218,106 @@ export function artifactPath(id,relative){
  const full=path.resolve(root,relative);if(!isSubpath(root,full))throw new Error('PATH_OUTSIDE_RUN');
  const actual=fs.realpathSync(full);if(!isSubpath(root,actual)||!fs.statSync(actual).isFile())throw new Error('PATH_OUTSIDE_RUN');return actual;
 }
+/**
+ * Parses a Playwright JSON report into the run summary.
+ *
+ * Two details of the report format matter for the UID scheme:
+ *
+ *   * `spec.file` is relative to the Playwright `rootDir`, which is derived
+ *     from `testDir`. The registry stores the file relative to the project
+ *     root, so the report's `rootDir` is reported alongside the cases and the
+ *     two spellings are reconciled by the caller.
+ *   * a retried test case is ONE entry in `spec.tests[]` whose `results[]`
+ *     array holds one element per retry. Every retry is a separate execution
+ *     of the case, so every retry becomes its own case record here.
+ *
+ * The two LEVELS of status are kept apart, because they answer different
+ * questions:
+ *
+ *   * `status` -- the CASE level status (`expected` / `unexpected` / `flaky` /
+ *     `skipped`). It describes the case as a whole: a flaky case is `flaky`
+ *     even though its first retry failed.
+ *   * `resultStatus` -- the RESULT level status of THIS execution
+ *     (`passed` / `failed` / `timedOut` / `skipped` / `interrupted`). It
+ *     describes the single execution: the first retry of a flaky case failed,
+ *     the second passed.
+ *
+ * An Attempt is one EXECUTION, so it records the result level status. The
+ * case level status would report "flaky" for both attempts and hide that the
+ * first one actually failed.
+ */
 export function parseReport(report){
  let passed=0,failed=0,skipped=0,flaky=0;const cases=[];
  function walk(s){for(const x of s.specs||[]){for(const t of x.tests||[]){
   const status=t.status||'unknown';if(['expected'].includes(status))passed++;else if(status==='flaky')flaky++;else if(status==='skipped')skipped++;else failed++;
-  cases.push({title:x.title,file:s.file||'',status,duration:(t.results||[]).reduce((a,b)=>a+(b.duration||0),0),error:t.results?.find(r=>r.error)?.error?.message||''});
+  const results=Array.isArray(t.results)&&t.results.length?t.results:[{}];
+  const file=x.file||s.file||'';
+  results.forEach((r,index)=>{
+   cases.push({title:x.title,file,status,resultStatus:r.status??status,duration:r.duration||0,error:r.error?.message||'',retry:Number.isInteger(r.retry)?r.retry:index,line:x.line||null,column:x.column||null});
+  });
  }}for(const sub of s.suites||[])walk(sub);}
  for(const suite of report.suites||[])walk(suite);
- return {passed,failed,skipped,flaky,total:cases.length,cases};
+ const rootDir=report?.config?.rootDir||null;
+ // `total` counts the test cases of the run, the same unit as passed / failed /
+ // skipped / flaky. A retried case is still ONE case; its retries are counted
+ // separately as `executions`, because each retry is a separate execution.
+ const total=passed+failed+skipped+flaky;
+ return {passed,failed,skipped,flaky,total,executions:cases.length,cases,rootDir};
+}
+
+/**
+ * Builds the Attempt records of one Run.
+ *
+ * One Attempt is the execution of one test case inside one Run; a retried
+ * case produces one Attempt per retry. The Attempt UID is derived from the
+ * Run UID, the TestDefinition UID, the retry index and the occurrence index
+ * of the case inside the report, so the same attempt can be recomputed from
+ * the recorded fields (that is what the migration script relies on).
+ *
+ * `registry` supplies the mapping from a reported case to the stable
+ * TestDefinition UID. A case that cannot be bound unambiguously keeps
+ * `testUid: null` and records the reason in `uidBasis`.
+ */
+export function attemptsForRun(run, summary, registry) {
+  if (!summary || !Array.isArray(summary.cases)) return [];
+  const projectUid = run.projectUid ?? '';
+  const projectRoot = run.projectRoot ?? null;
+  const rootDir = summary.rootDir ?? null;
+  const occurrence = new Map();
+  const attempts = [];
+  for (const c of summary.cases) {
+    // The report names the file relative to the Playwright rootDir, the
+    // registry stores it relative to the project root. Both are reduced to
+    // the project relative spelling before they are compared.
+    const file = normalizeTestPath(c.file, { rootDir, projectRoot });
+    const found = findTestUid(registry, projectUid, { file, title: c.title, line: c.line });
+    const key = `${file} ${c.title} ${c.line}`;
+    const index = occurrence.get(key) ?? 0;
+    occurrence.set(key, index + 1);
+    attempts.push({
+      uid: attemptUidFor({
+        runUid: run.uid || run.id,
+        testUid: found.uid,
+        retry: c.retry,
+        fallbackKey: `${file} ${c.title} ${c.line}`,
+        occurrence: index
+      }),
+      runUid: run.uid || run.id,
+      testUid: found.uid,
+      uidBasis: found.basis,
+      file,
+      title: c.title,
+      line: c.line,
+      retry: c.retry || 0,
+      // An Attempt is one EXECUTION, so it records the result level status.
+      // The case level status (`flaky`) would describe the case as a whole and
+      // would report "flaky" for the failed retry as well.
+      status: c.resultStatus ?? c.status,
+      caseStatus: c.status,
+      duration: c.duration,
+      error: c.error || ''
+    });
+  }
+  return attempts;
 }
 export function compactLog(log){return log.length>150000?log.slice(-150000):log;}

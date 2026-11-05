@@ -1,0 +1,134 @@
+=== command ===
+node tools/ats201-probes/migration-evidence.mjs
+=== output ===
+# ATS-201 migration evidence
+
+## legacy state file (input)
+
+```json
+{
+  "schema": 1,
+  "projects": [
+    {
+      "id": "proj_11111111-1111-1111-1111-111111111111",
+      "name": "app",
+      "root": "C:\\Users\\seiko\\AppData\\Local\\Temp\\ats201-migration-evidence\\app",
+      "addedAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "runs": [
+    {
+      "id": "run_22222222-2222-2222-2222-222222222222",
+      "projectId": "proj_11111111-1111-1111-1111-111111111111",
+      "projectName": "app",
+      "file": "tests/home.spec.ts",
+      "gitCommit": "abc1234",
+      "status": "passed",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "startedAt": "2026-01-01T00:00:01.000Z",
+      "finishedAt": "2026-01-01T00:00:09.000Z",
+      "eventSeq": 3,
+      "log": "",
+      "summary": null,
+      "artifacts": []
+    }
+  ]
+}
+```
+
+## dry run
+
+$ node tools/migrate_uids.mjs --state <state.json> --dry-run
+project: proj_11111111-1111-1111-1111-111111111111 -> proj_1_924a0bf8674bc16af6771c40
+run: run_22222222-2222-2222-2222-222222222222 -> run_1_fc33f5d2e0b8d82d8af99184
+run folder rename required: run_22222222-2222-2222-2222-222222222222 -> run_1_fc33f5d2e0b8d82d8af99184
+projects: 1, runs: 1, changes: 2
+dry run: nothing written
+
+the state file is unchanged after the dry run: true
+
+## real migration
+
+$ node tools/migrate_uids.mjs --state <state.json> --backup
+project: proj_11111111-1111-1111-1111-111111111111 -> proj_1_924a0bf8674bc16af6771c40
+run: run_22222222-2222-2222-2222-222222222222 -> run_1_fc33f5d2e0b8d82d8af99184
+run folder rename required: run_22222222-2222-2222-2222-222222222222 -> run_1_fc33f5d2e0b8d82d8af99184
+projects: 1, runs: 1, changes: 2
+backup written: C:\Users\seiko\AppData\Local\Temp\ats201-migration-evidence\state.json.bak
+run folder renamed: run_22222222-2222-2222-2222-222222222222 -> run_1_fc33f5d2e0b8d82d8af99184
+migrated: C:\Users\seiko\AppData\Local\Temp\ats201-migration-evidence\state.json
+rollback: node tools/migrate_uids.mjs --state C:\Users\seiko\AppData\Local\Temp\ats201-migration-evidence\state.json --rollback
+
+## idempotency
+
+$ node tools/migrate_uids.mjs --state <state.json>
+already migrated: C:\Users\seiko\AppData\Local\Temp\ats201-migration-evidence\state.json
+uidVersion=1
+
+the second run reports "already migrated": true
+
+## migrated state file
+
+```json
+{
+  "schema": 1,
+  "uidVersion": 1,
+  "projects": [
+    {
+      "id": "proj_1_924a0bf8674bc16af6771c40",
+      "name": "app",
+      "root": "C:\\Users\\seiko\\AppData\\Local\\Temp\\ats201-migration-evidence\\app",
+      "addedAt": "2026-01-01T00:00:00.000Z",
+      "uid": "proj_1_924a0bf8674bc16af6771c40",
+      "legacyId": "proj_11111111-1111-1111-1111-111111111111"
+    }
+  ],
+  "runs": [
+    {
+      "id": "run_1_fc33f5d2e0b8d82d8af99184",
+      "projectId": "proj_1_924a0bf8674bc16af6771c40",
+      "projectName": "app",
+      "file": "tests/home.spec.ts",
+      "gitCommit": "abc1234",
+      "status": "passed",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "startedAt": "2026-01-01T00:00:01.000Z",
+      "finishedAt": "2026-01-01T00:00:09.000Z",
+      "eventSeq": 3,
+      "log": "",
+      "summary": null,
+      "artifacts": [],
+      "seq": 1,
+      "uid": "run_1_fc33f5d2e0b8d82d8af99184",
+      "projectUid": "proj_1_924a0bf8674bc16af6771c40",
+      "legacyId": "run_22222222-2222-2222-2222-222222222222"
+    }
+  ],
+  "uidRegistry": {
+    "version": 1,
+    "projects": {}
+  },
+  "runCounters": {
+    "proj_1_924a0bf8674bc16af6771c40": 1
+  }
+}
+```
+
+## the run keeps pointing at its project
+
+project.id      = proj_1_924a0bf8674bc16af6771c40
+run.projectId   = proj_1_924a0bf8674bc16af6771c40
+run.projectUid  = proj_1_924a0bf8674bc16af6771c40
+run.seq         = 1
+runCounters     = {"proj_1_924a0bf8674bc16af6771c40":1}
+the run is reachable through project.id: true
+
+## broken input is reported, not overwritten
+
+$ node tools/migrate_uids.mjs --state <broken state.json>
+cannot parse C:\Users\seiko\AppData\Local\Temp\ats201-migration-evidence\broken-state.json: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+exit code: 1
+file content afterwards: { not json
+
+RESULT: ALL CHECKS PASSED
+=== exit code: 0 ===

@@ -1,0 +1,32 @@
+=== command ===
+python tools/test_wbs_common.py
+=== output ===
+PASS ATS-401 note carrying its own marker is not doubled
+PASS ATS-401 note without the marker yields the same cell
+PASS a second merge of the same block is a no-op
+PASS the merged cell carries the marker exactly once
+PASS the foreign marker survives
+PASS the own marker is present
+PASS 【ATS-101】 is idempotent
+PASS 【ATS-102】 is idempotent
+PASS 【ATS-201】 is idempotent
+PASS 【ATS-301】 is idempotent
+PASS 【ATS-401】 is idempotent
+PASS 【ATS-501】 is idempotent
+PASS at least one updater declares a marker
+PASS update_wbs_ats101.py declares exactly one marker
+PASS 【ATS-101】 (from update_wbs_ats101.py) is registered in MARKERS
+PASS update_wbs_ats102.py declares exactly one marker
+PASS 【ATS-102】 (from update_wbs_ats102.py) is registered in MARKERS
+PASS update_wbs_ats201.py declares exactly one marker
+PASS 【ATS-201】 (from update_wbs_ats201.py) is registered in MARKERS
+PASS update_wbs_ats301.py declares exactly one marker
+PASS 【ATS-301】 (from update_wbs_ats301.py) is registered in MARKERS
+PASS update_wbs_ats401.py declares exactly one marker
+PASS 【ATS-401】 (from update_wbs_ats401.py) is registered in MARKERS
+PASS update_wbs_ats501.py declares exactly one marker
+PASS 【ATS-501】 (from update_wbs_ats501.py) is registered in MARKERS
+PASS the declared markers are exactly MARKERS
+
+all checks passed
+=== exit code: 0 ===
