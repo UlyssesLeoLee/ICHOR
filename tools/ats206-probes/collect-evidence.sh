@@ -70,7 +70,7 @@ run 02-defect-fixed.log "the ATS-206 defect probe -- AFTER the fix" \
 
 # --- 03: the ATS-206 test suite ---------------------------------------------
 run 03-migrate-state-ut.log "the ATS-206 test suite" \
-  node --test tests/migrate-state.test.mjs tests/migrate-state-counterexamples.test.mjs
+  node --test tests/migrate-state.test.mjs
 
 # --- 04: the ATS-201 regression suite ---------------------------------------
 run 04-migrate-regressions.log "the ATS-201 migration regression suite" \

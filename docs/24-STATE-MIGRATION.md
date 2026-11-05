@@ -281,8 +281,8 @@ Bridge 可以在读锁与写之间启动。
 | --- | --- |
 | 审核反例探针 `ce206.mjs` | 6/6 反例均不成立（`0 counterexample(s) hold`） |
 | 端到端探针 `e2e206.mjs` | 用真实 v0.1 Bridge + Playwright 1.64.1 产出的 v0.1 数据，迁移 → 新 Bridge 读取 → 回滚 → v0.1 Bridge 读取，全链路 PASS（0 failure） |
-| 反例用例 `tests/migrate-state-counterexamples.test.mjs` | 33 项；在 `d6152ee` 上 **21 项失败** |
-| ATS-206 用例 `tests/migrate-state.test.mjs` | 39 项通过 |
+| 反例用例（`tests/migrate-state.test.mjs` 的 CE 段，UT-070~UT-102） | 33 项；在 `d6152ee` 上 **21 项失败** |
+| ATS-206 用例 `tests/migrate-state.test.mjs` | 72 项通过（39 项主体 + 33 项反例段） |
 | ATS-201 存量用例 | 31 项通过（无回归） |
 | 全量 `node --test` | 636 项：625 通过 / 0 失败 / 11 跳过 |
 | 覆盖率 | `apply.mjs` 92.92%、`state-migration.mjs` 99.06%、`migrate_state.mjs` 96.52%、`migrate_uids.mjs` 94.33%（四个文件均 > 90%） |
