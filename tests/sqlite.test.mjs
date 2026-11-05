@@ -373,16 +373,24 @@ test('UT-SQL-026: a downgrade drops the higher version and its data', () => {
   try {
     storeState(db, sampleState());
     assert.ok(counts(db).testAttempts > 0, 'the fixture wrote no attempts');
-    // Going back to version 1 reverts step 2: the attempts and the
-    // artifacts are dropped, and their data is gone with them.
+    // Going back to version 1 reverts every step above it, in DESCENDING
+    // order: the steps are 1..N, so the ones above 1 are the steps that
+    // have to be reverted. The list is derived from the migration table
+    // rather than written down, so a new step does not break the test.
+    const expected = MIGRATIONS
+      .filter((m) => m.version > 1)
+      .map((m) => m.version)
+      .sort((a, b) => b - a);
     const result = downgradeDatabase(db, 1);
-    assert.deepEqual(result.applied, [2]);
+    assert.deepEqual(result.applied, expected);
     assert.equal(currentVersion(db), 1);
     const hasArtifacts = db
       .prepare(`SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name='artifacts'`)
       .get().n;
     assert.equal(Number(hasArtifacts), 0, 'the downgraded table still exists');
     assert.equal(counts(db).testAttempts, 0, 'the dropped table still holds rows');
+    // The events table (ATS-208, step 3) is gone with the rest.
+    assert.equal(counts(db).events, 0, 'the events table survived the downgrade');
     // The tables of version 1 are still there.
     assert.equal(counts(db).projects, 2);
   } finally { closeDatabase(db); }

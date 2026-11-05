@@ -51,6 +51,9 @@ import {
   resolveProjectBinary,
 } from './contract.mjs';
 import { walkTests } from '../core.mjs';
+// ATS-208: the shared status mapping and the shared aggregation, so that
+// the WDIO engine describes a run in exactly the same way as Playwright.
+import { aggregateCases, mapEngineStatus } from '../execution/model.mjs';
 
 /** Where the local WDIO CLI may live inside the project under test. */
 const CLI_CANDIDATES = [
@@ -76,15 +79,13 @@ const REPORTER_PACKAGES = {
  * WDIO states are: passed | failed | skipped | pending
  * Playwright statuses are: expected | unexpected | flaky | skipped | ...
  * The common model normalises both onto passed/failed/skipped/flaky/unknown.
+ *
+ * ATS-208: the mapping itself lives in `server/execution/model.mjs`, so that
+ * the two engines cannot drift apart. This function stays as the WDIO-flavoured
+ * name for the callers that already use it.
  */
 export function mapWdioStatus(state) {
-  switch (state) {
-    case 'passed': return 'passed';
-    case 'failed': return 'failed';
-    case 'skipped': return 'skipped';
-    case 'pending': return 'skipped';
-    default: return 'unknown';
-  }
+  return mapEngineStatus(state);
 }
 
 /**
@@ -124,9 +125,14 @@ export function findWdioReports(outputDir) {
  * ONE spec file. The json reporter does not carry the spec file on the suite
  * object, and a worker that ran several spec files cannot attribute a case to
  * one of them -- so the adapter leaves `file` empty instead of guessing.
+ *
+ * ATS-208: the aggregation is done by the SHARED aggregation of the model,
+ * so a WDIO case that was executed more than once is ONE case with several
+ * attempts -- exactly like a Playwright case that was retried. The two
+ * engines therefore describe a run in the same way.
  */
 export function mergeWdioReports(reports) {
-  const cases = [];
+  const executions = [];
   let browserName = '';
   let browserVersion = '';
   let unattributed = 0;
@@ -140,9 +146,14 @@ export function mergeWdioReports(reports) {
     for (const suite of report.suites || []) {
       for (const test of suite.tests || []) {
         if (!onlySpec) unattributed++;
-        cases.push({
+        const file = onlySpec ? fileUrlToRelative(onlySpec) : '';
+        executions.push({
           title: test.name,
-          file: onlySpec ? fileUrlToRelative(onlySpec) : '',
+          file,
+          // The identity of the case: a WDIO test is named by its file, its
+          // title and its position. The position keeps two same-titled tests
+          // of one file apart.
+          caseKey: `${file} ${test.name} ${executions.length}`,
           status: mapWdioStatus(test.state),
           duration: test.duration || 0,
           error: test.error ? (test.error.message || String(test.error)) : '',
@@ -150,13 +161,28 @@ export function mergeWdioReports(reports) {
       }
     }
   }
+  const aggregated = aggregateCases(executions);
   return {
-    passed: cases.filter((c) => c.status === 'passed').length,
-    failed: cases.filter((c) => c.status === 'failed').length,
-    skipped: cases.filter((c) => c.status === 'skipped').length,
-    flaky: 0,
-    total: cases.length,
-    cases,
+    passed: aggregated.passed,
+    failed: aggregated.failed,
+    skipped: aggregated.skipped,
+    flaky: aggregated.flaky,
+    total: aggregated.total,
+    executions: aggregated.executions,
+    cases: aggregated.cases.map((c) => ({
+      title: c.title,
+      file: c.file,
+      status: c.status,
+      duration: c.duration,
+      error: c.error,
+      attemptsCount: c.attemptsCount,
+      attempts: c.attempts.map((a) => ({
+        status: a.status,
+        retry: a.retry,
+        duration: a.duration,
+        error: a.error,
+      })),
+    })),
     browser: browserName ? `${browserName} ${browserVersion}`.trim() : '',
     unattributedCases: unattributed,
   };

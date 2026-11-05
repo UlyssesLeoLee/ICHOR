@@ -1,0 +1,32 @@
+=== the event stream: replayed by run+sequence, gap-free ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-1643614c08b5/worktree
+commit    : 69c783b
+branch    : agent/m3/seikoist-169
+node      : v24.19.0
+python    : Python 3.11.16
+
+--- Case A: the Bridge was killed while the run was in flight ---
+  run.status       : interrupted
+  event types      : ["run.queued","run.started","run.interrupted"]
+  event seqs       : [1,2,3]
+  strictly incr.   : true
+  gap-free         : true
+  replayed status  : interrupted
+  replay agrees    : true 
+
+--- Case B: the run finished normally ---
+  run.status       : passed
+  event types      : ["run.queued","run.started","run.finished"]
+  event seqs       : [1,2,3]
+  strictly incr.   : true
+  gap-free         : true
+  replayed status  : passed
+  replay agrees    : true 
+
+--- the durable log vs. the state file ---
+  events.jsonl     : ["1:run.queued","2:run.started","3:run.interrupted"]
+  run.eventSeq     : 3
+  the state file carries the events: 3
+
+
+exit code : 0

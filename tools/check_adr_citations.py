@@ -54,29 +54,52 @@ ADR = ROOT / 'docs' / '16-BASELINE-ADR.md'
 # checked against the ADR text: if the ADR changes a citation, this table
 # has to change with it, and the script says so instead of silently passing.
 # ---------------------------------------------------------------------------
-EXPECTED = {
-    'server/index.mjs': {
-        17: 'const PORT=Number(process.env.ATS_PORT||',
-        43: "['queued','running'].includes(run.status)",
-        98: 'function cancelRun(run){',
-        99: "throw new Error('RUN_NOT_ACTIVE')",
-        105: 'new RegExp',
-        116: 'Content-Security-Policy',
-        199: "'cancelling'].includes(x.status)",
+#
+# The POSITIONS are DERIVED, not written down.
+#
+# An earlier version of this table carried the line numbers as literals, and
+# every change to a cited file had to be followed by a hand-edited table --
+# which is exactly the kind of bookkeeping that silently rots: ATS-208
+# changed `server/index.mjs` twice and the table went stale twice, and each
+# stale entry turned the gate RED for a reason that had nothing to do with
+# the code.
+#
+# So the table below carries the NEEDLE -- the distinctive substring the
+# cited line must hold -- and the position is FOUND in the source. The ADR
+# still cites a position, and the script still checks THAT position against
+# the needle, so a citation that points at the wrong line is still caught:
+# the check is "the line the ADR cites holds this needle", not "this line
+# number holds this needle".
+# ---------------------------------------------------------------------------
+EXPECTED_NEEDLES = {
+    'server/index.mjs': [
+        'const PORT=Number(process.env.ATS_PORT||',
+        "['queued','running'].includes(run.status)",
+        'function cancelRun(run){',
+        "throw new Error('RUN_NOT_ACTIVE')",
+        'new RegExp',
+        'Content-Security-Policy',
+        "'cancelling'].includes(x.status)",
         # The AGENT_* error mapping. The ADR cites this position for the
         # statement "AGENT_* 前缀的错误统一映射为 400".
-        291: 'const isAgentError=/^AGENT_/.test(code);',
+        'const isAgentError=/^AGENT_/.test(code);',
         # The unified error STATUS mapping: the ADR cites this position for
         # the statement "该处用正则匹配错误消息，未命中即返回 500".
-        308: 'const status=/NOT_FOUND/.test(message)?404:',
+        'const status=/NOT_FOUND/.test(message)?404:',
         # The message echo: the ADR cites this position for "把 e.message
         # 原样回显".
-        309: 'return err(res,status,message);',
-    },
-    'server/core.mjs': {
-        262: "throw new Error('NOT_A_DIRECTORY')",
-        593: 'export function safeRunArgs(',
-    },
+        'return err(res,status,message);',
+    ],
+    'server/core.mjs': [
+        "throw new Error('NOT_A_DIRECTORY')",
+        'export function safeRunArgs(',
+    ],
+}
+# The entries below carry their position explicitly, because their files are
+# not rewritten by the tasks that touch the bridge. The entries in
+# EXPECTED_NEEDLES carry only the NEEDLE: their position is derived from the
+# source, because those files ARE rewritten (see the note above).
+EXPECTED = {
     # The crate-type declaration. It is NOT a port reference, so the ATS-101
     # port audit does NOT cover it -- this script checks it itself.
     'src-tauri/Cargo.toml': {
@@ -144,7 +167,7 @@ RANGES = [
 PORT_AUDITED = {
     # RUNTIME port hardcodings: the audit validates each of these positions
     # against the source.
-    'apps/studio/lib/api.ts': {7: 'the API base URL'},
+    'apps/studio/lib/api.ts': {14: 'the API base URL'},
     'apps/studio/app/page.tsx': {81: 'the workbench footer text'},
     'apps/studio/public/fallback.html': {3: 'the portable UI footer text'},
     'src-tauri/src/lib.rs': {19: 'the ATS_PORT environment default'},
@@ -207,6 +230,42 @@ def read_lines(rel):
     return path.read_text(encoding='utf-8').split('\n')
 
 
+def derived_positions(rel, needles):
+    """The position of every needle of `rel` in the CURRENT source.
+
+    The position is the FIRST line that holds the needle. A needle that is
+    not in the source at all yields no position: the caller then reports the
+    citation as uncovered, because the construct the ADR cites is GONE --
+    which is the failure this table is here to catch.
+
+    The first line is the right choice for these needles: every one of them
+    is a distinctive statement (`const isAgentError=...`), so it appears
+    exactly once in its file.
+    """
+    lines = read_lines(rel)
+    out = {}
+    for needle in needles:
+        for i, line in enumerate(lines, 1):
+            if needle in line:
+                out.setdefault(i, needle)
+                break
+    return out
+
+
+def expected_table():
+    """The EXPECTED table, with the DERIVED positions filled in.
+
+    The literal entries keep their positions; the needle-only entries get
+    the position their needle currently holds in the source.
+    """
+    table = {rel: dict(rows) for rel, rows in EXPECTED.items()}
+    for rel, needles in EXPECTED_NEEDLES.items():
+        rows = table.setdefault(rel, {})
+        for position, needle in derived_positions(rel, needles).items():
+            rows[position] = needle
+    return table
+
+
 def expand_spec(spec):
     """The individual line numbers a citation spec names.
 
@@ -250,8 +309,13 @@ def main():
     # The coverage table is built from the EXPECTED positions, the RANGES and
     # the port-audited POSITIONS. A citation that appears in none of them is
     # UNCOVERED: the script refuses to claim it checked something it did not.
+    # The positions the derived needles currently hold. The table is built
+    # ONCE, from the CURRENT source, so a cited file that was rewritten
+    # does not turn the gate red for a bookkeeping reason.
+    expected = expected_table()
+
     covered = set()
-    for rel, table in EXPECTED.items():
+    for rel, table in expected.items():
         covered.add(rel)
     for rel, _needle, _desc in RANGES:
         covered.add(rel)
@@ -274,7 +338,7 @@ def main():
             bad.append('%s is cited by the ADR but the file does not exist' % rel)
             print('UNCOVERED %s (the cited file does not exist)' % rel)
             continue
-        table = EXPECTED.get(rel, {})
+        table = expected.get(rel, {})
         # The start positions of the RANGE citations for this file. A range
         # is checked as a whole (start anchor + extent), so its interior
         # positions are covered by that check, not one by one.
@@ -319,7 +383,7 @@ def main():
                 print('UNCOVERED %s:%d (cited by the ADR, no needle covers it)' % (rel, n))
 
     # --- 3. every EXPECTED position must still be cited AND hold its needle --
-    for rel, table in EXPECTED.items():
+    for rel, table in expected.items():
         lines = read_lines(rel)
         if not lines:
             bad.append('%s does not exist' % rel)

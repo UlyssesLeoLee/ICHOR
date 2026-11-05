@@ -86,7 +86,7 @@ NOTE = (
     '写事务进行中读者读到提交前快照、镜像在持锁超时后恢复并 verify 通过、命令行往返与非法参数拒绝；'
     '覆盖率：core/db/import/schema/store/sqlite_meta 六个文件均 > 90%；'
     '已知边界：当前层只做镜像，不做查询 API；'
-    '面向 P1 的目标 schema 见 docs/06-DATA-DESIGN.md §5.4（尚未部署）。'
+    '面向 P1 的目标 schema 见 docs/06-DATA-DESIGN.md §5.5（尚未部署）。'
 )
 
 

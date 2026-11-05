@@ -43,7 +43,7 @@
  */
 
 /** The schema version this build of the code understands. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /**
  * The migration steps, in order.
@@ -174,13 +174,46 @@ export const MIGRATIONS = [
       `CREATE INDEX IF NOT EXISTS idx_attempts_run_status ON test_attempts(run_uid, status)`,
     ],
     down: [
-      `DROP INDEX IF EXISTS idx_attempts_run_status`,
-      `DROP TABLE IF EXISTS test_attempts`,
-      `DROP INDEX IF EXISTS idx_artifacts_run`,
-      `DROP TABLE IF EXISTS artifacts`,
-    ],
-  },
-];
+          'DROP INDEX IF EXISTS idx_attempts_run_status',
+          'DROP TABLE IF EXISTS test_attempts',
+          'DROP INDEX IF EXISTS idx_artifacts_run',
+          'DROP TABLE IF EXISTS artifacts',
+        ],
+      },
+      {
+        version: 3,
+        name: 'execution-events',
+        tables: {
+          events: ['run_uid', 'seq', 'at', 'type', 'data'],
+        },
+        up: [
+          // ATS-208: the execution events become queryable rows of their own.
+          //
+          // The composite primary key `(run_uid, seq)` is the IDENTITY of an
+          // event: the sequence number is per run, so `seq` alone would collide
+          // between two runs of the same project. The key also ENFORCES the
+          // property the acceptance criterion asks for: the sequence of a run is
+          // gap-free and never reused, because a second event with the same
+          // (run, seq) cannot be written at all.
+          //
+          // `data` keeps the payload of the event verbatim, so a field the layer
+          // does not model is not lost.
+          `CREATE TABLE IF NOT EXISTS events (
+             run_uid TEXT NOT NULL,
+             seq     INTEGER NOT NULL,
+             at      TEXT,
+             type    TEXT NOT NULL,
+             data    TEXT NOT NULL,
+             PRIMARY KEY (run_uid, seq)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_events_type ON events(type)`,
+        ],
+        down: [
+          'DROP INDEX IF EXISTS idx_events_type',
+          'DROP TABLE IF EXISTS events',
+        ],
+      },
+    ];
 
 /** The migration step that brings the database from `version - 1` to `version`. */
 export function stepFor(version) {

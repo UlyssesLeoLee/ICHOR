@@ -2,7 +2,14 @@ export type Project={id:string,uid:string,name:string,root:string,addedAt:string
 export type TestDef={id:string,uid:string,uidSource:string,uidStable:boolean,file:string,title:string,line:number,source:string,level:string,ambiguity?:{key:string,reason:string,candidates:{file:string,title:string,line:number}[]}};
 export type TestCatalog={tests:TestDef[],files:string[],warning:string,uidVersion:number,projectUid:string};
 export type Attempt={uid:string,runUid:string,testUid:string|null,uidBasis:string,file:string,title:string,line:number|null,retry:number,status:string,caseStatus:string,duration:number,error:string};
-export type Run={id:string,uid:string,seq:number,projectId:string,projectUid:string,projectName:string,file:string|null,gitCommit:string,status:string,createdAt:string,startedAt:string|null,finishedAt:string|null,log?:string,error?:string,summary?:{passed:number,failed:number,skipped:number,flaky:number,total:number,executions:number,cases:{title:string,file:string,status:string,resultStatus:string,duration:number,error:string}[]},artifacts?:{file:string,size:number,sha256:string}[],attempts?:Attempt[]};
+// ATS-208: the attempt of a case -- ONE execution of it. A case that was
+// retried has SEVERAL attempts, and the first one is not overwritten by the
+// retry.
+export type CaseAttempt={status:string,retry:number,duration:number,error:string};
+// ATS-208: the case as a whole. Its status is the AGGREGATE of its
+// attempts: a case that failed once and then passed is 'flaky'.
+export type CaseResult={title:string,file:string,status:string,duration:number,error:string,attemptsCount:number,attempts:CaseAttempt[]};
+export type Run={id:string,uid:string,seq:number,projectId:string,projectUid:string,projectName:string,file:string|null,gitCommit:string,status:string,createdAt:string,startedAt:string|null,finishedAt:string|null,log?:string,error?:string,summary?:{passed:number,failed:number,skipped:number,flaky:number,total:number,executions:number,cases:CaseResult[]},artifacts?:{file:string,size:number,sha256:string}[],attempts?:Attempt[]};
 export type Source={file:string,content:string,hash:string};
 const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
 let token='';

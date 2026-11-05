@@ -1,0 +1,50 @@
+=== the coverage of the execution model ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-1643614c08b5/worktree
+commit    : 69c783b
+
+✔ IT-EXE-001: the bridge starts (328.8308ms)
+✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (374.1932ms)
+✔ IT-EXE-003: the events of a run replay into its status, gap-free (15.4475ms)
+✔ IT-EXE-004: the events are in the state file AND in the metadata database (2.8523ms)
+✔ IT-EXE-005: the durable log and the state file carry the same events (0.3976ms)
+✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (1287.2997ms)
+✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (1291.0132ms)
+✔ IT-EXE-CLEANUP: stop and cleanup (3.9573ms)
+✔ UT-EXE-001: every engine status maps onto the common vocabulary (0.7731ms)
+✔ UT-EXE-002: an unknown status becomes unknown, not a guess (0.1096ms)
+✔ UT-EXE-003: the terminal run statuses are the ones a run never leaves (0.1014ms)
+✔ UT-EXE-004: a retried case is ONE case that keeps EVERY attempt (0.5142ms)
+✔ UT-EXE-005: the counters count the CASES, never the executions (0.1312ms)
+✔ UT-EXE-006: the aggregation of the attempts follows the documented order (0.1322ms)
+✔ UT-EXE-007: two cases with the same title in one file stay two cases (0.0902ms)
+✔ UT-EXE-008: a case with no execution still exists and is counted once (0.0924ms)
+✔ UT-EXE-009: the attempts of one case share the TestDefinition UID (2.95ms)
+✔ UT-EXE-010: the events of a run replay into its terminal status (0.8371ms)
+✔ UT-EXE-011: an interrupted run replays into `interrupted` (0.0946ms)
+✔ UT-EXE-012: the replay follows the SEQUENCE, not the order of the array (0.0782ms)
+✔ UT-EXE-013: a hole in the sequence is reported, not hidden (0.0616ms)
+✔ UT-EXE-014: an empty stream determines no status (0.0552ms)
+✔ UT-EXE-015: the sequence of a run is gap-free and starts at 1 (0.1168ms)
+✔ UT-EXE-016: the state machine refuses the transitions it can disprove (0.0914ms)
+✔ UT-EXE-017: the event that names the status is the last one of the stream (0.0733ms)
+✔ UT-EXE-018: the unified view carries the run, the cases and the attempts (0.3035ms)
+✔ UT-EXE-019: an empty report does not crash and reports zero (0.069ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3445.2237
+ℹ start of coverage report
+ℹ ----------------------------------------------------------------
+ℹ file        | line % | branch % | funcs % | uncovered lines
+ℹ ----------------------------------------------------------------
+ℹ server      |        |          |         | 
+ℹ  execution  |        |          |         | 
+ℹ   model.mjs |  96.69 |    66.42 |   91.43 | 189-193 436-455 472
+ℹ ----------------------------------------------------------------
+ℹ all files   |  96.69 |    66.42 |   91.43 | 
+ℹ ----------------------------------------------------------------
+ℹ end of coverage report

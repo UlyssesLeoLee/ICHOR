@@ -6,6 +6,10 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,discoverTests,discoverTestsAsync,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath } from './core.mjs';
 import { projectUidFor, projectUidOf, runUidFor, attemptUidFor, nextRunSeq, UID_SCHEME_VERSION } from './uid.mjs';
+// ATS-208: the unified execution model. The event vocabulary, the state
+// machine and the replay live in `server/execution/model.mjs`; the bridge
+// only WRITES the events and READS them back.
+import { EVENT_TYPE, RUN_STATUS, isAllowedTransition, nextEventSeq, replayEvents } from './execution/model.mjs';
 import { trustOf, withTrust } from './discovery/trust.mjs';
 import { AGENT_CONTRACT_VERSION,describeAgentContract,validateAgentRequest } from './agent.mjs';
 import { PLUGIN_CONTRACT_VERSION,describePluginContract,validatePluginManifest,resolvePluginPermissions } from './plugins/contract.mjs';
@@ -40,7 +44,50 @@ catch(e){
 }
 process.on('exit',()=>releaseBridgeLock());
 let store=loadState();
-for(const run of store.runs){if(['queued','running'].includes(run.status)){run.status='interrupted';run.finishedAt=now();run.error='Server restarted while run was active';}}
+// ATS-208: the events of a run travel with the run record, and the durable
+// `events.jsonl` of its own folder is the RECORD of what happened.
+//
+// The two are reconciled on EVERY start, not only for the runs that were
+// written before ATS-208. The reason is a crash window: an event is written
+// to `events.jsonl` first and the state is saved afterwards, so a bridge
+// that dies in between leaves the log one event AHEAD of the state file.
+// The counter of the run would then hand out a sequence number that the log
+// already holds -- two events with the same number, and the metadata layer's
+// primary key (run_uid, seq) would refuse the duplicate.
+//
+// So the log is the authority: the events of the run are read back from it,
+// and the state's own copy is reconciled against it. An event that the log
+// does not have (the bridge died between the state write and the log
+// write -- impossible in that order, but possible if the log was truncated)
+// is dropped rather than kept, because the log is what a reader replays.
+for(const run of store.runs){
+ const file=path.join(runDir(run.id),'events.jsonl');
+ if(!fs.existsSync(file))continue;
+ let logged=[];
+ try{
+  logged=fs.readFileSync(file,'utf8').split('\n').filter(Boolean).map((line)=>JSON.parse(line));
+ }catch{continue;}
+ if(!logged.length)continue;
+ // The events of the state that the log does not have are dropped: the log
+ // is the record, and a reader replays the log.
+ run.events=logged;
+ // The counter of the run must agree with the events that were read back,
+ // otherwise the next event would reuse a number that is already taken.
+ const highest=run.events.reduce((max,e)=>Math.max(max,Number(e.seq)||0),0);
+ if(highest>run.eventSeq)run.eventSeq=highest;
+}
+// ATS-208: the recovery of a run whose bridge died. The run is marked
+// `interrupted` AND the event that says so is written -- without the event
+// the events of an interrupted run determined no status at all, so they
+// could not be replayed. The event is written BEFORE the status changes,
+// because the state machine allows `run.interrupted` from the status the
+// run was in, not from the status it is given.
+for(const run of store.runs){
+ if(['queued','running'].includes(run.status)){
+  writeEvent(run,EVENT_TYPE.INTERRUPTED,{reason:'Server restarted while run was active'});
+  run.status=RUN_STATUS.INTERRUPTED;run.finishedAt=now();run.error='Server restarted while run was active';
+ }
+}
 saveState(store);
 
 const ORIGINS=new Set([`http://localhost:${PORT}`,`http://127.0.0.1:${PORT}`,'http://localhost:3000','http://127.0.0.1:3000','tauri://localhost','http://tauri.localhost','https://tauri.localhost']);
@@ -51,11 +98,55 @@ async function body(req){let buf='';for await(const chunk of req){buf+=chunk;if(
 function getProject(id){const p=store.projects.find(p=>p.id===id||p.uid===id);if(!p)throw new Error('PROJECT_NOT_FOUND');return p;}
 function getRun(id){const r=store.runs.find(r=>r.id===id||r.uid===id);if(!r)throw new Error('RUN_NOT_FOUND');return r;}
 function cleanProject(p){let git={branch:'-',commit:'-',dirty:false};try{git=gitInfo(p.root);}catch{} return {...p,uid:p.uid||projectUidOf(p),git};}
-function writeEvent(run,type,data={}){const ev={seq:++run.eventSeq,at:now(),type,data};fs.appendFileSync(path.join(runDir(run.id),'events.jsonl'),JSON.stringify(ev)+'\n');}
+/**
+ * Writes one event of a run.
+ *
+ * ATS-208: the event stream is the AUDIT TRAIL of the run, and it has to
+ * satisfy three properties:
+ *
+ *   1. it is APPEND-ONLY -- an event is never rewritten;
+ *   2. its SEQUENCE is gap-free and strictly increasing -- the numbers of a
+ *      run's events are 1..N with no hole, so a reader can tell "the run
+ *      reached event 7" from "event 7 was lost";
+ *   3. it REPLAYS -- folding the events in their sequence order yields the
+ *      state the run is in.
+ *
+ * The event is written to BOTH places it has to be in:
+ *
+ *   * `events.jsonl` -- the durable, append-only log of the run folder;
+ *   * `run.events`    -- the state file, so that the events travel with the
+ *     run record and the SQLite mirror can index them.
+ *
+ * The two are written from the SAME event object, so they cannot disagree.
+ *
+ * An event that the state machine does not allow from the current status is
+ * REFUSED: it is reported on stderr and NOT written. A stream that
+ * contradicts the state machine would make the replay meaningless, and a
+ * silent contradiction is worse than a loud one.
+ */
+function writeEvent(run,type,data={}){
+ if(!isAllowedTransition(run.status,type)){
+  console.error(`the event ${type} is not allowed from the status ${run.status} of run ${run.id} -- it was refused`);
+  return null;
+ }
+ const ev={seq:nextEventSeq(run),at:now(),type,data};
+ // The counter of the run is advanced FIRST, so the next event takes the
+ // next number even when the write below fails.
+ run.eventSeq=ev.seq;
+ run.events=run.events??[];
+ run.events.push(ev);
+ fs.appendFileSync(path.join(runDir(run.id),'events.jsonl'),JSON.stringify(ev)+'\n');
+ return ev;
+}
 function finishRun(run,code,signal){
  if(run.status!=='running'&&run.status!=='cancelling')return;
  const cancelled=run.status==='cancelling';
- run.status=cancelled?'cancelled':code===0?'passed':'failed';run.exitCode=code;run.finishedAt=now();
+ // ATS-208: the `run.finished` event is written BEFORE the status changes,
+ // so the event names the status the run ended in. That is what lets the
+ // replay of the event stream yield the same status the run record carries.
+ const terminalStatus=cancelled?'cancelled':code===0?'passed':'failed';
+ writeEvent(run,EVENT_TYPE.FINISHED,{status:terminalStatus,code,signal});
+ run.status=terminalStatus;run.exitCode=code;run.finishedAt=now();
  const folder=runDir(run.id);
  // Collect through the adapter that started the run, so every engine's
  // native result file is mapped onto the same summary shape.
@@ -78,29 +169,37 @@ function finishRun(run,code,signal){
  run.artifacts=filesInRun(run.id).filter(x=>!['events.jsonl','stdout.log'].includes(x.file));
  const manifest={version:1,runId:run.id,projectUid:run.projectUid||null,projectId:run.projectId,sourceCommit:run.gitCommit,runner:run.runner||'playwright',status:run.status,createdAt:run.startedAt,finishedAt:run.finishedAt,artifacts:run.artifacts,attempts:run.attempts};
  fs.writeFileSync(path.join(folder,'manifest.json'),JSON.stringify(manifest,null,2));
- writeEvent(run,'run.finished',{status:run.status,code,signal});jobs.delete(run.id);saveState(store);
-}
-function startRun(project,run,adapter){
- const folder=runDir(run.id);fs.mkdirSync(folder,{recursive:true});
- writeEvent(run,'run.queued',{file:run.file,runner:run.runner});
- let handle;
- try{handle=adapter.start({project,run,file:run.file,outputDir:folder});}
- catch(e){run.status='error';run.error=e.message;run.finishedAt=now();writeEvent(run,'run.error',{error:e.message});saveState(store);return;}
- const cp=handle.child;
- run.status='running';run.pid=cp.pid;run.startedAt=now();run.command=[handle.command,...handle.args];jobs.set(run.id,{child:cp,handle});writeEvent(run,'run.started',{pid:cp.pid,runner:run.runner});saveState(store);
- for(const stream of [cp.stdout,cp.stderr])stream.on('data',buf=>{
-  const str=buf.toString('utf8');run.log=compactLog((run.log||'')+str);
-  fs.appendFileSync(path.join(folder,'stdout.log'),str);
- });
- cp.on('error',e=>{run.error=e.message;finishRun(run,127,'spawn-error');});
- cp.on('close',(code,signal)=>finishRun(run,code,signal));
-}
-function cancelRun(run){
- const job=jobs.get(run.id);if(!job)throw new Error('RUN_NOT_ACTIVE');run.status='cancelling';writeEvent(run,'run.cancelling');saveState(store);
- const cp=job.child;
- if(process.platform==='win32')spawn('taskkill',['/PID',String(cp.pid),'/T','/F'],{windowsHide:true});
- else {try{cp.kill('SIGTERM');}catch{}}
-}
+  jobs.delete(run.id);saveState(store);
+ }
+ function startRun(project,run,adapter){
+  const folder=runDir(run.id);fs.mkdirSync(folder,{recursive:true});
+  // ATS-208: the events are written BEFORE the status changes, so each
+  // event records the status the run is leaving and the stream replays.
+  writeEvent(run,EVENT_TYPE.QUEUED,{file:run.file,runner:run.runner});
+  let handle;
+  try{handle=adapter.start({project,run,file:run.file,outputDir:folder});}
+  catch(e){
+   writeEvent(run,EVENT_TYPE.ERROR,{error:e.message});
+   run.status=RUN_STATUS.ERROR;run.error=e.message;run.finishedAt=now();saveState(store);return;
+  }
+  const cp=handle.child;
+  writeEvent(run,EVENT_TYPE.STARTED,{pid:cp.pid,runner:run.runner});
+  run.status=RUN_STATUS.RUNNING;run.pid=cp.pid;run.startedAt=now();run.command=[handle.command,...handle.args];jobs.set(run.id,{child:cp,handle});saveState(store);
+  for(const stream of [cp.stdout,cp.stderr])stream.on('data',buf=>{
+   const str=buf.toString('utf8');run.log=compactLog((run.log||'')+str);
+   fs.appendFileSync(path.join(folder,'stdout.log'),str);
+  });
+  cp.on('error',e=>{run.error=e.message;finishRun(run,127,'spawn-error');});
+  cp.on('close',(code,signal)=>finishRun(run,code,signal));
+ }
+ function cancelRun(run){
+  const job=jobs.get(run.id);if(!job)throw new Error('RUN_NOT_ACTIVE');
+  writeEvent(run,EVENT_TYPE.CANCELLING);
+  run.status=RUN_STATUS.CANCELLING;saveState(store);
+  const cp=job.child;
+  if(process.platform==='win32')spawn('taskkill',['/PID',String(cp.pid),'/T','/F'],{windowsHide:true});
+  else {try{cp.kill('SIGTERM');}catch{}}
+ }
 function checkedRequest(req){
  const host=req.headers.host||'';if(!new RegExp(`^(localhost|127\\.0\\.0\\.1):${PORT}$`,'i').test(host))return 'INVALID_HOST';
  const origin=req.headers.origin;
@@ -234,7 +333,7 @@ const server=http.createServer(async(req,res)=>{
    store.runCounters=store.runCounters??{};
    store.runCounters[project.id]=seq;
    const uid=runUidFor({projectUid,gitCommit,file,seq});
-   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:'queued',createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested};
+   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested};
    store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter);return respond(res,202,{run});
   }
   if(action==='lineage'&&req.method==='GET'){
@@ -250,8 +349,30 @@ const server=http.createServer(async(req,res)=>{
   if(action===''&&req.method==='GET')return respond(res,200,{run:r});
   if(action==='stop'&&req.method==='POST'){cancelRun(r);return respond(res,200,{status:r.status});}
   if(action==='events'&&req.method==='GET'){
-    const f=path.join(runDir(r.id),'events.jsonl');return respond(res,200,{events:fs.existsSync(f)?fs.readFileSync(f,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse):[]});
-  }
+     const f=path.join(runDir(r.id),'events.jsonl');return respond(res,200,{events:fs.existsSync(f)?fs.readFileSync(f,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse):[]});
+    }
+    // ATS-208: the replay. The events of the run, folded in their sequence
+    // order, yield the status the run is in. The answer says whether the
+    // replay AGREES with the run record, and it reports the gaps in the
+    // sequence -- a hole means an event was lost, and the reader has to know.
+    if(action==='replay'&&req.method==='GET'){
+     const f=path.join(runDir(r.id),'events.jsonl');
+     const events=fs.existsSync(f)?fs.readFileSync(f,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse):[];
+     const replay=replayEvents(events);
+     return respond(res,200,{
+      runId:r.id,
+      status:r.status,
+      replayedStatus:replay.status,
+      // The replay agrees with the record when both name the same status.
+      // A run whose events determine NO status is a disagreement too: the
+      // stream does not describe the run.
+      agrees:replay.status===r.status,
+      terminal:replay.terminal,
+      sequence:replay.sequence,
+      gaps:replay.gaps,
+      events:replay.events,
+     });
+    }
   if(action==='artifact'&&req.method==='GET'){
    const file=u.searchParams.get('file'),actual=artifactPath(r.id,file);const type=mime[path.extname(actual)]||'application/octet-stream';
    res.writeHead(200,{'Content-Type':type,'Content-Disposition':`attachment; filename="${path.basename(actual).replace(/[^a-zA-Z0-9._-]/g,'_')}"`,'X-Content-Type-Options':'nosniff'});return fs.createReadStream(actual).pipe(res);
