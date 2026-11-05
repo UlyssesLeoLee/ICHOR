@@ -37,7 +37,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-401】', '【ATS-501】')
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-301】', '【ATS-401】', '【ATS-501】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -184,11 +184,20 @@ def merge_marked(current, marker, new_text, stale_prefixes=(), stale_fragments=(
 
     out_blocks = []
     own_written = False
+    # The caller may hand us text that already starts with its own marker.
+    # `merge_marked` writes `marker + new_text`, so leaving the marker in
+    # would produce a doubled prefix (e.g. 【ATS-401】【ATS-401】...) and the
+    # cell would no longer be idempotent. Strip the caller's own leading
+    # markers once here so both spellings are accepted and the result is the
+    # same block either way.
+    own_text = new_text
+    while own_text.startswith(marker):
+        own_text = own_text[len(marker):]
     for owner, text in blocks:
         if owner == marker:
             if own_written:
                 continue              # a duplicate of this script's block
-            out_blocks.append((marker, marker + new_text))
+            out_blocks.append((marker, marker + own_text))
             own_written = True
             continue
         if owner is None:
@@ -214,7 +223,7 @@ def merge_marked(current, marker, new_text, stale_prefixes=(), stale_fragments=(
         if plain:
             out_blocks.insert(0, (None, new_text))
         else:
-            out_blocks.append((marker, marker + new_text))
+            out_blocks.append((marker, marker + own_text))
 
     # Re-emit in canonical order: unmarked prefix first, then one block per
     # marker in the MARKERS order. A block whose marker is unknown (a future
