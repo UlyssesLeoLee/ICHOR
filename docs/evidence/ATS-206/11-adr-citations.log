@@ -1,6 +1,6 @@
 === the ADR citation check ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-53f569e2a08a/worktree
-commit    : e8430fe
+commit    : 3262837
 branch    : agent/m2/seikoist-167
 node      : v24.19.0
 python    : Python 3.11.16
@@ -9,8 +9,8 @@ python    : Python 3.11.16
   apps/studio/app/page.tsx         81
   apps/studio/lib/api.ts           14
   apps/studio/public/fallback.html 3
-  server/core.mjs                  306, 550
-  server/index.mjs                 195-202, 196, 204, 21, 215, 292, 406, 423, 424, 86
+  server/core.mjs                  306, 637
+  server/index.mjs                 195-202, 196, 204, 21, 215, 298, 412, 429, 430, 86
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
@@ -33,12 +33,12 @@ ok   server/index.mjs:195
 ok   server/index.mjs:196
 ok   server/index.mjs:204
 ok   server/index.mjs:215
-ok   server/index.mjs:292
-ok   server/index.mjs:406
-ok   server/index.mjs:423
-ok   server/index.mjs:424
+ok   server/index.mjs:298
+ok   server/index.mjs:412
+ok   server/index.mjs:429
+ok   server/index.mjs:430
 ok   server/core.mjs:306
-ok   server/core.mjs:550
+ok   server/core.mjs:637
 ok   server/index.mjs:195-202 (cancelRun extent)
 ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)

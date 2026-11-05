@@ -284,5 +284,7 @@ Bridge 可以在读锁与写之间启动。
 | 反例用例 `tests/migrate-state-counterexamples.test.mjs` | 33 项；在 `d6152ee` 上 **21 项失败** |
 | ATS-206 用例 `tests/migrate-state.test.mjs` | 39 项通过 |
 | ATS-201 存量用例 | 31 项通过（无回归） |
-| 全量 `node --test` | 611 项：600 通过 / 0 失败 / 11 跳过 |
+| 全量 `node --test` | 636 项：625 通过 / 0 失败 / 11 跳过 |
 | 覆盖率 | `apply.mjs` 92.92%、`state-migration.mjs` 99.06%、`migrate_state.mjs` 96.52%、`migrate_uids.mjs` 94.33%（四个文件均 > 90%） |
+
+以上数字是在**合并了 dev（ATS-202 权威发现）之后的最终交付树**上采集的。
