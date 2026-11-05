@@ -136,6 +136,17 @@ b4dac384e993234d6e8f6fdb908e5902a041d4ad8415085cca2055b4721a6f56  docs/evidence/
 b64bbd8e5bd43029a0d3868607e7934de764c701a945dbd2d0a56bbb0fdb55fe  docs/evidence/ATS-208/08-wbs-row.log
 80816037f8ffc396da4c4bfbdf20096c2d871616e2edca731039289f49c809ac  docs/evidence/ATS-208/09-python-gates.log
 9131d20d4e517822e7f2c18ddadc208e908d744402e54c297861922c7b843786  docs/evidence/ATS-208/10-coverage.log
+53853f2bfbdf7877c5eb2ee8d44887e9f482ff463ba1d6f312fa05589256faf9  docs/evidence/ATS-212/01-node-test-env-ut.log
+df325820162c7302e38cd16a908af2925215a9a7eb18e0a1c7532b5ea688d69f  docs/evidence/ATS-212/02-node-test-env-sqlite-ut.log
+a55506fe48192371e4c4493844ceb940e8bac443df627d3b9a60368c69e27953  docs/evidence/ATS-212/03-node-test-env-adapter-it.log
+a17c86d9c7116f6e8df7a25339d0555e147b2c6fc4761a028d2646eb851f9199  docs/evidence/ATS-212/04-node-test-env-api-it.log
+d6b985407b4087b3717539603e4da2eec71c0258dfece638774388e20153e5ab  docs/evidence/ATS-212/05-node-test-full.log
+f8bb39b1d578ff3c2d0aebc4dcc92a5a3d5991c3fd48442bf51106f2565c244c  docs/evidence/ATS-212/06-probe-env-seal.log
+a5e9a34aa7e54bc30b28971080cf82808dcdba4619bfe2cf1a3dce861d8eaf7b  docs/evidence/ATS-212/07-adr-citations.log
+449a61f0c92873710d590f8eed2373dac0f42e0baac14e3b5acda7baf6167521  docs/evidence/ATS-212/08-quality-gates.log
+75a5db43768fe5a4cd66e606d0d20e489bb118a6c94a2fbeea9883366de05004  docs/evidence/ATS-212/09-wbs-row.log
+9c45e9d722d66df64be9f0d63c9cb620bae8a9f3ca55b375cc45d15035513eb5  docs/evidence/ATS-212/10-python-gates.log
+30bfc3b5ab45257eb0c3f1e93d53fd85012fded916ddb7024075ac3dfb9433e1  docs/evidence/ATS-212/11-checksums.log
 00afbcf139fd38b591b694bc0fa03adeb82e08f40b7ecfdca44829f7b2c93764  docs/evidence/ATS-301/00-npm-test-full.log
 6e9600f91c11576f76a8848451f49606cbcf3e2ad90eb97038dddccf4ece519f  docs/evidence/ATS-301/01-playwright-ground-truth.log
 64b89f5c8e2acfee0974bea36ef04332026d363a980ea4bc8322bfc03ed4a6d4  docs/evidence/ATS-301/02-wdio-ground-truth.log
