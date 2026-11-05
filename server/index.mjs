@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun } from './core.mjs';
+import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath } from './core.mjs';
 import { projectUidFor, projectUidOf, runUidFor, attemptUidFor, nextRunSeq, UID_SCHEME_VERSION } from './uid.mjs';
 import { AGENT_CONTRACT_VERSION,describeAgentContract,validateAgentRequest } from './agent.mjs';
 import { capabilityMatrix,getAdapter,listRunners,selectAdapter,selectAdapterOrThrow , negotiationFailure} from './adapters/registry.mjs';
@@ -15,6 +15,14 @@ const ROOT=path.resolve(HERE,'..');
 const PORT=Number(process.env.ATS_PORT||4577);
 const TOKEN=crypto.randomBytes(24).toString('hex');
 const jobs=new Map();
+// The data directory is locked for the whole lifetime of the Bridge. The
+// migration script (tools/migrate_uids.mjs) rewrites the state file AND
+// renames the run folders; a Bridge that is running at that moment would
+// overwrite the migrated state with its own in-memory copy on the next
+// save, and the state would point at run folders that no longer exist.
+try{acquireBridgeLock();}
+catch(e){console.error(`another process holds the data directory lock (${lockPath()}): ${e.message}`);process.exit(1);}
+process.on('exit',()=>releaseBridgeLock());
 let store=loadState();
 for(const run of store.runs){if(['queued','running'].includes(run.status)){run.status='interrupted';run.finishedAt=now();run.error='Server restarted while run was active';}}
 saveState(store);
@@ -104,12 +112,19 @@ const server=http.createServer(async(req,res)=>{
  if(p==='/api/projects'&&req.method==='GET')return respond(res,200,{projects:store.projects.map(cleanProject)});
  if(p==='/api/projects'&&req.method==='POST'){
   const b=await body(req);const actual=validateProjectPath(b.path);
-  if(store.projects.find(x=>x.root===actual))throw new Error('PROJECT_ALREADY_REGISTERED');
   // The project identifier is the stable UID: it is derived from the
   // canonical project root, so re-registering the same repository yields the
   // same identifier and the project can be referenced from outside the
   // local state file.
   const uid=projectUidFor(actual);
+  // The duplicate check uses the SAME normalisation as the UID: `realpath`
+  // keeps the case of the path it was given, so on a case insensitive
+  // filesystem `D:\Proj` and `D:\proj` are the same directory but two
+  // different strings. Comparing the raw `root` strings would register the
+  // same repository twice under ONE id -- two records, one identifier.
+  // The UID is the normalised comparison, so it is the right key here.
+  const existing=store.projects.find(x=>x.id===uid||x.uid===uid||projectUidOf(x)===uid);
+  if(existing)throw new Error('PROJECT_ALREADY_REGISTERED');
   const project={id:uid,uid,name:path.basename(actual),root:actual,addedAt:now()};
   store.projects.push(project);saveState(store);return respond(res,201,{project:cleanProject(project)});
  }

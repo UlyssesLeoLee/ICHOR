@@ -277,6 +277,69 @@ const registryOf = (registry, projectUid) => {
   return entry && Array.isArray(entry.entries) ? entry : { version: UID_SCHEME_VERSION, entries: [] };
 };
 
+/** The title key of a registry entry (computed when the entry has none). */
+const titleKeyOf = (entry) => entry.titleKey ?? normalizeTitleKey(entry.title);
+
+/** The DISTINCT uids of a list of registry entries. */
+const distinctUids = (entries) => [...new Set(entries.map((e) => e.uid).filter(Boolean))];
+
+/**
+ * Matches one discovered case against the UID registry.
+ *
+ * The registry is a MEMORY of the cases seen before, so it can hold stale
+ * entries: an entry whose case was renamed, retitled, duplicated or deleted.
+ * A stale entry must not decide the identity of a case forever, and it must
+ * never hand a uid to a DIFFERENT case.
+ *
+ * The matching therefore works in this order:
+ *
+ *   1. the entries with the same body key that also sit at the same position
+ *      (same file, same title key) -- the most precise signal;
+ *   2. the entries with the same body key, but only when that body key is
+ *      unique inside the project -- a body shared by several cases does not
+ *      identify one of them;
+ *   3. nothing.
+ *
+ * A uid that an explicit `@TC-` annotation claims for another case is never
+ * handed out: the annotation is the author's own statement about the case.
+ *
+ * Returns `{uid, entry, conflict}`. `conflict` is non-null when the registry
+ * could not decide -- the caller reports it instead of silently dropping it.
+ */
+function matchRegistry(it, { registryByBody, bodyCounts, reserved }) {
+  const hits = it.bodyKey ? (registryByBody.get(it.bodyKey) ?? []) : [];
+  if (!hits.length) return { uid: null, entry: null, conflict: null };
+
+  const narrowed = hits.filter((h) => h.file === it.file && titleKeyOf(h) === it.titleKey);
+  let pool = narrowed;
+  if (!pool.length) {
+    // The case may have moved to another file or been retitled. That is only
+    // safe when the body key is unique inside the project.
+    if (bodyCounts.get(it.bodyKey) !== 1) {
+      return {
+        uid: null,
+        entry: null,
+        conflict: { reason: 'ambiguous-registry-match', candidates: distinctUids(hits) }
+      };
+    }
+    pool = hits;
+  }
+
+  const uids = distinctUids(pool);
+  if (uids.length !== 1) {
+    return { uid: null, entry: null, conflict: { reason: 'ambiguous-registry-match', candidates: uids } };
+  }
+  const uid = uids[0];
+  if (reserved.has(uid)) {
+    return {
+      uid: null,
+      entry: null,
+      conflict: { reason: 'explicit-uid-claimed-by-another-case', candidates: [uid] }
+    };
+  }
+  return { uid, entry: pool.find((h) => h.uid === uid), conflict: null };
+}
+
 /**
  * Resolves the stable UID of every discovered test case.
  *
@@ -293,6 +356,10 @@ const registryOf = (registry, projectUid) => {
  * Two test cases are the same logical case when they carry the same explicit
  * UID, or when their body keys are equal and that body key is unique inside
  * the project. Equal titles with different bodies are different cases.
+ *
+ * A duplicated explicit annotation is NOT silently resolved: both cases end
+ * up in the ambiguity report, because the author wrote down the same uid twice
+ * and only the author can say which case it belongs to.
  */
 export function resolveIdentities({ projectUid, discovered, registry }) {
   const reg = registryOf(registry, projectUid);
@@ -310,41 +377,90 @@ export function resolveIdentities({ projectUid, discovered, registry }) {
     if (it.bodyKey) bodyCounts.set(it.bodyKey, (bodyCounts.get(it.bodyKey) ?? 0) + 1);
   }
 
+  // The explicit annotations are CLAIMS: the uid an author wrote down belongs
+  // to the case that carries it, and no registry entry may hand it to another
+  // case.
+  const explicitOwners = new Map();
+  for (const it of items) {
+    if (!it.explicitUid) continue;
+    if (!explicitOwners.has(it.explicitUid)) explicitOwners.set(it.explicitUid, []);
+    explicitOwners.get(it.explicitUid).push(it);
+  }
+  const reserved = new Set(explicitOwners.keys());
+
   const registryByBody = new Map();
   for (const e of reg.entries) {
-    if (!e.bodyKey) continue;
+    if (!e.bodyKey || !e.uid) continue;
     if (!registryByBody.has(e.bodyKey)) registryByBody.set(e.bodyKey, []);
     registryByBody.get(e.bodyKey).push(e);
   }
 
   const candidates = items.map((it) => {
     if (it.explicitUid) {
+      if (explicitOwners.get(it.explicitUid).length > 1) {
+        // The same annotation on two cases: neither may claim it.
+        return {
+          ...it,
+          uid: null,
+          uidSource: 'provisional',
+          uidStable: false,
+          matched: null,
+          basis: null,
+          duplicateExplicit: it.explicitUid
+        };
+      }
       return { ...it, uid: it.explicitUid, uidSource: 'explicit', uidStable: true, matched: null, basis: 'explicit' };
     }
-    const hits = it.bodyKey ? (registryByBody.get(it.bodyKey) ?? []) : [];
-    if (hits.length === 1 && bodyCounts.get(it.bodyKey) === 1) {
-      const entry = hits[0];
+    const match = matchRegistry(it, { registryByBody, bodyCounts, reserved });
+    if (match.uid) {
       return {
         ...it,
-        uid: entry.uid,
+        uid: match.uid,
         uidSource: 'registry',
         uidStable: true,
-        matched: { uid: entry.uid, previousTitle: entry.title ?? null, previousFile: entry.file ?? null },
+        matched: { uid: match.uid, previousTitle: match.entry.title ?? null, previousFile: match.entry.file ?? null },
         basis: 'body-key'
       };
     }
     if (titleCounts.get(it.titleKey) === 1) {
-      return { ...it, uid: deriveTestUid(projectUid, it.titleKey), uidSource: 'derived', uidStable: true, matched: null, basis: 'title-key' };
+      return {
+        ...it,
+        uid: deriveTestUid(projectUid, it.titleKey),
+        uidSource: 'derived',
+        uidStable: true,
+        matched: null,
+        basis: 'title-key',
+        ...(match.conflict ? { registryConflict: match.conflict } : {})
+      };
     }
     if (it.bodyKey && bodyCounts.get(it.bodyKey) === 1) {
-      return { ...it, uid: deriveTestUid(projectUid, it.bodyKey), uidSource: 'derived-body', uidStable: true, matched: null, basis: 'body-key' };
+      return {
+        ...it,
+        uid: deriveTestUid(projectUid, it.bodyKey),
+        uidSource: 'derived-body',
+        uidStable: true,
+        matched: null,
+        basis: 'body-key',
+        ...(match.conflict ? { registryConflict: match.conflict } : {})
+      };
     }
-    return { ...it, uid: null, uidSource: 'provisional', uidStable: false, matched: null, basis: null };
+    return {
+      ...it,
+      uid: null,
+      uidSource: 'provisional',
+      uidStable: false,
+      matched: null,
+      basis: null,
+      ...(match.conflict ? { registryConflict: match.conflict } : {})
+    };
   });
 
   // Collision resolution: two candidates may want the same UID. The claim that
   // is backed by the registry keeps it, every other claim falls back to the
   // body key and finally to a provisional identifier.
+  //
+  // An EXPLICIT claim is never taken away: the author wrote the uid down, so
+  // it is the explicit claim that wins over a derived or a registry claim.
   const claims = new Map();
   for (const c of candidates) {
     if (!c.uid) continue;
@@ -353,7 +469,9 @@ export function resolveIdentities({ projectUid, discovered, registry }) {
   }
   for (const [uid, group] of claims) {
     if (group.length < 2) continue;
-    const winner = group.find((g) => g.uidSource === 'registry') ?? null;
+    const winner = group.find((g) => g.uidSource === 'explicit')
+      ?? group.find((g) => g.uidSource === 'registry')
+      ?? null;
     for (const c of group) {
       if (winner && c === winner) continue;
       const fallback = c.bodyKey && bodyCounts.get(c.bodyKey) === 1
@@ -366,30 +484,66 @@ export function resolveIdentities({ projectUid, discovered, registry }) {
   }
 
   // Provisional identifiers and the ambiguity report.
+  //
+  // Three kinds of ambiguity are reported, none of them silently dropped:
+  //   * a duplicated EXPLICIT annotation -- the author wrote the same uid on
+  //     two cases;
+  //   * identical titles (and bodies) -- the case cannot be pinned down;
+  //   * a registry conflict -- the memory of the past cases does not decide.
   const ambiguousGroups = new Map();
   for (const c of candidates) {
     if (c.uid) continue;
-    if (!ambiguousGroups.has(c.titleKey)) ambiguousGroups.set(c.titleKey, []);
-    ambiguousGroups.get(c.titleKey).push(c);
+    const key = c.duplicateExplicit ? `explicit:${c.duplicateExplicit}` : c.titleKey;
+    if (!ambiguousGroups.has(key)) ambiguousGroups.set(key, []);
+    ambiguousGroups.get(key).push(c);
   }
-  for (const group of ambiguousGroups.values()) {
+  for (const [key, group] of ambiguousGroups) {
     group.sort((a, b) => (a.file === b.file ? a.line - b.line : a.file < b.file ? -1 : 1));
+    const duplicateExplicit = group[0]?.duplicateExplicit ?? null;
     group.forEach((c, index) => {
       c.uid = provisionalTestUid(projectUid, c.file, c.title, c.line, index + 1);
       c.uidSource = 'provisional';
       c.uidStable = false;
       c.ambiguity = {
-        key: c.titleKey,
-        reason: c.bodyKey ? 'identical-title-and-body' : 'identical-title',
+        key,
+        reason: duplicateExplicit
+          ? 'duplicate-explicit-uid'
+          : (c.bodyKey ? 'identical-title-and-body' : 'identical-title'),
+        ...(duplicateExplicit ? { explicitUid: duplicateExplicit } : {}),
         candidates: group.map((g) => ({ file: g.file, title: g.title, line: g.line }))
       };
     });
+  }
+
+  // A registry conflict is reported on the case it happened to, even when the
+  // case itself could be given a uid: the conflict means the MEMORY of the
+  // past cases is inconsistent, and a reader has to know about it.
+  for (const c of candidates) {
+    if (!c.registryConflict || c.ambiguity) continue;
+    c.ambiguity = {
+      key: c.titleKey,
+      reason: c.registryConflict.reason,
+      candidates: (c.registryConflict.candidates ?? []).map((uid) => ({ uid }))
+    };
   }
 
   const entries = mergeRegistry(reg, candidates);
   return { items: candidates, registry: { version: UID_SCHEME_VERSION, projects: { ...(registry?.projects ?? {}), [projectUid]: entries } } };
 }
 
+/**
+ * Merges the resolved cases into the UID registry.
+ *
+ * The registry must stay BOUNDED and UNIQUE:
+ *
+ *   * one entry per uid -- two entries with the same uid would make every
+ *     later lookup ambiguous, even though they describe the same case;
+ *   * one entry per (uid) rather than per (uid, body key) -- an entry whose
+ *     body changed is UPDATED, not duplicated;
+ *   * stale entries are PRUNED -- an entry whose uid no longer belongs to any
+ *     discovered case would keep a deleted case alive forever and could hand
+ *     its uid to a different case later on.
+ */
 function mergeRegistry(reg, candidates) {
   const entries = reg.entries.slice();
   const byBody = new Map();
@@ -399,7 +553,7 @@ function mergeRegistry(reg, candidates) {
     byBody.get(e.bodyKey).push(e);
   }
   for (const c of candidates) {
-    if (!c.bodyKey) continue;
+    if (!c.bodyKey || !c.uid) continue;
     const hits = byBody.get(c.bodyKey) ?? [];
     // Several cases may share a body key (identical bodies). The registry
     // entry is chosen by the position inside the file, so that two cases
@@ -421,6 +575,7 @@ function mergeRegistry(reg, candidates) {
       existing.titleKey = c.titleKey;
       existing.uidSource = c.uidSource;
       existing.line = c.line;
+      existing.bodyKey = c.bodyKey;
       continue;
     }
     const entry = {
@@ -437,7 +592,38 @@ function mergeRegistry(reg, candidates) {
     if (!byBody.has(c.bodyKey)) byBody.set(c.bodyKey, []);
     byBody.get(c.bodyKey).push(entry);
   }
-  return { version: UID_SCHEME_VERSION, entries };
+  return { version: UID_SCHEME_VERSION, entries: pruneRegistry(entries, candidates) };
+}
+
+/**
+ * Prunes the registry down to the entries that still describe a live case.
+ *
+ * An entry is kept when its uid is claimed by one of the resolved cases. An
+ * entry whose uid is not claimed any more belonged to a case that was deleted
+ * or whose identity was taken over by another case: keeping it would let a
+ * stale uid be handed out later, and it would grow the state file without
+ * bound.
+ *
+ * The pruning is what makes a stale entry stop blocking rule 2: without it a
+ * deleted case keeps its body key forever and every later case with the same
+ * body is reported as ambiguous.
+ */
+function pruneRegistry(entries, candidates) {
+  const live = new Set(candidates.map((c) => c.uid).filter(Boolean));
+  const kept = entries.filter((e) => !e.uid || live.has(e.uid));
+  // Two entries with the same uid describe the same case; the later one wins
+  // so that the newest position (file / title / line) is the one kept.
+  const byUid = new Map();
+  const result = [];
+  for (const e of kept) {
+    if (!e.uid) { result.push(e); continue; }
+    if (!byUid.has(e.uid)) byUid.set(e.uid, e);
+  }
+  for (const e of kept) {
+    if (!e.uid) continue;
+    if (byUid.get(e.uid) === e) result.push(e);
+  }
+  return result;
 }
 
 /**
@@ -540,9 +726,18 @@ export function attemptUidFor({ runUid, testUid, retry, fallbackKey, occurrence 
  *   3. the same title alone            -- the case moved to another file;
  *   4. no match                         -- the case is not in the registry.
  *
+ * Step 1 is only trusted when the TITLE agrees as well. A line number alone is
+ * not an identity: the source may have changed between the discovery and the
+ * run (a case inserted above shifts every later line), and binding a reported
+ * case to the registry entry that happens to sit at that line would attach the
+ * run to the WRONG logical case -- silently, because nothing looks wrong.
+ * So a file-line hit whose title does not match is not a hit; the lookup
+ * falls through to the title-based steps, which are position independent.
+ *
  * Steps 2 and 3 only match when the signal is unambiguous: if two registry
  * entries share the signal, the case is reported as unbound rather than
- * bound to an arbitrary entry.
+ * bound to an arbitrary entry. Uniqueness is counted over the DISTINCT uids,
+ * so two entries that describe the same case do not make the lookup ambiguous.
  *
  * Returns `{uid, basis, candidates}`.
  */
@@ -566,16 +761,25 @@ export function findTestUid(registry, projectUid, { file, title, line }) {
   }
 
   const pick = (hits, basis) => {
-    const unique = hits.filter((h) => h.uid);
-    if (unique.length === 1) return { uid: unique[0].uid, basis, candidates: unique.length };
-    if (unique.length > 1) return { uid: null, basis: `${basis}-ambiguous`, candidates: unique.length };
+    // Uniqueness is counted over the DISTINCT uids: two registry entries that
+    // describe the same case are not an ambiguity.
+    const uids = [...new Set(hits.map((h) => h.uid).filter(Boolean))];
+    if (uids.length === 1) return { uid: uids[0], basis, candidates: uids.length };
+    if (uids.length > 1) return { uid: null, basis: `${basis}-ambiguous`, candidates: uids.length };
     return { uid: null, basis: 'unbound', candidates: 0 };
   };
 
   if (Number.isInteger(line) && line > 0) {
-    const hit = pick(byFileLine.get(`${file} ${line}`) ?? [], 'file-line');
-    if (hit.uid) return hit;
-    if (hit.basis === 'file-line-ambiguous') return hit;
+    // The line is only an identity together with the title: a reported case
+    // whose title differs from the registry entry at that line is a DIFFERENT
+    // case, whatever the line says.
+    const atLine = byFileLine.get(`${file} ${line}`) ?? [];
+    const sameTitle = atLine.filter((h) => h.title === title);
+    if (sameTitle.length) {
+      const hit = pick(sameTitle, 'file-line');
+      if (hit.uid) return hit;
+      if (hit.basis === 'file-line-ambiguous') return hit;
+    }
   }
   if (file !== undefined && file !== null) {
     const hit = pick(byFileTitle.get(`${file} ${title}`) ?? [], 'file-title');
