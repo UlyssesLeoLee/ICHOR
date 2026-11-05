@@ -444,20 +444,44 @@ async function withBridge(dataDir, body) {
     return false;
   };
   const call = async (endpoint, method = 'GET', payload, tok) => {
-    const r = await fetch(`http://127.0.0.1:${port}${endpoint}`, {
-      method,
-      headers: tok ? { 'X-ATS-Token': tok, 'Content-Type': 'application/json' } : {},
-      body: payload ? JSON.stringify(payload) : undefined,
-    });
-    return [r.status, await r.json()];
+    // A bridge that is being killed answers with a RESET connection, not
+    // with an HTTP status. The caller may be racing the crash on purpose
+    // (the `cancelling` case), so a dead bridge is a normal answer here:
+    // it is reported as `[0, null]` instead of throwing.
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}${endpoint}`, {
+        method,
+        headers: tok ? { 'X-ATS-Token': tok, 'Content-Type': 'application/json' } : {},
+        body: payload ? JSON.stringify(payload) : undefined,
+      });
+      return [r.status, await r.json()];
+    } catch (e) {
+      return [0, { error: String(e?.message ?? e) }];
+    }
   };
   let bridge = start();
+  /**
+   * Kills the bridge (and, on Windows, its whole process tree).
+   *
+   * `taskkill /T /F` is used because a plain `kill('SIGKILL')` on Windows
+   * terminates only the bridge process and leaves the orphaned engine
+   * behind -- and the orphaned engine would keep the port and the run
+   * folder busy.
+   */
+  const kill = async () => {
+    if (bridge.exitCode !== null) return;
+    if (process.platform === 'win32') {
+      await new Promise((r) => spawn('taskkill', ['/PID', String(bridge.pid), '/T', '/F'], { windowsHide: true }).on('close', r));
+    } else {
+      bridge.kill('SIGKILL');
+    }
+    await new Promise((r) => setTimeout(r, 300));
+  };
   try {
     assert.ok(await up(), 'the bridge did not come up');
     const token = (await call('/api/session'))[1].token;
-    await body({ call, token, up, restart: async () => {
-      bridge.kill('SIGKILL');
-      await new Promise((r) => setTimeout(r, 300));
+    await body({ call, token, up, kill, restart: async () => {
+      await kill();
       bridge = start();
       assert.ok(await up(), 'the bridge did not come back up');
       return (await call('/api/session'))[1].token;
@@ -466,8 +490,26 @@ async function withBridge(dataDir, body) {
     bridge.kill();
   }
 }
+/**
+ * Removes a temporary directory, tolerating a file handle that is still
+ * open.
+ *
+ * On Windows a directory that a process still holds open cannot be
+ * removed, and the removal fails with EPERM. The bridge is killed by the
+ * test, but its handle may not be released the instant the process is
+ * gone. The directory is a TEMPORARY fixture: failing the test because it
+ * could not be deleted would report a defect that is not one.
+ */
+function removeTemp(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  } catch {
+    // The fixture is left behind; the OS reclaims it with the temp dir.
+  }
+}
 
-/** A project whose engine never returns: the run stays in flight. */
+/**
+ * A project whose engine never returns: the run stays in flight. */
 function makeHangingProject(dir) {
   const project = path.join(dir, 'proj');
   fs.mkdirSync(path.join(project, 'node_modules', '@playwright', 'test'), { recursive: true });
@@ -485,6 +527,44 @@ setInterval(()=>{}, 1000);
 `
   );
   return project;
+}
+
+/**
+ * Rewinds the persisted state so that it holds EXACTLY what a crash in the
+ * middle of a cancellation leaves behind.
+ *
+ * The `close` event of the engine completes a cancelled run as `cancelled`.
+ * A crash that lands before that event is processed leaves the run in
+ * `cancelling` -- with the `run.cancelling` event in its durable log and
+ * without a terminal event.
+ *
+ * The state is rewound to that shape, so the case tests the RECOVERY of
+ * that state and not a race with the operating system.
+ */
+function rewindToCancelling(data, runId) {
+  const stateFile = path.join(data, 'state.json');
+  const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+  const run = state.runs.find((r) => r.id === runId);
+  assert.ok(run, 'the run is not in the state');
+  run.status = 'cancelling';
+  run.finishedAt = null;
+  run.exitCode = null;
+  // The terminal event (if the engine's close was processed before the
+  // rewind) is removed: the crash happened BEFORE it.
+  run.events = (run.events ?? []).filter((e) => e.type !== 'run.finished');
+  run.eventSeq = run.events.length ? run.events[run.events.length - 1].seq : 0;
+  fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+
+  // The durable log is rewound the same way: it is the record, and the
+  // recovery reads it.
+  const logFile = path.join(data, 'runs', runId, 'events.jsonl');
+  if (fs.existsSync(logFile)) {
+    const lines = fs.readFileSync(logFile, 'utf8')
+      .split('\n').filter(Boolean)
+      .map((l) => JSON.parse(l))
+      .filter((e) => e.type !== 'run.finished');
+    fs.writeFileSync(logFile, lines.map((e) => JSON.stringify(e)).join('\n') + '\n');
+  }
 }
 
 /**
@@ -522,7 +602,7 @@ test('IT-EXE-008: the bridge starts even when the run folder is gone', async () 
       assert.equal(status, 200);
     });
   } finally {
-    fs.rmSync(work, { recursive: true, force: true });
+    removeTemp(work);
   }
 });
 
@@ -566,7 +646,7 @@ test('IT-EXE-009: a torn event log stays readable', async () => {
       assert.equal((await call(`/api/runs/${runId}`, 'GET', null, token2))[1].run.status, 'interrupted');
     });
   } finally {
-    fs.rmSync(work, { recursive: true, force: true });
+    removeTemp(work);
   }
 });
 
@@ -622,7 +702,7 @@ test('IT-EXE-010: no event is appended after a terminal event', async () => {
       assert.deepEqual(types, ['run.queued', 'run.started', 'run.finished'], JSON.stringify(types));
     });
   } finally {
-    fs.rmSync(work, { recursive: true, force: true });
+    removeTemp(work);
   }
 });
 
@@ -635,13 +715,26 @@ test('IT-EXE-010: no event is appended after a terminal event', async () => {
  * never reached a terminal state, it held the project's run lock, and
  * `POST /stop` could not release it (there was no job any more, so the
  * answer was `RUN_NOT_ACTIVE`).
+ *
+ * THE STATE IS CRAFTED, NOT RACED FOR.
+ *
+ * Doing this "for real" -- POST /stop and then kill the bridge -- is a RACE:
+ * `cancelRun()` kills the engine, and the engine's `close` event completes
+ * the run as `cancelled` before the crash lands. The window between the
+ * stop's answer and the kill is milliseconds wide, and the test would fail
+ * or pass by luck (measured: it passed on 3 of 8 runs).
+ *
+ * The state is therefore written directly: a run in `cancelling`, with the
+ * `run.cancelling` event in its log, and no live engine. That is EXACTLY
+ * the state the crash leaves behind, and it is the state the recovery has
+ * to handle. The same approach is used by the review's own probe C3.
  */
 test('IT-EXE-011: a run that was cancelling when the bridge died is recovered', async () => {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-exe-cancel-'));
   const data = path.join(work, 'data');
   try {
     const project = makeHangingProject(work);
-    await withBridge(data, async ({ call, token, restart }) => {
+    await withBridge(data, async ({ call, token, kill, restart }) => {
       const projectId = (await call('/api/projects', 'POST', { path: project }, token))[1].project.id;
       const [, started] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/slow.spec.ts' }, token);
       const runId = started.run.id;
@@ -649,27 +742,34 @@ test('IT-EXE-011: a run that was cancelling when the bridge died is recovered', 
         if ((await call(`/api/runs/${runId}`, 'GET', null, token))[1].run.status === 'running') break;
         await new Promise((r) => setTimeout(r, 35));
       }
-      // The stop is requested and the bridge dies before the engine's exit
-      // is processed.
-      await call(`/api/runs/${runId}/stop`, 'POST', {}, token);
-      const stateFile = path.join(data, 'state.json');
-      const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-      assert.equal(state.runs.find((r) => r.id === runId).status, 'cancelling');
+      // The run is stopped: the state says `cancelling`.
+      const [stopStatus, stopAnswer] = await call(`/api/runs/${runId}/stop`, 'POST', {}, token);
+      assert.equal(stopStatus, 200, JSON.stringify(stopAnswer));
+      assert.equal(stopAnswer.status, 'cancelling', JSON.stringify(stopAnswer));
 
+      // The crash: the engine's `close` event is never processed, so the
+      // state keeps the `cancelling` status and the log keeps the
+      // `run.cancelling` event.
+      await kill();
+      rewindToCancelling(data, runId);
+
+      // The recovery: the bridge comes back up and the run must reach a
+      // TERMINAL state.
       const token2 = await restart();
       const recovered = (await call(`/api/runs/${runId}`, 'GET', null, token2))[1].run;
-      // The run is recovered into a TERMINAL state.
       assert.equal(recovered.status, 'interrupted', JSON.stringify(recovered.status));
       const [, replay] = await call(`/api/runs/${runId}/replay`, 'GET', null, token2);
       assert.equal(replay.replayedStatus, 'interrupted', JSON.stringify(replay));
       assert.equal(replay.terminal, true, JSON.stringify(replay));
       assert.equal(replay.valid, true, JSON.stringify(replay.violations));
-      // And the project is free again: a new run can be started.
+      // And the project is free again: a new run can be started. Before
+      // the fix the run stayed in `cancelling`, held the lock for ever and
+      // the answer was 409 PROJECT_ALREADY_RUNNING.
       const [runStatus, runAnswer] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/slow.spec.ts' }, token2);
       assert.ok(runStatus < 300, JSON.stringify(runAnswer));
     });
   } finally {
-    fs.rmSync(work, { recursive: true, force: true });
+    removeTemp(work);
   }
 });
 
@@ -733,6 +833,6 @@ fs.writeFileSync(out, JSON.stringify({
       assert.equal(run.attempts[0].outcome, 'expected');
     });
   } finally {
-    fs.rmSync(work, { recursive: true, force: true });
+    removeTemp(work);
   }
 });
