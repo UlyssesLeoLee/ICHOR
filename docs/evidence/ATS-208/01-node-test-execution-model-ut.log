@@ -1,29 +1,29 @@
 === the execution model unit suite ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-1643614c08b5/worktree
-commit    : c7a44bf
+commit    : 919c18c
 branch    : agent/m3/seikoist-169
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ UT-EXE-001: every engine status maps onto the common vocabulary (0.6792ms)
-✔ UT-EXE-002: an unknown status becomes unknown, not a guess (0.1103ms)
-✔ UT-EXE-003: the terminal run statuses are the ones a run never leaves (0.0955ms)
-✔ UT-EXE-004: a retried case is ONE case that keeps EVERY attempt (0.4056ms)
-✔ UT-EXE-005: the counters count the CASES, never the executions (0.1448ms)
-✔ UT-EXE-006: the aggregation of the attempts follows the documented order (0.1521ms)
-✔ UT-EXE-007: two cases with the same title in one file stay two cases (0.1522ms)
-✔ UT-EXE-008: a case with no execution still exists and is counted once (0.1198ms)
-✔ UT-EXE-009: the attempts of one case share the TestDefinition UID (2.9193ms)
-✔ UT-EXE-010: the events of a run replay into its terminal status (0.724ms)
-✔ UT-EXE-011: an interrupted run replays into `interrupted` (0.1171ms)
-✔ UT-EXE-012: the replay follows the SEQUENCE, not the order of the array (0.0861ms)
-✔ UT-EXE-013: a hole in the sequence is reported, not hidden (0.0614ms)
-✔ UT-EXE-014: an empty stream determines no status (0.0637ms)
-✔ UT-EXE-015: the sequence of a run is gap-free and starts at 1 (0.0957ms)
-✔ UT-EXE-016: the state machine refuses the transitions it can disprove (0.1592ms)
-✔ UT-EXE-017: the event that names the status is the last one of the stream (0.0843ms)
-✔ UT-EXE-018: the unified view carries the run, the cases and the attempts (0.2779ms)
-✔ UT-EXE-019: an empty report does not crash and reports zero (0.0628ms)
+✔ UT-EXE-001: every engine status maps onto the common vocabulary (0.7926ms)
+✔ UT-EXE-002: an unknown status becomes unknown, not a guess (0.1114ms)
+✔ UT-EXE-003: the terminal run statuses are the ones a run never leaves (0.1525ms)
+✔ UT-EXE-004: a retried case is ONE case that keeps EVERY attempt (0.7637ms)
+✔ UT-EXE-005: the counters count the CASES, never the executions (0.1674ms)
+✔ UT-EXE-006: the aggregation of the attempts follows the documented order (0.157ms)
+✔ UT-EXE-007: two cases with the same title in one file stay two cases (0.1227ms)
+✔ UT-EXE-008: a case with no execution still exists and is counted once (0.0985ms)
+✔ UT-EXE-009: the attempts of one case share the TestDefinition UID (2.834ms)
+✔ UT-EXE-010: the events of a run replay into its terminal status (0.6885ms)
+✔ UT-EXE-011: an interrupted run replays into `interrupted` (0.1119ms)
+✔ UT-EXE-012: the replay follows the SEQUENCE, not the order of the array (0.0855ms)
+✔ UT-EXE-013: a hole in the sequence is reported, not hidden (0.0662ms)
+✔ UT-EXE-014: an empty stream determines no status (0.0538ms)
+✔ UT-EXE-015: the sequence of a run is gap-free and starts at 1 (0.0885ms)
+✔ UT-EXE-016: the state machine refuses the transitions it can disprove (0.1055ms)
+✔ UT-EXE-017: the event that names the status is the last one of the stream (0.0708ms)
+✔ UT-EXE-018: the unified view carries the run, the cases and the attempts (0.2663ms)
+✔ UT-EXE-019: an empty report does not crash and reports zero (0.0584ms)
 ℹ tests 19
 ℹ suites 0
 ℹ pass 19
@@ -31,6 +31,6 @@ python    : Python 3.11.16
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 92.6991
+ℹ duration_ms 93.7924
 
 exit code : 0

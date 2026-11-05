@@ -1,10 +1,14 @@
 === the ATS-208 row of docs/WBS.xlsx ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-1643614c08b5/worktree
-commit    : c7a44bf
+commit    : 919c18c
 branch    : agent/m3/seikoist-169
 node      : v24.19.0
 python    : Python 3.11.16
 
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
 overview: 已完成=1 完成率=0.12340425531914889 剩余人日=412.0
 updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-1643614c08b5\worktree\docs\WBS.xlsx
 IDEMPOTENT: row ATS-208 unchanged
@@ -12,10 +16,6 @@ overview: 已完成=1 完成率=0.12340425531914889 剩余人日=412.0
 updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-1643614c08b5\worktree\docs\WBS.xlsx
 IDEMPOTENT: a second run leaves row ATS-208 byte-identical
 verify: ATS-208 row 29 状态=待审核 完成率=1 剩余人日=0 marker×1
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
-  warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
-  warn(msg)
 verify: openpyxl loads the workbook in the normal and the data_only mode
 
 exit code : 0

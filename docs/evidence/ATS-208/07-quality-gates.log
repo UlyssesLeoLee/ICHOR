@@ -1,6 +1,6 @@
 === the ATS-301 gate: WBS helper + ADR citations + port audit ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-1643614c08b5/worktree
-commit    : c7a44bf
+commit    : 919c18c
 branch    : agent/m3/seikoist-169
 node      : v24.19.0
 python    : Python 3.11.16
@@ -74,16 +74,17 @@ all checks passed
   tools/generate_test_docs.py      250,256,322
   tools/update_wbs_ats103.py       110,114
 
+UNCOVERED server/index.mjs:179-186 (cited by the ADR, no range covers it)
 ok   server/index.mjs:21
-ok   server/index.mjs:70
-ok   server/index.mjs:179
-ok   server/index.mjs:180
-ok   server/index.mjs:188
-ok   server/index.mjs:199
-ok   server/index.mjs:276
-ok   server/index.mjs:390
-ok   server/index.mjs:407
-ok   server/index.mjs:408
+WRONG server/index.mjs:70 ->  if(!logged.length)continue;
+WRONG server/index.mjs:179 ->   let handle;
+WRONG server/index.mjs:180 ->   try{handle=adapter.start({project,run,file:run.file,outputDir:folder});}
+WRONG server/index.mjs:188 ->   for(const stream of [cp.stdout,cp.stderr])stream.on('data',buf=>{
+WRONG server/index.mjs:199 ->   const cp=job.child;
+WRONG server/index.mjs:276 ->     // satisfy the request -- falling back to a different engine would run
+WRONG server/index.mjs:390 ->   // call a model, and it never writes to the project.
+WRONG server/index.mjs:407 ->  if(isAgentError){
+WRONG server/index.mjs:408 ->    const status=400;
 ok   server/core.mjs:306
 ok   server/core.mjs:550
 ok   src-tauri/Cargo.toml:11
@@ -95,14 +96,25 @@ ok   tools/generate_test_docs.py:256
 ok   tools/generate_test_docs.py:322
 ok   tools/update_wbs_ats103.py:110
 ok   tools/update_wbs_ats103.py:114
-ok   server/index.mjs:179-186 (cancelRun extent)
+WRONG server/index.mjs:179-186 (not the cancelRun extent)
 ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)
 ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
 ok   src-tauri/src/lib.rs:19 (the ATS_PORT environment default -- covered by the ATS-101 port audit)
 
-RESULT: OK
-  PASS  tools/check_adr_citations.py
+RESULT: MISMATCH
+   server/index.mjs:179-186 is cited by the ADR but no range covers it
+   server/index.mjs:70 does not hold "['queued','running'].includes(run.status)"
+   server/index.mjs:179 does not hold 'function cancelRun(run){'
+   server/index.mjs:180 does not hold "throw new Error('RUN_NOT_ACTIVE')"
+   server/index.mjs:188 does not hold 'new RegExp'
+   server/index.mjs:199 does not hold 'Content-Security-Policy'
+   server/index.mjs:276 does not hold "'cancelling'].includes(x.status)"
+   server/index.mjs:390 does not hold 'const isAgentError=/^AGENT_/.test(code);'
+   server/index.mjs:407 does not hold 'const status=/NOT_FOUND/.test(message)?404:'
+   server/index.mjs:408 does not hold 'return err(res,status,message);'
+   server/index.mjs:179-186 is not the cancelRun extent
+  FAIL  tools/check_adr_citations.py
 
 --- 3. the hardcoded default port list in 16 §3.1 matches the source ---
 === ATS-101 scenario D: hardcoded default-port audit ===
@@ -114,7 +126,7 @@ port      : 4577
   apps/studio/lib/api.ts:14  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
   apps/studio/public/fallback.html:3  </style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</spa...
   server/index.mjs:21  const PORT=Number(process.env.ATS_PORT||4577);
-  server/index.mjs:199  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
+  server/index.mjs:215  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
   src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
 total = 6
 
@@ -222,7 +234,7 @@ doc-mention files (excl. 16)    : 9
 doc mentions (excl. 16)         : 27
 runtime files missing from §3.1 : (none)
 non-runtime missing from §3.1   : (none)
-runtime positions missing       : (none)
+runtime positions missing       : server/index.mjs:215
 listed but not found at runtime : (none)
 count claimed in 16 §3.1        : 6
 actual runtime occurrence count : 6
@@ -231,9 +243,9 @@ doc files/mentions claimed      : 9 / 27
 doc files/mentions actual       : 9 / 27
 doc mention count matches       : true
 
-RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
-  PASS  tools/ats101-probes/scenario-d-port-audit.mjs
+RESULT: MISMATCH -- the port list in 16 §3.1 does not match the source.
+  FAIL  tools/ats101-probes/scenario-d-port-audit.mjs
 
-RESULT: OK -- the WBS helper regression, the ADR citation check and the port audit all pass.
+RESULT: MISMATCH -- the ATS-301 gate does not pass.
 
 exit code : 0
