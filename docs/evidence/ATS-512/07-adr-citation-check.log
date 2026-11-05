@@ -1,8 +1,8 @@
 ================================================================================
 ATS-512 evidence log -- every file:line citation in the baseline ADR still resolves
 ================================================================================
-commit        : 6ae6bc0cc5171e5b71713e3c1697766430fda049
-timestamp     : 2026-11-05T13:03:11Z (UTC)
+commit        : 62f733e0c413cb96da62cabdeb425617611c3a3e
+timestamp     : 2026-11-05T13:23:42Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-c720363925af/worktree
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -21,7 +21,7 @@ command       : python tools/check_adr_citations.py
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
   start.sh                         4
-  tools/generate_test_docs.py      52,58,74
+  tools/generate_test_docs.py      120,126,157
 
 ok   server/index.mjs:15
 ok   server/index.mjs:19
@@ -36,15 +36,21 @@ ok   server/index.mjs:224
 ok   server/core.mjs:27
 ok   server/core.mjs:103
 ok   src-tauri/Cargo.toml:11
+ok   start.sh:4
+ok   start.ps1:8
+ok   start.ps1:9
+WRONG tools/generate_test_docs.py:120 -> ('UT-PLG-022','FR-028','安全','SDK 是冻结的，插件不能加方法','给 sdk 赋值新方法','抛 TypeError','node --test','PASS'),
+WRONG tools/generate_test_docs.py:126 -> ('UT-PLG-028','FR-028','安全','作用域外的文件读不到','读 server/index.mjs','报 PLUGIN_SCOPE_INVALID','node --test'
+WRONG tools/generate_test_docs.py:157 -> ('IT-SEC-002','NFR-002','安全','跨站 Origin 防护','Origin=https://evil.example 调 /session','403 ORIGIN_NOT
 ok   server/index.mjs:61-66 (cancelRun extent)
-ok   apps/studio/app/page.tsx (covered by the ATS-101 port audit)
-ok   apps/studio/lib/api.ts (covered by the ATS-101 port audit)
-ok   apps/studio/public/fallback.html (covered by the ATS-101 port audit)
-ok   src-tauri/src/lib.rs (covered by the ATS-101 port audit)
-ok   start.ps1 (covered by the ATS-101 port audit)
-ok   start.sh (covered by the ATS-101 port audit)
-ok   tools/generate_test_docs.py (covered by the ATS-101 port audit)
+ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
+ok   apps/studio/lib/api.ts:6 (the API base URL -- covered by the ATS-101 port audit)
+ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
+ok   src-tauri/src/lib.rs:19 (the ATS_PORT environment default -- covered by the ATS-101 port audit)
 
-RESULT: OK
+RESULT: MISMATCH
+   tools/generate_test_docs.py:120 does not hold "'localhost:3000 + "
+   tools/generate_test_docs.py:126 does not hold "'Host=evil.example:"
+   tools/generate_test_docs.py:157 does not hold '同 LAN 他机尝试访问 '
 
---- exit code: 0 ---
+--- exit code: 1 ---

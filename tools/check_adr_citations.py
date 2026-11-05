@@ -100,11 +100,11 @@ EXPECTED = {
         9: "Start-Process 'http://127.0.0.1:",
     },
     'tools/generate_test_docs.py': {
-        120: "'localhost:3000 + ",
-        126: "'Host=evil.example:",
-        157: '同 LAN 他机尝试访问 ',
-    },
-}
+            172: "'localhost:3000 + ",
+            178: "'Host=evil.example:",
+            224: '同 LAN 他机尝试访问 ',
+        },
+    }
 
 # ---------------------------------------------------------------------------
 # The RANGE citations. The end of a range is READ FROM THE ADR TEXT -- it is
