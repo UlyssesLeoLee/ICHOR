@@ -29,13 +29,13 @@
 | FR-009 | 启动全部测试 | 调用项目本地 Playwright CLI，不通过 shell，不自动下载安装 | P0 | IMPLEMENTED |
 | FR-010 | 启动指定脚本 | 以已存在脚本路径作为过滤参数，避免任意 CLI 注入 | P0 | IMPLEMENTED |
 | FR-011 | 停止运行 | Windows taskkill / Unix SIGTERM 请求停止子进程 | P0 | IMPLEMENTED (best effort) |
-| FR-012 | 运行历史 | 不覆盖旧记录；记录 ID/commit/timestamp/status | P0 | IMPLEMENTED |
+| FR-012 | 运行历史 | 不覆盖旧记录；记录 ID/commit/timestamp/status | P0 | IMPLEMENTED（ATS-208：执行模型统一，重试用例计一次且保留全部 attempt） |
 | FR-013 | 执行日志 | 前端能够轮询本地 stdout/stderr，显示错误 | P0 | IMPLEMENTED |
 | FR-014 | JSON/HTML 与 Trace | 尽力启用原生 reporter/trace/screenshot/video 并按 Run 隔离 | P0 | IMPLEMENTED (requires Playwright) |
 | FR-015 | 文件证据下载 | 路径验证，保留 SHA-256 和相对位置；拒绝路径跳转 | P0 | IMPLEMENTED |
 | FR-016 | 报告摘要 | 解析 status、duration、cases、error 供可视化展示 | P0 | IMPLEMENTED |
 | FR-017 | 需求关系读取 | 读取 .aitest/requirements.json 和 traceability.json | P0 | IMPLEMENTED (read-only) |
-| FR-018 | 执行事件审计 | 同一次运行生成事件顺序号与 JSONL | P0 | IMPLEMENTED |
+| FR-018 | 执行事件审计 | 同一次运行生成事件顺序号与 JSONL | P0 | IMPLEMENTED（ATS-208：序号无空洞，事件可按 run+sequence 复演为 run 的状态） |
 | FR-019 | Git 一致性与冲突提示 | 源码变化导致 stale hash 时返回 409/错误提示 | P0 | IMPLEMENTED |
 | FR-020 | 编辑器多视图 | 代码与图切换不丢原始代码；复杂步骤降级显示 | P0 | IMPLEMENTED (not reversible) |
 | FR-021 | 完整 Playwright --list 发现 | 根据权威运行时发现动态测试与参数化用例 | P1 | IMPLEMENTED (v0.2.0, ATS-202；未可信仓库回退静态索引) |

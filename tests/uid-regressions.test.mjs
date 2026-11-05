@@ -234,21 +234,33 @@ test('UT-UID-REG-010: an attempt records the result level status, not the case l
     }]
   };
   const summary = parseReport(report);
-  assert.equal(summary.cases.length, 2);
-  assert.equal(summary.cases[0].status, 'flaky', 'the case level status stays flaky');
-  assert.equal(summary.cases[0].resultStatus, 'failed', 'the result level status is failed');
-  assert.equal(summary.cases[1].resultStatus, 'passed');
+    // ATS-208: the case is ONE case with TWO attempts. The case level status
+    // is the aggregate of the attempts; each attempt keeps its own result
+    // level status. The old parser flattened the two retries into two
+    // "cases", so the first attempt's `failed` was a case of its own.
+    assert.equal(summary.cases.length, 1);
+    assert.equal(summary.cases[0].status, 'flaky', 'the case level status is flaky');
+    assert.equal(summary.cases[0].attempts.length, 2);
+    assert.equal(summary.cases[0].attempts[0].status, 'failed', 'the result level status is failed');
+    assert.equal(summary.cases[0].attempts[1].status, 'passed');
+    // The aggregate: the case failed once and then passed, so it is flaky.
+    assert.equal(summary.flaky, 1);
+    assert.equal(summary.passed, 0);
+    assert.equal(summary.failed, 0);
+    assert.equal(summary.total, 1);
+    assert.equal(summary.executions, 2);
 
-  const attempts = attemptsForRun(
-    { uid: 'run_1_' + '0'.repeat(24), projectUid, projectRoot: projectDir },
-    summary,
-    emptyRegistry()
-  );
-  assert.equal(attempts.length, 2);
-  assert.equal(attempts[0].status, 'failed', 'the first retry failed');
-  assert.equal(attempts[1].status, 'passed', 'the second retry passed');
-  assert.equal(attempts[0].caseStatus, 'flaky', 'the case level status is kept next to it');
-});
+    const attempts = attemptsForRun(
+      { uid: 'run_1_' + '0'.repeat(24), projectUid, projectRoot: projectDir },
+      summary,
+      emptyRegistry()
+    );
+    assert.equal(attempts.length, 2);
+    assert.equal(attempts[0].status, 'failed', 'the first retry failed');
+    assert.equal(attempts[1].status, 'passed', 'the second retry passed');
+    assert.equal(attempts[0].caseStatus, 'flaky', 'the case level status is kept next to it');
+    assert.equal(attempts[0].error, 'transient', 'the first attempt keeps its own error');
+  });
 
 /* ------------------------------------------------------------------ */
 /* The registry stays bounded                                          */

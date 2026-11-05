@@ -173,6 +173,17 @@ const ATTEMPT_COLUMNS = {
   uid: 'uid', run_uid: 'runUid', test_uid: 'testUid', retry: 'retry',
   status: 'status', case_status: 'caseStatus', duration: 'duration',
 };
+/**
+ * The execution events of the database.
+ *
+ * ATS-208: the events are a table of their own, keyed by (run, seq).
+ */
+function eventRows(db) {
+  return db
+    .prepare('SELECT run_uid,seq,at,type,data FROM events ORDER BY run_uid, seq')
+    .all();
+}
+
 // The `uid` of an artifact row is DERIVED from the run and the file (an
 // artifact has no identifier of its own in the v0.1 state), so it is not
 // compared against a field of the record -- it IS the key the row is
@@ -358,6 +369,45 @@ export function verifyMirror(db, state) {
     if (!stateArtifacts.some(({ run, artifact }) =>
       uid === `${String(run.uid ?? run.id ?? '')}:${artifact.file ?? ''}`)) {
       problems.push(`artifact ${uid} is not in the state`);
+    }
+  }
+
+  // --- the execution events of every run ---------------------------------
+  // ATS-208: the events are compared one by one, against the events of the
+  // state. The comparison covers the payload as well as the columns, so a
+  // row whose payload drifted away from the event it describes is reported.
+  const stateEvents = (state.runs ?? []).flatMap((r) =>
+    (r.events ?? []).map((e) => ({ run: r, event: e })));
+  const dbEvents = eventRows(db);
+  for (const { run, event } of stateEvents) {
+    const runUid = String(run.uid ?? run.id ?? '');
+    const row = dbEvents.find(
+      (r) => String(r.run_uid) === runUid && Number(r.seq) === Number(event.seq)
+    );
+    if (!row) {
+      problems.push(`the event ${runUid}#${event.seq} is missing from the database`);
+      continue;
+    }
+    let stored = null;
+    try { stored = JSON.parse(row.data); } catch (e) { problems.push(`the event ${runUid}#${event.seq}: the data column is not JSON (${e.message})`); }
+    if (stored) {
+      for (const d of diffValues(event.data ?? {}, stored, `event ${runUid}#${event.seq}`)) {
+        problems.push(d);
+      }
+    }
+    if (String(row.type) !== String(event.type ?? 'unknown')) {
+      problems.push(`the event ${runUid}#${event.seq}: the indexed type is ${JSON.stringify(row.type)} but the record says ${JSON.stringify(event.type)}`);
+    }
+    if (String(row.at ?? '') !== String(event.at ?? '')) {
+      problems.push(`the event ${runUid}#${event.seq}: the indexed timestamp is ${JSON.stringify(row.at)} but the record says ${JSON.stringify(event.at)}`);
+    }
+  }
+  for (const row of dbEvents) {
+    const found = stateEvents.some(({ run, event }) =>
+      String(run.uid ?? run.id ?? '') === String(row.run_uid)
+      && Number(event.seq) === Number(row.seq));
+    if (!found) {
+      problems.push(`the event ${row.run_uid}#${row.seq} is not in the state`);
     }
   }
 

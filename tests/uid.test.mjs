@@ -347,6 +347,10 @@ test('UT-UID-026: the static scanner numbers the line of the test call', () => {
 test('UT-UID-027: a retried case produces one attempt per retry', () => {
   // A retried test case is ONE entry in `spec.tests[]` whose `results[]`
   // holds one element per retry. Each retry is a separate execution.
+  //
+  // ATS-208: the retried case is ONE CASE with SEVERAL ATTEMPTS. The old
+  // parser flattened the retries into two "cases", which is how a retried
+  // case ended up counted twice and its first attempt was lost.
   const report = {
     config: { rootDir: path.join(projectDir, 'tests').replace(/\\/g, '/') },
     suites: [{
@@ -363,10 +367,12 @@ test('UT-UID-027: a retried case produces one attempt per retry', () => {
     }]
   };
   const summary = parseReport(report);
-  assert.equal(summary.cases.length, 2);
-  assert.equal(summary.cases[0].retry, 0);
-  assert.equal(summary.cases[1].retry, 1);
-  assert.equal(summary.cases[1].error, 'transient');
+  // ONE case, not two: the retries belong to the same case.
+  assert.equal(summary.cases.length, 1);
+  assert.equal(summary.cases[0].attempts.length, 2);
+  assert.equal(summary.cases[0].attempts[0].retry, 0);
+  assert.equal(summary.cases[0].attempts[1].retry, 1);
+  assert.equal(summary.cases[0].attempts[1].error, 'transient');
   assert.equal(summary.rootDir, report.config.rootDir);
   // `total` counts the cases of the run, not the executions: a retried case is
   // still one case, so the counters stay on the same unit.
