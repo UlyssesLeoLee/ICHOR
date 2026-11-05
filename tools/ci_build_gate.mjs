@@ -13,15 +13,17 @@
  *   node tools/ci_build_gate.mjs --step test  # run one step
  *   node tools/ci_build_gate.mjs --list       # list the steps
  *
- * Steps:
+ * Steps (one per CI workflow step, in the same order):
+ *   checknode  assert the Node major version matches engines.node
  *   install   npm ci in the root and in apps/studio, from the committed
  *             lockfiles only
  *   lockcheck assert that npm ci did not mutate either lockfile
  *   installdigest assert that the installed apps/studio tree still matches
  *             the digest recorded for it (tools/installed-tree-digests.txt)
  *   test      npm test (Node built-in test runner)
+ *   syntax    node --check on the bridge entrypoint
  *   build     the Next.js 16 static export
- *   manifest  regenerate the dependency manifest and assert no drift
+ *   manifest  assert the committed dependency manifest matches the lockfiles
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -56,6 +58,15 @@ const REQUIRED_NODE_MAJOR = 22;
  */
 const STEPS = [
   {
+    id: 'checknode',
+    title: 'The Node major version matches engines.node',
+    commands: [
+      // The workflow runs the same assertion as its first step
+      // ("Verify Node version matches engines").
+      { cwd: REPO_ROOT, cmd: 'node', args: ['tools/ci_build_gate.mjs', '--check-node'] },
+    ],
+  },
+  {
     id: 'install',
     title: 'Clean install from the committed lockfiles (npm ci)',
     commands: [
@@ -82,10 +93,15 @@ const STEPS = [
       // value is the same on every machine and every checkout location. It
       // pins the installed tree to the lockfiles: any dependency change,
       // swapped tarball or patched file moves it.
+      //
+      // The tool is addressed by a path RELATIVE to the repo root, and the
+      // command runs with that same cwd: an absolute path would be re-split
+      // on whitespace by the Windows shell and break in a checkout directory
+      // whose name contains a space or a non-ASCII character.
       {
         cwd: REPO_ROOT,
         cmd: 'node',
-        args: [path.join(REPO_ROOT, 'tools', 'tree_digest.mjs'), '--check', path.join('apps', 'studio', 'node_modules')],
+        args: ['tools/tree_digest.mjs', '--check', 'apps/studio/node_modules'],
       },
     ],
   },
@@ -97,6 +113,15 @@ const STEPS = [
     ],
   },
   {
+    id: 'syntax',
+    title: 'The bridge entrypoint parses (node --check)',
+    commands: [
+      // The workflow runs the same assertion after the test step
+      // ("Syntax check the bridge entrypoint").
+      { cwd: REPO_ROOT, cmd: 'node', args: ['--check', 'server/index.mjs'] },
+    ],
+  },
+  {
     id: 'build',
     title: 'Next.js 16 static export',
     commands: [
@@ -105,7 +130,7 @@ const STEPS = [
       // because an inline script has to survive the Windows shell's word
       // splitting (a `shell: true` spawn splits on spaces, which breaks any
       // `node -e` payload containing them).
-      { cwd: REPO_ROOT, cmd: 'node', args: [path.join(REPO_ROOT, 'tools', 'ci_build_gate.mjs'), '--check-artefact'] },
+      { cwd: REPO_ROOT, cmd: 'node', args: ['tools/ci_build_gate.mjs', '--check-artefact'] },
     ],
   },
   {
@@ -117,10 +142,25 @@ const STEPS = [
   },
 ];
 
-/** The npm version in use, for the gate banner. */
+/**
+ * The npm version in use, for the gate banner. */
 function npmVersion() {
   const res = spawnSync('npm', ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' });
   return (res.stdout || '').trim() || 'unknown';
+}
+
+/**
+ * Whether a command needs the Windows shell.
+ *
+ * Only `npm` needs it: on Windows `npm` is a `.cmd` shim, which the OS can
+ * only launch through cmd.exe. `node` and `git` are real executables and
+ * must NOT get a shell, because a shell re-splits the argument string on
+ * whitespace -- a checkout path containing a space (or a non-ASCII name)
+ * would be cut into two arguments and the command would fail with
+ * "Cannot find module".
+ */
+function needsShell(cmd) {
+  return process.platform === 'win32' && cmd === 'npm';
 }
 
 function run(cmd) {
@@ -128,8 +168,7 @@ function run(cmd) {
   const res = spawnSync(cmd.cmd, cmd.args, {
     cwd: cmd.cwd,
     stdio: 'inherit',
-    shell: process.platform === 'win32',
-    // On Windows the .cmd shims need the shell; on POSIX they must not get one.
+    shell: needsShell(cmd.cmd),
     env: process.env,
   });
   const ms = Date.now() - started;

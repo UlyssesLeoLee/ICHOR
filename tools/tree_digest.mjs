@@ -41,6 +41,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const argv = process.argv.slice(2);
 const CHECK = argv.includes('--check');
@@ -136,7 +137,7 @@ if (MANIFEST_OUT) {
  * copies that can drift apart.
  */
 const EXPECTED_FILE = path.join(
-  path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')),
+  path.dirname(fileURLToPath(import.meta.url)),
   'installed-tree-digests.txt',
 );
 

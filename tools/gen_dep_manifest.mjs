@@ -12,11 +12,13 @@
  *     (the value npm verifies on install). This part comes from the lockfile
  *     and is therefore deterministic.
  *   - the licence the package publishes, plus the SPDX id when the package
- *     declares one. This part comes from the npm registry metadata, NOT from
- *     the installed tree, because the installed tree only contains the
- *     platform-specific optional binaries of the current OS. Sourcing it from
- *     the registry keeps the manifest identical on every platform, which is
- *     what makes `--check` meaningful in CI.
+ *     declares one. The licence comes from the LOCKFILE, which records a
+ *     `license` field for every package; the SPDX id comes from the npm
+ *     registry metadata, because the lockfile does not carry it.
+ *
+ * Because the licence comes from the committed lockfile, `--check` needs no
+ * network access at all: the check is reproducible offline and on every
+ * platform, which is what makes it meaningful as a CI gate.
  *
  * Licences already recorded in the committed manifest are reused as-is, so a
  * regeneration needs no network. `--refresh-licences` forces a fresh registry
@@ -173,6 +175,32 @@ function loadCommittedLicences() {
   }
 }
 
+/**
+ * The licences the LOCKFILES themselves carry, keyed by `name@version`.
+ *
+ * lockfileVersion 3 records a `license` field for every package that declares
+ * one, so this source covers the whole tree without any network access. It is
+ * preferred over the registry, which makes `--check` fully offline and
+ * therefore independent of registry availability.
+ *
+ * The registry remains the source for the SPDX id (`sbomId`), which the
+ * lockfile does not carry.
+ */
+function loadLockfileLicences() {
+  const map = new Map();
+  for (const project of PROJECTS) {
+    const { lock } = readLock(project);
+    for (const [location, meta] of Object.entries(lock.packages || {})) {
+      if (!location || !meta.version) continue;
+      const licence = licenceOf(meta.license);
+      if (!licence) continue;
+      const name = location.slice(location.lastIndexOf('node_modules/') + 'node_modules/'.length);
+      map.set(`${name}@${meta.version}`, { licence, spdx: null });
+    }
+  }
+  return map;
+}
+
 /** Fetch one package's registry metadata. Returns null when unavailable. */
 async function fetchMeta(name, version) {
   const url = `${REGISTRY}/${name}/${version}`;
@@ -221,7 +249,7 @@ async function fetchMissingLicences(needed) {
 /**
  * Build the manifest for one project from its lockfile.
  */
-function collect(project, committed, fetched) {
+function collect(project, committed, fromLock, fetched) {
   const { lock, lockPath } = readLock(project);
   const lockRel = path.relative(REPO_ROOT, lockPath).replace(/\\/g, '/');
 
@@ -242,8 +270,16 @@ function collect(project, committed, fetched) {
 
     const key = `${name}@${meta.version}`;
     const known = committed.get(key);
+    const locked = fromLock.get(key);
     const fetchedMeta = fetched.get(key);
-    const licence = (fetchedMeta && fetchedMeta.licence) || (known && known.licence) || null;
+    // Precedence: a fresh registry lookup, then the lockfile, then the
+    // committed manifest. The lockfile is the authoritative offline source:
+    // it is what npm actually installs from.
+    const licence =
+      (fetchedMeta && fetchedMeta.licence) ||
+      (locked && locked.licence) ||
+      (known && known.licence) ||
+      null;
     const spdx = (fetchedMeta && fetchedMeta.spdx) || (known && known.spdx) || null;
 
     packages.push({
@@ -289,12 +325,34 @@ function collect(project, committed, fetched) {
   };
 }
 
-/** The SHA-256 of the lockfile, so the manifest states which lock it describes. */
+/**
+ * The SHA-256 of the lockfile, so the manifest states which lock it describes.
+ *
+ * The bytes hashed are the file's content with the line terminators
+ * normalised to LF. That is the same content git stores in the blob: with
+ * `core.autocrlf=true` (the Windows default) the working tree holds CRLF
+ * while the blob holds LF, so hashing the raw working-tree bytes would make
+ * the recorded digest depend on the checkout's line-ending setting and the
+ * `--check` gate would fail on every LF checkout (Linux / macOS runners and
+ * any `core.autocrlf=false` clone).
+ *
+ * Normalising to LF therefore yields ONE value that a third party can
+ * recompute from the committed blob:
+ *
+ *   git cat-file blob HEAD:apps/studio/package-lock.json | sha256sum
+ *
+ * See `docs/17-BUILD-CI.md` §2.2 for the stated 口径 (measurement definition).
+ */
 function lockDigest(project) {
   const { lockPath } = readLock(project);
-  return crypto.createHash('sha256')
-    .update(fs.readFileSync(lockPath))
-    .digest('hex');
+  const bytes = fs.readFileSync(lockPath);
+  // Normalise CRLF -> LF. The lockfiles are JSON with LF terminators in the
+  // blob; a lone CR never occurs in them.
+  const normalised = Buffer.from(
+    bytes.toString('utf8').replace(/\r\n/g, '\n'),
+    'utf8',
+  );
+  return crypto.createHash('sha256').update(normalised).digest('hex');
 }
 
 /** Every `name@version` the lockfiles pin. */
@@ -314,14 +372,21 @@ function allKeys() {
 /** Assemble the whole manifest. */
 async function build() {
   const committed = loadCommittedLicences();
+  const fromLock = loadLockfileLicences();
   const keys = allKeys();
 
-  // Only the packages the committed manifest does not already cover need a
-  // registry lookup; --refresh-licences forces every one of them.
-  const needed = REFRESH ? keys : keys.filter((k) => !committed.has(k));
+  // The licence of a package comes from the lockfile, which carries it
+  // without any network access. The registry is consulted only for the SPDX
+  // id (`sbomId`), which the lockfile does not have -- and only for the
+  // packages the lockfile does not cover.
+  //
+  // `--refresh-licences` forces a fresh registry lookup for every package.
+  const needed = REFRESH
+    ? keys
+    : keys.filter((k) => !fromLock.has(k) && !committed.has(k));
   const fetched = await fetchMissingLicences(needed);
 
-  const projects = PROJECTS.map((p) => collect(p, committed, fetched));
+  const projects = PROJECTS.map((p) => collect(p, committed, fromLock, fetched));
   const all = projects.flatMap((p) => p.packages);
 
   const licenceCounts = new Map();
@@ -329,9 +394,10 @@ async function build() {
 
   return {
     schema: 'ai-test-studio/dependency-manifest/1',
-    // Where the licence data came from: the npm registry metadata (not the
-    // installed tree, which is platform-dependent).
-    licenceSource: 'npm-registry-metadata',
+    // Where the licence data came from: the committed lockfiles (not the
+    // installed tree, which is platform-dependent). The SPDX ids come from
+    // the npm registry metadata.
+    licenceSource: 'lockfile-metadata',
     node: {
       required: '>=22',
       note: 'The engines field of the root package.json is the single source of truth for the Node version.',
@@ -364,7 +430,7 @@ function renderMarkdown(manifest) {
   lines.push('> 本文件由 `tools/gen_dep_manifest.mjs` 从**已提交的 lockfile** 生成，请勿手工编辑。');
   lines.push('> 重新生成：`node tools/gen_dep_manifest.mjs`；校验漂移：`node tools/gen_dep_manifest.mjs --check`。');
   lines.push('');
-  lines.push(`- 许可数据来源：npm registry 元数据（\`${manifest.licenceSource}\`），非本机 \`node_modules\`——因此清单在各平台一致`);
+  lines.push(`- 许可数据来源：已提交的 lockfile（\`${manifest.licenceSource}\`），非本机 \`node_modules\`——因此清单在各平台一致，且校验无需联网`);
   lines.push(`- 依赖总数：**${manifest.totals.packages}**（直接依赖 ${manifest.projects.reduce((n, p) => n + p.counts.direct, 0)}）`);
   lines.push(`- 许可已知：**${manifest.totals.licenceKnown}**；许可未知：**${manifest.totals.licenceUnknown}**`);
   lines.push(`- 需法务复核的许可：**${manifest.totals.licenseReviewRequired}**`
