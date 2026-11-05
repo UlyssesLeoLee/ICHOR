@@ -574,13 +574,28 @@ function rewindToCancelling(data, runId) {
  * migration). The old recovery read `events.jsonl` unconditionally and
  * threw `ENOENT`, so the bridge died on start -- and one damaged run kept
  * the WHOLE installation from starting.
+ *
+ * THE ORDER OF THE TWO STEPS MATTERS.
+ *
+ * The folder is deleted AFTER the bridge has stopped. If the folder were
+ * deleted while the bridge were still alive, the bridge would write the
+ * next event into the missing folder, RECREATE it (the writer creates the
+ * parent directory), and the recovery would find a healthy log -- the
+ * defect would never be exercised. That is why this case stopped the
+ * bridge first: it has to reproduce the state a crash leaves behind, and
+ * the crash means nobody is left to recreate the folder.
+ *
+ * (Measured: with the folder deleted while the bridge was still alive, the
+ * OLD tree started up fine and the case was GREEN -- a case that does not
+ * guard the defect it is written for. With the bridge stopped first, the
+ * OLD tree dies with ENOENT and the case is RED.)
  */
 test('IT-EXE-008: the bridge starts even when the run folder is gone', async () => {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-exe-missing-'));
   const data = path.join(work, 'data');
   try {
     const project = makeHangingProject(work);
-    await withBridge(data, async ({ call, token, restart }) => {
+    await withBridge(data, async ({ call, token, kill, restart }) => {
       const projectId = (await call('/api/projects', 'POST', { path: project }, token))[1].project.id;
       const [, started] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/slow.spec.ts' }, token);
       const runId = started.run.id;
@@ -588,7 +603,9 @@ test('IT-EXE-008: the bridge starts even when the run folder is gone', async () 
         if ((await call(`/api/runs/${runId}`, 'GET', null, token))[1].run.status === 'running') break;
         await new Promise((r) => setTimeout(r, 35));
       }
-      // The run folder disappears.
+      // The bridge stops FIRST: the folder is gone and nobody is left to
+      // recreate it.
+      await kill();
       fs.rmSync(path.join(data, 'runs', runId), { recursive: true, force: true });
 
       const token2 = await restart();
@@ -831,6 +848,57 @@ fs.writeFileSync(out, JSON.stringify({
       assert.equal(run.attempts[0].status, 'failed');
       assert.equal(run.attempts[0].expectedStatus, 'failed');
       assert.equal(run.attempts[0].outcome, 'expected');
+    });
+  } finally {
+    removeTemp(work);
+  }
+});
+
+/**
+ * The defect N3 is about, at the API level.
+ *
+ * The replay endpoint reports the holes of the sequence and the numbers
+ * that are used more than once. A log whose FIRST events were lost is not
+ * an intact log, and a stream that holds two events with the same number
+ * does not describe a run -- the metadata layer's primary key
+ * `(run_uid, seq)` refuses such a pair.
+ */
+test('IT-EXE-013: the replay reports the lost and the reused sequence numbers', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-exe-seq-'));
+  const data = path.join(work, 'data');
+  try {
+    const project = makeHangingProject(work);
+    await withBridge(data, async ({ call, token, kill, restart }) => {
+      const projectId = (await call('/api/projects', 'POST', { path: project }, token))[1].project.id;
+      const [, started] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/slow.spec.ts' }, token);
+      const runId = started.run.id;
+      for (let i = 0; i < 100; i++) {
+        if ((await call(`/api/runs/${runId}`, 'GET', null, token))[1].run.status === 'running') break;
+        await new Promise((r) => setTimeout(r, 35));
+      }
+      await kill();
+
+      // The durable log is damaged in two ways at once: the first event is
+      // LOST, and one number is used TWICE.
+      const log = path.join(data, 'runs', runId, 'events.jsonl');
+      const lines = fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+      assert.ok(lines.length >= 2, `the log holds ${lines.length} events`);
+      // Drop the first event: the hole is at the BEGINNING of the stream.
+      const kept = lines.slice(1);
+      // Reuse the number of the first kept event for a second one.
+      const duplicated = { ...kept[0], type: 'run.cancelling', data: {} };
+      fs.writeFileSync(log, [...kept, duplicated].map((e) => JSON.stringify(e)).join('\n') + '\n');
+
+      const token2 = await restart();
+      const [status, replay] = await call(`/api/runs/${runId}/replay`, 'GET', null, token2);
+      assert.equal(status, 200, JSON.stringify(replay));
+      // The hole at the beginning is reported: the sequence starts at 1.
+      assert.ok(replay.gaps.includes(1), JSON.stringify(replay.gaps));
+      // The reused number is reported.
+      assert.ok(replay.duplicates.length >= 1, JSON.stringify(replay.duplicates));
+      // A stream that reuses a number does not describe a run.
+      assert.equal(replay.valid, false, JSON.stringify(replay.violations));
+      assert.equal(replay.agrees, false, JSON.stringify(replay));
     });
   } finally {
     removeTemp(work);
