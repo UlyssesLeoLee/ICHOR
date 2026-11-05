@@ -1,33 +1,35 @@
-ATS-301 证据 04：stop() 的可证伪性（no-op 变异验证）
+=== ATS-301 mutation: stop() turned into a no-op ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-8bd534310547/worktree
+node      : v24.19.0
+date      : 2026-11-05T11:37:22Z
+command  : node --test tests/adapters-it.test.mjs
 
-目的：复核指出原 IT-ADP-011 只断言「退出码 != 0」，而本 fixture 本身含一条
-故意失败的用例，退出码恒为 1，因此把 stop() 改成 no-op 后测试依然 PASS。
-本日志记录改造后的断言在 no-op 变异下确实变红。
+The stop IT asserts two things, both measured in the same test:
+  1. the stopped run did not execute every case (stopped < natural);
+  2. the stopped run was clearly faster than the natural one.
+The natural baseline is measured in the same test; no hardcoded
+threshold is used.
 
-变异内容（server/adapters/playwright.mjs 与 server/adapters/wdio.mjs 的 stop()）：
-    stop(handle) {
-      if (!handle || !handle.child) throw new Error('RUN_NOT_ACTIVE');
-      // MUTATION (no-op stop) -- the test must go red.
-    },
-
-命令：
-    node --test --test-name-pattern="IT-ADP-011" tests/adapters-it.test.mjs
-
-结果（变异生效，stop() 什么都不做）：
-    tests 2
-    pass 0
-    fail 2
-
-✖ IT-ADP-011: stop() terminates a Playwright run that is in flight
-  AssertionError: pw-stop: a stopped run must not complete all cases (stopped=2, natural=2)
-
-✖ IT-ADP-011B: stop() terminates a WebdriverIO run that is in flight
-  AssertionError: wdio-stop: a stopped run must not complete all cases (stopped=2, natural=2)
-
-结论：两条断言在 stop() 被改成 no-op 后同时变红，说明它们对 stop() 的行为
-敏感（可证伪）。恢复原实现后两条均 PASS（见 01-npm-test-full.log）。
-
-断言的两条独立事实：
-  1. 被 stop 的那次运行没有跑完全部用例（stopped < natural）；
-  2. 被 stop 的那次运行明显快于自然跑完（stoppedMs < naturalMs）。
-自然基线在同一个测试里实测，不使用写死的阈值。
+✔ IT-ADP-001: both engines expose the same four operations (0.8664ms)
+✔ IT-ADP-002: both engines return the same discover() shape (1.6738ms)
+✔ IT-ADP-003: the Playwright fixture is discovered (0.5096ms)
+✔ IT-ADP-004: the WDIO fixture is discovered (0.3364ms)
+✔ IT-ADP-005: negotiation over the real Playwright project proves the CLI options (424.2302ms)
+✔ IT-ADP-005B: the real Playwright CLI declares a positional test filter (852.3768ms)
+✔ IT-ADP-005C: the real Playwright run passes the filtered file as a positional argument (450.0021ms)
+✔ IT-ADP-006: negotiation over the real WDIO project proves the reporter (822.5699ms)
+✔ IT-ADP-007: an unsupported capability is DETECTABLE, not an exception (1598.6681ms)
+✔ IT-ADP-008: Playwright start -> collect produces one PASS and one FAIL (7140.8867ms)
+✔ IT-ADP-009: WDIO start -> collect produces one PASS and one FAIL (6649.0488ms)
+✔ IT-ADP-010: both engines map their results onto the SAME model (13958.0913ms)
+✔ IT-ADP-011: stop() terminates a Playwright run that is in flight (8297.938ms)
+✔ IT-ADP-011B: stop() terminates a WebdriverIO run that is in flight (9111.999ms)
+✔ IT-ADP-CLEANUP: removes the generated fixture (97.2502ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 49508.8928

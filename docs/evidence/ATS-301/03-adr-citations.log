@@ -1,3 +1,9 @@
+=== ATS-301 check: every ADR path:line citation resolves ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-8bd534310547/worktree
+python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+date      : 2026-11-05T11:37:22Z
+command  : PYTHONUTF8=1 python tools/check_adr_citations.py
+
 --- citations enumerated from the ADR ---
   apps/studio/app/page.tsx         81
   apps/studio/lib/api.ts           6
@@ -8,7 +14,7 @@
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
   start.sh                         4
-  tools/generate_test_docs.py      52,58,74
+  tools/generate_test_docs.py      120,126,157
 
 ok   server/index.mjs:14
 ok   server/index.mjs:18
@@ -23,13 +29,16 @@ ok   server/index.mjs:203
 ok   server/core.mjs:27
 ok   server/core.mjs:103
 ok   src-tauri/Cargo.toml:11
+ok   start.sh:4
+ok   start.ps1:8
+ok   start.ps1:9
+ok   tools/generate_test_docs.py:120
+ok   tools/generate_test_docs.py:126
+ok   tools/generate_test_docs.py:157
 ok   server/index.mjs:60-65 (cancelRun extent)
-ok   apps/studio/app/page.tsx (covered by the ATS-101 port audit)
-ok   apps/studio/lib/api.ts (covered by the ATS-101 port audit)
-ok   apps/studio/public/fallback.html (covered by the ATS-101 port audit)
-ok   src-tauri/src/lib.rs (covered by the ATS-101 port audit)
-ok   start.ps1 (covered by the ATS-101 port audit)
-ok   start.sh (covered by the ATS-101 port audit)
-ok   tools/generate_test_docs.py (covered by the ATS-101 port audit)
+ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
+ok   apps/studio/lib/api.ts:6 (the API base URL -- covered by the ATS-101 port audit)
+ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
+ok   src-tauri/src/lib.rs:19 (the ATS_PORT environment default -- covered by the ATS-101 port audit)
 
 RESULT: OK

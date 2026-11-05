@@ -1,0 +1,30 @@
+=== ATS-301: the workbook row is the updater's output ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-8bd534310547/worktree
+python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+date      : 2026-11-05T11:38:28Z
+command  : PYTHONUTF8=1 python tools/ats301-probes/show-ats301-note.py
+
+ATS-301 row 41:
+  A41 WBS ID       : ATS-301
+  B41 名称         : S3
+  G41 完成定义     : Playwright 与 WDIO 通过同一发现、启动、停止、采集 API；可检测不支持的能力
+  N41 状态         : 待审核
+  O41 完成率       : 1
+
+  T41 风险/说明 (the whole cell as it reads on disk):
+    length : 929
+    text   : 阶段内按验收门槛控制；【ATS-301】Runner/Reporter アダプタ契約 v1（adapter-contract/v1）已实现并实测：Playwright 与 WDIO 通过同一发现、启动、停止、采集 API（server/adapters/contract.mjs），能力协商按 scope 声明并可检测不支持的能力（requireCapability 抛 CAPABILITY_UNSUPPORTED 并给出原因）；不支持的能力是可检测的返回，不是异常崩溃。本任务相关测试共 77 项全通过，其中 10 项为真实引擎 IT（examples/sample-playwright 真实 @playwright/test 1.64.1 + examples/sample-wdio 真实 WebdriverIO 10.1.0），在真实浏览器上验证两个引擎映射到同一结果模型、各产出 1 PASS + 1 FAIL、stop() 能终止在飞运行（断言可证伪：被停止的运行未跑完全部用例且明显快于自然跑完，no-op 变异下测试变红）；未安装引擎时该 10 项按设计 skip 而非 fail。HTTP 层的能力协商有 IT 覆盖（GET /runners、带 capabilities/runner 的 /run），409 响应体带 missing[]/rejected[] 理由。实现载体：server/adapters/{contract,registry,playwright,playwright-cli,wdio}.mjs、探针 tools/ats301-probes/、契约文档 docs/18-RUNNER-ADAPTER-CONTRACT.md、证据 docs/evidence/ATS-301/。未实现（不属本项）：远程 Runner（ATS-501 起）、沙箱与资源隔离（ATS-402 起）、CI 上的引擎矩阵（ATS-102 的 workflow 已就位但未跑本项矩阵）。范围声明：Bridge 层只有 start/collect 经契约，discover/stop 仍是 v0.1 路径（详见 docs/18 §9.0）。
+
+  the ATS-301 block this script owns (from 【ATS-301】 to the next marker):
+    length : 918
+    text   : 【ATS-301】Runner/Reporter アダプタ契約 v1（adapter-contract/v1）已实现并实测：Playwright 与 WDIO 通过同一发现、启动、停止、采集 API（server/adapters/contract.mjs），能力协商按 scope 声明并可检测不支持的能力（requireCapability 抛 CAPABILITY_UNSUPPORTED 并给出原因）；不支持的能力是可检测的返回，不是异常崩溃。本任务相关测试共 77 项全通过，其中 10 项为真实引擎 IT（examples/sample-playwright 真实 @playwright/test 1.64.1 + examples/sample-wdio 真实 WebdriverIO 10.1.0），在真实浏览器上验证两个引擎映射到同一结果模型、各产出 1 PASS + 1 FAIL、stop() 能终止在飞运行（断言可证伪：被停止的运行未跑完全部用例且明显快于自然跑完，no-op 变异下测试变红）；未安装引擎时该 10 项按设计 skip 而非 fail。HTTP 层的能力协商有 IT 覆盖（GET /runners、带 capabilities/runner 的 /run），409 响应体带 missing[]/rejected[] 理由。实现载体：server/adapters/{contract,registry,playwright,playwright-cli,wdio}.mjs、探针 tools/ats301-probes/、契约文档 docs/18-RUNNER-ADAPTER-CONTRACT.md、证据 docs/evidence/ATS-301/。未实现（不属本项）：远程 Runner（ATS-501 起）、沙箱与资源隔离（ATS-402 起）、CI 上的引擎矩阵（ATS-102 的 workflow 已就位但未跑本项矩阵）。范围声明：Bridge 层只有 start/collect 经契约，discover/stop 仍是 v0.1 路径（详见 docs/18 §9.0）。
+
+  the block tools/update_wbs_ats301.py would write:
+    length : 909
+    text   : Runner/Reporter アダプタ契約 v1（adapter-contract/v1）已实现并实测：Playwright 与 WDIO 通过同一发现、启动、停止、采集 API（server/adapters/contract.mjs），能力协商按 scope 声明并可检测不支持的能力（requireCapability 抛 CAPABILITY_UNSUPPORTED 并给出原因）；不支持的能力是可检测的返回，不是异常崩溃。本任务相关测试共 77 项全通过，其中 10 项为真实引擎 IT（examples/sample-playwright 真实 @playwright/test 1.64.1 + examples/sample-wdio 真实 WebdriverIO 10.1.0），在真实浏览器上验证两个引擎映射到同一结果模型、各产出 1 PASS + 1 FAIL、stop() 能终止在飞运行（断言可证伪：被停止的运行未跑完全部用例且明显快于自然跑完，no-op 变异下测试变红）；未安装引擎时该 10 项按设计 skip 而非 fail。HTTP 层的能力协商有 IT 覆盖（GET /runners、带 capabilities/runner 的 /run），409 响应体带 missing[]/rejected[] 理由。实现载体：server/adapters/{contract,registry,playwright,playwright-cli,wdio}.mjs、探针 tools/ats301-probes/、契约文档 docs/18-RUNNER-ADAPTER-CONTRACT.md、证据 docs/evidence/ATS-301/。未实现（不属本项）：远程 Runner（ATS-501 起）、沙箱与资源隔离（ATS-402 起）、CI 上的引擎矩阵（ATS-102 的 workflow 已就位但未跑本项矩阵）。范围声明：Bridge 层只有 start/collect 经契约，discover/stop 仍是 v0.1 路径（详见 docs/18 §9.0）。
+
+  the ATS-301 block IS the updater output ? True
+  (the updater writes MARKER + NOTE = 918 chars)
+  contains '10.1.0' ? True
+  contains '§9.0' ? True
+  marker count : 1 (expected 1)

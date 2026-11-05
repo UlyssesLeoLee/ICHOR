@@ -1,63 +1,29 @@
-ATS-301 / review item 5 -- the 409 body carries the capability reason
-======================================================================
+=== ATS-301 mutation: the 409 reason generation ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-8bd534310547/worktree
+node      : v24.19.0
+platform  : win32 x64
+date      : 2026-11-05T11:38:12Z
 
-WHAT THIS LOG PROVES
-  The review required that a 409 from the capability negotiation carry the
-  REASON -- which capability was missing and why -- not just an error code.
-  This log shows (a) the HTTP tests assert that, and (b) those assertions are
-  NOT tautological: mutating the code that builds the reason turns them red.
-
-THE MUTATION
-  server/adapters/registry.mjs -- negotiationFailure() is made to return {},
-  so the 409 body keeps only {"error":"<CODE>"} and loses the reason.
-
---- run 1: the MUTATED tree ---
-command: node --test tests/api.test.mjs
-exit code: 1
-
-Failing tests under the mutation:
-  ✖ IT-API-011: POST /runners with an unsatisfiable capability is 409 WITH the reason (419.2524ms)
-  ✖ IT-API-012: POST /runners with a PINNED runner that cannot satisfy the request is 409 WITH the reason (2.5876ms)
-  ✖ IT-API-014: POST /run with an unsatisfiable capability is 409 WITH the reason (423.8258ms)
-
-  -> 3 of the 15 API tests go red when the reason is dropped:
-     IT-API-011  POST /runners, unpinned
-     IT-API-012  POST /runners, pinned runner
-     IT-API-014  POST /run
-  -> the assertion bodies are not constant: they check the body for
-     missing[] / rejected[] and for the adapter's own reason text.
-
---- run 2: the RESTORED tree ---
-command: node --test tests/api.test.mjs
-exit code: 0
-  ✔ IT-API-SETUP: start server (175.3707ms)
-  ✔ IT-API-001: add existing repository (204.2898ms)
-  ✔ IT-API-002: import and index tests (154.779ms)
-  ✔ IT-API-001B: add a project without the engine installed (108.9791ms)
-  ✔ IT-API-003: runs survive persisted read (14.2516ms)
-  ✔ IT-API-010: GET /runners returns the capability matrix (549.5419ms)
-  ✔ IT-API-011: POST /runners with an unsatisfiable capability is 409 WITH the reason (438.8885ms)
-  ✔ IT-API-012: POST /runners with a PINNED runner that cannot satisfy the request is 409 WITH the reason (17.6292ms)
-  ✔ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (840.3169ms)
-  ✔ IT-API-014: POST /run with an unsatisfiable capability is 409 WITH the reason (425.8831ms)
-  ✔ IT-API-015: a non-array capabilities is a 400, not a silent empty request (3.5142ms)
-  ✔ IT-API-CLEANUP: stop and cleanup (4.1821ms)
-  ℹ tests 15
-  ℹ pass 15
-  ℹ fail 0
-
-  -> with the reason restored, all 15 pass. The restored file was checked
-     byte-identical to the pre-mutation copy and contains no MUTATION marker.
-
---- the suggested 400 case is covered too ---
-  IT-API-015 asserts a non-array `capabilities` is a 400
-  (CAPABILITIES_NOT_AN_ARRAY) rather than a silently emptied request.
-  IT-API-013 asserts the pinned and unpinned success responses share the
-  SAME `negotiation` shape.
-  Both stayed green under the mutation above, because that mutation only
-  removed the 409 reason and did not touch the 400 guard.
-
-ENVIRONMENT
-  node     : v24.19.0
-  platform : win32 x64
-  date     : 2026-11-05T19:18:57
+✔ IT-API-SETUP: start server (176.4528ms)
+✔ IT-SEC-001: rejects unauthenticated API (2.339ms)
+✔ IT-API-001: add existing repository (105.9109ms)
+✔ IT-API-002: import and index tests (77.4769ms)
+✔ IT-SEC-002: rejects foreign origin (2.1486ms)
+✔ IT-API-001B: add a project without the engine installed (71.7352ms)
+✔ IT-RUN-001: no deps => explicit failure rather than fake success (90.3025ms)
+✔ IT-API-003: runs survive persisted read (1.9399ms)
+✔ IT-API-010: GET /runners returns the capability matrix (499.8282ms)
+✔ IT-API-011: POST /runners with an unsatisfiable capability is 409 WITH the reason (432.7786ms)
+✔ IT-API-012: POST /runners with a PINNED runner that cannot satisfy the request is 409 WITH the reason (2.8334ms)
+✔ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (846.9625ms)
+✔ IT-API-014: POST /run with an unsatisfiable capability is 409 WITH the reason (411.9986ms)
+✔ IT-API-015: a non-array capabilities is a 400, not a silent empty request (17.478ms)
+✔ IT-API-CLEANUP: stop and cleanup (3.3751ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2837.6149

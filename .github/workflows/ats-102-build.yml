@@ -76,6 +76,13 @@ jobs:
       - name: Run unit / integration tests
         run: npm test
 
+      # ATS-301 gate: the WBS shared-cell regression, the ADR citation check
+      # and the ATS-101 hardcoded-port audit. The port audit belongs here: a
+      # delivery that adds a source file mentioning the default port turns it
+      # red, and a CI job that does not run it cannot see that regression.
+      - name: Run the ATS-301 gate
+        run: npm run gate:ats301
+
       - name: Syntax check the bridge entrypoint
         run: node --check server/index.mjs
 
