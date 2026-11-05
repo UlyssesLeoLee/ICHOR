@@ -85,7 +85,7 @@ FR-021（`--list` 权威发现）、FR-022（AST 受控反写）、FR-023（WDIO
 
 ### 2.6 Agent 契约层（ATS-401，S4/v0.4.0）
 
-`server/agent.mjs` 实现了 Agent 契约 v1（`agent-contract/v1`）：请求必须带作用域、预算与输入出处；角色（planner/generator/triage/healer）对应能力白名单；产出为待审提案，提案人不得自审；diff 目标必须落在作用域内且为测试脚本文件。
+`server/agent.mjs` 实现了 Agent 契约 v1（`agent-contract/v1`）：请求必须带作用域、预算与输入出处；角色（planner/generator/triage/healer）对应能力白名单；产出为待审提案，提案人不得自审；diff 必须符合白名单语法，白名单里出现的目标路径必须落在作用域内且为测试脚本文件。
 
 **权限边界是机制而非约定**：契约层的源码只 import `node:crypto` 与 `node:path` 且不含任何 I/O 调用（由静态检查 + 11 项负控守护；**不是**「物理上无法」——真正的隔离属平台侧 ATS-403）；写入与提交类能力在请求层一律被拒；提案的 `approval` 恒为 `pending`。
 

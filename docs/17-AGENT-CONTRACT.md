@@ -98,9 +98,16 @@
 
 - `approval` **恒为 `pending`**。模型即使输出 `approval: "approved"` 也会被覆盖。
 - `producedBy` 取平台侧适配器 id，不取模型自述。
-- `diff` 只允许是 unified diff；diff 头部里出现的**每一个**路径（`diff --git` 两侧、`---`/`+++`、`rename from/to`、`copy from/to`、`Binary files … differ`）都必须同时满足：**在 `scope.root` 之内**、**是测试脚本文件**、**列在 `scope.outputs` 之内**。任一不满足即 `AGENT_PROPOSAL_OUT_OF_SCOPE`。
+- `diff` 只允许是 unified diff，且必须符合**白名单语法**（见下）。白名单里出现过的每一个路径都必须同时满足：**在 `scope.root` 之内**、**是测试脚本文件**、**列在 `scope.outputs` 之内**。任一不满足即 `AGENT_PROPOSAL_OUT_OF_SCOPE`。
 - diff 头部行按 CRLF 归一化后再匹配，因此 CRLF diff 不能靠行尾 `\r` 跳过检查。
-- **拒绝**的构造：rename、copy、`GIT binary patch`、`Binary files … differ`、`old/new mode`、任何非 `100644` 的 mode、`deleted file mode`。新建测试脚本（`--- /dev/null` + `new file mode 100644`，且路径在 `scope.outputs` 内）是允许的。
+- **白名单语法**（`parseDiffSegments()`）：只接受下面这些头部行，其余一律 `AGENT_PROPOSAL_OUT_OF_SCOPE`：
+  - `diff --git a/P b/P` —— **可选**（`git apply` 也接受裸的 unified diff）；出现时两侧的 P 必须相同；
+  - `index <hex>..<hex>` —— 可选，可带 ` 100644`；
+  - `new file mode 100644` —— 可选；
+  - `--- a/P`（或 `--- /dev/null`）与 `+++ b/P`。
+- hunk 体按 `@@ -a,b +c,d @@` 声明的行数严格消费，只允许 ` ` / `+` / `-` / `\ No newline at end of file` 开头的行；行数与声明不符即拒绝。
+- **被拒绝**的构造（旧式的 `rename old/new`、`copy from/to`、`similarity`/`dissimilarity index`、`Index:`、`***` 上下文 diff 头、`GIT binary patch`、`Binary files … differ`、`old/new mode`、任何非 `100644` 的 mode、`deleted file mode`）。新建测试脚本（`--- /dev/null` + `new file mode 100644`，且路径在 `scope.outputs` 内）是允许的。
+- **带引号的路径**按 git 的 C 风格转义规则**完整**反转义后再做作用域判定（`unquoteGitPath()`：`\a \b \t \n \v \f \r \" \\ \NNN` 八进制）。转义不合法时直接拒绝——只实现一半的反转义会让校验结果与 git 实际解析出的路径不一致。
 - `script-diff` 提案必须引用至少一个输入出处（`evidenceRefs`），否则 `AGENT_PROPOSAL_INVALID`。
 - 非 `script-diff` 类型的提案**不得携带 diff**。
 - 评审：`reviewAgentProposal()` 只改审批状态，不改提案内容；`reviewer` 与 `producedBy` **规范化后**不得相同（去首尾空白、折叠内部空白、转小写），因此 `'gen-1 '` 与 `'GEN-1'` 同样被拒（`AGENT_REVIEW_SELF_FORBIDDEN`）；只有 `pending` 可被评审。
@@ -123,9 +130,11 @@
 | 1 | 契约层的**源码**不含 I/O 调用：只 import `node:crypto`/`node:path`，且不引用 `fetch`/`process`/`globalThis`/`WebSocket`/动态 `import`/`require`/`process.getBuiltinModule` | `server/agent.mjs` | **静态检查**报出违规（`tools/ats401-probes/lib/contract-purity.mjs`，带 11 项负控） |
 | 2 | 能力白名单不含任何写入/提交能力；请求携带即拒 | `validateAgentRequest()` | `AGENT_CAPABILITY_FORBIDDEN` |
 | 3 | 提案只承载 diff 文本；`approval` 恒为 `pending`；提案人不得自审 | `validateAgentProposal()` / `reviewAgentProposal()` | `AGENT_REVIEW_SELF_FORBIDDEN` |
-| 4 | diff 目标必须在 `scope.outputs` 内且为测试脚本 | `validateDiff()` | `AGENT_PROPOSAL_OUT_OF_SCOPE` |
+| 4 | diff 必须符合**白名单语法**，且白名单里出现的目标路径都必须在 `scope.outputs` 内并为测试脚本 | `validateDiff()` / `parseDiffSegments()` | `AGENT_PROPOSAL_OUT_OF_SCOPE` |
 
 机制 2、3、4 都在**请求/提案层**生效，因此**即使有人日后接入真实模型提供方**，边界依然成立——模型输出绕不过契约层的收敛。
+
+**关于机制 4 的准确表述**：第 1 轮整改用的是**黑名单**（逐一列举已知的危险构造），第 2 次复核证明了黑名单追不上 git 的解析器——`git apply` 仍然接受清单里没有的写法（旧式 `rename old/new` 头就是一个实例），于是「diff 目标都在 `scope.outputs` 内」仍可被绕过。因此第 2 轮整改改为**白名单语法**：只有明确列出的头部形式被接受，其余一律拒绝。这条保证的强度以「被接受的 diff 语法」为准；**平台侧落地前必须再用 `git apply --check --numstat --summary` 校验一次**，以 git 自己的解析器为准（见 §2.3）。
 
 **关于机制 1 的准确表述**：它是一条**静态检查**，证明契约层的源码不含 I/O 调用；它**不是**「物理上无法」。Node 运行时并不阻止模块使用 `fetch`、`process`、`globalThis`、`process.getBuiltinModule`、动态 `import()` 或 `require`，因此真正的隔离（模块沙箱、只读挂载、子进程沙箱）**不在本任务范围**，属平台侧（ATS-403）。第 1 次复核指出旧表述「物理上无法」高估了该机制的强度，本节已按实测改为上述口径；`tools/ats401-probes/lib/contract-purity.mjs` 的 11 项负控证明该检查不是恒真。
 
