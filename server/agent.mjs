@@ -519,6 +519,34 @@ const DIFF_HEADER_ALLOWED = Object.freeze([
 const NO_NEWLINE_MARKER = '\\ No newline at end of file';
 
 /**
+ * 路径里**不允许出现**的字符（ATS-401 第 4 次复核整改）。
+ *
+ * 控制字符（0x00~0x1f）与 DEL（0x7f）在文件路径里几乎不可能是作者的本意，
+ * 而它们对校验器与 git 的影响是致命的：
+ *
+ *   - **CR**：git 读路径时在 CR 处**截断**（行尾 CRLF 的那一个 CR 除外）。
+ *     于是一个写成 `b/tests/new\r.spec.ts` 的头，git 实际写的是 `tests/new`
+ *     ——校验器若把 CR 一律删掉，就会看到一个在 scope 内的
+ *     `tests/new.spec.ts`，而 git 落盘的是另一个文件。
+ *   - **其它控制字符**（VT、FF 等）：git 会原样写进文件名。Windows 上 git
+ *     报 `invalid path`，但允许这类文件名的系统上会真的建出另一个文件。
+ *
+ * 因此这里一律拒绝，而不是「解析不出来再放行」。
+ */
+const PATH_CONTROL_CHAR = /[\u0000-\u001f\u007f]/;
+
+/**
+ * 路径**首尾**不允许出现的空白。
+ *
+ * git 读路径时跳过行首空白、但**保留**行尾空白。于是
+ * `+++ b/tests/new.spec.ts ` 在 git 眼里是 `tests/new.spec.ts `（带一个
+ * 尾随空格），与校验器 trim() 之后看到的 `tests/new.spec.ts` 不是同一个
+ * 文件；`+++ ` 后面多打一个空格（`+++  b/x`）同理。既然本模块的口径是
+ * 「路径首尾不得有空白」，这两种写法一律拒绝。
+ */
+const PATH_EDGE_WHITESPACE = /^[ \t\n\v\f\r]|[ \t\n\v\f\r]$/;
+
+/**
  * 拆开 `diff --git a/X b/Y` 的两侧。
  *
  * git 的这行在路径含空格时是有歧义的（`a/dir b/file b/dir b/file`）。拆分的
@@ -654,15 +682,36 @@ function unquoteGitPath(quoted) {
  * 完全不同。允许裸路径就等于允许校验器与 git 对「改的是哪个文件」产生分歧，
  * 因此这里一律拒绝。
  *
+ * **路径必须逐字节干净**（ATS-401 第 4 次复核整改）：本函数**不做** trim()，
+ * 也不删任何字符。含控制字符（0x00~0x1f、0x7f）或首尾带空白的路径一律返回
+ * null。理由是 git 读路径的规则与「trim 后放行」并不一致：
+ *
+ *   - git 在 **CR** 处截断路径，所以 `b/tests/new\r.spec.ts` 在 git 眼里是
+ *     `tests/new`（实测：git 的 `--numstat` 报的是 `tests/new`）；
+ *   - git **保留**路径尾部的空白，所以 `b/tests/new.spec.ts ` 在 git 眼里是
+ *     `tests/new.spec.ts `（带尾随空格）。
+ *
+ * 校验器若把这两类字节「清掉再放行」，看到的路径就不是 git 落盘的路径，
+ * 「diff 目标都在 scope.outputs 内」这条约束随即被绕过。
+ *
  * @returns {string|null} 归一化后的相对路径；`/dev/null` 或无法解析时返回 null
  */
 function normalizeDiffPath(raw) {
-  let value = raw.split('\t')[0].trim();
-  if (!value) return null;
+  // 只按 TAB 切分：git 用 TAB 分隔路径与其后的时间戳（`--- a/x\t2026-...`）。
+  const tab = raw.indexOf('\t');
+  const head = tab === -1 ? raw : raw.slice(0, tab);
+  if (!head) return null;
+  // 头部行里出现任何 CR 都是拒绝的理由——行尾 CRLF 的那一个 CR 已在切行时
+  // 去掉，这里若还有 CR，说明 CR 出现在路径的**中间**，git 会在那里截断路径。
+  if (head.includes('\r')) return null;
+  let value = head;
   if (value.startsWith('"')) {
     value = unquoteGitPath(value);
     if (value === null) return null;
   }
+  // 路径必须逐字节干净：含控制字符、或首尾带空白，一律拒绝。
+  if (PATH_CONTROL_CHAR.test(value)) return null;
+  if (PATH_EDGE_WHITESPACE.test(value)) return null;
   if (value === '/dev/null') return null;
   // 不带 a/ b/ 前缀的路径：git 的 -p1 会剥掉第一段，校验器无法与它对齐，
   // 一律拒绝。
@@ -706,7 +755,13 @@ function parseDiffSegments(diff) {
     if (!error) error = { construct, line };
   };
 
-  const lines = diff.split('\n').map((raw) => raw.replace(/\r/g, ''));
+  // **只去掉行尾的那一个 CR**（CRLF 换行），行内其它 CR 一律保留。
+  //
+  // 第 4 次复核整改：原先这里是全局 `replace(/\r/g, '')`，把路径**中间**的 CR
+  // 也删掉了。git 读路径时在 CR 处截断，于是校验器看到的 `tests/new.spec.ts`
+  // 与 git 落盘的 `tests/new` 不是同一个文件。现在 CR 只在行尾被去掉，路径里
+  // 的 CR 会一路带到 normalizeDiffPath() 并在那里被拒绝。
+  const lines = diff.split('\n').map((raw) => (raw.endsWith('\r') ? raw.slice(0, -1) : raw));
   // 例外 (a)：输入末尾的换行不算一行。
   if (lines.length && lines[lines.length - 1] === '' && diff.endsWith('\n')) {
     lines.pop();
@@ -717,7 +772,9 @@ function parseDiffSegments(diff) {
 
     // 段起始：diff --git
     if (line.startsWith('diff --git ')) {
-      current = { header: [], paths: [], hunks: 0 };
+      current = {
+        header: [], paths: [], hunks: 0, hasGitHeader: true, newTotal: 0, hunkLine: '',
+      };
       segments.push(current);
       const sides = splitDiffGitHeaderPaths(line.slice('diff --git '.length));
       if (!sides) {
@@ -754,7 +811,11 @@ function parseDiffSegments(diff) {
       // （只有 ---/+++ 与 hunk）。裸 diff 的段起点就是它的 --- 行。
       if (line.trim() === '') continue;
       if (line.startsWith('--- ')) {
-        current = { header: [], paths: [], hunks: 0 };
+        // **没有** `diff --git` 头的传统 diff：git 对它的语义与带 git 头的
+        // diff 不同（见下面 newTotal 的检查），因此单独标记。
+        current = {
+          header: [], paths: [], hunks: 0, hasGitHeader: false, newTotal: 0, hunkLine: '',
+        };
         segments.push(current);
         // fall through：--- 行由下面的分支处理
       } else {
@@ -764,7 +825,9 @@ function parseDiffSegments(diff) {
     } else if (line.startsWith('--- ') && current.hunks > 0) {
       // hunk 已经结束之后出现的 `---`：**新的一段**（git 也把它当作新文件
       // 的一段）。绝不能被当作上一个 hunk 的体吞掉。
-      current = { header: [], paths: [], hunks: 0 };
+      current = {
+        header: [], paths: [], hunks: 0, hasGitHeader: false, newTotal: 0, hunkLine: '',
+      };
       segments.push(current);
     }
 
@@ -779,6 +842,10 @@ function parseDiffSegments(diff) {
       const newCount = hm[4] === undefined ? 1 : Number(hm[4]);
       current.hunks += 1;
       current.header.push(line);
+      // 新文件这一侧一共留下多少行。用于判定「这段 diff 是不是把文件删空
+      // 了」（见函数末尾 traditional-diff-deletes-file 的检查）。
+      current.newTotal += newCount;
+      if (!current.hunkLine) current.hunkLine = line;
 
       // 按 hunk 头声明的行数消费 hunk 体——与 git 的 apply.c 一致。
       let oldSeen = 0;
@@ -864,17 +931,20 @@ function parseDiffSegments(diff) {
     }
 
     if (line.startsWith('--- ') || line.startsWith('+++ ')) {
-      const raw = line.slice(4).trim();
-      if (line.startsWith('+++ ') && raw === '/dev/null') {
+      // 路径**原样**取出，不做 trim()：git 读路径时跳过行首空白但保留行尾
+      // 空白，校验器若先 trim 再判定，看到的就不是 git 落盘的路径。
+      const raw = line.slice(4);
+      const rawPath = raw.indexOf('\t') === -1 ? raw : raw.slice(0, raw.indexOf('\t'));
+      if (line.startsWith('+++ ') && rawPath === '/dev/null') {
         // `+++ /dev/null` 就是**删除**文件。与 doc 17「`deleted file mode`
         // 一律拒绝」保持同一口径：删除一律拒绝。
         reject('deleted-file-target', line);
         break;
       }
-      const target = normalizeDiffPath(line.slice(4));
+      const target = normalizeDiffPath(raw);
       if (target === null) {
         // `--- /dev/null` 是合法的（新增文件）。
-        if (raw !== '/dev/null') {
+        if (rawPath !== '/dev/null') {
           reject('quoted-or-invalid-diff-path', line);
           break;
         }
@@ -890,6 +960,35 @@ function parseDiffSegments(diff) {
     // 不是已知头部、也不是 hunk 头 —— 只可能是 hunk 体里的一行，说明解析
     // 状态机已经跑偏，直接拒绝。
     reject('unexpected-diff-line', line);
+    break;
+  }
+
+  // 传统 diff（没有 `diff --git` 头）把文件**删空**时，git 自己的
+  // `--summary` 会报告 `delete <path>`。实测（git 2.55.0）：
+  //
+  //   --- a/tests/login.spec.ts
+  //   +++ b/tests/login.spec.ts
+  //   @@ -1,2 +0,0 @@
+  //   -test("a", () => {});
+  //   -
+  //
+  //   -> git apply --numstat --summary:
+  //      "0	2	tests/login.spec.ts |  delete tests/login.spec.ts"
+  //
+  // 也就是说：契约层若接受它，而平台侧按 doc 17 要求用 `--summary` 复核并
+  // 要求「无 delete」，同一个提案在两处会被判出相反的结论。带
+  // `diff --git` 头的同一个 diff 则**不会**被 git 报成 delete（git 从
+  // `+++ /dev/null` 判定删除，与本模块一致）。
+  //
+  // 这里按「删除一律拒绝」的口径处理：**没有 `diff --git` 头、且新文件这一
+  // 侧一行都不剩**的段一律拒绝。代价是 git 自己产出的「清空某个 spec」的
+  // diff（带 git 头）仍被接受，而传统写法的同类 diff 被拒绝——这正是本
+  // 模块的口径：删除一律拒绝。
+  for (const segment of segments) {
+    if (segment.hasGitHeader) continue;
+    if (!segment.hunks) continue;
+    if (segment.newTotal !== 0) continue;
+    reject('traditional-diff-deletes-file', segment.hunkLine || segment.header[0] || '');
     break;
   }
 

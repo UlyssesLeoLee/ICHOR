@@ -1,0 +1,43 @@
+=== ATS-401 probe: 4th-review-round regressions ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-3a39d5f791de/worktree
+date      : 2026-11-05T14:00:56Z
+git       : git version 2.55.0.windows.4
+
+=== ATS-401 probe: the round-4 counterexamples ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-3a39d5f791de\worktree
+work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-3a39d5f791de\worktree\.ats-evidence-work\r4
+
+--- A. the review's counterexamples are rejected ---
+  [PASS] the validator rejects CR inside a new-file path (b/tests/new\r.spec.ts) -- code=AGENT_PROPOSAL_OUT_OF_SCOPE reason=git-divergence
+  [PASS] the validator rejects CR inside a modified path (tests/login\r.spec.ts) -- code=AGENT_PROPOSAL_OUT_OF_SCOPE reason=git-divergence
+  [PASS] the validator rejects trailing space after a new-file path -- code=AGENT_PROPOSAL_OUT_OF_SCOPE reason=git-divergence
+  [PASS] the validator rejects form feed after a new-file path -- code=AGENT_PROPOSAL_OUT_OF_SCOPE reason=git-divergence
+  [PASS] the validator rejects two spaces before a new-file path -- code=AGENT_PROPOSAL_OUT_OF_SCOPE reason=strict-rule
+  [PASS] the validator rejects vertical tab inside a new-file path -- code=AGENT_PROPOSAL_OUT_OF_SCOPE reason=git-divergence
+
+--- B. git really does disagree about the path ---
+  [PASS] git does not resolve CR inside a new-file path (b/tests/new\r.spec.ts) to the in-scope path -- git paths=["tests/new"] summary=create tests/new
+  [PASS] git does not resolve CR inside a modified path (tests/login\r.spec.ts) to the in-scope path -- git paths=["tests/login"] summary=(none)
+  [PASS] git does not resolve trailing space after a new-file path to the in-scope path -- git paths=["tests/new.spec.ts "] summary=create tests/new.spec.ts
+  [PASS] git does not resolve form feed after a new-file path to the in-scope path -- git paths=["tests/new.spec.ts\\f"] summary=create tests/new.spec.ts
+  [PASS] git resolves two spaces before a new-file path the same way -- rejected by the strict rule, not by divergence -- git paths=["tests/new.spec.ts"] summary=create tests/new.spec.ts
+  [PASS] git does not resolve vertical tab inside a new-file path to the in-scope path -- git paths=["tests/new\\v.spec.ts"] summary=create tests/new.spec.ts
+
+--- C. the deletion-shaped diffs follow the measured git behaviour ---
+  [PASS] the validator rejects a traditional diff that removes every line -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] git really does report a delete for that traditional diff -- summary=delete tests/login.spec.ts
+  [PASS] git does NOT report a delete for the same diff with a git header -- summary=(none)
+  [PASS] the validator accepts the same diff with a git header -- code=null
+  [PASS] the validator accepts a traditional diff that removes only some lines -- code=null
+
+--- D. the CRLF line ending is still accepted ---
+  [PASS] the validator accepts a diff whose header lines end with CRLF -- code=null
+
+--- E. real git diff output is still accepted ---
+  [PASS] the validator accepts a real git diff: blank context line -- code=null
+  [PASS] the validator accepts a real git diff: no final newline -- code=null
+  [PASS] the validator accepts a real git diff: new spec file -- code=null
+  [PASS] the validator accepts a real git diff: CRLF content lines -- code=null
+
+--- verdict ---
+PASS: every round-4 counterexample is rejected, and real git diff output is still accepted

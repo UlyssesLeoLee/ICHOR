@@ -1500,3 +1500,142 @@ try {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+/* ------------------------------------------------------------------ */
+/* ATS-401 round-4 regressions (review comment 01a1ab68-7b95-7d65-b2d5-fc77500a621e) */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The path mutations the review named. Each one is a way of making the
+ * validator see a DIFFERENT path than the one git will actually write:
+ *
+ *   - a CR in the middle of the path -- git truncates the path at the CR,
+ *     so `b/tests/new\r.spec.ts` is `tests/new` to git;
+ *   - a trailing space -- git KEEPS it, so `b/tests/new.spec.ts ` is
+ *     `tests/new.spec.ts ` to git (with the space);
+ *   - a trailing form feed -- same, git keeps it;
+ *   - two spaces after `+++` -- the second space lands in the path.
+ *
+ * The validator used to strip every CR and then trim(), so it saw an
+ * in-scope `tests/new.spec.ts` while git wrote some other file. Reject.
+ */
+const ROUND4_PATH_MUTATIONS = [
+  ['a CR inside a new-file path', '--- /dev/null\n+++ b/tests/new\r.spec.ts\n@@ -0,0 +1 @@\n+test("n", () => {});\n'],
+  ['a CR inside a modified path',
+    '--- a/tests/login\r.spec.ts\n+++ b/tests/login\r.spec.ts\n@@ -1,2 +1,2 @@\n-test("a", () => {});\n+test("b", () => {});\n \n'],
+  ['a trailing space after a new-file path', '--- /dev/null\n+++ b/tests/new.spec.ts \n@@ -0,0 +1 @@\n+test("n", () => {});\n'],
+  ['a trailing form feed after a new-file path', '--- /dev/null\n+++ b/tests/new.spec.ts\f\n@@ -0,0 +1 @@\n+test("n", () => {});\n'],
+  ['two spaces before a new-file path', '--- /dev/null\n+++  b/tests/new.spec.ts\n@@ -0,0 +1 @@\n+test("n", () => {});\n'],
+  ['a vertical tab inside a new-file path', '--- /dev/null\n+++ b/tests/new\v.spec.ts\n@@ -0,0 +1 @@\n+test("n", () => {});\n'],
+  ['a trailing space after a modified path',
+    '--- a/tests/login.spec.ts \n+++ b/tests/login.spec.ts \n@@ -1,2 +1,2 @@\n-test("a", () => {});\n+test("b", () => {});\n \n'],
+];
+
+test('UT-AGT-086: a path that differs from git\'s is rejected', () => {
+  const request = validateAgentRequest(baseRequest());
+  for (const [label, diff] of ROUND4_PATH_MUTATIONS) {
+    assert.equal(
+      codeOf(() => validateAgentProposal(
+        { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+        request,
+        { producedBy: 'adapter-x' },
+      )),
+      'AGENT_PROPOSAL_OUT_OF_SCOPE',
+      `${label} must be rejected`,
+    );
+  }
+});
+
+test('UT-AGT-087: a CRLF-terminated header line is still accepted', () => {
+  const request = validateAgentRequest(baseRequest());
+  // The one CR that IS allowed is the one at the END of the line: that is
+  // the CRLF line ending, not part of the path. A whole diff written with
+  // CRLF line endings must keep working -- the validator may only strip the
+  // trailing CR of a line, never a CR inside it.
+  const diff = [
+    '--- a/tests/login.spec.ts\r',
+    '+++ b/tests/login.spec.ts\r',
+    '@@ -1 +1 @@\r',
+    "-test('login passes', async ({page}) => {});\r",
+    "+test('login passes', async ({page}) => { await page.goto('/'); });\r",
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    null,
+  );
+});
+
+test('UT-AGT-088: a traditional diff that removes every line is rejected', () => {
+  const request = validateAgentRequest(baseRequest());
+  // A traditional diff (no `diff --git` header) whose new side has no line
+  // left is a DELETION as far as git is concerned: `git apply --summary`
+  // reports `delete tests/login.spec.ts` for it (measured with git 2.55.0).
+  // The contract layer rejects deletions, so it has to reject this too --
+  // otherwise the contract and the platform-side `--summary` re-check
+  // disagree about the very same proposal.
+  const diff = [
+    '--- a/tests/login.spec.ts',
+    '+++ b/tests/login.spec.ts',
+    '@@ -1,2 +0,0 @@',
+    '-test("a", () => {});',
+    '-',
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    'AGENT_PROPOSAL_OUT_OF_SCOPE',
+  );
+});
+
+test('UT-AGT-089: the same diff with a diff --git header is accepted', () => {
+  const request = validateAgentRequest(baseRequest());
+  // With the `diff --git` header git does NOT report a delete (it decides
+  // deletions from `+++ /dev/null`), so the same hunk is an ordinary
+  // modification here. It must stay accepted -- the round-4 fix is scoped
+  // to the traditional form.
+  const diff = [
+    'diff --git a/tests/login.spec.ts b/tests/login.spec.ts',
+    '--- a/tests/login.spec.ts',
+    '+++ b/tests/login.spec.ts',
+    '@@ -1,2 +0,0 @@',
+    '-test("a", () => {});',
+    '-',
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    null,
+  );
+});
+
+test('UT-AGT-090: a traditional diff that only removes SOME lines is accepted', () => {
+  const request = validateAgentRequest(baseRequest());
+  // The round-4 rule is "the new side has no line left", not "the hunk
+  // removes something". A traditional diff that leaves lines behind is an
+  // ordinary modification and must stay accepted.
+  const diff = [
+    '--- a/tests/login.spec.ts',
+    '+++ b/tests/login.spec.ts',
+    '@@ -1,1 +1,1 @@',
+    '-test("a", () => {});',
+    '+test("b", () => {});',
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    null,
+  );
+});
