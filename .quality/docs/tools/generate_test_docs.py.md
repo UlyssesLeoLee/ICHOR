@@ -2,7 +2,7 @@
 
 Source: `tools/generate_test_docs.py`
 
-Source-SHA256: `42c04795897395371f1ee487fdd8b1b97bd329b94c95300117bc28de52e573cc`
+Source-SHA256: `497f058c2e493ae585766b7c30ae8f3792f1e7bbfbe2c4611eff96f2b09a51a7`
 
 ## Responsibility
 
@@ -22,4 +22,4 @@ Single source of the UT/IT/ST test catalog. Running it regenerates `docs/07-UT-T
 
 ## Change Notes
 
-ATS-506 adds catalog rows only; the generator logic is unchanged.
+ATS-506 adds catalog rows only; the generator logic is unchanged. The rows are appended with `UT += [...]` / `IT += [...]` after the ST list, so the lines that `docs/16-BASELINE-ADR.md` §3.1 and `tools/check_adr_citations.py` cite by position (120, 126, 157) do not move; the generated files are identical to inserting the rows at the end of each list.
