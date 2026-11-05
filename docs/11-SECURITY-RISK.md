@@ -25,9 +25,10 @@ flowchart LR
 | SEC-005 | 脚本更新冲突控制 | SHA-256 旧内容不匹配拒绝覆盖 |
 | SEC-006 | 不接收任意 CLI 命令 | `spawn(process.execPath,args,{shell:false})` |
 | SEC-007 | 附件隔离 | 每 Run 独立目录；附件下载 token 与 `Content-Disposition` |
-| SEC-008 | 不自动向云端上传 | 无云账户/AI 服务自动调用；本机 UI/运行服务 |
+| SEC-008 | 不自动向云端上传 | 无云账户/AI 服务自动调用；本机 UI/运行服务。**外传前必须先有覆盖该内容的知情授权**（ATS-402：预览范围 → 确认 → 授权记录；平台侧读真实文件并复算摘要，内容一变授权即失效——见 SEC-011） |
 | SEC-009 | Agent 契约层无写入能力 | `server/agent.mjs` 只 import `node:crypto`/`node:path` 且源码不含任何 I/O 调用（静态检查守护）；写入与提交类能力在请求层被拒；提案 `approval` 恒为 `pending` 且提案人不得自审。**运行时隔离（模块沙箱/只读挂载/子进程）未实现，属 ATS-403** |
 | SEC-010 | 插件契约层的权限边界 | `server/plugins/contract.mjs` + `server/plugins/sdk.mjs`：插件 Manifest **声明**权限，宿主按策略档位**授予**，生效集合 = 声明 ∩ 档位 ∩ 封闭词汇表；越权调用被拒且**被拒本身进审计**；插件作用域由宿主授予（Manifest 不带 scope）；证据 SHA-256 由宿主 resolver 计算，插件不能自报；插件结论是提案（`approval` 恒为 `pending`）且提案人不得自审。**插件宿主与沙箱未实现，属 ATS-502/503/506 与 ATS-403** |
+| SEC-011 | 密钥用系统凭据库；外传需知情授权 | `server/security/credentials.mjs` + `server/security/egress-consent.mjs` + `server/security/egress-gate.mjs`：密钥**本体**只写系统凭据库（Windows Credential Manager / macOS Keychain / Linux Secret Service），平台索引文件只存引用与 8 位指纹；秘密经 **stdin/stdout** 传给凭据库 helper，**不进 argv、不进日志**；**凭据库不可用即拒绝**（无明文回退）；外传三步为 `preview`（展示范围）→ `confirm`（携带一次性 previewId）→ `granted` 授权记录，范围摘要绑定内容，撤销即刻生效。**未实现**：模型提供商接入（ATS-403）、macOS/Linux 后端未在真机实测、Tauri 壳内存取未验证——详见 `docs/23-AI-DATA-SECURITY.md` |
 
 ## 3. 不可忽略的剩余风险
 
@@ -43,7 +44,9 @@ flowchart LR
 | HTML 报告可能存在主动内容 | XSS/浏览器安全 | MEDIUM | 下载而不是在管理源直接执行 HTML |
 | UI Monaco 编辑任意源码缺严格 diff 审批 | 人为误修改 | MEDIUM | Git diff review + code review policy |
 | AI 自主修复更改 expected 导致掩盖 Bug | 测试完整性 | HIGH (P1) | 禁止无审批断言更新/必须重测/Reviewer 角色（Agent 契约 v1 已在能力层禁用 `update_expected`） |
+| API Key 明文落盘或出现在进程表/日志 | 凭据泄露 | HIGH | ATS-402 已实现：系统凭据库 + 引用式落盘 + stdin/stdout 传密 + 无明文回退（SEC-011） |
+| 项目内容在无知情授权的情况下被外传 | 隐私违规 | HIGH | ATS-402 已实现：外传前展示范围并确认，平台侧复算摘要，无授权即拒绝（SEC-008/SEC-011） |
 
 ## 4. 安全验收
 
-ST-014/015/023 为当前最低安全实机验证。商业/企业发行额外要求：沙箱化执行、凭据保险箱、角色授权、网络分区、证据脱敏、SBOM、签名更新及渗透测试。**没有以上控制前，不能将工作台部署为公网远程服务**。
+ST-014/015/023 为当前最低安全实机验证。**ATS-402 新增 ST-025**（凭据入库后不在平台状态目录、外传无授权时被拒），本任务**未执行 ST**——已验证的是 UT/IT 与边界探针，见 `docs/23-AI-DATA-SECURITY.md` §7。商业/企业发行额外要求：沙箱化执行、凭据保险箱、角色授权、网络分区、证据脱敏、SBOM、签名更新及渗透测试。**没有以上控制前，不能将工作台部署为公网远程服务**。

@@ -4,12 +4,15 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath } from './core.mjs';
+import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath,dataDir } from './core.mjs';
 import { projectUidFor, projectUidOf, runUidFor, attemptUidFor, nextRunSeq, UID_SCHEME_VERSION } from './uid.mjs';
 import { AGENT_CONTRACT_VERSION,describeAgentContract,validateAgentRequest } from './agent.mjs';
 import { PLUGIN_CONTRACT_VERSION,describePluginContract,validatePluginManifest,resolvePluginPermissions } from './plugins/contract.mjs';
 import { capabilityMatrix,getAdapter,listRunners,selectAdapter,selectAdapterOrThrow , negotiationFailure} from './adapters/registry.mjs';
 import { AdapterError } from './adapters/contract.mjs';
+import { createCredentialStore,credentialIndexPath,describeCredentialStore } from './security/credentials.mjs';
+import { createEgressConsentStore,describeEgressConsent,describeEgressScope } from './security/egress-consent.mjs';
+import { authorizeEgress,readScopedInput } from './security/egress-gate.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const ROOT=path.resolve(HERE,'..');
@@ -27,6 +30,49 @@ process.on('exit',()=>releaseBridgeLock());
 let store=loadState();
 for(const run of store.runs){if(['queued','running'].includes(run.status)){run.status='interrupted';run.finishedAt=now();run.error='Server restarted while run was active';}}
 saveState(store);
+
+// --- ATS-402: the credential store and the egress consent store -----------
+// The credential store holds ONLY references in `credentials.json`; the
+// secrets themselves live in the OS credential store. The consent records
+// live in state.json, so they share the same atomic write as the rest of
+// the platform state.
+const credentialStore=createCredentialStore({indexFile:credentialIndexPath(dataDir())});
+const egressConsentStore=createEgressConsentStore({
+  list:async()=>store.egressConsents??[],
+  persist:async(records)=>{store.egressConsents=records;saveState(store);},
+});
+
+/**
+ * 解析一次外传的范围：**由平台侧读真实文件并复算摘要**。
+ *
+ * 这是 ATS-401 契约层留下的缺口的落点（`docs/17-AGENT-CONTRACT.md` §6）：
+ * 契约层的 `digest` 由请求方提供，只能证明「二者自洽」；这里的摘要由
+ * 本机文件系统给出，于是「`ref` 确实对应那份源内容」才成立。
+ */
+async function buildScope(project,inputs){
+  const resolved=[];
+  for(const input of inputs){
+    if(!input||typeof input!=='object'){const e=new Error('EGRESS_GATE_INPUT_INVALID');e.code='EGRESS_GATE_INPUT_INVALID';throw e;}
+    if(input.kind==='run'){
+      const run=getRun(input.ref);
+      const content=JSON.stringify({runId:run.id,status:run.status,summary:run.summary??null});
+      resolved.push({kind:'run',ref:input.ref,digest:crypto.createHash('sha256').update(content,'utf8').digest('hex'),content});
+      continue;
+    }
+    if(input.kind==='requirement'){
+      // The requirement document lives in the project's .aitest directory.
+      const rel=String(input.ref||'requirements.json');
+      const joined=path.resolve(project.root,'.aitest',rel);
+      if(!joined.startsWith(path.resolve(project.root)+path.sep)){const e=new Error('EGRESS_GATE_SCOPE_INVALID');e.code='EGRESS_GATE_SCOPE_INVALID';throw e;}
+      let content;
+      try{content=fs.readFileSync(joined,'utf8');}catch{const e=new Error('EGRESS_GATE_INPUT_INVALID');e.code='EGRESS_GATE_INPUT_INVALID';throw e;}
+      resolved.push({kind:'requirement',ref:rel,digest:crypto.createHash('sha256').update(content,'utf8').digest('hex'),content});
+      continue;
+    }
+    resolved.push(readScopedInput(project.root,input));
+  }
+  return describeEgressScope(resolved);
+}
 
 const ORIGINS=new Set([`http://localhost:${PORT}`,`http://127.0.0.1:${PORT}`,'http://localhost:3000','http://127.0.0.1:3000','tauri://localhost','http://tauri.localhost','https://tauri.localhost']);
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.zip':'application/zip','.txt':'text/plain; charset=utf-8','.map':'application/json'};
@@ -221,7 +267,7 @@ const server=http.createServer(async(req,res)=>{
    res.writeHead(200,{'Content-Type':type,'Content-Disposition':`attachment; filename="${path.basename(actual).replace(/[^a-zA-Z0-9._-]/g,'_')}"`,'X-Content-Type-Options':'nosniff'});return fs.createReadStream(actual).pipe(res);
   }
  }
- if(p==='/api/diagnostics'&&req.method==='GET')return respond(res,200,{runtime:process.version,server:'Node.js bridge',platform:process.platform,pid:process.pid,environment:'local',limitations:['Local trusted repositories only','No process/container sandbox','No account/RBAC','AI provider not connected','WDIO adapter planned'],agentContract:{version:AGENT_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The agent contract is defined and enforced; no model provider is wired, so no agent request can reach a model.',writePolicy:'Agents produce diffs only; applying a diff, updating expected results and committing are platform-side operations performed after review.'},pluginContract:{version:PLUGIN_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The plugin contract, the permission list and the SDK operation surface are defined and enforced; no plugin host, loader or sandbox exists, so no plugin can be loaded or run.',grantPolicy:'A manifest declares permissions; the host grants them. The effective set is the declared set intersected with the host policy tier.',auditPolicy:'Every SDK call produces an audit event in the host sink, including the denied ones. The plugin cannot suppress it.',evidencePolicy:'The SHA-256 of an evidence reference is computed by the host resolver, never supplied by the plugin.'}});
+ if(p==='/api/diagnostics'&&req.method==='GET')return respond(res,200,{runtime:process.version,server:'Node.js bridge',platform:process.platform,pid:process.pid,environment:'local',limitations:['Local trusted repositories only','No process/container sandbox','No account/RBAC','AI provider not connected','WDIO adapter planned'],agentContract:{version:AGENT_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The agent contract is defined and enforced; no model provider is wired, so no agent request can reach a model.',writePolicy:'Agents produce diffs only; applying a diff, updating expected results and committing are platform-side operations performed after review.'},pluginContract:{version:PLUGIN_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The plugin contract, the permission list and the SDK operation surface are defined and enforced; no plugin host, loader or sandbox exists, so no plugin can be loaded or run.',grantPolicy:'A manifest declares permissions; the host grants them. The effective set is the declared set intersected with the host policy tier.',auditPolicy:'Every SDK call produces an audit event in the host sink, including the denied ones. The plugin cannot suppress it.',evidencePolicy:'The SHA-256 of an evidence reference is computed by the host resolver, never supplied by the plugin.'},credentialStore:{contract:describeCredentialStore(credentialStore).contract,provider:credentialStore.provider(),note:'Secrets live in the OS credential store; the index file holds references only. No endpoint returns a secret.',available:credentialStore.provider()!==null},egressConsent:{contract:describeEgressConsent().contract,note:'Egress requires a granted consent whose scope still matches the content about to be sent; the platform reads the real files and recomputes the digests.'}});
  if(p==='/api/agent/contract'&&req.method==='GET')return respond(res,200,describeAgentContract());
 if(p==='/api/plugins/contract'&&req.method==='GET')return respond(res,200,describePluginContract());
 if(p==='/api/plugins/validate'&&req.method==='POST'){
@@ -240,6 +286,66 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   const b=await body(req);
   const validated=validateAgentRequest(b);
   return respond(res,200,{valid:true,contract:validated.contract,requestId:validated.id,role:validated.role,scope:validated.scope,budget:validated.budget,inputRefs:validated.inputs.map(i=>({kind:i.kind,ref:i.ref,digest:i.digest,retrievedAt:i.retrievedAt})),requestedCapabilities:validated.requestedCapabilities,egress:validated.egress});
+ }
+ // --- ATS-402: the AI data security surface --------------------------------
+ if(p==='/api/security/contract'&&req.method==='GET'){
+  // The contract description. It names the providers and the flow; it never
+  // contains a secret and never lists a stored credential's secret.
+  return respond(res,200,{...describeCredentialStore(credentialStore),egressConsent:describeEgressConsent()});
+ }
+ if(p==='/api/security/credentials'&&req.method==='GET'){
+  // The credential REFERENCES. There is no endpoint that returns a secret.
+  return respond(res,200,{credentials:await credentialStore.list(),provider:credentialStore.provider(),available:await credentialStore.available()});
+ }
+ if(p==='/api/security/credentials'&&req.method==='POST'){
+  // Store a secret in the OS credential store. The secret arrives in the
+  // request body, goes straight into the credential store, and is never
+  // written to state.json, to the credential index, or to the response.
+  const b=await body(req);
+  const reference=await credentialStore.put({name:b.name,secret:b.secret,purpose:b.purpose??'ai-provider'});
+  return respond(res,201,{credential:reference});
+ }
+ const credRm=p.match(/^\/api\/security\/credentials\/(cred_[0-9a-f]{24})$/);
+ if(credRm&&req.method==='GET')return respond(res,200,{credential:await credentialStore.describe(credRm[1])});
+ if(credRm&&req.method==='DELETE')return respond(res,200,{credential:await credentialStore.remove(credRm[1])});
+ if(p==='/api/security/egress/preview'&&req.method==='POST'){
+  // Step 1 of the informed consent: show the user EXACTLY what would leave.
+  // The platform reads the real files and recomputes the digests, so the
+  // scope shown is the scope that will be sent.
+  const b=await body(req);
+  const project=getProject(b.projectId);
+  const inputs=Array.isArray(b.inputs)?b.inputs:[];
+  const scope=await buildScope(project,inputs);
+  const preview=egressConsentStore.preview(scope.items);
+  // The preview carries the scope AND its byte total: the byte count is
+  // part of what the user is shown, so it must be the real one.
+  return respond(res,200,{preview:{...preview,scope:{...scope,items:scope.items}}});
+ }
+ if(p==='/api/security/egress/confirm'&&req.method==='POST'){
+  // Step 2: the user confirms the scope they were shown. The preview token
+  // is consumed here, so the same preview cannot be confirmed twice.
+  const b=await body(req);
+  const project=getProject(b.projectId);
+  const inputs=Array.isArray(b.inputs)?b.inputs:[];
+  const scope=await buildScope(project,inputs);
+  const consent=await egressConsentStore.confirm({previewId:b.previewId,inputs:scope.items,ttlSeconds:b.ttlSeconds});
+  return respond(res,201,{consent});
+ }
+ if(p==='/api/security/egress/consents'&&req.method==='GET'){
+  return respond(res,200,{consents:await egressConsentStore.all()});
+ }
+ const consentRm=p.match(/^\/api\/security\/egress\/consents\/(egr_[0-9a-f]{24})$/);
+ if(consentRm&&req.method==='DELETE')return respond(res,200,{consent:await egressConsentStore.revoke(consentRm[1])});
+ if(p==='/api/security/egress/check'&&req.method==='POST'){
+  // The gate itself: it answers "may these inputs leave the machine?".
+  // It is the same code path the platform uses before a real egress.
+  const b=await body(req);
+  const project=getProject(b.projectId);
+  const inputs=Array.isArray(b.inputs)?b.inputs:[];
+  const consent=b.consentId?await egressConsentStore.find(b.consentId):null;
+  const verdict=authorizeEgress({project,inputs,consent,consentStore:egressConsentStore});
+  if(!verdict.allowed)return respond(res,403,{error:verdict.code,reason:verdict.reason});
+  return respond(res,200,{allowed:true,scope:verdict.scope});
  }
  if(p.startsWith('/api/'))return err(res,404,'NOT_FOUND');
  return staticFile(req,res,p);
@@ -268,6 +374,18 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
    const status=400;
    const details=e&&e.details&&typeof e.details==='object'?{details:e.details}:{};
    return respond(res,status,{error:code||message,...details});
+  }
+  // ATS-402: the credential store and the egress consent are client errors
+  // too. The scope of this mapping is CREDENTIAL_* / EGRESS_* only; every
+  // other error keeps its pre-ATS-402 behaviour byte for byte.
+  //
+  // The messages of these codes name the CODE, never the secret and never a
+  // local path: `CREDENTIAL_*` messages come from the credential store, and
+  // `EGRESS_*` messages describe a scope, not a filesystem location.
+  const isSecurityError=/^(CREDENTIAL_|EGRESS_)/.test(code);
+  if(isSecurityError){
+   const status=/NOT_FOUND/.test(code)?404:/UNAVAILABLE|FAILED/.test(code)?503:400;
+   return respond(res,status,{error:code||message});
   }
  const status=/NOT_FOUND/.test(message)?404:/CONFLICT|ALREADY/.test(message)?409:/OUTSIDE|INVALID|REQUIRED|STALE|TOO_LARGE|NOT_INSTALLED/.test(message)?400:500;
  return err(res,status,message);}

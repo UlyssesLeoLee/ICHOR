@@ -44,7 +44,7 @@
 | FR-024 | AI 生成 | 需求→测试意图→脚本候选→审查后写入 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |
 | FR-025 | AI 诊断 | 失败归类、差异建议，不能自动修改断言或提交 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |
 | FR-026 | 图谱血缘与覆盖缺口 | Requirement→Script→Run→Evidence 可查询和影响分析 | P1 | DESIGNED |
-| FR-027 | 多环境/密钥存储 | 单独安全凭据存储，配置不进入 Git | P1 | DESIGNED |
+| FR-027 | 多环境/密钥存储 | 单独安全凭据存储，配置不进入 Git | P1 | **契约层已实现**（密钥入系统凭据库 + 外传前展示范围并确认，见 23-AI-DATA-SECURITY）；配置管理未实现 |
 | FR-028 | CI/CD 与远程执行 | RunnerAdapter/Queue/工作区隔离 | P2 | DESIGNED |
 | FR-029 | Agent 自主探索 | 异常流程候选、人工验证后固化 | P2 | DESIGNED |
 | FR-030 | 团队多用户 | RBAC、审计、团队项目与云数据同步 | P2 | DESIGNED |
@@ -63,7 +63,7 @@
 | NFR-006 | 性能 | 普通仓库 500 用例索引目标 3 秒内（非环境实测） | P1 | 待 ST 测量 |
 | NFR-007 | 可移植性 | Windows/macOS/Linux Web 便携版；Tauri 各 OS 构建另验 | P1 | 部分 |
 | NFR-008 | 恢复能力 | 服务异常重启后未完成运行标记 interrupted、保留历史 | P0 | 部分实现（已发现卡死缺陷 B-03：重启恢复遗漏 `cancelling`，该 Run 永久占锁且无法经 API 解除） |
-| NFR-009 | 隐私保护 | 不自动上传代码、截图、Trace、密钥到外部 AI 服务 | P0 | 已实现，未来 AI 需再评估 |
+| NFR-009 | 隐私保护 | 不自动上传代码、截图、Trace、密钥到外部 AI 服务 | P0 | 已实现；**ATS-402 追加**：外传须先有覆盖该内容的知情授权（preview→confirm→grant），无授权即拒绝 |
 | NFR-010 | 可靠性 | 数据库原子写入；避免操作时半写入 | P0 | JSON 原子保存，源文件写入仍需改进 |
 | NFR-011 | 可运维性 | 日志/错误码/版本信息可查询，API 返回可定位信息 | P0 | 已实现基础 |
 | NFR-012 | 合规许可 | 进入正式发行前完成依赖 SPDX 清单及分发审计 | P1 | 未完成 |
