@@ -27,6 +27,12 @@ const LEGACY_RUN = 'run_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats206-cli-'));
 const statePath = path.join(dataDir, 'state.json');
 
+// The state is a GENUINE v0.1 state: the v0.1 bridge wrote exactly three
+// keys -- schema, projects, runs -- and the identifiers are the uuid form.
+// There is no registry, no trust map and no attempt list in v0.1: those
+// came later (ATS-201 / ATS-202). A fixture that carries them exercises
+// code paths that a real v0.1 installation never reaches, and it hides the
+// defects that a real one does.
 const legacy = {
   schema: 1,
   projects: [{
@@ -44,8 +50,6 @@ const legacy = {
       gitCommit: 'abc1234',
       status: 'passed',
       createdAt: '2026-01-01T00:00:00.000Z',
-      attempts: [{ uid: 'att_1_111111111111111111111111', testUid: 'tc_1_d_abcdef0123456789', retry: 0, status: 'passed' }],
-      artifacts: [{ file: 'trace.zip', sha256: 'ab'.repeat(32), size: 10 }],
     },
     {
       id: 'run_bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
@@ -55,20 +59,8 @@ const legacy = {
       gitCommit: 'abc1234',
       status: 'failed',
       createdAt: '2026-01-02T00:00:00.000Z',
-      attempts: [],
-      artifacts: [],
     },
   ],
-  uidRegistry: {
-    version: 1,
-    projects: {
-      [LEGACY]: {
-        entries: [{ uid: 'tc_1_d_abcdef0123456789', file: 'tests/a.spec.ts', title: 'works', bodyKey: 'k1' }],
-      },
-    },
-  },
-  trust: { [LEGACY]: { trust: 'trusted', reason: '', at: '2026-01-01T00:00:00.000Z' } },
-  runCounters: { [LEGACY]: 7 },
 };
 
 const original = JSON.stringify(legacy, null, 2);

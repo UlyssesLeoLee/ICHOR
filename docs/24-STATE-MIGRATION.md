@@ -67,6 +67,20 @@ registry entries   : 0
 
 两处缺陷都不是"迁移失败"，而是"迁移成功但数据没了"。
 
+> **关于缺陷 B 的更正（第 2 轮审核）。** 原表述"实测确认存量缺陷、所有用例 UID
+> 丢失"**推断过度**。Bridge 写登记表时用的是 `projectUidOf(project)`
+> （`server/core.mjs`），对旧项目来说这个键**就是新的** `proj_1_` UID，因此真实的
+> v0.1→当前 Bridge 数据里**不会**出现以旧 id 为键的登记表。改键逻辑仍要保留 —— 它是
+> **防御性**的：一份以旧 id 为键的登记表（来自其他工具或手工编辑）在迁移后必须仍然
+> 可达，否则它会静默变成空桶。
+>
+> 只有 `trust` 是真的以旧 id 为键（`projectUidOfTrust` 用 `project.id`），
+> 缺陷 A 是实打实的存量缺陷。
+>
+> 第 1 轮验收所用的 fixture 也不是 v0.1 数据：它带有 `uidRegistry`、`trust`、
+> `attempts` 等 v0.1 中并不存在的字段。第 2 轮的用例全部改用**真实的 v0.1 形状**
+> （只有 `schema`/`projects`/`runs` 三个键，标识符是 uuid 形式）。
+
 ## 3. 设计
 
 ### 3.1 内核分层
@@ -120,6 +134,51 @@ tools/migrate_uids.mjs                 ATS-201 的工具，改为复用同一内
 **校验通过后**才替换正式库。校验不过的镜像**永远不会**被换上，
 所以一次失败的导入不可能留下一个错误的镜像。
 
+### 3.3.1 三条容易被忽略、但决定了成败的规则
+
+这三条是第 1 轮交付被驳回后补上的，每一条都对应一个**真实发生过的数据丢失**。
+
+**规则一：备份一旦写下就不再覆盖。** `.bak` 里放的是**第一次迁移之前**的状态，
+是 v0.1 原始数据的唯一副本。第二次 `apply`（哪怕只是事后补一次
+`--import-db`）如果再写一次 `.bak`，就把这份唯一的副本换成了已迁移的状态 ——
+此后 `rollback` 还原不了 v0.1。因此：对**已迁移**的状态，`apply` 直接拒绝
+（`ALREADY_MIGRATED`），一个字节都不写；`--import-db` 单独对已迁移状态
+补镜像仍然可用。
+
+**规则二：目录改名逐个记入日志。** 改名循环每改一个目录就往日志里追加一条并
+**立即落盘**；`folders` 这一步在改名**开始之前**就记上。原因是：Windows 上
+一个目录被资源管理器占用时改名会报 `EBUSY`，此时前面几个目录已经改了名。
+如果只在改名全部成功后才记这一步，失败时日志里就**没有**任何改过名的记录，
+自动回滚什么也改不回来 —— 状态文件回到了 v0.1，目录却还挂着新名字，
+有若干个运行的证据不可达。
+
+**规则三：中断可恢复。** 日志（`.migration-journal.json`）在**第一次破坏性写入
+之前**就落盘，迁移成功后才删除。所以进程被杀掉时日志还在磁盘上：
+
+* `plan` 会报告"发现一次被中断的迁移"；
+* 下一次 `apply` 读日志**补完**迁移（把目录改回状态文件所指的名字），
+  成功后写一个完成标记（`.migration-marker.json`）；
+* 日志若**无法解析**，迁移**拒绝**执行并保留该文件 —— 解析不出来的日志
+  什么也没说，迁移无法知道状态文件是否已被写过，此时猜测比拒绝更危险；
+* 中断发生在状态文件写入**之前**时，直接按日志撤销即可。
+
+### 3.3.2 回滚前的分叉检测
+
+回滚会用备份**覆盖**当前的状态文件。如果状态文件在迁移**之后**又变了
+（Bridge 又记了新的运行），回滚就会静默丢掉这些变化。因此迁移写下它
+写入了什么，回滚在覆盖之前先比对。
+
+比对的**不是字节，是清单**（`identityDigestOf`：项目与运行的集合）。
+理由：Bridge 每次启动都会把它读到的运行的 `events` 写回状态文件，
+所以**每次重启 Bridge 状态文件的字节都会变**，而历史其实一点没变。
+按字节比对会让回滚在每次重启之后都被拒，运维每次都得用 `--force` ——
+那 `--force` 就失去意义了。
+
+清单变了就**默认拒绝**（退出码非 0），保留现有状态，并在输出里**点名**
+会被丢弃的运行；只有显式加 `--force` 才强制回滚。判断"这个运行会不会被丢"
+按**legacy 身份**比较：迁移会重写每个运行 id，直接比 id 会把**每一个**已迁移的
+运行都误报成"会被丢弃"，回滚就永远被拒。
+
 ### 3.4 计数一致性怎么判定
 
 验收标准是"项目/历史数量一致"。计数口径（`summarizeState`）：
@@ -155,9 +214,9 @@ the migration is refused: PROJECT_UID_COLLISION: the projects "app" and
 
 ```
 node tools/migrate_state.mjs plan     [--data-dir <dir>] [--state <path>]
-node tools/migrate_state.mjs apply    [--data-dir <dir>] [--state <path>] [--import-db] [--no-rollback]
+node tools/migrate_state.mjs apply    [--data-dir <dir>] [--state <path>] [--import-db] [--no-rollback] [--dry-run]
 node tools/migrate_state.mjs verify   [--data-dir <dir>] [--state <path>]
-node tools/migrate_state.mjs rollback [--data-dir <dir>] [--state <path>]
+node tools/migrate_state.mjs rollback [--data-dir <dir>] [--state <path>] [--force]
 ```
 
 * `plan` —— 只报告，不写；
@@ -167,9 +226,21 @@ node tools/migrate_state.mjs rollback [--data-dir <dir>] [--state <path>]
 
 退出码：`0` 成功 / `1` 失败 / `2` 用法错误 / `3` Bridge 正在运行（拒绝迁移）。
 
-**Bridge 运行中必须拒绝迁移。** Bridge 在内存里持有状态并在每次变更时写回，
+**`--state` 的语义：它指名的文件就是被迁移（被回滚）的文件。**
+四个命令都遵守这一条 —— 不是"`plan` 认、`apply` 不认"。
+
+**失败一律是一行原因 + 退出码 1，不打栈。** 文件缺失、不是 JSON、
+`PROJECT_UID_COLLISION`、损坏的日志、无可回滚的备份，都是这样。
+CLI 是运维工具，栈对运维没有帮助。
+
+**Bridge 运行中必须拒绝迁移与回滚。** Bridge 在内存里持有状态并在每次变更时写回，
 迁移会被它的下一次写覆盖，而磁盘上的运行目录已经是新名字 ——
 结果是状态指向不存在的目录。
+
+`apply` 与 `rollback` 在**整个写入期间持有** Bridge 的锁
+（`acquireBridgeLock`/`releaseBridgeLock`，与 `tools/migrate_uids.mjs` 一致），
+不是只读一下锁就开写 —— 只读锁留了一个 TOCTOU 窗口，
+Bridge 可以在读锁与写之间启动。
 
 ### 3.6 与 SQLite 元数据层的关系
 
@@ -200,3 +271,18 @@ node tools/migrate_state.mjs rollback [--data-dir <dir>] [--state <path>]
 | `06-cli-roundtrip.log` | CLI 的 plan/apply/verify/rollback 实跑 |
 | `07-coverage.log` | 新增模块的行覆盖率 |
 | `08-wbs-row.log` | WBS 行同步 |
+| `09-wbs-updaters.log` | WBS 更新器的幂等性验证 |
+| `10-python-gates.log` | Python 既有门禁的结果（含基线同样失败的用例） |
+| `11-adr-citations.log` | ADR 引用的一致性检查 |
+
+**第 2 轮的验证结果（第 1 轮交付 `d6152ee` 上失败，修复后通过）：**
+
+| 项 | 结果 |
+| --- | --- |
+| 审核反例探针 `ce206.mjs` | 6/6 反例均不成立（`0 counterexample(s) hold`） |
+| 端到端探针 `e2e206.mjs` | 用真实 v0.1 Bridge + Playwright 1.64.1 产出的 v0.1 数据，迁移 → 新 Bridge 读取 → 回滚 → v0.1 Bridge 读取，全链路 PASS（0 failure） |
+| 反例用例 `tests/migrate-state-counterexamples.test.mjs` | 33 项；在 `d6152ee` 上 **21 项失败** |
+| ATS-206 用例 `tests/migrate-state.test.mjs` | 39 项通过 |
+| ATS-201 存量用例 | 31 项通过（无回归） |
+| 全量 `node --test` | 611 项：600 通过 / 0 失败 / 11 跳过 |
+| 覆盖率 | `apply.mjs` 92.92%、`state-migration.mjs` 99.06%、`migrate_state.mjs` 96.52%、`migrate_uids.mjs` 94.33%（四个文件均 > 90%） |
