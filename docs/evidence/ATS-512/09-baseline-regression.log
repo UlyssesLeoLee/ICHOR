@@ -1,0 +1,45 @@
+================================================================================
+ATS-512 evidence log -- the one failing suite test is reproduced on the untouched baseline tree
+================================================================================
+commit        : fbc3fcce806052b69fbf176758d5d7ef4e910dff
+timestamp     : 2026-11-05T13:38:08Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-c720363925af/worktree
+node          : v24.19.0
+python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+default enc   : gbk (what the same interpreter would use without the forcing)
+command       : bash tools/ats512-probes/prove-baseline-regression.sh
+================================================================================
+
+reference tree : dev (c5f500c)
+work tree      : fbc3fcc
+
+--- the reference tree (dev, WITHOUT any ATS-512 code) ---
+✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (2.4737ms)
+ℹ pass 14
+ℹ fail 1
+ℹ skipped 0
+✖ failing tests:
+✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (2.4737ms)
+
+--- this branch (WITH the ATS-512 code) ---
+✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (16.1353ms)
+ℹ pass 14
+ℹ fail 1
+ℹ skipped 0
+✖ failing tests:
+✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (16.1353ms)
+
+--- why it fails ---
+examples/sample-playwright/ has no node_modules in this checkout, so the
+Playwright adapter reports the required capabilities as unsupported and the
+negotiation returns 409 instead of 200. The example project's dependencies
+are NOT part of the repository (.gitignore: examples/*/node_modules/), so
+this failure depends on whether the example was installed locally -- not on
+the product code. It is an ATS-301 environment dependency, not an ATS-512
+defect, and it is NOT counted as a PASS.
+
+RESULT: OK -- IT-API-013 fails on the reference tree as well (2 occurrence(s)),
+        so it is pre-existing and not caused by this task.
+
+--- exit code: 0 ---
