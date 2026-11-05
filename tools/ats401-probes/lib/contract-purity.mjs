@@ -48,6 +48,8 @@ export const ALLOWED_MODULES = Object.freeze(['node:crypto', 'node:path']);
 /** Global functions/objects that provide I/O without any import. */
 export const FORBIDDEN_GLOBALS = Object.freeze([
   'fetch', 'WebSocket', 'XMLHttpRequest', 'process', 'globalThis', 'global',
+  // 动态代码求值：与 I/O 一样可以绕过静态 import 限制（eval("require('node:fs')")）。
+  'eval', 'Function',
 ]);
 
 /**

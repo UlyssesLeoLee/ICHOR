@@ -1010,3 +1010,162 @@ test('UT-AGT-068: a proposal without a platform-supplied producer is rejected', 
     'AGENT_PROPOSAL_INVALID',
   );
 });
+
+
+/* ================================================================== */
+/* 第 2 次复核的反例（ATS-401）                                         */
+/*                                                                    */
+/* 第 1 轮的 diff 校验是**黑名单**（逐一列举已知的危险构造）。第 2 次 */
+/* 复核证明了黑名单追不上 git 的解析器：git apply 仍然接受清单里没有  */
+/* 的写法（旧式 `rename old/new` 头就是一个实例）。第 2 轮整改改为    */
+/* **白名单语法**——只有明确列出的头部形式被接受。下面这些用例把复核   */
+/* 提交的反例固定成可重跑的断言。                                     */
+/* ================================================================== */
+
+test('UT-AGT-069: the legacy "rename old/new" headers cannot bypass the scope check', () => {
+  const request = validateAgentRequest(baseRequest());
+  // `git apply` honours these headers (verified with git 2.55.0), so a
+  // blacklist that does not name them lets a rename out of scope through.
+  const diff = `${LEGIT_HUNK}\ndiff --git a/tests/login.spec.ts b/tests/login.spec.ts\nrename old server/index.mjs\nrename new server/pwned.mjs\n`;
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    'AGENT_PROPOSAL_OUT_OF_SCOPE',
+  );
+});
+
+test('UT-AGT-070: a C-quoted diff --git header cannot bypass the scope check', () => {
+  const request = validateAgentRequest(baseRequest());
+  // The quoted header names two DIFFERENT paths, so it is not a plain
+  // modification of an in-scope file. It is appended to a legitimate hunk so
+  // that the diff as a whole is a valid unified diff -- otherwise the
+  // "not a unified diff" check would reject it for an unrelated reason and
+  // the whitelist would never be exercised.
+  const quoted = `${LEGIT_HUNK}\ndiff --git "a/tests/login.spec.ts" "b/server/evil.mjs"\nnew file mode 100644\n`;
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff: quoted, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    'AGENT_PROPOSAL_OUT_OF_SCOPE',
+  );
+  // On its own the segment has no hunk at all, so it is rejected too (the
+  // exact code differs; what matters is that it never reaches a proposal).
+  const standalone = [
+    'diff --git "a/tests/login.spec.ts" "b/server/evil.mjs"',
+    'new file mode 100644',
+  ].join('\n');
+  assert.notEqual(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff: standalone, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    null,
+    'a C-quoted header naming an out-of-scope file must be rejected',
+  );
+});
+
+test('UT-AGT-071: the diff header whitelist rejects the constructs outside it', () => {
+  const request = validateAgentRequest(baseRequest());
+  const rejected = [
+    ['a context diff header', '*** a/tests/login.spec.ts'],
+    ['a similarity index', 'similarity index 90%'],
+    ['a dissimilarity index', 'dissimilarity index 90%'],
+    ['an Index: header', 'Index: tests/login.spec.ts'],
+    ['a copy header', 'copy from tests/login.spec.ts'],
+    ['a binary patch', 'GIT binary patch'],
+    ['a Binary files line', 'Binary files a/x and b/x differ'],
+    ['an old mode line', 'old mode 100644'],
+    ['a new mode line', 'new mode 100755'],
+    ['a deleted file mode', 'deleted file mode 100644'],
+  ];
+  for (const [label, line] of rejected) {
+    const diff = `${LEGIT_HUNK}\ndiff --git a/tests/login.spec.ts b/tests/login.spec.ts\n${line}\n`;
+    assert.equal(
+      codeOf(() => validateAgentProposal(
+        { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+        request,
+        { producedBy: 'adapter-x' },
+      )),
+      'AGENT_PROPOSAL_OUT_OF_SCOPE',
+      `${label} must be rejected`,
+    );
+  }
+});
+
+test('UT-AGT-072: a hunk whose declared line count does not match its body is rejected', () => {
+  const request = validateAgentRequest(baseRequest());
+  const diff = [
+    'diff --git a/tests/login.spec.ts b/tests/login.spec.ts',
+    '--- a/tests/login.spec.ts',
+    '+++ b/tests/login.spec.ts',
+    '@@ -1,5 +1,5 @@',
+    "-test('login passes', async ({page}) => {});",
+    "+test('login passes', async ({page}) => { await page.goto('/'); });",
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    'AGENT_PROPOSAL_OUT_OF_SCOPE',
+  );
+});
+
+test('UT-AGT-073: the diff --git header may be omitted, and a quoted path is unescaped', () => {
+  const request = validateAgentRequest(baseRequest());
+  // `git apply` accepts a bare unified diff, so the header is optional.
+  const bare = [
+    '--- a/tests/login.spec.ts',
+    '+++ b/tests/login.spec.ts',
+    '@@ -1 +1 @@',
+    "-test('login passes', async ({page}) => {});",
+    "+test('login passes', async ({page}) => { await page.goto('/'); });",
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff: bare, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    null,
+  );
+  // A quoted path is unescaped with git's own C-style rules before the
+  // scope check; an invalid escape is rejected rather than guessed.
+  const quoted = [
+    '--- "a/tests/login.spec.ts"',
+    '+++ "b/tests/login.spec.ts"',
+    '@@ -1 +1 @@',
+    "-test('login passes', async ({page}) => {});",
+    "+test('login passes', async ({page}) => { await page.goto('/'); });",
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff: quoted, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    null,
+  );
+  const brokenEscape = [
+    '--- "a/tests/login.spec\q"',
+    '+++ "b/tests/login.spec\q"',
+    '@@ -1 +1 @@',
+    '-x',
+    '+y',
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff: brokenEscape, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    'AGENT_PROPOSAL_OUT_OF_SCOPE',
+  );
+});

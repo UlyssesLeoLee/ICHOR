@@ -16,9 +16,11 @@
  *      只读挂载或子进程沙箱才是真正的隔离手段，留给平台侧（ATS-403）。
  *   2. 能力白名单里没有任何「写/提交」类能力；请求携带这类能力直接被拒绝。
  *   3. 提案只承载 diff 与分析结论，`approval` 恒为 `pending`，且提案人不能自审。
- *   4. 提案的 diff 只接受能被完整解析的 unified diff；diff 头部里出现的
- *      **每一个**路径都必须落在 `scope.outputs` 内且为测试脚本文件，
- *      rename / copy / binary / mode change 一律拒绝。
+ *   4. 提案的 diff 只接受符合**白名单语法**的 unified diff：只有明确列出
+ *      的头部形式被接受（`diff --git`（可选）/ `index` / `new file mode
+ *      100644` / `---` / `+++`），其余一律拒绝——白名单里出现过的路径
+ *      必须落在 `scope.outputs` 内且为测试脚本文件。平台侧落地前必须再用
+ *      `git apply --check --numstat --summary` 以 git 自己的解析器复核一次。
  *
  * 错误码是稳定契约的一部分（见 AGENT_ERROR_CODES），调用方按 `err.code` 分支，
  * 不解析错误消息文本。
@@ -476,6 +478,43 @@ function validateActions(actions, outputKind) {
 }
 
 /**
+ * diff 头部的**白名单**语法（ATS-401 第 2 次复核整改）。
+ *
+ * 第 1 轮整改用的是黑名单：列出已知危险的构造（rename/copy/binary/mode
+ * change）并逐一拒绝。第 2 次复核证明了黑名单追不上 git 的解析器——
+ * `git apply` 仍然接受清单里没有的写法，例如旧式的 `rename old/new` 头，
+ * 于是「diff 目标都在 scope.outputs 内」这条约束仍可被绕过。
+ *
+ * 因此改为白名单：**只有**下面这些头部行被接受，其余一律拒绝。
+ *
+ *   diff --git a/P b/P     可选；出现时两侧的 P 必须相同，且与该段的
+ *                          ---/+++ 中的 P 一致
+ *   index <hex>..<hex>     可选，可带 " 100644"
+ *   new file mode 100644   可选
+ *   --- a/P                或 --- /dev/null
+ *   +++ b/P
+ *
+ * 被拒绝的写法包括：旧式 `rename old/new`、`similarity`/`dissimilarity index`、
+ * `Index:`、`***` 上下文 diff 头、带引号的路径、任何 mode 变更、任何
+ * `copy from/to`、任何二进制补丁。
+ *
+ * 白名单语法的**判据**是 git 自己的解析器：平台侧落地前必须再用
+ * `git apply --check --numstat --summary` 校验一次（见 docs/17-AGENT-CONTRACT.md）。
+ *
+ * 这条保证的强度以「被接受的 diff 语法」为准——它不是「物理上无法」：
+ * 任何新引入的 diff 形式都必须先加进白名单才能被接受。
+ */
+
+/** `diff --git` 头部的路径必须是**不带引号的原始路径**。 */
+const DIFF_HEADER_ALLOWED = Object.freeze([
+  'diff --git',
+  'index',
+  'new file mode',
+  '---',
+  '+++',
+]);
+
+/**
  * 拆开 `diff --git a/X b/Y` 的两侧。
  *
  * git 的这行在路径含空格时是有歧义的（`a/dir b/file b/dir b/file`）。拆分的
@@ -496,94 +535,281 @@ function splitDiffGitPaths(rest) {
 }
 
 /**
- * 从 diff 头部里抽出**每一个**出现过的路径。
+ * 拆开 `diff --git` 头的两侧，**能处理整体带引号**的形式。
  *
- * 只看 `---`/`+++` 是不够的：git 的扩展头（rename from/to、copy from/to、
- * Binary files…、old/new mode）根本不产生这两行，而 CRLF 结尾的header行
- * 也会让按行匹配的写法失效。因此这里先把 CR 去掉，再逐类扫描头部关键字。
+ * git 对含非 ASCII 字节的路径会把整个头部写成
+ *   diff --git "a/tests/\347\231\273\345\275\225.spec.ts" "b/..."
+ * 这时上面的按 ' b/' 切分的写法找不到分隔点。带引号时按引号配对切分即可。
+ *
+ * @returns {[string, string]|null} 两侧的原始文本；无法切分时返回 null
  */
-function diffTargetPaths(diff) {
-  const out = [];
-  const push = (candidate) => {
-    if (!candidate) return;
-    let value = candidate.split('\t')[0].trim();
-    if (!value || value === '/dev/null') return;
-    if (value.startsWith('"') && value.endsWith('"') && value.length > 1) {
-      value = value.slice(1, -1);
-    }
-    if (value.startsWith('a/') || value.startsWith('b/')) value = value.slice(2);
-    if (!value) return;
-    out.push(toPosix(value));
-  };
-
-  for (const raw of diff.split('\n')) {
-    // 头部行可能带 CR（CRLF diff）。去掉 CR 后再匹配，避免整行被跳过。
-    const line = raw.replace(/\r/g, '');
-    let match = /^(?:---|\+\+\+)\s+(.+)$/.exec(line);
-    if (match) {
-      push(match[1]);
-      continue;
-    }
-    match = /^diff --git\s+(.+)$/.exec(line);
-    if (match) {
-      // `diff --git a/X b/Y` —— 两侧都是路径，都要检查。
-      for (const side of splitDiffGitPaths(match[1].trim())) push(side);
-      continue;
-    }
-    match = /^(?:rename|copy) (?:from|to)\s+(.+)$/.exec(line);
-    if (match) {
-      push(match[1]);
-      continue;
-    }
-    match = /^Binary files\s+(.+?)\s+and\s+(.+?)\s+differ$/.exec(line);
-    if (match) {
-      push(match[1]);
-      push(match[2]);
-      continue;
-    }
+function splitDiffGitHeaderPaths(rest) {
+  const trimmed = rest.trim();
+  if (!trimmed.startsWith('"')) {
+    const sides = splitDiffGitPaths(trimmed);
+    return sides.length === 2 ? sides : null;
   }
-  return [...new Set(out)];
+  // 带引号：依次读出两个引号串。
+  const parts = [];
+  let i = 0;
+  while (i < trimmed.length && parts.length < 2) {
+    if (trimmed[i] !== '"') {
+      // 两个引号串之间只允许空白
+      if (!/\s/.test(trimmed[i])) return null;
+      i += 1;
+      continue;
+    }
+    let j = i + 1;
+    while (j < trimmed.length) {
+      if (trimmed[j] === '\\') { j += 2; continue; }
+      if (trimmed[j] === '"') break;
+      j += 1;
+    }
+    if (j >= trimmed.length) return null;
+    parts.push(trimmed.slice(i, j + 1));
+    i = j + 1;
+  }
+  return parts.length === 2 ? [parts[0], parts[1]] : null;
 }
 
 /**
- * 找出 diff 里**不允许**出现的构造，并给出可复核的原因。
+ * 反转义 git 的 C 风格带引号路径。
  *
- * 逐一拒绝：rename / copy、binary patch、`Binary files … differ`、
- * `old mode`/`new mode`（含 mode change），以及任何非 100644 的 mode。
- * 目的是让「diff 目标都在 scope.outputs 内」这条约束**不能被绕过**：
- * 只要头部里出现一个作用域外的路径，整个提案就被拒。
+ * git 在 `core.quotePath=true`（默认）下会把含非 ASCII 字节或控制字符的路径
+ * 写成带引号的形式，转义规则见 git 的 quote.c：
+ *   \a \b \t \n \v \f \r  -> 对应的控制字符
+ *   \" \\                   -> 字面的引号与反斜杠
+ *   \NNN                     -> 三位八进制，表示一个字节
+ * 其余字节原样输出。
+ *
+ * 必须**完整**实现这几种转义：漏掉任何一种，校验结果就会与 git 实际解析出
+ * 的路径不一致，那正是「校验通过但 git apply 改了别的文件」的来源。
+ *
+ * @returns {string|null} 反转义后的字符串；转义不合法时返回 null
  */
-function diffForbiddenConstructs(diff) {
-  const forbidden = [];
-  for (const raw of diff.split('\n')) {
-    const line = raw.replace(/\r/g, '');
-    if (/^diff --git\s/.test(line)) continue; // 已在 diffTargetPaths 里按路径处理
-    if (/^(?:rename|copy) (?:from|to)\s/.test(line)) {
-      forbidden.push({ construct: 'rename-or-copy', line });
+function unquoteGitPath(quoted) {
+  if (quoted.length < 2 || !quoted.startsWith('"') || !quoted.endsWith('"')) return null;
+  const body = quoted.slice(1, -1);
+  const bytes = [];
+  for (let i = 0; i < body.length; i += 1) {
+    const c = body[i];
+    if (c !== '\\') {
+      // 非 ASCII 字符按 UTF-8 逐字节保留
+      const encoded = Buffer.from(c, 'utf8');
+      for (const b of encoded) bytes.push(b);
       continue;
     }
-    if (/^GIT binary patch\s*$/.test(line)) {
-      forbidden.push({ construct: 'git-binary-patch', line });
-      continue;
-    }
-    if (/^Binary files\s/.test(line)) {
-      forbidden.push({ construct: 'binary-files-differ', line });
-      continue;
-    }
-    if (/^(?:old|new) mode\s+/.test(line)) {
-      forbidden.push({ construct: 'mode-change', line });
-      continue;
-    }
-    if (/^new file mode\s+/.test(line)) {
-      const mode = line.replace(/^new file mode\s+/, '').trim();
-      if (mode !== '100644') forbidden.push({ construct: 'non-100644-mode', line });
-      continue;
-    }
-    if (/^deleted file mode\s+/.test(line)) {
-      forbidden.push({ construct: 'deleted-file', line });
+    const next = body[i + 1];
+    if (next === undefined) return null;          // 结尾的反斜杠：不合法
+    i += 1;
+    switch (next) {
+      case 'a': bytes.push(0x07); break;
+      case 'b': bytes.push(0x08); break;
+      case 't': bytes.push(0x09); break;
+      case 'n': bytes.push(0x0a); break;
+      case 'v': bytes.push(0x0b); break;
+      case 'f': bytes.push(0x0c); break;
+      case 'r': bytes.push(0x0d); break;
+      case '"': bytes.push(0x22); break;
+      case '\\': bytes.push(0x5c); break;
+      default: {
+        if (next >= '0' && next <= '7') {
+          const octal = body.slice(i, i + 3);
+          if (!/^[0-7]{3}$/.test(octal)) return null;
+          bytes.push(parseInt(octal, 8));
+          i += 2;
+        } else {
+          return null;                            // 未知的转义：不合法
+        }
+      }
     }
   }
-  return forbidden;
+  return Buffer.from(bytes).toString('utf8');
+}
+
+/**
+ * 把一条 diff 头部路径（`a/P`、`b/P`、`/dev/null`）归一化成仓库相对路径。
+ *
+ * 带引号的路径先做**完整的 C 风格反转义**（见 unquoteGitPath）。不完整实现
+ * 反转义会让校验结果与 git 实际解析出的路径不一致，因此这里宁可解析失败
+ * 并拒绝，也不放行一个无法确认的路径。
+ *
+ * @returns {string|null} 归一化后的相对路径；`/dev/null` 或无法解析时返回 null
+ */
+function normalizeDiffPath(raw) {
+  let value = raw.split('\t')[0].trim();
+  if (!value) return null;
+  if (value.startsWith('"')) {
+    value = unquoteGitPath(value);
+    if (value === null) return null;
+  }
+  if (value === '/dev/null') return null;
+  if (value.startsWith('a/') || value.startsWith('b/')) {
+    return toPosix(value.slice(2));
+  }
+  return toPosix(value);
+}
+
+/**
+ * 解析一个 diff 的头部，返回每个文件段的结构化描述。
+ *
+ * 每一段是：
+ *   { header: string[]  头部行
+ *     paths:  string[]   头部里出现过的仓库相对路径
+ *     hunks:  number     hunk 段的数量
+ *   }
+ *
+ * @returns {{segments: object[], error: {construct: string, line: string}|null}}
+ */
+function parseDiffSegments(diff) {
+  const segments = [];
+  let current = null;
+  let error = null;
+
+  const reject = (construct, line) => {
+    if (!error) error = { construct, line };
+  };
+
+  const lines = diff.split('\n').map((raw) => raw.replace(/\r/g, ''));
+
+  for (let i = 0; i < lines.length && !error; i += 1) {
+    const line = lines[i];
+
+    // 段起始：diff --git
+    if (line.startsWith('diff --git ')) {
+      current = { header: [], paths: [], hunks: 0 };
+      segments.push(current);
+      const sides = splitDiffGitHeaderPaths(line.slice('diff --git '.length));
+      if (!sides) {
+        reject('malformed-diff-git-header', line);
+        break;
+      }
+      const [left, right] = sides;
+      // 两侧可能整体带引号（git 对非 ASCII 路径会这么写），先反转义再取前缀。
+      const leftRaw = left.startsWith('"') ? unquoteGitPath(left) : left;
+      const rightRaw = right.startsWith('"') ? unquoteGitPath(right) : right;
+      if (leftRaw === null || rightRaw === null
+        || !leftRaw.startsWith('a/') || !rightRaw.startsWith('b/')) {
+        reject('malformed-diff-git-header', line);
+        break;
+      }
+      const leftPath = normalizeDiffPath(leftRaw);
+      const rightPath = normalizeDiffPath(rightRaw);
+      if (leftPath === null || rightPath === null) {
+        reject('quoted-or-invalid-diff-path', line);
+        break;
+      }
+      if (leftPath !== rightPath) {
+        // 两侧路径不同的 `diff --git` 头意味着增删改或重命名，不在本白名单内。
+        reject('diff-git-header-paths-differ', line);
+        break;
+      }
+      current.header.push(line);
+      current.paths.push(leftPath);
+      continue;
+    }
+
+    if (!current) {
+      // `diff --git` 头是**可选**的：git apply 同样接受裸的 unified diff
+      // （只有 ---/+++ 与 hunk）。裸 diff 的段起点就是它的 --- 行。
+      if (line.trim() === '') continue;
+      if (line.startsWith('--- ')) {
+        current = { header: [], paths: [], hunks: 0 };
+        segments.push(current);
+        // fall through：--- 行由下面的分支处理
+      } else {
+        reject('header-outside-segment', line);
+        break;
+      }
+    }
+
+    // hunk 头先判：它不属于「头部行」，必须单独处理。
+    if (line.startsWith('@@ ')) {
+      const hm = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(line);
+      if (!hm) {
+        reject('malformed-hunk-header', line);
+        break;
+      }
+      const oldCount = hm[2] === undefined ? 1 : Number(hm[2]);
+      const newCount = hm[4] === undefined ? 1 : Number(hm[4]);
+      current.hunks += 1;
+      current.header.push(line);
+
+      // 按 hunk 头声明的行数消费 hunk 体。
+      let oldSeen = 0;
+      let newSeen = 0;
+      let j = i + 1;
+      for (; j < lines.length; j += 1) {
+        const body = lines[j];
+        if (body.startsWith('@@ ')) break;             // 下一个 hunk
+        if (body.startsWith('diff --git ')) break;     // 下一段
+        if (body.startsWith('\\')) continue;          // "\ No newline at end of file"
+        if (body === '') continue;                    // 空行 = 上下文行（' ' 前缀被吞）
+        if (body.startsWith(' ')) { oldSeen += 1; newSeen += 1; continue; }
+        if (body.startsWith('+')) { newSeen += 1; continue; }
+        if (body.startsWith('-')) { oldSeen += 1; continue; }
+        reject('illegal-hunk-line', body);
+        break;
+      }
+      if (error) break;
+      if (oldSeen !== oldCount || newSeen !== newCount) {
+        reject('hunk-line-count-mismatch', line);
+        break;
+      }
+      i = j - 1;
+      continue;
+    }
+
+    // 头部行：只允许白名单里的几种。
+    const allowed = DIFF_HEADER_ALLOWED.some((prefix) => line.startsWith(prefix));
+    if (!allowed) {
+      reject('forbidden-diff-header', line);
+      break;
+    }
+
+    if (line.startsWith('index ')) {
+      if (!/^index [0-9a-f]+\.\.[0-9a-f]+(?: 100644)?$/.test(line)) {
+        reject('malformed-index-header', line);
+        break;
+      }
+      current.header.push(line);
+      continue;
+    }
+
+    if (line.startsWith('new file mode ')) {
+      const mode = line.slice('new file mode '.length).trim();
+      if (mode !== '100644') {
+        reject('non-100644-mode', line);
+        break;
+      }
+      current.header.push(line);
+      continue;
+    }
+
+    if (line.startsWith('--- ') || line.startsWith('+++ ')) {
+      const target = normalizeDiffPath(line.slice(4));
+      if (target === null) {
+        // `--- /dev/null` 是合法的（新增文件）。
+        if (line.slice(4).trim() !== '/dev/null') {
+          reject('quoted-or-invalid-diff-path', line);
+          break;
+        }
+      } else {
+        current.paths.push(target);
+      }
+      current.header.push(line);
+      continue;
+    }
+
+    if (line.startsWith('diff --git ')) continue; // 已在上面处理
+
+    // 不是已知头部、也不是 hunk 头 —— 只可能是 hunk 体里的一行，说明解析
+    // 状态机已经跑偏，直接拒绝。
+    reject('unexpected-diff-line', line);
+    break;
+  }
+
+  return { segments, error };
 }
 
 function validateDiff(diff, scope, outputKind) {
@@ -604,18 +830,30 @@ function validateDiff(diff, scope, outputKind) {
   }
   if (!/^@@ .*@@/m.test(diff)) fail('AGENT_PROPOSAL_INVALID', 'proposal.diff is not a unified diff');
 
-  // 不允许的构造先拒：rename / copy / binary / mode change。
-  const forbidden = diffForbiddenConstructs(diff);
-  if (forbidden.length) {
-    fail('AGENT_PROPOSAL_OUT_OF_SCOPE', `proposal.diff uses a forbidden construct: ${forbidden[0].construct}`, {
-      construct: forbidden[0].construct,
-    });
+  // 白名单语法：只有被 parseDiffSegments 接受的头部形式才合法。
+  // 这取代了第 1 轮的黑名单（diffForbiddenConstructs）——黑名单追不上 git
+  // 的解析器，旧式 `rename old/new` 头就能绕过它。
+  const parsed = parseDiffSegments(diff);
+  if (parsed.error) {
+    fail('AGENT_PROPOSAL_OUT_OF_SCOPE',
+      `proposal.diff uses a forbidden construct: ${parsed.error.construct}`,
+      { construct: parsed.error.construct });
+  }
+  if (!parsed.segments.length) {
+    fail('AGENT_PROPOSAL_INVALID', 'proposal.diff does not contain a file segment');
   }
 
-  // 头部里出现的**每一个**路径都要落在 scope.outputs 内。
-  const targets = diffTargetPaths(diff);
+  // 每一段都必须至少有一个 hunk，且头部里出现的**每一个**路径都要落在
+  // scope.outputs 内。
+  const targets = [];
+  for (const segment of parsed.segments) {
+    if (!segment.hunks) {
+      fail('AGENT_PROPOSAL_INVALID', 'proposal.diff contains a file segment without a hunk');
+    }
+    for (const target of segment.paths) targets.push(target);
+  }
   if (!targets.length) fail('AGENT_PROPOSAL_INVALID', 'proposal.diff does not name a target file');
-  for (const target of targets) {
+  for (const target of [...new Set(targets)]) {
     if (path.isAbsolute(target)) {
       fail('AGENT_PROPOSAL_OUT_OF_SCOPE', `diff target ${target} is outside scope.root`, { target });
     }
@@ -859,7 +1097,11 @@ export function createAgentAdapter({
           controller.abort();
           resolve(TIMEOUT_SENTINEL);
         }, request.budget.deadlineMs);
-        if (typeof timer.unref === 'function') timer.unref();
+        // 不调用 timer.unref()：进程里没有其它活动句柄、provider 又是一个
+        // 纯 Promise（不持有 socket 之类的句柄）时，unref 会让 Node 在截止
+        // 时间到达之前直接退出，execute() 永不 settle，调用方拿不到
+        // AGENT_BUDGET_EXCEEDED（进程以 exit 13「unsettled top-level await」
+        // 结束）。finally 里已经 clearTimeout，unref 没有必要。
       });
 
       let response;
