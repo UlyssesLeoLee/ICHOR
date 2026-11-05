@@ -4,7 +4,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog } from './core.mjs';
+import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath } from './core.mjs';
+import { projectUidFor, projectUidOf, runUidFor, attemptUidFor, nextRunSeq, UID_SCHEME_VERSION } from './uid.mjs';
 import { AGENT_CONTRACT_VERSION,describeAgentContract,validateAgentRequest } from './agent.mjs';
 import { PLUGIN_CONTRACT_VERSION,describePluginContract,validatePluginManifest,resolvePluginPermissions } from './plugins/contract.mjs';
 import { capabilityMatrix,getAdapter,listRunners,selectAdapter,selectAdapterOrThrow , negotiationFailure} from './adapters/registry.mjs';
@@ -15,6 +16,14 @@ const ROOT=path.resolve(HERE,'..');
 const PORT=Number(process.env.ATS_PORT||4577);
 const TOKEN=crypto.randomBytes(24).toString('hex');
 const jobs=new Map();
+// The data directory is locked for the whole lifetime of the Bridge. The
+// migration script (tools/migrate_uids.mjs) rewrites the state file AND
+// renames the run folders; a Bridge that is running at that moment would
+// overwrite the migrated state with its own in-memory copy on the next
+// save, and the state would point at run folders that no longer exist.
+try{acquireBridgeLock();}
+catch(e){console.error(`another process holds the data directory lock (${lockPath()}): ${e.message}`);process.exit(1);}
+process.on('exit',()=>releaseBridgeLock());
 let store=loadState();
 for(const run of store.runs){if(['queued','running'].includes(run.status)){run.status='interrupted';run.finishedAt=now();run.error='Server restarted while run was active';}}
 saveState(store);
@@ -24,9 +33,9 @@ const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=u
 const respond=(res,status,obj)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(obj));};
 const err=(res,status,msg,extra)=>respond(res,status,extra?{error:msg,...extra}:{error:msg});
 async function body(req){let buf='';for await(const chunk of req){buf+=chunk;if(buf.length>1_200_000)throw new Error('PAYLOAD_TOO_LARGE');}return buf?JSON.parse(buf):{};}
-function getProject(id){const p=store.projects.find(p=>p.id===id);if(!p)throw new Error('PROJECT_NOT_FOUND');return p;}
-function getRun(id){const r=store.runs.find(r=>r.id===id);if(!r)throw new Error('RUN_NOT_FOUND');return r;}
-function cleanProject(p){let git={branch:'-',commit:'-',dirty:false};try{git=gitInfo(p.root);}catch{} return {...p, git};}
+function getProject(id){const p=store.projects.find(p=>p.id===id||p.uid===id);if(!p)throw new Error('PROJECT_NOT_FOUND');return p;}
+function getRun(id){const r=store.runs.find(r=>r.id===id||r.uid===id);if(!r)throw new Error('RUN_NOT_FOUND');return r;}
+function cleanProject(p){let git={branch:'-',commit:'-',dirty:false};try{git=gitInfo(p.root);}catch{} return {...p,uid:p.uid||projectUidOf(p),git};}
 function writeEvent(run,type,data={}){const ev={seq:++run.eventSeq,at:now(),type,data};fs.appendFileSync(path.join(runDir(run.id),'events.jsonl'),JSON.stringify(ev)+'\n');}
 function finishRun(run,code,signal){
  if(run.status!=='running'&&run.status!=='cancelling')return;
@@ -36,10 +45,23 @@ function finishRun(run,code,signal){
  // Collect through the adapter that started the run, so every engine's
  // native result file is mapped onto the same summary shape.
  const adapter=run.runner?getAdapter(run.runner):null;
+ // The RAW Playwright report is parsed separately from the adapter's summary:
+ // the adapter maps the engine's vocabulary onto the common result model, but
+ // the Attempt records need the per-retry details (line, retry index and the
+ // RESULT level status) that only the raw report carries.
+ let rawSummary=null;
+ const reportFile=path.join(folder,'report.json');
+ if(fs.existsSync(reportFile)){try{rawSummary=parseReport(JSON.parse(fs.readFileSync(reportFile,'utf8')));}catch(e){run.reportWarning=String(e.message);}}
  if(adapter){try{const collected=adapter.collect({outputDir:folder});if(collected&&collected.summary)run.summary=collected.summary;}catch(e){run.reportWarning=String(e.message);}}
- if(!run.summary){const reportFile=path.join(folder,'report.json');if(fs.existsSync(reportFile)){try{run.summary=parseReport(JSON.parse(fs.readFileSync(reportFile,'utf8')));}catch(e){run.reportWarning=String(e.message);}}}
+ if(!run.summary)run.summary=rawSummary;
+ if(!run.summary)run.summary={passed:0,failed:0,skipped:0,flaky:0,total:0,executions:0,cases:[]};
+ // The report names the test files relative to the Playwright rootDir, the
+ // registry stores them relative to the project root. The project root is
+ // needed to reconcile the two spellings.
+ const proj=store.projects.find(p=>p.id===run.projectId||p.uid===run.projectId||p.uid===run.projectUid);
+ run.attempts=attemptsForRun({...run,projectRoot:proj?.root??null},rawSummary??run.summary,store.uidRegistry);
  run.artifacts=filesInRun(run.id).filter(x=>!['events.jsonl','stdout.log'].includes(x.file));
- const manifest={version:1,runId:run.id,projectId:run.projectId,sourceCommit:run.gitCommit,runner:run.runner||'playwright',status:run.status,createdAt:run.startedAt,finishedAt:run.finishedAt,artifacts:run.artifacts};
+ const manifest={version:1,runId:run.id,projectUid:run.projectUid||null,projectId:run.projectId,sourceCommit:run.gitCommit,runner:run.runner||'playwright',status:run.status,createdAt:run.startedAt,finishedAt:run.finishedAt,artifacts:run.artifacts,attempts:run.attempts};
  fs.writeFileSync(path.join(folder,'manifest.json'),JSON.stringify(manifest,null,2));
  writeEvent(run,'run.finished',{status:run.status,code,signal});jobs.delete(run.id);saveState(store);
 }
@@ -91,12 +113,29 @@ const server=http.createServer(async(req,res)=>{
  if(p==='/api/projects'&&req.method==='GET')return respond(res,200,{projects:store.projects.map(cleanProject)});
  if(p==='/api/projects'&&req.method==='POST'){
   const b=await body(req);const actual=validateProjectPath(b.path);
-  if(store.projects.find(x=>x.root===actual))throw new Error('PROJECT_ALREADY_REGISTERED');
-  const project={id:safeId('proj'),name:path.basename(actual),root:actual,addedAt:now()};store.projects.push(project);saveState(store);return respond(res,201,{project:cleanProject(project)});
+  // The project identifier is the stable UID: it is derived from the
+  // canonical project root, so re-registering the same repository yields the
+  // same identifier and the project can be referenced from outside the
+  // local state file.
+  const uid=projectUidFor(actual);
+  // The duplicate check uses the SAME normalisation as the UID: `realpath`
+  // keeps the case of the path it was given, so on a case insensitive
+  // filesystem `D:\Proj` and `D:\proj` are the same directory but two
+  // different strings. Comparing the raw `root` strings would register the
+  // same repository twice under ONE id -- two records, one identifier.
+  // The UID is the normalised comparison, so it is the right key here.
+  const existing=store.projects.find(x=>x.id===uid||x.uid===uid||projectUidOf(x)===uid);
+  if(existing)throw new Error('PROJECT_ALREADY_REGISTERED');
+  const project={id:uid,uid,name:path.basename(actual),root:actual,addedAt:now()};
+  store.projects.push(project);saveState(store);return respond(res,201,{project:cleanProject(project)});
  }
- const pm=p.match(/^\/api\/projects\/(proj_[0-9a-f-]{36})(?:\/(.*))?$/);
+ const pm=p.match(/^\/api\/projects\/(proj_(?:[0-9a-f-]{36}|1_[0-9a-f]{24}))(?:\/(.*))?$/);
  if(pm){const project=getProject(pm[1]),action=pm[2]||'';
-  if(action==='tests'&&req.method==='GET')return respond(res,200,{...discoverStatic(project),project:cleanProject(project)});
+  if(action==='tests'&&req.method==='GET'){
+   const catalog=discoverStatic(project,store.uidRegistry);
+   store.uidRegistry=catalog.registry;saveState(store);
+   return respond(res,200,{...catalog,project:cleanProject(project)});
+  }
   if(action==='runners'&&req.method==='GET'){
    return respond(res,200,{runners:listRunners(),capabilities:capabilityMatrix(project),project:cleanProject(project)});
   }
@@ -149,7 +188,17 @@ const server=http.createServer(async(req,res)=>{
     // Falling back to the first adapter makes start() raise that reason.
     chosen={adapter:getAdapter('playwright'),negotiation:{requested}};
    }
-   const run={id:safeId('run'),projectId:project.id,projectName:project.name,file,gitCommit:gitInfo(project.root).commit,status:'queued',createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested};
+   const gitCommit=gitInfo(project.root).commit;
+   const projectUid=projectUidOf(project);
+   // The execution sequence is recorded on the run itself and backed by a
+   // durable per project counter, so a sequence number is never reused even
+   // after the run history is trimmed.
+   const history=store.runs.filter(x=>x.projectId===project.id);
+   const seq=nextRunSeq(history,store.runCounters?.[project.id]??0);
+   store.runCounters=store.runCounters??{};
+   store.runCounters[project.id]=seq;
+   const uid=runUidFor({projectUid,gitCommit,file,seq});
+   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:'queued',createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested};
    store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter);return respond(res,202,{run});
   }
   if(action==='lineage'&&req.method==='GET'){
@@ -160,7 +209,7 @@ const server=http.createServer(async(req,res)=>{
   }
  }
  if(p==='/api/runs'&&req.method==='GET')return respond(res,200,{runs:store.runs.map(({log,...r})=>({...r,logLength:log?.length||0}))});
- const rm=p.match(/^\/api\/runs\/(run_[0-9a-f-]{36})(?:\/(.*))?$/);
+ const rm=p.match(/^\/api\/runs\/(run_(?:[0-9a-f-]{36}|1_[0-9a-f]{24}))(?:\/(.*))?$/);
  if(rm){const r=getRun(rm[1]),action=rm[2]||'';
   if(action===''&&req.method==='GET')return respond(res,200,{run:r});
   if(action==='stop'&&req.method==='POST'){cancelRun(r);return respond(res,200,{status:r.status});}

@@ -1,0 +1,16 @@
+=== command ===
+python tools/update_wbs_ats201.py
+=== output ===
+overview: 已完成=1 完成率=0.051063829787234005 剩余人日=446.0
+updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-ef22b10e5916\worktree\docs\WBS.xlsx
+CHANGED (first run applied the update)
+overview: 已完成=1 完成率=0.051063829787234005 剩余人日=446.0
+updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-ef22b10e5916\worktree\docs\WBS.xlsx
+IDEMPOTENT: a second run leaves row ATS-201 byte-identical
+verify: ATS-201 row 22 状态=待审核 完成率=1 剩余人日=0 marker×1
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+verify: openpyxl loads the workbook in the normal and the data_only mode
+=== exit code: 0 ===

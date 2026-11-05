@@ -1,0 +1,28 @@
+=== command ===
+node tools/ats201-probes/flaky-attempt-status-real-pw.mjs
+=== output ===
+--- installing the real @playwright/test into the fixture ---
+
+--- 1. the real Playwright run produces a flaky report ---
+   playwright stats : {"startTime":"2026-11-05T13:14:03.308Z","duration":6426.154,"expected":0,"skipped":0,"unexpected":0,"flaky":1}
+PASS  the case is flaky in the real report  -- {"startTime":"2026-11-05T13:14:03.308Z","duration":6426.154,"expected":0,"skipped":0,"unexpected":0,"flaky":1}
+
+--- 2. the raw report carries BOTH status levels ---
+   case="flaky case"  caseStatus=flaky  resultStatus=failed  retry=0
+   case="flaky case"  caseStatus=flaky  resultStatus=passed  retry=1
+PASS  the report has two executions  -- 2
+PASS  the first execution really failed  -- failed
+PASS  the second execution really passed  -- passed
+PASS  the CASE level status is still flaky  -- flaky,flaky
+
+--- 3. the ATTEMPTS of the product code ---
+   att_1_2a0ee3633dd15c65f14b840e  status=failed  caseStatus=flaky  retry=0
+   att_1_1d7354933be05eb90ac611dd  status=passed  caseStatus=flaky  retry=1
+PASS  there is one attempt per execution  -- 2
+PASS  the first attempt is failed  -- failed
+PASS  the second attempt is passed  -- passed
+PASS  the case level status is kept next to it  -- flaky
+PASS  the two attempts do not record the same status
+
+RESULT: ALL CHECKS PASSED
+=== exit code: 0 ===
