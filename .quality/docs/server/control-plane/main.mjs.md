@@ -2,7 +2,7 @@
 
 Source: `server/control-plane/main.mjs`
 
-Source-SHA256: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+Source-SHA256: `d074a46633de9603542b5375614c3a55c37edb224c96aff80d8c11b743b88537`
 
 ## Responsibility
 
@@ -18,7 +18,8 @@ Process entrypoint of the deployable control plane (`docs/21-CONTROL-PLANE-API.m
 - `resolveConfig(env) -> {host, port, tls: {certFile, keyFile} | null, authMode}`; throws `ConfigError` (with `exitCode = 2`) naming the variable and the reason, never a secret value. Defaults: `127.0.0.1`, `4610`, no TLS, `none`.
 - `buildAuthenticator(config, env)`: `none` -> `denyAllAuthenticator()`; `dev-static` -> `staticBearerAuthenticator(parseDevTokens(env.ATS_CP_DEV_TOKENS))`.
 - `startControlPlane(config, {env, readFile, createHttpServer, createHttpsServer, log})` -> `Promise<{server, app, address}>`; with TLS the HTTPS options carry `minVersion: 'TLSv1.3'`.
-- Running the file directly calls `resolveConfig(process.env)` and `startControlPlane`; a `ConfigError` prints `control-plane config error: <message>` to stderr and exits with code 2.
+- `isLoopbackHost(host)`: `localhost`, `127.0.0.0/8` and `::1` are loopback; everything else (including `0.0.0.0` and `::`) is not.
+- `runMain(env, {exit, stderr, ...deps})`: `resolveConfig(env)` then `startControlPlane`; a `ConfigError` (also from an invalid dev token map) writes `control-plane config error: <message>` to `stderr` and calls `exit(2)`; any other error propagates. Running the file directly calls `runMain()` with the process environment.
 - The startup log contains protocol, host, port and auth mode only.
 
 ## Change Notes

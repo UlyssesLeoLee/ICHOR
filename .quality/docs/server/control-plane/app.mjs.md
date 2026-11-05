@@ -2,7 +2,7 @@
 
 Source: `server/control-plane/app.mjs`
 
-Source-SHA256: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+Source-SHA256: `cd8c9c1de32238c8a00cb655e9b46fadda9bc9143f8726ad8267209221e0db3e`
 
 ## Responsibility
 

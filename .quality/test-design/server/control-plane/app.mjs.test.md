@@ -2,7 +2,7 @@
 
 Source: `server/control-plane/app.mjs`
 
-Source-SHA256: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+Source-SHA256: `cd8c9c1de32238c8a00cb655e9b46fadda9bc9143f8726ad8267209221e0db3e`
 
 ## Test Strategy
 
@@ -28,6 +28,8 @@ Two levels. UT (`tests/control-plane.test.mjs`, UT-CP-015..030): the handler fro
 | TC-014 | `GET /cp/v1/contract` (UT-CP-030) | 200, `tauriRequired=false`, `localBridgeReachable=false`, `errorNamespace='REMOTE_'`, `credential.localCredentialAccepted=false` | `tests/control-plane.test.mjs` |
 | TC-015 | POST bodies with `path`, `root`, `repositoryUrl`, `displayName:'/home/a'`, `token`, a 48-hex value (UT-CP-025 and IT-CP-006..008) | 422 `REMOTE_PATH_FORBIDDEN` / 422 `REMOTE_SECRET_INLINE_FORBIDDEN` | `tests/control-plane.test.mjs` |
 | TC-016 | Process-level: local Bridge + control plane, every control-plane response collected (IT-CP-001..012) | see the IT catalog in `docs/08-IT-TEST-DESIGN.md`; no response contains the local data directory, a local project path or the local session token | `tests/control-plane-it.test.mjs` |
+
+| TC-017 | Guard mutations on a temporary copy: import of `child_process`, local credential accepted, egress guard off, cross-tenant lookup, raw `..` accepted (`tools/ats506-probes/mutation-tests.mjs`) | each mutation makes the owning UT-CP case fail; the unmodified copy passes | `tests/control-plane.test.mjs` |
 
 ## Boundary & Failure Cases
 
