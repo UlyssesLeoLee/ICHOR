@@ -1,6 +1,6 @@
 === ATS-101 scenario D: hardcoded default-port audit ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-3a39d5f791de/worktree
-date      : 2026-11-05T13:53:43Z
+date      : 2026-11-05T14:00:00Z
 NOTE: this is ATS-101's probe, not ATS-401's. It audits docs/16 §3.1
       against the source tree, so it also reports on files other
       tasks add. As of 2026-11-05 (after merging dev 05a2c92) it
