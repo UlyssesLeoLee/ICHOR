@@ -1,19 +1,19 @@
 === command ===
 node --test tests/discovery-it.test.mjs
 === output ===
-✔ IT-ATS202-SETUP: the real Playwright is installed (0.5964ms)
-✔ IT-ATS202-001: the listing reports the cases of the project (481.4904ms)
-✔ IT-ATS202-002: a DYNAMIC case is in the authoritative index and not in the static one (481.9994ms)
-✔ IT-ATS202-003: the trusted project gets the authoritative index (427.9204ms)
-✔ IT-ATS202-004: the UNTRUSTED project never runs --list (1.9149ms)
-✔ IT-ATS202-005: the trusted project DOES execute the listing (483.401ms)
-✔ IT-ATS202-006: the agreement with the CLI is measured, not asserted (433.9464ms)
-✔ IT-ATS202-007: the UID of a case does not move when the index switches (437.982ms)
-✔ IT-ATS202-008: a broken project config falls back and says why (444.4993ms)
-✔ IT-ATS202-009: a project without a local Playwright CLI is reported, not installed (1.2577ms)
-✔ IT-ATS202-010: a listing that does not finish in time is reported as a timeout (16.1401ms)
-✔ IT-ATS202-011: a CLI that reports an error is a failure, not an empty index (487.0151ms)
-✔ IT-ATS202-CLEANUP: remove the temporary fixture (86.2493ms)
+✔ IT-ATS202-SETUP: the real Playwright is installed (0.6052ms)
+✔ IT-ATS202-001: the listing reports the cases of the project (528.4933ms)
+✔ IT-ATS202-002: a DYNAMIC case is in the authoritative index and not in the static one (491.7023ms)
+✔ IT-ATS202-003: the trusted project gets the authoritative index (433.4951ms)
+✔ IT-ATS202-004: the UNTRUSTED project never runs --list (2.0636ms)
+✔ IT-ATS202-005: the trusted project DOES execute the listing (485.4965ms)
+✔ IT-ATS202-006: the agreement with the CLI is measured, not asserted (450.3423ms)
+✔ IT-ATS202-007: the UID of a case does not move when the index switches (442.5005ms)
+✔ IT-ATS202-008: a broken project config falls back and says why (455.4313ms)
+✔ IT-ATS202-009: a project without a local Playwright CLI is reported, not installed (3.428ms)
+✔ IT-ATS202-010: a listing that does not finish in time is reported as a timeout (9.9552ms)
+✔ IT-ATS202-011: a CLI that reports an error is a failure, not an empty index (496.3732ms)
+✔ IT-ATS202-CLEANUP: remove the temporary fixture (108.4666ms)
 ℹ tests 13
 ℹ suites 0
 ℹ pass 13
@@ -21,5 +21,5 @@ node --test tests/discovery-it.test.mjs
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 4677.3897
+ℹ duration_ms 4796.6415
 === exit code: 0 ===
