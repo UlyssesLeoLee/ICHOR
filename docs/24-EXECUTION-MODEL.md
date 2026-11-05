@@ -165,7 +165,7 @@ ATS-208 补上了缺失的 **`run.interrupted`** 事件：Bridge 崩溃时写下
 | `server/sqlite/store.mjs` | 把事件写成可查询的行；`eventsOfRun()` 查询 |
 | `server/sqlite/import.mjs` | 镜像校验覆盖事件（逐条比对 payload 与索引列） |
 | `tests/execution-model.test.mjs` | 19 例 UT：词表、聚合、复演、状态机 |
-| `tests/execution-model-it.test.mjs` | 7 例 IT：Bridge 端到端、崩溃恢复、三处一致 |
+| `tests/execution-model-it.test.mjs` | 8 例 IT：Bridge 端到端、崩溃恢复、崩溃窗口下的序号校准、三处一致 |
 | `tools/ats208-probes/` | 两个可重跑探针 + 证据收集脚本 |
 | `tools/update_wbs_ats208.py` | WBS 行同步（幂等，XML 转义安全） |
 | `apps/studio/lib/api.ts`、`app/page.tsx` | 前端类型与结果列表同步到统一模型 |
@@ -177,8 +177,8 @@ ATS-208 补上了缺失的 **`run.interrupted`** 事件：Bridge 崩溃时写下
 | 项 | 证据 | 结果 |
 |---|---|---|
 | UT | `docs/evidence/ATS-208/01-node-test-execution-model-ut.log` | 19 例全通过 |
-| IT | `docs/evidence/ATS-208/02-node-test-execution-model-it.log` | 7 例全通过 |
-| 全量回归 | `docs/evidence/ATS-208/03-node-test-full.log` | 538 例 / 527 通过 / 0 失败 / 11 跳过 |
+| IT | `docs/evidence/ATS-208/02-node-test-execution-model-it.log` | 8 例全通过 |
+| 全量回归 | `docs/evidence/ATS-208/03-node-test-full.log` | 539 例 / 528 通过 / 0 失败 / 11 跳过 |
 | 重试行为 | `docs/evidence/ATS-208/04-probe-current-behaviour.log` | 用例计一次、两次 attempt 各自保留 |
 | 事件复演 | `docs/evidence/ATS-208/05-probe-event-replay.log` | 崩溃场景复演为 `interrupted`，序号无空洞 |
 | ADR 引用 | `docs/evidence/ATS-208/06-adr-citations.log` | RESULT: OK |
@@ -186,6 +186,24 @@ ATS-208 补上了缺失的 **`run.interrupted`** 事件：Bridge 崩溃时写下
 | WBS 行 | `docs/evidence/ATS-208/08-wbs-row.log` | 幂等，openpyxl 两种模式均可加载 |
 | python 门 | `docs/evidence/ATS-208/09-python-gates.log` | 28 通过 / 1 失败（**既有**，见下） |
 | 覆盖率 | `docs/evidence/ATS-208/10-coverage.log` | 模型的聚合/复演/状态机分支均有对应用例 |
+
+### 6.1 自查发现并修掉的两处缺陷
+
+交付前的自查（`fix(ATS-208)` 两次提交）发现并修掉了两处**本任务自己引入的**
+缺陷。两处都有可证伪的回归用例。
+
+**崩溃窗口里的重号**。事件先写进 `events.jsonl`、之后才保存状态，所以死在两者
+之间的 Bridge 会留下一份比状态文件**多一个事件**的日志。第一版实现只在状态里
+没有 `events` 数组时才读回日志，于是这类 run 的 `eventSeq` 停在旧值上，下一个
+事件拿到日志里已经用掉的序号——出现两个同序号的事件，而元数据层的主键
+`(run_uid, seq)` 会拒绝这个重复。改为**每次启动**都用持久日志校准（日志是记录，
+状态里的副本向它对齐）。回归用例 `IT-EXE-007` 守这个窗口；把修复还原后它失败
+并报出 `the sequence has a duplicate: [1,2,2]`。
+
+**ADR 引用检查的手写行号**。ADR 的 `file:line` 引用是一张手写的行号表，而本任务
+两次改动 `server/index.mjs` 之后那张表就过时了两次，每次都把门禁弄红——而红的
+原因跟代码本身无关。改为表里只写**针**，位置由脚本从**当前**源码推导；检查的
+语义没有变弱（引错行照样被抓，已验证）。
 
 **既有失败**：`test_tc002_ats506_marker_and_narrative` 断言 `MARKERS[-1]` 是
 `【ATS-506】`，但 `【ATS-512】` 是后来（ATS-512）追加到 `MARKERS` 的、断言没有
