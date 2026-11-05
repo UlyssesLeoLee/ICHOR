@@ -67,7 +67,7 @@ NOTE = (
     '摘要与内容在请求校验层复算比对（/api/agent/validate 与适配器同一判定），'
     '截止时间由 AbortController + Promise.race 强制施加（不 unref，'
     '无其它句柄时亦以 AGENT_BUDGET_EXCEEDED 结束）。'
-    'npm test 共 176 项（169 通过、7 跳过）全通过；'
+    'npm test 共 177 项（170 通过、7 跳过）全通过；'
     '复现脚本 tools/ats401-probes/probe-agent-boundary.mjs、probe-review-regressions.mjs、'
     'probe-review-regressions-r2.mjs、probe-git-apply-parity.mjs、'
     'probe-git-apply-bidirectional.mjs（含负控），'

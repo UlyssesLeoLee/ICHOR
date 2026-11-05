@@ -155,7 +155,7 @@
 
 ### 4.1 单元与集成测试（UT/IT）
 
-`npm test`（Node v24.19.0）：**103 项全通过**，其中 Agent 契约相关 83 项（68 项 `UT-AGT-*` 契约单元测试 + 22 项 `IT-AGT-*` API 集成测试），原有 20 项无回归。原始输出见 `docs/evidence/ATS-401/01-node-test.log`。
+`npm test`（Node v24.19.0）：**177 项，170 通过、7 跳过、0 失败**，其中 Agent 契约相关 90 项（`UT-AGT-*` 契约单元测试 68 项 + 第 3 次复核整改新增的 UT-AGT-074~085 共 12 项 + `IT-AGT-*` API 集成测试 22 项），原有 20 项无回归。7 项跳过是 ATS-301 的 fixture 集成测试（`examples/sample-playwright` / `examples/sample-wdio` 未安装依赖），不是本任务引入。原始输出见 `docs/evidence/ATS-401/01-node-test.log`。
 
 新增用例覆盖：
 
@@ -175,6 +175,8 @@
 - 未声明外传的输入不外传（UT-AGT-027）
 - 契约描述不含可写能力（UT-AGT-028）
 - API：契约端点、鉴权、校验端点的各类拒绝、校验无写入副作用、**错误附带 `details` 且不含本机路径**、**非 agent 错误保持 ATS-401 之前的行为**（IT-AGT-001~013）
+- **第 3 次复核整改**：hunk 的消费方式与 git 对齐（空行计为一行上下文、两个计数同时达标即结束、其后的 `---`/`+++` 另起一段并完整校验、计数超限即拒）、两处例外（末尾换行不算一行、hunk 之后紧跟的 `\ No newline` 标记仍合法）、路径必须带 `a/`/`b/` 前缀、`+++ /dev/null` 按删除拒绝、非 UTF-8 引号路径拒绝、路径越界先于「有无 hunk」判定（UT-AGT-074~084）
+- **截止时间在无其它活动句柄的进程里仍然生效**（UT-AGT-085）
 
 ### 4.2 可重跑复现探针
 
@@ -213,7 +215,31 @@
 | D | provider 挂起 | 截止时间到达即以 `AGENT_BUDGET_EXCEEDED` 结束（实测 1006 ms） |
 | E | `AGENT_*` 错误 vs 其它带 `code` 的错误 | 前者 400 + `details`；后者保持 ATS-401 之前的行为 |
 
-### 4.5 错误码
+### 4.5 与 git apply 的双向差分探针
+
+`node tools/ats401-probes/probe-git-apply-bidirectional.mjs`（原始输出见 `docs/evidence/ATS-401/08-git-apply-bidirectional.log`）。这是第 3 次复核整改的核心证据，分五节：
+
+| 节 | 内容 | 期望 |
+|---|---|---|
+| A **正向** | 语料里的每一个输入先过校验器；**校验器接受的每一个**输入再交给 `git apply --numstat --summary` | git 报告的路径全部落在 `scope.outputs` 内，且无越界 create / delete / rename / mode 变更 |
+| B | 复核提交的 3 个反例 | 校验器全部拒绝 |
+| C **反向** | 真实的 `git diff` 输出 | 校验器全部接受：含空白上下文行、文件末尾没有换行、新建 spec 文件 |
+| D | 当场跑 `git diff`，核对语料里的三种形状确实是 git 自己产出的 | 语料不能与 git 脱节 |
+| E **负控** | 当场造出真实的 rename / delete / mode change，把 git 自己的 `--summary` 输出喂给 A 节用的那三个判定 | 三个判定都命中——证明 A 节不是恒真 |
+
+语料包含：复核的 3 个反例；对合法 diff 的自动变异（插入空行、去掉 `a/` `b/` 前缀、改成 `/dev/null`、在 hunk 之后追加 `---`/`+++` 段、超出声明的 hunk 计数、重命名、改 mode、去掉 `index` 头）；以及三种真实 `git diff` 输出。
+
+verdict 文案限定为「在该语料上一致」：**PASS: on this corpus (15 inputs, 5 accepted), the contract whitelist and git apply agree in both directions**。这是语料上的一致，不是与 git 完全等价（见 §2.3「关于机制 4 的准确表述」）。
+
+E 节不是形式主义：它发现并修掉了一个**恒真的检查**——原先的 rename 判定写的是 `/\brename (from|to)\b/`，而 git 的 `--summary` 实际输出 `rename old => new (100%)`，从来不打印 `rename from`/`rename to`（那是 `diff --raw` 的格式），所以那个正则在任何输入上都不匹配，判定永远为「没有 rename」。
+
+### 4.6 WBS updater 的 XML 转义
+
+`python tools/ats401-probes/check_wbs_xml_escape.py`（原始输出见 `docs/evidence/ATS-401/09-wbs-xml-escape.log`）。把含 `<`、`>`、`&` 的注记写进 ATS-401 的 T 单元格，然后检查：zip 完整、每个 XML 成员仍能解析、文本节点里没有裸的 `<` 或 `&`、读回来的文本与写进去的一致。
+
+这条检查是**承重**的：工作簿的 sheet XML 是手写的，值直接拼进 `<x:v>`，不转义的话 `<24hex>` 这类文本会被裸写进去，`<` 被解析器当成标签起点，文件直接损坏。修复见 `tools/wbs_common.py` 的 `xml_escape()` / `xml_unescape()`——写入时转义、读取时解码，读写对称才能保证 updater 连跑两次字节不变。
+
+### 4.7 错误码
 
 契约错误码是稳定契约的一部分（`AGENT_ERROR_CODES`，共 25 个），调用方按 `err.code` 分支，不解析消息文本。`server/index.mjs` 将 `AGENT_*` 前缀的错误统一映射为 **HTTP 400**（请求不满足契约属于客户端错误），并把错误码原样返回，**同时附带 `details`**（出错的字段、上限、目标路径等契约级信息；不含本机路径）。
 

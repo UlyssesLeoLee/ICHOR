@@ -1,6 +1,6 @@
 === ATS-401 probe: 2nd-review-round regressions ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-c245c91b845d/worktree
-date      : 2026-11-05T10:37:48Z
+date      : 2026-11-05T10:40:36Z
 
 === ATS-401 probe: 2nd-review-round regressions ===
 repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree
@@ -23,7 +23,7 @@ work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4
 --- C. the WBS updater is idempotent ---
   [PASS] the ATS-401 WBS updater runs -- exit1=0 exit2=0 
   [PASS] the note keeps exactly one 【ATS-401】 marker after two runs -- markers=1
-  [PASS] running the updater twice leaves the file byte-identical -- 49415B vs 49415B
+  [PASS] running the updater twice leaves the file byte-identical -- 49413B vs 49413B
   [PASS] running the updater twice leaves the workbook CONTENT identical -- the second run changed the content
   [PASS] the updater is stable against the committed baseline -- the second run differs from the committed workbook
   [PASS] the updater is content-stable against the committed baseline -- the second run differs from the committed workbook content
