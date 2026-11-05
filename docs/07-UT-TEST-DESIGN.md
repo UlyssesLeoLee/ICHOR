@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：93；已执行通过：76；待执行/未实现：17。**PENDING 不是测试通过**。
+> 设计总数：123；已执行通过：106；待执行/未实现：17。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -101,6 +101,36 @@
 |UT-AGT-066|FR-024|异常|provider 失败与超时的区分|provider 在 50ms 后抛错|报 AGENT_PROVIDER_ERROR|node --test|PASS|
 |UT-AGT-067|FR-025|安全|自审检查不是精确字符串比较|producedBy=gen-1，reviewer 取 gen-1 / gen-1(空格) / GEN-1 / Gen-1|四种写法均报 AGENT_REVIEW_SELF_FORBIDDEN|node --test|PASS|
 |UT-AGT-068|FR-025|安全|提案人必须由平台侧给出|context.producedBy 缺失或为空白|报 AGENT_PROPOSAL_INVALID|node --test|PASS|
+|UT-CP-001|FR-028|安全|本地路径形态判定矩阵|盘符、UNC、POSIX、file:、家目录、环境变量、路径穿越、仓库地址各形态|逐一返回对应规则名|node --test|PASS|
+|UT-CP-002|FR-028|边界|非路径值不误判|https 地址、prj UID、40 位 SHA、相对片段、ns:name、非字符串|均返回 null|node --test|PASS|
+|UT-CP-003|FR-028|安全|百分号编码的路径同等拒绝|C%3A%5Crepo、%2Fhome%2Fa、损坏编码|前两者命中规则；损坏编码按原文判定不抛错|node --test|PASS|
+|UT-CP-004|FR-028|安全|请求体扫描覆盖键与值、嵌套与数组|{a:[{b:路径}]}、键为路径、干净对象|返回码与位置指针，不回显原值；干净对象为 null|node --test|PASS|
+|UT-CP-005|FR-028|安全|路径/仓库地址/凭据字段名分类|path、Project_Root、repository-url、token、X-ATS-Token|分别 REMOTE_PATH_FORBIDDEN / REMOTE_SECRET_INLINE_FORBIDDEN；出站模式只看值|node --test|PASS|
+|UT-CP-006|NFR-002|安全|本地会话 Token 形态拒绝|48/40/64/47/49 位十六进制|仅 48 位命中，请求体报 REMOTE_SECRET_INLINE_FORBIDDEN|node --test|PASS|
+|UT-CP-007|FR-028|边界|嵌套深度上限|32 层与 33 层嵌套对象|32 层通过，33 层 REMOTE_POLICY_REJECTED|node --test|PASS|
+|UT-CP-008|FR-028|正常|拒绝码表与 docs/19 约束块逐码一致|读取 docs/19 机读约束块|25 个码的 HTTP 与可重试性一致，均在 REMOTE_ 命名空间|node --test|PASS|
+|UT-CP-009|FR-028|异常|未知错误码与审计原因不外泄|构造未知码；带 reason 的错误|抛 TypeError；响应体只有 error/hint/retryable|node --test|PASS|
+|UT-CP-010|NFR-002|安全|认证器映射租户或审计原因|denyAll、正确/错误/过短令牌、Basic、无头|只有正确令牌得到租户，其余给出审计原因|node --test|PASS|
+|UT-CP-011|NFR-002|异常|开发令牌配置校验不回显令牌|空对象、数组、31 字符令牌、非法租户、非法 JSON|抛 TypeError，消息不含令牌|node --test|PASS|
+|UT-CP-012|FR-028|正常|启动配置默认值与允许的变体|空环境、::1、localhost、带 TLS 的 0.0.0.0|默认 127.0.0.1:4610、无 TLS、auth=none；变体被接受|node --test|PASS|
+|UT-CP-013|NFR-002|安全|不安全的启动配置被拒|非回环无 TLS、端口等于 ATS_PORT、非法端口、TLS 只给一半、未知认证、dev-static 非回环|ConfigError，退出码 2，消息点名变量|node --test|PASS|
+|UT-CP-014|FR-028|正常|HTTPS 最低 TLS 1.3 与启动流程|注入 HTTPS 工厂与读文件；真实 HTTP 启动；端口占用；runMain|minVersion=TLSv1.3；日志不含令牌；占用报错；配置错误退出码 2|node --test|PASS|
+|UT-CP-015|FR-028|正常|health 公开且不含主机信息|GET /cp/v1/health|200 + plane=control-plane，无 pid/路径，no-store|node --test|PASS|
+|UT-CP-016|NFR-002|安全|本地凭据在控制面一律无效|带 X-ATS-Token（有无有效 Bearer）|401 REMOTE_UNAUTHENTICATED，审计原因 local_credential_presented|node --test|PASS|
+|UT-CP-017|NFR-002|安全|浏览器跨源请求被拒|Origin=https://x.example、tauri://localhost|403 REMOTE_POLICY_REJECTED|node --test|PASS|
+|UT-CP-018|FR-028|安全|未列举路由、方法与本地 /api 命名空间被拒|/api/session、未知路由、DELETE、根路径|403 REMOTE_POLICY_REJECTED|node --test|PASS|
+|UT-CP-019|FR-028|安全|路径段与查询串中的本地路径在路由前被拒|编码路径段、原始 .. 段、?root=/etc、48 位十六进制段、损坏编码|422 REMOTE_PATH_FORBIDDEN / REMOTE_SECRET_INLINE_FORBIDDEN；损坏编码 403|node --test|PASS|
+|UT-CP-020|NFR-002|安全|认证失败统一码，原因只入审计|无令牌、未知令牌、认证器无返回|401 且响应体相同；审计区分原因|node --test|PASS|
+|UT-CP-021|FR-028|安全|租户由会话推导|会话无租户；头/查询/请求体给出他租户|403 REMOTE_TENANT_REQUIRED / REMOTE_TENANT_MISMATCH|node --test|PASS|
+|UT-CP-022|FR-028|异常|POST 请求体约束|非 JSON 类型、空体、恰好 64KiB、超 64KiB、非对象、深嵌套|403；恰好 64KiB 被读取；超限 413|node --test|PASS|
+|UT-CP-023|FR-028|正常|按不透明 UID 登记与查询项目|POST displayName 后列表、按 UID 查询、未知 UID|201 + prj UID；未知或非 UID 段 404 REMOTE_RESOURCE_NOT_FOUND|node --test|PASS|
+|UT-CP-024|FR-028|安全|跨租户不可见且与不存在无法区分|租户 B 读租户 A 的项目|404，与不存在的 UID 响应体相同|node --test|PASS|
+|UT-CP-025|FR-028|安全|非法名称、未知字段、路径与凭据被拒|空/超长/控制字符名称、branch 字段、path/root/repositoryUrl、token、48 位十六进制|403 / 422 REMOTE_PATH_FORBIDDEN / 422 REMOTE_SECRET_INLINE_FORBIDDEN|node --test|PASS|
+|UT-CP-026|FR-028|安全|出站拦截|存储被注入路径或 Token 形态后读取|500 REMOTE_INTERNAL，响应不含该值，审计 egress_boundary_blocked|node --test|PASS|
+|UT-CP-027|FR-028|异常|未预期异常不回显且审计有上限|UID 生成器抛出含路径的异常；1005 次请求|500 REMOTE_INTERNAL 不含消息；审计保留 1000 条|node --test|PASS|
+|UT-CP-028|FR-028|安全|控制面源码导入白名单|扫描 server/control-plane/*.mjs|不导入本地 Bridge 模块、Tauri、child_process，不发起外呼|node --test|PASS|
+|UT-CP-029|FR-028|安全|桌面侧调用边界|扫描 src-tauri/src/lib.rs 与 apps/studio|Tauri 只注册 local_bridge_status 且只托管本地 Bridge；前端无 Tauri API|node --test|PASS|
+|UT-CP-030|FR-028|正常|契约端点描述边界|GET /cp/v1/contract|tauriRequired=false，localBridgeReachable=false，本地凭据不接受|node --test|PASS|
 
 ## 进入与退出条件
 
