@@ -24,14 +24,18 @@
 | 15-REFERENCES-LICENSES.md | 调査参考・ライセンス | 官方参考及许可证边界 |
 | 16-BASELINE-ADR.md | 基线冻结・ADR | v0.1 已实现/待实测/未实现、3 项阻断、接口与构建约束清单 |
 | 17-BUILD-CI.md | 構建・CI 基線 | ATS-102：锁文件、依赖清单、Windows CI 构建脚本与实测证据 |
+| 22-FRONTEND-EXPORT.md | 前端交付・検証 | ATS-103：Next.js 16 静态导出构建、Bridge 静态提供与 API 契约实测、实测证据与未验证项 |
 | 17-AGENT-CONTRACT.md | Agent 契約 | Agent 契约 v1：作用域、预算、输入出处、角色能力、提案与评审状态机、权限边界与实测证据 |
 | 19-REMOTE-RUNNER-PROTOCOL.md | 远程协议・威胁模型 | S5 远程执行面的信任边界、认证、版本握手、租户隔离、拒绝规则（ADR-015~023，全部 DESIGNED） |
+| 21-CONTROL-PLANE-API.md | 控制面 API・边界分离 | ATS-506：部署式控制面 API（`/cp/v1`）与桌面本地 API 的进程/端点/凭据/错误码分离、入站与出站边界规则、启动配置、桌面侧调用边界与实测证据 |
 | 21-PLUGIN-CONTRACT.md | 插件契約 | ATS-512 插件契约 v1：插件 Manifest、封闭权限清单、宿主策略档位、Runner SDK 操作面、审计与证据边界、协议样例（ADR-024~028；契约层已实现，插件宿主未实现） |
 | dependencies/ | 依賴清單 | ATS-102 生成的依赖清单（机读 JSON + 人读 MD），由 lockfile 派生，可机读校验 |
-| evidence/ | 実行証跡 | ATS-101/ATS-401/ATS-102/ATS-501/ATS-512 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界、构建门禁与可重现性、协议契约校验、插件权限边界） |
+| evidence/ | 実行証跡 | ATS-101/ATS-401/ATS-102/ATS-501/ATS-103/ATS-506/ATS-512 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界、构建门禁与可重现性、协议契约校验、前端静态导出与 Bridge API 契约、控制面边界、插件权限边界） |
 | tools/ats101-probes/ | 再現スクリプト | ATS-101 全部阻断项与约束清单的仓库内可重跑复现脚本（见 `docs/evidence/ATS-101/`） |
 | tools/ats401-probes/ | 再現スクリプト | ATS-401 权限边界的仓库内可重跑复现脚本（权限边界探针 + 第 1 次复核反例回归探针，含负控，见 `docs/evidence/ATS-401/`） |
 | tools/ats501-probes/ | 検証スクリプト | ATS-501 远程协议契约的机读校验、负向夹具与 WBS 更新脚本的共存回归（见 `docs/evidence/ATS-501/`） |
+| tools/ats103-probes/ | 検証スクリプト | ATS-103 静态导出 → Bridge → 会话/项目/运行 全链的可重跑验证脚本（见 `docs/evidence/ATS-103/`） |
+| tools/ats506-probes/ | 検証スクリプト | ATS-506 控制面边界的负向夹具（8 个守护变异必须被对应用例捕获）与证据收集脚本（见 `docs/evidence/ATS-506/`） |
 | tools/ats512-probes/ | 検証スクリプト | ATS-512 插件权限边界的仓库内可重跑探针（超权拒绝、审计不可抑制、证据不可伪造，含负控，见 `docs/evidence/ATS-512/`） |
 | tools/ci_build_gate.mjs | 構建門禁 | ATS-102：本地逐步复现 CI workflow 的全部步骤（一条命令） |
 

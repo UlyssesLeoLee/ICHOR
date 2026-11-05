@@ -1,0 +1,56 @@
+=== ATS-103 evidence: static export + Bridge API seam verification ===
+date      : 2026-11-05T12:52:51Z (UTC)
+commit    : 4e68b000b573f23ae7061f0e13c61cb75ff86e5b
+node      : v24.19.0
+npm       : 12.2.0
+command   : node tools/ats103-probes/verify-export-and-proxy.mjs
+
+PASS  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-42189f991e39\worktree\apps\studio\out
+PASS  export contains index.html  --  12524 bytes
+PASS  export contains 404.html
+PASS  export contains _next/static assets
+PASS  the export contains no server-side API route output
+PASS  the shipped bundle resolves the API base at runtime (port-aware)
+PASS  every asset referenced by index.html exists on disk (8 assets)
+PASS  bridge boots and answers /api/health
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 12524 bytes
+PASS  the served page carries a CSP that allows the API origin  --  connect-src present
+PASS  the bridge serves the exported chunk /_next/static/chunks/0cz1d0mv5g_q7.js  --  HTTP 200
+PASS  GET /api/session returns a token
+PASS  a foreign Origin is rejected (403)  --  HTTP 403
+PASS  an unauthenticated API call is rejected (401)  --  HTTP 401
+PASS  GET /api/projects succeeds with the session token
+PASS  POST /api/projects registers the sample Playwright project  --  HTTP 201
+PASS  GET /api/projects/{id}/tests returns the static index  --  2 tests
+PASS  POST /api/projects/{id}/run is accepted (202)  --  HTTP 202
+PASS  the accepted run reaches a terminal state  --  status=failed
+PASS  a failed/error run never reports a fabricated summary  --  summary=1 passed / 1 failed / 2 total
+PASS  the real run produced a per-case result set  --  2 cases
+PASS  the real run collected artefacts  --  27 artefacts
+
+--- run detail (diagnostic) ---
+  status    : failed
+  error     : (none)
+  reportWarn: (none)
+  command   : C:\Program Files\nodejs\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-42189f991e39\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output C:\Users\seiko\AppData\Local\Temp\ats103-Ys7I9e\runs\run_dec6d216-b1cb-4288-b852-3e3d97f002db\results --trace on --workers 1
+  log tail  : : ..\..\..\..\..\..\AppData\Local\Temp\ats103-Ys7I9e\runs\run_dec6d216-b1cb-4288-b852-3e3d97f002db\results\home-导航入口正常-REQ-002\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\..\..\..\..\AppData\Local\Temp\ats103-Ys7I9e\runs\run_dec6d216-b1cb-4288-b852-3e3d97f002db\results\home-导航入口正常-REQ-002\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\..\..\..\..\AppData\Local\Temp\ats103-Ys7I9e\runs\run_dec6d216-b1cb-4288-b852-3e3d97f002db\results\home-导航入口正常-REQ-002\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests\home.spec.ts:22:5 › 导航入口正常 @REQ-002 ──────────────────────────────────────────────────────
+  1 passed (6.3s)
+
+--- end run detail ---
+
+PASS  GET /api/runs lists the run history  --  1 runs
+
+RESULT: OK -- 23/23 checks passed.
+PROBE_EXIT=0

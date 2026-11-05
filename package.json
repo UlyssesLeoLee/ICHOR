@@ -6,10 +6,12 @@
   "scripts": {
     "start": "node server/index.mjs",
     "dev": "node server/index.mjs",
+    "start:control-plane": "node server/control-plane/main.mjs",
     "dev:next": "npm --prefix apps/studio run dev",
     "build:web": "npm --prefix apps/studio run build",
     "test": "node --test tests/*.test.mjs",
     "verify": "node --check server/index.mjs && node --test tests/*.test.mjs",
+    "gate:ats301": "bash tools/ats301-probes/check-ats301-gate.sh",
     "ci:install": "npm ci --no-audit --no-fund && npm --prefix apps/studio ci --no-audit --no-fund",
     "ci:test": "npm test",
     "ci:build": "npm --prefix apps/studio run build",

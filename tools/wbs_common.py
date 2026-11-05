@@ -37,7 +37,8 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-301】', '【ATS-401】', '【ATS-501】', '【ATS-512】')
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-301】', '【ATS-401】', '【ATS-501】',
+           '【ATS-506】', '【ATS-512】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -79,6 +80,12 @@ NARRATIVE_FRAGMENTS = {
         'D6': '锁文件、依赖清单与 CI 构建门禁已交付',
         'D7': 'CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md',
     },
+    '【ATS-103】': {
+        'D6': 'Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过（ATS-103）',
+        'D7': '静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；'
+              '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112，'
+              '详见 docs/22-FRONTEND-EXPORT.md',
+    },
     '【ATS-401】': {
         'D6': 'Agent 契约层已实现',
         'D7': '详见 docs/17-AGENT-CONTRACT.md',
@@ -87,6 +94,12 @@ NARRATIVE_FRAGMENTS = {
             'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',
             'D7': '远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；'
                   '详见 docs/19-REMOTE-RUNNER-PROTOCOL.md',
+        },
+        '【ATS-506】': {
+            'D6': '部署式控制面 API 边界骨架已实现（ATS-506：独立进程/端点/凭据，'
+                  '入站拒绝本地路径与本地 Token）',
+            'D7': '控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；'
+                  '详见 docs/21-CONTROL-PLANE-API.md',
         },
         '【ATS-512】': {
             'D6': '插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）',
