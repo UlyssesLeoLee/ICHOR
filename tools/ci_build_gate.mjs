@@ -56,6 +56,15 @@ const REQUIRED_NODE_MAJOR = 22;
  */
 const STEPS = [
   {
+    id: 'checknode',
+    title: 'The Node major version matches engines.node',
+    commands: [
+      // The workflow runs this as its first step; the local gate runs it too,
+      // so the two really are the same sequence of commands.
+      { cwd: REPO_ROOT, cmd: 'node', args: ['tools/ci_build_gate.mjs', '--check-node'] },
+    ],
+  },
+  {
     id: 'install',
     title: 'Clean install from the committed lockfiles (npm ci)',
     commands: [
@@ -94,6 +103,9 @@ const STEPS = [
     title: 'Unit / integration tests (node --test)',
     commands: [
       { cwd: REPO_ROOT, cmd: 'npm', args: ['test'] },
+      // The workflow also syntax-checks the bridge entrypoint right after the
+      // tests; the local gate runs the same check so the two stay in step.
+      { cwd: REPO_ROOT, cmd: 'node', args: ['--check', 'server/index.mjs'] },
     ],
   },
   {
@@ -112,7 +124,17 @@ const STEPS = [
     id: 'manifest',
     title: 'Dependency manifest is in sync with the lockfiles',
     commands: [
+      // Same order as the workflow: check the COMMITTED manifest first, then
+      // regenerate and prove the regeneration changes nothing. Checking after
+      // a regeneration would compare the file with itself and could never
+      // detect drift.
       { cwd: REPO_ROOT, cmd: 'node', args: ['tools/gen_dep_manifest.mjs', '--check'] },
+      { cwd: REPO_ROOT, cmd: 'node', args: ['tools/gen_dep_manifest.mjs'] },
+      {
+        cwd: REPO_ROOT,
+        cmd: 'git',
+        args: ['diff', '--exit-code', '--', 'docs/dependencies/'],
+      },
     ],
   },
 ];
