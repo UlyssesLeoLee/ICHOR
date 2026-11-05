@@ -1,5 +1,5 @@
 === ATS-102 evidence: the installed-tree digest depends on the npm version ===
-date : 2026-11-05T08:14:00Z
+date : 2026-11-05T08:19:37Z
 lock : the SAME committed apps/studio/package-lock.json in both clones
 
 -------------------------------------------------------------------
@@ -60,7 +60,7 @@ node : v24.19.0
 npm  : 12.2.0
 --- npm ci (apps/studio) ---
 
-added 55 packages in 40s
+added 55 packages in 39s
 
 --- the gate's own version assertion (checknode) ---
     node 24.19.0, engines.node >=22
