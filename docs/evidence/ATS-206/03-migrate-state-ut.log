@@ -1,0 +1,46 @@
+=== the ATS-206 test suite ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-f90804d13d9f/worktree
+commit    : a852997
+branch    : agent/m2/seikoist-167
+node      : v24.19.0
+python    : Python 3.11.16
+
+✔ ATS-206-UT-001: the counts of the state are counted (0.8645ms)
+✔ ATS-206-UT-002: the migration preserves the number of projects and runs (1.2952ms)
+✔ ATS-206-UT-003: a count mismatch is refused (0.3191ms)
+✔ ATS-206-UT-010: the trust map survives the migration (0.2664ms)
+✔ ATS-206-UT-011: the trust map is re-keyed to the new project UID (0.2568ms)
+✔ ATS-206-UT-012: the UID registry survives the migration (0.1748ms)
+✔ ATS-206-UT-013: the UID registry is re-keyed to the new project UID (0.2039ms)
+✔ ATS-206-UT-014: a key that is not legacy stays where it is (0.1067ms)
+✔ ATS-206-UT-015: a value that is already under the new name is not overwritten (0.1049ms)
+✔ ATS-206-UT-016: a field the migration does not know about survives (0.4019ms)
+✔ ATS-206-UT-020: the state file is written atomically (1.7362ms)
+✔ ATS-206-UT-021: a state that is not a state is rejected (0.1915ms)
+✔ ATS-206-UT-022: a missing state file is reported (0.2134ms)
+✔ ATS-206-UT-030: the plan command writes nothing (76.1005ms)
+✔ ATS-206-UT-031: the apply command migrates and keeps a backup (76.2532ms)
+✔ ATS-206-UT-032: the apply command preserves the counts (78.4659ms)
+✔ ATS-206-UT-033: the rollback command restores the original state (152.7494ms)
+✔ ATS-206-UT-034: the rollback renames the run folders back (156.6538ms)
+✔ ATS-206-UT-035: a rollback without a backup is refused (75.218ms)
+✔ ATS-206-UT-036: the apply command is refused while a Bridge runs (75.1784ms)
+✔ ATS-206-UT-037: an unknown command is a usage error (73.1284ms)
+✔ ATS-206-UT-040: a failed migration is undone automatically (3.9086ms)
+✔ ATS-206-UT-041: a failed import leaves the old state and database in place (21.5352ms)
+✔ ATS-206-UT-042: the backup is written before the state file is changed (2.3888ms)
+✔ ATS-206-UT-043: the backup and the restore are a pair (1.4636ms)
+✔ ATS-206-UT-050: the migrated state imports into the metadata database (165.8238ms)
+✔ ATS-206-UT-051: the imported mirror holds the migrated counts (107.5774ms)
+✔ ATS-206-UT-052: the verify command fails when the database does not match (163.8223ms)
+✔ ATS-206-UT-060: cleanup removes the temporary fixture (8.5883ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1341.0669
+
+exit code : 0

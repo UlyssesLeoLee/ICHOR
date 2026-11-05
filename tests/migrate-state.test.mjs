@@ -296,6 +296,99 @@ test('ATS-206-UT-037: an unknown command is a usage error', () => {
   assert.equal(res.status, 2);
 });
 
+test('ATS-206-UT-038: an unknown argument is a usage error', () => {
+  const res = spawnSync(process.execPath, [cli, 'plan', '--nope'], { encoding: 'utf8' });
+  assert.equal(res.status, 2);
+  assert.match(res.stderr, /unknown argument/);
+});
+
+test('ATS-206-UT-039: no command prints the usage and is a usage error', () => {
+  const res = spawnSync(process.execPath, [cli], { encoding: 'utf8' });
+  assert.equal(res.status, 2);
+  assert.match(res.stdout, /usage:/);
+});
+
+test('ATS-206-UT-039b: the help flag prints the usage and succeeds', () => {
+  const res = spawnSync(process.execPath, [cli, '--help'], { encoding: 'utf8' });
+  assert.equal(res.status, 0);
+  assert.match(res.stdout, /usage:/);
+});
+
+test('ATS-206-UT-039c: the plan command refuses a state it cannot represent', () => {
+  // Two projects with the SAME root derive the SAME UID. The second one
+  // would overwrite the first: its registry bucket, its trust record and
+  // its counter would be lost. The migration refuses such a state, and
+  // says WHICH pair collides.
+  const dataDir = makeDataDir(legacyState(), 'cli-refuse');
+  const statePath = path.join(dataDir, 'state.json');
+  const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  // The clone shares the root of the first project, so both derive the
+  // SAME UID.
+  const root = state.projects[0].root;
+  state.projects.push({
+    id: 'proj_22222222-2222-2222-2222-222222222222',
+    name: 'app-clone',
+    root,
+    addedAt: '2026-01-01T00:00:00.000Z',
+  });
+  fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+  const res = spawnSync(process.execPath, [cli, 'plan', '--data-dir', dataDir], { encoding: 'utf8' });
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /PROJECT_UID_COLLISION/);
+  // The refusal names both projects, so the operator can see which pair.
+  assert.match(res.stderr, /app-clone/);
+  // Nothing was written: the state file is untouched.
+  assert.deepEqual(JSON.parse(fs.readFileSync(statePath, 'utf8')), state);
+});
+
+test('ATS-206-UT-039d: the apply command reports a missing state file', () => {
+  const dataDir = path.join(dir, 'cli-missing');
+  fs.mkdirSync(dataDir, { recursive: true });
+  const res = spawnSync(process.execPath, [cli, 'apply', '--data-dir', dataDir], { encoding: 'utf8' });
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /state file not found/);
+});
+
+test('ATS-206-UT-039e: the apply command reports a failed migration and what was undone', () => {
+  const dataDir = makeDataDir(legacyState(), 'cli-failed');
+  const statePath = path.join(dataDir, 'state.json');
+  // A project without a name cannot be imported: the column is NOT NULL.
+  const broken = legacyState();
+  delete broken.projects[0].name;
+  fs.writeFileSync(statePath, JSON.stringify(broken, null, 2));
+
+  const res = spawnSync(process.execPath, [cli, 'apply', '--data-dir', dataDir, '--import-db'], { encoding: 'utf8' });
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /the migration FAILED/);
+  assert.match(res.stderr, /have been undone/);
+});
+
+test('ATS-206-UT-039f: the verify command reports a missing database', () => {
+  const dataDir = makeDataDir(legacyState(), 'cli-nodb');
+  const res = spawnSync(process.execPath, [cli, 'verify', '--data-dir', dataDir], { encoding: 'utf8' });
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /no metadata database/);
+});
+
+test('ATS-206-UT-039g: the --state option points at the state file directly', () => {
+  const dataDir = makeDataDir(legacyState(), 'cli-stateopt');
+  const statePath = path.join(dataDir, 'state.json');
+  const res = spawnSync(process.execPath, [cli, 'plan', '--state', statePath], { encoding: 'utf8' });
+  assert.equal(res.status, 0, res.stderr);
+  assert.match(res.stdout, /the counts are preserved/);
+});
+
+test('ATS-206-UT-039h: the default data directory comes from ATS_DATA_DIR', () => {
+  const dataDir = makeDataDir(legacyState(), 'cli-env');
+  const res = spawnSync(process.execPath, [cli, 'plan'], {
+    encoding: 'utf8',
+    env: { ...process.env, ATS_DATA_DIR: dataDir },
+  });
+  assert.equal(res.status, 0, res.stderr);
+  assert.match(res.stdout, /the counts are preserved/);
+});
+
 /* ---------------------------------------------------------------- */
 /* a failed migration is undone                                     */
 /* ---------------------------------------------------------------- */

@@ -1,0 +1,53 @@
+=== the ADR citation check ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-f90804d13d9f/worktree
+commit    : a852997
+branch    : agent/m2/seikoist-167
+node      : v24.19.0
+python    : Python 3.11.16
+
+--- citations enumerated from the ADR ---
+  apps/studio/app/page.tsx         81
+  apps/studio/lib/api.ts           7
+  apps/studio/public/fallback.html 3
+  server/core.mjs                  262, 506
+  server/index.mjs                 105, 116, 17, 193, 285, 302, 303, 43, 98-103, 99
+  src-tauri/Cargo.toml             11
+  src-tauri/src/lib.rs             19
+  start.ps1                        8-9
+  start.sh                         4
+  tools/generate_test_docs.py      250,256,322
+  tools/update_wbs_ats103.py       110,114
+
+ok   server/index.mjs:17
+ok   server/index.mjs:43
+ok   server/index.mjs:98
+ok   server/index.mjs:99
+ok   server/index.mjs:105
+ok   server/index.mjs:116
+ok   server/index.mjs:193
+ok   server/index.mjs:285
+ok   server/index.mjs:302
+ok   server/index.mjs:303
+ok   server/core.mjs:262
+ok   server/core.mjs:506
+ok   src-tauri/Cargo.toml:11
+ok   start.sh:4
+ok   start.ps1:8
+ok   start.ps1:9
+WRONG tools/generate_test_docs.py:250 -> ('UT-DSC-021b','FR-021','正常','切换索引不改变已有 UID','普通用例旁有一个同名动态用例','普通用例 UID 不变，动态用例 basis=scope-title','
+WRONG tools/generate_test_docs.py:256 -> ('UT-DSC-027','FR-021','正常','词法 describe 路径','两个嵌套 describe 下的用例','describePathAt 给出嵌套路径','node --te
+WRONG tools/generate_test_docs.py:322 -> ('IT-DSC-006','FR-021','正常','与 CLI 的一致性被度量','权威与静态两个索引','consistency 报告只有权威可见的用例','node --test','PAS
+ok   tools/update_wbs_ats103.py:110
+ok   tools/update_wbs_ats103.py:114
+ok   server/index.mjs:98-103 (cancelRun extent)
+ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
+ok   apps/studio/lib/api.ts:7 (the API base URL -- covered by the ATS-101 port audit)
+ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
+ok   src-tauri/src/lib.rs:19 (the ATS_PORT environment default -- covered by the ATS-101 port audit)
+
+RESULT: MISMATCH
+   tools/generate_test_docs.py:250 does not hold "'localhost:3000 + "
+   tools/generate_test_docs.py:256 does not hold "'Host=evil.example:"
+   tools/generate_test_docs.py:322 does not hold '同 LAN 他机尝试访问 '
+
+exit code : 0

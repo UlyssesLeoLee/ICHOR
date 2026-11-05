@@ -114,6 +114,30 @@ export function planMigration(state) {
   };
 
   // --- projects -------------------------------------------------------------
+  // Two projects with the SAME root would derive the SAME UID, and the
+  // second one would overwrite the first: its registry bucket, its trust
+  // record and its counter would be lost. That is a state the migration
+  // cannot represent, so it is refused here -- with the names of the two
+  // projects, so that the operator can see WHICH pair collides.
+  const rootToUid = new Map();
+  for (const p of state.projects) {
+    const uid = p.uid && isProjectUid(p.uid) && !isLegacyProjectUid(p.uid)
+      ? p.uid
+      : projectUidFor(p.root);
+    const seen = rootToUid.get(uid);
+    if (seen) {
+      const e = new Error(
+        `PROJECT_UID_COLLISION: the projects ${JSON.stringify(seen.name)} and ` +
+        `${JSON.stringify(p.name)} both map to ${uid} (the same root ${JSON.stringify(p.root)})`
+      );
+      e.code = 'PROJECT_UID_COLLISION';
+      e.uid = uid;
+      e.projects = [seen, p];
+      throw e;
+    }
+    rootToUid.set(uid, p);
+  }
+
   for (const p of state.projects) {
     const uid = p.uid && isProjectUid(p.uid) && !isLegacyProjectUid(p.uid)
       ? p.uid
@@ -186,7 +210,6 @@ export function planMigration(state) {
   if (state.trust && typeof state.trust === 'object') {
     nextState.trust = rekeyProjectMap(state.trust, legacyToUid);
   }
-
   // --- the durable run counters ---------------------------------------------
   // The per project counter has to survive the migration: it is what keeps
   // the sequence of the next run above every sequence already used, even

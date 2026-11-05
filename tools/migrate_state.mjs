@@ -104,7 +104,15 @@ function commandPlan(args) {
   const paths = resolvePaths(args);
   const state = readStateFile(paths.statePath);
   const before = summarizeState(state);
-  const plan = planMigration(state);
+
+  let plan;
+  try {
+    plan = planMigration(state);
+  } catch (e) {
+    // A state the migration cannot represent is REFUSED, with the reason.
+    console.error(`the migration is refused: ${e.message}`);
+    return 1;
+  }
   const after = summarizeState(plan.state);
 
   console.log(`state file : ${paths.statePath}`);
@@ -230,6 +238,11 @@ function commandRollback(args) {
 }
 
 export function main(argv) {
+  // The help flag is accepted as the COMMAND too, not only as an option.
+  if (argv[0] === '--help' || argv[0] === '-h') {
+    console.log(USAGE);
+    return 0;
+  }
   let args;
   try {
     args = parseArgs(argv);
