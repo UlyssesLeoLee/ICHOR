@@ -10,8 +10,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { spawn, spawnSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { freePort } from './helpers/free-port.mjs';
 import { openDatabase, closeDatabase, currentVersion } from '../server/sqlite/db.mjs';
 import { counts } from '../server/sqlite/store.mjs';
@@ -30,9 +30,31 @@ fs.writeFileSync(path.join(project, 'playwright.config.ts'), 'export default {}'
 fs.mkdirSync(path.join(project, 'tests'), { recursive: true });
 fs.writeFileSync(path.join(project, 'tests', 'pass.spec.ts'), "test('simulated success', ()=>{});\n");
 
+// A SECOND project, so the bridge can register a NEW one while the
+// metadata database is locked (registering the same path twice is refused
+// with PROJECT_ALREADY_REGISTERED).
+const project2 = path.join(dir, 'app2');
+fs.mkdirSync(project2, { recursive: true });
+fs.writeFileSync(path.join(project2, 'package.json'), '{}');
+fs.writeFileSync(path.join(project2, 'index.js'), 'module.exports = {};\n');
+fs.writeFileSync(path.join(project2, 'playwright.config.ts'), 'export default {}');
+fs.mkdirSync(path.join(project2, 'tests'), { recursive: true });
+fs.writeFileSync(path.join(project2, 'tests', 'pass.spec.ts'), "test('simulated success', ()=>{});\n");
+
+// A THIRD project, for the write that happens AFTER the lock is released.
+const project3 = path.join(dir, 'app3');
+fs.mkdirSync(project3, { recursive: true });
+fs.writeFileSync(path.join(project3, 'package.json'), '{}');
+fs.writeFileSync(path.join(project3, 'index.js'), 'module.exports = {};\n');
+fs.writeFileSync(path.join(project3, 'playwright.config.ts'), 'export default {}');
+fs.mkdirSync(path.join(project3, 'tests'), { recursive: true });
+fs.writeFileSync(path.join(project3, 'tests', 'pass.spec.ts'), "test('simulated success', ()=>{});\n");
+
 const port = await freePort();
 let cp = null;
 let token = null;
+/** The child processes that hold the metadata database open. */
+const holders = [];
 
 async function ready() {
   for (let i = 0; i < 70; i++) {
@@ -103,7 +125,99 @@ test('IT-SQL-005: the bridge still serves the API after the mirror is in place',
   assert.equal(body.projects.length, 1);
 });
 
+test('IT-SQL-006: the mirror recovers after the database was locked for too long', async () => {
+  const dbFile = path.join(data, 'metadata.db');
+
+  // Another process holds the write lock of the metadata database for
+  // LONGER than the mirror's own busy timeout (1 second), so the mirror
+  // really gives up instead of waiting the obstruction out.
+  const holderScript = path.join(dir, 'lock-holder.mjs');
+  fs.writeFileSync(holderScript, `
+import { openDatabase, closeDatabase } from ${JSON.stringify(pathToFileURL(path.join(ROOT, 'server', 'sqlite', 'db.mjs')).href)};
+const [file, holdMs] = process.argv.slice(2);
+const db = openDatabase(file, { migrate: false });
+db.exec('BEGIN IMMEDIATE');
+console.log('LOCKED');
+Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(holdMs));
+db.exec('COMMIT');
+closeDatabase(db);
+console.log('RELEASED');
+`, 'utf8');
+  const holder = spawn(process.execPath, [holderScript, dbFile, '4000'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  holders.push(holder);
+  let out = '';
+  holder.stdout.on('data', (d) => { out += d.toString(); });
+  await new Promise((resolve, reject) => {
+    const timer = setInterval(() => {
+      if (out.includes('LOCKED')) { clearInterval(timer); resolve(); }
+    }, 10);
+    holder.on('close', () => { clearInterval(timer); reject(new Error('the lock holder exited early')); });
+  });
+
+  // While the lock is held, the bridge writes a new project. The mirror
+  // cannot write it -- but the bridge keeps serving, and the JSON state
+  // file (the truth) still gets the project.
+  const [code, body] = await req('/api/projects', 'POST', { path: project2 });
+  assert.equal(code, 201, JSON.stringify(body));
+  const duringLock = JSON.parse(fs.readFileSync(path.join(data, 'state.json'), 'utf8'));
+  assert.ok(
+    duringLock.projects.some((p) => p.id === body.project.id),
+    'the JSON state file did not get the project while the mirror was blocked'
+  );
+
+  // The bridge is still alive: it answers while the lock is held.
+  const [health] = await req('/api/health');
+  assert.equal(health, 200, 'the bridge stopped answering while the mirror was blocked');
+
+  // The lock is released.
+  // The holder announces that it released the lock and then exits. Waiting
+  // for the announcement AND for the exit has to be race-free: the process
+  // may already be gone when the listener is attached.
+  await new Promise((resolve) => {
+    const timer = setInterval(() => {
+      if (out.includes('RELEASED')) { clearInterval(timer); resolve(); }
+    }, 10);
+  });
+  if (holder.exitCode === null && holder.signalCode === null) {
+    await new Promise((r) => holder.on('close', r));
+  }
+
+  // The NEXT write of the bridge mirrors again: the mirror was not
+  // disabled by the failure.
+  const [code2, body2] = await req('/api/projects', 'POST', { path: project3 });
+  assert.equal(code2, 201, JSON.stringify(body2));
+
+  // And now the mirror holds everything the JSON state holds -- the
+  // project that was written while the lock was held is in there too.
+  const db = openDatabase(dbFile, { migrate: false });
+  try {
+    const c = counts(db);
+    const state = JSON.parse(fs.readFileSync(path.join(data, 'state.json'), 'utf8'));
+    assert.equal(c.projects, state.projects.length, 'the recovered mirror is missing projects');
+    assert.ok(
+      db.prepare('SELECT count(*) AS n FROM projects WHERE id=?').get(body.project.id),
+      'the project written while the lock was held never reached the mirror'
+    );
+  } finally { closeDatabase(db); }
+
+  // The tool agrees: the mirror verifies against the JSON state.
+  const verify = spawnSync(process.execPath, [
+    path.join(ROOT, 'tools', 'sqlite_meta.mjs'), 'verify',
+    '--state', path.join(data, 'state.json'),
+    '--db', dbFile,
+  ], { encoding: 'utf8' });
+  assert.equal(verify.status, 0, `the mirror did not verify: ${verify.stdout}\n${verify.stderr}`);
+  assert.ok(/mirror      : OK/.test(verify.stdout), verify.stdout);
+});
+
 test('IT-SQL-CLEANUP: stop and cleanup', () => {
   if (cp) cp.kill();
+  // The lock holder is killed too: it holds the metadata database open, and
+  // on Windows an open file cannot be deleted.
+  for (const child of holders) {
+    try { child.kill(); } catch { /* already gone */ }
+  }
   fs.rmSync(dir, { recursive: true, force: true });
 });

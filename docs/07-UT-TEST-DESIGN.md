@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：205；已执行通过：188；待执行/未实现：17。**PENDING 不是测试通过**。
+> 设计总数：222；已执行通过：205；待执行/未实现：17。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -155,7 +155,8 @@
 |UT-PLG-052|FR-028|正常|SDK 没有写任何文件|检查临时夹目录|目录为空|node --test|PASS|
 |UT-SQL-001|NFR-010|正常|元数据层在当前 Node 构建上可用|node:sqlite 无需 flag|sqliteAvailable() 为 true|node --test|PASS|
 |UT-SQL-002|NFR-010|正常|数据库以 WAL 模式运行|在临时目录打开 metadata.db|PRAGMA journal_mode = wal|node --test|PASS|
-|UT-SQL-003|NFR-010|正常|被锁住的写入者会等待而不是立即失败|打开数据库后读 PRAGMA|busy_timeout = 5000ms|node --test|PASS|
+|UT-SQL-003|NFR-010|正常|被锁住的写入者会等待而不是立即失败|另一个进程持有 BEGIN IMMEDIATE 写锁|写入者等到锁释放后才提交成功|node --test|PASS|
+|UT-SQL-003b|NFR-010|异常|busy_timeout 为 0 时被锁住的写入者会失败|同样的锁冲突但 busyTimeoutMs=0|写入抛错而不是等待|node --test|PASS|
 |UT-SQL-004|NFR-010|正常|忙等待超时可配置|busyTimeoutMs=1234|PRAGMA busy_timeout = 1234|node --test|PASS|
 |UT-SQL-005|NFR-010|正常|WAL 模式留下 -wal 伴生文件|写入状态后检查目录|存在 metadata.db-wal|node --test|PASS|
 |UT-SQL-010|NFR-010|正常|已提交的事务对读者可见|在事务中插入计数器行|提交后能查到该行|node --test|PASS|
@@ -165,7 +166,7 @@
 |UT-SQL-021|NFR-010|正常|schema 版本存放在数据库内部|查 meta 表|存在 schema_version 行|node --test|PASS|
 |UT-SQL-022|NFR-010|正常|迁移是幂等的|对已迁移的库再迁移一次|applied 为空，版本不变|node --test|PASS|
 |UT-SQL-023|NFR-010|正常|升级只应用缺失的步骤|先建 version 1 的库，再升级|version 2 的表先不存在后存在|node --test|PASS|
-|UT-SQL-024|NFR-010|异常|迁移失败不改变版本也不留半成品|目标版本无对应步骤|applied 为空，版本不变|node --test|PASS|
+|UT-SQL-024|NFR-010|异常|迁移失败不改变版本也不留半成品|注入一个第二步是非法 SQL 的迁移步骤|迁移抛错，版本不变，该步的建表被回滚|node --test|PASS|
 |UT-SQL-025|NFR-010|异常|比代码更新的库被拒绝而不是被静默降级|把 schema_version 改成未来版本|抛 SCHEMA_TOO_NEW，版本不变|node --test|PASS|
 |UT-SQL-026|NFR-010|异常|降级删除高版本表及其数据|降到 version 1|artifacts/test_attempts 表与其数据消失|node --test|PASS|
 |UT-SQL-027|NFR-010|异常|降到 version 0 清除全部表|降到 version 0|除 sqlite_ 外没有任何表|node --test|PASS|
@@ -178,11 +179,27 @@
 |UT-SQL-043|NFR-010|异常|镜像差异被报告而不是被掩盖|导入后比对不同状态|ok 为 false 且列出差异|node --test|PASS|
 |UT-SQL-044|NFR-010|正常|层能回答它存在的理由|按项目与按运行查询|项目运行按时间倒序，尝试可查|node --test|PASS|
 |UT-SQL-050|NFR-010|正常|两个并发写入者不丢记录|两个独立进程同时写 40 行|最终 80 行全在|node --test|PASS|
-|UT-SQL-051|NFR-010|正常|写入进行时读者仍能读|写者持事务时另开连接读|读者能读到提交前状态|node --test|PASS|
+|UT-SQL-051|NFR-010|正常|写入进行时读者仍能读|写者在子进程里持事务并宣告 IN-TX|读者读到提交前的快照（1 行）|node --test|PASS|
 |UT-SQL-060|NFR-010|正常|命令行报告数据库状态|sqlite_meta.mjs status|输出 schema 版本与行数|node --test|PASS|
 |UT-SQL-061|NFR-010|正常|命令行导入并校验镜像|sqlite_meta.mjs import/verify|输出 mirror: OK，state.json 未被改动|node --test|PASS|
 |UT-SQL-062|NFR-010|正常|命令行按需迁移与降级|sqlite_meta.mjs migrate/downgrade|版本按要求变化|node --test|PASS|
 |UT-SQL-063|NFR-010|异常|命令行拒绝未知命令|sqlite_meta.mjs nonsense|退出码 2|node --test|PASS|
+|UT-SQL-031|NFR-010|正常|并发迁移者不会把同一步骤应用两遍|6 个进程同时把 v2 库升级到一个 ADD COLUMN 的 v3|全部成功，FAIL: 0|node --test|PASS|
+|UT-SQL-032|NFR-010|异常|迁移器不接管形状不同的外来表|库里有同名的外来 projects 表|抛 SCHEMA_OBJECT_CONFLICT|node --test|PASS|
+|UT-SQL-033|NFR-010|正常|形状符合预期的表让迁移保持幂等|用本代码建库后重新打开|currentVersion = latestVersion|node --test|PASS|
+|UT-SQL-034|NFR-010|异常|迁移抛错时不泄漏数据库句柄|让 openDatabase 因 SCHEMA_TOO_NEW 抛错|数据目录可以删除（无 EPERM）|node --test|PASS|
+|UT-SQL-045|NFR-010|异常|校验能发现被篡改的 registry 内容|改 registry 条目的内容但保持条数|ok 为 false 并列出差异|node --test|PASS|
+|UT-SQL-046|NFR-010|异常|校验能发现索引列与记录矛盾|把 runs.status 改成与记录不同的值|ok 为 false，差异点名该字段|node --test|PASS|
+|UT-SQL-047|NFR-010|异常|校验能发现缺失的 attempt 与 artifact 行|删光 test_attempts 与 artifacts|ok 为 false，两者都被点名|node --test|PASS|
+|UT-SQL-048|NFR-010|异常|校验能发现被篡改的 attempt|改 test_attempts 的 status 与 test_uid|ok 为 false|node --test|PASS|
+|UT-SQL-049|NFR-010|异常|镜像在瞬时失败后恢复|另一进程持锁超过镜像的 busy_timeout|失败后下一次写入镜像成功并追平|node --test|PASS|
+|UT-SQL-049b|NFR-010|异常|镜像失败不影响状态文件落盘|写入一个无法镜像的状态|state.json 仍然被正确写入|node --test|PASS|
+|UT-SQL-049c|NFR-010|异常|镜像失败不会拖垮 Bridge|持锁使镜像失败|失败后 Bridge 仍能继续镜像|node --test|PASS|
+|UT-SQL-064|NFR-010|异常|命令行拒绝非法的 --to|--to abc / 99 / -1 / 1.5 / 空|退出码 2，且不创建数据库|node --test|PASS|
+|UT-SQL-065|NFR-010|异常|命令行拒绝未知参数与未知命令|--nonsense / nonsense / 无参数|退出码非 0 并打印用法|node --test|PASS|
+|UT-SQL-066|NFR-010|正常|只读命令不创建数据库文件|status/verify 指向不存在的库|退出码 0/1，文件仍不存在|node --test|PASS|
+|UT-SQL-067|NFR-010|异常|命令行报告它无法恢复的错误|状态文件不存在 / 不是状态 / 库不存在|退出码 1 并打印原因|node --test|PASS|
+|UT-SQL-068|NFR-010|异常|命令行报告镜像不一致并失败|改状态后 verify|退出码 1，输出 MISMATCH 与问题清单|node --test|PASS|
 |UT-CP-001|FR-028|安全|本地路径形态判定矩阵|盘符、UNC、POSIX、file:、家目录、环境变量、路径穿越、仓库地址各形态|逐一返回对应规则名|node --test|PASS|
 |UT-CP-002|FR-028|边界|非路径值不误判|https 地址、prj UID、40 位 SHA、相对片段、ns:name、非字符串|均返回 null|node --test|PASS|
 |UT-CP-003|FR-028|安全|百分号编码的路径同等拒绝|C%3A%5Crepo、%2Fhome%2Fa、损坏编码|前两者命中规则；损坏编码按原文判定不抛错|node --test|PASS|

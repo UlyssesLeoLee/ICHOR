@@ -23,8 +23,18 @@
  *   4. The version is written in the SAME transaction as the step, so the
  *      version and the objects it describes can never disagree.
  *   5. Steps are deterministic and idempotent: applying the same step twice
- *      is a no-op, and the runner refuses to apply a step whose objects
- *      already exist.
+ *      is a no-op. The runner refuses to adopt a FOREIGN object: a step
+ *      that would create a table which already exists with a DIFFERENT
+ *      shape (missing columns) is rejected with `SCHEMA_OBJECT_CONFLICT`
+ *      instead of silently taking the foreign table over. A table that
+ *      already exists with the EXPECTED shape is the table the step would
+ *      have created, so the step stays a no-op for it.
+ *   6. The version is re-read INSIDE the step's transaction, so two
+ *      concurrent migrators cannot apply the same step twice: the second
+ *      one waits for the write lock, sees the new version and skips the
+ *      step.
+ *   7. A database that is NEWER than the code is refused (`SCHEMA_TOO_NEW`).
+ *      It is never silently downgraded.
  *
  * The SCHEMA ITSELF is the "SQLite metadata layer" this task delivers: the
  * bridge state (projects, runs, the UID registry, the durable run counters)
@@ -39,11 +49,28 @@ export const SCHEMA_VERSION = 2;
  * The migration steps, in order.
  *
  * `version` is the version the database has AFTER the step ran.
+ *
+ * `tables` declares, per step, the tables the step creates and the columns
+ * those tables must carry. It is what lets the runner tell "the table this
+ * step would create is already here, with the right shape" (idempotent, skip)
+ * from "a FOREIGN table happens to have this name" (refuse). The
+ * declaration is the contract the runner enforces, so it must match the DDL
+ * of the step.
  */
 export const MIGRATIONS = [
   {
     version: 1,
     name: 'initial-metadata-layer',
+    tables: {
+      meta: ['key', 'value'],
+      projects: ['id', 'uid', 'name', 'root', 'added_at', 'legacy_id', 'doc'],
+      runs: [
+        'id', 'uid', 'seq', 'project_id', 'project_uid', 'status',
+        'created_at', 'finished_at', 'git_commit', 'doc',
+      ],
+      uid_registry: ['project_uid', 'uid', 'file', 'title', 'body_key', 'entry'],
+      run_counters: ['project_id', 'seq'],
+    },
     up: [
       `CREATE TABLE IF NOT EXISTS meta (
          key   TEXT PRIMARY KEY,
@@ -112,6 +139,14 @@ export const MIGRATIONS = [
   {
     version: 2,
     name: 'artifacts-and-attempts',
+    tables: {
+      artifacts: [
+        'uid', 'run_uid', 'attempt_uid', 'file', 'sha256', 'size_bytes', 'doc',
+      ],
+      test_attempts: [
+        'uid', 'run_uid', 'test_uid', 'retry', 'status', 'case_status', 'duration', 'doc',
+      ],
+    },
     up: [
       // The artifacts of a run (the evidence files) and the attempts (the
       // per case executions) become queryable rows of their own. `doc` keeps
@@ -146,31 +181,6 @@ export const MIGRATIONS = [
     ],
   },
 ];
-
-/**
- * The statements that bring a FRESH database up to `version` without going
- * through the migration runner. The runner is the normal path; this exists
- * so that "create a new database" and "upgrade an old one" cannot produce
- * two different schemas.
- */
-export function bootstrapSql(version = SCHEMA_VERSION) {
-  const steps = MIGRATIONS.filter((m) => m.version <= version);
-  const out = [];
-  for (const step of steps) {
-    for (const stmt of step.up) out.push(stmt);
-  }
-  return out;
-}
-
-/** The statements that take a database at `version` back down to 0. */
-export function teardownSql(version = SCHEMA_VERSION) {
-  const steps = MIGRATIONS.filter((m) => m.version <= version).slice().reverse();
-  const out = [];
-  for (const step of steps) {
-    for (const stmt of step.down) out.push(stmt);
-  }
-  return out;
-}
 
 /** The migration step that brings the database from `version - 1` to `version`. */
 export function stepFor(version) {

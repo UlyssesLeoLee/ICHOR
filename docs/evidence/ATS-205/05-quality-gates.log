@@ -1,5 +1,5 @@
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-dd8f49e0d9cf/worktree
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-fb6b76006922/worktree
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 node      : v24.19.0
@@ -52,13 +52,13 @@ all checks passed
   apps/studio/app/page.tsx         81
   apps/studio/lib/api.ts           7
   apps/studio/public/fallback.html 3
-  server/core.mjs                  230, 323
+  server/core.mjs                  258, 351
   server/index.mjs                 104, 115, 16, 177, 269, 286, 287, 42, 97-102, 98
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
   start.sh                         4
-  tools/generate_test_docs.py      203,209,255
+  tools/generate_test_docs.py      220,226,272
   tools/update_wbs_ats103.py       110,114
 
 ok   server/index.mjs:16
@@ -71,15 +71,15 @@ ok   server/index.mjs:177
 ok   server/index.mjs:269
 ok   server/index.mjs:286
 ok   server/index.mjs:287
-ok   server/core.mjs:230
-ok   server/core.mjs:323
+ok   server/core.mjs:258
+ok   server/core.mjs:351
 ok   src-tauri/Cargo.toml:11
 ok   start.sh:4
 ok   start.ps1:8
 ok   start.ps1:9
-ok   tools/generate_test_docs.py:203
-ok   tools/generate_test_docs.py:209
-ok   tools/generate_test_docs.py:255
+ok   tools/generate_test_docs.py:220
+ok   tools/generate_test_docs.py:226
+ok   tools/generate_test_docs.py:272
 ok   tools/update_wbs_ats103.py:110
 ok   tools/update_wbs_ats103.py:114
 ok   server/index.mjs:97-102 (cancelRun extent)
@@ -93,7 +93,7 @@ RESULT: OK
 
 --- 3. the hardcoded default port list in 16 §3.1 matches the source ---
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-dd8f49e0d9cf\worktree
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-fb6b76006922\worktree
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
@@ -109,12 +109,12 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:2471  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:2537  "input": "Host=evil.example:4577",
-  tests/test-cases.json:3252  "input": "同 LAN 他机尝试访问 4577",
-  tools/generate_test_docs.py:203  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
-  tools/generate_test_docs.py:209  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
-  tools/generate_test_docs.py:255  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
+  tests/test-cases.json:2658  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:2724  "input": "Host=evil.example:4577",
+  tests/test-cases.json:3450  "input": "同 LAN 他机尝试访问 4577",
+  tools/generate_test_docs.py:220  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
+  tools/generate_test_docs.py:226  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
+  tools/generate_test_docs.py:272  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
   tools/update_wbs_ats103.py:110  '「API 代理」在 output:export 下的真实形态是导出页到 127.0.0.1:4577 的跨源直连'
   tools/update_wbs_ats103.py:114  '的 staticFile() 以该目录为静态根），本项的 Tauri 壳可直接加载 http://127.0.0.1:4577；'
   test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)

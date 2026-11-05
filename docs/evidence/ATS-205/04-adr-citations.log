@@ -2,13 +2,13 @@
   apps/studio/app/page.tsx         81
   apps/studio/lib/api.ts           7
   apps/studio/public/fallback.html 3
-  server/core.mjs                  230, 323
+  server/core.mjs                  258, 351
   server/index.mjs                 104, 115, 16, 177, 269, 286, 287, 42, 97-102, 98
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
   start.sh                         4
-  tools/generate_test_docs.py      203,209,255
+  tools/generate_test_docs.py      220,226,272
   tools/update_wbs_ats103.py       110,114
 
 ok   server/index.mjs:16
@@ -21,15 +21,15 @@ ok   server/index.mjs:177
 ok   server/index.mjs:269
 ok   server/index.mjs:286
 ok   server/index.mjs:287
-ok   server/core.mjs:230
-ok   server/core.mjs:323
+ok   server/core.mjs:258
+ok   server/core.mjs:351
 ok   src-tauri/Cargo.toml:11
 ok   start.sh:4
 ok   start.ps1:8
 ok   start.ps1:9
-ok   tools/generate_test_docs.py:203
-ok   tools/generate_test_docs.py:209
-ok   tools/generate_test_docs.py:255
+ok   tools/generate_test_docs.py:220
+ok   tools/generate_test_docs.py:226
+ok   tools/generate_test_docs.py:272
 ok   tools/update_wbs_ats103.py:110
 ok   tools/update_wbs_ats103.py:114
 ok   server/index.mjs:97-102 (cancelRun extent)

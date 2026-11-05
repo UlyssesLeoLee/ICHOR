@@ -44,15 +44,50 @@ export function saveState(v) {
 }
 
 /**
- * The metadata database handle, opened once and kept open for the
- * lifetime of the process. It is `null` when `node:sqlite` is not
- * available in this Node build.
+ * The metadata mirror is BEST-EFFORT, and a failure is not permanent.
+ *
+ * The JSON state file is the source of truth, so a failure of the mirror
+ * must never take the bridge down -- but it must also never LOSE records.
+ * The earlier revision of this module set a flag on the FIRST failure and
+ * never wrote the mirror again for the lifetime of the process: one
+ * transient failure (a concurrent writer holding the database lock, a full
+ * disk, an antivirus scanner holding the file) silently dropped every
+ * later project, run, attempt and artifact from SQLite. The mirror writes
+ * the WHOLE state in one transaction, so a retry is self-healing: the next
+ * successful write replaces the whole table set and the mirror catches up.
+ *
+ * The only failure that disables the mirror for good is
+ * `SQLITE_NOT_AVAILABLE` -- the running Node build has no `node:sqlite`
+ * at all, and no retry can change that.
  */
-let metaDb = null;
-let metaDbFailed = false;
+
+/** True when the Node build has no SQLite support at all: the mirror is off. */
+let metaDbUnavailable = false;
 
 /** The path of the metadata database inside the data directory. */
 export const metadataPath = (dir = dataDir()) => path.join(dir, 'metadata.db');
+
+/**
+ * The busy timeout of the MIRROR connection, in milliseconds.
+ *
+ * The mirror runs SYNCHRONOUSLY on the bridge's event loop, so the wait
+ * for a write lock has to be BOUNDED, and the bound has to be SHORT: a
+ * mirror that waits for the layer's default 5000 ms blocks the event loop
+ * for five seconds, and during those five seconds the bridge does not
+ * answer a single request -- `GET /api/health` waited 5274 ms in the
+ * measurement that motivated this value.
+ *
+ * The mirror therefore uses a SHORT timeout (1 second). When it expires
+ * the mirror write is abandoned and the NEXT save tries again: the mirror
+ * replaces the whole table set in one transaction, so a retry is
+ * self-healing and the mirror catches up as soon as the obstruction is
+ * gone. The state file is the truth and it is written before the mirror
+ * runs, so nothing is lost by giving up on a write.
+ *
+ * §5.3 of the data design states this as the bound on how long a single
+ * `saveState` can block the bridge.
+ */
+export const MIRROR_BUSY_TIMEOUT_MS = 1000;
 
 /**
  * Writes the state into the metadata database.
@@ -64,19 +99,27 @@ export const metadataPath = (dir = dataDir()) => path.join(dir, 'metadata.db');
  * clean it up. Opening a SQLite database is cheap, and the state is
  * written a handful of times per run.
  *
+ * A failure is retried on the NEXT save: the write replaces the whole
+ * table set, so the mirror heals itself as soon as the obstruction is
+ * gone.
+ *
  * @returns {boolean} true when the state was mirrored
  */
 export function mirrorToSqlite(v) {
-  if (metaDbFailed) return false;
+  if (metaDbUnavailable) return false;
   let db = null;
   try {
-    db = openMetadataDatabase(metadataPath());
+    db = openMetadataDatabase(metadataPath(), { busyTimeoutMs: MIRROR_BUSY_TIMEOUT_MS });
     storeState(db, v);
     return true;
   } catch (e) {
     // A mirror failure must not take the bridge down: the JSON state file
     // is the truth and it was written already.
-    metaDbFailed = true;
+    if (e?.code === 'SQLITE_NOT_AVAILABLE') {
+      // The Node build has no SQLite at all. No retry can change that, so
+      // the mirror stays off for the lifetime of the process.
+      metaDbUnavailable = true;
+    }
     console.error(`the SQLite metadata mirror failed: ${e.message}`);
     return false;
   } finally {
@@ -84,21 +127,6 @@ export function mirrorToSqlite(v) {
       try { db.close(); } catch { /* already closed */ }
     }
   }
-}
-
-/**
- * The metadata database handle, opened for reading. It is `null` when the
- * layer is not available in this Node build.
- */
-export function metadataDb() {
-  if (metaDb || metaDbFailed) return metaDb;
-  try {
-    metaDb = openMetadataDatabase(metadataPath(), { migrate: false });
-  } catch (e) {
-    metaDbFailed = true;
-    console.error(`the SQLite metadata layer is not available: ${e.message}`);
-  }
-  return metaDb;
 }
 
 /* ------------------------------------------------------------------ */

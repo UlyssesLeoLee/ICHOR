@@ -24,11 +24,67 @@ import {
 import { storeState, loadStateFrom, counts, runsOfProject, attemptsOfRun } from '../server/sqlite/store.mjs';
 import { importState, verifyMirror } from '../server/sqlite/import.mjs';
 import { SCHEMA_VERSION, MIGRATIONS, latestVersion, stepFor } from '../server/sqlite/schema.mjs';
+import { main as cliMain } from '../tools/sqlite_meta.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TOOL = path.join(ROOT, 'tools', 'sqlite_meta.mjs');
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'ats-sqlite-'));
+
+/**
+ * The URL of a module of THIS repository, as an ESM specifier.
+ *
+ * A Windows absolute path (`C:\\...\\db.mjs`) is NOT a valid ESM
+ * specifier: importing it fails with `ERR_UNSUPPORTED_ESM_URL_SCHEME` and
+ * the child process dies before it ever touches the database. Every
+ * child process in this file therefore imports the module by its `file://`
+ * URL.
+ */
+const moduleUrl = (...parts) =>
+  pathToFileURL(path.join(ROOT, ...parts)).href;
+
+/**
+ * Spawns a child process that takes the WRITE LOCK of the database and
+ * holds it until it is told to let go.
+ *
+ * The child writes `LOCKED` on stdout as soon as its transaction is open,
+ * so the parent can wait for the lock to be REALLY held before it tries to
+ * write -- a sleep would be a guess, a message is a fact.
+ *
+ * @param {string} file the database file
+ * @param {number} holdMs how long the child holds the lock
+ * @returns {{child:object, locked:Promise<void>, released:Promise<void>, stderr:string}}
+ */
+function spawnLockHolder(file, holdMs) {
+  const dir = path.dirname(file);
+  const script = path.join(dir, `holder-${Math.random().toString(36).slice(2)}.mjs`);
+  fs.writeFileSync(script, `
+import { openDatabase, closeDatabase } from ${JSON.stringify(moduleUrl('server', 'sqlite', 'db.mjs'))};
+const [file, holdMs] = process.argv.slice(2);
+const db = openDatabase(file, { migrate: false });
+db.exec('BEGIN IMMEDIATE');
+console.log('LOCKED');
+Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(holdMs));
+db.exec('COMMIT');
+closeDatabase(db);
+console.log('RELEASED');
+`, 'utf8');
+  const child = spawn(process.execPath, [script, file, String(holdMs)], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let out = '';
+  let stderr = '';
+  child.stdout.on('data', (d) => { out += d.toString(); });
+  child.stderr.on('data', (d) => { stderr += d.toString(); });
+  const locked = new Promise((resolve, reject) => {
+    const timer = setInterval(() => {
+      if (out.includes('LOCKED')) { clearInterval(timer); resolve(); }
+    }, 10);
+    child.on('close', () => { clearInterval(timer); reject(new Error(`the lock holder exited: ${stderr}`)); });
+  });
+  const released = new Promise((resolve) => child.on('close', resolve));
+  return { child, locked, released, stderr: () => stderr };
+}
 
 function sampleState() {
   return {
@@ -81,13 +137,63 @@ test('UT-SQL-002: the database runs in WAL mode', () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('UT-SQL-003: a blocked writer waits instead of failing at once', () => {
+test('UT-SQL-003: a blocked writer waits instead of failing at once', async () => {
   const dir = tmp();
+  const file = path.join(dir, 'metadata.db');
   try {
-    const db = openDatabase(path.join(dir, 'metadata.db'));
+    // The database exists before the lock holder opens it.
+    closeDatabase(openDatabase(file));
+
+    // A second process holds the write lock. It announces that it is in
+    // the transaction, so the writer below really contends for the lock.
+    const holder = spawnLockHolder(file, 1500);
+    await holder.locked;
+
+    // The blocked writer opens its own connection and writes. With the
+    // busy timeout it WAITS for the lock and succeeds once it is released.
+    const started = Date.now();
+    const db = openDatabase(file, { migrate: false });
     try {
-      assert.equal(db.prepare('PRAGMA busy_timeout').get().timeout, DEFAULT_BUSY_TIMEOUT_MS);
+      withTransaction(db, (d) => {
+        d.prepare('INSERT INTO run_counters(project_id,seq) VALUES(?,?)').run('p1', 7);
+      });
+      const waited = Date.now() - started;
+      assert.ok(
+        waited >= 200,
+        `the writer did not wait for the lock (${waited} ms) -- it cannot have been blocked`
+      );
+      assert.equal(
+        Number(db.prepare('SELECT seq FROM run_counters WHERE project_id=?').get('p1').seq),
+        7,
+        'the blocked writer did not commit its row'
+      );
     } finally { closeDatabase(db); }
+    await holder.released;
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('UT-SQL-003b: with the busy timeout at 0 the blocked writer fails instead of waiting', async () => {
+  const dir = tmp();
+  const file = path.join(dir, 'metadata.db');
+  try {
+    closeDatabase(openDatabase(file));
+    const holder = spawnLockHolder(file, 1500);
+    await holder.locked;
+
+    // The SAME contention, but the writer is told not to wait at all.
+    // It has to fail -- which is what proves that the wait in UT-SQL-003
+    // was the busy timeout doing its job and not luck.
+    const db = openDatabase(file, { migrate: false, busyTimeoutMs: 0 });
+    try {
+      assert.throws(
+        () => withTransaction(db, (d) => {
+          d.prepare('INSERT INTO run_counters(project_id,seq) VALUES(?,?)').run('p1', 7);
+        }),
+        /lock|busy/i,
+        'the writer did not fail even though it was told not to wait'
+      );
+    } finally { closeDatabase(db); }
+    await holder.released;
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -221,14 +327,35 @@ test('UT-SQL-023: a migration to an older version applies only the missing steps
 
 test('UT-SQL-024: a failed migration step leaves the version and the objects untouched', () => {
   const db = openDatabase(':memory:');
+  // A step that fails: its first statement is valid, its second is not.
+  // The step is injected into the real migration list, so the failure
+  // happens inside the REAL runner and not in a hand-written transaction.
+  const broken = {
+    version: latestVersion() + 1,
+    name: 'broken-step',
+    tables: { broken_probe: ['a'] },
+    up: ['CREATE TABLE broken_probe(a TEXT)', 'THIS IS NOT SQL'],
+    down: ['DROP TABLE IF EXISTS broken_probe'],
+  };
+  MIGRATIONS.push(broken);
   try {
     const before = currentVersion(db);
-    // A version that does not exist: the runner has no step for it, so
-    // nothing is applied and the version does not move.
-    const result = migrateDatabase(db, before);
-    assert.deepEqual(result.applied, []);
-    assert.equal(currentVersion(db), before);
-  } finally { closeDatabase(db); }
+    assert.throws(
+      () => migrateDatabase(db, null),
+      (e) => /not a valid|not sql|syntax/i.test(e.message),
+      'the broken step did not fail'
+    );
+    // The version did not move...
+    assert.equal(currentVersion(db), before, 'the version moved although the step failed');
+    // ...and the first statement of the step was rolled back with it.
+    const tables = db
+      .prepare(`SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name='broken_probe'`)
+      .get().n;
+    assert.equal(Number(tables), 0, 'the failed step left its first statement applied');
+  } finally {
+    MIGRATIONS.pop();
+    closeDatabase(db);
+  }
 });
 
 test('UT-SQL-025: a database that is NEWER than the code is refused, not downgraded silently', () => {
@@ -439,39 +566,354 @@ closeDatabase(db);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('UT-SQL-051: a reader sees the committed state while a writer is working', () => {
+test('UT-SQL-051: a reader sees the committed state while a writer is working', async () => {
   const dir = tmp();
+  const file = path.join(dir, 'metadata.db');
   try {
-    const file = path.join(dir, 'metadata.db');
     const seed = openDatabase(file);
     seed.prepare('INSERT INTO run_counters(project_id,seq) VALUES(?,?)').run('p0', 0);
     closeDatabase(seed);
 
+    // The writer is a SEPARATE PROCESS that imports the module by its
+    // `file://` URL: a Windows absolute path is not a valid ESM specifier
+    // and the child would die with ERR_UNSUPPORTED_ESM_URL_SCHEME before
+    // it ever opened the database.
+    //
+    // The child announces on stdout that its write transaction is OPEN
+    // and only then does the work, so the parent really reads WHILE an
+    // uncommitted write transaction is held -- and not by accident.
     const writer = path.join(dir, 'long-writer.mjs');
     fs.writeFileSync(writer, `
-import { openDatabase, closeDatabase, withTransaction } from ${JSON.stringify(path.join(ROOT, 'server', 'sqlite', 'db.mjs'))};
+import { openDatabase, closeDatabase, withTransaction } from ${JSON.stringify(moduleUrl('server', 'sqlite', 'db.mjs'))};
 const [file, n] = process.argv.slice(2);
 const db = openDatabase(file, { migrate: true });
 withTransaction(db, (d) => {
   for (let i = 0; i < Number(n); i++) {
     d.prepare('INSERT INTO run_counters(project_id,seq) VALUES(?,?)').run('w' + i, i);
   }
+  console.log('IN-TX');
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000);
 });
 closeDatabase(db);
 `, 'utf8');
 
-    const child = spawn(process.execPath, [writer, file, '200'], { stdio: 'ignore' });
+    const child = spawn(process.execPath, [writer, file, '200'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let out = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => { out += d.toString(); });
+    child.stderr.on('data', (d) => { stderr += d.toString(); });
     try {
-      // While the writer holds its transaction, a reader in ANOTHER
-      // connection must be able to read: that is the point of WAL. The
-      // reader sees the state as of BEFORE the writer's transaction.
+      // Wait for the writer to be INSIDE its transaction.
+      await new Promise((resolve, reject) => {
+        const timer = setInterval(() => {
+          if (out.includes('IN-TX')) { clearInterval(timer); resolve(); }
+        }, 10);
+        child.on('close', () => {
+          clearInterval(timer);
+          reject(new Error(`the writer exited before its transaction was open: ${stderr}`));
+        });
+      });
+      assert.ok(
+        !/ERR_UNSUPPORTED_ESM_URL_SCHEME/.test(stderr),
+        `the writer died on import: ${stderr}`
+      );
+
+      // While the writer holds its uncommitted transaction, a reader in
+      // ANOTHER connection must be able to read: that is the point of WAL.
+      // The reader sees the state as of BEFORE the writer's transaction.
       const db = openDatabase(file, { migrate: false });
       try {
         const n = Number(db.prepare('SELECT count(*) AS n FROM run_counters').get().n);
-        assert.ok(n >= 1, 'the reader could not read at all while the writer was working');
+        assert.equal(n, 1, `the reader saw ${n} rows -- it did not read the pre-transaction snapshot`);
       } finally { closeDatabase(db); }
     } finally {
       child.kill();
+      await new Promise((r) => child.on('close', r));
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------------------------------------
+// The migration is safe against a concurrent migrator and against a
+// foreign object
+// ---------------------------------------------------------------------------
+
+test('UT-SQL-031: two concurrent migrators do not apply the same step twice', async () => {
+  const dir = tmp();
+  const file = path.join(dir, 'metadata.db');
+  try {
+    // A database at version 2. The step that is about to be applied ADDS
+    // A COLUMN -- a step that is NOT idempotent, because SQLite has no
+    // `ADD COLUMN IF NOT EXISTS`.
+    closeDatabase(openDatabase(file));
+
+    // The migrator child imports the module by its `file://` URL and waits
+    // for a common start time, so all the processes really do contend for
+    // the write lock at the same moment.
+    const migrator = path.join(dir, 'migrator.mjs');
+    fs.writeFileSync(migrator, `
+import { MIGRATIONS } from ${JSON.stringify(moduleUrl('server', 'sqlite', 'schema.mjs'))};
+import { openDatabase, closeDatabase } from ${JSON.stringify(moduleUrl('server', 'sqlite', 'db.mjs'))};
+MIGRATIONS.push({
+  version: 3, name: 'add-col',
+  tables: {},
+  up: ['ALTER TABLE runs ADD COLUMN probe_col TEXT'],
+  down: ['ALTER TABLE runs DROP COLUMN probe_col'],
+});
+const go = Number(process.argv[3]);
+while (Date.now() < go) { /* spin until the common start time */ }
+try {
+  closeDatabase(openDatabase(process.argv[2]));
+  console.log('OK');
+} catch (e) {
+  console.log('FAIL ' + e.message);
+}
+`, 'utf8');
+
+    const go = Date.now() + 800;
+    const runs = await Promise.all(Array.from({ length: 6 }, () => new Promise((resolve) => {
+      const c = spawn(process.execPath, [migrator, file, String(go)], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let o = '';
+      let e = '';
+      c.stdout.on('data', (d) => { o += d.toString(); });
+      c.stderr.on('data', (d) => { e += d.toString(); });
+      c.on('close', () => resolve(o.trim() || `NO-OUTPUT ${e}`));
+    })));
+
+    const failures = runs.filter((o) => !o.startsWith('OK'));
+    assert.equal(
+      failures.length, 0,
+      `a concurrent migrator failed: ${failures.join(' | ')} -- the version was read OUTSIDE the step transaction`
+    );
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('UT-SQL-032: a foreign table with the same name is refused, not adopted', async () => {
+  const dir = tmp();
+  const file = path.join(dir, 'metadata.db');
+  try {
+    // A FOREIGN table that happens to have the name of one of our tables,
+    // but not its shape. It is created with the raw SQLite API, so it
+    // carries no `meta` table and no schema version.
+    const sqlite = await import('node:sqlite');
+    const raw = new sqlite.DatabaseSync(file);
+    raw.exec('CREATE TABLE projects(id TEXT, root TEXT)');
+    raw.close();
+
+    assert.throws(
+      () => openDatabase(file),
+      (e) => e.code === 'SCHEMA_OBJECT_CONFLICT',
+      'the foreign table was adopted silently'
+    );
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('UT-SQL-033: a table with the EXPECTED shape is still idempotent', () => {
+  const dir = tmp();
+  const file = path.join(dir, 'metadata.db');
+  try {
+    // A database that was created by an earlier run of this code: the
+    // tables are already there, with the right shape. Re-opening it must
+    // not fail -- the step stays a no-op for it.
+    closeDatabase(openDatabase(file));
+    const db = openDatabase(file);
+    try {
+      assert.equal(currentVersion(db), latestVersion());
+    } finally { closeDatabase(db); }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('UT-SQL-034: a database that is NEWER than the code does not leak its handle', () => {
+  const dir = tmp();
+  const file = path.join(dir, 'metadata.db');
+  try {
+    const db = openDatabase(file);
+    db.prepare(`UPDATE meta SET value=? WHERE key='schema_version'`).run(String(latestVersion() + 5));
+    closeDatabase(db);
+    // The refused migration must release the handle it opened: on Windows
+    // an open file cannot be deleted.
+    assert.throws(() => openDatabase(file), (e) => e.code === 'SCHEMA_TOO_NEW');
+    // If the handle had been leaked, this delete would fail with EPERM.
+    fs.rmSync(dir, { recursive: true, force: true });
+    assert.ok(!fs.existsSync(dir), 'the data directory could not be deleted -- a handle was leaked');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The mirror covers everything a query reads
+// ---------------------------------------------------------------------------
+
+test('UT-SQL-045: the verification catches a tampered registry entry', () => {
+  const db = openDatabase(':memory:');
+  try {
+    const state = sampleState();
+    importState(db, state);
+    assert.equal(verifyMirror(db, state).ok, true);
+    // The registry CONTENT is changed, but the count stays the same: the
+    // old verification only compared the counts.
+    db.exec(
+      `UPDATE uid_registry SET file='WRONG.spec.ts', title='WRONG',
+       entry='{"uid":"tc-1","file":"WRONG.spec.ts","title":"WRONG","bodyKey":"k1"}'`
+    );
+    const check = verifyMirror(db, state);
+    assert.equal(check.ok, false, 'the tampered registry was not reported');
+    assert.ok(check.problems.length > 0);
+  } finally { closeDatabase(db); }
+});
+
+test('UT-SQL-046: the verification catches an indexed column that contradicts its record', () => {
+  const db = openDatabase(':memory:');
+  try {
+    const state = sampleState();
+    importState(db, state);
+    // The indexed column now says "passed" while the record says "failed".
+    // A query that reads the column answers with something the state does
+    // not say -- that has to be a difference.
+    db.exec(`UPDATE runs SET status='passed' WHERE id='run_1_0002'`);
+    const check = verifyMirror(db, state);
+    assert.equal(check.ok, false, 'the contradicting indexed column was not reported');
+    assert.ok(
+      check.problems.some((p) => p.includes('run_1_0002') && p.includes('status')),
+      `the problem does not name the field: ${check.problems.join('; ')}`
+    );
+  } finally { closeDatabase(db); }
+});
+
+test('UT-SQL-047: the verification catches missing attempts and artifacts', () => {
+  const db = openDatabase(':memory:');
+  try {
+    const state = sampleState();
+    importState(db, state);
+    db.exec('DELETE FROM artifacts');
+    db.exec('DELETE FROM test_attempts');
+    const check = verifyMirror(db, state);
+    assert.equal(check.ok, false, 'the deleted rows were not reported');
+    assert.ok(check.problems.some((p) => p.includes('attempt')));
+    assert.ok(check.problems.some((p) => p.includes('artifact')));
+  } finally { closeDatabase(db); }
+});
+
+test('UT-SQL-048: the verification catches a tampered attempt', () => {
+  const db = openDatabase(':memory:');
+  try {
+    const state = sampleState();
+    importState(db, state);
+    db.exec(`UPDATE test_attempts SET status='passed', test_uid='zzz'`);
+    const check = verifyMirror(db, state);
+    assert.equal(check.ok, false, 'the tampered attempt was not reported');
+  } finally { closeDatabase(db); }
+});
+
+// ---------------------------------------------------------------------------
+// The mirror of the bridge: recoverable, and it never takes the bridge down
+// ---------------------------------------------------------------------------
+
+test('UT-SQL-049: the mirror recovers after a transient failure', async () => {
+  const dir = tmp();
+  const file = path.join(dir, 'metadata.db');
+  try {
+    // The mirror writes to the database in the data directory. The bridge
+    // resolves that directory from the environment, so the case points the
+    // bridge at its own temporary directory for the duration of the test.
+    const previous = process.env.ATS_DATA_DIR;
+    process.env.ATS_DATA_DIR = dir;
+    try {
+      const core = await import('../server/core.mjs');
+      const state = sampleState();
+
+      // 1. The mirror succeeds.
+      assert.equal(core.mirrorToSqlite(state), true, 'the first mirror did not succeed');
+      const db = openDatabase(file, { migrate: false });
+      let n = Number(db.prepare('SELECT count(*) AS n FROM projects').get().n);
+      assert.equal(n, state.projects.length, 'the first mirror did not write the projects');
+      closeDatabase(db);
+
+      // 2. The mirror fails -- the database is blocked by another process.
+      // The lock is held for LONGER than the mirror's own busy timeout, so
+      // the mirror really gives up instead of waiting the obstruction out.
+      const holder = spawnLockHolder(file, 3000);
+      await holder.locked;
+      const failed = core.mirrorToSqlite(state);
+      await holder.released;
+      assert.equal(failed, false, 'the blocked mirror reported success');
+
+      // 3. The mirror succeeds AGAIN without anything else being done: the
+      // failure is transient, and the whole-state write heals the mirror.
+      assert.equal(
+        core.mirrorToSqlite(state),
+        true,
+        'the mirror did not recover after the obstruction was gone'
+      );
+      const db2 = openDatabase(file, { migrate: false });
+      try {
+        n = Number(db2.prepare('SELECT count(*) AS n FROM projects').get().n);
+        assert.equal(n, state.projects.length, 'the recovered mirror did not write the projects');
+        assert.equal(
+          Number(db2.prepare('SELECT count(*) AS n FROM runs').get().n),
+          state.runs.length,
+          'the recovered mirror did not write the runs'
+        );
+      } finally { closeDatabase(db2); }
+    } finally {
+      if (previous === undefined) delete process.env.ATS_DATA_DIR;
+      else process.env.ATS_DATA_DIR = previous;
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('UT-SQL-049b: a mirror failure does not stop the state file from being written', async () => {
+  const dir = tmp();
+  try {
+    const previous = process.env.ATS_DATA_DIR;
+    process.env.ATS_DATA_DIR = dir;
+    try {
+      const core = await import('../server/core.mjs');
+      // A state that cannot be mirrored: `runs` is not an array, so the
+      // mirror throws while it writes.
+      const broken = { schema: 1, projects: [], runs: 'not-an-array' };
+      const ok = core.saveState(broken);
+      assert.equal(ok, undefined, 'saveState started returning a value');
+      // The JSON state file IS the truth: it was written even though the
+      // mirror failed.
+      const written = JSON.parse(fs.readFileSync(path.join(dir, 'state.json'), 'utf8'));
+      assert.equal(written.schema, 1);
+      assert.equal(written.runs, 'not-an-array');
+    } finally {
+      if (previous === undefined) delete process.env.ATS_DATA_DIR;
+      else process.env.ATS_DATA_DIR = previous;
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('UT-SQL-049c: a mirror failure does not take the bridge down', async () => {
+  const dir = tmp();
+  const file = path.join(dir, 'metadata.db');
+  try {
+    const previous = process.env.ATS_DATA_DIR;
+    process.env.ATS_DATA_DIR = dir;
+    try {
+      const core = await import('../server/core.mjs');
+      const state = sampleState();
+      assert.equal(core.mirrorToSqlite(state), true);
+
+      // The database is blocked by another process for LONGER than the
+      // mirror's busy timeout, so the mirror gives up.
+      const holder = spawnLockHolder(file, 3000);
+      await holder.locked;
+      const failed = core.mirrorToSqlite(state);
+      await holder.released;
+      assert.equal(failed, false, 'the blocked mirror reported success');
+      // The bridge is still alive: a later call works.
+      assert.equal(core.mirrorToSqlite(state), true, 'the bridge stopped mirroring after a failure');
+    } finally {
+      if (previous === undefined) delete process.env.ATS_DATA_DIR;
+      else process.env.ATS_DATA_DIR = previous;
     }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
@@ -479,6 +921,147 @@ closeDatabase(db);
 // ---------------------------------------------------------------------------
 // The command line tool
 // ---------------------------------------------------------------------------
+
+/**
+ * Runs the command line tool IN-PROCESS and captures what it printed.
+ *
+ * The tool is spawned as a child process in the cases above, because the
+ * exit code of a child process is the contract of the tool. For the
+ * branches that are about the ARGVUMENTS, an in-process call is the only
+ * way to reach them: the coverage of the tool is measured in this process,
+ * and a child process is not counted by the coverage report at all.
+ *
+ * @returns {{code:number,out:string,err:string}}
+ */
+function runCli(argv) {
+  const out = [];
+  const err = [];
+  const stdoutWrite = process.stdout.write.bind(process.stdout);
+  const stderrWrite = process.stderr.write.bind(process.stderr);
+  process.stdout.write = (chunk) => { out.push(String(chunk)); return true; };
+  process.stderr.write = (chunk) => { err.push(String(chunk)); return true; };
+  let code;
+  try {
+    code = cliMain(argv);
+  } catch (e) {
+    code = 1;
+    err.push(String(e?.message ?? e));
+  } finally {
+    process.stdout.write = stdoutWrite;
+    process.stderr.write = stderrWrite;
+  }
+  return { code, out: out.join(''), err: err.join('') };
+}
+
+test('UT-SQL-064: the tool refuses an invalid --to with the usage exit code', () => {
+  const dir = tmp();
+  try {
+    const db = path.join(dir, 'metadata.db');
+    const state = path.join(dir, 'state.json');
+    fs.writeFileSync(state, JSON.stringify(sampleState()));
+
+    // A word, a version the code does not know and a negative number are
+    // all usage errors: exit code 2, and NO database is touched.
+    for (const bad of ['abc', String(latestVersion() + 10), '-1', '1.5', '']) {
+      const r = runCli(['migrate', '--to', bad, '--db', db, '--state', state]);
+      assert.equal(r.code, 2, `"--to ${bad}" was not refused with the usage exit code`);
+      const d = runCli(['downgrade', '--to', bad, '--db', db, '--state', state]);
+      assert.equal(d.code, 2, `"downgrade --to ${bad}" was not refused with the usage exit code`);
+    }
+    // The refused commands did not create the database.
+    assert.ok(!fs.existsSync(db), 'a refused command created the database');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('UT-SQL-065: the tool refuses an unknown argument and an unknown command', () => {
+  const r = runCli(['status', '--nonsense']);
+  assert.equal(r.code, 1, 'an unknown argument did not fail');
+  assert.ok(/unknown argument/.test(r.err), `the reason was not reported: ${r.err}`);
+
+  const u = runCli(['nonsense']);
+  assert.equal(u.code, 2, 'an unknown command did not use the usage exit code');
+  assert.ok(/usage/.test(u.out + u.err), 'the usage was not printed');
+
+  const h = runCli(['status', '--help']);
+  assert.equal(h.code, 0, '--help did not succeed');
+  assert.ok(/usage/.test(h.out), 'the usage was not printed for --help');
+
+  const n = runCli([]);
+  assert.equal(n.code, 2, 'no command did not use the usage exit code');
+});
+
+test('UT-SQL-066: the read-only commands do not create the database', () => {
+  const dir = tmp();
+  try {
+    const db = path.join(dir, 'metadata.db');
+    const state = path.join(dir, 'state.json');
+    fs.writeFileSync(state, JSON.stringify(sampleState()));
+
+    // `status` on a database that does not exist: it reports and creates
+    // nothing.
+    const s = runCli(['status', '--db', db, '--state', state]);
+    assert.equal(s.code, 0, 'the status command failed');
+    assert.ok(/does not exist yet/.test(s.out), `the status was not reported: ${s.out}`);
+    assert.ok(!fs.existsSync(db), 'the status command created the database');
+
+    // `verify` on a database that does not exist: it FAILS and creates
+    // nothing.
+    const v = runCli(['verify', '--db', db, '--state', state]);
+    assert.equal(v.code, 1, 'the verify command did not fail on a missing database');
+    assert.ok(/does not exist/.test(v.err), `the reason was not reported: ${v.err}`);
+    assert.ok(!fs.existsSync(db), 'the verify command created the database');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('UT-SQL-067: the tool reports the errors it cannot recover from', () => {
+  const dir = tmp();
+  try {
+    const db = path.join(dir, 'metadata.db');
+    // A state file that does not exist.
+    const missing = runCli(['import', '--db', db, '--state', path.join(dir, 'nope.json')]);
+    assert.equal(missing.code, 1, 'the import of a missing state file did not fail');
+    assert.ok(/state file does not exist/.test(missing.err));
+
+    // A state file that is not a state.
+    const bad = path.join(dir, 'bad.json');
+    fs.writeFileSync(bad, JSON.stringify({ projects: 'not-an-array', runs: [] }));
+    const broken = runCli(['import', '--db', db, '--state', bad]);
+    assert.equal(broken.code, 1, 'the import of an invalid state file did not fail');
+    assert.ok(/UNSUPPORTED_DATABASE/.test(broken.err + broken.out));
+
+    // A downgrade of a database that does not exist.
+    const d = runCli(['downgrade', '--to', '1', '--db', path.join(dir, 'nope.db')]);
+    assert.equal(d.code, 1, 'the downgrade of a missing database did not fail');
+    assert.ok(/does not exist/.test(d.err));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('UT-SQL-068: the tool reports a mismatch and fails', () => {
+  const dir = tmp();
+  try {
+    const db = path.join(dir, 'metadata.db');
+    const state = path.join(dir, 'state.json');
+    fs.writeFileSync(state, JSON.stringify(sampleState()));
+    const i = runCli(['import', '--db', db, '--state', state]);
+    assert.equal(i.code, 0, 'the import failed');
+    assert.ok(/mirror      : OK/.test(i.out), `the import did not report a good mirror: ${i.out}`);
+
+    // The state changes, the database does not: the mirror no longer
+    // matches and the tool has to say so.
+    const changed = sampleState();
+    changed.runs.push({
+      id: 'run_1_0003', uid: 'run_1_0003', seq: 3, projectId: 'proj_1_aaaa',
+      projectUid: 'proj_1_aaaa', status: 'passed', createdAt: '2026-01-03T00:00:00.000Z',
+      attempts: [], artifacts: [],
+    });
+    fs.writeFileSync(state, JSON.stringify(changed));
+    const v = runCli(['verify', '--db', db, '--state', state]);
+    assert.equal(v.code, 1, 'the verify command did not fail on a mismatch');
+    assert.ok(/MISMATCH/.test(v.out), `the mismatch was not reported: ${v.out}`);
+    assert.ok(/problem/.test(v.out), 'the problems were not listed');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 
 test('UT-SQL-060: the tool reports the status of a database', () => {
   const dir = tmp();

@@ -1,55 +1,81 @@
-=== the tool with no database yet (status is read-only) ===
-database    : C:\Users\seiko\AppData\Local\Temp\ats205-cli-ev\metadata.db (does not exist yet)
+=== CLI round trip (ATS-205) ===
+
+--- 1. status on a database that does not exist (read-only) ---
+database    : C:\Users\seiko\AppData\Local\Temp\cli-rt4\metadata.db (does not exist yet)
 schema      : 0 (the code knows up to 2)
 pending     : the database will be created at version 2
+exit=0
+file exists after status: false
 
-=== import the state ===
-imported    : {"projects":1,"runs":1,"uidRegistry":0,"runCounters":1,"schemaVersion":2}
+--- 2. import ---
+imported    : {"projects":1,"runs":1,"uidRegistry":1,"runCounters":1,"schemaVersion":2}
 mirror      : OK
+exit=0
 
-=== status ===
-database    : C:\Users\seiko\AppData\Local\Temp\ats205-cli-ev\metadata.db
+--- 3. status ---
+database    : C:\Users\seiko\AppData\Local\Temp\cli-rt4\metadata.db
 schema      : 2 (the code knows up to 2)
 journal     : wal
 row counts  :
   projects     1
   runs         1
-  uidRegistry  0
+  uidRegistry  1
   runCounters  1
-  testAttempts 0
-  artifacts    0
+  testAttempts 1
+  artifacts    1
 
-=== verify the mirror ===
+--- 4. verify ---
 schema      : 2
 mirror      : OK
+exit=0
 
-=== downgrade to version 1 (explicit, lossy) ===
+--- 5. the CLI refuses an invalid --to (exit code 2, the database is untouched) ---
+migrate --to abc : exit=2 | --to must be an integer, got "abc" 
+migrate --to 99 : exit=2 | --to must be an integer in [0, 2], got "99" 
+migrate --to -1 : exit=2 | --to must be an integer in [0, 2], got "-1" 
+migrate --to 1.5 : exit=2 | --to must be an integer, got "1.5" 
+downgrade --to -1 : exit=2 | --to must be an integer in [0, 2], got "-1" 
+
+--- 6. verify against a database that does not exist (read-only, creates nothing) ---
+exit=1 | the metadata database does not exist: C:\Users\seiko\AppData\Local\Temp\cli-rt4\never-created.db 
+file now exists: false
+
+--- 7. downgrade to version 1 (explicit, lossy) ---
 downgraded  : {"from":2,"to":1,"applied":[2]}
-database    : C:\Users\seiko\AppData\Local\Temp\ats205-cli-ev\metadata.db
+exit=0
+database    : C:\Users\seiko\AppData\Local\Temp\cli-rt4\metadata.db
 schema      : 1 (the code knows up to 2)
 journal     : wal
 row counts  :
   projects     1
   runs         1
-  uidRegistry  0
+  uidRegistry  1
   runCounters  1
   testAttempts 0
   artifacts    0
 pending     : migration to version 2 is available
 
-=== migrate back to the newest version ===
+--- 8. migrate back (forward-only, additive) ---
 migrated    : {"from":1,"to":2,"applied":[2]}
-database    : C:\Users\seiko\AppData\Local\Temp\ats205-cli-ev\metadata.db
-schema      : 2 (the code knows up to 2)
-journal     : wal
-row counts  :
-  projects     1
-  runs         1
-  uidRegistry  0
-  runCounters  1
-  testAttempts 0
-  artifacts    0
 
-=== the state file was NOT modified by the import ===
-{"schema":1,"projects":[{"id":"proj_1_aaaaaaaa","uid":"proj_1_aaaaaaaa","name":"alpha","root":"/tmp/alpha","addedAt":"2026-01-01T00:00:00.000Z"}],"runs":[{"id":"run_1_0001","uid":"run_1_0001","seq":1,"projectId":"proj_1_aaaaaaaa","projectUid":"proj_1_aaaaaaaa","status":"passed","createdAt":"2026-01-01T00:00:01.000Z","attempts":[],"artifacts":[]}],"uidRegistry":{"version":1,"projects":{}},"runCounters":{"proj_1_aaaaaaaa":1}}
+--- 9. verify right after the round trip ---
+The downgrade in step 7 was LOSSY by design: it dropped the v2 tables
+(test_attempts, artifacts) WITH their data, and step 8 recreated the
+tables EMPTY. The JSON state still holds those records, so the mirror
+no longer matches -- and verifyMirror says so instead of hiding it.
+schema      : 2
+mirror      : MISMATCH
+  problem   : attempt a1 of run r1 is missing from the database
+  problem   : artifact r1:trace.zip of run r1 is missing from the database
+exit=1
 
+--- 10. re-import from the JSON state: the mirror catches up ---
+imported    : {"projects":1,"runs":1,"uidRegistry":1,"runCounters":1,"schemaVersion":2}
+mirror      : OK
+exit=0
+schema      : 2
+mirror      : OK
+exit=0
+
+--- 11. the JSON state file was never modified by any of it ---
+projects=1 runs=1 attempts=1 artifacts=1

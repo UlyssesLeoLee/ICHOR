@@ -1,2 +1,23 @@
-...........                                                              [100%]
-11 passed in 0.09s
+......................F......                                            [100%]
+================================== FAILURES ===================================
+___________________ test_tc002_ats506_marker_and_narrative ____________________
+
+    def test_tc002_ats506_marker_and_narrative():
+>       assert w.MARKERS[-1] == '【ATS-506】'
+E       AssertionError: assert '【ATS-512】' == '【ATS-506】'
+E         
+E         - 【ATS-506】
+E         ?       ^^
+E         + 【ATS-512】
+E         ?       ^^
+
+tools\test_wbs_common_helpers.py:27: AssertionError
+=========================== short test summary info ===========================
+FAILED tools/test_wbs_common_helpers.py::test_tc002_ats506_marker_and_narrative
+1 failed, 28 passed in 0.40s
+
+=== NOTE ===
+The single failure (test_tc002_ats506_marker_and_narrative) is PRE-EXISTING:
+it fails identically on the base commit 8300d76 (git archive 8300d76 -> pytest tools/ -q -> 1 failed, 28 passed).
+It is an ATS-506/ATS-512 marker-ordering assertion in tools/wbs_common.py MARKERS,
+unrelated to the ATS-205 SQLite metadata layer, and NOT introduced by this branch.
