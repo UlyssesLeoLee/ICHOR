@@ -155,7 +155,9 @@
 
 ### 4.1 单元与集成测试（UT/IT）
 
-`npm test`（Node v24.19.0）：**177 项，170 通过、7 跳过、0 失败**，其中 Agent 契约相关 90 项（`UT-AGT-*` 契约单元测试 68 项 + 第 3 次复核整改新增的 UT-AGT-074~085 共 12 项 + `IT-AGT-*` API 集成测试 22 项），原有 20 项无回归。7 项跳过是 ATS-301 的 fixture 集成测试（`examples/sample-playwright` / `examples/sample-wdio` 未安装依赖），不是本任务引入。原始输出见 `docs/evidence/ATS-401/01-node-test.log`。
+`npm test`（Node v24.19.0）：在两个 example fixture 的依赖都装好的工作树上，**189 项全通过，0 失败、0 跳过**。其中 Agent 契约相关 90 项（`UT-AGT-*` 契约单元测试 68 项 + 第 3 次复核整改新增的 UT-AGT-074~085 共 12 项 + `IT-AGT-*` API 集成测试 22 项），原有 20 项无回归。
+
+> 依赖未装时同一命令会跳过若干 fixture 集成测试（`examples/sample-playwright` / `examples/sample-wdio` 没有 `node_modules`）。**跳过不等于通过**：本轮把两个 fixture 的依赖都装上之后重跑，189 项全绿——IT-API-013（能力协商）在缺 Playwright 依赖时是会**失败**的（协商返回 409 而不是 200），不是跳过。原始输出见 `docs/evidence/ATS-401/01-node-test.log`。
 
 新增用例覆盖：
 
