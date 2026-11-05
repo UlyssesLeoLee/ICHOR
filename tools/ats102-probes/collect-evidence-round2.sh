@@ -215,7 +215,7 @@ NPM12_CLONE="${ATS_PROBE_NPM12_CLONE:-D:/hermes-multica/home/cache/scratch/ats10
   echo "==================================================================="
   echo "the difference between the two trees, file by file"
   echo "==================================================================="
-  python3 "$ROOT/tools/ats102-probes/diff-install-trees.py" \
+  python3 "$NATIVE_ROOT/tools/ats102-probes/diff-install-trees.py" \
     "$NPM10_CLONE/apps/studio/node_modules" \
     "$NPM12_CLONE/apps/studio/node_modules" 2>&1 | sed 's/^/    /'
 } > "$EV/14-npm-version-and-install-digest.log" 2>&1

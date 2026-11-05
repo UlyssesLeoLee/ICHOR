@@ -14,7 +14,8 @@
  *   node tools/ci_build_gate.mjs --list       # list the steps
  *
  * Steps (one per CI workflow step, in the same order):
- *   checknode  assert the Node major version matches engines.node
+ *   checknode  assert the Node major version matches engines.node and the npm
+ *             version matches packageManager
  *   install   npm ci in the root and in apps/studio, from the committed
  *             lockfiles only
  *   lockcheck assert that npm ci did not mutate either lockfile
@@ -73,10 +74,10 @@ const REQUIRED_NPM_VERSION = '10.9.9';
 const STEPS = [
   {
     id: 'checknode',
-    title: 'The Node major version matches engines.node',
+    title: 'The Node and npm versions match the pinned toolchain',
     commands: [
       // The workflow runs the same assertion as its first step
-      // ("Verify Node version matches engines").
+      // ("Verify Node and npm versions match the pinned toolchain").
       { cwd: REPO_ROOT, cmd: 'node', args: ['tools/ci_build_gate.mjs', '--check-node'] },
     ],
   },
@@ -157,11 +158,23 @@ const STEPS = [
 ];
 
 /**
- * The npm version in use, for the gate banner. */
-function npmVersion() {
-  const res = spawnSync('npm', ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' });
-  return (res.stdout || '').trim() || 'unknown';
-}
+ /**
+  * The npm version on the PATH.
+  *
+  * On Windows `npm` is a `.cmd` shim, so it cannot be launched directly: the
+  * OS only starts it through cmd.exe. The command is therefore run as
+  * `cmd /c npm --version` WITHOUT `shell: true`, because a shell that
+  * concatenates its arguments unescaped is deprecated in Node (DEP0190).
+  * `cmd /c` takes the whole remainder as one command line, so nothing is
+  * re-split.
+  */
+ function npmVersion() {
+   const cmd = process.platform === 'win32'
+     ? { file: 'cmd', args: ['/c', 'npm --version'] }
+     : { file: 'npm', args: ['--version'] };
+   const res = spawnSync(cmd.file, cmd.args, { encoding: 'utf8', shell: false });
+   return (res.stdout || '').trim() || 'unknown';
+ }
 
 /**
  * Whether a command needs the Windows shell.

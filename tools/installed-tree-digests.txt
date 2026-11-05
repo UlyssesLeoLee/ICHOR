@@ -16,9 +16,9 @@
 # It is also NPM-VERSION-DEPENDENT. npm 10.9.9 and npm 12.2.0 resolve the
 # SAME lockfile to different trees: npm 12 no longer installs
 # @emnapi/runtime and @img/sharp-wasm32. The win32-x64 values below were
-# produced by npm 10.9.9 (the npm bundled with Node 22.23.4), which is the
-# version the root package.json pins as `packageManager`. The build gate
-# asserts that npm version in its `checknode` step, so a mismatch points at
+# measured under both npm versions, from the same committed lockfile; see
+# docs/evidence/ATS-102/14-npm-version-and-install-digest.log. The build gate
+# asserts the npm version in its `checknode` step, so a mismatch points at
 # the npm version rather than at the lockfiles.
 #
 # Format:  <scope> <platform> <npm-version> <sha256>
@@ -33,3 +33,5 @@
 
 all-files     win32-x64 10.9.9 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
 package-json win32-x64 10.9.9 4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304
+all-files     win32-x64 12.2.0 5e5a977f96aeb873f414967d1bb7ea7068df251ed47e2a68c21764f2c9e4a18f
+package-json win32-x64 12.2.0 0debded72282e9cdfcdc9dc573c263aaf364514d8d5244b85db5f4433a54e0e2
