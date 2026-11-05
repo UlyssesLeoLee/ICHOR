@@ -18,8 +18,11 @@
  *       data, and that the counts are the ones the migration promised.
  *
  *   node tools/migrate_state.mjs rollback [--data-dir <dir>] [--state <path>]
+ *                                           [--force]
  *       Restores the state file and the database from the backup and renames
- *       the run folders back to their old names.
+ *       the run folders back to their old names. A rollback that would
+ *       discard a change made after the migration is refused unless --force
+ *       is given.
  *
  * Exit codes
  * ----------
@@ -37,6 +40,7 @@ import {
 } from '../server/migration/state-migration.mjs';
 import {
   applyMigration, rollbackMigration, pathsOf, importAndVerify,
+  readJournal, readMarker,
 } from '../server/migration/apply.mjs';
 import {
   openDatabase, closeDatabase, sqliteAvailable,
@@ -50,16 +54,21 @@ const USAGE = `usage: node tools/migrate_state.mjs <plan|apply|verify|rollback> 
   --state <path>    the JSON state file (default: <data-dir>/state.json)
   --import-db       also import the migrated state into the metadata database
   --no-rollback     on a failure, do NOT undo the steps that were done
+  --force           roll back even when the state changed since the migration
 `;
 
 function parseArgs(argv) {
-  const out = { command: argv[0], dataDir: null, state: null, importDb: false, rollbackOnFailure: true };
+  const out = {
+    command: argv[0], dataDir: null, state: null,
+    importDb: false, rollbackOnFailure: true, force: false,
+  };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--data-dir') { out.dataDir = argv[++i]; continue; }
     if (a === '--state') { out.state = argv[++i]; continue; }
     if (a === '--import-db') { out.importDb = true; continue; }
     if (a === '--no-rollback') { out.rollbackOnFailure = false; continue; }
+    if (a === '--force') { out.force = true; continue; }
     if (a === '--help' || a === '-h') { out.help = true; continue; }
     const e = new Error(`unknown argument: ${a}`);
     e.code = 'UNKNOWN_ARGUMENT';
@@ -77,17 +86,21 @@ function defaultDataDir() {
 /**
  * The data directory of the run: the state file decides where the data
  * directory is, unless it is given explicitly.
+ *
+ * The `--state` option names the state file that is migrated, and the
+ * data directory is derived from it. That is the whole point of the option:
+ * the file the operator named is the file that is migrated -- not some
+ * other file that happens to sit in the data directory.
  */
 function resolvePaths(args) {
   const dataDir = args.dataDir ? path.resolve(args.dataDir) : null;
   const statePath = args.state ? path.resolve(args.state) : null;
   if (statePath && !dataDir) {
-    return { dataDir: path.dirname(statePath), statePath, runsDir: path.join(path.dirname(statePath), 'runs'), dbPath: path.join(path.dirname(statePath), 'metadata.db') };
+    const dir = path.dirname(statePath);
+    return pathsOf(dir, statePath);
   }
   const dir = dataDir ?? defaultDataDir();
-  const paths = pathsOf(dir);
-  if (statePath) paths.statePath = statePath;
-  return paths;
+  return pathsOf(dir, statePath ?? path.join(dir, 'state.json'));
 }
 
 function printCounts(label, counts) {
@@ -102,7 +115,23 @@ function printCounts(label, counts) {
  */
 function commandPlan(args) {
   const paths = resolvePaths(args);
-  const state = readStateFile(paths.statePath);
+
+  // An interrupted migration is reported by the plan as well: the operator
+  // has to know that the directory is in a half-migrated state before they
+  // plan anything on top of it.
+  const pending = readJournal(paths.dataDir);
+  if (pending) {
+    console.log(`interrupted migration: found (${pending.steps.join(', ') || 'no step recorded'})`);
+    console.log('the next "apply" finishes it, and "rollback" undoes it');
+  }
+
+  let state;
+  try {
+    state = readStateFile(paths.statePath);
+  } catch (e) {
+    console.error(e.message);
+    return 1;
+  }
   const before = summarizeState(state);
 
   let plan;
@@ -156,16 +185,25 @@ function commandApply(args) {
     return 3;
   }
 
-  const report = applyMigration(paths.dataDir, {
-    importDatabase: args.importDb,
-    rollbackOnFailure: args.rollbackOnFailure,
-  });
+  let report;
+  try {
+    report = applyMigration(paths.dataDir, {
+      importDatabase: args.importDb,
+      rollbackOnFailure: args.rollbackOnFailure,
+      statePath: paths.statePath,
+    });
+  } catch (e) {
+    // A failure of the engine itself is reported as a failure, not as a
+    // stack trace: the CLI is an operator tool.
+    console.error(`the migration FAILED: ${e.message}`);
+    return 1;
+  }
 
-  printCounts('before', report.before);
-  printCounts('after ', report.after);
+  if (report.before) printCounts('before', report.before);
+  if (report.after) printCounts('after ', report.after);
 
-  for (const c of report.changes) console.log(`change: ${c.kind} ${c.from} -> ${c.to}`);
-  for (const f of report.renamedFolders) console.log(`folder rename: ${f.from} -> ${f.to}`);
+  for (const c of report.changes ?? []) console.log(`change: ${c.kind} ${c.from} -> ${c.to}`);
+  for (const f of report.renamedFolders ?? []) console.log(`folder rename: ${f.from} -> ${f.to}`);
 
   if (report.failed) {
     console.error('the migration FAILED:');
@@ -191,7 +229,13 @@ function commandApply(args) {
  */
 function commandVerify(args) {
   const paths = resolvePaths(args);
-  const state = readStateFile(paths.statePath);
+  let state;
+  try {
+    state = readStateFile(paths.statePath);
+  } catch (e) {
+    console.error(e.message);
+    return 1;
+  }
 
   if (!fs.existsSync(paths.dbPath)) {
     console.error(`no metadata database: ${paths.dbPath}`);
@@ -226,14 +270,39 @@ function commandVerify(args) {
  */
 function commandRollback(args) {
   const paths = resolvePaths(args);
-  const result = rollbackMigration(paths.dataDir);
+
+  // The Bridge must not be running, for the same reason as for the apply:
+  // it keeps its own copy of the state in memory and writes it back.
+  const holder = readBridgeLock(lockPath(paths.dataDir));
+  if (holder) {
+    console.error(
+      `refusing to roll back: a Bridge is running (pid ${holder.pid}). ` +
+      'Stop the Bridge first, then run the rollback again.'
+    );
+    return 3;
+  }
+
+  let result;
+  try {
+    result = rollbackMigration(paths.dataDir, {
+      force: args.force,
+      statePath: paths.statePath,
+    });
+  } catch (e) {
+    console.error(`the rollback FAILED: ${e.message}`);
+    return 1;
+  }
+
   if (!result.restored) {
     console.error('the rollback FAILED:');
     for (const p of result.problems) console.error(`  ${p}`);
     return 1;
   }
   for (const u of result.undone) console.log(u);
-  console.log(`rolled back: ${paths.dataDir}`);
+  if (result.lost?.length) {
+    console.log(`the runs recorded after the migration were discarded: ${result.lost.join(', ')}`);
+  }
+  console.log(`rolled back: ${paths.statePath}`);
   return 0;
 }
 

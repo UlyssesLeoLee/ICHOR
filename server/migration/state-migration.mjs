@@ -24,7 +24,7 @@
  *
  * The module is PURE: `planMigration` computes the new state without
  * touching the disk. The disk work (the backup, the atomic write, the
- * folder renames, the rollback) lives in `backup.mjs` and `apply.mjs`.
+ * folder renames, the journal, the rollback) lives in `apply.mjs`.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -249,19 +249,57 @@ export function planMigration(state) {
 }
 
 /**
+ * True when a string is a run identifier the Bridge accepts.
+ *
+ * The run folder on disk is named after the run id, so the id is used as a
+ * PATH SEGMENT. An id that carries a path separator or a `..` would make
+ * the rename leave the runs directory -- or reach outside the data
+ * directory. The identifier is therefore validated before it is ever
+ * joined into a path.
+ *
+ * @param {string} id the run identifier
+ * @returns {boolean}
+ */
+export function isValidRunId(id) {
+  return typeof id === 'string' && /^run_(?:[0-9a-f-]{36}|1_[0-9a-f]{24})$/.test(id);
+}
+
+/**
  * Renames the run folders on disk so that they match the migrated run ids.
  * Returns the list of folders that were actually renamed.
+ *
+ * The rename is done ONE FOLDER AT A TIME, and the list of the folders that
+ * were renamed so far is handed to `onRenamed` after every single rename.
+ * A rename that throws half way through therefore leaves the caller with an
+ * accurate record of what has already been renamed -- without that, the
+ * automatic rollback cannot put the folders back and the restored state
+ * points at folders that no longer exist.
+ *
+ * @param {string} runsDir the runs directory
+ * @param {Array<{from:string,to:string}>} renamedFolders the renames to do
+ * @param {(done:Array<{from:string,to:string}>)=>void} [onRenamed] called
+ *   after every successful rename with the folders renamed so far
+ * @returns {Array<{from:string,to:string}>} the folders that were renamed
  */
-export function renameRunFolders(runsDir, renamedFolders) {
+export function renameRunFolders(runsDir, renamedFolders, onRenamed) {
   const renamed = [];
   if (!fs.existsSync(runsDir)) return renamed;
   for (const f of renamedFolders) {
+    // The identifier becomes a path segment, so it has to be one.
+    if (!isValidRunId(f.from) || !isValidRunId(f.to)) {
+      const e = new Error(`INVALID_RUN_ID: ${JSON.stringify(f.from)} -> ${JSON.stringify(f.to)}`);
+      e.code = 'INVALID_RUN_ID';
+      throw e;
+    }
     const from = path.join(runsDir, f.from);
     const to = path.join(runsDir, f.to);
     if (!fs.existsSync(from)) continue;
     if (fs.existsSync(to)) continue;
     fs.renameSync(from, to);
     renamed.push(f);
+    // The journal is updated IMMEDIATELY: a rename that fails on the next
+    // folder must not leave this one renamed but unrecorded.
+    if (onRenamed) onRenamed([...renamed]);
   }
   return renamed;
 }
