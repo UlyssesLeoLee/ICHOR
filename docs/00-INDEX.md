@@ -28,6 +28,7 @@
 | 17-AGENT-CONTRACT.md | Agent 契約 | Agent 契约 v1：作用域、预算、输入出处、角色能力、提案与评审状态机、权限边界与实测证据 |
 | 18-UID-SPEC.md | 稳定 UID 规范 | Project/TestDefinition/Run/Attempt 的标识符规则、迁移脚本与已知边界 |
 | 23-AUTHORITATIVE-DISCOVERY.md | 权威发现设计书 | ATS-202：`playwright test --list` 权威索引、信任闸门（未可信仓库不可调用 `--list`）、身份阶梯、CLI 一致性的度量、实测证据与已知边界 |
+| 24-STATE-MIGRATION.md | 状态迁移设计书 | ATS-206：v0.1 状态的安全导入迁移 CLI、计数一致性口径、备份与自动回滚、迁移内核的两条规则与已知边界 |
 | 18-RUNNER-ADAPTER-CONTRACT.md | Runner/Reporter 适配器契约 | ATS-301：适配器契约 v1、能力协商与拒绝规则 |
 | 19-REMOTE-RUNNER-PROTOCOL.md | 远程协议・威胁模型 | S5 远程执行面的信任边界、认证、版本握手、租户隔离、拒绝规则（ADR-015~023，全部 DESIGNED） |
 | 20-PARALLEL-ORCHESTRATION.md | 并行编排 | 多任务并行执行的编排约束 |
