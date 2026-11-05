@@ -1,6 +1,6 @@
 === ATS-401 check: the WBS updater escapes the text it writes ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-3a39d5f791de/worktree
-date      : 2026-11-05T13:21:27Z
+date      : 2026-11-05T13:33:24Z
 command: python tools/ats401-probes/check_wbs_xml_escape.py
 
 updater exit 0
