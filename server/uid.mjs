@@ -643,8 +643,12 @@ function mergeRegistry(reg, candidates, scope = null) {
  *
  * `scope` is the set of files this discovery covered. An entry whose file is
  * outside the scope is kept, whatever its uid.
+ *
+ * It is exported because the ATS-202 authoritative discovery prunes the
+ * registry with the SAME rule: an entry is dropped only when its file was
+ * part of THIS discovery and no resolved case claims its uid.
  */
-function pruneRegistry(entries, candidates, scope = null) {
+export function pruneRegistry(entries, candidates, scope = null) {
   const live = new Set(candidates.map((c) => c.uid).filter(Boolean));
   const inScope = (e) => scope === null || scope.has(e.file);
   const kept = entries.filter((e) => !e.uid || live.has(e.uid) || !inScope(e));

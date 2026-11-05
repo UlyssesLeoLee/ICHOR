@@ -38,7 +38,7 @@
 | FR-018 | 执行事件审计 | 同一次运行生成事件顺序号与 JSONL | P0 | IMPLEMENTED |
 | FR-019 | Git 一致性与冲突提示 | 源码变化导致 stale hash 时返回 409/错误提示 | P0 | IMPLEMENTED |
 | FR-020 | 编辑器多视图 | 代码与图切换不丢原始代码；复杂步骤降级显示 | P0 | IMPLEMENTED (not reversible) |
-| FR-021 | 完整 Playwright --list 发现 | 根据权威运行时发现动态测试与参数化用例 | P1 | DESIGNED |
+| FR-021 | 完整 Playwright --list 发现 | 根据权威运行时发现动态测试与参数化用例 | P1 | IMPLEMENTED (v0.2.0, ATS-202；未可信仓库回退静态索引) |
 | FR-022 | Graph Editor 受控反写 | 仅可视化子集能写回 AST；复杂代码原位保留 | P1 | DESIGNED |
 | FR-023 | WDIO Tauri Runner | 统一 Run/Test/Attempt schema，驱动桌面 E2E | P1 | DESIGNED |
 | FR-024 | AI 生成 | 需求→测试意图→脚本候选→审查后写入 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |

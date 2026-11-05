@@ -4,8 +4,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath } from './core.mjs';
+import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,discoverTests,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath } from './core.mjs';
 import { projectUidFor, projectUidOf, runUidFor, attemptUidFor, nextRunSeq, UID_SCHEME_VERSION } from './uid.mjs';
+import { trustOf, withTrust } from './discovery/trust.mjs';
 import { AGENT_CONTRACT_VERSION,describeAgentContract,validateAgentRequest } from './agent.mjs';
 import { PLUGIN_CONTRACT_VERSION,describePluginContract,validatePluginManifest,resolvePluginPermissions } from './plugins/contract.mjs';
 import { capabilityMatrix,getAdapter,listRunners,selectAdapter,selectAdapterOrThrow , negotiationFailure} from './adapters/registry.mjs';
@@ -146,9 +147,24 @@ const server=http.createServer(async(req,res)=>{
  const pm=p.match(/^\/api\/projects\/(proj_(?:[0-9a-f-]{36}|1_[0-9a-f]{24}))(?:\/(.*))?$/);
  if(pm){const project=getProject(pm[1]),action=pm[2]||'';
   if(action==='tests'&&req.method==='GET'){
-   const catalog=discoverStatic(project,store.uidRegistry);
+   // The discovery mode is decided by the TRUST of the project: an
+   // untrusted project is never asked to run `playwright test --list`,
+   // because that command executes the project config and the test files.
+   // `?authoritative=true` asks for the authoritative index explicitly; the
+   // trust still decides whether it is allowed.
+   const forced=u.searchParams.get('authoritative');
+   const catalog=discoverTests(project,store,store.uidRegistry,forced===null?{}:{authoritative:forced==='true'});
    store.uidRegistry=catalog.registry;saveState(store);
    return respond(res,200,{...catalog,project:cleanProject(project)});
+  }
+  if(action==='trust'&&req.method==='GET'){
+   return respond(res,200,{trust:trustOf(store,project),project:cleanProject(project)});
+  }
+  if(action==='trust'&&req.method==='POST'){
+   const b=await body(req);
+   if(b.trust!=='trusted'&&b.trust!=='untrusted')return err(res,400,'INVALID_TRUST_VALUE');
+   store=withTrust(store,project,{trust:b.trust,reason:b.reason||''});saveState(store);
+   return respond(res,200,{trust:trustOf(store,project),project:cleanProject(project)});
   }
   if(action==='runners'&&req.method==='GET'){
    return respond(res,200,{runners:listRunners(),capabilities:capabilityMatrix(project),project:cleanProject(project)});

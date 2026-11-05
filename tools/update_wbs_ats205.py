@@ -45,7 +45,9 @@ import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from wbs_common import cell_number, cell_text, set_cell_in_row, set_marked_cell
+from wbs_common import (SHEET1, SHEET2, cell_number, cell_text,  # noqa: E402
+                        format_rate, set_cell_in_row, set_marked_cell,
+                        set_narrative_cell, totals)
 
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 SHEET2 = 'xl/worksheets/sheet2.xml'
@@ -95,26 +97,6 @@ def find_ats_row(xml, ats_id):
     raise SystemExit(f'row for {ats_id} not found')
 
 
-def summarise(xml2):
-    """Recompute the overview's cached formula values from the sheet itself.
-
-    Mirrors the three formulas that live in the 总览 sheet:
-      B8  = COUNTIF('开发WBS'!N6:N94,"已完成")
-      B9  = IFERROR(1-SUM('开发WBS'!P6:P94)/SUM('开发WBS'!K6:K94),0)
-      B10 = SUM('开发WBS'!P6:P94)
-    """
-    done = 0
-    sum_p = 0.0
-    sum_k = 0.0
-    for rid in range(FIRST_ROW, LAST_ROW + 1):
-        if cell_text(xml2, rid, 'N') == '已完成':
-            done += 1
-        sum_p += cell_number(xml2, rid, 'P')
-        sum_k += cell_number(xml2, rid, 'K')
-    rate = 0.0 if sum_k == 0 else 1 - sum_p / sum_k
-    return done, rate, sum_p
-
-
 def patch_workbook():
     shutil.copy2(XLSX, XLSX.with_suffix('.xlsx.bak'))
     zin = zipfile.ZipFile(XLSX)
@@ -142,13 +124,21 @@ def patch_workbook():
     parts[SHEET2] = xml2.encode('utf-8')
 
     # --- 总览: refresh the cached values of the existing formulas -----------
-    done, rate, sum_p = summarise(xml2)
+    # The figures are DERIVED from the sheet (wbs_common.totals), not
+    # hardcoded: another task's row may already carry a non-zero completion
+    # rate, and whichever updater ran last must not restore a stale cache.
     xml1 = parts[SHEET1].decode('utf-8')
-    xml1 = set_cell_in_row(xml1, 8, 'B', str(done), numeric=True)
-    xml1 = set_cell_in_row(xml1, 9, 'B', repr(rate), numeric=True)
-    xml1 = set_cell_in_row(xml1, 10, 'B', str(int(sum_p)) if sum_p == int(sum_p) else str(sum_p), numeric=True)
+    derived = totals(parts)
+    xml1 = set_cell_in_row(xml1, 8, 'B', str(derived['completed']), numeric=True)
+    xml1 = set_cell_in_row(xml1, 9, 'B', format_rate(derived['completion_rate']), numeric=True)
+    xml1 = set_cell_in_row(xml1, 10, 'B', repr(int(derived['sum_remaining'])), numeric=True)
+    # The narrative cells D6/D7 are shared by every task: each contributes
+    # ONE marked fragment, so they are re-composed from all of them.
+    xml1 = set_narrative_cell(xml1, 6, 'D6')
+    xml1 = set_narrative_cell(xml1, 7, 'D7')
     parts[SHEET1] = xml1.encode('utf-8')
-    print(f'overview: 已完成={done} 完成率={rate} 剩余人日={sum_p}')
+    print(f'overview: 已完成={derived["completed"]} '
+          f'完成率={derived["completion_rate"]} 剩余人日={derived["sum_remaining"]}')
 
     # --- rewrite the archive, preserving every other part byte-for-byte -----
     tmp = XLSX.with_suffix('.xlsx.tmp')

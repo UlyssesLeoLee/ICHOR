@@ -4,7 +4,7 @@
 - 目标版本：v0.2.0（S2 / WBS ATS-201）
 - 实现：`server/uid.mjs`（纯函数，无 IO）、`server/core.mjs`（发现与归档）、`server/index.mjs`（API 面）
 - 迁移脚本：`tools/migrate_uids.mjs`
-- 状态口径：本文件描述**已实现且有 UT 证据**的能力。依赖 Playwright 权威发现的动态/参数化用例识别（FR-021）由 ATS-202 承接，**本文件不宣称已实现**。
+- 状态口径：本文件描述**已实现且有 UT 证据**的能力。依赖 Playwright 权威发现的动态/参数化用例识别（FR-021）由 ATS-202 承接，已实现（见 `docs/23-AUTHORITATIVE-DISCOVERY.md`）；**本文件描述的是静态发现范围内的稳定 UID**，权威发现的身份阶梯见 ATS-202 的设计书。
 
 ## 1. 为什么需要稳定 UID
 
@@ -346,13 +346,14 @@ node tools/migrate_uids.mjs --state <path to state.json> --rollback
 
 | 边界 | 归属 |
 |---|---|
-| 动态/参数化用例（`test.each`、fixture、代码生成）的权威发现 | ATS-202（FR-021） |
+| 动态/参数化用例（`test.each`、fixture、代码生成）的权威发现 | **ATS-202 已实现**（见 `docs/23-AUTHORITATIVE-DISCOVERY.md`）；本规范描述的是静态发现范围内的 UID，权威发现的身份阶梯在 ATS-202 的设计书里 |
 | 文件/标题变化时的 UID 重识别与歧义提示的完整策略 | ATS-204 |
 | SQLite WAL 持久化与版本迁移 | ATS-205 |
 | Run/Test/Attempt 与事件序号统一模型 | ATS-208 |
 
-本规范实现的是**静态发现范围内**的稳定 UID。`uidStable=false` 的用例在静态发现阶段就已被标记，
-其真实身份要等 ATS-202 的权威发现接入后才能确定。
+本规范实现的是**静态发现范围内**的稳定 UID。`uidStable=false` 的用例在静态发现阶段就已被标记；
+在权威发现（ATS-202）中，动态用例的 UID 由 describe 路径判定（`uidBasis='scope-title'`），
+仍无法判定时保持临时值并报告歧义。
 
 ### 7.1 实测确认的边界
 
