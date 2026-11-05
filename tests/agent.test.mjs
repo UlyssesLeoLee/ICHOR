@@ -1169,3 +1169,252 @@ test('UT-AGT-073: the diff --git header may be omitted, and a quoted path is une
     'AGENT_PROPOSAL_OUT_OF_SCOPE',
   );
 });
+
+/* ------------------------------------------------------------------ */
+/* ATS-401 round-3 regressions (review comment 01a1a9f1-5f4d-7ad7-8faf-2be06893ac83) */
+/* ------------------------------------------------------------------ */
+
+// The hunk the reviewer's counterexample smuggled a second file into: the
+// hunk declares 2/2 but the body only has one -/+ pair, so git closes the
+// hunk after that pair and the blank line counts as one more context line.
+const BLANK_LINE_HUNK = [
+  'diff --git a/tests/login.spec.ts b/tests/login.spec.ts',
+  '--- a/tests/login.spec.ts',
+  '+++ b/tests/login.spec.ts',
+  '@@ -1,2 +1,2 @@',
+  '-test("a", () => {});',
+  '+test("b", () => {});',
+].join('\n');
+
+test('UT-AGT-074: a blank line inside a hunk body counts as a context line', () => {
+  const request = validateAgentRequest(baseRequest());
+  // The hunk declares 2 old / 2 new lines. The body has one -/+ pair plus a
+  // blank line: git counts the blank line as one context line on both sides,
+  // so the counts are satisfied exactly. The validator must agree, or it
+  // will keep reading past the end of the hunk and swallow the next
+  // `---`/`+++` pair as hunk body.
+  const diff = `${BLANK_LINE_HUNK}\n\n`;
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    null,
+  );
+});
+
+test('UT-AGT-075: a second file smuggled in after a blank line is rejected', () => {
+  const request = validateAgentRequest(baseRequest());
+  // The reviewer's counterexample: the validator used to skip the blank
+  // line without counting it, so it stayed inside the hunk and read the
+  // smuggled `---`/`+++` pair as one removed and one added line -- letting a
+  // second file's header through unvalidated.
+  const diff = `${BLANK_LINE_HUNK}\n\n--- a/server/index.mjs\n+++ b/server/index.mjs\n@@ -1 +1 @@\n-x\n+console.log("pwn")\n`;
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    'AGENT_PROPOSAL_OUT_OF_SCOPE',
+  );
+});
+
+test('UT-AGT-076: an unprefixed path is rejected because git -p1 strips one component', () => {
+  const request = validateAgentRequest(baseRequest());
+  // `git apply` defaults to -p1: it strips the first path component. A bare
+  // `+++ tests/login.spec.ts` is therefore the repository-root file
+  // `login.spec.ts` as far as git is concerned -- not the in-scope
+  // `tests/login.spec.ts` the validator would see. Reject it instead of
+  // letting the two disagree.
+  const diff = [
+    '--- /dev/null',
+    '+++ tests/login.spec.ts',
+    '@@ -0,0 +1 @@',
+    '+test("planted", () => {});',
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    'AGENT_PROPOSAL_OUT_OF_SCOPE',
+  );
+});
+
+test('UT-AGT-077: a deletion via +++ /dev/null is rejected', () => {
+  const request = validateAgentRequest(baseRequest());
+  // doc 17 says deletions are rejected; `+++ /dev/null` is a deletion even
+  // when the "deleted file mode" line is absent.
+  const diff = [
+    '--- a/tests/login.spec.ts',
+    '+++ /dev/null',
+    '@@ -1,2 +0,0 @@',
+    '-test("a", () => {});',
+    '-',
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    'AGENT_PROPOSAL_OUT_OF_SCOPE',
+  );
+});
+
+test('UT-AGT-078: a hunk body that overshoots its declared counts is rejected', () => {
+  const request = validateAgentRequest(baseRequest());
+  // git reports "corrupt patch" when the body has more lines than the hunk
+  // header declares. The validator must reject it too.
+  const diff = [
+    'diff --git a/tests/login.spec.ts b/tests/login.spec.ts',
+    '--- a/tests/login.spec.ts',
+    '+++ b/tests/login.spec.ts',
+    '@@ -1 +1 @@',
+    "-test('login passes', async ({page}) => {});",
+    "+test('login passes', async ({page}) => { await page.goto('/'); });",
+    '+extra',
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    'AGENT_PROPOSAL_OUT_OF_SCOPE',
+  );
+});
+
+test('UT-AGT-079: the trailing newline of the diff is not a context line', () => {
+  const request = validateAgentRequest(baseRequest());
+  // `split('\n')` leaves a trailing empty string. It is neither a context
+  // line nor an illegal header line. A diff that ends with a newline must
+  // not be rejected because of it.
+  const diff = `${LEGIT_HUNK}\n`;
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    null,
+  );
+});
+
+test('UT-AGT-080: the no-newline marker right after a hunk is still legal', () => {
+  const request = validateAgentRequest(baseRequest());
+  // git emits `\ No newline at end of file` right after the hunk it
+  // belongs to. The line must be accepted, and must not count towards the
+  // hunk's line counts.
+  const diff = `${LEGIT_HUNK}\n\\ No newline at end of file`;
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    null,
+  );
+});
+
+test('UT-AGT-081: a diff whose file has no trailing newline is accepted', () => {
+  const request = validateAgentRequest(baseRequest());
+  // This is the verbatim shape `git diff` produces for a file without a
+  // trailing newline: two removed lines, one added line, and the
+  // no-newline marker.
+  const diff = [
+    'diff --git a/tests/login.spec.ts b/tests/login.spec.ts',
+    'index 8218917..aceefb7 100644',
+    '--- a/tests/login.spec.ts',
+    '+++ b/tests/login.spec.ts',
+    '@@ -1,2 +1 @@',
+    '-test("a", () => {});',
+    '-',
+    '+test("a", () => {});',
+    '\\ No newline at end of file',
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    null,
+  );
+});
+
+test('UT-AGT-082: a real git diff of a new spec file is accepted', () => {
+  const request = validateAgentRequest(baseRequest({
+    scope: { ...scope(), outputs: ['tests/login.spec.ts', 'tests/new.spec.ts'] },
+  }));
+  // The verbatim shape `git diff` produces for a new file.
+  const diff = [
+    'diff --git a/tests/new.spec.ts b/tests/new.spec.ts',
+    'new file mode 100644',
+    'index 0000000..01eca86',
+    '--- /dev/null',
+    '+++ b/tests/new.spec.ts',
+    '@@ -0,0 +1 @@',
+    '+test("n", () => {});',
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    null,
+  );
+});
+
+test('UT-AGT-083: a real git diff with a whitespace-only context line is accepted', () => {
+  const request = validateAgentRequest(baseRequest());
+  // The verbatim shape `git diff` produces when the context line is
+  // whitespace: the context line is " ", the removal is "-", the addition
+  // is "+   ".
+  const diff = [
+    'diff --git a/tests/login.spec.ts b/tests/login.spec.ts',
+    'index 8218917..8236f46 100644',
+    '--- a/tests/login.spec.ts',
+    '+++ b/tests/login.spec.ts',
+    '@@ -1,2 +1,3 @@',
+    ' test("a", () => {});',
+    '-',
+    '+   ',
+    '+test("b", () => {});',
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    null,
+  );
+});
+
+test('UT-AGT-084: a quoted path that decodes to a non-UTF-8 byte is rejected', () => {
+  const request = validateAgentRequest(baseRequest());
+  // `unquoteGitPath` used to decode the bytes with toString('utf8'), which
+  // silently turns an invalid byte sequence into U+FFFD. The resulting path
+  // is not the path git wrote to disk, so the validator and git would
+  // disagree about which file is being changed. Reject instead.
+  const diff = [
+    '--- "a/tests/login.spec\\377.ts"',
+    '+++ "b/tests/login.spec\\377.ts"',
+    '@@ -1 +1 @@',
+    '-x',
+    '+y',
+  ].join('\n');
+  assert.equal(
+    codeOf(() => validateAgentProposal(
+      { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] },
+      request,
+      { producedBy: 'adapter-x' },
+    )),
+    'AGENT_PROPOSAL_OUT_OF_SCOPE',
+  );
+});

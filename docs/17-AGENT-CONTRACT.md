@@ -105,9 +105,16 @@
   - `index <hex>..<hex>` —— 可选，可带 ` 100644`；
   - `new file mode 100644` —— 可选；
   - `--- a/P`（或 `--- /dev/null`）与 `+++ b/P`。
-- hunk 体按 `@@ -a,b +c,d @@` 声明的行数严格消费，只允许 ` ` / `+` / `-` / `\ No newline at end of file` 开头的行；行数与声明不符即拒绝。
-- **被拒绝**的构造（旧式的 `rename old/new`、`copy from/to`、`similarity`/`dissimilarity index`、`Index:`、`***` 上下文 diff 头、`GIT binary patch`、`Binary files … differ`、`old/new mode`、任何非 `100644` 的 mode、`deleted file mode`）。新建测试脚本（`--- /dev/null` + `new file mode 100644`，且路径在 `scope.outputs` 内）是允许的。
-- **带引号的路径**按 git 的 C 风格转义规则**完整**反转义后再做作用域判定（`unquoteGitPath()`：`\a \b \t \n \v \f \r \" \\ \NNN` 八进制）。转义不合法时直接拒绝——只实现一半的反转义会让校验结果与 git 实际解析出的路径不一致。
+- **路径必须带 `a/` 或 `b/` 前缀**（`/dev/null` 除外）。`git apply` 默认按 `-p1` 剥掉路径的第一段：不带前缀的 `+++ tests/login.spec.ts` 在 git 看来是仓库根目录下的 `login.spec.ts`，与校验器看到的 `tests/login.spec.ts` 不是同一个文件。为保证「校验器判定的路径 == git 解析出的路径」，不带前缀的路径一律拒绝。
+- **hunk 的消费方式与 `git apply` 的解析器一致**（第 3 次复核整改，见下）：
+  - **空行是一行上下文**，旧行数与新行数各加 1；
+  - 旧、新两个计数**同时**达到声明值时，这个 hunk 立即结束，状态回到「头部」；
+  - 此后出现的 `--- `/`+++ ` 开启**新的一段**，必须完整校验，**不能**被当作上一个 hunk 的体吞掉；
+  - hunk 体内计数**超出**声明值即拒绝（git 报 `corrupt patch`）；
+  - 两处例外必须保留，否则合法的 diff 会被误拒：**(a)** 输入末尾的换行不算一行（`split('\n')` 得到的最后一个空串既不计为上下文，在头部状态下也不算非法头）；**(b)** hunk 结束之后**紧跟的一行** `\ No newline at end of file` 仍然合法。
+- **被拒绝**的构造（旧式的 `rename old/new`、`copy from/to`、`similarity`/`dissimilarity index`、`Index:`、`***` 上下文 diff 头、`GIT binary patch`、`Binary files … differ`、`old/new mode`、任何非 `100644` 的 mode、`deleted file mode`）。**删除一律拒绝**——`+++ /dev/null` 即使没有 `deleted file mode` 行也按删除处理，与 `deleted file mode` 同一口径。新建测试脚本（`--- /dev/null` + `new file mode 100644`，且路径在 `scope.outputs` 内）是允许的。
+- **带引号的路径**按 git 的 C 风格转义规则**完整**反转义后再做作用域判定（`unquoteGitPath()`：`\a \b \t \n \v \f 
+ \" \\ \NNN` 八进制）。转义不合法时直接拒绝——只实现一半的反转义会让校验结果与 git 实际解析出的路径不一致。**解码结果不是合法 UTF-8（或含 U+FFFD）时同样拒绝**：`toString('utf8')` 会把非法字节静默变成替换字符，得到的路径与 git 写入磁盘的字节不是同一个路径。
 - `script-diff` 提案必须引用至少一个输入出处（`evidenceRefs`），否则 `AGENT_PROPOSAL_INVALID`。
 - 非 `script-diff` 类型的提案**不得携带 diff**。
 - 评审：`reviewAgentProposal()` 只改审批状态，不改提案内容；`reviewer` 与 `producedBy` **规范化后**不得相同（去首尾空白、折叠内部空白、转小写），因此 `'gen-1 '` 与 `'GEN-1'` 同样被拒（`AGENT_REVIEW_SELF_FORBIDDEN`）；只有 `pending` 可被评审。
@@ -134,7 +141,11 @@
 
 机制 2、3、4 都在**请求/提案层**生效，因此**即使有人日后接入真实模型提供方**，边界依然成立——模型输出绕不过契约层的收敛。
 
-**关于机制 4 的准确表述**：第 1 轮整改用的是**黑名单**（逐一列举已知的危险构造），第 2 次复核证明了黑名单追不上 git 的解析器——`git apply` 仍然接受清单里没有的写法（旧式 `rename old/new` 头就是一个实例），于是「diff 目标都在 `scope.outputs` 内」仍可被绕过。因此第 2 轮整改改为**白名单语法**：只有明确列出的头部形式被接受，其余一律拒绝。这条保证的强度以「被接受的 diff 语法」为准；**平台侧落地前必须再用 `git apply --check --numstat --summary` 校验一次**，以 git 自己的解析器为准（见 §2.3）。
+**关于机制 4 的准确表述**：第 1 轮整改用的是**黑名单**（逐一列举已知的危险构造），第 2 次复核证明了黑名单追不上 git 的解析器——`git apply` 仍然接受清单里没有的写法（旧式 `rename old/new` 头就是一个实例），于是「diff 目标都在 `scope.outputs` 内」仍可被绕过。因此第 2 轮整改改为**白名单语法**：只有明确列出的头部形式被接受，其余一律拒绝。
+
+第 3 次复核进一步发现：第 2 轮的白名单**解析方式**本身与 `git apply` 不一致——空行没有被计为上下文行，导致校验器在 hunk 结束后仍停在 hunk 状态，把紧随其后的 `---`/`+++` 当作 hunk 体吞掉（空行脱同步绕过）；不带 `a/`/`b/` 前缀的路径也没有被拒（`git apply` 默认 `-p1` 会剥掉第一段，校验器与 git 对「改的是哪个文件」产生分歧）。本轮整改把解析器**逐条对齐到 `git apply` 的实际行为**（hunk 的消费规则、路径前缀、删除一律拒绝），并把「校验器判定的路径 == git 解析出的路径」作为硬要求。
+
+**这条保证的强度**：在本仓库的**双向差分语料**上（`tools/ats401-probes/probe-git-apply-bidirectional.mjs`：复核的 3 个反例 + 对合法 diff 的自动变异 + 真实 `git diff` 输出），校验器与 `git apply --numstat --summary` 的判定一致——校验器接受的每一个输入，git 报告的路径都落在 `scope.outputs` 内，且没有 create（outputs 之外）/ delete / rename / mode 变更。**这是「在该语料上一致」的结论，不是「与 git 完全等价」的结论**；语料之外的 diff 形式未被证明。平台侧落地前仍必须再用 `git apply --check --numstat --summary` 校验一次，以 git 自己的解析器为准（见 §2.3）。
 
 **关于机制 1 的准确表述**：它是一条**静态检查**，证明契约层的源码不含 I/O 调用；它**不是**「物理上无法」。Node 运行时并不阻止模块使用 `fetch`、`process`、`globalThis`、`process.getBuiltinModule`、动态 `import()` 或 `require`，因此真正的隔离（模块沙箱、只读挂载、子进程沙箱）**不在本任务范围**，属平台侧（ATS-403）。第 1 次复核指出旧表述「物理上无法」高估了该机制的强度，本节已按实测改为上述口径；`tools/ats401-probes/lib/contract-purity.mjs` 的 11 项负控证明该检查不是恒真。
 

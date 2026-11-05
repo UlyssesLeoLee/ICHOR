@@ -28,13 +28,14 @@ import shutil
 import zipfile
 from pathlib import Path
 
-from wbs_common import set_marked_cell
+from wbs_common import cell_number, cell_text, set_cell_in_row, set_marked_cell
 
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 SHEET2 = 'xl/worksheets/sheet2.xml'
 SHEET1 = 'xl/worksheets/sheet1.xml'
 
 FIRST_ROW, LAST_ROW = 6, 94
+
 
 
 def find_ats_row(xml, ats_id):
@@ -44,26 +45,6 @@ def find_ats_row(xml, ats_id):
     raise SystemExit(f'row for {ats_id} not found')
 
 
-def set_cell(xml, col, value, *, numeric=False):
-    """Set the <x:v> of one cell in one row, keeping its style and any formula."""
-    pat = re.compile(r'(<x:c r="%s\d+"[^>]*>)(.*?)(</x:c>)' % col, re.S)
-    m = pat.search(xml)
-    if m is None:
-        raise SystemExit(f'cell {col} not found')
-    open_tag, body, close = m.groups()
-    f = re.search(r'<x:f>(.*?)</x:f>', body, re.S)
-    open_tag = re.sub(r'\st="[^"]*"', '', open_tag)
-    open_tag = open_tag[:-1] + (' t="n">' if numeric else ' t="str">')
-    new_body = (f.group(0) if f else '') + f'<x:v>{value}</x:v>'
-    return xml[:m.start()] + open_tag + new_body + close + xml[m.end():]
-
-
-def set_cell_in_row(xml, rid, col, value, *, numeric=False):
-    m = re.search(r'<x:row[^>]*r="%d"[^>]*>.*?</x:row>' % rid, xml, re.S)
-    if m is None:
-        raise SystemExit(f'row {rid} not found')
-    row = set_cell(m.group(0), col, value, numeric=numeric)
-    return xml[:m.start()] + row + xml[m.end():]
 
 
 NOTE = (
@@ -73,16 +54,23 @@ NOTE = (
     '契约层源码只 import node:crypto 与 node:path 且不含任何 I/O 调用（静态检查守护，'
     '并非「物理上无法」；运行时隔离属 ATS-403），'
     'diff 必须符合白名单语法（diff --git（可选）/index/new file mode 100644/---/+++），'
-    '白名单里出现的目标路径必须在 scope.outputs 内；旧式 rename old/new、C 引号头、'
-    'similarity index、Index:、上下文 diff 头、hunk 行数不符一律拒绝，'
-    '带引号路径按 git 的 C 风格转义完整反转义后判定；'
-    '平台侧落地前须再用 git apply --check --numstat --summary 以 git 自身解析器复核。'
+    '白名单里出现的目标路径必须在 scope.outputs 内；'
+    '第 3 次复核整改后，解析方式与 git apply 的解析器逐条对齐：'
+    'hunk 体按 @@ -a,b +c,d @@ 声明的行数消费，空行计为一行上下文，'
+    '旧/新计数同时达标即结束该 hunk、其后的 ---/+++ 另起一段并完整校验，'
+    'hunk 体内计数超限即拒；路径必须带 a/ 或 b/ 前缀（git -p1 会剥掉第一段），'
+    '+++ /dev/null 一律按删除拒绝；'
+    '旧式 rename old/new、copy from/to、similarity index、Index:、上下文 diff 头一律拒绝；'
+    '带引号路径按 git 的 C 风格转义完整反转义后判定，非 UTF-8 或含 U+FFFD 即拒；'
+    '双向差分语料（复核 3 个反例 + 合法 diff 的自动变异 + 真实 git diff 输出）上，'
+    '校验器与 git apply --numstat --summary 判定一致（该语料上一致，非与 git 完全等价）；'
     '摘要与内容在请求校验层复算比对（/api/agent/validate 与适配器同一判定），'
     '截止时间由 AbortController + Promise.race 强制施加（不 unref，'
     '无其它句柄时亦以 AGENT_BUDGET_EXCEEDED 结束）。'
-    'npm test 共 165 项（158 通过、7 跳过）全通过；'
+    'npm test 共 176 项（169 通过、7 跳过）全通过；'
     '复现脚本 tools/ats401-probes/probe-agent-boundary.mjs、probe-review-regressions.mjs、'
-    'probe-review-regressions-r2.mjs、probe-git-apply-parity.mjs（含负控），'
+    'probe-review-regressions-r2.mjs、probe-git-apply-parity.mjs、'
+    'probe-git-apply-bidirectional.mjs（含负控），'
     '证据 docs/evidence/ATS-401/。'
     '未实现（不属本项）：模型提供商接入（ATS-403）、API Key 存储与外传知情授权（ATS-402）、'
     '提案落地（应用 diff / 更新 expected / Git 提交）；'
@@ -90,20 +78,6 @@ NOTE = (
 )
 
 
-def cell_text(xml, rid, col):
-    m = re.search(r'<x:c r="%s%d"[^>]*>(.*?)</x:c>' % (col, rid), xml, re.S)
-    if m is None:
-        return ''
-    v = re.search(r'<x:v>(.*?)</x:v>', m.group(1), re.S)
-    return v.group(1) if v else ''
-
-
-def cell_number(xml, rid, col):
-    raw = cell_text(xml, rid, col)
-    try:
-        return float(raw)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def summarise(xml2):
