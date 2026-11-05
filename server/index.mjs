@@ -44,21 +44,37 @@ catch(e){
 }
 process.on('exit',()=>releaseBridgeLock());
 let store=loadState();
-// ATS-208: the events of a run travel with the run record. A run that was
-// written before ATS-208 has no `events` array, so its events are read back
-// from the durable `events.jsonl` of its own folder: the log is the record
-// of what happened, and the state file only gained a second copy of it.
+// ATS-208: the events of a run travel with the run record, and the durable
+// `events.jsonl` of its own folder is the RECORD of what happened.
+//
+// The two are reconciled on EVERY start, not only for the runs that were
+// written before ATS-208. The reason is a crash window: an event is written
+// to `events.jsonl` first and the state is saved afterwards, so a bridge
+// that dies in between leaves the log one event AHEAD of the state file.
+// The counter of the run would then hand out a sequence number that the log
+// already holds -- two events with the same number, and the metadata layer's
+// primary key (run_uid, seq) would refuse the duplicate.
+//
+// So the log is the authority: the events of the run are read back from it,
+// and the state's own copy is reconciled against it. An event that the log
+// does not have (the bridge died between the state write and the log
+// write -- impossible in that order, but possible if the log was truncated)
+// is dropped rather than kept, because the log is what a reader replays.
 for(const run of store.runs){
- if(Array.isArray(run.events))continue;
  const file=path.join(runDir(run.id),'events.jsonl');
  if(!fs.existsSync(file))continue;
+ let logged=[];
  try{
-  run.events=fs.readFileSync(file,'utf8').split('\n').filter(Boolean).map((line)=>JSON.parse(line));
-  // The counter of the run must agree with the events that were read back,
-  // otherwise the next event would reuse a number that is already taken.
-  const highest=run.events.reduce((max,e)=>Math.max(max,Number(e.seq)||0),0);
-  if(highest>run.eventSeq)run.eventSeq=highest;
- }catch{run.events=[];}
+  logged=fs.readFileSync(file,'utf8').split('\n').filter(Boolean).map((line)=>JSON.parse(line));
+ }catch{continue;}
+ if(!logged.length)continue;
+ // The events of the state that the log does not have are dropped: the log
+ // is the record, and a reader replays the log.
+ run.events=logged;
+ // The counter of the run must agree with the events that were read back,
+ // otherwise the next event would reuse a number that is already taken.
+ const highest=run.events.reduce((max,e)=>Math.max(max,Number(e.seq)||0),0);
+ if(highest>run.eventSeq)run.eventSeq=highest;
 }
 // ATS-208: the recovery of a run whose bridge died. The run is marked
 // `interrupted` AND the event that says so is written -- without the event

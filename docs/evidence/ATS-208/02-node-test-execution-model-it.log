@@ -1,0 +1,24 @@
+=== the execution model integration suite ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-1643614c08b5/worktree
+commit    : c7a44bf
+branch    : agent/m3/seikoist-169
+node      : v24.19.0
+python    : Python 3.11.16
+
+✔ IT-EXE-001: the bridge starts (337.6866ms)
+✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (488.0807ms)
+✔ IT-EXE-003: the events of a run replay into its status, gap-free (16.0704ms)
+✔ IT-EXE-004: the events are in the state file AND in the metadata database (2.9228ms)
+✔ IT-EXE-005: the durable log and the state file carry the same events (0.3835ms)
+✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (1308.0594ms)
+✔ IT-EXE-CLEANUP: stop and cleanup (3.723ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2258.063
+
+exit code : 0

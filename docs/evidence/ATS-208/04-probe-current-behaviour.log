@@ -1,0 +1,78 @@
+=== the retried case: counted once, every attempt kept ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-1643614c08b5/worktree
+commit    : c7a44bf
+branch    : agent/m3/seikoist-169
+node      : v24.19.0
+python    : Python 3.11.16
+
+=== 1. the retried case ===
+run.status        : passed
+summary           : {"total":1,"passed":0,"failed":0,"flaky":1,"executions":2}
+summary.cases     : [{"title":"flaky case","file":"tests/flaky.spec.ts","status":"flaky","duration":20,"error":"first attempt failed","attemptsCount":2,"attempts":[{"status":"failed","retry":0,"duration":11,"error":"first attempt failed"},{"status":"passed","retry":1,"duration":9,"error":""}]}]
+attempts          : [
+  {
+    "uid": "att_1_e2820e2edd58468bace73902",
+    "retry": 0,
+    "status": "failed",
+    "caseStatus": "flaky",
+    "duration": 11,
+    "error": "first attempt failed"
+  },
+  {
+    "uid": "att_1_015af20e27dd6e81db1caa34",
+    "retry": 1,
+    "status": "passed",
+    "caseStatus": "flaky",
+    "duration": 9,
+    "error": ""
+  }
+]
+
+=== 2. the raw report parsed by core.parseReport ===
+raw summary       : {"total":1,"passed":0,"failed":0,"flaky":1,"executions":2}
+raw cases         : [{"title":"flaky case","file":"tests/flaky.spec.ts","line":1,"column":null,"status":"flaky","attempts":[{"status":"failed","retry":0,"duration":11,"error":"first attempt failed","at":null},{"status":"passed","retry":1,"duration":9,"error":"","at":null}],"attemptsCount":2,"duration":20,"error":"first attempt failed"}]
+
+=== 3. the event stream ===
+events            : [
+  {
+    "seq": 1,
+    "at": "2026-11-05T20:00:20.152Z",
+    "type": "run.queued",
+    "data": {
+      "file": "tests/flaky.spec.ts",
+      "runner": "playwright"
+    }
+  },
+  {
+    "seq": 2,
+    "at": "2026-11-05T20:00:20.220Z",
+    "type": "run.started",
+    "data": {
+      "pid": 33644,
+      "runner": "playwright"
+    }
+  },
+  {
+    "seq": 3,
+    "at": "2026-11-05T20:00:20.281Z",
+    "type": "run.finished",
+    "data": {
+      "status": "passed",
+      "code": 0,
+      "signal": null
+    }
+  }
+]
+seq values        : [1,2,3]
+gap-free          : true 
+
+=== 4. can the event stream be replayed into the terminal state? ===
+last event with a status : run.finished -> passed
+the run record says      : passed
+replay agrees            : true
+
+=== 5. the events table in the SQLite mirror ===
+tables            : ["artifacts","events","meta","projects","run_counters","runs","test_attempts","uid_registry"]
+has an events table: true
+
+exit code : 0

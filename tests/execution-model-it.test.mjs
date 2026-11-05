@@ -302,6 +302,119 @@ setInterval(()=>{}, 1000);
   }
 });
 
+/**
+ * The crash window: the bridge dies BETWEEN the event write and the state
+ * write.
+ *
+ * The event is appended to `events.jsonl` first and the state is saved
+ * afterwards, so a bridge that dies in between leaves the durable log one
+ * event AHEAD of the state file. The counter of the run would then hand out
+ * a sequence number the log already holds -- two events with the same
+ * number, and the metadata layer's primary key (run_uid, seq) would refuse
+ * the duplicate.
+ *
+ * The startup reconciliation reads the log back on EVERY start, so the
+ * counter is corrected before any new event is written.
+ */
+test('IT-EXE-007: the counter is reconciled with the durable log after a crash', async () => {
+  const crashDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-exe-window-'));
+  const crashProject = path.join(crashDir, 'fake-pw');
+  const crashData = path.join(crashDir, 'data');
+  fs.mkdirSync(path.join(crashProject, 'node_modules', '@playwright', 'test'), { recursive: true });
+  fs.mkdirSync(path.join(crashProject, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(crashProject, 'package.json'), '{}');
+  fs.writeFileSync(path.join(crashProject, 'playwright.config.ts'), 'export default {}');
+  fs.writeFileSync(path.join(crashProject, 'tests', 'slow.spec.ts'), "test('slow case', ()=>{});\n");
+  fs.writeFileSync(
+    path.join(crashProject, 'node_modules', '@playwright', 'test', 'cli.js'),
+    `
+const fs=require('fs'),path=require('path');
+const output=process.argv[process.argv.indexOf('--output')+1];
+fs.mkdirSync(output,{recursive:true});
+setInterval(()=>{}, 1000);
+`
+  );
+
+  const crashPort = await freePort();
+  const env = { ...process.env, ATS_PORT: String(crashPort), ATS_DATA_DIR: crashData };
+  const start = () => spawn(process.execPath, ['server/index.mjs'], { cwd: root, env, stdio: 'ignore' });
+  const up = async () => {
+    for (let i = 0; i < 100; i++) {
+      try { if ((await fetch(`http://127.0.0.1:${crashPort}/api/health`)).ok) return true; } catch { /* not up */ }
+      await new Promise((r) => setTimeout(r, 35));
+    }
+    return false;
+  };
+  const call = async (endpoint, method = 'GET', body, tok) => {
+    const r = await fetch(`http://127.0.0.1:${crashPort}${endpoint}`, {
+      method,
+      headers: tok ? { 'X-ATS-Token': tok, 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return [r.status, await r.json()];
+  };
+
+  let bridge = start();
+  try {
+    assert.ok(await up(), 'the bridge did not come up');
+    const crashToken = (await call('/api/session'))[1].token;
+    const projectId = (await call('/api/projects', 'POST', { path: crashProject }, crashToken))[1].project.id;
+    const [, started] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/slow.spec.ts' }, crashToken);
+    const crashRunId = started.run.id;
+    for (let i = 0; i < 100; i++) {
+      const r = (await call(`/api/runs/${crashRunId}`, 'GET', null, crashToken))[1].run;
+      if (r.status === 'running') break;
+      await new Promise((r) => setTimeout(r, 35));
+    }
+    bridge.kill('SIGKILL');
+    await new Promise((r) => setTimeout(r, 300));
+
+    // The crash window, simulated: the durable log holds one event MORE
+    // than the state file. The bridge wrote the event and died before it
+    // saved the state.
+    const logFile = path.join(crashData, 'runs', crashRunId, 'events.jsonl');
+    const logged = fs.readFileSync(logFile, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    assert.ok(logged.length >= 2, `the log holds ${logged.length} events`);
+    const stateFile = path.join(crashData, 'state.json');
+    const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    const stateRun = state.runs.find((r) => r.id === crashRunId);
+    // The state is rewound to one event less than the log -- exactly the
+    // window between the two writes.
+    const rewound = logged.slice(0, logged.length - 1);
+    stateRun.events = rewound;
+    stateRun.eventSeq = rewound.length ? rewound[rewound.length - 1].seq : 0;
+    fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+
+    // Restart: the bridge reconciles the counter with the durable log.
+    bridge = start();
+    assert.ok(await up(), 'the bridge did not come back up');
+    const token2 = (await call('/api/session'))[1].token;
+    const [, replay] = await call(`/api/runs/${crashRunId}/replay`, 'GET', null, token2);
+
+    // The sequence has no hole and no duplicate: the counter was corrected
+    // to the log's highest number before the interrupted event was written.
+    assert.deepEqual(replay.gaps, [], JSON.stringify(replay));
+    const seqs = replay.sequence;
+    assert.equal(new Set(seqs).size, seqs.length, `the sequence has a duplicate: ${JSON.stringify(seqs)}`);
+    assert.deepEqual(seqs, seqs.map((_, i) => i + 1));
+    // And the stream still replays into the status of the run.
+    assert.equal(replay.replayedStatus, 'interrupted', JSON.stringify(replay));
+    assert.equal(replay.agrees, true, JSON.stringify(replay));
+
+    // The metadata layer accepts the events: the primary key (run_uid, seq)
+    // would have refused a duplicate.
+    const db = openDatabase(path.join(crashData, 'metadata.db'), { migrate: false });
+    try {
+      const rows = eventsOfRun(db, crashRunId);
+      assert.equal(rows.length, seqs.length, 'the metadata layer holds a different number of events');
+      assert.deepEqual(rows.map((r) => r.seq), seqs);
+    } finally { closeDatabase(db); }
+  } finally {
+    bridge.kill();
+    fs.rmSync(crashDir, { recursive: true, force: true });
+  }
+});
+
 test('IT-EXE-CLEANUP: stop and cleanup', () => {
   if (cp) cp.kill();
   fs.rmSync(dir, { recursive: true, force: true });
