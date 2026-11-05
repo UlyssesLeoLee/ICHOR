@@ -1,6 +1,6 @@
 === ATS-501 evidence: ATS-501 row state in docs/WBS.xlsx ===
-date        : 2026-11-05T09:10:03Z (UTC)
-commit      : 04054a62a3061c117b5df4b6e742d9ea7d10100e
+date        : 2026-11-05T09:27:10Z (UTC)
+commit      : 8a4f03678f4a8c58258774d665d5f951b6671043
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)

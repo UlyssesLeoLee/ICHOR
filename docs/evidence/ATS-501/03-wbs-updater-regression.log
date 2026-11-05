@@ -1,6 +1,6 @@
 === ATS-501 evidence: WBS updater coexistence regression (all tools/update_wbs_*.py) ===
-date        : 2026-11-05T09:10:03Z (UTC)
-commit      : 04054a62a3061c117b5df4b6e742d9ea7d10100e
+date        : 2026-11-05T09:27:10Z (UTC)
+commit      : 8a4f03678f4a8c58258774d665d5f951b6671043
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -8,7 +8,7 @@ default enc : gbk (what the same interpreter would use without the forcing)
 command     : bash tools/ats501-probes/check-wbs-updaters.sh
 
 === ATS-501 regression: WBS updater interaction ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-21-bb02e736c9fe/worktree
+repo root : /d/ICHOR
 updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py
 updater # : 6 (discovered from tools/update_wbs_*.py)
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
