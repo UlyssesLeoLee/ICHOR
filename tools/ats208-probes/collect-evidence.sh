@@ -163,12 +163,16 @@ echo "wrote $EV/11-reviewer-probes.log"
   OLD="${ATS208_OLD_TIP:-8c9dd79}"
   SCRATCH="${TMPDIR:-/tmp}/ats208-mutation"
   rm -rf "$SCRATCH"; mkdir -p "$SCRATCH/tree"
-  if git archive --format=tar "$OLD" > "$SCRATCH/old.tar" 2>/dev/null; then
-    # `tar -x` with a WINDOWS path fails ("Cannot connect to D: resolve
-    # failed"), so the archive is extracted with git itself, which knows
-    # the repository and does not care about the path syntax.
-    ( cd "$SCRATCH/tree" && git --git-dir="$(git -C "$(pwd)" rev-parse --absolute-git-dir)" archive --format=tar "$OLD" | tar -xf - ) 2>/dev/null \
-      || ( cd "$SCRATCH/tree" && git archive --format=tar "$OLD" | tar -xf - )
+  # The archive is extracted with PYTHON, not with `tar -x -C`: the Windows
+  # tar refuses a "D:/..." path ("Cannot connect to D: resolve failed") and
+  # the git fallback needs a git dir that is not where the script expects.
+  # Python's tarfile is portable and needs no path rewriting.
+  if git archive --format=tar "$OLD" > "$SCRATCH/old.tar" 2>/dev/null \
+     && python -c "
+import sys, tarfile
+with tarfile.open(sys.argv[1]) as t:
+    t.extractall(sys.argv[2])
+" "$SCRATCH/old.tar" "$SCRATCH/tree" 2>/dev/null; then
     # The NEW test files are copied onto the OLD tree: the cases are the
     # ones of this delivery, the code is the one of the previous delivery.
     if [ -d "$SCRATCH/tree/tests" ]; then
