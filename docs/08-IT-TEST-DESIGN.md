@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：41；已执行通过：27；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：56；已执行通过：42；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -49,6 +49,21 @@
 |IT-AGT-012|FR-024|安全|错误响应不含本机路径|scope 越界请求|响应体中不含本地 root 或盘符路径|node --test|PASS|
 |IT-AGT-013|NFR-011|异常|非 agent 错误保持 ATS-401 之前的行为|POST /api/projects 指向不存在的目录|500 + 原始 ENOENT 消息，无 agent details|node --test|PASS|
 |IT-AGT-CLEANUP|NFR-005|清理|Agent API 子进程与夹清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
+|IT-CP-SETUP|NFR-011|正常|本地 Bridge 与控制面以纯 Node 进程并行启动|随机端口、隔离数据目录、dev-static 令牌|两者 health=200，取得本地会话 token|node --test|PASS|
+|IT-CP-001|FR-028|正常|控制面无 Tauri 即可使用|GET /cp/v1/health 与 /cp/v1/contract|200，tauriRequired=false|node --test|PASS|
+|IT-CP-002|NFR-002|安全|本地会话 Token 不是控制面凭据|X-ATS-Token、Bearer 本地 Token、二者并带|401 REMOTE_UNAUTHENTICATED|node --test|PASS|
+|IT-CP-003|NFR-002|安全|控制面令牌不是本地凭据|以 X-ATS-Token / Bearer 出示控制面令牌调本地 /api/projects|401 INVALID_SESSION|node --test|PASS|
+|IT-CP-004|FR-028|安全|控制面不服务本地端点|控制面上 GET /api/session、/api/projects 等|403 REMOTE_POLICY_REJECTED，不含本地 token|node --test|PASS|
+|IT-CP-005|FR-028|安全|本地面不服务控制面端点|本地 Bridge 上 GET /cp/v1/health|404 静态响应，非控制面 JSON|node --test|PASS|
+|IT-CP-006|FR-028|安全|登记请求携带本地路径被拒|Windows/UNC/POSIX/file:/编码/家目录/示例仓库绝对路径|422 REMOTE_PATH_FORBIDDEN|node --test|PASS|
+|IT-CP-007|FR-028|安全|以路径或仓库地址代替 UID 被拒|path/root/repositoryUrl/workspace 字段；路径段与查询串|422 REMOTE_PATH_FORBIDDEN|node --test|PASS|
+|IT-CP-008|NFR-002|安全|本地 Token 作为请求体值被拒|displayName/token/数组中放入本地会话 token|422 REMOTE_SECRET_INLINE_FORBIDDEN|node --test|PASS|
+|IT-CP-009|FR-028|正常|按不透明 UID 登记与查询项目元数据|POST displayName，再按 UID 与列表读取|201 + prj UID，响应只有 projectUid/displayName/createdAt|node --test|PASS|
+|IT-CP-010|FR-028|安全|跨租户 404 与客户端指定租户被拒|租户 B 读租户 A 项目；X-ATS-Tenant 指向他租户|404 REMOTE_RESOURCE_NOT_FOUND；403 REMOTE_TENANT_MISMATCH|node --test|PASS|
+|IT-CP-011|NFR-002|安全|控制面响应不含本地路径与本地 Token|逐条扫描本套件收集的全部控制面响应|不含本地数据目录、本地项目路径、示例仓库路径、家目录、本地 token|node --test|PASS|
+|IT-CP-012|FR-001|回归|本地 Bridge 仍按路径登记项目且控制面看不到|本地 POST /api/projects 示例仓库后查控制面列表|本地 201；控制面列表不含该项目|node --test|PASS|
+|IT-CP-013|NFR-002|安全|控制面拒绝与本地 Bridge 共用端口|ATS_CP_PORT 等于 ATS_PORT 启动控制面|退出码 2，stderr 点名 ATS_CP_PORT|node --test|PASS|
+|IT-CP-CLEANUP|NFR-005|清理|控制面 IT 子进程与夹清理|结束 IT suite|两个子进程退出，临时目录删除|node --test|PASS|
 
 ## 进入与退出条件
 
