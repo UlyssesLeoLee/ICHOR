@@ -8,21 +8,36 @@
  * that the number in the documentation can be recomputed by hand:
  *
  *   For every regular file under the tree root:
- *     1. compute the file's sha256 of its RAW bytes, as hex
- *     2. build the line  <relative-posix-path> NUL <hex-digest>
+ *     1. read its bytes
+ *     2. if the bytes contain a NUL byte, the file is BINARY and is hashed
+ *        as they are; otherwise the file is TEXT and is hashed with every
+ *        CRLF replaced by a lone LF
+ *     3. build the line  <relative-posix-path> NUL <hex-digest>
  *   Sort the lines by the relative path (byte order, i.e. plain ASCII sort).
  *   Join the lines with LF, append a final LF, and take the sha256 of the
  *   result. That is the tree digest.
  *
- * Two properties matter and are the reason the recipe is written this way:
+ * Three properties matter and are the reason the recipe is written this way:
  *
  *   - **Path independence.** Only paths RELATIVE to the tree root take part,
  *     so the digest does not change when the repository is cloned into a
  *     different directory. (An absolute-path recipe would make the digest
  *     depend on the checkout location and therefore prove nothing.)
- *   - **Content sensitivity.** Every file's raw bytes are hashed, so a
- *     changed dependency version, a swapped tarball or a patched file all
- *     change the digest.
+ *   - **Content sensitivity.** Every file's bytes are hashed, so a changed
+ *     dependency version, a swapped tarball or a patched file all change the
+ *     digest.
+ *   - **Line-ending independence.** The digest must not depend on HOW git
+ *     happened to check the tree out. With `core.autocrlf=true` (the Windows
+ *     default) the LF blobs become CRLF in the working tree, and npm writes
+ *     the hidden lockfile `node_modules/.package-lock.json` in the
+ *     line-ending style of the lockfile it read -- so the SAME tree has two
+ *     different digests depending on the checkout. Text files are therefore
+ *     hashed with their line endings normalised to LF. Binary files (those
+ *     containing a NUL byte -- git's own text/binary heuristic) are hashed
+ *     byte for byte, because their bytes are not line endings. Normalising
+ *     text does NOT weaken the content sensitivity: a truncated or zero-padded
+ *     file still hashes to a different value, because the corruption is not a
+ *     clean CRLF->LF transformation.
  *
  * Usage:
  *   node tools/tree_digest.mjs <tree-root>              # digest every file
@@ -82,6 +97,18 @@ function collect(dir, acc) {
 }
 
 /**
+ * How many bytes of a file are inspected to decide whether it is binary.
+ *
+ * 8000 is git's own window (FIRST_FEW_BYTES in git's convert.c): git
+ * decides "text or binary" by looking for a NUL byte in the first 8000
+ * bytes, and that same decision is what makes git write CRLF into the
+ * working tree on checkout. Using the same window and the same rule means
+ * "text" here means exactly what it means to git -- which is the point: the
+ * normalisation must undo precisely the transformation git performed.
+ */
+const BINARY_DETECT_BYTES = 8000;
+
+/**
  * The digest of one file, read as a STREAM rather than buffered whole.
  *
  * Buffering every file at once is what the first version of this tool did,
@@ -89,17 +116,120 @@ function collect(dir, acc) {
  * tree -- an installed tree here is ~17000 files and the machine was under
  * memory pressure. Hashing per file and keeping only the hex digest means
  * peak memory is one file, not one tree.
+ *
+ * TEXT FILES ARE HASHED WITH THEIR LINE ENDINGS NORMALISED TO LF.
+ *
+ * This is what makes the digest independent of the checkout's line-ending
+ * style. With `core.autocrlf=true` (the Windows default) git writes CRLF into
+ * the working tree, and npm then writes the hidden lockfile
+ * `node_modules/.package-lock.json` in CRLF too, because it inherits the
+ * line-ending style of the `package-lock.json` it read. In an LF checkout
+ * (core.autocrlf=false, or a .gitattributes with eol=lf, or a Linux CI
+ * runner) the very same install produces an LF `.package-lock.json`. Raw
+ * hashing therefore gave two different digests for one and the same tree,
+ * and the recorded value only described the checkout it was measured in.
+ *
+ * A file is treated as BINARY when it contains a NUL byte in its first 8000
+ * bytes -- git's own heuristic. Binary files are hashed byte for byte, since
+ * their bytes are data, not line endings.
+ *
+ * This does not weaken content sensitivity: a truncated or zero-padded file
+ * still hashes differently, because such corruption is not a clean
+ * CRLF->LF transformation. See the file header for the full recipe.
  */
 function hashFile(full) {
   const hash = crypto.createHash('sha256');
   const fd = fs.openSync(full, 'r');
   try {
     const buf = Buffer.allocUnsafe(1 << 16);
+
+    // Phase 1 -- read the head of the file and decide whether it is binary,
+    // BEFORE any of it is hashed.
+    //
+    // The decision has to come first: a binary file must be hashed byte for
+    // byte, so hashing any of it with a CRLF->LF transformation would make
+    // the result depend on the order in which the bytes were read.
+    let isBinary = false;
+    let head = Buffer.alloc(0);
+    for (;;) {
+      const want = Math.min(buf.length, BINARY_DETECT_BYTES - head.length);
+      if (want <= 0) break;
+      const bytes = fs.readSync(fd, buf, 0, want, null);
+      if (bytes <= 0) break;
+      head = Buffer.concat([head, buf.subarray(0, bytes)]);
+      if (head.includes(0)) {
+        isBinary = true;
+        break;
+      }
+      if (head.length >= BINARY_DETECT_BYTES) break;
+    }
+
+    if (isBinary) {
+      // Binary: hash the raw bytes. The head is hashed as it was read, and
+      // the rest of the file follows from the current file position.
+      hash.update(head);
+      for (;;) {
+        const bytes = fs.readSync(fd, buf, 0, buf.length, null);
+        if (bytes <= 0) break;
+        hash.update(buf.subarray(0, bytes));
+      }
+      return hash.digest('hex');
+    }
+
+    // Phase 2 -- text: hash the bytes with every CRLF replaced by a lone LF.
+    //
+    // The normalisation has to look across chunk boundaries, so a CR at the
+    // very end of a chunk is held back until the next chunk shows whether a
+    // LF follows it. A lone CR (no LF after it) is NOT a CRLF and is kept
+    // as it is.
+    let pendingCr = false;
+
+    const hashTextChunk = (chunk) => {
+      if (pendingCr) {
+        // The held-back CR is now followed by the first byte of this chunk.
+        // If that byte is a LF, the pair was a CRLF: the CR is dropped and
+        // the LF is emitted on its own. Otherwise the CR was a lone CR and
+        // is emitted unchanged.
+        if (chunk[0] === 0x0a) {
+          hash.update(Buffer.from([0x0a]));
+          chunk = chunk.subarray(1);
+        } else {
+          hash.update(Buffer.from([0x0d]));
+        }
+        pendingCr = false;
+      }
+
+      if (!chunk.length) return;
+
+      if (chunk[chunk.length - 1] === 0x0d) {
+        // The chunk ends with a CR: hold it back, it might be a CRLF whose
+        // LF is in the next chunk.
+        pendingCr = true;
+        chunk = chunk.subarray(0, chunk.length - 1);
+      }
+
+      // Replace the CRLF pairs that are fully inside the chunk.
+      let start = 0;
+      for (let i = 0; i + 1 < chunk.length; i++) {
+        if (chunk[i] === 0x0d && chunk[i + 1] === 0x0a) {
+          hash.update(chunk.subarray(start, i));
+          hash.update(Buffer.from([0x0a]));
+          i++;
+          start = i + 1;
+        }
+      }
+      if (start < chunk.length) hash.update(chunk.subarray(start));
+    };
+
+    hashTextChunk(head);
     for (;;) {
       const bytes = fs.readSync(fd, buf, 0, buf.length, null);
       if (bytes <= 0) break;
-      hash.update(buf.subarray(0, bytes));
+      hashTextChunk(buf.subarray(0, bytes));
     }
+
+    // A CR left over at the end of the file is a lone CR, not a CRLF.
+    if (pendingCr) hash.update(Buffer.from([0x0d]));
   } finally {
     fs.closeSync(fd);
   }
@@ -243,12 +373,20 @@ if (!CHECK) {
               `lockfile, so the trees differ and the digests cannot match.\n` +
               `Use npm ${entry.npm} to reproduce the recorded tree.\n`) +
           'The installed tree does not match the tree the recorded digest describes.\n' +
-          'Two things change that tree:\n' +
+          'Things that change that tree:\n' +
           '  - the npm version: npm 10.9.9 and npm 12.2.0 install different sets of\n' +
           '    optional packages from the same lockfile;\n' +
-          '  - the lockfiles themselves: a dependency change moves the digest.\n' +
+          '  - the lockfiles themselves: a dependency change moves the digest;\n' +
+          '  - the platform: the lockfile declares platform-specific optional packages\n' +
+          '    and npm installs only the ones matching the host;\n' +
+          '  - a damaged install: a truncated or zero-padded file changes the digest\n' +
+          '    even when npm ci reported success.\n' +
+          'This list is NOT exhaustive -- it names the usual causes, not all of them.\n' +
           'The build gate pins the npm version in its `checknode` step, so if that\n' +
-          'step passed, compare the lockfiles against the recorded value.\n' +
+          'step passed, the npm version is the right one; the digest itself does NOT\n' +
+          'depend on the checkout line-ending style (text files are hashed with\n' +
+          'their line endings normalised to LF), so a CRLF and an LF checkout of the\n' +
+          'same commit produce the same digest.\n' +
           'To locate the differing files, write a manifest for each tree and diff them:\n' +
           '  node tools/tree_digest.mjs <tree> --manifest <file>',
       );

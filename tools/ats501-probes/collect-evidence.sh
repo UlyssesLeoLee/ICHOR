@@ -5,8 +5,20 @@
 # the verbatim output, so a reviewer can reproduce it. Nothing here is
 # hand-written.
 #
+# ENCODING: the probes print Chinese text (状态 values, 总览 narrative cells,
+# markers). On a default Windows console the Python stdout encoding is the
+# ANSI code page, so the log would capture mojibake and the checks would
+# compare the wrong bytes. UTF-8 is therefore forced at the entry of this
+# script, and every log header records the Python version and the stdout
+# encoding the run actually used -- a PASS is only meaningful together with
+# the encoding it was produced in.
+#
 # Usage: bash tools/ats501-probes/collect-evidence.sh
 set -u
+
+# --- force UTF-8 for every Python invocation in this script ---------------
+export PYTHONUTF8=1
+export PYTHONIOENCODING=utf-8
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT" || exit 1
@@ -17,6 +29,14 @@ mkdir -p "$OUT"
 COMMIT="$(git rev-parse HEAD)"
 STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 NODE_V="$(node --version)"
+
+# The Python environment the logs are produced in. Recorded in EVERY header:
+# the coexistence regression compares Chinese literals, so its result is only
+# reproducible when the encoding is known.
+PY_VERSION="$(python -c 'import sys; print(sys.version.replace(chr(10), " "))' 2>&1)"
+PY_STDOUT_ENCODING="$(python -c 'import sys; print(sys.stdout.encoding)' 2>&1)"
+PY_DEFAULT_ENCODING="$(env -u PYTHONUTF8 -u PYTHONIOENCODING \
+  python -c 'import sys; print(sys.stdout.encoding)' 2>&1)"
 
 # The coexistence regression runs FIRST and it RESTORES the workbook to the
 # committed state when it finishes (it has to: it writes the workbook in
@@ -34,6 +54,9 @@ header() {
     echo "date        : $STAMP (UTC)"
     echo "commit      : $COMMIT"
     echo "node        : $NODE_V"
+    echo "python      : $PY_VERSION"
+    echo "stdout enc  : $PY_STDOUT_ENCODING (forced: PYTHONUTF8=$PYTHONUTF8 PYTHONIOENCODING=$PYTHONIOENCODING)"
+    echo "default enc : $PY_DEFAULT_ENCODING (what the same interpreter would use without the forcing)"
     echo "command     : $2"
     echo ""
   } > "$OUT/$file"
@@ -52,7 +75,7 @@ node tools/ats501-probes/mutation-tests.mjs >> "$OUT/02-mutation-tests.log" 2>&1
 echo "exit code   : $?" >> "$OUT/02-mutation-tests.log"
 
 # --- 3. the WBS coexistence regression --------------------------------------
-header 03-wbs-updater-regression.log "WBS updater coexistence regression (five updaters)" \
+header 03-wbs-updater-regression.log "WBS updater coexistence regression (all tools/update_wbs_*.py)" \
   "bash tools/ats501-probes/check-wbs-updaters.sh"
 bash tools/ats501-probes/check-wbs-updaters.sh >> "$OUT/03-wbs-updater-regression.log" 2>&1
 echo "exit code   : $?" >> "$OUT/03-wbs-updater-regression.log"

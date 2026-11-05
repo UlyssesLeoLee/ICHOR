@@ -1,0 +1,112 @@
+=== ATS-102 evidence: the installed-tree digest does not depend on the checkout line-ending style ===
+date  : 2026-11-05T09:25:15Z
+commit: 912bee6  fix(ATS-102): 让安装树摘要与检出的换行风格无关
+repo  : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-14-43971fe3dca4/worktree
+
+TWO fresh clones of the SAME commit are installed with the SAME npm, and
+the digest is measured in each:
+
+  clone A: core.autocrlf=true   -> the working tree gets CRLF (Windows default)
+  clone B: core.autocrlf=false  -> the working tree stays LF
+
+The digest recipe hashes TEXT files with their line endings normalised to
+LF and BINARY files byte for byte, so the two clones must agree.
+
+The line-ending style of the checkout is set per clone with
+  git -c core.autocrlf=true  clone ... / git -c core.autocrlf=false clone ...
+and the setting is re-applied after the clone, because git records the
+config of the machine that made the clone, not the one passed on the
+command line.
+
+===================================================================
+[clone A]  line-ending style: crlf   core.autocrlf=true
+                path: D:/hermes-multica/home/cache/scratch/ats102-eol-crlf-clone
+===================================================================
+cloned commit      : 912bee6  fix(ATS-102): 让安装树摘要与检出的换行风格无关
+core.autocrlf      : true
+
+--- the checkout really has the intended line endings ---
+  package-lock.json CR bytes : 16
+  apps/studio/package-lock.json CR bytes : 1338
+
+--- npm ci (apps/studio), same lockfile in both clones ---
+node : v22.23.4
+npm  : 10.9.9
+
+added 57 packages in 42s
+
+--- the hidden lockfile npm wrote (this is where the line endings differ) ---
+    .package-lock.json bytes      : 25501
+    .package-lock.json CR bytes   : 752
+    .package-lock.json raw sha256 : fa2fd4ea8cf932e1c92f3893b3937a025cbf220a488110d986f38d4dce115f31
+    .package-lock.json LF-norm    : 6df2c174b2539953d1082b326e016681a9ce32fcf465ab3df588a3429eca94fb
+
+--- the measured digests ---
+    tree root      : D:\hermes-multica\home\cache\scratch\ats102-eol-crlf-clone\apps\studio\node_modules
+    scope          : all files
+    file count     : 17191
+    tree sha256    : 0915e9b2393d7d707edbfa37cd367ac0990ac641dd0916ec8d304faaf5f320bd
+    tree root      : D:\hermes-multica\home\cache\scratch\ats102-eol-crlf-clone\apps\studio\node_modules
+    scope          : package.json files only
+    file count     : 317
+    tree sha256    : 9349b74ff8b6c56586680fb03d09d1998a802f4fb3af9d02bea5eb7e04351aea
+
+--- the gate's own digest check (installdigest) ---
+    tree root      : D:\hermes-multica\home\cache\scratch\ats102-eol-crlf-clone\apps\studio\node_modules
+    scope          : all files
+    file count     : 17191
+    tree sha256    : 0915e9b2393d7d707edbfa37cd367ac0990ac641dd0916ec8d304faaf5f320bd
+    digest ok: all-files win32-x64 = 0915e9b2393d7d707edbfa37cd367ac0990ac641dd0916ec8d304faaf5f320bd
+    exit code = 0
+
+
+===================================================================
+[clone B]  line-ending style: lf   core.autocrlf=false
+                path: D:/hermes-multica/home/cache/scratch/ats102-eol-lf-clone
+===================================================================
+cloned commit      : 912bee6  fix(ATS-102): 让安装树摘要与检出的换行风格无关
+core.autocrlf      : false
+
+--- the checkout really has the intended line endings ---
+  package-lock.json CR bytes : 0
+  apps/studio/package-lock.json CR bytes : 0
+
+--- npm ci (apps/studio), same lockfile in both clones ---
+node : v22.23.4
+npm  : 10.9.9
+
+added 57 packages in 37s
+
+--- the hidden lockfile npm wrote (this is where the line endings differ) ---
+    .package-lock.json bytes      : 24749
+    .package-lock.json CR bytes   : 0
+    .package-lock.json raw sha256 : 6df2c174b2539953d1082b326e016681a9ce32fcf465ab3df588a3429eca94fb
+    .package-lock.json LF-norm    : 6df2c174b2539953d1082b326e016681a9ce32fcf465ab3df588a3429eca94fb
+
+--- the measured digests ---
+    tree root      : D:\hermes-multica\home\cache\scratch\ats102-eol-lf-clone\apps\studio\node_modules
+    scope          : all files
+    file count     : 17191
+    tree sha256    : 0915e9b2393d7d707edbfa37cd367ac0990ac641dd0916ec8d304faaf5f320bd
+    tree root      : D:\hermes-multica\home\cache\scratch\ats102-eol-lf-clone\apps\studio\node_modules
+    scope          : package.json files only
+    file count     : 317
+    tree sha256    : 9349b74ff8b6c56586680fb03d09d1998a802f4fb3af9d02bea5eb7e04351aea
+
+--- the gate's own digest check (installdigest) ---
+    tree root      : D:\hermes-multica\home\cache\scratch\ats102-eol-lf-clone\apps\studio\node_modules
+    scope          : all files
+    file count     : 17191
+    tree sha256    : 0915e9b2393d7d707edbfa37cd367ac0990ac641dd0916ec8d304faaf5f320bd
+    digest ok: all-files win32-x64 = 0915e9b2393d7d707edbfa37cd367ac0990ac641dd0916ec8d304faaf5f320bd
+    exit code = 0
+
+
+===================================================================
+the two clones, side by side
+===================================================================
+
+The digests above must be IDENTICAL between clone A (CRLF) and clone B (LF).
+The raw sha256 of the hidden lockfile must DIFFER between them -- that is
+the effect that the normalisation undoes.
+

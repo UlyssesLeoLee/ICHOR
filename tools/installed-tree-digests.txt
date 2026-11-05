@@ -6,9 +6,11 @@
 # installed on different machines gives the same value.
 #
 # It is PLATFORM-DEPENDENT, and that is a property of the lockfile, not of
-# the recipe: apps/studio/package-lock.json declares 40 platform-specific
-# optional entries (@next/swc-<platform>, @img/sharp-<platform>,
-# @img/sharp-libvips-*). npm only installs the ones matching the host
+# the recipe: apps/studio/package-lock.json declares 40 optional entries, of
+# which 33 carry an os/cpu/libc constraint (@next/swc-<platform>,
+# @img/sharp-<platform>, @img/sharp-libvips-*) and 7 carry none
+# (@emnapi/runtime, @img/colour, @img/sharp-wasm32, @types/trusted-types,
+# detect-libc, semver, sharp). npm only installs the ones matching the host
 # platform, so a Windows install and a Linux install legitimately produce
 # different trees. The values are therefore recorded per platform, and
 # `--check` compares against the entry for the platform it runs on.
@@ -21,6 +23,15 @@
 # asserts the npm version in its `checknode` step, so a mismatch points at
 # the npm version rather than at the lockfiles.
 #
+# It is NOT LINE-ENDING-DEPENDENT. Text files are hashed with their line
+# endings normalised to LF, so a CRLF checkout (core.autocrlf=true) and an
+# LF checkout (core.autocrlf=false, a .gitattributes with eol=lf, or a Linux
+# CI runner) of the same commit produce the SAME digest. This matters because
+# npm writes the hidden lockfile node_modules/.package-lock.json in the
+# line-ending style of the package-lock.json it read, so a raw-byte digest
+# differed between the two checkout styles. See
+# docs/evidence/ATS-102/17-line-ending-independent-digest.log.
+#
 # Format:  <scope> <platform> <npm-version> <sha256>
 #   scope       all-files | package-json
 #   platform    <process.platform>-<process.arch>
@@ -31,7 +42,7 @@
 #   node tools/tree_digest.mjs apps/studio/node_modules --package-json-only
 # then update the matching line below.
 
-all-files     win32-x64 10.9.9 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
-package-json win32-x64 10.9.9 4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304
-all-files     win32-x64 12.2.0 5e5a977f96aeb873f414967d1bb7ea7068df251ed47e2a68c21764f2c9e4a18f
-package-json win32-x64 12.2.0 0debded72282e9cdfcdc9dc573c263aaf364514d8d5244b85db5f4433a54e0e2
+all-files     win32-x64 10.9.9 0915e9b2393d7d707edbfa37cd367ac0990ac641dd0916ec8d304faaf5f320bd
+package-json win32-x64 10.9.9 9349b74ff8b6c56586680fb03d09d1998a802f4fb3af9d02bea5eb7e04351aea
+all-files     win32-x64 12.2.0 a396b62d6eadb875eadb4ac13a13bfe632663d3bd31df7704a62a88ec65c316c
+package-json win32-x64 12.2.0 bc3db96d850fb994f2a68f4f8fe77917b2878b64c670f84f82bd3c3c98a629ec
