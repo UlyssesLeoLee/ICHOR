@@ -56,6 +56,15 @@ const REQUIRED_NODE_MAJOR = 22;
  */
 const STEPS = [
   {
+    id: 'checknode',
+    title: 'The Node major version matches engines.node',
+    commands: [
+      // The workflow runs this as its first step; the local gate runs it too,
+      // so the two really are the same sequence of commands.
+      { cwd: REPO_ROOT, cmd: 'node', args: ['tools/ci_build_gate.mjs', '--check-node'] },
+    ],
+  },
+  {
     id: 'install',
     title: 'Clean install from the committed lockfiles (npm ci)',
     commands: [
@@ -94,6 +103,9 @@ const STEPS = [
     title: 'Unit / integration tests (node --test)',
     commands: [
       { cwd: REPO_ROOT, cmd: 'npm', args: ['test'] },
+      // The workflow also syntax-checks the bridge entrypoint right after the
+      // tests; the local gate runs the same check so the two stay in step.
+      { cwd: REPO_ROOT, cmd: 'node', args: ['--check', 'server/index.mjs'] },
     ],
   },
   {
@@ -112,6 +124,10 @@ const STEPS = [
     id: 'manifest',
     title: 'Dependency manifest is in sync with the lockfiles',
     commands: [
+      // Check the COMMITTED manifest. Checking after a regeneration would
+      // compare the file with itself and could never detect drift, and
+      // regenerating first would silently OVERWRITE a tampered manifest, so
+      // the check has to come first and is the only step that can fail.
       { cwd: REPO_ROOT, cmd: 'node', args: ['tools/gen_dep_manifest.mjs', '--check'] },
     ],
   },
@@ -123,13 +139,32 @@ function npmVersion() {
   return (res.stdout || '').trim() || 'unknown';
 }
 
+/**
+ * Quote an argument for the Windows command shell.
+ *
+ * With `shell: true` the args are CONCATENATED into one command line, not
+ * passed as an argv array, so an argument that contains a space is split in
+ * the wrong place. A repository path with a space in it ("C:\\Users\\Me\\My
+ * Project") made the gate fail with "Cannot find module 'C:\\Users\\Me\\My'".
+ *
+ * The value is wrapped in double quotes; a literal `"` inside it is escaped,
+ * because cmd.exe has no other way to carry one.
+ */
+function quoteForShell(value) {
+  return `"${String(value).replace(/"/g, '\\"')}"`;
+}
+
 function run(cmd) {
   const started = Date.now();
-  const res = spawnSync(cmd.cmd, cmd.args, {
+  const useShell = process.platform === 'win32';
+  // On Windows the .cmd shims need the shell; on POSIX they must not get one.
+  // When the shell is used, every argument has to be quoted by hand because
+  // the arguments are concatenated rather than passed as an argv array.
+  const args = useShell ? cmd.args.map(quoteForShell) : cmd.args;
+  const res = spawnSync(cmd.cmd, args, {
     cwd: cmd.cwd,
     stdio: 'inherit',
-    shell: process.platform === 'win32',
-    // On Windows the .cmd shims need the shell; on POSIX they must not get one.
+    shell: useShell,
     env: process.env,
   });
   const ms = Date.now() - started;

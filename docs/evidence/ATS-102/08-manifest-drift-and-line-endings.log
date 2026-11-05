@@ -1,0 +1,79 @@
+=== ATS-102 evidence: manifest drift gate, line endings, checkout paths ===
+repo : /d/ICHOR
+date : 2026-11-05T04:12:09Z
+git  : git version 2.55.0.windows.4
+node : v24.19.0
+
+-------------------------------------------------------------------
+1. the manifest drift gate
+-------------------------------------------------------------------
+The committed manifest must be checked BEFORE it is regenerated.
+Regenerating first compares the file with itself and cannot detect drift.
+
+--- tamper with one integrity value
+tampered: "integrity": "sha512-Xz4Tpyki7XyrpbUK1jR1
+
+--- order A (the OLD order): regenerate, then --check
+exit code = 0   (0 means the drift was NOT detected)
+
+--- order B (the NEW order): --check first
+exit code = 1   (non-zero means the drift WAS detected)
+
+--- order C: regenerate, then git diff --exit-code
+exit code = 0   (0 means the drift was NOT detected)
+  -> regenerating OVERWRITES the tampered manifest, so a diff taken
+     afterwards cannot see the tamper. This is why the gate only
+     runs --check.
+
+    RESULT: OK -- the committed dependency manifest matches the lockfiles.
+      packages=88 licenceKnown=88 reviewRequired=16
+restored; --check exit code = 0
+
+-------------------------------------------------------------------
+2. lockfileSha256 is recomputable from git
+-------------------------------------------------------------------
+The recorded digest is the sha256 of the CRLF-normalised lockfile,
+which equals the sha256 of the git blob.
+
+package-lock.json
+  recorded in the manifest : d0e018ffd53f971f6874bf79264aab1efd019f928cff09c2c0e426e485e01f17
+  git blob sha256           : d0e018ffd53f971f6874bf79264aab1efd019f928cff09c2c0e426e485e01f17   match=True
+  working tree sha256       : 703557d47d0bb8b3582dbc9daf0ee1d1a0972d58f0391f77e2b08f8942ec46d9   match=False
+  LF-normalised sha256      : d0e018ffd53f971f6874bf79264aab1efd019f928cff09c2c0e426e485e01f17   match=True
+apps/studio/package-lock.json
+  recorded in the manifest : c48439f68c3fabef8f3ae11fa17a4a5b0461fe3261494459b2ce753621724306
+  git blob sha256           : c48439f68c3fabef8f3ae11fa17a4a5b0461fe3261494459b2ce753621724306   match=True
+  working tree sha256       : 5931d663e33da6fc3e56a968e6100a5f275a254473a5d67714bcbd13004fee24   match=False
+  LF-normalised sha256      : c48439f68c3fabef8f3ae11fa17a4a5b0461fe3261494459b2ce753621724306   match=True
+
+-------------------------------------------------------------------
+3. the gate works in a checkout path with spaces / non-ASCII
+-------------------------------------------------------------------
+checkout path: D:/hermes-multica/home/cache/scratch/ats102-sp ace 中/repo
+
+--- step: checknode
+    Node 22.x is required, got 24.19.0
+    RESULT: FAILED -- checknode
+    exit code = 1
+
+--- step: manifest
+    RESULT: OK -- the committed dependency manifest matches the lockfiles.
+    RESULT: OK -- every build-gate step passed.
+    exit code = 0
+
+--- step: lockcheck
+    RESULT: OK -- every build-gate step passed.
+    exit code = 0
+
+--- step: installdigest (needs an installed tree; reports the digest
+    comparison rather than the path problem)
+    RESULT: FAILED -- installdigest
+    exit code = 1
+
+--- the same step on a path WITHOUT spaces, for comparison
+    RESULT: FAILED -- installdigest
+    exit code = 1
+
+(The installdigest difference between the two paths is nil: the same
+ digest is produced with and without spaces. The recorded expectation
+ does not match this machine's install; see docs/17-BUILD-CI.md §7 item 11.)

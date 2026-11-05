@@ -4,7 +4,7 @@ name: ATS-102 build gate
 #
 # 门禁内容（对应 docs/02-REQUIREMENTS.md NFR-007 / NFR-012）：
 #   1. Node 22 + `npm ci`（严格按 lockfile 安装）→ 锁文件可重现性门禁；
-#   2. `npm test`（Node 内置 test runner，59 项 UT/IT）→ 回归门禁；
+#   2. `npm test`（Node 内置 test runner）→ 回归门禁；
 #   3. `apps/studio` 的 `npm ci` + 安装树摘要校验 + `next build`
 #      → 静态导出构建门禁；
 #   4. 依赖清单生成 + 漂移校验 → 依赖清单门禁。
@@ -151,21 +151,16 @@ jobs:
         with:
           node-version-file: '.nvmrc'
 
-      # 先按 lockfile 生成一次（此时无 node_modules，许可字段为 UNKNOWN），
-      # 再安装后重新生成补齐许可字段；两次结果必须一致到「许可已知」这一层，
-      # 因此这里用 --check 校验的是提交进仓库的那一份。
-      - name: Install dependencies so licences can be read
-        run: |
-          npm ci --no-audit --no-fund
-          npm --prefix apps/studio ci --no-audit --no-fund
-
-      - name: Regenerate the dependency manifest
-        run: node tools/gen_dep_manifest.mjs
-
+      # 直接校验**提交进仓库的那一份**清单与 lockfile 一致。
+      #
+      # 这里**不能**先重新生成再 --check：那样比对的是刚写出的文件与它自身，
+      # 任何漂移都检测不到（门禁形同虚设）。正确顺序是 --check 在前；
+      # 需要看清单长什么样时，用单独的 regenerate 步骤，且必须用
+      # `git diff --exit-code` 判断有没有改动。
       - name: Verify the committed manifest matches the lockfiles
         run: node tools/gen_dep_manifest.mjs --check
 
-      - name: Upload the regenerated manifest
+      - name: Upload the dependency manifest
         if: always()
         uses: actions/upload-artifact@v4
         with:
