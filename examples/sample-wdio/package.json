@@ -1,0 +1,16 @@
+{
+  "name": "sample-wdio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fixture project for the ATS-301 WebdriverIO adapter. A minimal WDIO project whose spec files are executed by the adapter through the shared discover/start/stop/collect API.",
+  "scripts": {
+    "test:wdio": "wdio run ./wdio.conf.js"
+  },
+  "devDependencies": {
+    "@wdio/cli": "^10.1.0",
+    "@wdio/local-runner": "^10.0.0",
+    "@wdio/mocha-framework": "^10.0.0",
+    "@wdio/json-reporter": "^10.0.0",
+    "@wdio/spec-reporter": "^10.0.0"
+  }
+}
