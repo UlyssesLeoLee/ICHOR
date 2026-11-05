@@ -129,20 +129,27 @@ echo "wrote $EV/10-coverage.log"
     echo
     SCRATCH="${TMPDIR:-/tmp}/ats208-review-probes"
     rm -rf "$SCRATCH"; mkdir -p "$SCRATCH"
+    # `pwd` in an MSYS shell prints a POSIX path ("/d/ICHOR"), which node
+    # cannot resolve as a module path ("D:\d\ICHOR\..."). The tree and the
+    # scratch are therefore converted to NATIVE paths first.
+    TREE_NATIVE="$(cd "$(pwd)" && pwd -W 2>/dev/null || pwd)"
+    SCRATCH_NATIVE="$(cd "$SCRATCH" && pwd -W 2>/dev/null || pwd)"
+    echo "tree      : $TREE_NATIVE"
+    echo
     echo "--- pw-semantics: does the model agree with Playwright's own verdict? ---"
-    node "$PROBES/pw-semantics.mjs" "$(pwd)" "${ATS208_PW_REPORT:-$SCRATCH/pw-report.json}" 2>&1
+    node "$PROBES/pw-semantics.mjs" "$TREE_NATIVE" "${ATS208_PW_REPORT:-$SCRATCH_NATIVE/pw-report.json}" 2>&1
     echo "exit code : $?"
     echo
     echo "--- startup-robustness: does the Bridge start when the log is damaged? ---"
-    node "$PROBES/startup-robustness.mjs" "$(pwd)" "$SCRATCH/sr" 2>&1
+    node "$PROBES/startup-robustness.mjs" "$TREE_NATIVE" "$SCRATCH_NATIVE/sr" 2>&1
     echo "exit code : $?"
     echo
     echo "--- wdio-check: does the WDIO side merge a re-executed case? ---"
-    node "$PROBES/wdio-check.mjs" "$(pwd)" 2>&1
+    node "$PROBES/wdio-check.mjs" "$TREE_NATIVE" 2>&1
     echo "exit code : $?"
     echo
     echo "--- bridge-e2e: the Bridge end to end with a real Playwright ---"
-    node "$PROBES/bridge-e2e.mjs" "$(pwd)" "${ATS208_PWPROJ2:-$SCRATCH/pwproj2}" "$SCRATCH/e2e" 2>&1
+    node "$PROBES/bridge-e2e.mjs" "$TREE_NATIVE" "${ATS208_PWPROJ2:-$SCRATCH_NATIVE/pwproj2}" "$SCRATCH_NATIVE/e2e" 2>&1
     echo "exit code : $?"
   fi
 } > "$EV/11-reviewer-probes.log"
