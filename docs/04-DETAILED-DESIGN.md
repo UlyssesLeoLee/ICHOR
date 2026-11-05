@@ -84,7 +84,7 @@ v0.1：`fs.readdirSync({withFileTypes:true})` 深度 14、最多 2000 文件，�
 **P1 权威发现（v0.2.0 / ATS-202 已实现）**：`playwright test --list` 枚举出运行时真正会运行的用例，含动态生成与参数化用例；其身份阶梯、信任闸门与实测证据见 `docs/23-AUTHORITATIVE-DISCOVERY.md`。要点：
 
 - **权威索引只对可信项目启用**。实测：`--list` 会加载项目配置并**执行测试文件顶层代码**，它不是只读操作；未可信仓库回退到静态索引并说明原因（`discovery: 'static'` + `authoritative.outcome`）。
-- 权威发现下普通用例的 UID 与静态索引**一致**（切换索引不改变已有 UID 与需求关联）；动态用例由 `describe` 路径判定（`uidBasis='scope-title'`）。
+- 权威发现下普通用例的 UID 与静态索引**一致**——在两个索引读到**同一个标题、同一个位置**时成立（见 `docs/23-AUTHORITATIVE-DISCOVERY.md` §4.5 的成立条件）；动态用例由 `describe` 路径判定（`uidBasis='scope-title'`）。
 - 与 CLI 的一致性是**被度量的**：响应带 `consistency`，逐条报告只有一方可见的用例。
 
 ### P1 AST 子集
