@@ -45,7 +45,8 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 
 2. **两个独立克隆各装一次，安装树必须逐字节一致**。安装树摘要的**计算口径写在 `tools/tree_digest.mjs` 的文件头**：
 
-   - 对树根下的每个普通文件，算其**原始字节**的 sha256（十六进制）；
+   - 对树根下的每个普通文件，算其 sha256（十六进制）；
+   - **文本文件**（前 8000 字节中不含 NUL 的文件，即 git 自己的判定口径）先**把 CRLF 全部替换成 LF**再计算；**二进制文件**逐字节计算，不做任何替换；
    - 拼成一行 `<相对 posix 路径> NUL <sha256>`；
    - 按相对路径排序（字节序，即 ASCII 序），用 LF 连接，末尾补一个 LF；
    - 对结果取 sha256，即为安装树摘要。
@@ -59,12 +60,12 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 
    口径只用**相对路径**，所以摘要与克隆到哪个目录无关——这是该测量有意义的前提。
 
-   实测值（Windows x64，**npm 10.9.9**）：
+   **该摘要与检出的换行风格无关**（这是本轮第 3 次复核后新增的口径，见本节第 3 条的说明）。实测值（Windows x64，**npm 10.9.9**）：
 
    | 口径 | 文件数 | sha256 |
    |---|---|---|
-   | `all-files` | 17191 | `4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3` |
-   | `package-json` | 317 | `4672eb248660994f9d0ff2b8fb7d496b72c84334a0c63c18e501aa2be3c2f304` |
+   | `all-files` | 17191 | `0915e9b2393d7d707edbfa37cd367ac0990ac641dd0916ec8d304faaf5f320bd` |
+   | `package-json` | 317 | `9349b74ff8b6c56586680fb03d09d1998a802f4fb3af9d02bea5eb7e04351aea` |
 
    **该摘要是随平台变化的**，这是 lockfile 的性质而非口径的缺陷：`apps/studio/package-lock.json` 声明了 **40 个 optional 包**，其中 **33 个带 `os`/`cpu`/`libc` 平台约束**（`@next/swc-<platform>`、`@img/sharp-<platform>`、`@img/sharp-libvips-*`），其余 **7 个不带平台约束**（`@emnapi/runtime`、`@img/colour`、`@img/sharp-wasm32`、`@types/trusted-types`、`detect-libc`、`semver`、`sharp`）。npm 只安装与本机匹配的那一份：Windows x64 实际安装 **9 个** optional 包，其中**只有 2 个是平台相关的**（`@img/sharp-win32-x64`、`@next/swc-win32-x64-msvc`）。因此 Windows 与 Linux 的安装树天然不同，**期望值必须按平台记录**——`tools/installed-tree-digests.txt` 即按 `<口径> <平台> <npm 版本> <sha256>` 逐行记录；某平台尚无记录时该检查**跳过而非失败**（没有可比对的基准，凭空造一个是错的）。这一点也是它**不能**作为跨平台一致性证据的原因，见 §7 第 6 条。
 
@@ -72,8 +73,8 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 
    | npm | 安装的文件数 | `package.json` 数 | `all-files` sha256 |
    |---|---|---|---|
-   | **10.9.9**（Node 22.23.4 自带，`packageManager` 指定） | 17191 | 317 | `4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3` |
-   | 12.2.0（Node 24.19.0 自带） | 17167 | 315 | `5e5a977f96aeb873f414967d1bb7ea7068df251ed47e2a68c21764f2c9e4a18f` |
+   | **10.9.9**（Node 22.23.4 自带，`packageManager` 指定） | 17191 | 317 | `0915e9b2393d7d707edbfa37cd367ac0990ac641dd0916ec8d304faaf5f320bd` |
+   | 12.2.0（Node 24.19.0 自带） | 17167 | 315 | `a396b62d6eadb875eadb4ac13a13bfe632663d3bd31df7704a62a88ec65c316c` |
 
    差异的**全部**来源是 npm 12.2.0 不安装 `@emnapi/runtime` 与 `@img/sharp-wasm32` 两个包（24 个文件），外加 `.bin/` 下 8 个 shim 与 `.package-lock.json` 的内容随 npm 版本变化（15 个文件）。逐文件的比对可用 `python tools/ats102-probes/diff-install-trees.py <树A> <树B>` 复现。
 
@@ -83,7 +84,7 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
    - `tools/installed-tree-digests.txt` 的每行记录了产出该值的 npm 版本；
    - `tools/tree_digest.mjs --check` 按 `(口径, 平台, npm 版本)` 查期望值，失配时输出**当前 PATH 上的 npm** 与**期望值对应的 npm**，并说明两者装出的 optional 包集合不同。
 
-   于是「摘要失配」有两个可查的原因，读者不必猜：先看 `checknode` 步是否通过——通过了就说明 npm 版本是对的，再去查 lockfile。
+   **摘要失配的原因不止两个。** 工具的失配信息列出的是**常见**原因（npm 版本、lockfile 内容、平台、安装损坏），并明确写明该列表**不是穷举**；换句话说，读者拿它当「排查清单」用，而不是当「完备的原因分类」用。真正被做成硬断言的是 npm 版本：`checknode` 步会在摘要步之前就把版本失配指名。其余原因（lockfile 变了、平台不同、安装损坏）各有各的核对手段，工具在失配信息里给出定位方法（写 manifest 后 diff 两棵树）。
 
    **全树口径（`all-files`）不只锁版本，还抓到了 npm 自己没抓到的安装损坏。**
    复核期间有一个全新克隆的 `npm ci` 装出了**被截断且补零**的
@@ -94,8 +95,30 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
    npm ci / npm test / next build 全部 PASS。
    注意**只算 `package.json` 的窄口径看不出这个问题**（被截断的不是
    `package.json`），这也是全树口径值得保留的理由。
+   换行归一化**不会**掩盖这类损坏：截断与补零不是一次干净的 CRLF→LF 变换，
+   归一化后的字节仍然不同（单元测试 `tools/ats102-probes/test-tree-digest-eol.mjs`
+   对此有断言）。
 
-3. **lockfile 自身的 sha256 在安装前后不变**。清单与文档中记录的是**规范化为 LF 后的内容**的 sha256，即 git blob 的字节：
+3. **摘要必须与检出的换行风格无关**（第 3 次复核驳回后新增的一条独立要求）。
+
+   早期口径对每个文件取**原始字节**的 sha256，因此摘要**依赖检出时的换行风格**：
+   `core.autocrlf=true`（Windows 默认）下 git 把 LF blob 写成 CRLF，npm 又**沿用它读到的
+   `package-lock.json` 的换行风格**来写隐藏 lockfile `node_modules/.package-lock.json`，
+   于是同一棵安装树在 CRLF 检出下有 752 个 CR、在 LF 检出下有 0 个，两者的摘要因此不同——
+   记录值只对它被测量的那一种检出成立。
+
+   现在的口径对**文本文件**先把 CRLF 归一化为 LF、对**二进制文件**逐字节计算，于是
+   **同一 commit 的 CRLF 检出与 LF 检出给出同一个摘要**。实测见
+   `17-line-ending-independent-digest.log`：两个全新克隆（`core.autocrlf=true` 与
+   `core.autocrlf=false`）、同一份 lockfile、同一个 npm，摘要**逐位相同**，而两者的
+   `.package-lock.json` **原始** sha256 不同——正是归一化抹平的那个差异。
+
+   归一化**不削弱内容敏感性**：被截断或补零的文件仍然摘要不同（§2.2 第 2 条末段）。
+   单元测试 `tools/ats102-probes/test-tree-digest-eol.mjs`（10 条断言）覆盖了
+   CRLF/LF 等价、二进制不归一、孤立 CR 保留、损坏仍可检出、以及 CRLF 跨 64 KiB
+   读边界的场景。
+
+4. **lockfile 自身的 sha256 在安装前后不变**。清单与文档中记录的是**规范化为 LF 后的内容**的 sha256，即 git blob 的字节：
 
    | lockfile | sha256（LF 规范化 ＝ git blob） |
    |---|---|
@@ -197,7 +220,7 @@ npm    : 10.9.9
 --- [checknode] PASSED (390 ms)
 --- [install] PASSED (41372 ms)
 --- [lockcheck] PASSED (50 ms)
---- [installdigest] PASSED (2803 ms)   # digest ok: all-files win32-x64 = 4542171b...
+--- [installdigest] PASSED (2803 ms)   # digest ok: all-files win32-x64 = 0915e9b2...
 --- [test] PASSED (1831 ms)            # tests 165 / pass 158 / fail 0 / cancelled 0 / skipped 7
 --- [syntax] PASSED (73 ms)
 --- [build] PASSED (5940 ms)           # artefact ok: apps/studio/out/index.html (12927 bytes)
@@ -215,6 +238,7 @@ GATE_EXIT_CODE=0
 
 | 文件 | 内容 |
 |---|---|
+| `17-line-ending-independent-digest.log` | **摘要与检出换行风格无关**：同一 commit 的两个全新克隆（`core.autocrlf=true` 与 `core.autocrlf=false`）、同一 lockfile、同一个 npm，摘要**逐位相同**，而两者隐藏 lockfile 的**原始** sha256 不同 |
 | `15-node22-gate-8-steps-final.log` | **最终验收运行**：全新克隆上 8 步门禁全绿、退出码 0；`npm test` 165 项 / 158 通过 / 0 取消 / 7 跳过 |
 | `13-manifest-drift-committed-tamper.log` | 清单漂移门禁的**已提交篡改**对照：三种序列的检出能力（`--check` 检出 / 先重生成再 `--check` 不检出 / 先重生成再 `git diff` 检出） |
 | `14-npm-version-and-install-digest.log` | 同一份 lockfile 在 npm 10.9.9 与 npm 12.2.0 下装出的两棵树：文件数、摘要、optional 包差异，以及两个 npm 下门禁各自的诊断输出 |
@@ -268,7 +292,7 @@ Windows 上用户目录含空格或中日文名很常见，因此门禁在这样
 | 检出路径 | 修复前 | 修复后 |
 |---|---|---|
 | `.../sp ace` | `Cannot find module '...\sp'`，退出码 1 | 8 步门禁全绿，退出码 **0** |
-| `.../中文目录` | `recorded digests file not found: ...\%E4%B8%AD%E6%96%87...`，退出码 1 | 摘要校验通过（`digest ok: all-files win32-x64 = 4542171b...`） |
+| `.../中文目录` | `recorded digests file not found: ...\%E4%B8%AD%E6%96%87...`，退出码 1 | 摘要校验通过（`digest ok: all-files win32-x64 = 0915e9b2...`） |
 
 完整日志：`docs/evidence/ATS-102/10-path-with-space-and-cjk.log`。
 ## 5. 依赖清单（NFR-012 的数据基础）
@@ -362,13 +386,15 @@ ATS-101 §8 建议：「ATS-102 的 CI 脚本须固定该镜像」。本次的 w
 3. **NFR-012 的分发审计结论未出**，本次只提供数据基础（§1 第 3 条）。
 4. **完整 SPDX SBOM 未生成**（§5.3）。
 5. **16 个需复核依赖的最终法律结论未出**（§5.2）。
-6. **macOS / Linux 上未实测**。本次全部实测在 Windows 11 上完成。补充：安装树摘要**按平台变化**（§2.2：40 个 optional 包、其中 33 个带平台约束），所以 Windows 上算出的值**不能**代表 Linux——`tools/installed-tree-digests.txt` 目前只有 `win32-x64` 一组期望值，Linux runner 上该检查会**跳过**（不是失败），直到有人补录该平台的期望值为止。跨平台一致性仍属未验证。依赖清单的 `--check` 本身**不依赖平台**（数据源是 lockfile），已实测在 `core.autocrlf=true` 与 `false` 两种检出下均退出码 0（§2.2 第 3 条）。
+6. **macOS / Linux 上未实测**。本次全部实测在 Windows 11 上完成。补充：安装树摘要**按平台变化**（§2.2：40 个 optional 包、其中 33 个带平台约束），所以 Windows 上算出的值**不能**代表 Linux——`tools/installed-tree-digests.txt` 目前只有 `win32-x64` 一组期望值，Linux runner 上该检查会**跳过**（不是失败），直到有人补录该平台的期望值为止。跨平台一致性仍属未验证。依赖清单的 `--check` 本身**不依赖平台**（数据源是 lockfile），已实测在 `core.autocrlf=true` 与 `false` 两种检出下均退出码 0（§2.2 第 4 条）。
 7. **CI 的并发取消（`concurrency`）与 artifact 保留行为未实测**。
 8. **产品的 `spawn('taskkill')` 无兜底缺陷未修**（§6.5）——本任务只记录与定位，未改产品代码（属 ATS-108）。
 9. **门禁在 GitHub runner 上的 PATH/工具链差异未验证**：本地用 `tools/ats102-env.sh` 准备 MSYS 形式的 PATH（§4.3），而 GitHub 的 Windows runner 由 `actions/setup-node` 直接配置 PATH，二者的差异未实测。**特别是 runner 上的 npm 版本**：`actions/setup-node` 装的是 Node 22.23.4 自带的 npm 10.9.9，与 `packageManager` 一致，但这一路径**未在真实 runner 上验证过**——门禁的 `checknode` 步会在版本不符时直接失败，因此即使不符也是「响亮地失败」而不是「静默地失配」。
 10. **构建步骤的稳定性未量化**：复核期间有一个全新克隆的 `next build` 在 "Generating static pages" 阶段崩溃（`Next.js build worker exited with code: 3221226505`，即 0xC0000409，原生栈缓冲区溢出），同一克隆上单独重跑即退出码 0、随后整轮门禁全绿。本机磁盘 C: 94% / D: 88%、内存紧张，判为资源压力下的偶发原生崩溃而非代码缺陷，但**该判定的依据是重跑成功，不是根因定位**——真实 GitHub runner 的资源充裕度不同，未实测其发生率。
 11. **依赖清单的 registry 依赖仅限 SPDX 列**：许可数据已改为取自 lockfile，`--check` 完全离线；但 SPDX 标识（`sbomId`）仍取自 registry，因此清单中该列全为「—」（§5.3）。
 12. **npm 12.2.0 下的门禁未整轮跑通**：npm 12.2.0 只在 `installdigest` 这一步上单独验证过（`14-npm-version-and-install-digest.log`），且该步在补录了 npm 12.2.0 的摘要后**通过**。整轮 8 步门禁在 npm 12.2.0 下**未跑**——`checknode` 会先因 npm 版本与 `packageManager` 不符而失败，所以 npm 12.2.0 本来就**不是**该门禁支持的配置。npm 12.2.0 的摘要是**已记录的值**，不是「门禁在 npm 12 下通过」的证据。
+13. **换行风格无关性只在 Windows 11 上实测**（第 3 次复核要求的那一项）：CRLF 检出与 LF 检出各一个全新克隆、同一 commit、同一 lockfile、同一个 npm 10.9.9，摘要**逐位相同**且两个克隆的 `--check` 都退出码 0（`17-line-ending-independent-digest.log`）。**未实测**：macOS / Linux runner 上的实际检出风格（§7 第 6 条），以及将来引入 `.gitattributes`（`eol=lf`）之后的表现——归一化对这两者都应当成立，但**未实测**。
+14. **归一化口径下的历史证据日志未全部重采**：`docs/evidence/ATS-102/` 下第 03、06、07、08、10、12、14 号日志记录的是**旧口径**（原始字节 sha256）下的摘要值，与现行口径的数值不同。这些日志保留原样，作为当时那一次运行的记录；**现行口径下的摘要由第 15 号（最终门禁）与第 17 号（换行风格对照）两份日志承载**。旧日志与本文档正文的对照关系以第 3 次复核前后的提交历史为准。
 
 ## 8. 冻结声明
 

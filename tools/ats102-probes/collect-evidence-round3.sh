@@ -92,16 +92,19 @@ LF_CLONE="${ATS_PROBE_LF_CLONE:-D:/hermes-multica/home/cache/scratch/ats102-eol-
       ( cd apps/studio && npm ci --no-audit --no-fund ) 2>&1 | tail -3
       echo
       echo "--- the hidden lockfile npm wrote (this is where the line endings differ) ---"
-      python - "$dest" <<'PY' 2>&1 | sed 's/^/    /'
-import hashlib, sys
-p = sys.argv[1] + '/apps/studio/node_modules/.package-lock.json'
-d = open(p, 'rb').read()
-lf = d.replace(b'\r\n', b'\n')
-print('.package-lock.json bytes      :', len(d))
-print('.package-lock.json CR bytes   :', d.count(b'\r'))
-print('.package-lock.json raw sha256 :', hashlib.sha256(d).hexdigest())
-print('.package-lock.json LF-norm    :', hashlib.sha256(lf).hexdigest())
-PY
+      # Node is used rather than python: the PATH inside this clone is set up
+      # for the node/npm toolchain, and node is guaranteed to be there.
+      node -e '
+const fs = require("fs"), crypto = require("crypto");
+const p = process.argv[1] + "/apps/studio/node_modules/.package-lock.json";
+const d = fs.readFileSync(p);
+let cr = 0; for (const b of d) if (b === 13) cr++;
+const lf = Buffer.from(d.toString("latin1").replace(/\r\n/g, "\n"), "latin1");
+console.log(".package-lock.json bytes      :", d.length);
+console.log(".package-lock.json CR bytes   :", cr);
+console.log(".package-lock.json raw sha256 :", crypto.createHash("sha256").update(d).digest("hex"));
+console.log(".package-lock.json LF-norm    :", crypto.createHash("sha256").update(lf).digest("hex"));
+' "$dest" 2>&1 | sed 's/^/    /'
       echo
       echo "--- the measured digests ---"
       node tools/tree_digest.mjs apps/studio/node_modules 2>&1 | sed 's/^/    /'
