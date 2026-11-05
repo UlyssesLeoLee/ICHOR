@@ -1,7 +1,14 @@
+=== the CLI round trip ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-f2bf44f89533/worktree
+commit    : 25b3c3d
+branch    : agent/m2/seikoist-164
+node      : v24.19.0
+python    : Python 3.11.16
+
 === CLI round trip (ATS-205) ===
 
 --- 1. status on a database that does not exist (read-only) ---
-database    : C:\Users\seiko\AppData\Local\Temp\cli-rt4\metadata.db (does not exist yet)
+database    : C:\tmp\multica-task-2608356187\tmp.KepSWfoQnc\metadata.db (does not exist yet)
 schema      : 0 (the code knows up to 2)
 pending     : the database will be created at version 2
 exit=0
@@ -13,7 +20,7 @@ mirror      : OK
 exit=0
 
 --- 3. status ---
-database    : C:\Users\seiko\AppData\Local\Temp\cli-rt4\metadata.db
+database    : C:\tmp\multica-task-2608356187\tmp.KepSWfoQnc\metadata.db
 schema      : 2 (the code knows up to 2)
 journal     : wal
 row counts  :
@@ -37,13 +44,13 @@ migrate --to 1.5 : exit=2 | --to must be an integer, got "1.5"
 downgrade --to -1 : exit=2 | --to must be an integer in [0, 2], got "-1" 
 
 --- 6. verify against a database that does not exist (read-only, creates nothing) ---
-exit=1 | the metadata database does not exist: C:\Users\seiko\AppData\Local\Temp\cli-rt4\never-created.db 
+exit=1 | the metadata database does not exist: C:\tmp\multica-task-2608356187\tmp.KepSWfoQnc\never-created.db 
 file now exists: false
 
 --- 7. downgrade to version 1 (explicit, lossy) ---
 downgraded  : {"from":2,"to":1,"applied":[2]}
 exit=0
-database    : C:\Users\seiko\AppData\Local\Temp\cli-rt4\metadata.db
+database    : C:\tmp\multica-task-2608356187\tmp.KepSWfoQnc\metadata.db
 schema      : 1 (the code knows up to 2)
 journal     : wal
 row counts  :
@@ -79,3 +86,5 @@ exit=0
 
 --- 11. the JSON state file was never modified by any of it ---
 projects=1 runs=1 attempts=1 artifacts=1
+
+exit code : 0
