@@ -1,27 +1,27 @@
 === ATS-103 evidence: Next.js 16 static export build ===
-date      : 2026-11-05T12:44:31Z (UTC)
-commit    : 49fbafb382ad8cf5c0e49c17789d3e50aa947983
+date      : 2026-11-05T12:52:51Z (UTC)
+commit    : 4e68b000b573f23ae7061f0e13c61cb75ff86e5b
 node      : v24.19.0
 npm       : 12.2.0
 command   : npm --prefix apps/studio ci --no-audit --no-fund && npm --prefix apps/studio run build
 
 --- npm ci (apps/studio) ---
 
-added 55 packages in 26s
+added 55 packages in 32s
 
 --- next build ---
 npm notice run @ai-test-studio/ui@0.1.0 build
 npm notice run next build
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 20ms
+✓ Running next.config.mjs took 22ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 153ms
+✓ Compiled successfully in 199ms
   Running TypeScript ...
-  Finished TypeScript in 1007ms ...
+  Finished TypeScript in 1076ms ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 398ms
+✓ Generating static pages using 4 workers (3/3) in 409ms
   Finalizing page optimization ...
 
 Route (app)
@@ -34,14 +34,8 @@ Route (app)
 BUILD_EXIT=0
 
 --- artefact ---
--rw-r--r-- 1 seiko 197610  7697 11月  5 21:45 apps/studio/out/404.html
--rw-r--r-- 1 seiko 197610 12927 11月  5 21:45 apps/studio/out/index.html
+-rw-r--r-- 1 seiko 197610  7697 11月  5 21:53 apps/studio/out/404.html
+-rw-r--r-- 1 seiko 197610 12927 11月  5 21:53 apps/studio/out/index.html
 
 --- git status after the build ---
- M docs/00-INDEX.md
- M docs/WBS.xlsx
- M tools/wbs_common.py
-?? docs/21-FRONTEND-EXPORT.md
-?? docs/evidence/ATS-103/
-?? tools/ats103-probes/
-?? tools/update_wbs_ats103.py
+ M docs/evidence/ATS-103/02-next-static-export-build.log

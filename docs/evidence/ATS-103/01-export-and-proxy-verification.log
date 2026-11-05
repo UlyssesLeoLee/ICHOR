@@ -1,6 +1,6 @@
 === ATS-103 evidence: static export + Bridge API seam verification ===
-date      : 2026-11-05T12:44:31Z (UTC)
-commit    : 49fbafb382ad8cf5c0e49c17789d3e50aa947983
+date      : 2026-11-05T12:52:51Z (UTC)
+commit    : 4e68b000b573f23ae7061f0e13c61cb75ff86e5b
 node      : v24.19.0
 npm       : 12.2.0
 command   : node tools/ats103-probes/verify-export-and-proxy.mjs
@@ -32,14 +32,14 @@ PASS  the real run collected artefacts  --  27 artefacts
   status    : failed
   error     : (none)
   reportWarn: (none)
-  command   : C:\Program Files\nodejs\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-42189f991e39\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output C:\Users\seiko\AppData\Local\Temp\ats103-quqZga\runs\run_771cbc90-73f0-47ca-8340-cafe361cee4e\results --trace on --workers 1
-  log tail  : : ..\..\..\..\..\..\AppData\Local\Temp\ats103-quqZga\runs\run_771cbc90-73f0-47ca-8340-cafe361cee4e\results\home-导航入口正常-REQ-002\error-context.md
+  command   : C:\Program Files\nodejs\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-42189f991e39\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output C:\Users\seiko\AppData\Local\Temp\ats103-Ys7I9e\runs\run_dec6d216-b1cb-4288-b852-3e3d97f002db\results --trace on --workers 1
+  log tail  : : ..\..\..\..\..\..\AppData\Local\Temp\ats103-Ys7I9e\runs\run_dec6d216-b1cb-4288-b852-3e3d97f002db\results\home-导航入口正常-REQ-002\error-context.md
 
     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
-    ..\..\..\..\..\..\AppData\Local\Temp\ats103-quqZga\runs\run_771cbc90-73f0-47ca-8340-cafe361cee4e\results\home-导航入口正常-REQ-002\trace.zip
+    ..\..\..\..\..\..\AppData\Local\Temp\ats103-Ys7I9e\runs\run_dec6d216-b1cb-4288-b852-3e3d97f002db\results\home-导航入口正常-REQ-002\trace.zip
     Usage:
 
-        npx playwright show-trace ..\..\..\..\..\..\AppData\Local\Temp\ats103-quqZga\runs\run_771cbc90-73f0-47ca-8340-cafe361cee4e\results\home-导航入口正常-REQ-002\trace.zip
+        npx playwright show-trace ..\..\..\..\..\..\AppData\Local\Temp\ats103-Ys7I9e\runs\run_dec6d216-b1cb-4288-b852-3e3d97f002db\results\home-导航入口正常-REQ-002\trace.zip
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 

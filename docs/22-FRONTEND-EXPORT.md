@@ -1,7 +1,8 @@
 # ATS-BL-003 Next.js 16 静态导出构建、路由与 API 代理验证（ATS-103 交付）
 
 - 交付物：WBS ATS-103（S1 / v0.1.1，工作流「前端」，主责 FE），对应需求 FR-020、NFR-007
-- 基线起点：commit `49fbafb`（`agent/m2/seikoist-148` 分支起点）；上游依据 `docs/16-BASELINE-ADR.md`、`docs/17-BUILD-CI.md`（ATS-102 交付）、`docs/03-BASIC-DESIGN.md` §1/§4、`docs/05-UI-UX.md`
+- 基线起点：commit `49fbafb`（`agent/m2/seikoist-148` 分支起点）；上游依据 `docs/16-BASELINE-ADR.md`（§5.2 静态导出 / §7 未验证项）、`docs/17-BUILD-CI.md`（ATS-102 交付）、`docs/03-BASIC-DESIGN.md` §1/§4、`docs/05-UI-UX.md`
+- 本文件在 `dev` 合入后的分支上交付：`dev` 已用 `docs/21-CONTROL-PLANE-API.md` 占用 21 号，故本文件为 `docs/22-FRONTEND-EXPORT.md`
 - 状态标记沿用仓库约定：`IMPLEMENTED` ＝ 代码能力存在；`DESIGNED` ＝ 仅设计。**本文件不得把设计中的能力称为已实现。**
 
 ## 1. 结论摘要
@@ -125,8 +126,8 @@ RESULT: OK -- 23/23 checks passed.
 
 ```
 $ npm test
-ℹ tests 189
-ℹ pass 184
+ℹ tests 234
+ℹ pass 229
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 5
@@ -135,11 +136,11 @@ $ npm test
 
 退出码 **0**，**0 失败**。
 
-> **与 ATS-102 记录的数字差异（如实说明）**：ATS-102 在 Node 22.23.4 / npm 10.9.9 上记录的是 `tests 165 / pass 158 / skipped 7`。本轮是 `tests 189 / pass 184 / skipped 5`。差异的来源**不是**本任务的改动——本任务**未改动任何被测代码**，只新增了一个独立探针脚本（不在 `tests/` 下，不参与 `npm test`）。实际原因是仓库在 ATS-102 之后又合入了 ATS-301/ATS-401/ATS-501 的测试与实现（测试数从 165 增至 189），而**跳过的 7 项 ATS-301 引擎 IT 变成 5 项**，因为本轮**夹具的 `node_modules` 已被真实安装**，那些 IT 不再因「引擎缺失」而跳过。两次运行的 Node/npm 版本也不同（§3.1）。**两个数字都属实，不构成回归**。
+> **与 ATS-102 记录的数字差异（如实说明）**：ATS-102 在 Node 22.23.4 / npm 10.9.9 上记录的是 `tests 165 / pass 158 / skipped 7`。本轮是 `tests 234 / pass 229 / skipped 5`。差异的来源**不是**本任务的改动——本任务**未改动任何被测代码**，只新增了一个独立探针脚本（不在 `tests/` 下，不参与 `npm test`）。实际原因是仓库在 ATS-102 之后又合入了 ATS-301/ATS-401/ATS-501/ATS-506 的测试与实现（测试数从 165 增至 234），而**跳过的 7 项 ATS-301 引擎 IT 变成 5 项**，因为本轮**夹具的 `node_modules` 已被真实安装**，那些 IT 不再因「引擎缺失」而跳过。两次运行的 Node/npm 版本也不同（§3.1）。**两个数字都属实，不构成回归**。
 
 ### 3.6 WBS 更新脚本共存回归
 
-本任务新增了 `tools/update_wbs_ats103.py`，它与既有 6 个 `tools/update_wbs_*.py` **共用同一份 `docs/WBS.xlsx`**。因此跑了仓库既有的两项共享工作簿回归：
+本任务新增了 `tools/update_wbs_ats103.py`，它与既有 7 个 `tools/update_wbs_*.py` **共用同一份 `docs/WBS.xlsx`**。因此跑了仓库既有的两项共享工作簿回归：
 
 ```
 $ python tools/test_wbs_common.py
@@ -149,16 +150,16 @@ PASS the declared markers are exactly MARKERS
 all checks passed
 
 $ bash tools/ats501-probes/check-wbs-updaters.sh
-updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py
-updater # : 7 (discovered from tools/update_wbs_*.py)
+updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py tools/update_wbs_ats506.py
+updater # : 8 (discovered from tools/update_wbs_*.py)
 ...
-  PASS  the 7 updaters produce the same sheet in either order
-  PASS  running the 7 updaters twice changes nothing
+  PASS  the 8 updaters produce the same sheet in either order
+  PASS  running the 8 updaters twice changes nothing
   PASS  the cached 总览 values equal the values derived from 开发WBS
   PASS  every marked note of the baseline is still in the sheet
   PASS  D6 and D7 still carry every task's contribution
 
-RESULT: OK -- the 7 WBS updaters coexist, are idempotent, do not undo
+RESULT: OK -- the 8 WBS updaters coexist, are idempotent, do not undo
         an accepted review, and the 总览 cache always matches 开发WBS.
 ```
 
@@ -205,6 +206,7 @@ run.status = cancelled ? 'cancelled' : code === 0 ? 'passed' : 'failed';
 | `docs/22-FRONTEND-EXPORT.md` | 新增 | 本文件 |
 | `docs/WBS.xlsx` | 修改 | 「开发WBS」ATS-103 行的状态/完成率/剩余人日 + 风险说明；ATS-104/ATS-111 行的下游约束；「总览」缓存值与 D6/D7 叙述 |
 | `docs/00-INDEX.md` | 修改 | 收录 22-FRONTEND-EXPORT.md、ATS-103 证据目录与探针脚本 |
+| `docs/16-BASELINE-ADR.md` | 修改 | §5.2 追加 ATS-103 的静态导出/接缝实测结论；§7 追加 2 条未验证项（含本任务发现的证据链缺陷） |
 | `CHECKSUMS.sha256` | 修改 | 随新增/修改的受控文件重新生成 |
 
 **产品代码零改动**：`apps/studio/**` 与 `server/**` 未被修改——这不是「偷懒」，而是本任务的实测结论：**既有配置已经满足完成定义**。
