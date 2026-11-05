@@ -147,6 +147,60 @@ test('IT-AGT-009: the diagnostics endpoint reports the agent contract status', a
   assert.equal(body.agentContract.status, 'CONTRACT_ONLY');
 });
 
+test('IT-AGT-010: a request whose digest does not match its content is rejected with 400', async () => {
+  const [status, body] = await api('/api/agent/validate', 'POST', validRequest({
+    inputs: [{
+      kind: 'file',
+      ref: 'tests/login.spec.ts',
+      digest: sha('something else'),
+      content: SPEC,
+      retrievedAt: '2026-11-04T00:00:00.000Z',
+    }],
+  }));
+  assert.equal(status, 400);
+  assert.equal(body.error, 'AGENT_PROVENANCE_DIGEST_MISMATCH');
+});
+
+test('IT-AGT-011: an AGENT_* error carries machine-readable details', async () => {
+  const [status, body] = await api('/api/agent/validate', 'POST', validRequest({
+    budget: { maxInputBytes: 100000, maxOutputBytes: 100000, maxSteps: 99, deadlineMs: 30000 },
+  }));
+  assert.equal(status, 400);
+  assert.equal(body.error, 'AGENT_BUDGET_INVALID');
+  assert.equal(body.details.field, 'maxSteps');
+  assert.equal(body.details.limit, 10);
+});
+
+test('IT-AGT-012: the error details never contain a local filesystem path', async () => {
+  const [status, body] = await api('/api/agent/validate', 'POST', validRequest({
+    scope: {
+      projectId: 'proj_demo',
+      root: fixture,
+      files: ['../../outside.spec.ts'],
+      outputs: [],
+      runs: [],
+      requirements: [],
+    },
+  }));
+  assert.equal(status, 400);
+  assert.equal(body.error, 'AGENT_SCOPE_ESCAPE');
+  const serialised = JSON.stringify(body);
+  assert.equal(serialised.includes(fixture), false, 'the response must not echo the local root');
+  assert.equal(/[A-Za-z]:\\/.test(serialised), false, 'the response must not contain a Windows path');
+});
+
+test('IT-AGT-013: a non-agent error keeps the pre-ATS-401 behaviour', async () => {
+  // A missing directory raises ENOENT (an error with a `code` but not an
+  // AGENT_* one). The response must keep the original message, and must not
+  // be remapped to the agent error shape.
+  const [status, body] = await api('/api/projects', 'POST', {
+    path: path.join(data, 'no-such-dir'),
+  });
+  assert.equal(status, 500);
+  assert.equal(body.error.startsWith('ENOENT'), true, `unexpected error: ${body.error}`);
+  assert.equal(body.details, undefined, 'a non-agent error must not carry agent details');
+});
+
 test('IT-AGT-CLEANUP: stop and cleanup', () => {
   cp.kill();
   fs.rmSync(data, { recursive: true, force: true });

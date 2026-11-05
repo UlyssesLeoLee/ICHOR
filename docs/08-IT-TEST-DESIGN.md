@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：37；已执行通过：23；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：41；已执行通过：27；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -44,6 +44,10 @@
 |IT-AGT-007|FR-024|安全|越界作用域被拒|scope.files 含 ../../outside.spec.ts|400 + AGENT_SCOPE_ESCAPE|node --test|PASS|
 |IT-AGT-008|FR-024|安全|校验请求不写入项目|校验前后对比夹具文件内容|内容不变，工作区无副作用|node --test|PASS|
 |IT-AGT-009|FR-024|正常|诊断端点报告契约状态|GET /api/diagnostics|agentContract.version=agent-contract/v1，status=CONTRACT_ONLY|node --test|PASS|
+|IT-AGT-010|FR-024|安全|摘要不符的请求在 API 端被拒|POST /api/agent/validate，digest 与 content 不符|400 + AGENT_PROVENANCE_DIGEST_MISMATCH|node --test|PASS|
+|IT-AGT-011|FR-024|正常|AGENT_* 错误附带可机读的 details|maxSteps 超过平台上限|400 + details.field=maxSteps + details.limit=10|node --test|PASS|
+|IT-AGT-012|FR-024|安全|错误响应不含本机路径|scope 越界请求|响应体中不含本地 root 或盘符路径|node --test|PASS|
+|IT-AGT-013|NFR-011|异常|非 agent 错误保持 ATS-401 之前的行为|POST /api/projects 指向不存在的目录|500 + 原始 ENOENT 消息，无 agent details|node --test|PASS|
 |IT-AGT-CLEANUP|NFR-005|清理|Agent API 子进程与夹清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
 
 ## 进入与退出条件

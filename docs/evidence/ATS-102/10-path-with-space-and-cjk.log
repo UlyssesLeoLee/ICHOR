@@ -1,0 +1,67 @@
+=== the build gate in checkout paths containing a space / non-ASCII characters ===
+date: 2026-11-05T04:10:00Z
+node: v22.23.4
+
+############ checkout dir: sp ace ############
+$ pwd
+/d/hermes-multica/home/cache/scratch/sp ace
+
+--- PRE-FIX tools/tree_digest.mjs (percent-encoded own path) ---
+file count     : 17391
+tree sha256    : 349af985638d4063ac15ad3cefc129e191b6589a518db21d1649dcf1fc38f467
+recorded digests file not found: D:\hermes-multica\home\cache\scratch\sp%20ace\tools\installed-tree-digests.txt
+EXIT_CODE=1
+
+--- PRE-FIX tools/ci_build_gate.mjs (shell:true re-splits the path) ---
+Error: Cannot find module 'D:\hermes-multica\home\cache\scratch\sp'
+--- [installdigest] FAILED after 134 ms
+RESULT: FAILED -- installdigest
+EXIT_CODE=1
+
+--- FIXED tools/tree_digest.mjs + tools/ci_build_gate.mjs ---
+file count     : 17191
+tree sha256    : 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
+digest ok: all-files win32-x64 = 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
+EXIT_CODE=0
+
+############ checkout dir: 中文目录 ############
+$ pwd
+/d/hermes-multica/home/cache/scratch/中文目录
+
+--- PRE-FIX tools/tree_digest.mjs (percent-encoded own path) ---
+file count     : 10
+tree sha256    : 0dd7ea225d2d68b412c97a172ecbd82d4bd14ee93fd0d134ff66bb2fbd5be084
+recorded digests file not found: D:\hermes-multica\home\cache\scratch\%E4%B8%AD%E6%96%87%E7%9B%AE%E5%BD%95\tools\installed-tree-digests.txt
+EXIT_CODE=1
+
+--- PRE-FIX tools/ci_build_gate.mjs (shell:true re-splits the path) ---
+--- [installdigest] FAILED after 196 ms
+RESULT: FAILED -- installdigest
+EXIT_CODE=1
+
+--- FIXED tools/tree_digest.mjs + tools/ci_build_gate.mjs ---
+apps/studio/node_modules: not a directory
+EXIT_CODE=1
+
+
+############ checkout dir: 中文目录 (after npm ci in apps/studio) ############
+$ pwd
+/d/hermes-multica/home/cache/scratch/中文目录
+
+--- PRE-FIX tools/tree_digest.mjs ---
+tree sha256    : 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
+recorded digests file not found: D:\hermes-multica\home\cache\scratch\%E4%B8%AD%E6%96%87%E7%9B%AE%E5%BD%95\tools\installed-tree-digests.txt
+EXIT_CODE=1
+
+--- PRE-FIX tools/ci_build_gate.mjs ---
+EXIT_CODE=0
+
+--- FIXED: tree_digest + ci_build_gate ---
+tree sha256    : 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
+digest ok: all-files win32-x64 = 4542171b605773bea02a2f4058a0bd7f8d057e40013e9ad4c4b72eed8afcdee3
+EXIT_CODE=0
+  ok (3197 ms)
+--- [installdigest] PASSED (3198 ms)
+
+RESULT: OK -- every build-gate step passed.
+EXIT_CODE=0

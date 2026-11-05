@@ -1,0 +1,39 @@
+=== ATS-301 WDIO ground truth ===
+fixture : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-9ac72405ff1c\worktree\examples\sample-wdio
+out dir : C:\Users\seiko\AppData\Local\Temp\ats301-ground-truth
+
+exit code : 1   (non-zero is expected: the fixture has one deliberate failure)
+
+--- files written into the output dir ---
+  wdio-0-0-json-reporter.json (1670 bytes)
+  wdio-0-1-json-reporter.json (2056 bytes)
+  wdio.conf.js (718 bytes)
+
+--- json reporter ResultSet: wdio-0-0-json-reporter.json ---
+top-level keys : start, end, capabilities, framework, mochaOpts, suites, specs, state
+state          : {"passed":1,"failed":0,"skipped":0}
+framework      : mocha
+capabilities   : browserName=chrome browserVersion=151.0.7922.109
+suites n       : 1
+  suite keys : name,duration,start,end,sessionId,tests,hooks
+  suite name : sample-wdio
+  suite.file : undefined  <-- does the suite carry the spec file?
+    test keys=name,start,end,duration,state
+    test name="has one passing case" state=passed duration=2
+    test.error=none
+specs          : ["file:///C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-9ac72405ff1c/worktree/examples/sample-wdio/tests/pass.spec.js"]
+
+--- json reporter ResultSet: wdio-0-1-json-reporter.json ---
+top-level keys : start, end, capabilities, framework, mochaOpts, suites, specs, state
+state          : {"passed":0,"failed":1,"skipped":0}
+framework      : mocha
+capabilities   : browserName=chrome browserVersion=151.0.7922.109
+suites n       : 1
+  suite keys : name,duration,start,end,sessionId,tests,hooks
+  suite name : sample-wdio
+  suite.file : undefined  <-- does the suite carry the spec file?
+    test keys=name,start,end,duration,state,error
+    test name="has one failing case" state=failed duration=1
+    test.error={"name":"Error","message":"deliberate failure for the ATS-301 result-mapping fixture","stack":"Error: deliberate failure for the ATS-301 result-mapping fixture\n    at Context.<anonymous> (C:\\Users\\seiko\\multica_workspaces_desktop-api.multica.ai\\triton-n4hv-4bc6c5b98085\\seikoist-18-9ac72405ff1c\\worktree\\examples\\sample-wdio\\tests\\fail.spec.js:9:11)","type":"Error"}
+specs          : ["file:///C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-9ac72405ff1c/worktree/examples/sample-wdio/tests/fail.spec.js"]
+

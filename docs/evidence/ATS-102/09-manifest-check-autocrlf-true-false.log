@@ -1,0 +1,41 @@
+=== dependency manifest --check on BOTH autocrlf modes (Node 22.23.4) ===
+date: 2026-11-05T04:09:33Z
+
+---------------- core.autocrlf=true  (crlf-true) ----------------
+$ git config --get core.autocrlf
+true
+$ python -c 'CRLF present in apps/studio/package-lock.json?'
+has_CRLF: True
+worktree_sha256: 5931d663e33da6fc3e56a968e6100a5f275a254473a5d67714bcbd13004fee24
+$ git cat-file blob HEAD:apps/studio/package-lock.json | sha256sum
+c48439f68c3fabef8f3ae11fa17a4a5b0461fe3261494459b2ce753621724306 *-
+$ node tools/gen_dep_manifest.mjs --check
+RESULT: OK -- the committed dependency manifest matches the lockfiles.
+  packages=88 licenceKnown=88 reviewRequired=16
+EXIT_CODE=0
+
+---------------- core.autocrlf=false  (crlf-test) ----------------
+$ git config --get core.autocrlf
+false
+$ python -c 'CRLF present in apps/studio/package-lock.json?'
+has_CRLF: False
+worktree_sha256: c48439f68c3fabef8f3ae11fa17a4a5b0461fe3261494459b2ce753621724306
+$ git cat-file blob HEAD:apps/studio/package-lock.json | sha256sum
+c48439f68c3fabef8f3ae11fa17a4a5b0461fe3261494459b2ce753621724306 *-
+$ node tools/gen_dep_manifest.mjs --check
+RESULT: OK -- the committed dependency manifest matches the lockfiles.
+  packages=88 licenceKnown=88 reviewRequired=16
+EXIT_CODE=0
+
+
+================ CONTRAST: the pre-fix generator on the LF checkout ================
+(the pre-fix generator hashed the raw working-tree bytes, so on an LF checkout it reported drift)
+$ node tools/gen_dep_manifest.mjs --check   # pre-fix generator
+RESULT: MISMATCH -- the committed dependency manifest does not match the lockfiles:
+  docs\dependencies\dependency-manifest.json differs from the lockfile-derived content
+  docs\dependencies\dependency-manifest.md differs from the lockfile-derived content
+EXIT_CODE=1
+$ node tools/gen_dep_manifest.mjs --check   # fixed generator, same checkout
+RESULT: OK -- the committed dependency manifest matches the lockfiles.
+  packages=88 licenceKnown=88 reviewRequired=16
+EXIT_CODE=0

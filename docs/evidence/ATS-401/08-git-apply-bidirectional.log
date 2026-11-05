@@ -1,0 +1,74 @@
+=== ATS-401 probe: the diff whitelist agrees with git apply, both ways ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-c245c91b845d/worktree
+date      : 2026-11-05T10:57:45Z
+git       : git version 2.55.0.windows.4
+
+=== ATS-401 probe: the diff whitelist agrees with git apply, both ways ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree
+work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree\.ats-evidence-work\bidirectional
+
+--- A. FORWARD: everything the validator accepts, git agrees with ---
+  [PASS] git apply accepts what the validator accepted: the legal baseline diff
+  [PASS] git names only in-scope paths: the legal baseline diff -- paths=tests/login.spec.ts out-of-scope=none
+  [PASS] git creates nothing outside the scope: the legal baseline diff -- created=none
+  [PASS] git reports no delete: the legal baseline diff -- summary=(none)
+  [PASS] git reports no rename: the legal baseline diff -- summary=(none)
+  [PASS] git reports no mode change: the legal baseline diff -- summary=(none)
+  [ok  ] rejected: CE1a: a second file smuggled in after a blank line (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: CE1b: an unprefixed path (git -p1 strips one component) (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: CE1c: a deletion via +++ /dev/null (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: M1: insert a blank line into the hunk body (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: M2: drop the a/ b/ prefixes (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: M3: turn the target into /dev/null (a deletion) (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: M4: append a ---/+++ section after the hunk (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: M5: overshoot the declared hunk counts (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: M6: rename the file out of the scope (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [PASS] git apply accepts what the validator accepted: M7: drop the index header
+  [PASS] git names only in-scope paths: M7: drop the index header -- paths=tests/login.spec.ts out-of-scope=none
+  [PASS] git creates nothing outside the scope: M7: drop the index header -- created=none
+  [PASS] git reports no delete: M7: drop the index header -- summary=(none)
+  [PASS] git reports no rename: M7: drop the index header -- summary=(none)
+  [PASS] git reports no mode change: M7: drop the index header -- summary=(none)
+  [ok  ] rejected: M8: change the file mode (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [PASS] git apply accepts what the validator accepted: R1: a whitespace-only context line
+  [PASS] git names only in-scope paths: R1: a whitespace-only context line -- paths=tests/login.spec.ts out-of-scope=none
+  [PASS] git creates nothing outside the scope: R1: a whitespace-only context line -- created=none
+  [PASS] git reports no delete: R1: a whitespace-only context line -- summary=(none)
+  [PASS] git reports no rename: R1: a whitespace-only context line -- summary=(none)
+  [PASS] git reports no mode change: R1: a whitespace-only context line -- summary=(none)
+  [PASS] git apply accepts what the validator accepted: R2: a file with no trailing newline
+  [PASS] git names only in-scope paths: R2: a file with no trailing newline -- paths=tests/login.spec.ts out-of-scope=none
+  [PASS] git creates nothing outside the scope: R2: a file with no trailing newline -- created=none
+  [PASS] git reports no delete: R2: a file with no trailing newline -- summary=(none)
+  [PASS] git reports no rename: R2: a file with no trailing newline -- summary=(none)
+  [PASS] git reports no mode change: R2: a file with no trailing newline -- summary=(none)
+  [PASS] git apply accepts what the validator accepted: R3: a newly created spec file
+  [PASS] git names only in-scope paths: R3: a newly created spec file -- paths=tests/new.spec.ts out-of-scope=none
+  [PASS] git creates nothing outside the scope: R3: a newly created spec file -- created=tests/new.spec.ts
+  [PASS] git reports no delete: R3: a newly created spec file -- summary=create mode 100644 tests/new.spec.ts
+  [PASS] git reports no rename: R3: a newly created spec file -- summary=create mode 100644 tests/new.spec.ts
+  [PASS] git reports no mode change: R3: a newly created spec file -- summary=create mode 100644 tests/new.spec.ts
+
+--- B. the reviewer's counterexamples are all rejected ---
+  [PASS] the validator rejects CE1a: a second file smuggled in after a blank line -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] the validator rejects CE1b: an unprefixed path (git -p1 strips one component) -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] the validator rejects CE1c: a deletion via +++ /dev/null -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+
+--- C. BACKWARD: real git diff output is accepted ---
+  [PASS] the validator accepts R1: a whitespace-only context line -- code=null
+  [PASS] the validator accepts R2: a file with no trailing newline -- code=null
+  [PASS] the validator accepts R3: a newly created spec file -- code=null
+
+--- D. the real git diff output is what git itself produces ---
+  [PASS] git itself produces the whitespace-context diff shape -- diff --git a/tests/login.spec.ts b/tests/login.spec.ts | index 8218917..8236f46 100644 | --- a/tests/login.spec.ts | +++ b/tests/login.spec.ts | @@ -1,2 +1,3 @@ |  test("a", () => {}); | - | +    | +t
+  [PASS] git itself produces the no-trailing-newline diff shape -- diff --git a/tests/login.spec.ts b/tests/login.spec.ts | index 8218917..aceefb7 100644 | --- a/tests/login.spec.ts | +++ b/tests/login.spec.ts | @@ -1,2 +1 @@ | -test("a", () => {}); | - | +test("a", 
+  [PASS] git itself produces the new-file diff shape -- diff --git a/tests/new.spec.ts b/tests/new.spec.ts | new file mode 100644 | index 0000000..01eca86 | --- /dev/null | +++ b/tests/new.spec.ts | @@ -0,0 +1 @@ | +test("n", () => {}); | 
+
+--- E. the scope checks are not vacuous ---
+  [PASS] the no-rename predicate matches git's own rename output -- summary=rename tests/{old.spec.ts => new.spec.ts} (100%)
+  [PASS] git spells the rename the way the predicate looks for -- summary=rename tests/{old.spec.ts => new.spec.ts} (100%) -- a predicate written against "rename from"/"rename to" would be vacuous
+  [PASS] the no-delete predicate matches git's own deletion output -- summary=delete mode 100644 tests/old.spec.ts
+  [PASS] the no-mode-change predicate matches git's own mode change output -- summary=mode change 100644 => 100755 tests/old.spec.ts
+
+--- verdict ---
+PASS: on this corpus (15 inputs, 5 accepted), the contract whitelist and git apply agree in both directions

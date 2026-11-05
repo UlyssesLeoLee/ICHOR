@@ -1,0 +1,38 @@
+=== ATS-401 probe: 2nd-review-round regressions ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-c245c91b845d/worktree
+date      : 2026-11-05T10:57:42Z
+
+=== ATS-401 probe: 2nd-review-round regressions ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree
+work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree\.ats-evidence-work\r2
+
+--- A. the diff scope cannot be bypassed ---
+  [PASS] the legacy "rename old/new" headers is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a C-quoted diff --git header is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a C-quoted diff --git header naming a new empty file is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a context diff header (*** style) is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a similarity/dissimilarity index header is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] an Index: header is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a diff --git header whose two sides differ is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a hunk whose declared line count does not match its body is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] a well-formed in-scope diff is still accepted -- code=null
+
+--- B. the deadline holds without any other active handle ---
+  [PASS] a hung provider is cut off at the deadline in a handle-free process -- outcome=OUTCOME=AGENT_BUDGET_EXCEEDED exit=0 stderr=
+
+--- C. the WBS updater is idempotent ---
+  [PASS] the ATS-401 WBS updater runs -- exit1=0 exit2=0 
+  [PASS] the note keeps exactly one 【ATS-401】 marker after two runs -- markers=1
+  [PASS] running the updater twice leaves the file byte-identical -- 49430B vs 49430B
+  [PASS] running the updater twice leaves the workbook CONTENT identical -- the second run changed the content
+  [PASS] the updater is stable against the committed baseline -- the second run differs from the committed workbook
+  [PASS] the updater is content-stable against the committed baseline -- the second run differs from the committed workbook content
+  [PASS] the repository's own workbook was not touched -- docs/WBS.xlsx changed on disk
+
+--- D. the purity scanner flags dynamic-code constructs ---
+  [PASS] the detector flags eval(...) -- globals: eval
+  [PASS] the detector flags new Function(...) -- globals: Function
+  [PASS] the real contract layer is still pure
+
+--- verdict ---
+PASS: every 2nd-review-round regression is closed

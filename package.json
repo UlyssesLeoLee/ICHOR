@@ -9,8 +9,14 @@
     "dev:next": "npm --prefix apps/studio run dev",
     "build:web": "npm --prefix apps/studio run build",
     "test": "node --test tests/*.test.mjs",
-    "verify": "node --check server/index.mjs && node --test tests/*.test.mjs"
+    "verify": "node --check server/index.mjs && node --test tests/*.test.mjs",
+    "ci:install": "npm ci --no-audit --no-fund && npm --prefix apps/studio ci --no-audit --no-fund",
+    "ci:test": "npm test",
+    "ci:build": "npm --prefix apps/studio run build",
+    "deps:manifest": "node tools/gen_dep_manifest.mjs",
+    "deps:manifest:check": "node tools/gen_dep_manifest.mjs --check"
   },
   "engines": {"node": ">=22"},
+  "packageManager": "npm@10.9.9",
   "license": "MIT"
 }

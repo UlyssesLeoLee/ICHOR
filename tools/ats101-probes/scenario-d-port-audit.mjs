@@ -56,7 +56,7 @@ const NON_RUNTIME = new Set([
  * a new probe script, or a port mention added to this README, must not be
  * reported as a runtime hardcoding site.
  */
-const DOC_MENTION_DIRS = ['tools/ats101-probes'];
+const DOC_MENTION_DIRS = ['tools/ats101-probes', 'tools/ats501-probes'];
 /**
  * Every Markdown file is prose, whatever directory it sits in, so a port
  * mention in one is never a runtime hardcoding. The extension is the rule --

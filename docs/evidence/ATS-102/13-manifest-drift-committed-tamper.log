@@ -1,0 +1,54 @@
+=== ATS-102 evidence: the manifest drift gate against a tampered COMMITTED manifest ===
+clone : D:/hermes-multica/home/cache/scratch/ats102-drift-clone
+date  : 2026-11-05T08:19:29Z
+git   : git version 2.55.0.windows.4
+node  : v22.23.4
+npm   : 10.9.9
+
+The situation CI faces is a COMMITTED manifest that no longer matches the
+lockfiles. The three candidate gate orders are therefore measured on a
+tamper that is COMMITTED, not merely left in the working tree: a
+tamper that was never committed is simply overwritten by the next
+regeneration and says nothing about what the gate can detect.
+
+This section runs in a throwaway clone, so the tampered commit never
+reaches the deliverable.
+
+-------------------------------------------------------------------
+order A: regenerate, then --check
+-------------------------------------------------------------------
+(the order this gate used to have: it compares the file it just wrote
+ with itself, so any committed drift is silently overwritten)
+
+tampered: "integrity": "sha512-Xz4Tpyki7XyrpbUK1jR1
+03db6bd probe: tampered manifest
+exit code = 0   (0 means the drift was NOT detected)
+
+-------------------------------------------------------------------
+order B: --check first
+-------------------------------------------------------------------
+(the order this gate has now: it compares the committed file against
+ the lockfiles, without touching the file)
+
+exit code = 1   (non-zero means the drift WAS detected)
+
+-------------------------------------------------------------------
+order C: regenerate, then git diff --exit-code
+-------------------------------------------------------------------
+(measured on its own, starting again from a tampered commit)
+
+exit code = 1   (non-zero means the drift WAS detected)
+
+So the detection capability of the three orders is:
+  order A (regenerate, then --check) : does NOT detect
+  order B (--check first)            : detects
+  order C (regenerate, then git diff): detects
+
+Order C detects the drift because the regeneration REWRITES the
+committed manifest, so the working tree differs from the commit.
+Order B is the one this gate uses: it is the only order that does not
+write to the file it is checking, needs no git, and runs offline.
+
+--- the tampered commit is visible in the clone's log ---
+03b75c3 probe: tampered manifest
+f1821c9 chore(ATS-102): 按最终提交的树重新生成 CHECKSUMS.sha256

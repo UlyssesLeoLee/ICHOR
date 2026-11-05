@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun } from './core.mjs';
 import { projectUidFor, projectUidOf, runUidFor, attemptUidFor, nextRunSeq, UID_SCHEME_VERSION } from './uid.mjs';
 import { AGENT_CONTRACT_VERSION,describeAgentContract,validateAgentRequest } from './agent.mjs';
+import { capabilityMatrix,getAdapter,listRunners,selectAdapter,selectAdapterOrThrow , negotiationFailure} from './adapters/registry.mjs';
+import { AdapterError } from './adapters/contract.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const ROOT=path.resolve(HERE,'..');
@@ -20,7 +22,7 @@ saveState(store);
 const ORIGINS=new Set([`http://localhost:${PORT}`,`http://127.0.0.1:${PORT}`,'http://localhost:3000','http://127.0.0.1:3000','tauri://localhost','http://tauri.localhost','https://tauri.localhost']);
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.zip':'application/zip','.txt':'text/plain; charset=utf-8','.map':'application/json'};
 const respond=(res,status,obj)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(obj));};
-const err=(res,status,msg)=>respond(res,status,{error:msg});
+const err=(res,status,msg,extra)=>respond(res,status,extra?{error:msg,...extra}:{error:msg});
 async function body(req){let buf='';for await(const chunk of req){buf+=chunk;if(buf.length>1_200_000)throw new Error('PAYLOAD_TOO_LARGE');}return buf?JSON.parse(buf):{};}
 function getProject(id){const p=store.projects.find(p=>p.id===id||p.uid===id);if(!p)throw new Error('PROJECT_NOT_FOUND');return p;}
 function getRun(id){const r=store.runs.find(r=>r.id===id||r.uid===id);if(!r)throw new Error('RUN_NOT_FOUND');return r;}
@@ -30,27 +32,38 @@ function finishRun(run,code,signal){
  if(run.status!=='running'&&run.status!=='cancelling')return;
  const cancelled=run.status==='cancelling';
  run.status=cancelled?'cancelled':code===0?'passed':'failed';run.exitCode=code;run.finishedAt=now();
- const reportFile=path.join(runDir(run.id),'report.json');
- if(fs.existsSync(reportFile)){try{run.summary=parseReport(JSON.parse(fs.readFileSync(reportFile,'utf8')));}catch(e){run.reportWarning=String(e.message);}}
+ const folder=runDir(run.id);
+ // Collect through the adapter that started the run, so every engine's
+ // native result file is mapped onto the same summary shape.
+ const adapter=run.runner?getAdapter(run.runner):null;
+ // The RAW Playwright report is parsed separately from the adapter's summary:
+ // the adapter maps the engine's vocabulary onto the common result model, but
+ // the Attempt records need the per-retry details (line, retry index and the
+ // RESULT level status) that only the raw report carries.
+ let rawSummary=null;
+ const reportFile=path.join(folder,'report.json');
+ if(fs.existsSync(reportFile)){try{rawSummary=parseReport(JSON.parse(fs.readFileSync(reportFile,'utf8')));}catch(e){run.reportWarning=String(e.message);}}
+ if(adapter){try{const collected=adapter.collect({outputDir:folder});if(collected&&collected.summary)run.summary=collected.summary;}catch(e){run.reportWarning=String(e.message);}}
+ if(!run.summary)run.summary=rawSummary;
+ if(!run.summary)run.summary={passed:0,failed:0,skipped:0,flaky:0,total:0,executions:0,cases:[]};
  // The report names the test files relative to the Playwright rootDir, the
  // registry stores them relative to the project root. The project root is
  // needed to reconcile the two spellings.
  const proj=store.projects.find(p=>p.id===run.projectId||p.uid===run.projectId||p.uid===run.projectUid);
- run.attempts=attemptsForRun({...run,projectRoot:proj?.root??null},run.summary,store.uidRegistry);
+ run.attempts=attemptsForRun({...run,projectRoot:proj?.root??null},rawSummary??run.summary,store.uidRegistry);
  run.artifacts=filesInRun(run.id).filter(x=>!['events.jsonl','stdout.log'].includes(x.file));
- const manifest={version:1,runId:run.id,projectUid:run.projectUid||null,projectId:run.projectId,sourceCommit:run.gitCommit,runner:'playwright',status:run.status,createdAt:run.startedAt,finishedAt:run.finishedAt,artifacts:run.artifacts,attempts:run.attempts};
- fs.writeFileSync(path.join(runDir(run.id),'manifest.json'),JSON.stringify(manifest,null,2));
+ const manifest={version:1,runId:run.id,projectUid:run.projectUid||null,projectId:run.projectId,sourceCommit:run.gitCommit,runner:run.runner||'playwright',status:run.status,createdAt:run.startedAt,finishedAt:run.finishedAt,artifacts:run.artifacts,attempts:run.attempts};
+ fs.writeFileSync(path.join(folder,'manifest.json'),JSON.stringify(manifest,null,2));
  writeEvent(run,'run.finished',{status:run.status,code,signal});jobs.delete(run.id);saveState(store);
 }
-function startRun(project,run){
+function startRun(project,run,adapter){
  const folder=runDir(run.id);fs.mkdirSync(folder,{recursive:true});
- writeEvent(run,'run.queued',{file:run.file});
- let args;try{args=safeRunArgs(project,run.file,folder);}catch(e){run.status='error';run.error=e.message;run.finishedAt=now();writeEvent(run,'run.error',{error:e.message});saveState(store);return;}
- const env={...process.env,PLAYWRIGHT_JSON_OUTPUT_FILE:path.join(folder,'report.json'),PLAYWRIGHT_HTML_OUTPUT_DIR:path.join(folder,'html'),PLAYWRIGHT_HTML_OPEN:'never',CI:'1',FORCE_COLOR:'0'};
- let cp;
- try{cp=spawn(process.execPath,args,{cwd:project.root,env,stdio:['ignore','pipe','pipe'],windowsHide:true,shell:false});}
- catch(e){run.status='error';run.error=e.message;saveState(store);return;}
- run.status='running';run.pid=cp.pid;run.startedAt=now();jobs.set(run.id,cp);writeEvent(run,'run.started',{pid:cp.pid});saveState(store);
+ writeEvent(run,'run.queued',{file:run.file,runner:run.runner});
+ let handle;
+ try{handle=adapter.start({project,run,file:run.file,outputDir:folder});}
+ catch(e){run.status='error';run.error=e.message;run.finishedAt=now();writeEvent(run,'run.error',{error:e.message});saveState(store);return;}
+ const cp=handle.child;
+ run.status='running';run.pid=cp.pid;run.startedAt=now();run.command=[handle.command,...handle.args];jobs.set(run.id,{child:cp,handle});writeEvent(run,'run.started',{pid:cp.pid,runner:run.runner});saveState(store);
  for(const stream of [cp.stdout,cp.stderr])stream.on('data',buf=>{
   const str=buf.toString('utf8');run.log=compactLog((run.log||'')+str);
   fs.appendFileSync(path.join(folder,'stdout.log'),str);
@@ -59,7 +72,8 @@ function startRun(project,run){
  cp.on('close',(code,signal)=>finishRun(run,code,signal));
 }
 function cancelRun(run){
- const cp=jobs.get(run.id);if(!cp)throw new Error('RUN_NOT_ACTIVE');run.status='cancelling';writeEvent(run,'run.cancelling');saveState(store);
+ const job=jobs.get(run.id);if(!job)throw new Error('RUN_NOT_ACTIVE');run.status='cancelling';writeEvent(run,'run.cancelling');saveState(store);
+ const cp=job.child;
  if(process.platform==='win32')spawn('taskkill',['/PID',String(cp.pid),'/T','/F'],{windowsHide:true});
  else {try{cp.kill('SIGTERM');}catch{}}
 }
@@ -106,11 +120,58 @@ const server=http.createServer(async(req,res)=>{
    store.uidRegistry=catalog.registry;saveState(store);
    return respond(res,200,{...catalog,project:cleanProject(project)});
   }
+  if(action==='runners'&&req.method==='GET'){
+   return respond(res,200,{runners:listRunners(),capabilities:capabilityMatrix(project),project:cleanProject(project)});
+  }
+  if(action==='runners'&&req.method==='POST'){
+   const b=await body(req);if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');
+   const requested=Array.isArray(b.capabilities)?b.capabilities:[];
+   try{
+    // A caller that pinned a runner gets an error when that runner cannot
+    // satisfy the request -- falling back to a different engine would run
+    // something the caller did not ask for.
+    if(b.runner){
+     const chosen=selectAdapterOrThrow(project,requested,{preferred:b.runner});
+     return respond(res,200,{selected:chosen.adapter.kind,negotiation:chosen.negotiation,rejected:chosen.rejected||[]});
+    }
+    const chosen=selectAdapter(project,requested);
+    return respond(res,200,{selected:chosen.adapter.kind,negotiation:chosen.negotiation,rejected:chosen.rejected});
+   }catch(e){
+    if(e instanceof AdapterError)return err(res,e.code==='UNKNOWN_RUNNER'?404:409,e.code,negotiationFailure(e));
+    throw e;
+   }
+  }
   if(action==='source'&&req.method==='GET')return respond(res,200,readSource(project,u.searchParams.get('file')));
   if(action==='source'&&req.method==='PUT'){const b=await body(req);return respond(res,200,writeSource(project,b.file,b.content,b.baseHash));}
   if(action==='run'&&req.method==='POST'){
    if(store.runs.some(x=>x.projectId===project.id&&['running','queued','cancelling'].includes(x.status)))throw new Error('PROJECT_ALREADY_RUNNING');
-   const b=await body(req),file=b.file||null;if(file)readSource(project,file);
+   const b=await body(req),file=b.file||null;if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');if(file)readSource(project,file);
+   // Pick the runner by capability negotiation, not by a hardcoded name. A
+   // caller may pin one with `runner`; otherwise the first runner that
+   // supports the required operations wins.
+   const explicit=Array.isArray(b.capabilities)&&b.capabilities.length>0;
+   const pinned=typeof b.runner==='string'&&b.runner?b.runner:null;
+   const requested=explicit?b.capabilities:['discover','start','stop','collect'];
+   let chosen;
+   try{
+    // A PINNED runner must not silently fall back to a different engine: the
+    // caller asked for that engine, so failing is the honest answer.
+    chosen=pinned
+     ? selectAdapterOrThrow(project,requested,{preferred:pinned})
+     : selectAdapter(project,requested);
+   }
+   catch(e){
+    if(!(e instanceof AdapterError))throw e;
+    // An EXPLICIT negotiation request that no runner can satisfy is a
+    // client-side condition: the caller asked for a capability nobody has.
+    // Answer it with the code and the adapter's own reason (409), not a 500.
+    if(explicit||pinned)return err(res,e.code==='UNKNOWN_RUNNER'?404:409,e.code,negotiationFailure(e));
+    // The DEFAULT request ("just run the tests") keeps the v0.1 contract of
+    // docs/04-DETAILED-DESIGN.md §7: the run is accepted (202) and then fails
+    // EXPLICITLY with status=error and the reason the engine is missing.
+    // Falling back to the first adapter makes start() raise that reason.
+    chosen={adapter:getAdapter('playwright'),negotiation:{requested}};
+   }
    const gitCommit=gitInfo(project.root).commit;
    const projectUid=projectUidOf(project);
    // The execution sequence is recorded on the run itself and backed by a
@@ -121,8 +182,8 @@ const server=http.createServer(async(req,res)=>{
    store.runCounters=store.runCounters??{};
    store.runCounters[project.id]=seq;
    const uid=runUidFor({projectUid,gitCommit,file,seq});
-   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:'queued',createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,log:'',summary:null,artifacts:[]};
-   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run);return respond(res,202,{run});
+   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:'queued',createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested};
+   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter);return respond(res,202,{run});
   }
   if(action==='lineage'&&req.method==='GET'){
    const dir=path.join(project.root,'.aitest');let requirements=[],links=[];
@@ -158,9 +219,22 @@ const server=http.createServer(async(req,res)=>{
  }catch(e){const message=e instanceof Error?e.message:String(e);const code=e&&e.code?e.code:'';
  // Agent contract violations are client errors: the request does not satisfy
  // the contract. The code is returned as-is so a caller can branch on it.
- const agentStatus=/^AGENT_/.test(code)?400:null;
- const status=agentStatus!==null?agentStatus:/NOT_FOUND/.test(message)?404:/CONFLICT|ALREADY/.test(message)?409:/OUTSIDE|INVALID|REQUIRED|STALE|TOO_LARGE|NOT_INSTALLED/.test(message)?400:500;
- return err(res,status,code||message);}
+ //
+ // SCOPE: this mapping applies to AGENT_* errors ONLY. Every other error keeps
+ // the pre-ATS-401 behaviour byte for byte (status by message pattern, the
+ // message echoed as-is), so ATS-401 does not silently change the API surface
+ // for unrelated errors. The path-leak in that echo is a pre-existing defect
+ // owned by ATS-112 (docs/16-BASELINE-ADR.md §3.2), not by this task.
+ const isAgentError=/^AGENT_/.test(code);
+ if(isAgentError){
+  const status=400;
+  // The details are contract-level values only (the offending field, the
+  // limit, the target path). They never contain a local filesystem path.
+  const details=e&&e.details&&typeof e.details==='object'?{details:e.details}:{};
+  return respond(res,status,{error:code||message,...details});
+ }
+ const status=/NOT_FOUND/.test(message)?404:/CONFLICT|ALREADY/.test(message)?409:/OUTSIDE|INVALID|REQUIRED|STALE|TOO_LARGE|NOT_INSTALLED/.test(message)?400:500;
+ return err(res,status,message);}
 });
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))server.listen(PORT,'127.0.0.1',()=>console.log(`AI Test Studio bridge: http://127.0.0.1:${PORT}/fallback.html`));
 export {server};

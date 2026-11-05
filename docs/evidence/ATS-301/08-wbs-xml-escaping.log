@@ -1,0 +1,49 @@
+ATS-301 / review item 3 (WBS XML escaping) -- the escaping is real and needed
+========================================================================
+
+THE DEFECT
+  tools/update_wbs_ats301.py wrote its note into <x:v> VERBATIM. A note that
+  contains '<', '>' or '&' -- a hex digest in angle brackets, a comparison
+  operator, an ampersand -- therefore went RAW into xl/worksheets/sheet2.xml,
+  which makes the workbook unparseable: Excel refuses to open it and every
+  reader of the sheet fails.
+
+THE FIX
+  xml_escape() in tools/update_wbs_ats301.py escapes &, < and > BEFORE the text
+  goes into the cell. The escape set is the XML spec's own, so the round trip
+  through the reader is lossless.
+
+--- PROOF 1: with the escaping, a note containing <24hex> keeps the workbook valid ---
+command: python tools/update_wbs_ats301.py
+exit code: 0
+workbook parses : YES (all XML parts parse)
+raw '<a1b2' in sheet2.xml : False   (must be False)
+escaped '&lt;a1b2' present: True   (must be True)
+
+  -> the digest text is present, ESCAPED, and the workbook still parses.
+
+--- PROOF 2: WITHOUT the escaping the same note corrupts the workbook ---
+command: python tools/update_wbs_ats301.py   (xml_escape() bypassed)
+exit code: 0
+workbook parses : NO (xl/worksheets/sheet2.xml: not well-formed (invalid token): line 1, column 45419)
+
+  -> WITHOUT the escaping the workbook is CORRUPT. The fix is load-bearing,
+     not cosmetic. (The updater itself still exits 0 -- which is exactly why
+     this needed an explicit parse check rather than an exit-code check.)
+
+--- restore ---
+command: python tools/update_wbs_ats301.py   (restored)
+exit code: 0
+workbook parses : YES (all XML parts parse)
+
+  -> restored tree: the updater applies cleanly, the workbook parses.
+
+--- the ATS-301 row after the real update ---
+  status   : 待审核
+  rate     : 1
+  remaining: 0
+  marker   : 【ATS-301】 x1
+
+ENVIRONMENT
+  python   : 3.14.7 (main, Sep  1 2026, 14:17:30) [MSC v.1944 64 bit (AMD64)]
+  date     : 2026-11-05T19:24:31

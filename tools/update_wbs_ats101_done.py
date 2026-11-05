@@ -18,6 +18,8 @@ import shutil
 import zipfile
 from pathlib import Path
 
+from wbs_common import format_rate, totals
+
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 SHEET2 = 'xl/worksheets/sheet2.xml'
 SHEET1 = 'xl/worksheets/sheet1.xml'
@@ -70,13 +72,15 @@ def main():
     parts[SHEET2] = xml2.encode('utf-8')
 
     # --- 总览: one more row is now 已完成 -----------------------------------
-    # B8  = COUNTIF(开发WBS!N6:N94,"已完成")  -> 1
-    # B9  = 1 - SUM(P)/SUM(K) = 1 - 468/470   (unchanged: ATS-101 contributes 0)
-    # B10 = SUM(P) = 468                     (unchanged)
+    # The cached values are DERIVED from the sheet that was just written, not
+    # hardcoded: a hardcoded cache is stale as soon as another task changes a
+    # row (ATS-102 / ATS-401 / ATS-501 all move the totals), and the 总览
+    # would then silently disagree with the 开发WBS.
     xml1 = parts[SHEET1].decode('utf-8')
-    xml1 = set_cell_in_row(xml1, 8, 'B', '1', numeric=True)
-    xml1 = set_cell_in_row(xml1, 9, 'B', '0.004255319148936', numeric=True)
-    xml1 = set_cell_in_row(xml1, 10, 'B', '468', numeric=True)
+    derived = totals(parts)
+    xml1 = set_cell_in_row(xml1, 8, 'B', str(derived['completed']), numeric=True)
+    xml1 = set_cell_in_row(xml1, 9, 'B', format_rate(derived['completion_rate']), numeric=True)
+    xml1 = set_cell_in_row(xml1, 10, 'B', repr(int(derived['sum_remaining'])), numeric=True)
     parts[SHEET1] = xml1.encode('utf-8')
 
     tmp = XLSX.with_suffix('.xlsx.tmp')
