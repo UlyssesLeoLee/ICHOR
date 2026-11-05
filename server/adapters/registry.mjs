@@ -92,3 +92,42 @@ export function selectAdapterOrThrow(project, requested = [], { preferred } = {}
 }
 
 export { negotiate, requireCapability };
+
+/**
+ * Turn a negotiation failure into the body of an HTTP 4xx.
+ *
+ * A 409 that carries only `{"error":"CAPABILITY_UNSUPPORTED"}` throws away the
+ * one thing the caller needs: WHICH capability was missing and WHY. The
+ * adapter's own reason is the only honest answer, so it is carried through
+ * verbatim in `missing[]` (name + kind + reason) and, when the selection
+ * tried several runners, in `rejected[]` (per runner).
+ *
+ * `missing[]` is flattened across the rejected runners so a caller does not
+ * have to know whether the failure came from one pinned runner or from the
+ * whole fleet. The per-runner view stays available in `rejected[]`.
+ *
+ * This lives here, next to the code that raises the errors, so the two
+ * cannot drift apart.
+ */
+export function negotiationFailure(e) {
+  const details = (e && e.details && typeof e.details === 'object') ? e.details : {};
+  const rejected = Array.isArray(details.rejected) ? details.rejected : [];
+  const missing = Array.isArray(details.missing) ? details.missing : [];
+  const flat = missing.map((m) => ({ name: m.name, kind: m.kind, reason: m.reason }));
+  for (const r of rejected) {
+    for (const m of (r.missing || [])) {
+      if (!flat.some((x) => x.name === m.name)) {
+        flat.push({ name: m.name, kind: m.kind, reason: m.reason, runner: r.kind });
+      }
+    }
+  }
+  const payload = {};
+  if (flat.length) payload.missing = flat;
+  if (rejected.length) {
+    payload.rejected = rejected.map((r) => ({
+      kind: r.kind,
+      missing: (r.missing || []).map((m) => ({ name: m.name, kind: m.kind, reason: m.reason })),
+    }));
+  }
+  return payload;
+}

@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog } from './core.mjs';
 import { AGENT_CONTRACT_VERSION,describeAgentContract,validateAgentRequest } from './agent.mjs';
-import { capabilityMatrix,getAdapter,listRunners,selectAdapter,selectAdapterOrThrow } from './adapters/registry.mjs';
+import { capabilityMatrix,getAdapter,listRunners,selectAdapter,selectAdapterOrThrow , negotiationFailure} from './adapters/registry.mjs';
 import { AdapterError } from './adapters/contract.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
@@ -21,7 +21,7 @@ saveState(store);
 const ORIGINS=new Set([`http://localhost:${PORT}`,`http://127.0.0.1:${PORT}`,'http://localhost:3000','http://127.0.0.1:3000','tauri://localhost','http://tauri.localhost','https://tauri.localhost']);
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.zip':'application/zip','.txt':'text/plain; charset=utf-8','.map':'application/json'};
 const respond=(res,status,obj)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(obj));};
-const err=(res,status,msg)=>respond(res,status,{error:msg});
+const err=(res,status,msg,extra)=>respond(res,status,extra?{error:msg,...extra}:{error:msg});
 async function body(req){let buf='';for await(const chunk of req){buf+=chunk;if(buf.length>1_200_000)throw new Error('PAYLOAD_TOO_LARGE');}return buf?JSON.parse(buf):{};}
 function getProject(id){const p=store.projects.find(p=>p.id===id);if(!p)throw new Error('PROJECT_NOT_FOUND');return p;}
 function getRun(id){const r=store.runs.find(r=>r.id===id);if(!r)throw new Error('RUN_NOT_FOUND');return r;}
@@ -100,7 +100,7 @@ const server=http.createServer(async(req,res)=>{
    return respond(res,200,{runners:listRunners(),capabilities:capabilityMatrix(project),project:cleanProject(project)});
   }
   if(action==='runners'&&req.method==='POST'){
-   const b=await body(req);
+   const b=await body(req);if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');
    const requested=Array.isArray(b.capabilities)?b.capabilities:[];
    try{
     // A caller that pinned a runner gets an error when that runner cannot
@@ -108,12 +108,12 @@ const server=http.createServer(async(req,res)=>{
     // something the caller did not ask for.
     if(b.runner){
      const chosen=selectAdapterOrThrow(project,requested,{preferred:b.runner});
-     return respond(res,200,{selected:chosen.adapter.kind,negotiation:chosen,rejected:[]});
+     return respond(res,200,{selected:chosen.adapter.kind,negotiation:chosen.negotiation,rejected:chosen.rejected||[]});
     }
     const chosen=selectAdapter(project,requested);
     return respond(res,200,{selected:chosen.adapter.kind,negotiation:chosen.negotiation,rejected:chosen.rejected});
    }catch(e){
-    if(e instanceof AdapterError)return err(res,e.code==='UNKNOWN_RUNNER'?404:409,e.code);
+    if(e instanceof AdapterError)return err(res,e.code==='UNKNOWN_RUNNER'?404:409,e.code,negotiationFailure(e));
     throw e;
    }
   }
@@ -121,7 +121,7 @@ const server=http.createServer(async(req,res)=>{
   if(action==='source'&&req.method==='PUT'){const b=await body(req);return respond(res,200,writeSource(project,b.file,b.content,b.baseHash));}
   if(action==='run'&&req.method==='POST'){
    if(store.runs.some(x=>x.projectId===project.id&&['running','queued','cancelling'].includes(x.status)))throw new Error('PROJECT_ALREADY_RUNNING');
-   const b=await body(req),file=b.file||null;if(file)readSource(project,file);
+   const b=await body(req),file=b.file||null;if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');if(file)readSource(project,file);
    // Pick the runner by capability negotiation, not by a hardcoded name. A
    // caller may pin one with `runner`; otherwise the first runner that
    // supports the required operations wins.
@@ -141,7 +141,7 @@ const server=http.createServer(async(req,res)=>{
     // An EXPLICIT negotiation request that no runner can satisfy is a
     // client-side condition: the caller asked for a capability nobody has.
     // Answer it with the code and the adapter's own reason (409), not a 500.
-    if(explicit||pinned)return err(res,e.code==='UNKNOWN_RUNNER'?404:409,e.code);
+    if(explicit||pinned)return err(res,e.code==='UNKNOWN_RUNNER'?404:409,e.code,negotiationFailure(e));
     // The DEFAULT request ("just run the tests") keeps the v0.1 contract of
     // docs/04-DETAILED-DESIGN.md §7: the run is accepted (202) and then fails
     // EXPLICITLY with status=error and the reason the engine is missing.
