@@ -37,7 +37,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-301】', '【ATS-401】', '【ATS-501】')
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-301】', '【ATS-401】', '【ATS-501】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -78,6 +78,12 @@ NARRATIVE_FRAGMENTS = {
     '【ATS-102】': {
         'D6': '锁文件、依赖清单与 CI 构建门禁已交付',
         'D7': 'CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md',
+    },
+    '【ATS-103】': {
+        'D6': 'Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过（ATS-103）',
+        'D7': '静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；'
+              '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112，'
+              '详见 docs/21-FRONTEND-EXPORT.md',
     },
     '【ATS-401】': {
         'D6': 'Agent 契约层已实现',
