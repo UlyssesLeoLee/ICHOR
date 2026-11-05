@@ -53,6 +53,20 @@ const EXPORT_ARTEFACT = path.join('apps', 'studio', 'out', 'index.html');
 const REQUIRED_NODE_MAJOR = 22;
 
 /**
+ * The npm version the lockfiles and the recorded tree digests were produced
+ * with. The root package.json declares it as `packageManager`.
+ *
+ * It is asserted for a concrete reason: the recorded installed-tree digest
+ * depends on it. npm 10.9.9 installs a set of optional packages that npm
+ * 12.2.0 does not (for example `@emnapi/runtime` and `@img/sharp-wasm32`),
+ * so the same lockfile yields two different trees under the two npm
+ * versions, and therefore two different digests. Pinning the npm version
+ * makes the digest a reproducible value instead of a property of whatever
+ * npm happens to be on the PATH.
+ */
+const REQUIRED_NPM_VERSION = '10.9.9';
+
+/**
  * Every step runs a command and asserts its exit code. The commands are the
  * ones the CI workflow runs, spelled the same way.
  */
@@ -186,9 +200,10 @@ function run(cmd) {
 
 function main() {
   if (CHECK_NODE) {
-    const declared = JSON.parse(
+    const pkg = JSON.parse(
       fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'),
-    ).engines?.node || '(none)';
+    );
+    const declared = pkg.engines?.node || '(none)';
     const major = Number(process.versions.node.split('.')[0]);
     console.log(`node ${process.versions.node}, engines.node ${declared}`);
     if (major !== REQUIRED_NODE_MAJOR) {
@@ -197,6 +212,28 @@ function main() {
       return;
     }
     console.log(`node version ok: ${process.versions.node}`);
+
+    // The npm version is asserted in the same step because the recorded
+    // installed-tree digest depends on it: npm 10.9.9 and npm 12.2.0 resolve
+    // the same lockfile to two different trees, so the recorded digest only
+    // describes the tree npm 10.9.9 installs. Failing here names the actual
+    // cause, instead of letting the digest step fail later with a bare
+    // "the installed tree does not match the lockfiles it was installed from".
+    const declaredNpm = (pkg.packageManager || '').replace(/^npm@/, '');
+    const actualNpm = npmVersion();
+    console.log(`npm ${actualNpm}, packageManager ${pkg.packageManager || '(none)'}`);
+    if (declaredNpm && actualNpm !== declaredNpm) {
+      console.error(
+        `npm ${declaredNpm} is required, got ${actualNpm}.\n` +
+          'The recorded installed-tree digest (tools/installed-tree-digests.txt) was\n' +
+          'produced with npm ' + declaredNpm + '. A different npm version installs a\n' +
+          'different set of optional packages from the same lockfile, so the digest\n' +
+          'cannot match. Use the npm that ships with Node ' + REQUIRED_NODE_MAJOR + '.x.',
+      );
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`npm version ok: ${actualNpm}`);
     return;
   }
 
