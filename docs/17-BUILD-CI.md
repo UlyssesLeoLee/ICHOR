@@ -11,7 +11,7 @@ ATS-102 的验收标准是「**Node22 clean install + npm test 成功；锁文�
 | 验收项 | 结论 | 证据 |
 |---|---|---|
 | Node 22 clean install | **PASS** | 干净克隆内 `npm ci` 根包 0 依赖 / `apps/studio` 57 包；`npm ci` 不改写 lockfile |
-| `npm test` | **PASS** | Node 22.23.4 下 `# tests 165 / # pass 158 / # fail 0 / # cancelled 0`，退出码 **0**（`08-node22-npm-test.log`） |
+| `npm test` | **PASS** | Node 22.23.4 下 `# tests 165 / # pass 158 / # fail 0 / # cancelled 0`，退出码 **0**（`08-node22-gate-8-steps.log`） |
 | 锁文件可重现 | **PASS** | 安装树摘要逐字节一致（口径见 §2.2）；`npm ci` 不改写 lockfile；`autocrlf=true` 与 `false` 两种检出下依赖清单 `--check` 均退出码 0 |
 | 生成依赖清单 | **PASS** | `docs/dependencies/dependency-manifest.{json,md}`，88 个依赖许可全部已知，校验**完全离线** |
 | Windows CI 构建脚本 | **PASS** | `.github/workflows/ats-102-build.yml`，3 个 job；本地门禁 `tools/ci_build_gate.mjs` 与 workflow 逐步对应 |
@@ -195,6 +195,7 @@ GATE_EXIT_CODE=0
 | `09-manifest-check-autocrlf-true-false.log` | 依赖清单 `--check` 在 `core.autocrlf=true` 与 `false` 两种检出下均退出码 0；并附修复前生成器在同一 LF 检出上退出码 1 的对照 |
 | `10-path-with-space-and-cjk.log` | 检出目录含空格（`sp ace`）与含中日文（`中文目录`）时的门禁：修复前报错、修复后摘要校验通过 |
 | `11-manifest-tamper-regression.log` | **门禁有效性回归**：篡改清单一条 `integrity` 后，现行 CI 序列退出码 1、旧序列退出码 0 |
+| `08-manifest-drift-and-line-endings.log` | 清单漂移门禁的「先校验后重生成」对照、lockfile 哈希的 git 重算、以及含空格/非 ASCII 检出路径下的门禁运行（`tools/ats102-probes/collect-evidence.sh` 采集） |
 | `05-windows-shell-path-pitfall.log` | Windows/Git-Bash 下的 PATH 形态坑（`spawn taskkill ENOENT` 导致 Bridge 崩溃）与修正 |
 | `03-lockfile-reproducibility.log` | 两个独立克隆各装一次，安装树 sha256 一致；两个 lockfile 安装前后哈希不变 |
 
@@ -202,7 +203,7 @@ GATE_EXIT_CODE=0
 
 
 
-**Node 22.23.4 下 `# tests 165 / # pass 158 / # fail 0 / # cancelled 0 / # skipped 7`，退出码 0**（`08-node22-npm-test.log`）。
+**Node 22.23.4 下 `# tests 165 / # pass 158 / # fail 0 / # cancelled 0 / # skipped 7`，退出码 0**（`08-node22-gate-8-steps.log`）。
 
 该结果依赖于 `server/agent.mjs` 的截止时间计时器**不调用 `timer.unref()`**。若该计时器被 `unref()`，当进程内没有其它活动句柄、provider 又是一个纯 Promise（不持有 socket 之类的句柄）时，Node 会在截止时间到达之前直接退出，`execute()` 永不 settle，调用方拿不到 `AGENT_BUDGET_EXCEEDED`（进程以 exit 13「unsettled top-level await」结束）。实测对照：
 

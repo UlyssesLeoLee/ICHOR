@@ -155,7 +155,7 @@ jobs:
 
       # The manifest is derived from the COMMITTED lockfiles, not from a live
       # node_modules, so this check needs no install step: the generator reads
-      # package-lock.json and the npm registry metadata for the licences.
+      # the licences from package-lock.json itself and needs no network.
       #
       # The check compares the COMMITTED manifest against the lockfiles. It
       # must NOT regenerate the manifest first: regenerating writes the file
