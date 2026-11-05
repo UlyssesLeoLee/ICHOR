@@ -45,6 +45,11 @@ export PYTHONIOENCODING=utf-8
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT" || exit 1
+
+# `git` is a native Windows program here, and it does NOT understand the
+# MSYS-style path that `pwd` prints (/c/Users/...). `pwd -W` prints the same
+# directory as a native path (C:/Users/...), which git can clone from.
+ROOT_NATIVE="$(pwd -W 2>/dev/null || pwd)"
 EV="$ROOT/docs/evidence/ATS-301"
 mkdir -p "$EV"
 
@@ -92,7 +97,7 @@ rm -rf "$CLEAN"
   echo "COMMAND: npm test"
   echo
 
-  git clone --no-hardlinks "$ROOT" "$CLEAN" >/dev/null 2>&1
+  git clone --no-hardlinks "$ROOT_NATIVE" "$CLEAN" >/dev/null 2>&1
   if [ ! -d "$CLEAN/.git" ]; then
     echo "RESULT: COULD NOT CLONE -- the clean checkout was not created."
     exit 1
@@ -146,7 +151,7 @@ rm -rf "$LFCLONE"
 
   # core.autocrlf=false AT CLONE TIME: setting it afterwards is too late,
   # because the working tree has already been written.
-  git -c core.autocrlf=false -c core.eol=lf clone --no-hardlinks "$ROOT" "$LFCLONE" >/dev/null 2>&1
+  git -c core.autocrlf=false -c core.eol=lf clone --no-hardlinks "$ROOT_NATIVE" "$LFCLONE" >/dev/null 2>&1
   if [ ! -d "$LFCLONE/.git" ]; then
     echo "RESULT: COULD NOT CLONE -- the LF checkout was not created."
     exit 1
