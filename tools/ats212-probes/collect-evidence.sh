@@ -84,18 +84,18 @@ run 06-probe-env-seal.log "the environment seal: what the runner child received"
 run 06b-ab-listing-env.log "the listing environment: sealed vs. host, A/B over 5 rounds" \
   node tools/ats212-probes/ab-listing-env.mjs 5
 
-# --- 06c: the round-2 review probe: the mirror after the migration ----------
-# The round-2 review required "after the migration `verifyMirror` must still
-# be OK". The migration now re-keys the environment profiles and the
-# whitelists, so the mirror has to follow -- and this probe MEASURES it.
+# --- 06c: the mirror after the migration -----------------------------------
+# The requirement is "after the migration `verifyMirror` must still be OK".
+# The migration re-keys the environment profiles and the whitelists, so the
+# mirror has to follow -- and this probe MEASURES it.
 run 06c-probe-mirror-after-migration.log \
   "the SQLite mirror after the state migration re-keys the profiles" \
   node tools/ats212-probes/probe-mirror-after-migration.mjs
 
-# --- 06d: the round-2 review probe: the whitelist filter of the run path -----
-# The round-2 review required "a name removed from the whitelist no longer
-# reaches the runner". This probe measures it at the level of the runner
-# environment, without a browser.
+# --- 06d: the whitelist filter of the run path ------------------------------
+# The requirement is "a name removed from the whitelist no longer reaches
+# the runner". This probe measures it at the level of the runner environment,
+# without a browser.
 run 06d-probe-whitelist-filters-run.log \
   "the whitelist filters the runner environment, not only the write" \
   node tools/ats212-probes/probe-whitelist-filters-run.mjs

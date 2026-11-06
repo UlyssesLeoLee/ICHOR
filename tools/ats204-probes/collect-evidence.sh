@@ -70,11 +70,34 @@ run 10-port-audit.log node tools/ats101-probes/scenario-d-port-audit.mjs
 echo '--- 11. the WBS row of this task ---'
 run 11-wbs-row.log python tools/update_wbs_ats204.py --verify-only
 
-echo '--- 12. the counterexample: the same tests on the tree BEFORE the task ---'
-# The tree the work started from (83c8bc5). The identity mapper is copied in,
-# so that the test file loads -- the point is to show which ASSERTIONS fail
-# when the WIRING of the task is absent.
+echo '--- 12. the counterexample: the same tests on the tree of the FIRST delivery ---'
+# The tree the first delivery was made from (9a559c6). The identity mapper
+# is copied in, so that the test file loads -- the point is to show which
+# ASSERTIONS fail when the fix of the review round 1 is absent.
 run 12-counterexample.log bash tools/ats204-probes/counterexample.sh
+
+echo '--- 13. the review round 1: the anchor counterexamples ---'
+# The probes the reviewer attached (tools/ats204-probes/review-r1/). They
+# run against the CURRENT tree: every counterexample must be gone.
+run 13-review-r1-anchor.log node tools/ats204-probes/review-r1/r1-anchor.mjs .
+
+echo '--- 14. the review round 1: the end-to-end counterexamples ---'
+# The end-to-end probe needs a REAL @playwright/test. The fixture is
+# installed once into the scratch directory and reused.
+PW_NODE_MODULES="${ATS204_PW_NODE_MODULES:-$ROOT/examples/sample-playwright/node_modules}"
+if [ -d "$PW_NODE_MODULES/@playwright/test" ]; then
+  run 14-review-r1-e2e.log node tools/ats204-probes/review-r1/r1-e2e.mjs . "$PW_NODE_MODULES" "${TMPDIR:-/tmp}/ats204-review-r1"
+else
+  {
+    echo "=== SKIPPED ==="
+    echo "no real @playwright/test at: $PW_NODE_MODULES"
+    echo "run 'npm install' in examples/sample-playwright to enable this probe"
+  } > "$OUT/14-review-r1-e2e.log" 2>&1
+  echo "  wrote $OUT/14-review-r1-e2e.log (skipped: no real @playwright/test)"
+fi
+
+echo '--- 15. the coverage of the four files of this task ---'
+run 15-coverage.log bash -c "node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout tests/*.test.mjs 2>&1 | grep -E 'identity.mjs|model.mjs|authoritative.mjs|core.mjs|all files'"
 
 echo
 echo "evidence collected into $OUT"

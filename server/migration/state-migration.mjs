@@ -224,6 +224,24 @@ export function planMigration(state) {
     const profiles = Array.isArray(store.profiles) ? store.profiles : [];
     const envUidByOld = new Map();
     const nextProfiles = [];
+    // The derived identifier is the IDENTITY of a profile: two profiles of
+    // one project with the same name derive the SAME uid. A state that
+    // carries both of them therefore holds two records for one profile --
+    // one filed under the legacy project key by an older build and one
+    // filed under the canonical key by the current build.
+    //
+    // The canonical record wins, and the legacy one is dropped. This is the
+    // same rule the re-keyed maps use (`rekeyProjectMap`): the value that
+    // is already under the current key is the newer one, and overwriting it
+    // with the legacy value would undo a later decision. The drop is
+    // REPORTED in `changes`, so the operator can see that a record was
+    // discarded instead of silently losing one of the two.
+    //
+    // The drop is also what keeps the migration importable: two records
+    // with the same uid cannot both be written into the `env_profiles`
+    // table, so the mirror import would fail with a UNIQUE constraint
+    // violation and the whole migration would be refused.
+    const seenUid = new Map(); // the derived uid -> {index, wasLegacyKeyed}
     for (const p of profiles) {
       const oldOwner = p?.projectUid;
       const newOwner = legacyToUid.get(oldOwner) ?? oldOwner;
@@ -231,14 +249,54 @@ export function planMigration(state) {
       // The identifier is re-derived from the NEW owner, so that it stays
       // recomputable: `envUidFor(projectUid, name)` is the only rule.
       const newUid = newOwner && p?.name ? envUidFor(newOwner, p.name) : oldUid;
-      if (oldOwner && newOwner && oldOwner !== newOwner) {
+      // A record that was filed under a legacy project key is the one that
+      // the migration moves; a record that was already under the canonical
+      // key is left where it is.
+      const wasLegacyKeyed = Boolean(oldOwner && newOwner && oldOwner !== newOwner);
+      if (wasLegacyKeyed) {
         changes.push({ kind: 'env-profile-owner', from: oldOwner, to: newOwner, profile: p?.name ?? null });
       }
       if (oldUid && newUid && oldUid !== newUid) {
         envUidByOld.set(oldUid, newUid);
         changes.push({ kind: 'env-profile', from: oldUid, to: newUid, projectUid: newOwner });
       }
-      nextProfiles.push({ ...p, projectUid: newOwner, uid: newUid, id: newUid });
+      const migrated = { ...p, projectUid: newOwner, uid: newUid, id: newUid };
+      const seen = seenUid.get(newUid);
+      if (!seen) {
+        seenUid.set(newUid, { index: nextProfiles.length, wasLegacyKeyed });
+        nextProfiles.push(migrated);
+        continue;
+      }
+      // The derived uid is taken already, so the two records describe ONE
+      // profile. The record that was already under the canonical project
+      // key is the one that stays -- it is the newer one. The other record
+      // is dropped and the drop is reported, so nothing disappears without
+      // a trace.
+      const kept = nextProfiles[seen.index];
+      if (seen.wasLegacyKeyed && !wasLegacyKeyed) {
+        // The canonical record arrives and replaces the one the migration
+        // moved onto the canonical key.
+        nextProfiles[seen.index] = migrated;
+        changes.push({
+          kind: 'env-profile-dropped',
+          from: kept.uid ?? kept.id ?? null,
+          to: newUid,
+          projectUid: newOwner,
+          profile: kept.name ?? null,
+          reason: 'a profile under the canonical project key already exists',
+        });
+        continue;
+      }
+      changes.push({
+        kind: 'env-profile-dropped',
+        from: oldUid,
+        to: newUid,
+        projectUid: newOwner,
+        profile: p?.name ?? null,
+        reason: seen.wasLegacyKeyed
+          ? 'another profile with the same derived identifier is already present'
+          : 'a profile under the canonical project key already exists',
+      });
     }
     const whitelists = rekeyProjectMap(store.whitelists, legacyToUid);
     for (const key of Object.keys(store.whitelists ?? {})) {

@@ -62,7 +62,7 @@
  * and an ambiguity report. An ambiguous case is never merged into another.
  */
 import { bodyKeyOf, deriveTestUid, extractExplicitUid, normalizeTitleKey, pruneRegistry, provisionalTestUid } from '../uid.mjs';
-import { AMBIGUITY, groupByPosition, positionKey } from '../identity.mjs';
+import { groupByPosition, reidentifyRendered } from '../identity.mjs';
 
 /**
  * The registry entry of one authoritative case.
@@ -109,6 +109,12 @@ function entryOf(item) {
     // re-worded. It is null for a case the static scanner can see: such a
     // case is recognised by its body, which is a stronger signal.
     anchor: item.anchor ?? null,
+    // ATS-204: the explicit token this case carries, when the catalogue
+    // judged that the token is DUPLICATED in the project. The run side
+    // needs the verdict: a run that covers only one of the two cases
+    // would otherwise bind the token to one of them, and the two cases
+    // would end up with the same UID.
+    duplicateExplicit: item.duplicateExplicit ?? null,
   };
 }
 
@@ -147,6 +153,7 @@ function mergeRegistry(entries, items, scope) {
       existing.scope = next.scope;
       existing.specIds = next.specIds;
       existing.anchor = next.anchor;
+      existing.duplicateExplicit = next.duplicateExplicit;
       continue;
     }
     const created = entryOf(item);
@@ -218,6 +225,10 @@ export function resolveAuthoritativeIdentities({ projectUid, cases, bodies, regi
       explicitUid: extractExplicitUid(c.title),
       scope: [...(c.describePath ?? [])],
       specIds: (c.projects ?? []).map((p) => p.specId).filter(Boolean),
+      // ATS-204: the order the CLI reported this case in. The anchor's
+      // ordinal counts it -- the catalogue's sorted order is not the
+      // report order, and a re-worded title changes its rank.
+      reportOrder: Number.isInteger(c.reportOrder) ? c.reportOrder : null,
     };
   });
 
@@ -280,18 +291,27 @@ export function resolveAuthoritativeIdentities({ projectUid, cases, bodies, regi
    * a case that is a source case today may stop being one (the author
    * rewrites the literal into a loop), and the anchor it carries is what
    * lets it be recognised then.
+   *
+   * THE ORDINAL COUNTS THE CLI'S REPORT ORDER
+   * -----------------------------------------
+   * The ordinal is the index in the order the CLI REPORTED the renders --
+   * the order the template GENERATED them in. The catalogue's display order
+   * is sorted by title, and a re-worded title changes its rank: sorting by
+   * title would make the ordinal of every render after the re-worded one
+   * shift, and the anchor would then point at a DIFFERENT render.
+   *
+   * `parseListReport` therefore records the report order on every case
+   * (`reportOrder`), and the groups are sorted by it.
    */
-  const groups = groupByPosition(items.map((it) => ({
-    file: it.file, line: it.line, scope: it.scope, ref: it,
-  })));
+  const groups = groupByPosition(items);
   const anchorByCase = new Map();
   for (const [, group] of groups) {
     group.forEach((entry, index) => {
-      anchorByCase.set(entry.ref, {
+      anchorByCase.set(entry, {
         kind: 'position',
-        file: entry.ref.file,
-        line: entry.ref.line,
-        scope: [...entry.ref.scope],
+        file: entry.file,
+        line: entry.line,
+        scope: [...entry.scope],
         ordinal: index,
         count: group.length,
       });
@@ -312,47 +332,43 @@ export function resolveAuthoritativeIdentities({ projectUid, cases, bodies, regi
    * case was reported at and its ordinal there. A case whose title was
    * rewritten is recognised by that anchor instead of by its title.
    *
-   * The anchor is used only when the group it names still has the SAME
-   * SIZE: when the template gained or lost a render, the ordinals may have
-   * shifted, and a shifted ordinal points at a DIFFERENT render. That is
-   * reported, not guessed.
+   * The anchor NEVER overrides an identity that a stronger signal already
+   * gives. Three rules, all of them inside `reidentifyRendered` (the ONE
+   * implementation of the anchor -- see the note below):
+   *
+   *   1. the anchor does not decide a case the static scanner CAN see;
+   *   2. the anchor does not decide a case whose title still claims a case
+   *      of the registry;
+   *   3. the anchor does not decide a group in which SOME of the
+   *      registry's titles are still there -- the ordinals may have
+   *      shifted, so the mapper reports the shift and binds nothing.
+   *
+   * ONE IMPLEMENTATION
+   * -------------------
+   * The anchor used to be implemented TWICE: here and in `reidentifyRendered`
+   * of `server/identity.mjs`. The copy here had drifted from the one the
+   * documentation and the tests presented, and the copy here was the one
+   * that ran -- so the documented behaviour was not the delivered behaviour.
+   * The production path now calls `reidentifyRendered` itself, and the
+   * rules above live in exactly one place.
    */
-  const anchorEntries = new Map();
-  for (const e of registry?.entries ?? []) {
-    if (!e.anchor || !e.uid) continue;
-    const key = positionKey(e.anchor.file, e.anchor.line, e.anchor.scope);
-    if (!anchorEntries.has(key)) anchorEntries.set(key, []);
-    anchorEntries.get(key).push(e);
-  }
+  const anchorDecisions = reidentifyRendered({
+    cases: items,
+    entries: registry?.entries ?? [],
+    groups,
+  });
   /** The cases of this discovery that the anchor recognised. */
   const anchored = new Map();
   /** The cases whose anchor could not be used, with the reason. */
   const anchorProblems = new Map();
   for (const it of items) {
-    const key = positionKey(it.file, it.line, it.scope);
-    const candidates = anchorEntries.get(key) ?? [];
-    if (!candidates.length) continue;
-    const group = groups.get(key) ?? [];
-    const ordinal = group.findIndex((g) => g.ref === it);
-    const atOrdinal = candidates.filter((e) => e.anchor.ordinal === ordinal);
-    if (!atOrdinal.length) continue;
-    const uids = [...new Set(atOrdinal.map((e) => e.uid).filter(Boolean))];
-    if (uids.length > 1) {
-      anchorProblems.set(it, { reason: AMBIGUITY.RENDER_AMBIGUOUS, candidates: uids });
+    const decision = anchorDecisions.get(it);
+    if (!decision) continue;
+    if (decision.uid) {
+      anchored.set(it, { uid: decision.uid, previousTitle: decision.previousTitle ?? null });
       continue;
     }
-    const entry = atOrdinal[0];
-    if (group.length !== entry.anchor.count) {
-      // The template gained or lost a render: the ordinal may have shifted.
-      anchorProblems.set(it, {
-        reason: AMBIGUITY.RENDER_SHIFT,
-        candidates: [entry.uid],
-        previousCount: entry.anchor.count,
-        currentCount: group.length,
-      });
-      continue;
-    }
-    anchored.set(it, { uid: entry.uid, previousTitle: entry.title });
+    if (decision.ambiguity) anchorProblems.set(it, decision.ambiguity);
   }
 
   const scopeTitleCounts = new Map();

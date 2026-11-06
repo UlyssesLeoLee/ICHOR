@@ -256,6 +256,24 @@ test('IT-ENV-011: the profile is deleted', async () => {
   assert.equal(gone[1].error, 'ENV_PROFILE_NOT_FOUND');
 });
 
+test('IT-ENV-012: the CORS pre-flight allows DELETE on the environment endpoints', async () => {
+  // The pre-flight is answered by the real Bridge, not by a source
+  // pattern: a browser that is refused the DELETE method cannot delete a
+  // profile at all.
+  const r = await fetch(`http://127.0.0.1:${port}/api/projects/${projectId}/env`, {
+    method: 'OPTIONS',
+    headers: {
+      'X-ATS-Token': token,
+      Origin: 'http://localhost:3000',
+      'Access-Control-Request-Method': 'DELETE',
+      'Access-Control-Request-Headers': 'x-ats-token',
+    },
+  });
+  assert.equal(r.status, 204, `the pre-flight answered ${r.status}`);
+  const allowed = r.headers.get('Access-Control-Allow-Methods') || '';
+  assert.match(allowed, /\bDELETE\b/, `DELETE is missing from "${allowed}"`);
+});
+
 test('IT-ENV-CLEANUP: stop the bridge', () => {
   cp.kill();
   fs.rmSync(data, { recursive: true, force: true });

@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：494；已执行通过：478；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：513；已执行通过：497；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -258,6 +258,25 @@
 |UT-ENV-054|FR-027|安全|配置的白名单优先于内置默认|项目配置白名单 ONLY_THIS|source=custom；默认中的 BASE_URL 被拒绝|node --test|PASS|
 |UT-ENV-055|FR-027|安全|授权凭据的白名单被拒绝|设置白名单 API_TOKEN|抛错 code=INVALID_ENV_WHITELIST|node --test|PASS|
 |UT-ENV-056|FR-027|安全|档案的公开视图只含变量名|含 BASE_URL 与 TENANT 的档案|variables 为名称数组，且序列化后不含值|node --test|PASS|
+|UT-ENV-004|FR-027|正常|写入、列举、删除与运行按同一个项目键取档案|一个未迁移的项目记录|四个路径取到的键相同，API 列出的档案能被运行取到|node --test|PASS|
+|UT-ENV-005|FR-027|正常|状态迁移同步改写档案与白名单的键|旧键下的档案与自定义白名单|迁移后档案与白名单都在新键下，自定义白名单未退回默认|node --test|PASS|
+|UT-ENV-006|FR-027|正常|状态迁移重新派生档案标识并改写运行记录|旧键下的档案与引用它的运行|标识按新键重新派生且可重算，运行仍指向该档案|node --test|PASS|
+|UT-ENV-007|FR-027|正常|已在规范键下的档案不被迁移改名|当前写入路径产生的档案|标识不变，归属改写为规范键，仍能按名取到|node --test|PASS|
+|UT-ENV-017|FR-027|安全|白名单移除的名字不进入子进程|白名单收窄为 TENANT|BASE_URL 不在环境里且被报告，理由非空|node --test|PASS|
+|UT-ENV-018|FR-027|安全|runner 环境只带筛选后的档案变量|白名单收窄为 TENANT|环境里只有 TENANT 与平台基础键|node --test|PASS|
+|UT-ENV-019|FR-027|安全|空白名单过滤掉全部变量|白名单为空|环境变量集合为空，过滤理由已报告|node --test|PASS|
+|UT-ENV-022|FR-027|安全|空白名单不是默认名单|配置 names 为空|source=custom，名称列表为空|node --test|PASS|
+|UT-ENV-023|FR-027|正常|未配置白名单的项目仍得到默认名单|状态里没有该项目的白名单键|source=default 且名称列表非空|node --test|PASS|
+|UT-ENV-035|FR-027|安全|同一名字的两种大小写写法整体拒绝|同时提交 base_url 与 BASE_URL|两个值都不入档案，两种写法都被报告|node --test|PASS|
+|UT-ENV-036|FR-027|正常|单个小写写法被规范化而不是被拒绝|只提交 base_url|规范化为 BASE_URL，无拒绝项|node --test|PASS|
+|UT-ENV-044|FR-027|安全|保留的结构键无论大小写都被拒绝|WINDIR/SYSTEMROOT/COMSPEC/PATH 的各种写法|每个都被拒绝并进入 rejected|node --test|PASS|
+|UT-ENV-045|FR-027|安全|平台关键键的值胜过档案|档案声明 WINDIR，基础环境有 windir|档案拼写被剥除，平台值按宿主拼写保留|node --test|PASS|
+|UT-ENV-046|FR-027|安全|结构键只出现一次且用宿主拼写|基础环境含 Path/SystemRoot/windir|环境块里该键只有一个拼写|node --test|PASS|
+|UT-ENV-047|FR-027|安全|结构键是保留名的子集|结构键列表与保留名列表|每个结构键都在保留名列表内|node --test|PASS|
+|UT-ENV-058|FR-027|安全|保留名策略按名单逐条陈述|模块注释与保留名列表|注释不声称家族被保留；名单里的每个名字都被拒绝|node --test|PASS|
+|UT-ENV-059|FR-027|安全|Windows 运行时补入的键在文档里写明|设计书与安全风险表的正文|HOMEDRIVE/LOGONSERVER/SYSTEMDRIVE/USERDOMAIN 都被写明|node --test|PASS|
+|UT-ENV-060|FR-027|安全|今天被保留的名字不进入子进程|存量档案含 SSL_CERT_FILE 与 WINDIR，白名单放行|两个都被拒绝并报告，runner 环境里没有它们|node --test|PASS|
+|UT-ENV-061|FR-027|安全|迁移不为同一标识留下两条档案|旧键与规范键下各有一个同名档案|迁移后只剩一条，保留规范键那条，丢弃被报出|node --test|PASS|
 |UT-SQL-ENV-001|FR-027|正常|schema 认识环境相关表|schema version 4|存在 env_profiles 与 env_whitelists；runs 含 env_uid|node --test|PASS|
 |UT-SQL-ENV-002|FR-027|完整性|档案与白名单完整往返|含档案与白名单的 state|读回的档案、白名单、run 的 envUid 与写入一致|node --test|PASS|
 |UT-SQL-ENV-003|FR-027|安全|索引列只存变量名不存值|一个含两个变量的档案|索引列是名称数组且不含值；doc 列保留完整记录|node --test|PASS|

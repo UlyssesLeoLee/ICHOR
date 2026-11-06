@@ -12,7 +12,7 @@ node tools/ats204-probes/probe-anchor.mjs
   the uids survived the re-wording: true
 === 3. the template GAINS a render: the ordinals may have shifted ===
   uid=tc_1_d_08896328401d3c79 source=derived basis=title-key title="adds 0 items" ambiguity=render-shift-possible
-  uid=tc_1_d_3511e71e17cbb696 source=derived basis=title-key title="adds 1 item to the cart" ambiguity=render-shift-possible
+  uid=tc_1_d_3511e71e17cbb696 source=derived basis=title-key title="adds 1 item to the cart" ambiguity=-
   uid=tc_1_d_2d2ad022b3894a7f source=derived basis=title-key title="adds 2 items to the cart" ambiguity=-
   (the shift is reported, not guessed: the ordinal of a render may now name a different one)
 === exit code: 0 ===

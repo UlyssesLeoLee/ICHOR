@@ -2,15 +2,15 @@
 node tools/ats101-probes/scenario-d-port-audit.mjs
 === output ===
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : D:\ICHOR
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-3535a6c0d20f\worktree
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
   apps/studio/app/page.tsx:81  <footer className="bottom-bar"><span><span className="online"/> LOCAL RUNNER · 127.0.0.1:4577</span><span>Git ...
   apps/studio/lib/api.ts:14  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
   apps/studio/public/fallback.html:3  </style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</spa...
-  server/index.mjs:30  const PORT=Number(process.env.ATS_PORT||4577);
-  server/index.mjs:489  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
+  server/index.mjs:47  const PORT=Number(process.env.ATS_PORT||4577);
+  server/index.mjs:550  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
   src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
 total = 6
 
@@ -18,12 +18,12 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:5122  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:5188  "input": "Host=evil.example:4577",
-  tests/test-cases.json:6453  "input": "同 LAN 他机尝试访问 4577",
-  tools/generate_test_docs.py:290  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
-  tools/generate_test_docs.py:296  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
-  tools/generate_test_docs.py:382  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
+  tests/test-cases.json:5650  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:5716  "input": "Host=evil.example:4577",
+  tests/test-cases.json:7091  "input": "同 LAN 他机尝试访问 4577",
+  tools/generate_test_docs.py:329  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
+  tools/generate_test_docs.py:335  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
+  tools/generate_test_docs.py:431  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
   tools/update_wbs_ats103.py:110  '「API 代理」在 output:export 下的真实形态是导出页到 127.0.0.1:4577 的跨源直连'
   tools/update_wbs_ats103.py:114  '的 staticFile() 以该目录为静态根），本项的 Tauri 壳可直接加载 http://127.0.0.1:4577；'
   test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)
@@ -40,7 +40,7 @@ total = 12
   docs/12-DEPLOY-OPERATIONS.md:36  - `ATS_PORT`：默认 4577（Next UI 的 API BASE 当前写死 4577，变更端口需同步调整 UI 配置；非动态端口发布模式）
   docs/16-BASELINE-ADR.md:98  Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-ATS-Token`；`/api/session` 由 Origin allowlist...
   docs/16-BASELINE-ADR.md:122  1. **默认端口 4577 在发布源码中被硬编码在 6 处**（不含文档与测试数据）。改端口须同步全部，否则 UI 与 CSP 会指向错误端口：
-  docs/16-BASELINE-ADR.md:126  | 1 | `server/index.mjs:30` | 默认值 `process.env.ATS_PORT\|\|4577` |
+  docs/16-BASELINE-ADR.md:126  | 1 | `server/index.mjs:47` | 默认值 `process.env.ATS_PORT\|\|4577` |
   docs/16-BASELINE-ADR.md:129  | 4 | `apps/studio/app/page.tsx:81` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
   docs/16-BASELINE-ADR.md:130  | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
   docs/16-BASELINE-ADR.md:144  2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
