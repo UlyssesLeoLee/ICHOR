@@ -1,6 +1,6 @@
 === ATS-103 evidence: ATS-101 hardcoded default-port audit ===
-date      : 2026-11-06T12:32:48Z (UTC)
-commit    : c0e0d7d4d4422cf99d1f701c961d365e29fa1957
+date      : 2026-11-06T12:52:24Z (UTC)
+commit    : 8fbab393fc6cc54d2ccc35a2a72ce2b8b856fbca
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats101-probes/scenario-d-port-audit.mjs
@@ -102,7 +102,6 @@ files = 7, mentions = 31
   start.sh
   test-cases.xlsx
   tests/test-cases.json
-  tools/ats101-probes/README.md
   tools/ats101-probes/scenario-d-port-audit.mjs
   tools/generate_test_docs.py
 
@@ -119,9 +118,9 @@ listed but not found at runtime : (none)
 count claimed in 16 §3.1        : 6
 actual runtime occurrence count : 6
 count matches source            : true
-doc files/mentions claimed      : 8 / 33
+doc files/mentions claimed      : 7 / 31
 doc files/mentions actual       : 7 / 31
-doc mention count matches       : false
+doc mention count matches       : true
 
-RESULT: MISMATCH -- the port list in 16 §3.1 does not match the source.
-PORT_AUDIT_EXIT=1
+RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
+PORT_AUDIT_EXIT=0

@@ -44,10 +44,32 @@ header() {
 # machine needs more than the default old-space size on Windows.
 header 02-next-static-export-build.log "Next.js 16 static export build" \
   "npm --prefix apps/studio ci --no-audit --no-fund && npm --prefix apps/studio run build"
+# The export directory is removed FIRST. A build that fails leaves no export
+# behind, so a later step cannot serve a STALE export and report it as this
+# run's artefact. The stale case is not hypothetical: an `npm ci` that died
+# with ENOTEMPTY left a half-installed node_modules, `next build` then failed
+# with "next is not recognized", and the previous run's out/ was still on
+# disk -- the browser probe loaded it and produced a 404 that read like a
+# product defect.
+rm -rf apps/studio/out apps/studio/.next
 {
   echo "--- npm ci (apps/studio) ---"
-  NODE_OPTIONS=--max-old-space-size=6144 \
-    npm --prefix apps/studio ci --no-audit --no-fund --maxsockets=4 2>&1
+  # npm ci on Windows can die with ENOTEMPTY while removing the previous
+  # tree (a file handle is still open). Retry once from a clean tree; the
+  # second attempt is the one whose result the log records.
+  CI_STATUS=1
+  for attempt in 1 2; do
+    echo "attempt $attempt"
+    rm -rf apps/studio/node_modules
+    NODE_OPTIONS=--max-old-space-size=6144 \
+      npm --prefix apps/studio ci --no-audit --no-fund --maxsockets=4 2>&1
+    CI_STATUS=$?
+    if [ "$CI_STATUS" -eq 0 ]; then
+      break
+    fi
+    echo "npm ci failed with exit $CI_STATUS; retrying from a clean tree"
+  done
+  echo "NPM_CI_EXIT=$CI_STATUS"
   echo ""
   echo "--- next build ---"
   NODE_OPTIONS=--max-old-space-size=6144 npm --prefix apps/studio run build 2>&1
@@ -63,6 +85,15 @@ header 02-next-static-export-build.log "Next.js 16 static export build" \
   echo "--- git status of the whole worktree after the build ---"
   git status --short
 } >> "$OUT/02-next-static-export-build.log" 2>&1
+
+# Fail closed: without a fresh export every later step would be measuring
+# something that is not this run. The build's own log carries the reason.
+if [ ! -f apps/studio/out/index.html ]; then
+  echo "BUILD FAILED -- apps/studio/out/index.html was not produced." \
+    >> "$OUT/02-next-static-export-build.log"
+  echo "BUILD FAILED -- the export is missing; refusing to measure a stale artefact." >&2
+  exit 1
+fi
 
 # --- 1. the export + Bridge + API verification ----------------------------
 header 01-export-and-proxy-verification.log "static export + Bridge API seam verification" \
