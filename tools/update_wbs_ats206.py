@@ -108,7 +108,7 @@ NOTE = (
     '锁的覆盖 4（UT-110~113）、dry-run 与中断恢复 5（UT-114~118）、'
     '退出与被杀 4（UT-119~122）；'
     'ATS-201 存量用例 31 项无回归；'
-    '四个文件覆盖率均 > 90%（apply 94.81%、state-migration 99.06%、'
+    '四个文件覆盖率均 > 90%（apply 94.45%、state-migration 99.06%、'
     'migrate_state 96.58%、migrate_uids 94.33%）。'
     '证据 docs/evidence/ATS-206/（缺陷复现与修复前后对照、UT、CLI 往返、覆盖率、'
     '恢复路径与拒绝分支的反例探针）。'

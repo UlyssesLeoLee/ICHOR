@@ -343,8 +343,8 @@ Bridge 可以在读锁与写之间启动。这把锁是在**引擎函数内部**
 | --- | --- |
 | ATS-206 用例 `tests/migrate-state.test.mjs` | 92 项通过（按编号分组：数量口径 3、字段保全与改键 7、状态校验与原子写 3、CLI 命令与退出码 18、失败自动回滚与备份顺序 4、SQLite 镜像 3、夹具清理 1、`--state` 指定文件与备份保护 15、目录改名与回滚分叉拒绝 5、错误报告与分叉检测 13、备份归档与丢运行拒绝 4、中断恢复以状态文件为准 3、锁的覆盖 4、dry-run 与中断恢复 5、退出与被杀 4） |
 | ATS-201 存量用例 | 31 项通过（无回归） |
-| 全量 `node --test` | 915 项：904 通过 / 0 失败 / 11 跳过 |
-| 覆盖率 | `apply.mjs` 94.81%、`state-migration.mjs` 99.06%、`migrate_state.mjs` 96.58%、`migrate_uids.mjs` 94.33%（四个文件均 > 90%） |
+| 全量 `npm test`（`node --test tests/*.test.mjs`） | 915 项：915 通过 / 0 失败 / 0 跳过 |
+| 覆盖率 | `apply.mjs` 94.45%、`state-migration.mjs` 99.06%、`migrate_state.mjs` 96.58%、`migrate_uids.mjs` 94.33%（四个文件均 > 90%） |
 | 反例探针 `ce206.mjs` | 8/8 反例均不成立（`0 counterexample(s) hold`） |
 | 反例探针 `ce206r2.mjs` | 4/4 反例均不成立（`0 counterexample(s) hold`） |
 | 恢复 / 陈旧锁反例探针 `tools/ats206-probes/recovery-refusal-probe.mjs` | 4/4 反例均不成立（`0 counterexample(s) hold`） |
