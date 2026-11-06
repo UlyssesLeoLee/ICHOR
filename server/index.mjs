@@ -544,13 +544,28 @@ const server=http.createServer(async(req,res)=>{
    //
    // So only the cell of THIS project is merged into the CURRENT registry,
    // and the cells of the other projects are kept as they are now.
-   const cell=catalog.registry?.projects?.[project.uid]??catalog.registry?.projects?.[project.id];
+   //
+   // THE CELL IS LOOKED UP BY THE CATALOG'S OWN KEY. The catalogue is built
+   // with `projectUidOf(project)` as its project key, so that is the key its
+   // cell is filed under. Looking the cell up by `project.uid` / `project.id`
+   // instead finds NOTHING for a LEGACY project record -- one that has no
+   // `uid` field and whose `id` is still the old `proj_<uuid>` -- because
+   // the catalogue filed its cell under the recomputed `proj_1_<hash>`.
+   // The cell was then silently dropped and the registry of an unmigrated
+   // installation was never saved (measured by the round-3 reviewer: the
+   // registry slots went from `["proj_1_..."]` to `[]`).
+   //
+   // So the key is the one the catalogue REPORTED (`catalog.projectUid`),
+   // with the recomputed UID as the fallback. The registry is then filed
+   // under that same key, so the cell and its slot always agree.
+   const projectKey=catalog.projectUid??projectUidOf(project)??project.uid??project.id;
+   const cell=catalog.registry?.projects?.[projectKey];
    store.uidRegistry={
     ...store.uidRegistry,
     version:catalog.registry?.version??store.uidRegistry?.version??1,
     projects:{
      ...(store.uidRegistry?.projects??{}),
-     ...(cell?{[catalog.projectUid??project.uid]:cell}:{})
+     ...(cell?{[projectKey]:cell}:{})
     }
    };
    saveState(store);

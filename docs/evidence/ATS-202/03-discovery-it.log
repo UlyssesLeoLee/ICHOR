@@ -1,25 +1,25 @@
 === command ===
 node --test tests/discovery-it.test.mjs
 === output ===
-✔ IT-ATS202-SETUP: the real Playwright is installed (1.215ms)
-✔ IT-ATS202-001: the listing reports the cases of the project (742.96ms)
-✔ IT-ATS202-002: a DYNAMIC case is in the authoritative index and not in the static one (663.1158ms)
-✔ IT-ATS202-003: the trusted project gets the authoritative index (567.8034ms)
-✔ IT-ATS202-004: the UNTRUSTED project never runs --list (6.9773ms)
-✔ IT-ATS202-005: the trusted project DOES execute the listing (557.9222ms)
-✔ IT-ATS202-006: the agreement with the CLI is measured, not asserted (507.6836ms)
-✔ IT-ATS202-007: the UID of a case does not move when the index switches (517.0423ms)
-✔ IT-ATS202-008: a broken project config falls back and says why (517.0822ms)
-✔ IT-ATS202-009: a project without a local Playwright CLI is reported, not installed (4.0026ms)
-✔ IT-ATS202-010: a listing that does not finish in time is reported as a timeout (25.2081ms)
-✔ IT-ATS202-011: a CLI that reports an error is a failure, not an empty index (566.6737ms)
-✔ IT-ATS202-012: the consistency agrees for a case after a CLOSED describe (538.6189ms)
-✔ IT-ATS202-013: the consistency agrees for the describe MODIFIERS (544.0505ms)
-✔ IT-ATS202-014: the UID of a case with an ESCAPED QUOTE does not move (544.7222ms)
-✔ IT-ATS202-015: the UID of a case with a LONG title does not move (569.23ms)
-✔ IT-ATS202-016: the UID of a MULTI-LINE test( call survives a retitle (1209.287ms)
-✔ IT-ATS202-017: the TEMPLATE of a dynamic case does not inherit a rendered UID (587.3679ms)
-✔ IT-ATS202-CLEANUP: remove the temporary fixture (192.038ms)
+✔ IT-ATS202-SETUP: the real Playwright is installed (0.6767ms)
+✔ IT-ATS202-001: the listing reports the cases of the project (637.2293ms)
+✔ IT-ATS202-002: a DYNAMIC case is in the authoritative index and not in the static one (643.494ms)
+✔ IT-ATS202-003: the trusted project gets the authoritative index (583.9174ms)
+✔ IT-ATS202-004: the UNTRUSTED project never runs --list (9.2117ms)
+✔ IT-ATS202-005: the trusted project DOES execute the listing (635.9832ms)
+✔ IT-ATS202-006: the agreement with the CLI is measured, not asserted (585.3283ms)
+✔ IT-ATS202-007: the UID of a case does not move when the index switches (660.0764ms)
+✔ IT-ATS202-008: a broken project config falls back and says why (606.2375ms)
+✔ IT-ATS202-009: a project without a local Playwright CLI is reported, not installed (4.1665ms)
+✔ IT-ATS202-010: a listing that does not finish in time is reported as a timeout (1034.0859ms)
+✔ IT-ATS202-011: a CLI that reports an error is a failure, not an empty index (791.9277ms)
+✔ IT-ATS202-012: the consistency agrees for a case after a CLOSED describe (679.6066ms)
+✔ IT-ATS202-013: the consistency agrees for the describe MODIFIERS (687.5047ms)
+✔ IT-ATS202-014: the UID of a case with an ESCAPED QUOTE does not move (1123.0087ms)
+✔ IT-ATS202-015: the UID of a case with a LONG title does not move (861.8971ms)
+✔ IT-ATS202-016: the UID of a MULTI-LINE test( call survives a retitle (1405.3242ms)
+✔ IT-ATS202-017: the TEMPLATE of a dynamic case does not inherit a rendered UID (670.4798ms)
+✔ IT-ATS202-CLEANUP: remove the temporary fixture (191.614ms)
 ℹ tests 19
 ℹ suites 0
 ℹ pass 19
@@ -27,5 +27,5 @@ node --test tests/discovery-it.test.mjs
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 10758.2709
+ℹ duration_ms 13413.3514
 === exit code: 0 ===

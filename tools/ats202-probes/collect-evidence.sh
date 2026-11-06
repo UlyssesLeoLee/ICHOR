@@ -203,5 +203,40 @@ fi
 echo '--- 16. the ASYNC listing path has its own tests (N2) ---'
 run 16-discovery-async-ut.log node --test tests/discovery-async.test.mjs
 
+# --- 17-19: the round-3 review findings -------------------------------------
+#
+# The round-3 reviewer brought two probes of its own. They are kept in the
+# repository so that the findings stay reproducible: `r3-legacy.mjs` drives
+# the REAL Bridge over HTTP against a LEGACY project record (no `uid`, the
+# old `proj_<uuid>` id) and checks that the registry is written back, and
+# `r3-gate-async.mjs` drives the ASYNC discovery path with a real CLI and a
+# top-level marker file to prove the trust gate.
+#
+# The probes are the reviewer's own files, kept BYTE-IDENTICAL: a probe that
+# was edited to pass would no longer be the probe the reviewer ran.
+#
+# `r3-legacy.mjs` needs no Playwright at all (the legacy record is untrusted,
+# so the static index answers). `r3-gate-async.mjs` needs the real CLI.
+echo '--- 17. R1: the registry of a LEGACY project record is written back ---'
+run 17-r3-legacy.log node tools/ats202-probes/r3/r3-legacy.mjs "$TREE_NATIVE" "$SCRATCH"
+
+if [ -d "$PW_NM2/@playwright/test" ]; then
+  echo '--- 18. the trust gate on the ASYNC path (a real CLI, a marker file) ---'
+  run 18-r3-gate-async.log node tools/ats202-probes/r3/r3-gate-async.mjs "$TREE_NATIVE" "$PW_NM2" "$SCRATCH"
+else
+  {
+    echo "=== command ==="
+    echo "node tools/ats202-probes/r3/r3-gate-async.mjs <tree> <node_modules> <scratch>"
+    echo "=== output ==="
+    echo "SKIPPED: $PW_NM2/@playwright/test is not installed;"
+    echo "the probe needs the real Playwright CLI to enumerate the cases."
+    echo "=== exit code: 2 ==="
+  } > "$OUT/18-r3-gate-async.log"
+  echo "  wrote $OUT/18-r3-gate-async.log (skipped)"
+fi
+
+echo '--- 19. the legacy record regression, as a test of the suite ---'
+run 19-discovery-api-ut.log node --test tests/discovery-api.test.mjs
+
 echo ''
 echo 'evidence written to docs/evidence/ATS-202/'
