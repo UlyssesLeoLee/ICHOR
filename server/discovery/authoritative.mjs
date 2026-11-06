@@ -62,6 +62,7 @@
  * and an ambiguity report. An ambiguous case is never merged into another.
  */
 import { bodyKeyOf, deriveTestUid, extractExplicitUid, normalizeTitleKey, pruneRegistry, provisionalTestUid } from '../uid.mjs';
+import { AMBIGUITY, groupByPosition, positionKey } from '../identity.mjs';
 
 /**
  * The registry entry of one authoritative case.
@@ -102,6 +103,12 @@ function entryOf(item) {
     // ATS-202 additions
     scope: item.scope ?? [],
     specIds: item.specIds ?? [],
+    // ATS-204: the ANCHOR of a case that has no body of its own. It is the
+    // position it was reported at plus its ordinal there, and it is what
+    // lets a dynamic case keep its uid when the template it came from is
+    // re-worded. It is null for a case the static scanner can see: such a
+    // case is recognised by its body, which is a stronger signal.
+    anchor: item.anchor ?? null,
   };
 }
 
@@ -139,6 +146,7 @@ function mergeRegistry(entries, items, scope) {
       existing.title = next.title;
       existing.scope = next.scope;
       existing.specIds = next.specIds;
+      existing.anchor = next.anchor;
       continue;
     }
     const created = entryOf(item);
@@ -258,6 +266,95 @@ export function resolveAuthoritativeIdentities({ projectUid, cases, bodies, regi
     explicitOwners.get(it.explicitUid).push(it);
   }
 
+  /*
+   * ATS-204: the ANCHOR of every case.
+   *
+   * A case the scanner cannot see has no body of its own, so its identity
+   * is the POSITION it was reported at plus its ORDINAL there. The anchor
+   * is what lets such a case keep its uid when the template it was
+   * generated from is re-worded: the template's text changed, so every
+   * rendered title changed with it, and the title was the only thing that
+   * used to identify the case.
+   *
+   * The anchor is computed for EVERY case, not only for the dynamic ones:
+   * a case that is a source case today may stop being one (the author
+   * rewrites the literal into a loop), and the anchor it carries is what
+   * lets it be recognised then.
+   */
+  const groups = groupByPosition(items.map((it) => ({
+    file: it.file, line: it.line, scope: it.scope, ref: it,
+  })));
+  const anchorByCase = new Map();
+  for (const [, group] of groups) {
+    group.forEach((entry, index) => {
+      anchorByCase.set(entry.ref, {
+        kind: 'position',
+        file: entry.ref.file,
+        line: entry.ref.line,
+        scope: [...entry.ref.scope],
+        ordinal: index,
+        count: group.length,
+      });
+    });
+  }
+  // The anchor belongs to the case itself: the resolution below maps the
+  // items into NEW objects, so a map keyed by the original item would not
+  // be found afterwards. Attaching it here makes the resolution carry it
+  // along, and `entryOf()` picks it up.
+  for (const it of items) {
+    it.anchor = anchorByCase.get(it) ?? null;
+  }
+
+  /*
+   * ATS-204: the ANCHOR lookup.
+   *
+   * The registry remembers, for every case it has seen, the position the
+   * case was reported at and its ordinal there. A case whose title was
+   * rewritten is recognised by that anchor instead of by its title.
+   *
+   * The anchor is used only when the group it names still has the SAME
+   * SIZE: when the template gained or lost a render, the ordinals may have
+   * shifted, and a shifted ordinal points at a DIFFERENT render. That is
+   * reported, not guessed.
+   */
+  const anchorEntries = new Map();
+  for (const e of registry?.entries ?? []) {
+    if (!e.anchor || !e.uid) continue;
+    const key = positionKey(e.anchor.file, e.anchor.line, e.anchor.scope);
+    if (!anchorEntries.has(key)) anchorEntries.set(key, []);
+    anchorEntries.get(key).push(e);
+  }
+  /** The cases of this discovery that the anchor recognised. */
+  const anchored = new Map();
+  /** The cases whose anchor could not be used, with the reason. */
+  const anchorProblems = new Map();
+  for (const it of items) {
+    const key = positionKey(it.file, it.line, it.scope);
+    const candidates = anchorEntries.get(key) ?? [];
+    if (!candidates.length) continue;
+    const group = groups.get(key) ?? [];
+    const ordinal = group.findIndex((g) => g.ref === it);
+    const atOrdinal = candidates.filter((e) => e.anchor.ordinal === ordinal);
+    if (!atOrdinal.length) continue;
+    const uids = [...new Set(atOrdinal.map((e) => e.uid).filter(Boolean))];
+    if (uids.length > 1) {
+      anchorProblems.set(it, { reason: AMBIGUITY.RENDER_AMBIGUOUS, candidates: uids });
+      continue;
+    }
+    const entry = atOrdinal[0];
+    if (group.length !== entry.anchor.count) {
+      // The template gained or lost a render: the ordinal may have shifted.
+      anchorProblems.set(it, {
+        reason: AMBIGUITY.RENDER_SHIFT,
+        candidates: [entry.uid],
+        previousCount: entry.anchor.count,
+        currentCount: group.length,
+      });
+      continue;
+    }
+    anchored.set(it, { uid: entry.uid, previousTitle: entry.title });
+  }
+
   const scopeTitleCounts = new Map();
   const fileScopeTitleCounts = new Map();
   for (const it of items) {
@@ -280,8 +377,39 @@ export function resolveAuthoritativeIdentities({ projectUid, cases, bodies, regi
     if (remembered) {
       return { ...it, uid: remembered, uidSource: 'registry', uidStable: true, basis: 'body-key' };
     }
+    /*
+     * ATS-204: the ANCHOR recognises a case whose title was rewritten.
+     * It comes before the title claim, because a title that was rewritten
+     * no longer claims anything: the title key of the case is a NEW one.
+     */
+    const byAnchor = anchored.get(it);
+    if (byAnchor) {
+      return {
+        ...it,
+        uid: byAnchor.uid,
+        uidSource: 'registry',
+        uidStable: true,
+        basis: 'position-anchor',
+        matched: { uid: byAnchor.uid, previousTitle: byAnchor.previousTitle ?? null },
+      };
+    }
+    /*
+     * The anchor could not decide: the template gained or lost a render,
+     * so the ordinal may name a DIFFERENT render. The case falls through
+     * to the title, and the uncertainty is REPORTED -- a case that might
+     * be a different one must not look like a case that was simply
+     * re-derived.
+     */
+    const anchorProblem = anchorProblems.get(it);
     if (titleClaimants.has(it)) {
-      return { ...it, uid: deriveTestUid(projectUid, it.titleKey), uidSource: 'derived', uidStable: true, basis: 'title-key' };
+      return {
+        ...it,
+        uid: deriveTestUid(projectUid, it.titleKey),
+        uidSource: 'derived',
+        uidStable: true,
+        basis: 'title-key',
+        ...(anchorProblem ? { ambiguity: anchorProblem } : {}),
+      };
     }
     // The body fingerprint decides only for a SOURCE case. The body of a
     // dynamic case is the body of the TEMPLATE it came from, and that
@@ -301,7 +429,14 @@ export function resolveAuthoritativeIdentities({ projectUid, cases, bodies, regi
       // The basis says so, and the caller can report it.
       return { ...it, uid: deriveTestUid(projectUid, `file ${fileScopeTitle}`), uidSource: 'derived', uidStable: true, basis: 'authoritative-key' };
     }
-    return { ...it, uid: null, uidSource: 'provisional', uidStable: false, basis: null };
+    return {
+      ...it,
+      uid: null,
+      uidSource: 'provisional',
+      uidStable: false,
+      basis: null,
+      ...(anchorProblem ? { ambiguity: anchorProblem } : {}),
+    };
   });
 
   // A collision: two cases want the same uid. The EXPLICIT claim wins (the
