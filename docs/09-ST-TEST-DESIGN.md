@@ -1,8 +1,8 @@
 # ATS-ST-001 システムテスト設計書
 
-> 设计总数：24；已执行通过：0；待执行/未实现：24。**PENDING 不是测试通过**。
+> 设计总数：26；已执行通过：3；待执行/未实现：23。**PENDING 不是测试通过**。
 
-系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，当前全部为待实机执行。UT/IT 自动化通过**不等同于** ST 验收。
+系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。
 
 ## 测试设计清单
 
@@ -24,7 +24,7 @@
 |ST-014|NFR-002|安全|远程主机访问拒绝|同 LAN 他机尝试访问 4577|连接拒绝或无法访问 API|网络抓包|PENDING|
 |ST-015|NFR-003|安全|路径穿越测试|请求 api Source/Artifact 越界|不能读取外部私密文件|HTTP log|PENDING|
 |ST-016|NFR-004|完整性|证据哈希一致|完整 Run 导出证据文件|sha256 与 manifest 对应|本机 sha256sum|PENDING|
-|ST-017|NFR-008|恢复|强制终止后重启|运行过程中强行停止 bridge|Run=interrupted，已完成历史不丢|日志+state|PENDING|
+|ST-017|NFR-008|恢复|强制终止后重启|运行过程中强行停止 bridge|Run=interrupted，已完成历史不丢|node tools/ats207-probes/st-ats207.mjs（真实 Chromium，强杀整棵进程树）|PASS|
 |ST-018|FR-017|功能|需求关系界面|导入附带 .aitest 的示例项目|显示 REQ-001/2 与用例映射|截图|PENDING|
 |ST-019|NFR-006|性能|大仓库用例索引性能|500 tests / 100 files / SSD|目标 3 秒内（项目目标，待确认）|计时 log|PENDING|
 |ST-020|NFR-007|兼容性|三 OS 便携 UI|Windows/macOS/Linux Node 22+|可启动并导入本地工程|测试记录|PENDING|
@@ -32,6 +32,8 @@
 |ST-022|FR-020|兼容性|Tauri Windows 开发构建|Windows+Rust+WebView2|桌面窗口打开，bridge 连接成功|编译+运行记录|PENDING|
 |ST-023|NFR-009|隐私|数据不自动离开本地|操作工作台并抓包|未主动请求 AI/SaaS endpoints|网络流量|PENDING|
 |ST-024|NFR-011|运行维护|错误信息可用于故障定位|停掉 server、损坏 state、缺 browser|明确错误而非模拟成功|录屏与日志|PENDING|
+|ST-025|NFR-010|单实例|同一数据目录只允许一个 Bridge|真实 Bridge：A 服务时启动 B；两个 Bridge 同时启动|B 退出码 1 并报持有者；同时启动恰一个服务|node tools/ats207-probes/st-ats207.mjs|PASS|
+|ST-026|NFR-010|恢复|崩溃后损坏文件的处理|零长度 state.json；损坏的 metadata.db|前者拒绝启动且文件不变；后者隔离并由 state.json 重建，历史完整|node tools/ats207-probes/st-ats207.mjs|PASS|
 
 ## 进入与退出条件
 
