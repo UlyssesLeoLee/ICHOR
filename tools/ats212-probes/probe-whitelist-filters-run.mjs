@@ -1,12 +1,11 @@
 /**
- * ATS-212 review round 2: the whitelist constrains the RUN, not only the
- * write.
+ * ATS-212: the whitelist constrains the RUN, not only the write.
  *
- * The round-2 review found that a variable removed from the whitelist still
- * reached the child process: the whitelist was only checked when the profile
- * was written, so tightening it afterwards changed nothing for the runs that
- * came later. The boundary the whitelist exists to draw was therefore not
- * drawn.
+ * A variable removed from the whitelist must not reach the child process:
+ * the whitelist is checked when the profile is written AND when the runner
+ * environment is built, so tightening it afterwards takes effect for the
+ * runs that come later. The boundary the whitelist exists to draw is
+ * therefore drawn on both sides.
  *
  * This probe measures the fix at the level of the runner environment, with a
  * real child process -- it does not assert on a return value.

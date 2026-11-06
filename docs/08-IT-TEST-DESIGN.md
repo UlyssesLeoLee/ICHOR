@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：137；已执行通过：123；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：138；已执行通过：124；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -102,6 +102,7 @@
 |IT-ENV-ADP-003|FR-027|安全|没有档案时子进程环境仍被封口|不传档案，宿主含伪装密钥|捕获的环境不含宿主密钥，含 PATH 与报告路径|node --test|PASS|
 |IT-ENV-ADP-004|FR-027|回归|封口不破坏引擎自身的契约|封口环境跑一次 fake CLI|适配器仍能收集到摘要，总数为 1|node --test|PASS|
 |IT-ENV-ADP-005|FR-027|安全|列盘子进程不携带宿主环境|fixture 工程用 fake CLI 跑 test --list，宿主含伪装密钥|捕获的环境不含宿主密钥，含报告路径与 CI=1|node --test|PASS|
+|IT-ENV-012|FR-027|正常|环境接口的 CORS 预检允许 DELETE|对环境接口发 OPTIONS 并带允许的 Origin|预检返回 204 且 Allow-Methods 含 DELETE|node --test|PASS|
 |UT-ENV-057|FR-027|安全|能力探测不把宿主环境交给工程自带 CLI|probeCommand 跑工程目录下的脚本，宿主含伪装密钥|捕获的环境不含宿主密钥，含 PATH|node --test|PASS|
 |IT-EVD-101|NFR-011|正常|证据 IT 的 bridge 启动|隔离 ATS_DATA_DIR 与随机端口|/api/health=200 并取得 token|node --test|PASS|
 |IT-EVD-102|FR-015|正常|运行结束写出带归属与摘要的清单|跑一次真实（替身 CLI）运行|run 目录下有 manifest.json，带 runId、projectUid、sourceCommit 与每条证据的 sha256|node --test|PASS|

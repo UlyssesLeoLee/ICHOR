@@ -49,12 +49,12 @@ export const ENV_STORE_VERSION = 1;
  * THE PROJECT KEY of a project.
  *
  * Every profile and every whitelist is filed under ONE key, and it is the
- * key the RUN path uses as well. Before ATS-212 round 2 the write path
- * keyed a profile by `project.uid ?? project.id` and the run path keyed it
- * by `projectUidOf(project)`. For a project record that had not been
+ * key the RUN path uses as well. For a project record that has not been
  * migrated yet -- one whose `id` is still the old `proj_<uuid>` and which
- * carries no `uid` -- the two keys differed, so a profile the API listed
- * could not be used by a run.
+ * carries no `uid` -- the key is the UID recomputed from its root, which is
+ * exactly the UID the migration gives the project as its new `id`. So the
+ * four paths (write, list, delete, run) always agree on one key, and a
+ * profile the API listed can always be used by a run.
  *
  * The rule is now: the `uid` the project record carries when it has one,
  * and the recomputed UID otherwise. For every project the bridge really
@@ -66,14 +66,9 @@ export const ENV_STORE_VERSION = 1;
  * recomputed from its root, which is exactly the UID the migration gives
  * it. The profiles of an unmigrated installation therefore stay reachable.
  *
- * The migration still re-keys the profiles that an OLDER build filed under
- * the legacy identifier -- those are the ones the migration has to move.
- *
- * The key is also STABLE across the state migration: the profiles of an
- * unmigrated installation stay reachable after the migration -- the
- * migration re-keys the profiles that an OLDER build filed under the
- * legacy identifier, and leaves the ones that are already under the
- * canonical key where they are.
+ * The migration re-keys the profiles that are filed under the legacy
+ * identifier, and leaves the ones that are already under the canonical key
+ * where they are.
  */
 export function projectKeyOf(project) {
   if (!project) return null;
@@ -135,13 +130,10 @@ export function findProfile(store, projectUid, ref) {
  * project runs with exactly these six names" are different facts.
  *
  * AN EMPTY CONFIGURED LIST IS AN EMPTY LIST, NOT "NOT CONFIGURED". The
- * stored whitelist is consulted by KEY, not by length: before ATS-212
- * round 2 the code asked `configured.length` and an empty array therefore
- * meant "not configured", so a caller who wrote `names: []` to lock a
- * project down got the built-in default list instead -- the request
- * silently WIDENED the whitelist. A whitelist is an allow list, so an
- * empty one allows nothing; that is the honest reading, and it is the one
- * the API reports back.
+ * stored whitelist is consulted by KEY, not by length: a caller who wrote
+ * `names: []` to lock a project down gets an allow list that allows
+ * nothing. A whitelist is an allow list, so an empty one allows nothing;
+ * that is the honest reading, and it is the one the API reports back.
  */
 export function whitelistForProject(store, project) {
   const key = projectKeyOf(project);

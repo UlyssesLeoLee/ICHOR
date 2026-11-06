@@ -263,11 +263,10 @@ export function createPlaywrightAdapter() {
      * variables the child needs) and adds the engine's own output
      * variables, which say where the report goes.
      *
-     * The host environment is NOT spread in. Before ATS-212 the adapter
-     * used `{...process.env, ...}`, so everything the operator had in their
-     * shell -- their cloud credentials, their CI tokens -- reached the code
-     * under test, and the code under test could print it into a report that
-     * is archived as evidence.
+     * The host environment is NOT spread in. Nothing the operator had in
+     * their shell -- their cloud credentials, their CI tokens -- reaches the
+     * code under test, and the code under test cannot print it into a report
+     * that is archived as evidence.
      */
     start({ project, run, file, outputDir, env: runEnv }) {
       const probe = probeCli(project.root);

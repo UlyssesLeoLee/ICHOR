@@ -245,11 +245,10 @@ export function parseListReport(report, { projectRoot = null } = {}) {
  * same trust boundary as the run -- the code under test -- and the host
  * environment must not reach it.
  *
- * Before ATS-212 the listing inherited `{...process.env, ...}`, so an
- * operator's cloud credentials and CI tokens reached the project's config
- * and test files. A config that logs its environment -- or a test that
- * prints one into a report -- would then put them into the listing output
- * that the Bridge keeps.
+ * An operator's cloud credentials and CI tokens therefore never reach the
+ * project's config and test files. A config that logs its environment -- or
+ * a test that prints one into a report -- cannot put them into the listing
+ * output that the Bridge keeps.
  *
  * The environment is the same shape the run path uses: the platform base
  * keys plus the listing's own output variables, and nothing else. There is
