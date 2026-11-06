@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# ATS-204: the counterexample -- the same tests on the tree BEFORE the task.
+# ATS-204: the counterexample -- the same tests on the tree of the FIRST
+# delivery.
 #
 # A test that cannot fail is not evidence. This script runs the ATS-204
-# test file against the tree the work started from (83c8bc5) and shows
-# WHICH assertions fail there.
+# test file against the tree the first delivery was made from (9a559c6) and
+# shows WHICH assertions fail there.
 #
 # The identity mapper (server/identity.mjs) is copied into the old tree, so
 # that the test file loads: the point is to show which assertions fail
-# when the WIRING of the task -- the run-side binding, the anchor, the
-# matrix -- is absent.
+# when the FIX of the review round 1 is absent.
 #
 # Usage: bash tools/ats204-probes/counterexample.sh
 set -u
@@ -20,7 +20,8 @@ cd "$ROOT" || exit 1
 # be named in the Windows form (`pwd -W`).
 NATIVE_ROOT="$(cd "$ROOT" && pwd -W)"
 
-BASE_COMMIT="83c8bc50447d8ce2edadf39362be4680c3658429"
+# The tree of the FIRST delivery (the one the review round 1 rejected).
+BASE_COMMIT="9a559c6f2eaf6232cfad403237c5ce0322e8825f"
 # The scratch directory has to be in the Windows form too: the native `git`
 # creates the clone there, and the shell cannot `cd` into an MSYS path that
 # does not exist on the Windows side.

@@ -1,11 +1,11 @@
 === command ===
 bash -c git log --oneline -5; echo; git status --short
 === output ===
-5d59e99 merge(ATS-204): 把身份映射器（改名/改标题后的 UID 重识别、动态用例锚点、矩阵）合入 dev
-e848131 chore(ATS-204): 在合并后的树上重新生成 CHECKSUMS.sha256
-12072b7 Merge branch 'dev' into agent/m3/seikoist-166
-fb74f84 test(ATS-204): 在合并后的 dev 树上重新采集全部证据
-3bac3bd chore(ATS-601): 重新生成 CHECKSUMS.sha256（覆盖最终交付树）
+5ddfd68 chore(ATS-204): 在合并 dev 之后重新生成 CHECKSUMS.sha256
+1d46d21 merge(dev): 把 dev（ATS-209 的交付）并入本任务分支
+ba76821 test(ATS-204): 补齐第 1 轮复核的回归用例与证据日志
+2b56806 chore(ATS-204): 重新生成 CHECKSUMS.sha256
+3b92c63 docs(ATS-204): 第 1 轮复核的 7 项修改记入设计书与 WBS 行
 
  M docs/evidence/ATS-204/00-tree.log
 === exit code: 0 ===
