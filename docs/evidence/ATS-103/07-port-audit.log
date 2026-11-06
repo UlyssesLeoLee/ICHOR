@@ -1,6 +1,6 @@
 === ATS-103 evidence: ATS-101 hardcoded default-port audit ===
-date      : 2026-11-06T16:24:58Z (UTC)
-commit    : 05ef8844ac80c418af033a7fdd66c8146425578b
+date      : 2026-11-06T16:46:14Z (UTC)
+commit    : 4c60ad50e6d754f2dd63197a3296d29c7de29d45
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats101-probes/scenario-d-port-audit.mjs
