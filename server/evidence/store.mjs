@@ -24,16 +24,22 @@
  *     and then renamed over the target, so a reader never sees a partial
  *     file;
  *   * removing a run's copy removes only the LINK: the stored copy survives
- *     as long as another link to it exists;
- *   * the CONTENT of a hard link cannot be changed independently of the
- *     other links -- an in-place write through one link is visible through
- *     all of them. That is a property the tamper detection RELIES on: a
- *     run's evidence file cannot drift away from the stored copy without
- *     the digest changing, and the digest is what the manifest records.
+ *     as long as another link to it exists.
  *
- * The last point is the reason a hard link is safe here and a copy is not:
- * with a copy, the run's file and the stored copy could drift apart, and
- * the stored copy would no longer be a backup of anything.
+ * WHAT A HARD LINK DOES NOT GIVE (ATS-209 review round 1, E2)
+ * -----------------------------------------------------------
+ * A hard link does NOT make the content tamper-proof, and the tamper
+ * detection does NOT depend on it. The detection depends on the DIGEST in
+ * the manifest: the verification recomputes the digest of the file and
+ * compares it with the one the archive was written with. What a hard link
+ * adds is that an in-place write through ONE link is visible through ALL
+ * of them -- which AMPLIFIES the blast radius of a single tamper: one
+ * rewritten file changes every run that shares that content, and each of
+ * those runs is reported as changed. That is the honest trade-off, and it
+ * is written down in `docs/27-EVIDENCE-MANIFEST.md` §3.2.
+ *
+ * The store is NOT a backup: a store copy that shares an inode with a run
+ * file is changed by whatever changes the run file.
  *
  * THE STORE IS INSIDE THE DATA DIRECTORY
  * ---------------------------------------
@@ -94,6 +100,20 @@ export function storeDirOf(dataDir) {
  * twice stores it once: the second call finds the blob already there and
  * returns its path without copying anything.
  *
+ * THE EXISTING BLOB IS VERIFIED BEFORE IT IS REUSED (ATS-209 review round
+ * 1, E1). A blob that is already there is NOT trusted: its content is
+ * hashed again and compared with the digest it is filed under. If the
+ * content does not match, the blob is REPLACED -- the correct bytes take
+ * the place of the wrong ones.
+ *
+ * Why this matters: the store's blobs are hard links to the run files, so
+ * an in-place write to a run's evidence file changes the blob too. Without
+ * the check, the next run that produced the SAME content would find that
+ * poisoned blob, link to it, and end up with the tampered bytes as its own
+ * evidence -- one tamper would then destroy every run that follows, and
+ * the tamper detection would report the run it poisoned as the culprit.
+ * The check costs one hash of the file and makes the reuse safe.
+ *
  * @param {string} storeDir the store directory
  * @param {string} file the file to store
  * @param {string} digest the digest of the file
@@ -102,17 +122,26 @@ export function storeDirOf(dataDir) {
 export function storeBlob(storeDir, file, digest) {
   const target = blobPath(storeDir, digest);
   if (!target) return { stored: false, path: null, reason: 'the digest is not a SHA-256 hex string' };
-  // The blob is already there: this content is stored once, which is the
-  // whole point of the store.
-  if (fs.existsSync(target)) {
-    return { stored: true, path: target, reason: '', alreadyStored: true };
-  }
   let stat;
   try { stat = fs.statSync(file); }
   catch (e) { return { stored: false, path: null, reason: `the file could not be read (${e.code ?? e.message})` }; }
   if (!stat.isFile()) return { stored: false, path: null, reason: 'the path is not a file' };
   if (stat.size > MAX_BLOB_BYTES) {
     return { stored: false, path: null, reason: `the file is larger than ${MAX_BLOB_BYTES} bytes` };
+  }
+  // The blob is already there: this content is stored once, which is the
+  // whole point of the store. But the existing blob is CHECKED first: a
+  // blob whose content no longer matches its digest is not this content,
+  // and reusing it would hand the caller somebody else's bytes.
+  if (fs.existsSync(target)) {
+    const existing = blobDigest(target);
+    if (existing === digest) {
+      return { stored: true, path: target, reason: '', alreadyStored: true };
+    }
+    // The blob was tampered with (or damaged): it is replaced with the
+    // bytes that actually belong under this digest.
+    try { fs.rmSync(target, { force: true }); }
+    catch { /* the file could not be removed: the copy below will fail and be reported */ }
   }
   fs.mkdirSync(path.dirname(target), { recursive: true });
   // The copy is written to a temporary name and then renamed, so a reader
@@ -134,6 +163,17 @@ export function storeBlob(storeDir, file, digest) {
     return { stored: false, path: null, reason: `the blob could not be written (${e.code ?? e.message})` };
   }
   return { stored: true, path: target, reason: '', alreadyStored: false };
+}
+
+/**
+ * The digest of a blob, or null when it cannot be read.
+ *
+ * A blob that cannot be hashed is not a blob that can be reused: the
+ * caller has to treat it as damaged.
+ */
+export function blobDigest(blob) {
+  try { return sha256OfFile(blob); }
+  catch { return null; }
 }
 
 /**

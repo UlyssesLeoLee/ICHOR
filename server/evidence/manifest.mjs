@@ -46,10 +46,35 @@
  *      the retention policy is meant to protect.
  *
  *   4. RETENTION. `expiredRuns` selects the runs whose evidence is past its
- *      retention period, and `cleanExpiredEvidence` removes ONLY the
- *      evidence FILES. The run record -- its status, its summary, its
- *      attempts, its events -- stays in the state, because the history of
- *      what happened is not the same thing as the files that prove it.
+ *     retention period, and `cleanExpiredEvidence` removes ONLY the
+ *     evidence FILES. The run record -- its status, its summary, its
+ *     attempts, its events -- stays in the state, because the history of
+ *     what happened is not the same thing as the files that prove it.
+ *
+ * THE THREE THINGS THAT MUST NOT BE CONFUSED
+ * ------------------------------------------
+ *
+ *   * WHAT THE MANIFEST LISTS and WHAT THE RUN FOLDER HOLDS are the same
+ *     set of files. The manifest is built from the folder, and the run
+ *     record's artifact list is built from the folder too, with the SAME
+ *     collector and the SAME limit -- so a file that the run record knows
+ *     about is a file the manifest knows about. When the limit IS reached
+ *     the manifest says so (`evidence.truncated`) and the verification
+ *     FAILS: a silently truncated manifest would be a manifest that does
+ *     not cover the evidence it claims to describe.
+ *
+ *   * A PATH IN A MANIFEST IS A PATH INSIDE THE RUN FOLDER. A manifest
+ *     that names `../<another run>/events.jsonl` is not describing this
+ *     run's evidence, and a cleaner that believed it would delete another
+ *     run's files. Such an entry is REJECTED: it is never followed, and
+ *     it is reported.
+ *
+ *   * EVIDENCE THAT WAS CLEANED BY THE RETENTION POLICY is not evidence
+ *     that was TAMPERED WITH. The cleaner leaves a record in the run
+ *     folder, so the verification can say "this was removed by the
+ *     retention policy" instead of "this no longer matches its manifest".
+ *     Without that distinction the verification would report every
+ *     cleaned run as a tamper, and the tamper alarm would be worthless.
  *
  * THE BOUNDARY OF THIS DELIVERY (stated, not implied)
  * ----------------------------------------------------
@@ -111,6 +136,28 @@ export const RECORD_FILENAMES = Object.freeze(['events.jsonl', 'stdout.log']);
 export const MAX_EVIDENCE_BYTES = 50_000_000;
 
 /**
+ * The largest number of files that are taken into the evidence set.
+ *
+ * The manifest and the run record's artifact list use the SAME limit and
+ * the SAME collector, so the two describe the same set of files. When the
+ * limit is reached the manifest says so (`evidence.truncated`), and the
+ * verification FAILS: a manifest that silently dropped files would claim
+ * to describe an archive it does not describe, and the files it dropped
+ * would be outside the tamper detection.
+ */
+export const MAX_EVIDENCE_ENTRIES = 400;
+
+/**
+ * The record the cleaner leaves in a run folder.
+ *
+ * It is what tells the verification that a file is MISSING because the
+ * retention policy removed it -- and not because somebody tampered with
+ * the archive. Without it the two cannot be told apart, and every cleaned
+ * run would be reported as a tamper.
+ */
+export const CLEANED_MARKER_FILENAME = 'evidence-cleaned.json';
+
+/**
  * The default retention period of a run's evidence, in days.
  *
  * The default is deliberately generous: a cleaner that deletes evidence by
@@ -155,19 +202,26 @@ export function sha256OfFile(file) {
  * filesystem happened to hand the entries out in. Two runs with the same
  * evidence therefore produce the same manifest.
  *
+ * The collector also REPORTS whether the entry limit truncated the walk.
+ * A truncated collection is not the same thing as a complete one: the
+ * caller has to know that files exist which the manifest does not
+ * describe, because those files would be outside the tamper detection.
+ *
  * @param {string} folder the run folder
  * @returns {{file:string, size:number, sha256:string}[]}
  */
-export function collectEvidence(folder, { maxDepth = 8, maxEntries = 400 } = {}) {
+export function collectEvidence(folder, { maxDepth = 8, maxEntries = MAX_EVIDENCE_ENTRIES } = {}) {
   const root = path.resolve(folder);
   const entries = [];
+  let truncated = false;
   const walk = (dir, depth) => {
-    if (depth > maxDepth || entries.length >= maxEntries) return;
+    if (depth > maxDepth) return;
+    if (entries.length >= maxEntries) { truncated = true; return; }
     let items;
     try { items = fs.readdirSync(dir, { withFileTypes: true }); }
     catch { return; }
     for (const item of items) {
-      if (entries.length >= maxEntries) return;
+      if (entries.length >= maxEntries) { truncated = true; return; }
       const full = path.join(dir, item.name);
       // A symbolic link is not evidence: it is a pointer to something
       // else, and the run folder must not be a way to reach outside it.
@@ -178,6 +232,9 @@ export function collectEvidence(folder, { maxDepth = 8, maxEntries = 400 } = {})
       if (RECORD_FILENAMES.includes(relative)) continue;
       // The manifest is the record OF the evidence, not evidence itself.
       if (relative === MANIFEST_FILENAME) continue;
+      // The cleaner's own record is not evidence either: it says the
+      // evidence was removed, so it must not be listed as evidence.
+      if (relative === CLEANED_MARKER_FILENAME) continue;
       let stat;
       try { stat = fs.statSync(full); }
       catch { continue; }
@@ -197,7 +254,56 @@ export function collectEvidence(folder, { maxDepth = 8, maxEntries = 400 } = {})
   };
   walk(root, 0);
   entries.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
+  // The result carries the truncation flag, so a caller that wants it can
+  // read it -- `collectEvidence` stays a plain array for the callers that
+  // only want the entries.
+  Object.defineProperty(entries, 'truncated', { value: truncated, enumerable: false });
   return entries;
+}
+
+/**
+ * Whether a collected evidence set was truncated by the entry limit.
+ *
+ * `collectEvidence` returns an array, so the flag is a non-enumerable
+ * property on it. This helper reads it in a way that does not throw when
+ * the caller passes a plain array it built itself.
+ */
+export function isTruncated(entries) {
+  return Boolean(entries && entries.truncated);
+}
+
+/**
+ * Resolves a manifest entry to a path INSIDE the run folder.
+ *
+ * A manifest entry names a file RELATIVE to the run folder. A name that
+ * climbs out of it -- `../<another run>/events.jsonl`, `../../state.json`
+ * -- does not describe this run's evidence, and a cleaner that believed
+ * it would delete files that belong to something else entirely. Such an
+ * entry is REJECTED here, and the caller reports it.
+ *
+ * The rule is the same one the attachment download uses (FR-015): the
+ * resolved path has to stay under the run folder. The check is done on
+ * the RESOLVED path, so `a/../b` and `./b` are both fine while `../b` is
+ * not.
+ *
+ * @returns {{ok:true, path:string}|{ok:false, reason:string}}
+ */
+export function evidencePathIn(folder, relative) {
+  if (typeof relative !== 'string' || !relative) {
+    return { ok: false, reason: 'the entry does not name a file' };
+  }
+  // An absolute path or a Windows drive letter never names a file inside
+  // the run folder.
+  if (path.isAbsolute(relative) || /^[a-zA-Z]:/.test(relative)) {
+    return { ok: false, reason: 'the entry names an absolute path' };
+  }
+  const root = path.resolve(folder);
+  const full = path.resolve(root, relative);
+  const rel = path.relative(root, full);
+  if (rel === '' || rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) {
+    return { ok: false, reason: 'the entry points outside the run folder' };
+  }
+  return { ok: true, path: full };
 }
 
 /**
@@ -214,7 +320,11 @@ export function collectEvidence(folder, { maxDepth = 8, maxEntries = 400 } = {})
  * @returns {object} the manifest
  */
 export function buildManifest(run, folder, extra = {}) {
-  const artifacts = Array.isArray(extra.artifacts) ? extra.artifacts : collectEvidence(folder);
+  const collected = Array.isArray(extra.artifacts) ? extra.artifacts : collectEvidence(folder);
+  const artifacts = collected;
+  // ATS-209: the manifest says WHICH RUN it belongs to, so the digests in
+  // it can be compared against the digests of another run of the same
+  // project. A digest without an owner proves nothing.
   const manifest = {
     version: EVIDENCE_MANIFEST_VERSION,
     runId: run.id ?? null,
@@ -239,9 +349,6 @@ export function buildManifest(run, folder, extra = {}) {
       variables: run.envVariables ?? [],
     };
   }
-  // ATS-209: the manifest says WHICH RUN it belongs to, so the digests in
-  // it can be compared against the digests of another run of the same
-  // project. A digest without an owner proves nothing.
   manifest.evidence = {
     count: artifacts.length,
     totalBytes: artifacts.reduce((n, a) => n + (Number(a.size) || 0), 0),
@@ -249,6 +356,12 @@ export function buildManifest(run, folder, extra = {}) {
     // whole. Two runs whose evidence sets are byte-identical share it --
     // which is what the deduplicator looks at.
     setDigest: evidenceSetDigest(artifacts),
+    // ATS-209 review round 1 (E6): a manifest that hit the entry limit
+    // does NOT describe the whole folder. The fact is recorded HERE, so
+    // the verification can fail the archive instead of reporting it as
+    // intact: the files the manifest dropped are outside the tamper
+    // detection, and an archive that is not covered is not verifiable.
+    truncated: isTruncated(collected),
   };
   return manifest;
 }
@@ -300,11 +413,14 @@ export function readManifest(folder) {
 /**
  * Verifies the evidence of a run folder against its manifest.
  *
- * The result names EVERY discrepancy, in three kinds:
+ * The result names EVERY discrepancy, in four kinds:
  *
  *   * `missing`  -- the manifest lists a file the folder does not have;
  *   * `changed`  -- the file is there but its digest is different;
- *   * `extra`    -- the folder holds a file the manifest does not list.
+ *   * `extra`    -- the folder holds a file the manifest does not list;
+ *   * `rejected` -- the manifest names a file OUTSIDE the run folder, so
+ *                   the entry does not describe this run's evidence at
+ *                   all and is refused rather than followed.
  *
  * An `extra` file is reported but does NOT make the evidence fail on its
  * own: a file that was ADDED after the run (a log the operator appended, a
@@ -312,15 +428,31 @@ export function readManifest(folder) {
  * mean is that the folder is no longer exactly the archive the manifest
  * describes, so the answer says so.
  *
- * The comparison is against the manifest, NOT against a rebuild of it: the
- * manifest is the ARCHIVE's own record of what it contained, so the
- * question "does the folder still hold the evidence the manifest lists?" is
- * exactly the question a reader of the archive needs answered.
+ * THE COMPARISON IS AGAINST THE MANIFEST, NOT AGAINST A REBUILD OF IT:
+ * the manifest is the ARCHIVE's own record of what it contained, so the
+ * question "does the folder still hold the evidence the manifest lists?"
+ * is exactly the question a reader of the archive needs answered.
+ *
+ * WHAT A CLEANED RUN LOOKS LIKE (ATS-209 review round 1, E7)
+ * -----------------------------------------------------------
+ * The retention policy removes the evidence of an expired run and leaves
+ * a record of what it removed. Without that record the missing files
+ * would look exactly like a tamper, and the verification would report
+ * every cleaned run as evidence that had been tampered with -- which
+ * makes the tamper alarm worthless. So:
+ *
+ *   * a file that the cleaner removed is reported as `cleaned`, and it
+ *     does NOT make the archive fail;
+ *   * a file that is missing and was NOT removed by the cleaner is still
+ *     reported as `missing`, and it still makes the archive fail;
+ *   * a file that is present but changed is always `changed`, and it
+ *     always makes the archive fail -- the cleaner never rewrites a file.
  *
  * @param {string} folder the run folder
  * @returns {{ok:boolean, verified:boolean, manifest:object|null, checked:number,
  *            missing:string[], changed:{file:string, expected:string, actual:string}[],
- *            extra:string[], reason:string}}
+ *            extra:string[], rejected:{file:string, reason:string}[],
+ *            cleaned:string[], truncated:boolean, reason:string}}
  */
 export function verifyEvidence(folder) {
   const read = readManifest(folder);
@@ -333,24 +465,43 @@ export function verifyEvidence(folder) {
       missing: [],
       changed: [],
       extra: [],
+      rejected: [],
+      cleaned: [],
+      truncated: false,
       reason: read.reason,
     };
   }
   const manifest = read.manifest;
   const listed = Array.isArray(manifest.artifacts) ? manifest.artifacts : [];
+  // The files the cleaner removed: their absence is explained, not a
+  // discrepancy.
+  const cleaned = readCleanedMarker(folder);
+  const cleanedSet = new Set(cleaned.removed ?? []);
   const missing = [];
   const changed = [];
+  const rejected = [];
   let checked = 0;
   for (const entry of listed) {
     if (!entry || typeof entry.file !== 'string') continue;
-    const full = path.join(folder, entry.file);
+    // ATS-209 review round 1 (E3): an entry that points outside the run
+    // folder does not describe this run's evidence. It is refused and
+    // reported -- never followed, because following it would make the
+    // verifier (and the cleaner) reach into another run's files.
+    const resolved = evidencePathIn(folder, entry.file);
+    if (!resolved.ok) {
+      rejected.push({ file: entry.file, reason: resolved.reason });
+      continue;
+    }
     let actual;
     try {
-      const stat = fs.statSync(full);
-      if (!stat.isFile()) { missing.push(entry.file); continue; }
-      actual = sha256OfFile(full);
+      const stat = fs.statSync(resolved.path);
+      if (!stat.isFile()) {
+        if (!cleanedSet.has(entry.file)) missing.push(entry.file);
+        continue;
+      }
+      actual = sha256OfFile(resolved.path);
     } catch {
-      missing.push(entry.file);
+      if (!cleanedSet.has(entry.file)) missing.push(entry.file);
       continue;
     }
     checked += 1;
@@ -362,7 +513,25 @@ export function verifyEvidence(folder) {
   const present = collectEvidence(folder);
   const listedFiles = new Set(listed.map((e) => e?.file).filter((f) => typeof f === 'string'));
   const extra = present.map((e) => e.file).filter((f) => !listedFiles.has(f));
-  const verified = missing.length === 0 && changed.length === 0;
+  // A manifest that hit the entry limit does not cover the whole folder:
+  // the files it dropped are outside the tamper detection, so the archive
+  // is not verified. The failure is reported as its own kind, because it
+  // is neither a changed file nor a missing one.
+  //
+  // A run whose evidence was CLEANED is the exception: the cleaning
+  // removed the evidence that the truncated manifest did not cover as
+  // well, so there is nothing left unprotected, and the truncation is
+  // explained by the cleaning record rather than a defect (ATS-209
+  // review round 1, E7 + E6).
+  const truncated = Boolean(manifest?.evidence?.truncated);
+  const truncatedUncovered = truncated && cleanedSet.size === 0;
+  const verified = missing.length === 0 && changed.length === 0 && rejected.length === 0 && !truncatedUncovered;
+  let reason = '';
+  if (!verified) {
+    if (rejected.length) reason = 'the manifest names files outside the run folder';
+    else if (truncatedUncovered) reason = 'the manifest does not cover the whole evidence folder';
+    else reason = 'the evidence does not match its manifest';
+  }
   return {
     ok: true,
     verified,
@@ -371,8 +540,37 @@ export function verifyEvidence(folder) {
     missing,
     changed,
     extra,
-    reason: verified ? '' : 'the evidence does not match its manifest',
+    rejected,
+    cleaned: [...cleanedSet].sort(),
+    truncated: truncatedUncovered,
+    reason,
   };
+}
+
+/**
+ * Reads the record the cleaner leaves in a run folder.
+ *
+ * A run folder that has no such record is a run folder that was never
+ * cleaned: nothing is explained by the retention policy, and every
+ * missing file is a discrepancy.
+ *
+ * @returns {{removed:string[], at:string|null, reason:string}}
+ */
+export function readCleanedMarker(folder) {
+  const file = path.join(folder, CLEANED_MARKER_FILENAME);
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); }
+  catch { return { removed: [], at: null, reason: '' }; }
+  try {
+    const marker = JSON.parse(text);
+    if (!marker || typeof marker !== 'object') return { removed: [], at: null, reason: '' };
+    const removed = Array.isArray(marker.removed) ? marker.removed.filter((f) => typeof f === 'string') : [];
+    return { removed, at: marker.at ?? null, reason: '' };
+  } catch {
+    // A damaged marker explains nothing: the missing files are reported
+    // as missing, which is the honest answer.
+    return { removed: [], at: null, reason: 'the cleaning record could not be read' };
+  }
 }
 
 /**
@@ -483,39 +681,65 @@ export function groupEvidenceByDigest(runs, folderOf) {
  *   this: a cleaner that expires the evidence must not delete the run's
  *   metadata.
  *
+ * ONLY FILES INSIDE THE RUN FOLDER ARE REMOVED (ATS-209 review round 1,
+ * E3). A manifest entry that points outside the run folder -- `../<another
+ * run>/events.jsonl`, `../../state.json` -- is REFUSED and reported. A
+ * run folder is written by the runner as well as by the bridge, so a
+ * manifest that the bridge never wrote can name anything at all, and a
+ * cleaner that believed it would delete another run's files.
+ *
+ * ONLY FILES THAT WERE THERE ARE REPORTED AS REMOVED (E4). `rm` with
+ * `force` does not fail on a file that is already gone, so the removal is
+ * checked before it is claimed: the journal must not say a file was
+ * removed when nothing was.
+ *
  * The function reports what it removed and what it kept, so the caller can
  * tell the difference between "the evidence was removed" and "there was no
  * evidence to remove".
  *
  * @param {string} folder the run folder
- * @returns {{removed:string[], kept:string[], manifest:object|null}}
+ * @returns {{removed:string[], kept:string[], rejected:{file:string, reason:string}[], manifest:object|null}}
  */
 export function cleanRunEvidence(folder) {
   const read = readManifest(folder);
   const manifest = read.manifest;
   const removed = [];
   const kept = [];
+  const rejected = [];
   if (!fs.existsSync(folder)) {
-    return { removed, kept, manifest: null };
+    return { removed, kept, rejected, manifest: null };
   }
   // The files the manifest lists are the evidence.
   const listed = Array.isArray(manifest?.artifacts) ? manifest.artifacts : [];
   for (const entry of listed) {
     if (!entry || typeof entry.file !== 'string') continue;
-    const full = path.join(folder, entry.file);
+    const resolved = evidencePathIn(folder, entry.file);
+    if (!resolved.ok) {
+      rejected.push({ file: entry.file, reason: resolved.reason });
+      continue;
+    }
+    // The file is only claimed as removed when it WAS there and is gone
+    // afterwards. `rm` with `force` succeeds on a file that is already
+    // gone, so the check has to be made by the caller.
+    if (!fs.existsSync(resolved.path)) continue;
     try {
-      fs.rmSync(full, { force: true });
-      removed.push(entry.file);
-    } catch { /* the file is already gone */ }
+      fs.rmSync(resolved.path, { force: true });
+      if (!fs.existsSync(resolved.path)) removed.push(entry.file);
+    } catch { /* the file could not be removed */ }
   }
   // The files that were added after the manifest was written are evidence
   // too -- they are the ones a reader would find in the folder and not in
   // the manifest.
   for (const entry of collectEvidence(folder)) {
-    const full = path.join(folder, entry.file);
+    const resolved = evidencePathIn(folder, entry.file);
+    if (!resolved.ok) {
+      rejected.push({ file: entry.file, reason: resolved.reason });
+      continue;
+    }
+    if (!fs.existsSync(resolved.path)) continue;
     try {
-      fs.rmSync(full, { force: true });
-      removed.push(entry.file);
+      fs.rmSync(resolved.path, { force: true });
+      if (!fs.existsSync(resolved.path)) removed.push(entry.file);
     } catch { /* already gone */ }
   }
   // The engine's own output tree is the evidence container; it goes too.
@@ -523,7 +747,7 @@ export function cleanRunEvidence(folder) {
   if (fs.existsSync(resultsDir)) {
     try {
       fs.rmSync(resultsDir, { recursive: true, force: true });
-      removed.push('results/');
+      if (!fs.existsSync(resultsDir)) removed.push('results/');
     } catch { /* already gone */ }
   }
   // The record of the run stays.
@@ -531,7 +755,21 @@ export function cleanRunEvidence(folder) {
     if (fs.existsSync(path.join(folder, name))) kept.push(name);
   }
   if (manifest) kept.push(MANIFEST_FILENAME);
-  return { removed, kept, manifest };
+  // ATS-209 review round 1 (E7): the record of what the retention policy
+  // removed. Without it the missing files are indistinguishable from a
+  // tamper, and the verification would report every cleaned run as
+  // tampered -- which makes the tamper alarm worthless.
+  if (removed.length) {
+    try {
+      fs.writeFileSync(
+        path.join(folder, CLEANED_MARKER_FILENAME),
+        JSON.stringify({ at: new Date().toISOString(), removed: [...removed].sort() }, null, 2),
+        'utf8'
+      );
+      kept.push(CLEANED_MARKER_FILENAME);
+    } catch { /* the marker could not be written: the files are missing and reported as such */ }
+  }
+  return { removed, kept, rejected, manifest };
 }
 
 /**
@@ -579,6 +817,16 @@ export function retentionReport(runs, folderOf, { days = DEFAULT_RETENTION_DAYS,
  *
  * The FIRST run that holds a digest keeps it; every further run with the
  * same digest could refer to it instead of storing it again.
+ *
+ * WHAT THIS NUMBER IS NOT (ATS-209 review round 1)
+ * -----------------------------------------------
+ * This counts the bytes that WOULD be saved if the duplicate copies were
+ * separate files. It is NOT the space the disk is wasting: the duplicates
+ * are HARD LINKS to the same inode, so the bytes are on the disk once and
+ * the disk is wasting nothing. The number is therefore reported as
+ * `sharedBytes` -- the bytes that are shared -- and the report that says
+ * how much space the store really holds is `storeBytes`, which measures
+ * the store itself.
  */
 export function sharedEvidenceBytes(runs, folderOf) {
   const groups = groupEvidenceByDigest(runs, folderOf);
