@@ -342,7 +342,7 @@ GNU_BUILD_EXIT=101
   → ATS-102 已把改写后的内容**提交进版本控制**并实测该副作用**幂等**（连续两次构建后两文件 sha256 不变），因此构建后工作区不再变 dirty，CI 无需「允许变更清单」，只保留一步 diff 报告（不阻断）。详见 `docs/17-BUILD-CI.md` §6.2。
 - `next.config.mjs` 为 `output:'export'`，无 SSR、无 API Routes；`trailingSlash:true`。
   - ATS-102 新增了 `turbopack.root: import.meta.dirname`：加入第二个 lockfile 后 Next 会推断错 workspace root 并告警，固定该项后告警消失。
-- **ATS-103 已实测静态导出与 Bridge 的接口面接缝**（`docs/22-FRONTEND-EXPORT.md`）：`next build` 成功产出 `apps/studio/out`；导出目录**不含任何服务端路由产物**，因此「API 代理」在 `output:'export'` 下的真实形态是**导出页 → Bridge 的跨源直连**（基址由 `apps/studio/lib/api.ts` 在运行时按端口解析，构建期不烘焙）。实测 Bridge 能在 `/` 提供该导出并带允许 API 源的 CSP，会话/项目/运行三类操作全部成功，真实运行为 1 PASS / 1 FAIL 共 2 例、采集 27 个产物。**真实 headless Chromium 里脚本驱动导出的那一页**（会话 → 添加项目 → 运行到终态）也通过，console error 为 0。**产品代码零改动**——既有配置已满足该完成定义。五个变异（未声明 `force-static` 的路由 / 声明了 `force-static` 的路由 / 构建期烘焙基址 / 烘焙基址且留无关端口比较 / 引擎缺失）划出探针各条断言的真实边界，不是空转。
+- **ATS-103 已实测静态导出与 Bridge 的接口面接缝**（`docs/22-FRONTEND-EXPORT.md`）：`next build` 成功产出 `apps/studio/out`；导出目录**不含任何服务端路由产物**，因此「API 代理」在 `output:'export'` 下的真实形态是**导出页 → Bridge 的跨源直连**（基址由 `apps/studio/lib/api.ts` 在运行时按端口解析，构建期不烘焙）。实测 Bridge 能在 `/` 提供该导出并带允许 API 源的 CSP，会话/项目/运行三类操作全部成功，真实运行为 1 PASS / 1 FAIL 共 2 例、采集 28 个产物。**真实 headless Chromium 里脚本驱动导出的那一页**（会话 → 添加项目 → 运行到终态）也通过，console error 为 0。**产品代码零改动**——既有配置已满足该完成定义。五个变异（未声明 `force-static` 的路由 / 声明了 `force-static` 的路由 / 构建期烘焙基址 / 烘焙基址且留无关端口比较 / 引擎缺失）划出探针各条断言的真实边界，不是空转。
 
 ### 5.3 Tauri 2 / Rust
 
@@ -391,7 +391,7 @@ GNU_BUILD_EXIT=101
 6. **依赖 SPDX/SBOM 未生成**（NFR-012 未完成）。**ATS-102 进展**：依赖清单已生成（`docs/dependencies/dependency-manifest.{json,md}`，88 个依赖的许可/版本/integrity 全部齐备），但 ①**完整 SPDX SBOM 未生成**（多数包未发布 `sbomId`），②**分发审计结论未出**，③16 个需复核依赖（15 weak copyleft + 1 attribution）的法律结论未出 → NFR-012 **仍为未完成**。
 7. **多实例并发写 state 未验证**（JSON 原子写已实现，单写锁未实现）。
 8. **证据保留期与脱敏未实现**（Trace/视频含 PII 风险未闭环）。
-9. **静态导出未在 macOS/Linux、未在真实 Tauri 壳内实测**（ATS-103 交付，详见 `docs/22-FRONTEND-EXPORT.md` §6）。ATS-103 实测了**产物、HTTP 层的 API 契约，并在真实 headless Chromium 里脚本驱动了导出的那一页**（会话 → 添加项目 → 运行到终态，console error 为 0），但**未做人工可用性评测**（无障碍/键盘/加载态属 ATS-111），**未在真实 Tauri 壳内**跑过。**仓库的 8 步构建门禁已在 Node v22.23.4 / npm 10.9.9 下实测 8/8 通过**（`docs/evidence/ATS-103/09-ci-build-gate.log`）。
+9. **静态导出未在 macOS/Linux、未在真实 Tauri 壳内实测**（ATS-103 交付，详见 `docs/22-FRONTEND-EXPORT.md` §6）。ATS-103 实测了**产物、HTTP 层的 API 契约，并在真实 headless Chromium 里脚本驱动了导出的那一页**（会话 → 添加项目 → 运行到终态，console error 为 0），但**未做人工可用性评测**（无障碍/键盘/加载态属 ATS-111），**未在真实 Tauri 壳内**跑过。**仓库的构建门禁已在 Node v22.23.4 / npm 10.9.9 下实测每一步都通过**（`docs/evidence/ATS-103/09-ci-build-gate.log`）。
 10. **运行记录的证据链存在一条已确认缺陷**（ATS-103 交付时发现）：引擎进程异常死亡时，Bridge 会把 run 标成终态 `failed` 却没有 summary、也没有任何可诊断的 `error`（真实原因只存在于被截断的 `run.log` 里）。这不是前端缺陷，属 ATS-108 / ATS-112 的范围，ATS-103 只如实记录未修复。
 11. **Bridge 的静态路由只覆盖 `/`**（ATS-103 交付时发现）：trailing-slash 目录与未知路径既不解析目录索引、也不返回导出的 `404.html`，且提示语误导（把未知路径说成「文件不存在」，而实际是路由未覆盖）。这属 **Bridge 侧**缺陷，不在 ATS-103 的修复范围内（该任务的完成定义是「验证接缝」，不是「改造 Bridge」）；`docs/22-FRONTEND-EXPORT.md` §4.2 已如实记录，建议归入 ATS-112 或新开一项。
 12. **ATS-103 的探针依赖本机的 Playwright 浏览器缓存**（chromium-1248）：`tools/ats103-probes/ui-smoke.mjs` 在缓存缺失时**明确失败**而非跳过（见 `docs/evidence/ATS-103/06-mutation-evidence.log` 的变异 C），因此该探针不能在无浏览器的 CI runner 上运行。
