@@ -65,8 +65,15 @@ let cp, token, projectId;
 // which covers the measured worst case with room to spare, and a test that
 // genuinely cannot start still fails instead of hanging forever.
 async function ready() {
+  // The health probe is BOUNDED. An unbounded fetch turns ONE request that
+  // never comes back into a stall of the whole boot window, and the boot wait
+  // then reports "the bridge did not come up" for a bridge that IS listening
+  // and merely busy. Measured: a hung probe made the wait 31 s long (the 20 s
+  // window plus an ~11 s request that never came back). The timeout is far
+  // below the window, so a slow-but-alive bridge is still found, and a hung
+  // request is retried instead of consuming the wait.
   for (let i = 0; i < 400; i++) {
-    try { const r = await fetch(`http://127.0.0.1:${port}/api/health`); if (r.ok) return; } catch { /* not up yet */ }
+    try { const r = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2000) }); if (r.ok) return; } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 50));
   }
   throw Error('server did not boot');
@@ -292,7 +299,7 @@ test('IT-ATS202-API-010: the registry of a LEGACY project record is saved', asyn
     // room to spare, and a server that genuinely cannot start still fails instead
     // of hanging forever.
     for (let i = 0; i < 400; i++) {
-      try { const r = await fetch(`http://127.0.0.1:${legacyPort}/api/health`); if (r.ok) { up = true; break; } } catch { /* not up yet */ }
+      try { const r = await fetch(`http://127.0.0.1:${legacyPort}/api/health`, { signal: AbortSignal.timeout(2000) }); if (r.ok) { up = true; break; } } catch { /* not up yet */ }
       await new Promise((r) => setTimeout(r, 50));
     }
     assert.ok(up, 'the bridge did not boot');

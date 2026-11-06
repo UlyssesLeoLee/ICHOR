@@ -28,7 +28,14 @@ let cp,token,id;
 // their ports were all distinct. 400 attempts x 50ms = 20s and x 35ms = 14s,
 // which covers the measured worst case with room to spare, and a test that
 // genuinely cannot start still fails instead of hanging forever.
-async function ready(){for(let i=0;i<400;i++){try{if((await fetch(`http://127.0.0.1:${port}/api/health`)).ok)return}catch{}await new Promise(r=>setTimeout(r,35));}throw Error('bridge unreachable');}
+// The health probe is BOUNDED. An unbounded fetch turns ONE request that
+// never comes back into a stall of the whole boot window, and the boot wait
+// then reports "the bridge did not come up" for a bridge that IS listening
+// and merely busy. Measured: a hung probe made the wait 31 s long (the 20 s
+// window plus an ~11 s request that never came back). The timeout is far
+// below the window, so a slow-but-alive bridge is still found, and a hung
+// request is retried instead of consuming the wait.
+async function ready(){for(let i=0;i<400;i++){try{if((await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2000) })).ok)return}catch{}await new Promise(r=>setTimeout(r,35));}throw Error('bridge unreachable');}
 async function req(endpoint,method='GET',body){const r=await fetch(`http://127.0.0.1:${port}${endpoint}`,{method,headers:token?{'X-ATS-Token':token,'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});return [r.status,await r.json()];}
 async function waitRun(id,status){for(let i=0;i<100;i++){let r=(await req('/api/runs/'+id))[1].run;if(r.status===status)return r;if(['error','failed','cancelled'].includes(r.status)&&r.status!==status)throw Error(`unexpected ${r.status}: ${r.error}`);await new Promise(r=>setTimeout(r,35));}throw Error('run timeout');}
 test('IT-RUN-MOCK-SETUP: isolated fake CLI adapter',async()=>{cp=spawn(process.execPath,['server/index.mjs'],{cwd:root,env:{...process.env,ATS_PORT:String(port),ATS_DATA_DIR:data},stdio:'ignore'});await ready();token=(await req('/api/session'))[1].token;id=(await req('/api/projects','POST',{path:project}))[1].project.id;assert.ok(id);});

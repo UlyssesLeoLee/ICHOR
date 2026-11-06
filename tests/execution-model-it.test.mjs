@@ -79,8 +79,15 @@ let runId = null;
 // room to spare, and a server that genuinely cannot start still fails instead
 // of hanging forever.
 async function ready() {
+  // The health probe is BOUNDED. An unbounded fetch turns ONE request that
+  // never comes back into a stall of the whole boot window, and the boot wait
+  // then reports "the bridge did not come up" for a bridge that IS listening
+  // and merely busy. Measured: a hung probe made the wait 31 s long (the 20 s
+  // window plus an ~11 s request that never came back). The timeout is far
+  // below the window, so a slow-but-alive bridge is still found, and a hung
+  // request is retried instead of consuming the wait.
   for (let i = 0; i < 400; i++) {
-    try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return; } catch { /* not up yet */ }
+    try { if ((await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2000) })).ok) return; } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 35));
   }
   throw new Error('the bridge is unreachable');
@@ -260,7 +267,7 @@ setInterval(()=>{}, 1000);
     // not always enough, and the case then failed with "the bridge did not
     // come back up" -- a HARNESS flake that says nothing about the product.
     for (let i = 0; i < 400; i++) {
-      try { if ((await fetch(`http://127.0.0.1:${crashPort}/api/health`)).ok) return true; } catch { /* not up */ }
+      try { if ((await fetch(`http://127.0.0.1:${crashPort}/api/health`, { signal: AbortSignal.timeout(2000) })).ok) return true; } catch { /* not up */ }
       await new Promise((r) => setTimeout(r, 50));
     }
     return false;
@@ -360,7 +367,7 @@ setInterval(()=>{}, 1000);
     // not always enough, and the case then failed with "the bridge did not
     // come back up" -- a HARNESS flake that says nothing about the product.
     for (let i = 0; i < 400; i++) {
-      try { if ((await fetch(`http://127.0.0.1:${crashPort}/api/health`)).ok) return true; } catch { /* not up */ }
+      try { if ((await fetch(`http://127.0.0.1:${crashPort}/api/health`, { signal: AbortSignal.timeout(2000) })).ok) return true; } catch { /* not up */ }
       await new Promise((r) => setTimeout(r, 50));
     }
     return false;
@@ -461,7 +468,7 @@ async function withBridge(dataDir, body) {
     // a restart that takes longer than the window is a HARNESS flake, not
     // a product defect.
     for (let i = 0; i < 400; i++) {
-      try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return true; } catch { /* not up */ }
+      try { if ((await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2000) })).ok) return true; } catch { /* not up */ }
       await new Promise((r) => setTimeout(r, 50));
     }
     return false;
