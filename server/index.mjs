@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,discoverTests,discoverTestsAsync,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath } from './core.mjs';
+import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,discoverTests,discoverTestsAsync,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath,verifyBridgeLock,lockWaitFromEnv,lockVerifyIntervalFromEnv,removeStateTempFiles,recoverMetadataMirror } from './core.mjs';
 import { projectUidFor, projectUidOf, runUidFor, attemptUidFor, nextRunSeq, UID_SCHEME_VERSION } from './uid.mjs';
 // ATS-208: the unified execution model. The event vocabulary, the state
 // machine and the replay live in `server/execution/model.mjs`; the bridge
@@ -35,24 +35,75 @@ const jobs=new Map();
 // renames the run folders; a Bridge that is running at that moment would
 // overwrite the migrated state with its own in-memory copy on the next
 // save, and the state would point at run folders that no longer exist.
-try{acquireBridgeLock();}
+// ATS-207: the acquisition is ATOMIC -- of two Bridges that start at the
+// same instant exactly one gets the lock -- and a starting Bridge may WAIT
+// for a busy lock (ATS_LOCK_WAIT_MS, default 0: refuse at once).
+try{acquireBridgeLock(lockPath(),{waitMs:lockWaitFromEnv(process.env.ATS_LOCK_WAIT_MS)});}
 catch(e){
+  if(e.code!=='BRIDGE_ALREADY_RUNNING'){
+    console.error(`the data directory lock (${lockPath()}) could not be taken: ${e.message}`);
+    process.exit(1);
+  }
   // The lock is held by a process that is still running. The holder may be a
   // Bridge that is working, or a leftover file whose pid was reused -- the
   // lock file alone cannot tell the two apart, so the answer states both the
   // check and the recovery step instead of guessing.
+  const holderPid=e.holder?.pid ?? '<pid>';
   console.error(
-    `another process holds the data directory lock (${lockPath()}): ${e.message}\n` +
-    `The lock file records the process that took it. To recover:\n` +
-    `  1. check whether that process is a Bridge: tasklist /FI "PID eq ${e.holder?.pid ?? '<pid>'}"\n` +
-    `  2. if no Bridge is running, delete the lock file and start the Bridge again:\n` +
-    `     del "${lockPath()}"\n` +
+    `another process holds the data directory lock (${lockPath()}): ${e.message}
+` +
+    `holder: pid ${holderPid}, started ${e.holder?.processStartedAt ?? e.holder?.startedAt ?? 'unknown'}` +
+    (e.waitedMs ? ` (waited ${e.waitedMs} ms)` : '') + `
+` +
+    `Only one Bridge can use a data directory at a time. To recover:
+` +
+    `  1. check whether that process is a Bridge: tasklist /FI "PID eq ${holderPid}"
+` +
+    `  2. if no Bridge is running, delete the lock file and start the Bridge again:
+` +
+    `     del "${lockPath()}"
+` +
     `Deleting the lock file is safe only after step 1 confirms that no Bridge is running.`
   );
   process.exit(1);
 }
 process.on('exit',()=>releaseBridgeLock());
-let store=loadState();
+// ATS-207: a state file that exists but cannot be read is NEVER replaced by
+// the empty state -- that would discard every project and the whole run
+// history on the first save. The Bridge refuses to start, and leaves the
+// state file, the temp files and the mirror exactly as they are.
+let store;
+try{store=loadState();}
+catch(e){
+  if(e.code!=='STATE_CORRUPT'&&e.code!=='UNSUPPORTED_DATABASE')throw e;
+  console.error(
+    `the state file cannot be read (${e.code}): ${e.file}: ${e.detail}
+` +
+    `The Bridge does not start: starting would replace the project and run history with an empty state.
+` +
+    `To recover:
+` +
+    `  1. keep a copy of the damaged file: copy "${e.file}" "${e.file}.damaged"
+` +
+    `  2. restore the last good copy -- the migration backup "${e.file}.bak" when it exists (docs/24-STATE-MIGRATION.md) --
+` +
+    `     or move the damaged file away to start with an empty state.`
+  );
+  process.exit(1);
+}
+// ATS-207: the temp files of a save that did not complete (the rename is the
+// commit point) are removed; this process holds the lock, so they cannot
+// belong to a live writer.
+const strayTemps=removeStateTempFiles();
+if(strayTemps.length)console.error(`removed the temp files of an interrupted save: ${strayTemps.join(', ')}`);
+// ATS-207: opening the mirror replays its WAL (SQLite's own crash recovery);
+// a mirror that is DAMAGED is moved aside and the first save below rebuilds
+// it from the state file.
+{
+  const mirror=recoverMetadataMirror();
+  if(mirror.status==='quarantined')console.error(`the SQLite metadata mirror was damaged and has been quarantined (${mirror.reason}); moved: ${mirror.moved.join(', ')}; it is rebuilt from state.json`);
+  else if(mirror.status==='quarantine-failed'||mirror.status==='unchecked')console.error(`the SQLite metadata mirror could not be checked (${mirror.status}): ${mirror.reason}`);
+}
 // ATS-208: the events of a run travel with the run record, and the durable
 // `events.jsonl` of its own folder is the RECORD of what happened.
 //
@@ -176,6 +227,28 @@ for(const run of store.runs){
 }
 for(const problem of recoveryProblems)console.error(`the recovery of a run was degraded: ${problem}`);
 saveState(store);
+// ATS-207: the holder check. The Bridge holds the lock for its whole
+// lifetime, and it CHECKS that it still does: a lock that was deleted is
+// taken again; a lock that now belongs to another process means two Bridges
+// would share the data directory, so this one stops.
+let lockUnreadable=false;
+setInterval(()=>{
+  const state=verifyBridgeLock();
+  if(state.held){lockUnreadable=false;return;}
+  if(state.reason==='unreadable'){
+    // A transient read failure is checked again on the next tick; a garbage
+    // file that stays is taken over by the next starter, and then reported as
+    // taken-over.
+    if(!lockUnreadable)console.error(`the data directory lock (${lockPath()}) could not be read; checking again`);
+    lockUnreadable=true;return;
+  }
+  if(state.reason==='absent'){
+    try{acquireBridgeLock(lockPath(),{createDir:false});console.error(`the data directory lock (${lockPath()}) was deleted while the Bridge was running; re-acquired`);return;}
+    catch(e){console.error(`lost the data directory lock (${lockPath()}): it was deleted and could not be taken again (${e.message}); the Bridge stops`);process.exit(1);}
+  }
+  console.error(`lost the data directory lock (${lockPath()}): it now belongs to pid ${state.holder?.pid ?? 'unknown'}; the Bridge stops so that two Bridges never share one data directory`);
+  process.exit(1);
+},lockVerifyIntervalFromEnv(process.env.ATS_LOCK_VERIFY_MS)).unref();
 
 const ORIGINS=new Set([`http://localhost:${PORT}`,`http://127.0.0.1:${PORT}`,'http://localhost:3000','http://127.0.0.1:3000','tauri://localhost','http://tauri.localhost','https://tauri.localhost']);
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.zip':'application/zip','.txt':'text/plain; charset=utf-8','.map':'application/json'};
