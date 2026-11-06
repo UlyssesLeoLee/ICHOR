@@ -44,7 +44,32 @@ step "2. the ATS-101 port audit" node tools/ats101-probes/scenario-d-port-audit.
 step "3. the ADR citation check" python tools/check_adr_citations.py
 step "4. check-wbs-updaters.sh" bash tools/ats501-probes/check-wbs-updaters.sh
 
-echo "--- 5. npm test ---"
+# R4 asks for the HTTP probe and the browser probe on the merged tree too.
+# They need the static export, so it is built here first.
+echo "--- 5. the static export (for the two probes below) ---"
+npm --prefix apps/studio ci --no-audit --no-fund > /dev/null 2>&1
+CI_RC=$?
+echo "STEP_EXIT=$CI_RC"
+if [ "$CI_RC" -ne 0 ]; then
+  FAILED=1
+fi
+rm -rf apps/studio/out apps/studio/.next
+npm --prefix apps/studio run build > /dev/null 2>&1
+BUILD_RC=$?
+echo "STEP_EXIT=$BUILD_RC"
+if [ "$BUILD_RC" -ne 0 ]; then
+  FAILED=1
+fi
+if [ ! -f apps/studio/out/index.html ]; then
+  echo "the export did not produce index.html"
+  FAILED=1
+fi
+echo ""
+
+step "6. the HTTP export/proxy probe" node tools/ats103-probes/verify-export-and-proxy.mjs
+step "7. the browser probe (ui-smoke)" node tools/ats103-probes/ui-smoke.mjs
+
+echo "--- 8. npm test ---"
 npm test 2>&1 | grep -E "^# (tests|pass|fail|skipped)|^not ok" | head -20
 TEST_RC="${PIPESTATUS[0]}"
 echo "STEP_EXIT=$TEST_RC"
