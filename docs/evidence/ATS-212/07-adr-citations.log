@@ -1,6 +1,6 @@
 === the ADR citation check ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-f66f8db44ab3/worktree
-commit    : 3081b97
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fe294af464db/worktree
+commit    : 6243475
 branch    : agent/m2/seikoist-170
 node      : v24.19.0
 python    : Python 3.11.16
@@ -9,8 +9,8 @@ python    : Python 3.11.16
   apps/studio/app/page.tsx         81
   apps/studio/lib/api.ts           14
   apps/studio/public/fallback.html 3
-  server/core.mjs                  306, 637
-  server/index.mjs                 220-227, 221, 229, 240, 30, 390, 521, 538, 539, 95
+  server/core.mjs                  314, 645
+  server/index.mjs                 172, 30, 372-408, 386, 404, 415, 565, 716, 733, 734
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
@@ -28,18 +28,18 @@ ok   tools/generate_test_docs.py:382
 ok   tools/update_wbs_ats103.py:110
 ok   tools/update_wbs_ats103.py:114
 ok   server/index.mjs:30
-ok   server/index.mjs:95
-ok   server/index.mjs:220
-ok   server/index.mjs:221
-ok   server/index.mjs:229
-ok   server/index.mjs:240
-ok   server/index.mjs:390
-ok   server/index.mjs:521
-ok   server/index.mjs:538
-ok   server/index.mjs:539
-ok   server/core.mjs:306
-ok   server/core.mjs:637
-ok   server/index.mjs:220-227 (cancelRun extent)
+ok   server/index.mjs:172
+ok   server/index.mjs:372
+ok   server/index.mjs:386
+ok   server/index.mjs:404
+ok   server/index.mjs:415
+ok   server/index.mjs:565
+ok   server/index.mjs:716
+ok   server/index.mjs:733
+ok   server/index.mjs:734
+ok   server/core.mjs:314
+ok   server/core.mjs:645
+ok   server/index.mjs:372-408 (cancelRun extent)
 ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)
 ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)

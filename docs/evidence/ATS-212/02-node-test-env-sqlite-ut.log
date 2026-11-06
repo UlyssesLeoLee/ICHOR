@@ -1,21 +1,21 @@
 === the environment profile SQLite suite ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-f66f8db44ab3/worktree
-commit    : 3081b97
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fe294af464db/worktree
+commit    : 6243475
 branch    : agent/m2/seikoist-170
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ UT-SQL-ENV-001: the schema knows the environment tables (4.5758ms)
-✔ UT-SQL-ENV-002: the profiles and the whitelists survive a round trip (7.7542ms)
-✔ UT-SQL-ENV-003: the indexed column holds the NAMES of the variables, not their values (2.9969ms)
-✔ UT-SQL-ENV-004: the counts include the environment tables (2.9953ms)
-✔ UT-SQL-ENV-005: the mirror REPORTS a profile that is missing from the database (4.2816ms)
-✔ UT-SQL-ENV-006: the mirror REPORTS a tampered profile (1.801ms)
-✔ UT-SQL-ENV-007: the mirror REPORTS an indexed column that contradicts its own record (1.536ms)
-✔ UT-SQL-ENV-008: the mirror REPORTS a whitelist that disagrees with the state (1.4101ms)
-✔ UT-SQL-ENV-009: a state without the environment field still mirrors cleanly (1.4117ms)
-✔ UT-SQL-ENV-010: the import is idempotent with the environment profiles (2.7937ms)
-✔ UT-SQL-ENV-011: the migration down removes the environment tables and the column (4.3248ms)
+✔ UT-SQL-ENV-001: the schema knows the environment tables (3.1452ms)
+✔ UT-SQL-ENV-002: the profiles and the whitelists survive a round trip (4.3424ms)
+✔ UT-SQL-ENV-003: the indexed column holds the NAMES of the variables, not their values (1.1777ms)
+✔ UT-SQL-ENV-004: the counts include the environment tables (1.0796ms)
+✔ UT-SQL-ENV-005: the mirror REPORTS a profile that is missing from the database (1.9574ms)
+✔ UT-SQL-ENV-006: the mirror REPORTS a tampered profile (1.3444ms)
+✔ UT-SQL-ENV-007: the mirror REPORTS an indexed column that contradicts its own record (1.2588ms)
+✔ UT-SQL-ENV-008: the mirror REPORTS a whitelist that disagrees with the state (1.2745ms)
+✔ UT-SQL-ENV-009: a state without the environment field still mirrors cleanly (1.2926ms)
+✔ UT-SQL-ENV-010: the import is idempotent with the environment profiles (3.0994ms)
+✔ UT-SQL-ENV-011: the migration down removes the environment tables and the column (2.6755ms)
 ℹ tests 11
 ℹ suites 0
 ℹ pass 11
@@ -23,6 +23,6 @@ python    : Python 3.11.16
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 203.3788
+ℹ duration_ms 149.0231
 
 exit code : 0

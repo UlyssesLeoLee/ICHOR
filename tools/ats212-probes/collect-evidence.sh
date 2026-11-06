@@ -100,8 +100,27 @@ run 09-wbs-row.log "the ATS-212 row of docs/WBS.xlsx" \
 run 10-python-gates.log "the python gates under tools/" \
   python -m pytest tools/ -q
 
-# --- 11: the checksum verification -------------------------------------------
-run 11-checksums.log "the CHECKSUMS.sha256 verification against the committed tree" \
+# --- 11: the baseline regression comparison --------------------------------
+# The no-regression claim needs a MEASURED baseline, not a remembered number.
+# ATS212_BASELINE is a worktree at the commit where ATS-212 had not landed
+# yet; the same suite is run there and the two totals are printed side by
+# side. Without it the "no regression" line is an assertion.
+if [ -n "${ATS212_BASELINE:-}" ] && [ -d "${ATS212_BASELINE:-}" ]; then
+  run 11-baseline-regression.log "the full suite on the pre-ATS-212 baseline, for the no-regression claim" \
+    env -C "$ATS212_BASELINE" npm test
+else
+  {
+    echo "=== the full suite on the pre-ATS-212 baseline, for the no-regression claim ==="
+    echo "SKIPPED: ATS212_BASELINE is not set to a baseline worktree."
+    echo "The no-regression claim therefore rests on the current tree's totals alone."
+    echo
+    echo "exit code : 0"
+  } > "$EV/11-baseline-regression.log"
+  echo "wrote $EV/11-baseline-regression.log (skipped)"
+fi
+
+# --- 12: the checksum verification -------------------------------------------
+run 12-checksums.log "the CHECKSUMS.sha256 verification against the committed tree" \
   python tools/verify_checksums.py
 
 echo "done"
