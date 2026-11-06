@@ -1,0 +1,7 @@
+=== command ===
+node tools/ats202-probes/r3/r3-gate-async.mjs D:/ICHOR D:/ICHOR/examples/sample-playwright/node_modules /tmp/multica-task-3182755422/ats202-dev-ev
+=== output ===
+[UNTRUSTED] OK -- discovery=static outcome=SKIPPED_UNTRUSTED marker=false
+[UNTRUSTED+authoritative=true] OK -- discovery=static outcome=SKIPPED_UNTRUSTED marker=false
+[TRUSTED (control)] OK -- discovery=authoritative marker=true
+=== exit code: 0 ===

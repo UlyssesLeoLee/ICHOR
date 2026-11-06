@@ -1,35 +1,59 @@
-"""ATS-601..ATS-606: add the mobile-app (S6) stage to docs/WBS.xlsx.
+"""ATS-601: sync docs/WBS.xlsx with the mobile target/session contract.
 
-The Maestro-inspired scope (SEIKOIST-145 comment 01a1aaea-501b-7b0e-b0f9-42876c78643f)
-adds a sixth stage to the 开发WBS sheet. The sheet currently ends at row 94
-(ATS-518), and six new rows have to be appended as rows 95..100.
+Surgical edit of the existing workbook (no openpyxl SAVE / no rebuild), in the
+same style as tools/update_wbs_ats401.py / tools/update_wbs_ats512.py: the
+sheet XML is patched in place and the zip is rewritten with every other part
+byte-identical.
 
-Everything this script touches is DERIVED, never hardcoded:
+WHAT THIS SCRIPT DOES (two jobs, one script, one marker)
+---------------------------------------------------------
+1. It ENSURES the six S6 rows exist. The rows ATS-601..ATS-606 were added to
+   the workbook by this same file when the mobile stage was introduced; a
+   row that is ALREADY there is left ALONE, so a status this script has set
+   (or a note another task has added) is never wiped.
 
-  * the new rows are written from a table in this file (the only authored part);
-  * the 总览 cached formula results (B8/B9/B10) are recomputed FROM the sheet
-    after the rows are written, so the summary agrees with 开发WBS no matter
-    what else the sheet contains;
-  * the formula RANGES grow from N6:N94 to N6:N100 etc., because the new rows
-    carry 状态 / 完成率 / 剩余人日 like every other row and must be counted;
-  * the conditional formatting and the data validation ranges grow with them
-    (N6:N94 -> N6:N100, S6:S94 -> S6:S100, O6:O94 -> O6:O100, J6:J94 -> J6:J100),
-    otherwise the new rows would have no status colour and no dropdown;
-  * the 需求追踪 sheet (sheet 6) gets one row per new WBS row, so the RTM stays
-    complete.
+2. It SYNCS the ATS-601 row itself -- in the pattern of
+   tools/update_wbs_ats401.py:
+     N (状态)   : 未开始 -> 待审核
+     O (完成率) : 0 -> 1
+     P (剩余人日): cached value 5 -> 0 (the formula K*(1-O) is kept)
+     T (风险/说明): the ATS-601 note, marked with 【ATS-601】
 
-The edit is surgical, in the same style as tools/update_wbs_ats206.py: the sheet
-XML is patched in place and the zip is rewritten with every other member
-byte-identical. openpyxl is NOT used to save (it drops the conditional-formatting
-extension and warns about it).
+WHY ONE SCRIPT AND NOT TWO
+---------------------------
+The workbook is shared by EVERY updater under tools/update_wbs_*.py, and the
+ATS-501 regression (tools/ats501-probes/check-wbs-updaters.sh) runs all of
+them in BOTH orders and requires the result to be the same. Two scripts that
+both write the ATS-601 row -- one creating it, one syncing it -- would make
+the two orders disagree (the creating one would reset the status the syncing
+one set), and the regression would fail. One script that owns the row
+outright cannot disagree with itself.
 
-IDEMPOTENCY: running this twice leaves the workbook byte-identical -- the rows
-are matched by their WBS id in column A, so a second run replaces the same
-rows rather than appending duplicates.
+The overview sheet's cached formula results are recomputed FROM THE SHEET
+rather than hardcoded, so the summary stays correct no matter what other rows
+already carry a non-zero completion rate:
 
-    python tools/update_wbs_ats601.py              # write the rows
+  B8  COUNTIF(N6:N100,"已完成")       -> counted from the sheet
+  B9  1-SUM(P)/SUM(K)                -> computed from the sheet
+  B10 SUM(P6:P100)                   -> computed from the sheet
+
+The two narrative cells D6/D7 are shared with every other WBS updater, so
+this script contributes ONE marked fragment to each and lets
+`wbs_common.set_narrative_cell` compose them.
+
+NOTE on 状态: 待审核 ("pending review"), NOT 已完成. The deliverable is
+submitted but not accepted yet -- the reviewer (Opus) syncs the completion
+state after the review passes. Declaring it 已完成 before review would
+contradict "不得自行置 done".
+
+IDEMPOTENCY: running this script twice leaves the workbook byte-identical.
+The marker-aware merge in `wbs_common.set_marked_cell` replaces the previous
+marked block instead of appending, and the rows that already exist are left
+alone, so the second run is a no-op.
+
+    python tools/update_wbs_ats601.py              # write the rows + the row
     python tools/update_wbs_ats601.py --verify-only # assert the result
-    python tools/update_wbs_ats601.py --xlsx copy.xlsx
+    python tools/update_wbs_ats601.py --status 进行中
 """
 import argparse
 import re
@@ -46,18 +70,13 @@ from wbs_common import (SHEET1, SHEET2, cell_number, cell_text,  # noqa: E402
 
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 
-FIRST_ROW = 6
-OLD_LAST_ROW = 94
-NEW_LAST_ROW = 100
+MARKER = '【ATS-601】'
 
-# The sheet's own row templates, copied from row 94 so the new rows carry the
-# same styles as the existing ones (s="40" / s="46" / s="41" / s="42").
-STYLE_PLAIN = '40'
-STYLE_TEXT = '46'
-STYLE_DATE = '41'
-STYLE_RATE = '42'
+# The two status values that a later acceptance may have set. They are not
+# downgraded by a re-run of this script.
+TERMINAL_STATUSES = ('已完成', '已取消')
 
-# --- the six new rows ------------------------------------------------------
+# --- the six S6 rows ------------------------------------------------------
 # (wbs, stage, version, workflow, task, deliverable, acceptance, deps,
 #  owner, priority, estimate_days, plan_start, plan_end, blocking, reqs, note)
 NEW_ROWS = [
@@ -103,26 +122,48 @@ NEW_ROWS = [
      '不宣称与 Maestro CLI 兼容。'),
 ]
 
-MARKER = '【ATS-601】'
-NARRATIVE_FRAGMENT = (
-    '移动端执行面（S6，v0.5.0）已纳入 WBS：ATS-601~ATS-606 六项，'
-    '先冻结目标抽象与用例映射契约（ATS-601/602），再做 Android 模拟器 Runner 与证据归档'
-    '（ATS-603/604），环境声明与 iOS 边界最后收口（ATS-605/606）。'
-    '全部为 DESIGNED，尚无实现。'
+# The sheet's own row templates, copied from the existing rows so a new row
+# carries the same styles as the others.
+STYLE_PLAIN = '40'
+STYLE_TEXT = '46'
+STYLE_DATE = '41'
+STYLE_RATE = '42'
+
+NOTE = (
+    '移动端执行目标抽象与设备/模拟器会话模型契约已交付（契约层，无真实设备）：'
+    '目标 Target{targetId,kind,platform,osVersion,capabilities[],declaredBy} 与'
+    '会话 Session{sessionId,targetId,state,capabilities[],lastSeenAt,error?} '
+    '在 server/adapters/mobile-target.mjs 定义；kind 三取值为 local-emulator（平台创建销毁）、'
+    'local-device（已连接真机，平台只借用，不接管安装与配对）、remote-farm（远端农场，租约式，'
+    '租约过期必须回收，沿用 ATS-502 租约语义）。'
+    '会话状态机 idle→created→running→idle，异常路径进 failed；非法迁移抛错而非静默移动。'
+    '硬规则：目标不存在 / 设备未连接 / 会话失败 / 租约过期 / 能力不满足 一律明确拒绝'
+    '（REMOTE_TARGET_UNAVAILABLE / REMOTE_CAPABILITY_MISSING），不得静默降级成别的执行方式；'
+    '两个拒绝码已登记进唯一的拒绝码表 server/control-plane/errors.mjs 与 docs/19 §6.2 机读约束块。'
+    '能力协商在执行前完成并产出本次执行的能力缺口清单：launchApp→app.install/app.launch、'
+    'tapOn→ui.tap+ui.hierarchy、assertVisible→ui.hierarchy、takeScreenshot→screen.capture、'
+    'recordScreen→screen.record、readLogs→log.read；缺 ui.hierarchy 时 tapOn 不可用，不用坐标盲点；'
+    '缺口按会话（已证明）算而非按目标（已声明）算。'
+    '移动端 Runner 是 ATS-301 契约的扩展而非另起一套：server/adapters/mobile.mjs 注册进同一个'
+    '适配器注册表，通过同一套 assertAdapter，设备层经 negotiateWithDevice 与引擎层一起协商；'
+    'device 段可选，既有 playwright / wdio 适配器不受影响。'
+    '安全边界：App 包名只允许项目登记过的（MOBILE_APP_PACKAGE_NOT_REGISTERED）、'
+    'Flow 与其它脚本同一套可信仓库判定（未可信项目报 MOBILE_PROJECT_UNTRUSTED）、'
+    '设备只允许用户显式登记的会话（MOBILE_SESSION_NOT_REGISTERED）、'
+    '证据落盘复用同一套路径校验与 SHA-256（宿主计算摘要，不接受调用方自带）。'
+    'UT-MOB-001..070 共 70 例（能力匹配、拒绝规则、状态机迁移、安全边界、契约扩展）全通过；'
+    '证据 docs/evidence/ATS-601/。'
+    '未实现（不属本项）：真实 Android/iOS 设备与模拟器、ADB/驱动、证据归档、Flow 导入映射；'
+    'FR-031 的状态是契约层已实现，移动端执行能力本身仍为 DESIGNED，真实冒烟属 ATS-603。'
 )
 
 
 def find_ats_row(xml, ats_id):
-    """Return the row number whose A cell is `ats_id`."""
+    """Return the row number whose A cell is `ats_id`, or None."""
     for rm in re.finditer(r'<x:row[^>]*r="(\d+)"[^>]*>(.*?)</x:row>', xml, re.S):
         if f'<x:v>{ats_id}</x:v>' in rm.group(2):
-            return int(rm.group(1))
+            return int(rm.group(1)), rm
     return None
-
-
-def _num(value):
-    text = repr(round(value, 6))
-    return text[:-2] if text.endswith('.0') else text
 
 
 def _cell(col, rid, value, style, numeric=False):
@@ -159,122 +200,130 @@ def _row_xml(rid, spec):
     return (f'<x:row r="{rid}" ht="38" customHeight="1">' + ''.join(cells) + '</x:row>')
 
 
-def _grow_range(xml, old_last, new_last):
-    """Grow the formula / formatting / validation ranges by the new rows."""
+def ensure_rows(xml2):
+    """Append the S6 rows that are NOT in the sheet yet; leave the others alone.
+
+    A row that already exists is NOT rewritten: it may carry a status this
+    script set, or a note another task added. That is what keeps the two
+    update orders in the ATS-501 regression equal.
+
+    Returns (xml, last_row).
+    """
+    missing = [spec for spec in NEW_ROWS if find_ats_row(xml2, spec[0]) is None]
+    if missing:
+        last_used = max(int(m.group(1)) for m in
+                        re.finditer(r'<x:row[^>]*r="(\d+)"', xml2))
+        first_new = last_used + 1
+        new_xml = ''.join(_row_xml(first_new + i, spec)
+                          for i, spec in enumerate(missing))
+        xml2 = xml2.replace('</x:sheetData>', new_xml + '</x:sheetData>')
+    last_row = max(int(m.group(1)) for m in
+                   re.finditer(r'<x:row[^>]*r="(\d+)"', xml2))
+    return xml2, last_row
+
+
+def grow_ranges(xml2, old_last, new_last):
+    """Grow the formula / formatting / validation ranges to the new last row.
+
+    Without this the new rows would have no status colour and no dropdown,
+    and the 总览 formulas would not count them.
+    """
+    if old_last == new_last:
+        return xml2
     for col in ('N', 'O', 'S', 'J'):
-        xml = xml.replace(f'{col}6:{col}{old_last}', f'{col}6:{col}{new_last}')
-    # The 需求追踪 sheet keeps its own range; sheet6 has none to grow.
-    return xml
-
-
-def update(xlsx_path):
-    xlsx_path = Path(xlsx_path)
-    with zipfile.ZipFile(xlsx_path) as zin:
-        infos = zin.infolist()
-        parts = {i.filename: zin.read(i.filename) for i in infos}
-
-    xml2 = parts[SHEET2].decode('utf-8')
-
-    # Drop any previously written ATS-601..ATS-606 rows (idempotency), then
-    # append the six rows in order right after the last existing row.
-    for spec in NEW_ROWS:
-        rid = find_ats_row(xml2, spec[0])
-        if rid is not None:
-            xml2 = re.sub(r'<x:row[^>]*r="%d"[^>]*>.*?</x:row>' % rid, '', xml2,
-                           count=1, flags=re.S)
-
-    last_used = max(int(m.group(1)) for m in
-                    re.finditer(r'<x:row[^>]*r="(\d+)"', xml2))
-    if last_used + len(NEW_ROWS) != NEW_LAST_ROW:
-        raise SystemExit(f'expected the new rows to end at {NEW_LAST_ROW}, '
-                         f'but the sheet ends at {last_used}')
-
-    # The new rows occupy NEW_LAST_ROW-len(NEW_ROWS)+1 .. NEW_LAST_ROW.
-    first_new = NEW_LAST_ROW - len(NEW_ROWS) + 1
-    new_xml = ''.join(_row_xml(first_new + i, spec)
-                      for i, spec in enumerate(NEW_ROWS))
-    xml2 = xml2.replace('</x:sheetData>', new_xml + '</x:sheetData>')
-    xml2 = _grow_range(xml2, OLD_LAST_ROW, NEW_LAST_ROW)
-    parts[SHEET2] = xml2.encode('utf-8')
-
-    # --- 总览: refresh the cached values of the existing formulas ----------
-    xml1 = parts[SHEET1].decode('utf-8')
-    xml1 = xml1.replace("'开发WBS'!N6:N94", f"'开发WBS'!N6:N{NEW_LAST_ROW}")
-    xml1 = xml1.replace("'开发WBS'!P6:P94", f"'开发WBS'!P6:P{NEW_LAST_ROW}")
-    xml1 = xml1.replace("'开发WBS'!K6:K94", f"'开发WBS'!K6:K{NEW_LAST_ROW}")
-    derived = totals(parts)
-    xml1 = set_cell_in_row(xml1, 8, 'B', str(derived['completed']), numeric=True)
-    xml1 = set_cell_in_row(xml1, 9, 'B', format_rate(derived['completion_rate']), numeric=True)
-    xml1 = set_cell_in_row(xml1, 10, 'B', repr(int(derived['sum_remaining'])), numeric=True)
-    parts[SHEET1] = xml1.encode('utf-8')
-
-    tmp = xlsx_path.with_name(xlsx_path.name + '.tmp')
-    with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zout:
-        for info in infos:
-            zi = zipfile.ZipInfo(info.filename, date_time=info.date_time)
-            zi.compress_type = zipfile.ZIP_DEFLATED
-            zi.external_attr = info.external_attr
-            zout.writestr(zi, parts[info.filename])
-    shutil.copyfile(tmp, xlsx_path)
-    tmp.unlink()
-    print(f'overview: 已完成={derived["completed"]} '
-          f'完成率={derived["completion_rate"]} 剩余人日={derived["sum_remaining"]}')
-
-
-def verify(xlsx_path):
-    xlsx_path = Path(xlsx_path)
-    with zipfile.ZipFile(xlsx_path) as z:
-        assert SHEET2 in z.namelist(), 'sheet2 missing'
-        xml2 = z.read(SHEET2).decode('utf-8')
-        xml1 = z.read(SHEET1).decode('utf-8')
-    for spec in NEW_ROWS:
-        wbs = spec[0]
-        rid = find_ats_row(xml2, wbs)
-        assert rid is not None, f'{wbs} row is missing'
-        status = cell_text(xml2, rid, 'N')
-        rate = cell_text(xml2, rid, 'O')
-        remain = cell_text(xml2, rid, 'P')
-        est = cell_number(xml2, rid, 'K')
-        assert status in ('未开始', '进行中', '待审核', '已阻塞', '已完成', '已取消'), \
-            f'{wbs} status is {status!r}'
-        assert abs(float(rate) - 0.0) < 1e-9, f'{wbs} completion rate is {rate}'
-        assert abs(float(remain) - est) < 1e-9, \
-            f'{wbs} remaining {remain} != estimate {est}'
-        print(f'verify: {wbs} row {rid} 状态={status} 完成率={rate} 剩余人日={remain}')
-    # The ranges must have grown, or the new rows would be invisible to the
-    # overview formulas and to the status dropdown.
-    assert f'N6:N{NEW_LAST_ROW}' in xml2, 'the status range was not grown'
-    assert f"'开发WBS'!N6:N{NEW_LAST_ROW}" in xml1, 'the overview formula range was not grown'
-    print(f'verify: ranges grown to row {NEW_LAST_ROW}')
-
-
-def check_parses(xlsx_path):
-    """Assert the workbook is still loadable by openpyxl (both modes)."""
-    import openpyxl
-
-    wb = openpyxl.load_workbook(xlsx_path, data_only=False)
-    ws = wb['开发WBS']
-    for spec in NEW_ROWS:
-        found = None
-        for r in range(1, ws.max_row + 1):
-            if str(ws.cell(row=r, column=1).value or '') == spec[0]:
-                found = r
-                break
-        assert found is not None, f'{spec[0]} is not found by openpyxl'
-        assert ws.cell(row=found, column=14).value == '未开始', \
-            f'{spec[0]} status is {ws.cell(row=found, column=14).value!r}'
-    print('parse: openpyxl loads the workbook and finds all six new rows')
+        xml2 = xml2.replace(f'{col}6:{col}{old_last}', f'{col}6:{col}{new_last}')
+    return xml2
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--xlsx', default=str(XLSX))
-    ap.add_argument('--verify-only', action='store_true')
-    args = ap.parse_args()
-    if not args.verify_only:
-        update(args.xlsx)
-    verify(args.xlsx)
-    check_parses(args.xlsx)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '--status', default='待审核',
+        help='the 状态 to write into the ATS-601 row (default: 待审核). '
+             'Use 进行中 while a rework round is in flight.')
+    parser.add_argument('--xlsx', default=str(XLSX))
+    args = parser.parse_args()
+    status = args.status
+    xlsx = Path(args.xlsx)
+
+    shutil.copy2(xlsx, xlsx.with_suffix('.xlsx.bak'))
+    zin = zipfile.ZipFile(xlsx)
+    parts = {n: zin.read(n) for n in zin.namelist()}
+    infos = {i.filename: i for i in zin.infolist()}
+    zin.close()
+
+    xml2 = parts[SHEET2].decode('utf-8')
+
+    # --- 1. make sure the S6 rows exist -------------------------------------
+    old_last = max(int(m.group(1)) for m in
+                   re.finditer(r'<x:row[^>]*r="(\d+)"', xml2))
+    xml2, new_last = ensure_rows(xml2)
+    xml2 = grow_ranges(xml2, old_last, new_last)
+
+    # --- ATS-601: 状态 / 完成率 / 剩余人日 -----------------------------------
+    rid, _rm = find_ats_row(xml2, 'ATS-601')
+    if rid is None:
+        raise SystemExit('the ATS-601 row is missing from the workbook')
+    # A re-run must not undo an accepted review. Only a row that has not been
+    # accepted yet is written.
+    if cell_text(xml2, rid, 'N') not in TERMINAL_STATUSES:
+        # 待审核 and 进行中 are both in the N-column data-validation list.
+        xml2 = set_cell_in_row(xml2, rid, 'N', status)
+    # 完成率 and 剩余人日 follow the status: a row that is still 进行中 has
+    # not delivered everything yet, so its 完成率 is below 1 and its 剩余人日
+    # is the honest remainder. A submitted row is complete (完成率 = 1).
+    estimate = cell_number(xml2, rid, 'K')
+    if status == '进行中':
+        rate = 0.6
+        xml2 = set_cell_in_row(xml2, rid, 'O', repr(rate), numeric=True)
+        # P keeps its formula K*(1-O); only the cached value changes.
+        xml2 = set_cell_in_row(xml2, rid, 'P', repr(estimate * (1 - rate)), numeric=True)
+    else:
+        xml2 = set_cell_in_row(xml2, rid, 'O', '1', numeric=True)
+        # P keeps its formula K*(1-O) = 5*(1-1) = 0; only the cached value
+        # changes.
+        xml2 = set_cell_in_row(xml2, rid, 'P', '0', numeric=True)
+
+    # --- annotate the row with this task's scope note ------------------------
+    # The marker identifies the note this script owns, so re-running replaces
+    # it instead of appending a second copy.
+    xml2 = set_marked_cell(xml2, rid, 'T', MARKER, NOTE)
+
+    parts[SHEET2] = xml2.encode('utf-8')
+
+    # --- 总览: refresh cached formula results + the two narrative cells ------
+    # The cached values are DERIVED from the sheet that was just written, not
+    # hardcoded: a hardcoded cache is stale as soon as another script changes
+    # a row, and the 总览 would then silently disagree with the 开发WBS.
+    xml1 = parts[SHEET1].decode('utf-8')
+    derived = totals(parts)
+    xml1 = set_cell_in_row(xml1, 8, 'B', str(derived['completed']), numeric=True)
+    xml1 = set_cell_in_row(
+        xml1, 9, 'B', format_rate(derived['completion_rate']), numeric=True)
+    xml1 = set_cell_in_row(
+        xml1, 10, 'B', repr(int(derived['sum_remaining'])), numeric=True)
+    # The two narrative cells are shared with every other WBS updater. Each
+    # task contributes one marked fragment and the cell is the composition of
+    # all of them, so this script can no longer erase another task's text.
+    xml1 = set_narrative_cell(xml1, 6, 'D6')
+    xml1 = set_narrative_cell(xml1, 7, 'D7')
+    parts[SHEET1] = xml1.encode('utf-8')
+
+    # --- rewrite the archive, preserving every other part byte-for-byte ------
+    tmp = xlsx.with_suffix('.xlsx.tmp')
+    with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zout:
+        for name, data in parts.items():
+            info = infos[name]
+            zi = zipfile.ZipInfo(name, date_time=info.date_time)
+            zi.compress_type = zipfile.ZIP_DEFLATED
+            zi.external_attr = info.external_attr
+            zout.writestr(zi, data)
+    # os.replace() can fail on Windows when the target is held open; copy then unlink
+    shutil.copy2(tmp, xlsx)
+    tmp.unlink()
+    print(f'overview: 已完成={derived["completed"]} '
+          f'完成率={derived["completion_rate"]} 剩余人日={derived["sum_remaining"]}')
+    print('updated', xlsx)
 
 
 if __name__ == '__main__':

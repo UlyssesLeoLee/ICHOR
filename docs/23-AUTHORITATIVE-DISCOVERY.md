@@ -323,8 +323,15 @@ matchKey(case) = `${case.file} #${case.line} ${case.title}`
    - 动态用例的**模板**（扫描器读成 `dynamic ${n}`，CLI 报的是渲染后的 `dynamic alpha`）；
    - 同一个位置上**标题读得不一样**的用例（极少；CE-C 修好之后基本不再发生）。
 3. **`onlyAuthoritative` 装的是 CLI 才知道的用例**：动态/参数化用例，以及
-   **表达式体回调**里的用例（扫描器无法知道 `describe('x', () => test(...))` 的块在哪里
-   结束，所以它读不到这个 describe 路径）。
+   **表达式体回调**里的用例（`scanTestCases` 只认**行首**的 `test(`，所以
+   `describe('x', () => test(...))` 这种写法整个用例都不会被静态扫描器看到）。
+
+> **归因更正（第 3 轮复核指出）。** 这一条原先把原因写成「读不到 describe 路径」。
+> 那不是真正的原因：`matchKey` **不含** describe 路径，所以路径读不读得准与这件事
+> 无关。真正的原因是**扫描器的识别规则**——`scanTestCases` 只识别**行首**的
+> `test(`（`readTestCall`，`server/uid.mjs`），而表达式体回调里的 `test(` 前面还有
+> `() => `，不在行首，于是整个用例都不会被静态索引枚举。实测：
+> `scanTestCases("test.describe('expr', () => test('inside expr', ...));")` 返回 `[]`。
 
 #### 回归用例
 
@@ -339,8 +346,9 @@ matchKey(case) = `${case.file} #${case.line} ${case.title}`
 [S5 describe.configure before plain cases] OK -- agrees=true onlyStatic=[] onlyAuthoritative=[]
 ```
 
-S4 的 `onlyAuthoritative` 非空是**正确的**：那个用例在表达式体回调里，词法读取器
-读不到它属于哪个 describe 块，所以它只出现在权威索引里。
+S4 的 `onlyAuthoritative` 非空是**正确的**：那个用例在表达式体回调里，
+`scanTestCases` 只识别**行首**的 `test(`，所以静态索引根本看不到它，
+它只出现在权威索引里（原因见上面第 3 条的归因更正）。
 
 ## 6. API 面
 
@@ -406,6 +414,7 @@ S4 的 `onlyAuthoritative` 非空是**正确的**：那个用例在表达式体�
 | IT | `IT-ATS202-012` … `IT-ATS202-017`（`tests/discovery-it.test.mjs`） | 第 1 轮复核的反例对**真实 CLI** 再验一遍 |
 | IT | `IT-ATS202-API-001` … `IT-ATS202-API-007`（`tests/discovery-api.test.mjs`） | 真实 HTTP：信任端点、模式切换、非法信任值被拒、强制请求被拒、信任跨重启保留、撤销后回退 |
 | IT | `IT-ATS202-API-008` … `IT-ATS202-API-009`（`tests/discovery-api.test.mjs`） | 可信项目显式要静态索引的结果码；**列举期间 Bridge 仍然应答** |
+| IT | `IT-ATS202-API-010`（`tests/discovery-api.test.mjs`） | 第 3 轮复核的 R1：**旧格式项目记录**（无 `uid`、`id=proj_<uuid>`）打开目录后，注册表被保存 |
 | UT | `ATS202-ASYNC-001` … `ATS202-ASYNC-015`（`tests/discovery-async.test.mjs`） | **Bridge 真正走的异步列举路径**：成功、超时（子进程被杀）、CLI 崩溃、坏 JSON、报告带错误、无 CLI、无 root、两个变体答案一致、事件循环不被占住 |
 | 实测 | `tools/ats202-probes/list-ground-truth.mjs` | 真实 CLI 的 33 项契约断言（§2.3 与 §2.4 的每一行） |
 | 反例 | `docs/evidence/ATS-202/09-review-round1-probe.log` | 第 1 轮复核的 10 个反例探针，在返工后的树上跑，10/10 OK |
@@ -481,3 +490,30 @@ N1/N3 的修法都**先于**本轮开工就已经落在 `agent/m3/seikoist-163` 
 - **不声称**「列举期间 Bridge 一定不响应」。现在的实现是**异步**列举
   （§6.2），实测列举期间 `/api/health` 的延迟是 17 ms；但这依赖
   `spawn` + `await` 的实现，不是接口契约。
+
+## 11. 第 3 轮复核的返工
+
+第 3 轮复核确认第 2 轮的 N1–N4 与第 3 轮的有界条件都已达成，两条验收标准都有
+实测支撑，但指出 **N1 的修法本身在旧格式项目记录上引入了回归**。
+
+| 编号 | 问题 | 根因 | 修法 | 回归用例 |
+|---|---|---|---|---|
+| R1 | **旧格式项目记录的注册表不再被保存**：未迁移的安装每次打开目录都不保存注册表（实测 registry slots 从 `["proj_1_…"]` 变成 `[]`） | `server/index.mjs` 的写回按 `project.uid` / `project.id` 查找目录那一格，但**目录是按 `projectUidOf(project)` 建的**。对**没有 `uid` 字段、`id` 仍是 `proj_<uuid>`** 的旧记录，`projectUidOf` 返回重新推导的 `proj_1_…`，两个键对不上 → `cell` 是 `undefined`，什么也没写回 | 写回按**目录自己的键**（`catalog.projectUid`，即 `projectUidOf(project)`）查找那一格，并以同一个键存档 | `IT-ATS202-API-010`（`tests/discovery-api.test.mjs`）、复核自己的 `r3-legacy` 探针 |
+
+`loadState` 明确支持旧记录（"old installations keep working until the migration
+script rewrites their identifiers"，`server/core.mjs`），路由正则也接受 `proj_<uuid>`，
+所以「打开目录」这条路径对未迁移的安装是**可达**的——这正是 R1 的严重性所在：
+按代码推断，它也无法把 Attempt 绑定到 TestDefinition UID。
+
+第 3 轮复核同时指出**两处非阻断**的更正，本轮一并处理：
+
+| 项 | 原写法 | 更正 |
+|---|---|---|
+| §5.2 第 3 条的归因 | 「扫描器读不到这个 describe 路径」 | 真正的原因是**扫描器只识别行首的 `test(`**（`readTestCall`），表达式体回调里的 `test(` 前面有 `() => `，不在行首。`matchKey` **不含** describe 路径，路径与此事无关。实测 `scanTestCases("test.describe('expr', () => test('inside expr', ...));")` 返回 `[]` |
+| `r2-upgrade` 探针的退出码 | 预期会 exit 1 | 那是**预期结果**（记录一次性 UID 变化）。放进自动门禁时要按「预期 FAIL」处理 |
+
+### 11.1 第 3 轮之后**仍然不声称**的话
+
+- **不声称**「注册表一定会被保存」是无条件的。保存的键是 `projectUidOf(project)`；
+  未迁移的旧记录用的是**重新推导**的 UID，与迁移后的 UID 相同（这是
+  `docs/18-UID-SPEC` §7 的设计），所以两种安装在同一个项目上落到**同一格**。
