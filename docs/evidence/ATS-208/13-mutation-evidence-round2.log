@@ -1,56 +1,56 @@
 === the new cases on the SECOND delivery (42f5d29) ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
-commit    : 5fa9708
+commit    : f8a2121
 
 old tree  : 42f5d29 (extracted from git archive)
 test files: the NEW ones of this delivery
 
-✔ IT-EXE-001: the bridge starts (1133.3706ms)
-✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (847.2559ms)
-✔ IT-EXE-003: the events of a run replay into its status, gap-free (5.135ms)
-✔ IT-EXE-004: the events are in the state file AND in the metadata database (4.7979ms)
-✔ IT-EXE-005: the durable log and the state file carry the same events (0.6135ms)
-✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (3123.5601ms)
-✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (2752.5534ms)
-✔ IT-EXE-CLEANUP: stop and cleanup (14.6407ms)
-✔ IT-EXE-008: the bridge starts even when the run folder is gone (3738.1203ms)
-✔ IT-EXE-009: a torn event log stays readable (3285.3369ms)
-✔ IT-EXE-010: no event is appended after a terminal event (3294.7953ms)
-✔ IT-EXE-011: a run that was cancelling when the bridge died is recovered (3674.6512ms)
-✔ IT-EXE-012: the summary of a run agrees with the exit code of the engine (1462.9979ms)
-✖ IT-EXE-013: the replay reports the lost and the reused sequence numbers (2947.3649ms)
-✔ UT-EXE-001: every engine status maps onto the common vocabulary (2.1912ms)
-✔ UT-EXE-002: an unknown status becomes unknown, not a guess (0.3575ms)
-✔ UT-EXE-003: the terminal run statuses are the ones a run never leaves (0.2969ms)
-✔ UT-EXE-004: a retried case is ONE case that keeps EVERY attempt (1.6713ms)
-✔ UT-EXE-005: the counters count the CASES, never the executions (0.4727ms)
-✔ UT-EXE-006: the aggregation of the attempts follows the documented order (0.4062ms)
-✔ UT-EXE-007: two cases with the same title in one file stay two cases (0.4013ms)
-✔ UT-EXE-008: a case with no execution still exists and is counted once (0.4209ms)
-✔ UT-EXE-009: the attempts of one case share the TestDefinition UID (7.8163ms)
-✔ UT-EXE-010: the events of a run replay into its terminal status (1.552ms)
-✔ UT-EXE-011: an interrupted run replays into `interrupted` (0.324ms)
-✔ UT-EXE-012: the replay follows the SEQUENCE, not the order of the array (0.2268ms)
-✔ UT-EXE-013: a hole in the sequence is reported, not hidden (0.2196ms)
-✔ UT-EXE-014: an empty stream determines no status (0.1301ms)
-✔ UT-EXE-015: the sequence of a run is gap-free and starts at 1 (0.1644ms)
-✔ UT-EXE-016: the state machine refuses the transitions it can disprove (0.2011ms)
-✔ UT-EXE-017: the event that names the status is the last one of the stream (0.1679ms)
-✔ UT-EXE-018: the unified view carries the run, the cases and the attempts (0.7332ms)
-✔ UT-EXE-019: an empty report does not crash and reports zero (0.1812ms)
-✔ UT-EXE-020: an expected failure is a PASSED case, not a failed one (1.1159ms)
-✔ UT-EXE-021: an UNEXPECTED pass is a FAILED case, not a passed one (0.2586ms)
-✔ UT-EXE-022: the counters of a run agree with the engine's own stats (0.3819ms)
-✔ UT-EXE-023: an execution without a declared expectation is not a guess (0.1296ms)
-✔ UT-EXE-023B: the per-project verdicts decide the case, not the attempt mix (0.1943ms)
-✔ UT-EXE-024: a stream that violates the state machine is NOT valid (0.1555ms)
-✔ UT-EXE-025: a stream that obeys the state machine is valid (0.1957ms)
-✔ UT-EXE-026: a torn line is skipped and REPORTED, not fatal (0.3623ms)
-✔ UT-EXE-027: an intact log reports no damage (0.1736ms)
-✖ UT-EXE-028: the state diagram of the design document agrees with the code (2.8944ms)
-✖ UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry (1.0764ms)
-✖ UT-EXE-030: an unknown verdict never becomes `passed` (0.4095ms)
-✖ UT-EXE-031: the replay reports the lost and the reused sequence numbers (0.4813ms)
+✔ IT-EXE-001: the bridge starts (664.1778ms)
+✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (507.1162ms)
+✔ IT-EXE-003: the events of a run replay into its status, gap-free (16.4267ms)
+✔ IT-EXE-004: the events are in the state file AND in the metadata database (3.9142ms)
+✔ IT-EXE-005: the durable log and the state file carry the same events (0.4994ms)
+✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (2086.9985ms)
+✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (2708.1278ms)
+✔ IT-EXE-CLEANUP: stop and cleanup (15.2249ms)
+✔ IT-EXE-008: the bridge starts even when the run folder is gone (2939.1187ms)
+✔ IT-EXE-009: a torn event log stays readable (2864.8506ms)
+✔ IT-EXE-010: no event is appended after a terminal event (3376.9528ms)
+✔ IT-EXE-011: a run that was cancelling when the bridge died is recovered (3561.2197ms)
+✔ IT-EXE-012: the summary of a run agrees with the exit code of the engine (1454.8992ms)
+✖ IT-EXE-013: the replay reports the lost and the reused sequence numbers (3085.0814ms)
+✔ UT-EXE-001: every engine status maps onto the common vocabulary (0.8095ms)
+✔ UT-EXE-002: an unknown status becomes unknown, not a guess (0.1486ms)
+✔ UT-EXE-003: the terminal run statuses are the ones a run never leaves (0.1086ms)
+✔ UT-EXE-004: a retried case is ONE case that keeps EVERY attempt (0.6332ms)
+✔ UT-EXE-005: the counters count the CASES, never the executions (0.1815ms)
+✔ UT-EXE-006: the aggregation of the attempts follows the documented order (0.1588ms)
+✔ UT-EXE-007: two cases with the same title in one file stay two cases (0.1537ms)
+✔ UT-EXE-008: a case with no execution still exists and is counted once (0.1323ms)
+✔ UT-EXE-009: the attempts of one case share the TestDefinition UID (6.7704ms)
+✔ UT-EXE-010: the events of a run replay into its terminal status (0.7938ms)
+✔ UT-EXE-011: an interrupted run replays into `interrupted` (0.1477ms)
+✔ UT-EXE-012: the replay follows the SEQUENCE, not the order of the array (0.1218ms)
+✔ UT-EXE-013: a hole in the sequence is reported, not hidden (0.0963ms)
+✔ UT-EXE-014: an empty stream determines no status (0.0718ms)
+✔ UT-EXE-015: the sequence of a run is gap-free and starts at 1 (0.0634ms)
+✔ UT-EXE-016: the state machine refuses the transitions it can disprove (0.1001ms)
+✔ UT-EXE-017: the event that names the status is the last one of the stream (0.0902ms)
+✔ UT-EXE-018: the unified view carries the run, the cases and the attempts (0.3691ms)
+✔ UT-EXE-019: an empty report does not crash and reports zero (0.7217ms)
+✔ UT-EXE-020: an expected failure is a PASSED case, not a failed one (0.1753ms)
+✔ UT-EXE-021: an UNEXPECTED pass is a FAILED case, not a passed one (0.0923ms)
+✔ UT-EXE-022: the counters of a run agree with the engine's own stats (0.1588ms)
+✔ UT-EXE-023: an execution without a declared expectation is not a guess (0.0611ms)
+✔ UT-EXE-023B: the per-project verdicts decide the case, not the attempt mix (0.0988ms)
+✔ UT-EXE-024: a stream that violates the state machine is NOT valid (0.0781ms)
+✔ UT-EXE-025: a stream that obeys the state machine is valid (0.0659ms)
+✔ UT-EXE-026: a torn line is skipped and REPORTED, not fatal (0.1547ms)
+✔ UT-EXE-027: an intact log reports no damage (0.0799ms)
+✖ UT-EXE-028: the state diagram of the design document agrees with the code (1.4484ms)
+✖ UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry (0.5118ms)
+✖ UT-EXE-030: an unknown verdict never becomes `passed` (0.1772ms)
+✖ UT-EXE-031: the replay reports the lost and the reused sequence numbers (0.2129ms)
 ℹ tests 46
 ℹ suites 0
 ℹ pass 41
@@ -58,17 +58,17 @@ test files: the NEW ones of this delivery
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 26536.879
+ℹ duration_ms 23442.7233
 
 ✖ failing tests:
 
-test at tests\execution-model-it.test.mjs:862:1
-✖ IT-EXE-013: the replay reports the lost and the reused sequence numbers (2947.3649ms)
+test at tests\execution-model-it.test.mjs:875:1
+✖ IT-EXE-013: the replay reports the lost and the reused sequence numbers (3085.0814ms)
   AssertionError [ERR_ASSERTION]: []
-      at file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:892:14
+      at file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:905:14
       at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
-      at async withBridge (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:483:5)
-      at async TestContext.<anonymous> (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:867:5)
+      at async withBridge (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:496:5)
+      at async TestContext.<anonymous> (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:880:5)
       at async Test.run (node:internal/test_runner/test:1389:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
     generatedMessage: false,
@@ -80,7 +80,7 @@ test at tests\execution-model-it.test.mjs:862:1
   }
 
 test at tests\execution-model.test.mjs:751:1
-✖ UT-EXE-028: the state diagram of the design document agrees with the code (2.8944ms)
+✖ UT-EXE-028: the state diagram of the design document agrees with the code (1.4484ms)
   AssertionError [ERR_ASSERTION]: the marking of the unreachable edges does not match: the diagram marks  but the edges no code path produces are cancelling->error, cancelling->failed, queued->cancelling
   + actual - expected
   
@@ -107,7 +107,7 @@ test at tests\execution-model.test.mjs:751:1
   }
 
 test at tests\execution-model.test.mjs:870:1
-✖ UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry (1.0764ms)
+✖ UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry (0.5118ms)
   AssertionError [ERR_ASSERTION]: [{"title":"renders","file":"/p/test/specs/a.e2e.js","status":"passed","duration":2,"error":"","attemptsCount":2,"attempts":[{"status":"passed","retry":0,"duration":1,"error":""},{"status":"passed","retry":1,"duration":1,"error":""}]}]
   
   1 !== 2
@@ -128,7 +128,7 @@ test at tests\execution-model.test.mjs:870:1
   }
 
 test at tests\execution-model.test.mjs:929:1
-✖ UT-EXE-030: an unknown verdict never becomes `passed` (0.4095ms)
+✖ UT-EXE-030: an unknown verdict never becomes `passed` (0.1772ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   
   'passed' !== null
@@ -149,7 +149,7 @@ test at tests\execution-model.test.mjs:929:1
   }
 
 test at tests\execution-model.test.mjs:979:1
-✖ UT-EXE-031: the replay reports the lost and the reused sequence numbers (0.4813ms)
+✖ UT-EXE-031: the replay reports the lost and the reused sequence numbers (0.2129ms)
   AssertionError [ERR_ASSERTION]: {"status":"interrupted","terminal":true,"sequence":[3],"gaps":[],"events":[{"seq":3,"at":"t","type":"run.interrupted","data":{}}],"valid":true,"violations":[]}
   + actual - expected
   

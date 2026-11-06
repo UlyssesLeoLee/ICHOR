@@ -1,6 +1,6 @@
 === the probes of the first review round ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
-commit    : 5fa9708
+commit    : f8a2121
 node      : v24.19.0
 
 probes    : .work/r1/probes
@@ -57,10 +57,10 @@ ok   S1 the tip Bridge starts and recovers the run
 == S2: the last line of events.jsonl is torn ==
    tip : up {"replayHttp":200,"eventsHttp":200,"runStatus":"interrupted","replayedStatus":"interrupted"}
    events.jsonl after the tip boot:
-     {"seq":1,"at":"2026-11-06T10:41:16.329Z","type":"run.queued","data":{"file":"tests/slow.spec.ts","runner":"playwright"}}
-     {"seq":2,"at":"2026-11-06T10:41:16.468Z","type":"run.started","data":{"pid":13336,"runner":"playwright"}}
+     {"seq":1,"at":"2026-11-06T10:52:03.933Z","type":"run.queued","data":{"file":"tests/slow.spec.ts","runner":"playwright"}}
+     {"seq":2,"at":"2026-11-06T10:52:04.031Z","type":"run.started","data":{"pid":8936,"runner":"playwright"}}
      {"seq":3,"at":"2026-11-06T00:00:00.000Z","ty
-     {"seq":3,"at":"2026-11-06T10:41:24.194Z","type":"run.interrupted","data":{"reason":"Server restarted while run was active"}}
+     {"seq":3,"at":"2026-11-06T10:52:11.206Z","type":"run.interrupted","data":{"reason":"Server restarted while run was active"}}
      
 ok   S2 the run stays readable after a torn tail (replay 200)  -- {"replayHttp":200,"eventsHttp":200,"runStatus":"interrupted","replayedStatus":"interrupted"}
 == S3: the Bridge died after appending run.finished, before saveState (the finishRun collect window) ==
