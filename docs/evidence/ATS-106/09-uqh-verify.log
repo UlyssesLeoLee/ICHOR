@@ -1,17 +1,20 @@
 === ATS-106 evidence: UQH verify --base dev (coverage gate of .quality/qguard.json) ===
-commit      : a44cfdfe6d1c239c02102511b1baa385948364ba
+commit      : f5a56353e589431bd56781e5ce91254c94222f1e
 command     : python ~/.uqh-global/global_dispatcher.py verify --base dev
 
-QGuard BLOCKED (2 issue(s)):
+QGuard BLOCKED (3 issue(s)):
+  - tools/wbs_common.py: design-commit integrity failure: prepared plan was changed after the design commit
   - project: LCOV omits tracked source(s): apps/studio/app/layout.tsx, apps/studio/app/page.tsx, apps/studio/lib/api.ts, examples/sample-playwright/playwright.config.ts, examples/sample-wdio/wdio.conf.js, src-tauri/build.rs, src-tauri/src/lib.rs, src-tauri/src/main.rs, tools/ats102-probes/diff-install-trees.py, tools/ats301-probes/show-ats301-note.py, tools/ats401-probes/check_wbs_xml_escape.py, tools/ats501-probes/show-wbs-row.py
-  - project: reported line coverage 387/2979 = 12.99% (must be > 90.0%)
-Action: edit technical design, then test design BEFORE source changes; run prepare. After implementation update Source-SHA256 to final code, add real tests, ensure >90% coverage. For staged mode, stage all modified artifacts.
+  - project: reported line coverage 454/3047 = 14.90% (must be > 90.0%)
+
+--- test command of the same run ---
+the test command did not fail (QGuard lists a failing test command as an issue; none is listed above)
 
 --- per-file line coverage of the changed sources, from .quality/coverage/{node,py}.lcov of the same run ---
 server/adapters/playwright-cli.mjs                      157/167 = 94.01%
 server/adapters/playwright-preflight.mjs                252/253 = 99.60%
-server/core.mjs                                         663/699 = 94.85%
-server/index.mjs                                        60/762 = 7.87%
+server/core.mjs                                         1119/1147 = 97.56%
+server/index.mjs                                        284/836 = 33.97%
 tools/test_update_wbs_ats106.py                         109/109 = 100.00%
 tools/update_wbs_ats106.py                              64/65 = 98.46%
 tools/wbs_common.py                                     227/233 = 97.42%

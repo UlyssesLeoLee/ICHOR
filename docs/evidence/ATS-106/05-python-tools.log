@@ -1,6 +1,6 @@
 === ATS-106 evidence: WBS tooling tests and line coverage ===
-date        : 2026-11-06T09:48:06Z (UTC)
-commit      : a44cfdfe6d1c239c02102511b1baa385948364ba
+date        : 2026-11-06T10:15:48Z (UTC)
+commit      : 445953cc64a9f5fbc3ff072f5b343515a8fd5844
 node        : v24.19.0
 python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -21,6 +21,7 @@ PASS 【ATS-201】 is idempotent
 PASS 【ATS-202】 is idempotent
 PASS 【ATS-205】 is idempotent
 PASS 【ATS-206】 is idempotent
+PASS 【ATS-207】 is idempotent
 PASS 【ATS-208】 is idempotent
 PASS 【ATS-212】 is idempotent
 PASS 【ATS-301】 is idempotent
@@ -46,6 +47,8 @@ PASS update_wbs_ats205.py declares exactly one marker
 PASS 【ATS-205】 (from update_wbs_ats205.py) is registered in MARKERS
 PASS update_wbs_ats206.py declares exactly one marker
 PASS 【ATS-206】 (from update_wbs_ats206.py) is registered in MARKERS
+PASS update_wbs_ats207.py declares exactly one marker
+PASS 【ATS-207】 (from update_wbs_ats207.py) is registered in MARKERS
 PASS update_wbs_ats208.py declares exactly one marker
 PASS 【ATS-208】 (from update_wbs_ats208.py) is registered in MARKERS
 PASS update_wbs_ats212.py declares exactly one marker
@@ -75,6 +78,6 @@ tools\test_wbs_common.py              70     70     0%
 tools\update_wbs_ats106.py            65      1    98%
 tools\wbs_common.py                  233      6    97%
 ------------------------------------------------------
-TOTAL                               3414   2920    14%
-18 passed in 5.18s
+TOTAL                               3608   3114    14%
+18 passed in 1.29s
 exit code   : 0
