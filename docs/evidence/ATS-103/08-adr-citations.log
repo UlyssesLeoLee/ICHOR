@@ -1,6 +1,6 @@
 === ATS-103 evidence: ADR citation check ===
-date      : 2026-11-06T11:01:29Z (UTC)
-commit    : e40e36890fe15b6acfb4efcc7c83aa76704a4b38
+date      : 2026-11-06T11:15:11Z (UTC)
+commit    : 8ebe68106d563aa8c13b8f1b89f2707c854d329f
 node      : v22.23.4
 npm       : 10.9.9
 command   : python tools/check_adr_citations.py
@@ -10,7 +10,7 @@ command   : python tools/check_adr_citations.py
   apps/studio/lib/api.ts           14
   apps/studio/public/fallback.html 3
   server/core.mjs                  1093, 762
-  server/index.mjs                 224, 30, 446-482, 460, 478, 489, 659, 810, 827, 828
+  server/index.mjs                 224, 30, 446-476, 460, 478, 489, 659, 819, 836, 837
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
@@ -31,12 +31,12 @@ ok   server/index.mjs:460
 ok   server/index.mjs:478
 ok   server/index.mjs:489
 ok   server/index.mjs:659
-ok   server/index.mjs:810
-ok   server/index.mjs:827
-ok   server/index.mjs:828
+ok   server/index.mjs:819
+ok   server/index.mjs:836
+ok   server/index.mjs:837
 ok   server/core.mjs:762
 ok   server/core.mjs:1093
-ok   server/index.mjs:446-482 (cancelRun extent)
+ok   server/index.mjs:446-476 (cancelRun extent)
 ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)
 ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)

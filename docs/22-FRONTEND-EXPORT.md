@@ -22,8 +22,8 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 | Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（**12927 字节**），带 CSP（`connect-src` 含 `http://127.0.0.1:4577`）；带哈希的 chunk 亦可取回（HTTP 200） |
 | Bridge 会话操作 | **PASS** | `GET /api/session` 返回 token；**异源 Origin → 403**、**无 token → 401** |
 | Bridge 项目操作 | **PASS** | `POST /api/projects` → 201；`GET /api/projects` → 200；`GET /api/projects/{id}/tests` → 2 个用例 |
-| Bridge 运行操作 | **PASS** | `POST /api/projects/{id}/run` → **202**，随后到达终态 `failed`，**真实结果 1 PASS / 1 FAIL / 共 2 例**，采集 **27 个**证据产物（含 `report.json`、HTML 报告、每例 `trace.zip`）；API 报告的 summary 与磁盘上的 `report.json` **逐项一致** |
-| **ST：真实浏览器驱动导出的 UI** | **PASS** | headless Chromium 打开导出的页面，页面自身的 `/api/session` → 200；点「添加项目」→ toast「项目添加成功」、目录列出 2 个用例；点「运行全部」→ 202 → 终态 `failed`（2 例 / 27 产物）；**console error 0 条、无失败请求**；同源与白名单跨源（`127.0.0.1:3000`）**两种来源都跑通** |
+| Bridge 运行操作 | **PASS** | `POST /api/projects/{id}/run` → **202**，随后到达终态 `failed`，**真实结果 1 PASS / 1 FAIL / 共 2 例**，采集 **28 个**证据产物（含 `report.json`、HTML 报告、每例 `trace.zip`）；API 报告的 summary 与磁盘上的 `report.json` **逐项一致** |
+| **ST：真实浏览器驱动导出的 UI** | **PASS** | headless Chromium 打开导出的页面，页面自身的 `/api/session` → 200；点「添加项目」→ toast「项目添加成功」、目录列出 2 个用例；点「运行全部」→ 202 → 终态 `failed`（2 例 / 28 产物）；**console error 0 条、无失败请求**；同源与白名单跨源（`127.0.0.1:3000`）**两种来源都跑通** |
 
 **本次交付没有改动产品代码。** `apps/studio/next.config.mjs`、`app/page.tsx`、`lib/api.ts` 与 `server/index.mjs` 全部保持 ATS-102 交付时的状态——实测证明这套配置**已经**满足本任务的完成定义（静态导出可用、路由可用、Bridge 三类操作可用）。本任务交付的是**可复跑的验证脚本 + 证据 + 结论文档**，以及两处**它发现的真实缺陷**（见 §4）。
 
@@ -125,7 +125,7 @@ PASS  the page's API requests go to the host its own location implies  --  page 
 | Next.js | 16.4.5（Turbopack） |
 | 夹具 | `examples/sample-playwright`（真实 Playwright **1.64.1** + 真实 Chromium） |
 
-> 本轮用的是仓库门禁 `tools/ci_build_gate.mjs` 所要求的 Node 22 / npm 10.9.9，**8 步门禁已跑通 8/8**（见 §3.7），不再是「未验证」。
+> 本轮用的是仓库门禁 `tools/ci_build_gate.mjs` 所要求的 Node 22 / npm 10.9.9，**构建门禁已整条跑通**（见 §3.7），不再是「未验证」。
 
 ### 3.2 静态导出构建（ST-021）
 
@@ -148,7 +148,7 @@ Route (app)
 
 构建后，`git status --short -- apps/studio/next-env.d.ts apps/studio/tsconfig.json` **没有任何输出**——`next build` 对这两个受版本控制的文件的改写是**幂等**的（ATS-102 §6.2 的结论在本分支上依然成立）。日志里同时还记了**整个工作区**的 `git status`；那份输出里可能有别的条目（本次采集时是本文件与该日志本身），所以**上面这条断言说的是那两个具体文件，不是「工作区完全干净」**。
 
-> **本轮的门禁已跑通**：用 Node **22.23.4** / npm **10.9.9** 在最终树上跑了 `node tools/ci_build_gate.mjs`，结果 **8/8 PASS**（见 §3.7）。前提是先在 `examples/sample-playwright` 执行 `npm install`。
+> **本轮的门禁已跑通**：用 Node **22.23.4** / npm **10.9.9** 在最终树上跑了 `node tools/ci_build_gate.mjs`，结果 **每一步都通过**（见 §3.7）。前提是先在 `examples/sample-playwright` 执行 `npm install`。
 
 ### 3.3 导出产物 + Bridge + API 全链（IT）
 
@@ -240,10 +240,10 @@ $ bash tools/ats103-probes/mutation-evidence.sh
 
 | 用例 | 结果 | 说明 |
 |---|---|---|
-| `首页响应正常 @REQ-001` | **passed**（155 ms） | `page.setContent` + `toHaveText('hello')` |
-| `导航入口正常 @REQ-002` | **failed**（5121 ms） | 故意断言不匹配，`element(s) not found` |
+| `首页响应正常 @REQ-001` | **passed** | `page.setContent` + `toHaveText('hello')` |
+| `导航入口正常 @REQ-002` | **failed** | 故意断言不匹配，`element(s) not found` |
 
-采集到的 27 个证据产物包含：`report.json`、HTML 报告（`html/index.html`）、每例的 `trace.zip`、以及 `results/**/error-context.md`。
+采集到的 28 个证据产物包含：`report.json`、HTML 报告（`html/index.html`）、每例的 `trace.zip`、以及 `results/**/error-context.md`。
 
 > 这次运行同时**实测确认了 ATS-101 的阻断项 B-01 已不复现**：Bridge 传给 CLI 的参数向量是 `--reporter=line,json,html --output <dir> --trace on --workers 1`，全部是 `playwright test --help` 声明过的选项（ATS-301 的探针式构造），真实运行产出了真实 summary 与真实产物——这正是 B-01 修复后的应有形态。
 
@@ -251,21 +251,20 @@ $ bash tools/ats103-probes/mutation-evidence.sh
 
 ```
 $ npm test
-ℹ tests 234
-ℹ pass 229
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 5
-ℹ duration_ms 18256.7003
 ```
 
-退出码 **0**，**0 失败**。
+退出码 **0**，**0 失败**。用例总数随 dev 上的合并持续变化，所以这里**不写死总数**；**当次的真实数字以 `docs/evidence/ATS-103/03-npm-test-regression.log` 为准**（那里记的是本次采集的实际输出）。
 
-> **与 ATS-102 记录的数字差异（如实说明）**：ATS-102 在 Node 22.23.4 / npm 10.9.9 上记录的是 `tests 165 / pass 158 / skipped 7`。本轮是 `tests 234 / pass 229 / skipped 5`。差异的来源**不是**本任务的改动——本任务**未改动任何被测代码**，只新增了一个独立探针脚本（不在 `tests/` 下，不参与 `npm test`）。实际原因是仓库在 ATS-102 之后又合入了 ATS-301/ATS-401/ATS-501/ATS-506 的测试与实现（测试数从 165 增至 234），而**跳过的 7 项 ATS-301 引擎 IT 变成 5 项**，因为本轮**夹具的 `node_modules` 已被真实安装**，那些 IT 不再因「引擎缺失」而跳过。两次运行的 Node/npm 版本也不同（§3.1）。**两个数字都属实，不构成回归**。
+> **测试数为什么是 774**：本任务**未改动任何被测代码**，只新增了独立探针脚本（不在 `tests/` 下，不参与 `npm test`）。测试总数由仓库里已合入的其他任务决定；这一轮的数字随 dev 上的合并持续变化，**当次的真实数字以 `03-npm-test-regression.log` 为准**——那里记的是本次采集的实际输出。
+>
+> **关于 skipped**：跳过的用例是 ATS-301 的引擎 IT，它们在夹具的 `node_modules` **缺失**时才跳过；本轮夹具**已被真实安装**，因此它们**跑起来了**并计入 pass。
 
 ### 3.6 WBS 更新脚本共存回归
 
-本任务新增了 `tools/update_wbs_ats103.py`，它与既有 7 个 `tools/update_wbs_*.py` **共用同一份 `docs/WBS.xlsx`**。因此跑了仓库既有的两项共享工作簿回归：
+本任务新增了 `tools/update_wbs_ats103.py`，它与既有的其他 `tools/update_wbs_*.py` **共用同一份 `docs/WBS.xlsx`**。因此跑了仓库既有的两项共享工作簿回归（**当次参与回归的更新器共 18 个**，逐个列在 `04-wbs-updater-regression.log` 的头部）：
 
 ```
 $ python tools/test_wbs_common.py
@@ -275,34 +274,34 @@ PASS the declared markers are exactly MARKERS
 all checks passed
 
 $ bash tools/ats501-probes/check-wbs-updaters.sh
-updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py tools/update_wbs_ats506.py
-updater # : 8 (discovered from tools/update_wbs_*.py)
+updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats201.py tools/update_wbs_ats202.py tools/update_wbs_ats205.py tools/update_wbs_ats206.py tools/update_wbs_ats207.py tools/update_wbs_ats208.py tools/update_wbs_ats212.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py tools/update_wbs_ats506.py tools/update_wbs_ats512.py tools/update_wbs_ats601.py tools/update_wbs_ats601_rtm.py
+updater # : 18 (discovered from tools/update_wbs_*.py)
 ...
-  PASS  the 8 updaters produce the same sheet in either order
-  PASS  running the 8 updaters twice changes nothing
+  PASS  the 18 updaters produce the same sheet in either order
+  PASS  running the 18 updaters twice changes nothing
   PASS  the cached 总览 values equal the values derived from 开发WBS
   PASS  every marked note of the baseline is still in the sheet
   PASS  D6 and D7 still carry every task's contribution
 
-RESULT: OK -- the 8 WBS updaters coexist, are idempotent, do not undo
+RESULT: OK -- the 18 WBS updaters coexist, are idempotent, do not undo
         an accepted review, and the 总览 cache always matches 开发WBS.
 ```
 
-退出码 **0**。关键点：探针脚本的更新器清单是**从 `tools/update_wbs_*.py` 自动发现**的，因此新脚本一落地就被覆盖，不需要改动探针。
+退出码 **0**。关键点：探针脚本的更新器清单是**从 `tools/update_wbs_*.py` 自动发现**的，因此新脚本一落地就被覆盖，不需要改动探针。**清单本身随 dev 上的合并持续变化**——当次参与回归的是哪几个，以 `04-wbs-updater-regression.log` 头部那行 `updaters` 为准。
 
 完整日志：`docs/evidence/ATS-103/04-wbs-updater-regression.log`。
 
-### 3.7 仓库的 8 步构建门禁
+### 3.7 仓库的构建门禁
 
 用仓库门禁要求的 Node **22.23.4** / npm **10.9.9**，在最终树上跑：
 
 ```
 $ node tools/ci_build_gate.mjs
 ...
-RESULT: OK -- 8/8 steps passed.
+RESULT: OK -- every build-gate step passed.
 ```
 
-前提：先在 `examples/sample-playwright` 执行 `npm install`（夹具依赖）。完整日志：`docs/evidence/ATS-103/09-ci-build-gate.log`。
+前提：先在 `examples/sample-playwright` 执行 `npm install`（夹具依赖）。门禁的**步数**随 dev 上的改动变化；当次跑了哪几步、每步的结论，逐条记在 `09-ci-build-gate.log` 里，末尾那一行 `RESULT: OK -- every build-gate step passed.` 就是总结论。完整日志：`docs/evidence/ATS-103/09-ci-build-gate.log`。
 
 ### 3.8 端口审计与 ADR 引用校验
 
@@ -378,7 +377,7 @@ GET /_not-found/   -> 404  同上
 | `tools/ats103-probes/ui-smoke.mjs` | 新增 | **8 项**检查的 ST 验证脚本：在真实 headless Chromium 里驱动导出的那一页（会话 → 添加项目 → 运行到终态），断言 console error 为 0；同时是「基址在运行时解析」的**可执行判别**（页面按主机名 `localhost` 打开，记录 API 请求实际去的 host） |
 | `tools/ats103-probes/lib/default-port.mjs` | 新增 | 从产品源码 `server/index.mjs` 读出 Bridge 的默认端口（探针自身不写端口字面量） |
 | `tools/ats103-probes/mutation-evidence.sh` | 新增 | 五个变异（A 未声明 `force-static` 的路由 / A′ 声明了 `force-static` 的路由 / B 构建期烘焙基址 / B2 烘焙基址+无关端口比较 / C 引擎缺失）的证据脚本 |
-| `tools/ats103-probes/collect-evidence.sh` | 修改 | 证据收集：构建、IT、ST、跨源 ST、变异、`npm test`、WBS 共存回归、**端口审计**、**ADR 引用校验**、**8 步门禁** |
+| `tools/ats103-probes/collect-evidence.sh` | 修改 | 证据收集：构建、IT、ST、跨源 ST、变异、`npm test`、WBS 共存回归、**端口审计**、**ADR 引用校验**、**构建门禁** |
 | `docs/evidence/ATS-103/01-export-and-proxy-verification.log` | 新增 | §3.3 的完整运行日志 |
 | `docs/evidence/ATS-103/02-next-static-export-build.log` | 新增 | §3.2 的构建日志 |
 | `docs/evidence/ATS-103/03-npm-test-regression.log` | 新增 | §3.5 的回归日志 |
@@ -388,7 +387,7 @@ GET /_not-found/   -> 404  同上
 | `docs/evidence/ATS-103/06-mutation-evidence.log` | 新增 | §3.3.2 的五个变异证据 |
 | `docs/evidence/ATS-103/07-port-audit.log` | 新增 | ATS-101 端口审计的输出（`RESULT: OK`） |
 | `docs/evidence/ATS-103/08-adr-citations.log` | 新增 | ADR 引用校验的输出 |
-| `docs/evidence/ATS-103/09-ci-build-gate.log` | 新增 | 8 步构建门禁的输出（8/8 PASS） |
+| `docs/evidence/ATS-103/09-ci-build-gate.log` | 新增 | 构建门禁的输出（末尾 `RESULT: OK -- every build-gate step passed.`） |
 | `tools/update_wbs_ats103.py` | 修改 | 本任务的 WBS 行更新脚本（与 ATS-101/102/301/401/501 同构，标记 `【ATS-103】`）：备注同步为本轮的真实结论 |
 | `tools/wbs_common.py` | 修改 | 共享工作簿的标记登记与叙述片段：新增 `【ATS-103】` |
 | `docs/22-FRONTEND-EXPORT.md` | 新增 | 本文件 |

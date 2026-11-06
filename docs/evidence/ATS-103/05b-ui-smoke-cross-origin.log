@@ -1,6 +1,6 @@
 === ATS-103 evidence: ST: the exported UI from a whitelisted cross-origin ===
-date      : 2026-11-06T11:01:29Z (UTC)
-commit    : e40e36890fe15b6acfb4efcc7c83aa76704a4b38
+date      : 2026-11-06T11:15:11Z (UTC)
+commit    : 8ebe68106d563aa8c13b8f1b89f2707c854d329f
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats103-probes/ui-smoke.mjs --page-origin http://127.0.0.1:3000
@@ -31,22 +31,22 @@ PASS  the page produced no console error and no failed request  --  console erro
   GET /api/runs -> 200
   GET /api/runs -> 200
   GET /api/projects -> 200
-  GET /api/runs/run_1_b16601bd00b5b34592904df5 -> 200
-  GET /api/runs/run_1_b16601bd00b5b34592904df5 -> 200
-  GET /api/runs/run_1_b16601bd00b5b34592904df5 -> 200
+  GET /api/runs/run_1_4862f968edb42c2fffac5ebf -> 200
+  GET /api/runs/run_1_4862f968edb42c2fffac5ebf -> 200
+  GET /api/runs/run_1_4862f968edb42c2fffac5ebf -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b16601bd00b5b34592904df5 -> 200
+  GET /api/runs/run_1_4862f968edb42c2fffac5ebf -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b16601bd00b5b34592904df5 -> 200
+  GET /api/runs/run_1_4862f968edb42c2fffac5ebf -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b16601bd00b5b34592904df5 -> 200
+  GET /api/runs/run_1_4862f968edb42c2fffac5ebf -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b16601bd00b5b34592904df5 -> 200
+  GET /api/runs/run_1_4862f968edb42c2fffac5ebf -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b16601bd00b5b34592904df5 -> 200
+  GET /api/runs/run_1_4862f968edb42c2fffac5ebf -> 200
 --- end ---
 --- bridge stderr ---
-  (node:13904) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+  (node:3856) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 --- end ---
 PASS  the probe executed every registered check  --  8/8 checks executed

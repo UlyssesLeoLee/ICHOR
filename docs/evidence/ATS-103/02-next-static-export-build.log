@@ -1,13 +1,13 @@
 === ATS-103 evidence: Next.js 16 static export build ===
-date      : 2026-11-06T11:01:29Z (UTC)
-commit    : e40e36890fe15b6acfb4efcc7c83aa76704a4b38
+date      : 2026-11-06T11:15:11Z (UTC)
+commit    : 8ebe68106d563aa8c13b8f1b89f2707c854d329f
 node      : v22.23.4
 npm       : 10.9.9
 command   : npm --prefix apps/studio ci --no-audit --no-fund && npm --prefix apps/studio run build
 
 --- npm ci (apps/studio) ---
 
-added 57 packages in 51s
+added 57 packages in 1m
 
 --- next build ---
 
@@ -15,15 +15,15 @@ added 57 packages in 51s
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 82ms
+✓ Running next.config.mjs took 31ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 369ms
+✓ Compiled successfully in 178ms
   Running TypeScript ...
-  Finished TypeScript in 3.6s ...
+  Finished TypeScript in 1464ms ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 1852ms
+✓ Generating static pages using 4 workers (3/3) in 978ms
   Finalizing page optimization ...
 
 Route (app)
@@ -36,23 +36,12 @@ Route (app)
 BUILD_EXIT=0
 
 --- artefact ---
--rw-r--r-- 1 seiko 197610  7697 11月  6 20:02 apps/studio/out/404.html
--rw-r--r-- 1 seiko 197610 12927 11月  6 20:02 apps/studio/out/index.html
+-rw-r--r-- 1 seiko 197610  7697 11月  6 20:16 apps/studio/out/404.html
+-rw-r--r-- 1 seiko 197610 12927 11月  6 20:16 apps/studio/out/index.html
 
 --- git status of the two tracked files next build rewrites ---
 (the two lines above are empty: the rewrite is idempotent)
 
 --- git status of the whole worktree after the build ---
  M docs/22-FRONTEND-EXPORT.md
- M docs/evidence/ATS-103/01-export-and-proxy-verification.log
  M docs/evidence/ATS-103/02-next-static-export-build.log
- M docs/evidence/ATS-103/03-npm-test-regression.log
- M docs/evidence/ATS-103/04-wbs-updater-regression.log
- M docs/evidence/ATS-103/05-ui-smoke-browser.log
- M docs/evidence/ATS-103/05b-ui-smoke-cross-origin.log
- M docs/evidence/ATS-103/06-mutation-evidence.log
- M docs/evidence/ATS-103/07-port-audit.log
- M docs/evidence/ATS-103/08-adr-citations.log
- M docs/evidence/ATS-103/09-ci-build-gate.log
- M tools/ats103-probes/collect-evidence.sh
- M tools/ats103-probes/mutation-evidence.sh

@@ -1,6 +1,6 @@
 === ATS-103 evidence: WBS updater coexistence regression (all tools/update_wbs_*.py) ===
-date      : 2026-11-06T11:01:29Z (UTC)
-commit    : e40e36890fe15b6acfb4efcc7c83aa76704a4b38
+date      : 2026-11-06T11:15:11Z (UTC)
+commit    : 8ebe68106d563aa8c13b8f1b89f2707c854d329f
 node      : v22.23.4
 npm       : 10.9.9
 command   : python tools/test_wbs_common.py && bash tools/ats501-probes/check-wbs-updaters.sh
@@ -215,8 +215,8 @@ C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet
   PASS  running the 18 updaters twice changes nothing
 
 --- 4. the derived 总览 totals match the sheet ---
-  derived: completed=1 rate=0.148936170212766 remaining=400
-  cached : completed=1 rate=0.148936170212766 (delta 5.551e-17, tolerance 5.0e-16) remaining=400
+  derived: completed=1 rate=0.139720558882236 remaining=431
+  cached : completed=1 rate=0.139720558882236 (delta 4.441e-16, tolerance 5.0e-16) remaining=431
   PASS  the cached 总览 values equal the values derived from 开发WBS
 
 --- 5. the marked notes of every task survive ---
