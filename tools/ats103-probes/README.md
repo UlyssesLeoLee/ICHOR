@@ -56,7 +56,7 @@ bash tools/ats103-probes/collect-evidence.sh
    跑不到的检查记为 **FAIL**，不是「跳过」。
 4. **summary 必须与磁盘上的 `report.json` 一致。** 探针读出 Bridge 落盘的
    `report.json`，重算每状态计数，再与 API 报告的 summary 逐项比对。
-   引擎崩溃（无 `report.json`）时这条**判 FAIL**——不再有恒真的
+   引擎崩溃（无 `report.json`）时这条**判 FAIL**——这一条不是恒真的
    「不得报告伪造的 summary」断言。
 5. **端口必须是 Bridge 的默认端口，否则「真实 UI 不可用」。** 默认端口由
    `lib/default-port.mjs` **从产品源码 `server/index.mjs` 读出**（探针自身不写
