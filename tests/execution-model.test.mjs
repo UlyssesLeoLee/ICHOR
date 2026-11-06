@@ -140,9 +140,8 @@ test('UT-EXE-004: a retried case is ONE case that keeps EVERY attempt', () => {
 });
 
 test('UT-EXE-005: the counters count the CASES, never the executions', () => {
-  // The defect this model fixes: the old adapter flattened the retries into
-  // their own "cases", so a retried case was counted twice and its first
-  // attempt was lost. The measured symptom was
+  // A retried case is ONE case: it is counted once, and its first attempt
+  // is kept. Counting the executions instead would report
   // `total: 2, passed: 0, flaky: 2` for a case with one failure and one
   // success.
   const report = {
@@ -430,7 +429,7 @@ test('UT-EXE-019: an empty report does not crash and reports zero', () => {
 /* ------------------------------------------------------------------ */
 
 /**
- * The defect B1 is about.
+ * The EXPECTED FAILURE of a `test.fail()` case.
  *
  * A case that declares `test.fail()` and then fails is what the engine
  * calls an `expected` outcome. The old model only looked at the RAW
@@ -625,7 +624,7 @@ test('UT-EXE-023B: the per-project verdicts decide the case, not the attempt mix
 /* ------------------------------------------------------------------ */
 
 /**
- * The defect B3 is about.
+ * A stream that violates the state machine.
  *
  * The old `/replay` endpoint folded the events and took the status of the
  * LAST event that implies one. It never checked the state machine, so a
@@ -680,7 +679,7 @@ test('UT-EXE-025: a stream that obeys the state machine is valid', () => {
 /* ------------------------------------------------------------------ */
 
 /**
- * The defect B5 is about.
+ * A log whose tail line is torn.
  *
  * A crash in the middle of an append leaves the last line of
  * `events.jsonl` torn: a fragment of JSON that does not parse. The old
@@ -851,21 +850,22 @@ test('UT-EXE-028: the state diagram of the design document agrees with the code'
 });
 
 /* ------------------------------------------------------------------ */
-/* The three defects the second review round found                     */
+/* Three properties the model holds                                     */
 /* ------------------------------------------------------------------ */
 
 /**
- * The defect N1 is about: the WDIO merge HID a real failure.
+ * The WDIO merge must not hide a failure.
  *
- * The adapter merged the CONSECUTIVE entries of a suite that share their
+ * The adapter merges the CONSECUTIVE entries of a suite that share their
  * name into one case with several attempts. A retried WDIO test stops at
  * its FIRST PASS, so an entry that FOLLOWS a passed entry of the same name
  * cannot be its retry -- it is a DIFFERENT test that happens to share the
  * title.
  *
- * Merging them hid the failure: a suite with two same-titled tests, the
- * second one failing, became ONE flaky case with `failed: 0`, and the
- * failing test disappeared from the summary.
+ * So the group ENDS with the first passed entry. Merging across that
+ * boundary would hide the failure: a suite with two same-titled tests, the
+ * second one failing, would become ONE flaky case with `failed: 0`, and
+ * the failing test would disappear from the summary.
  */
 test('UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry', () => {
   const wdio = (states) => mergeWdioReports([{
@@ -916,13 +916,15 @@ test('UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry',
 });
 
 /**
- * The defect N2 is about: an UNKNOWN verdict became `passed`.
+ * An UNKNOWN verdict is not `passed`.
  *
- * The aggregation of the per-project verdicts fell through to `passed` for
- * a list it did not fully understand, so a Playwright entry whose case
- * level status is missing (or is a value the model does not know) turned a
- * FAILED execution into a PASSED case -- the summary then contradicted the
- * exit code of the engine.
+ * The aggregation of the per-project verdicts decides nothing when it does
+ * not fully understand the list: an unknown verdict does not vote, and the
+ * KNOWN verdicts decide the case. So a Playwright entry whose case level
+ * status is missing (or is a value the model does not know) falls back to
+ * the aggregation of the attempt statuses -- which says `failed` for a
+ * FAILED execution. The summary then agrees with the exit code of the
+ * engine instead of contradicting it.
  */
 test('UT-EXE-030: an unknown verdict never becomes `passed`', () => {
   // The aggregation itself decides nothing when every verdict is unknown.
@@ -965,15 +967,14 @@ test('UT-EXE-030: an unknown verdict never becomes `passed`', () => {
 });
 
 /**
- * The defect N3 is about: the replay did not report a LOST or a REUSED
- * sequence number.
+ * The replay reports a LOST or a REUSED sequence number.
  *
- * The holes BETWEEN two events were reported, but the hole at the
- * BEGINNING of the stream was not: a log that lost its first events (the
- * recovery rebuilt the run folder, so only the last event survived) looked
- * intact. And a stream that used the same number twice was reported as
- * valid, even though the metadata layer's primary key `(run_uid, seq)`
- * refuses such a pair.
+ * The sequence of a run is 1..N, and BOTH ways of breaking that are
+ * reported: a number that is MISSING (the hole at the BEGINNING of the
+ * stream counts too -- a log that lost its first events is not an intact
+ * log) and a number that is USED TWICE (the metadata layer's primary key
+ * `(run_uid, seq)` refuses such a pair, so such a stream does not describe
+ * a run and is not valid).
  */
 test('UT-EXE-031: the replay reports the lost and the reused sequence numbers', () => {
   const ev = (seq, type, data) => ({ seq, at: 't', type, data: data ?? {} });

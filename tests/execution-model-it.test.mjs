@@ -568,12 +568,13 @@ function rewindToCancelling(data, runId) {
 }
 
 /**
- * The defect B2 is about.
+ * A run whose folder is gone must not keep the Bridge from starting.
  *
- * The run folder was deleted (by the user, by a cleaner, or by a failed
- * migration). The old recovery read `events.jsonl` unconditionally and
- * threw `ENOENT`, so the bridge died on start -- and one damaged run kept
- * the WHOLE installation from starting.
+ * The run folder is deleted (by the user, by a cleaner, or by a failed
+ * migration), so the durable log of that run is unreachable. The recovery
+ * path treats that as DAMAGE, not as a fatal error: the problem is
+ * recorded, the run still recovers into a terminal status, and the Bridge
+ * starts.
  *
  * THE ORDER OF THE TWO STEPS MATTERS.
  *
@@ -581,14 +582,9 @@ function rewindToCancelling(data, runId) {
  * deleted while the bridge were still alive, the bridge would write the
  * next event into the missing folder, RECREATE it (the writer creates the
  * parent directory), and the recovery would find a healthy log -- the
- * defect would never be exercised. That is why this case stopped the
+ * defect would never be exercised. That is why this case stops the
  * bridge first: it has to reproduce the state a crash leaves behind, and
  * the crash means nobody is left to recreate the folder.
- *
- * (Measured: with the folder deleted while the bridge was still alive, the
- * OLD tree started up fine and the case was GREEN -- a case that does not
- * guard the defect it is written for. With the bridge stopped first, the
- * OLD tree dies with ENOENT and the case is RED.)
  */
 test('IT-EXE-008: the bridge starts even when the run folder is gone', async () => {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-exe-missing-'));
@@ -624,7 +620,7 @@ test('IT-EXE-008: the bridge starts even when the run folder is gone', async () 
 });
 
 /**
- * The defect B5 is about.
+ * A log whose tail line is torn.
  *
  * A crash in the middle of an append leaves the last line of
  * `events.jsonl` torn. The old reader let the JSON error escape, so
@@ -668,7 +664,7 @@ test('IT-EXE-009: a torn event log stays readable', async () => {
 });
 
 /**
- * The defect B3 is about.
+ * A stream that violates the state machine.
  *
  * The bridge died between the `run.finished` event and the state write --
  * the `finishRun` collect window. The log already said the run FINISHED;
@@ -724,7 +720,7 @@ test('IT-EXE-010: no event is appended after a terminal event', async () => {
 });
 
 /**
- * The defect B4 is about.
+ * A run that was `cancelling` when the Bridge died.
  *
  * The bridge died while the run was `cancelling` -- after `POST /stop` and
  * before the engine's exit was processed. The old recovery only handled
@@ -791,7 +787,7 @@ test('IT-EXE-011: a run that was cancelling when the bridge died is recovered', 
 });
 
 /**
- * The defect B1 is about, at the bridge level.
+ * The expected failure of a `test.fail()` case, at the bridge level.
  *
  * A case that declares `test.fail()` and fails is what Playwright calls an
  * `expected` outcome: the engine exits 0 and its `stats` count the case as
@@ -855,7 +851,7 @@ fs.writeFileSync(out, JSON.stringify({
 });
 
 /**
- * The defect N3 is about, at the API level.
+ * The lost and the reused sequence numbers, at the API level.
  *
  * The replay endpoint reports the holes of the sequence and the numbers
  * that are used more than once. A log whose FIRST events were lost is not

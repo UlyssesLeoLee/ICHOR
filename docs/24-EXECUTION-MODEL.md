@@ -272,8 +272,8 @@ false，`violations` 非空）；事件流**复用了序号**（`valid` 为 fals
 | UT | `docs/evidence/ATS-208/01-node-test-execution-model-ut.log` | 32 例全通过 |
 | IT | `docs/evidence/ATS-208/02-node-test-execution-model-it.log` | 14 例全通过 |
 | 全量回归 | `docs/evidence/ATS-208/03-node-test-full.log` | 718 例 / 718 通过 / 0 失败 / 0 跳过（接入 `examples/sample-playwright` 与 `examples/sample-wdio` 的 `node_modules` 后，11 个依赖真实引擎的 IT 不再跳过） |
-| 复核探针（第 1 轮） | `docs/evidence/ATS-208/11-reviewer-probes.log` | 四个探针全部 `RESULT: 0 failed` |
-| 复核探针（第 2 轮） | `docs/evidence/ATS-208/14-reviewer-probes-round2.log` | 三个探针全部 `RESULT: 0 failed` |
+| 复核随附的探针（第一组：`pw-semantics` / `startup-robustness` / `bridge-e2e` / `wdio-check`） | `docs/evidence/ATS-208/11-reviewer-probes.log` | 四个探针全部 `RESULT: 0 failed` |
+| 复核随附的探针（第二组：`wdio-dup` / `verdict-unknown` / `replay-contract`） | `docs/evidence/ATS-208/14-reviewer-probes-round2.log` | 三个探针全部 `RESULT: 0 failed` |
 | 重试行为 | `docs/evidence/ATS-208/04-probe-current-behaviour.log` | 用例计一次、两次 attempt 各自保留 |
 | 事件复演 | `docs/evidence/ATS-208/05-probe-event-replay.log` | 崩溃场景复演为 `interrupted`，序号无空洞 |
 | ADR 引用 | `docs/evidence/ATS-208/06-adr-citations.log` | RESULT: OK |
