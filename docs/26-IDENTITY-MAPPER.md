@@ -260,7 +260,7 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 | 反例 | `tools/ats204-probes/review-r1/r1-e2e.mjs` | 复核第 1 轮的 11 条端到端反例（真实 Playwright CLI） |
 | 反例 | `tools/ats204-probes/counterexample.sh` | 同一批用例在第一次交付的树（`9a559c6`）上跑，**5 项失败** |
 
-执行：`npm test`（Node ≥ 22）。**全量 931 例：926 通过 / 0 失败 / 5 跳过**
+执行：`npm test`（Node ≥ 22）。**全量 1004 例：999 通过 / 0 失败 / 5 跳过**
 （跳过的 5 项是 `examples/sample-wdio` 没有 `node_modules`，与本任务无关；
 装了示例工程的 fixture 依赖后，此前跳过的另外 6 项也执行并通过）。
 
@@ -294,7 +294,7 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 | `01-identity-ut.log` | 身份映射器的 37 项 UT |
 | `02-uid-discovery-ut.log` | UID 与发现的既有 UT（未回归） |
 | `03-execution-model-ut.log` | 执行模型的既有 UT（矩阵的回归） |
-| `04-node-test-full.log` | 全量 931 例 |
+| `04-node-test-full.log` | 全量 1004 例 |
 | `05-probe-gaps.log` | 本任务修好的缺口（改名 + 改标题的 attempt 由 unbound 变为按 body-key 绑定） |
 | `06-probe-anchor.log` | 锚点：模板改文案后 UID 不变；渲染数变化时报位移 |
 | `07-probe-matrix.log` | 矩阵：两种报告形状给同一个答案 |
