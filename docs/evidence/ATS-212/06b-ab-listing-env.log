@@ -1,0 +1,13 @@
+=== the listing environment: sealed vs. host, A/B over 5 rounds ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fbfa95f55f8a/worktree
+commit    : 4bf2d20
+branch    : agent/m2/seikoist-170-fbfa95f55f8a
+node      : v24.19.0
+python    : Python 3.11.16
+
+rounds              : 5
+sealed env  ok/bad  : 5/0
+baseline env ok/bad : 5/0
+distributions equal : true
+
+exit code : 0

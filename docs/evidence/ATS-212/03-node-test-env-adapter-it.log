@@ -1,15 +1,15 @@
 === the environment profile adapter suite ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-f66f8db44ab3/worktree
-commit    : 3081b97
-branch    : agent/m2/seikoist-170
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fbfa95f55f8a/worktree
+commit    : 4bf2d20
+branch    : agent/m2/seikoist-170-fbfa95f55f8a
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ IT-ENV-ADP-001: the child receives the profile variables and NOT the host environment (225.3587ms)
-✔ IT-ENV-ADP-002: the adapter output variables win over the profile (185.9464ms)
-✔ IT-ENV-ADP-003: a run WITHOUT a profile is still sealed (168.5893ms)
-✔ IT-ENV-ADP-004: the report still lands where the adapter asked for it (158.3987ms)
-✔ IT-ENV-ADP-005: the LISTING child does not receive the host environment (83.4216ms)
+✔ IT-ENV-ADP-001: the child receives the profile variables and NOT the host environment (270.133ms)
+✔ IT-ENV-ADP-002: the adapter output variables win over the profile (257.8536ms)
+✔ IT-ENV-ADP-003: a run WITHOUT a profile is still sealed (227.7522ms)
+✔ IT-ENV-ADP-004: the report still lands where the adapter asked for it (203.1374ms)
+✔ IT-ENV-ADP-005: the LISTING child does not receive the host environment (110.4569ms)
 ℹ tests 5
 ℹ suites 0
 ℹ pass 5
@@ -17,6 +17,6 @@ python    : Python 3.11.16
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 937.1201
+ℹ duration_ms 1212.4096
 
 exit code : 0

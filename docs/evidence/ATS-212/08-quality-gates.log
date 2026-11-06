@@ -1,12 +1,12 @@
 === the ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-f66f8db44ab3/worktree
-commit    : 3081b97
-branch    : agent/m2/seikoist-170
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fbfa95f55f8a/worktree
+commit    : 4bf2d20
+branch    : agent/m2/seikoist-170-fbfa95f55f8a
 node      : v24.19.0
 python    : Python 3.11.16
 
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-f66f8db44ab3/worktree
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fbfa95f55f8a/worktree
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 node      : v24.19.0
@@ -25,6 +25,7 @@ PASS 【ATS-201】 is idempotent
 PASS 【ATS-202】 is idempotent
 PASS 【ATS-205】 is idempotent
 PASS 【ATS-206】 is idempotent
+PASS 【ATS-207】 is idempotent
 PASS 【ATS-208】 is idempotent
 PASS 【ATS-212】 is idempotent
 PASS 【ATS-301】 is idempotent
@@ -32,6 +33,7 @@ PASS 【ATS-401】 is idempotent
 PASS 【ATS-501】 is idempotent
 PASS 【ATS-506】 is idempotent
 PASS 【ATS-512】 is idempotent
+PASS 【ATS-601】 is idempotent
 PASS at least one updater declares a marker
 PASS update_wbs_ats101.py declares exactly one marker
 PASS 【ATS-101】 (from update_wbs_ats101.py) is registered in MARKERS
@@ -47,6 +49,8 @@ PASS update_wbs_ats205.py declares exactly one marker
 PASS 【ATS-205】 (from update_wbs_ats205.py) is registered in MARKERS
 PASS update_wbs_ats206.py declares exactly one marker
 PASS 【ATS-206】 (from update_wbs_ats206.py) is registered in MARKERS
+PASS update_wbs_ats207.py declares exactly one marker
+PASS 【ATS-207】 (from update_wbs_ats207.py) is registered in MARKERS
 PASS update_wbs_ats208.py declares exactly one marker
 PASS 【ATS-208】 (from update_wbs_ats208.py) is registered in MARKERS
 PASS update_wbs_ats212.py declares exactly one marker
@@ -61,6 +65,8 @@ PASS update_wbs_ats506.py declares exactly one marker
 PASS 【ATS-506】 (from update_wbs_ats506.py) is registered in MARKERS
 PASS update_wbs_ats512.py declares exactly one marker
 PASS 【ATS-512】 (from update_wbs_ats512.py) is registered in MARKERS
+PASS update_wbs_ats601.py declares exactly one marker
+PASS 【ATS-601】 (from update_wbs_ats601.py) is registered in MARKERS
 PASS the declared markers are exactly MARKERS
 
 all checks passed
@@ -71,8 +77,8 @@ all checks passed
   apps/studio/app/page.tsx         81
   apps/studio/lib/api.ts           14
   apps/studio/public/fallback.html 3
-  server/core.mjs                  306, 637
-  server/index.mjs                 220-227, 221, 229, 240, 30, 390, 521, 538, 539, 95
+  server/core.mjs                  1093, 762
+  server/index.mjs                 224, 30, 446-476, 460, 478, 489, 674, 834, 851, 852
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
@@ -90,18 +96,18 @@ ok   tools/generate_test_docs.py:382
 ok   tools/update_wbs_ats103.py:110
 ok   tools/update_wbs_ats103.py:114
 ok   server/index.mjs:30
-ok   server/index.mjs:95
-ok   server/index.mjs:220
-ok   server/index.mjs:221
-ok   server/index.mjs:229
-ok   server/index.mjs:240
-ok   server/index.mjs:390
-ok   server/index.mjs:521
-ok   server/index.mjs:538
-ok   server/index.mjs:539
-ok   server/core.mjs:306
-ok   server/core.mjs:637
-ok   server/index.mjs:220-227 (cancelRun extent)
+ok   server/index.mjs:224
+ok   server/index.mjs:446
+ok   server/index.mjs:460
+ok   server/index.mjs:478
+ok   server/index.mjs:489
+ok   server/index.mjs:674
+ok   server/index.mjs:834
+ok   server/index.mjs:851
+ok   server/index.mjs:852
+ok   server/core.mjs:762
+ok   server/core.mjs:1093
+ok   server/index.mjs:446-476 (cancelRun extent)
 ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)
 ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
@@ -112,7 +118,7 @@ RESULT: OK
 
 --- 3. the hardcoded default port list in 16 §3.1 matches the source ---
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-f66f8db44ab3\worktree
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-fbfa95f55f8a\worktree
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
@@ -120,7 +126,7 @@ port      : 4577
   apps/studio/lib/api.ts:14  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
   apps/studio/public/fallback.html:3  </style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</spa...
   server/index.mjs:30  const PORT=Number(process.env.ATS_PORT||4577);
-  server/index.mjs:240  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
+  server/index.mjs:489  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
   src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
 total = 6
 
@@ -128,9 +134,9 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:3835  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:3901  "input": "Host=evil.example:4577",
-  tests/test-cases.json:5056  "input": "同 LAN 他机尝试访问 4577",
+  tests/test-cases.json:4913  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:4979  "input": "Host=evil.example:4577",
+  tests/test-cases.json:6244  "input": "同 LAN 他机尝试访问 4577",
   tools/generate_test_docs.py:290  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
   tools/generate_test_docs.py:296  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
   tools/generate_test_docs.py:382  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
@@ -147,15 +153,15 @@ total = 12
   docs/11-SECURITY-RISK.md:43  | session token 同机可请求；固定 4577 端口 | 其他同机进程干扰 | HIGH | IPC/Unix domain socket/named pipe、随机端口、OS 身份验证 ...
   docs/12-DEPLOY-OPERATIONS.md:9  便携模式（已通过本地 HTTP IT）：`npm start`，访问 `http://127.0.0.1:4577/fallback.html`；首次无任何项目可点击添加。Windows PowerS...
   docs/12-DEPLOY-OPERATIONS.md:21  | 服务存活 | `GET /api/health` | 检查 4577 端口冲突与 Node 版本 |
-  docs/12-DEPLOY-OPERATIONS.md:34  - `ATS_PORT`：默认 4577（Next UI 的 API BASE 当前写死 4577，变更端口需同步调整 UI 配置；非动态端口发布模式）
+  docs/12-DEPLOY-OPERATIONS.md:36  - `ATS_PORT`：默认 4577（Next UI 的 API BASE 当前写死 4577，变更端口需同步调整 UI 配置；非动态端口发布模式）
   docs/16-BASELINE-ADR.md:98  Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-ATS-Token`；`/api/session` 由 Origin allowlist...
   docs/16-BASELINE-ADR.md:122  1. **默认端口 4577 在发布源码中被硬编码在 6 处**（不含文档与测试数据）。改端口须同步全部，否则 UI 与 CSP 会指向错误端口：
   docs/16-BASELINE-ADR.md:126  | 1 | `server/index.mjs:30` | 默认值 `process.env.ATS_PORT\|\|4577` |
   docs/16-BASELINE-ADR.md:129  | 4 | `apps/studio/app/page.tsx:81` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
   docs/16-BASELINE-ADR.md:130  | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
   docs/16-BASELINE-ADR.md:144  2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
-  docs/16-BASELINE-ADR.md:347  - **ATS-103 已实测静态导出与 Bridge 的接口面接缝**（`docs/22-FRONTEND-EXPORT.md`）：`next build` 成功产出 `apps/studio/ou...
-  docs/16-BASELINE-ADR.md:355  - `src-tauri/src/lib.rs` 以 `Command::new("node")` 拉起 `../server/index.mjs` 并设 `ATS_PORT=4577`；**要求 P...
+  docs/16-BASELINE-ADR.md:344  - **ATS-103 已实测静态导出与 Bridge 的接口面接缝**（`docs/22-FRONTEND-EXPORT.md`）：`next build` 成功产出 `apps/studio/ou...
+  docs/16-BASELINE-ADR.md:352  - `src-tauri/src/lib.rs` 以 `Command::new("node")` 拉起 `../server/index.mjs` 并设 `ATS_PORT=4577`；**要求 P...
   docs/22-FRONTEND-EXPORT.md:16  | Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（12524 B），带 CSP（`connect-src` 含 `http://127.0.0.1:4577...
   docs/22-FRONTEND-EXPORT.md:35  1. 页面由 Bridge 自身在 `127.0.0.1:4577` 提供（`server/index.mjs` 的 `staticFile()` 把 `apps/studio/out` 当静态根目录...
   docs/22-FRONTEND-EXPORT.md:36  2. `apps/studio/lib/api.ts` 的 `root()` 在运行时决定 API 基址：**端口是 4577 时用同源空串**（即 `/api/...`），否则用绝对地址 `http...
