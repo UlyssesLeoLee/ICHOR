@@ -16,6 +16,12 @@ export const REMOTE_CODES = Object.freeze({
   REMOTE_ENROLLMENT_TOKEN_INVALID: { http: 401, retryable: false, hint: '入网凭据无效' },
   REMOTE_PROTOCOL_MISMATCH: { http: 409, retryable: false, hint: '协议版本不兼容' },
   REMOTE_CAPABILITY_MISSING: { http: 409, retryable: false, hint: '节点能力不满足作业要求' },
+  // ATS-601: the execution TARGET is not usable. The target does not
+  // exist, no session is attached to it, the device is not connected, the
+  // lease has expired or the session is in the failed state. The rule is
+  // the important part: the request is REJECTED, never silently degraded
+  // into another execution mode (docs/25-MOBILE-APP-TESTING.md §3.2).
+  REMOTE_TARGET_UNAVAILABLE: { http: 409, retryable: false, hint: '执行目标不可用（不存在、未连接、租约过期或会话失败）' },
   REMOTE_TENANT_MISMATCH: { http: 403, retryable: false, hint: '租户上下文不匹配' },
   REMOTE_TENANT_REQUIRED: { http: 403, retryable: false, hint: '缺少租户上下文' },
   REMOTE_ROLE_FORBIDDEN: { http: 403, retryable: false, hint: '权限不足' },
