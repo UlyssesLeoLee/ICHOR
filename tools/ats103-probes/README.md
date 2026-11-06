@@ -67,8 +67,11 @@ bash tools/ats103-probes/collect-evidence.sh
 6. **本目录不修产品缺陷。** 探针只**如实记录**运行期的证据链缺陷
    （引擎进程异常死亡时 Bridge 把 run 标成 `failed` 却无 summary），修复
    归属 ATS-108 / ATS-112，见 `docs/22-FRONTEND-EXPORT.md` §4。
-7. **不得把 `DESIGNED` 写成已实现。** 本任务交付的是**验证与证据**，
-   产品代码零改动；`apps/studio/**` 与 `server/**` 保持原状。
+7. **不得把 `DESIGNED` 写成已实现。** 本任务交付的主体是**验证与证据**；
+   `apps/studio/**` 保持原状。`server/index.mjs` 有**一处**改动——CORS 段
+   补回 `Access-Control-Allow-Origin`，那是探针抓出的**真实产品缺陷**
+   （缺这个头时浏览器会拦掉全部跨源响应），修复与回归用例见
+   `docs/22-FRONTEND-EXPORT.md` §3.3.1。
 
 ## 依赖
 

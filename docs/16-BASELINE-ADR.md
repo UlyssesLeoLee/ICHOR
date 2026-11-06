@@ -140,7 +140,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    (b) **非运行时数据提及**：数据/脚本只显示或复制端口值，不影响运行行为，须一并更新但可批量处理（即上列的 6 个文件）；
    (c) **文档提及**：纯文字描述端口，不影响任何行为——判定依据是**文件扩展名**：任何以 `.md` 结尾的文件都属此类，无论它位于 `docs/` 下还是仓库根（如 `README.md`）；此外 `tools/ats101-probes/` 下的脚本也属此类（探针脚本必须写明它审计的端口）。
    探针按这三类分别统计并逐文件列出，**新增一份提到端口的文档也会被自动纳入 (c) 类统计**，不会被误判成运行时硬编码。
-   **(c) 类的统计口径**：统计范围是**除本文件与探针目录之外的全部 `.md` 文件**（以及探针目录下的 `.mjs` 脚本——它们同样只是叙述自己审计的端口），共 **7 个文件共 36 处提及**（`README.md` 4 处、`docs/04-DETAILED-DESIGN.md` 1 处、`docs/08-IT-TEST-DESIGN.md` 2 处、`docs/09-ST-TEST-DESIGN.md` 1 处、`docs/11-SECURITY-RISK.md` 1 处、`docs/12-DEPLOY-OPERATIONS.md` 4 处、`docs/22-FRONTEND-EXPORT.md` 23 处）。该数字由探针实测得出并断言，改动上述任一文件的端口提及后，探针会报 `RESULT: MISMATCH`。`docs/evidence/ATS-101/` 下的 `.log` 证据文件**不在扫描的扩展名范围内**，其中的端口字面量不计入这 36 处。
+   **(c) 类的统计口径**：统计范围是**除本文件与探针目录之外的全部 `.md` 文件**（以及探针目录下的 `.mjs` 脚本——它们同样只是叙述自己审计的端口），共 **7 个文件共 37 处提及**（`README.md` 4 处、`docs/04-DETAILED-DESIGN.md` 1 处、`docs/08-IT-TEST-DESIGN.md` 2 处、`docs/09-ST-TEST-DESIGN.md` 1 处、`docs/11-SECURITY-RISK.md` 1 处、`docs/12-DEPLOY-OPERATIONS.md` 4 处、`docs/22-FRONTEND-EXPORT.md` 24 处）。该数字由探针实测得出并断言，改动上述任一文件的端口提及后，探针会报 `RESULT: MISMATCH`。`docs/evidence/ATS-101/` 下的 `.log` 证据文件**不在扫描的扩展名范围内**，其中的端口字面量不计入这 37 处。
    因此本节所列清单是**源码硬编码点**的完整清单，而非全仓库端口字面量的完整清单；文档类提及不要求逐条列出，但换端口时同样须一并更新。
 2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
 3. **Host 白名单绑定端口**：`server/index.mjs:481` 的正则含 `${PORT}`，改端口后 Host 校验随之变化。
@@ -342,7 +342,7 @@ GNU_BUILD_EXIT=101
   → ATS-102 已把改写后的内容**提交进版本控制**并实测该副作用**幂等**（连续两次构建后两文件 sha256 不变），因此构建后工作区不再变 dirty，CI 无需「允许变更清单」，只保留一步 diff 报告（不阻断）。详见 `docs/17-BUILD-CI.md` §6.2。
 - `next.config.mjs` 为 `output:'export'`，无 SSR、无 API Routes；`trailingSlash:true`。
   - ATS-102 新增了 `turbopack.root: import.meta.dirname`：加入第二个 lockfile 后 Next 会推断错 workspace root 并告警，固定该项后告警消失。
-- **ATS-103 已实测静态导出与 Bridge 的接口面接缝**（`docs/22-FRONTEND-EXPORT.md`）：`next build` 成功产出 `apps/studio/out`；导出目录**不含任何服务端路由产物**，因此「API 代理」在 `output:'export'` 下的真实形态是**导出页 → Bridge 的跨源直连**（基址由 `apps/studio/lib/api.ts` 在运行时按端口解析，构建期不烘焙）。实测 Bridge 能在 `/` 提供该导出并带允许 API 源的 CSP，会话/项目/运行三类操作全部成功，真实运行为 1 PASS / 1 FAIL 共 2 例、采集 28 个产物。**真实 headless Chromium 里脚本驱动导出的那一页**（会话 → 添加项目 → 运行到终态）也通过，console error 为 0。**产品代码零改动**——既有配置已满足该完成定义。五个变异（未声明 `force-static` 的路由 / 声明了 `force-static` 的路由 / 构建期烘焙基址 / 烘焙基址且留无关端口比较 / 引擎缺失）划出探针各条断言的真实边界，不是空转。
+- **ATS-103 已实测静态导出与 Bridge 的接口面接缝**（`docs/22-FRONTEND-EXPORT.md`）：`next build` 成功产出 `apps/studio/out`；导出目录**不含任何服务端路由产物**，因此「API 代理」在 `output:'export'` 下的真实形态是**导出页 → Bridge 的跨源直连**（基址由 `apps/studio/lib/api.ts` 在运行时按端口解析，构建期不烘焙）。实测 Bridge 能在 `/` 提供该导出并带允许 API 源的 CSP，会话/项目/运行三类操作全部成功，真实运行为 1 PASS / 1 FAIL 共 2 例、采集 28 个产物。**真实 headless Chromium 里脚本驱动导出的那一页**（会话 → 添加项目 → 运行到终态）也通过，console error 为 0。**`apps/studio/**` 零改动**——既有配置已满足该完成定义。**`server/index.mjs` 有一处改动**：CORS 段补回 `Access-Control-Allow-Origin`——缺这个头时浏览器会拦掉全部跨源响应，白名单内的客户端一个 API 回答都读不到；该缺陷由 ATS-103 的跨源负控探针抓出，回归用例 `IT-SEC-002B` 断言白名单内的 Origin 被原样回显。五个变异（未声明 `force-static` 的路由 / 声明了 `force-static` 的路由 / 构建期烘焙基址 / 烘焙基址且留无关端口比较 / 引擎缺失）划出探针各条断言的真实边界，不是空转。
 
 ### 5.3 Tauri 2 / Rust
 
