@@ -1,23 +1,23 @@
 === the environment profile API suite ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fbfa95f55f8a/worktree
-commit    : 246b73f
-branch    : agent/m2/seikoist-170-fbfa95f55f8a
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-b0b41f101946/worktree
+commit    : 2e6b5a9
+branch    : agent/m2/seikoist-170-b0b41f101946
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ IT-ENV-SETUP: start the bridge (744.8506ms)
-✔ IT-ENV-001: a project is registered (104.2793ms)
-✔ IT-ENV-002: a profile is created and the answer carries the NAMES, not the values (19.5077ms)
-✔ IT-ENV-003: GET /env lists the profiles and the whitelist (17.4901ms)
-✔ IT-ENV-004: a variable that is not on the whitelist is REFUSED with the reason (14.9177ms)
-✔ IT-ENV-005: a credential-shaped name is REFUSED even when the whitelist allows it (32.1638ms)
-✔ IT-ENV-006: a whitelist that authorises a credential is REFUSED (14.6332ms)
-✔ IT-ENV-007: a run names the profile it ran under and the NAMES of its variables (111.6127ms)
-✔ IT-ENV-008: a run that names a profile that does not exist is REFUSED (92.2987ms)
-✔ IT-ENV-009: the profile lives in the data directory and NOT in the project (0.7799ms)
-✔ IT-ENV-010: the profile survives a restart of the bridge (669.8122ms)
-✔ IT-ENV-011: the profile is deleted (45.5588ms)
-✔ IT-ENV-CLEANUP: stop the bridge (4.2431ms)
+✔ IT-ENV-SETUP: start the bridge (356.042ms)
+✔ IT-ENV-001: a project is registered (67.2574ms)
+✔ IT-ENV-002: a profile is created and the answer carries the NAMES, not the values (10.8259ms)
+✔ IT-ENV-003: GET /env lists the profiles and the whitelist (4.264ms)
+✔ IT-ENV-004: a variable that is not on the whitelist is REFUSED with the reason (15.7405ms)
+✔ IT-ENV-005: a credential-shaped name is REFUSED even when the whitelist allows it (26.076ms)
+✔ IT-ENV-006: a whitelist that authorises a credential is REFUSED (21.5962ms)
+✔ IT-ENV-007: a run names the profile it ran under and the NAMES of its variables (85.1361ms)
+✔ IT-ENV-008: a run that names a profile that does not exist is REFUSED (62.7949ms)
+✔ IT-ENV-009: the profile lives in the data directory and NOT in the project (0.8417ms)
+✔ IT-ENV-010: the profile survives a restart of the bridge (338.564ms)
+✔ IT-ENV-011: the profile is deleted (46.1963ms)
+✔ IT-ENV-CLEANUP: stop the bridge (3.3387ms)
 ℹ tests 13
 ℹ suites 0
 ℹ pass 13
@@ -25,6 +25,6 @@ python    : Python 3.11.16
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 2005.2899
+ℹ duration_ms 1138.5546
 
 exit code : 0

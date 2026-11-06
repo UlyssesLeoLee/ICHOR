@@ -1,12 +1,12 @@
 === the ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fbfa95f55f8a/worktree
-commit    : 246b73f
-branch    : agent/m2/seikoist-170-fbfa95f55f8a
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-b0b41f101946/worktree
+commit    : 2e6b5a9
+branch    : agent/m2/seikoist-170-b0b41f101946
 node      : v24.19.0
 python    : Python 3.11.16
 
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fbfa95f55f8a/worktree
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-b0b41f101946/worktree
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 node      : v24.19.0
@@ -78,7 +78,7 @@ all checks passed
   apps/studio/lib/api.ts           14
   apps/studio/public/fallback.html 3
   server/core.mjs                  1093, 762
-  server/index.mjs                 224, 30, 446-476, 460, 478, 489, 674, 834, 851, 852
+  server/index.mjs                 224, 30, 449-479, 463, 481, 492, 681, 867, 884, 885
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
@@ -97,17 +97,17 @@ ok   tools/update_wbs_ats103.py:110
 ok   tools/update_wbs_ats103.py:114
 ok   server/index.mjs:30
 ok   server/index.mjs:224
-ok   server/index.mjs:446
-ok   server/index.mjs:460
-ok   server/index.mjs:478
-ok   server/index.mjs:489
-ok   server/index.mjs:674
-ok   server/index.mjs:834
-ok   server/index.mjs:851
-ok   server/index.mjs:852
+ok   server/index.mjs:449
+ok   server/index.mjs:463
+ok   server/index.mjs:481
+ok   server/index.mjs:492
+ok   server/index.mjs:681
+ok   server/index.mjs:867
+ok   server/index.mjs:884
+ok   server/index.mjs:885
 ok   server/core.mjs:762
 ok   server/core.mjs:1093
-ok   server/index.mjs:446-476 (cancelRun extent)
+ok   server/index.mjs:449-479 (cancelRun extent)
 ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)
 ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
@@ -118,7 +118,7 @@ RESULT: OK
 
 --- 3. the hardcoded default port list in 16 §3.1 matches the source ---
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-fbfa95f55f8a\worktree
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-b0b41f101946\worktree
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
@@ -126,7 +126,7 @@ port      : 4577
   apps/studio/lib/api.ts:14  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
   apps/studio/public/fallback.html:3  </style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</spa...
   server/index.mjs:30  const PORT=Number(process.env.ATS_PORT||4577);
-  server/index.mjs:489  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
+  server/index.mjs:492  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
   src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
 total = 6
 

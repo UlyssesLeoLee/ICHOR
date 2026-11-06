@@ -233,11 +233,13 @@ P1 变更流程：AST parse → calculate supported subset → generate JSON pat
 
 档案存放在 Bridge 状态里的 `state.envProfiles`，而不是单独一份文件：状态已经是真相源，原子写入、SQLite 镜像与导入导出往返都能覆盖它，另起一份旁路文件只会多一处会与状态分叉的地方。
 
-**档案与白名单一律按 `projectUidOf(project)` 取键。** 写入、列举、删除与**运行**四条路径用的是同一个键，也就是 UID 注册表、信任表与运行记录已经在用的那个。
+**档案与白名单一律按 `projectKeyOf(project)` 取键**（即 `project.uid ?? projectUidOf(project)`）。 写入、列举、删除与**运行**四条路径用的是同一个键，也就是 UID 注册表、信任表与运行记录已经在用的那个。
 
-早期实现的写入路径用 `project.uid ?? project.id`，而运行路径用 `projectUidOf(project)`。对一个**还没迁移**的项目记录（`id` 还是旧的 `proj_<uuid>`、没有 `uid`），这两个键**不相等**：API 能列出档案，运行却找不到它，`POST /run {env:"staging"}` 返回 `404 ENV_PROFILE_NOT_FOUND`。现在两条路径都走 `projectUidOf`。
+早期实现的写入路径用 `project.uid ?? project.id`，而运行路径用 `projectUidOf(project)`。对一个**还没迁移**的项目记录（`id` 还是旧的 `proj_<uuid>`、没有 `uid`），这两个键**不相等**：API 能列出档案，运行却找不到它，`POST /run {env:"staging"}` 返回 `404 ENV_PROFILE_NOT_FOUND`。现在两条路径都走 `projectKeyOf`。
 
 这个键在状态迁移前后**不变**：旧项目记录按其根目录重算出的 UID 正是迁移后新 `id` 的值，所以未迁移安装的档案迁移之后仍然找得到。
+
+（`projectKeyOf` 而不是直接用 `projectUidOf`，是为了认下**注册路由已经写好的** `uid` 字段——项目被注册时 `uid` 就已经是 `projectUidOf(project)`，两者相等；这里只是不要求调用方保证这一点。）
 
 **迁移会同步改写档案与白名单的键。** `planMigration` 改写 `envProfiles.profiles[].projectUid` 和 `envProfiles.whitelists` 的键——理由与信任表、UID 注册表完全一样：保留旧键的表不是丢了，是**够不着**了，桥接在新 UID 下查到的会是一个空桶，项目于是静默退回 14 个名字的默认白名单。
 
