@@ -1,10 +1,10 @@
 === command ===
-node tools/ats202-probes/review-round1-http-probe.mjs C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-7f251090c0cd/worktree/examples/sample-playwright/node_modules
+node tools/ats202-probes/review-round1-http-probe.mjs D:/ICHOR/examples/sample-playwright/node_modules
 === output ===
 config top-level cost: 4000 ms
-GET /tests -> 200, discovery=authoritative, took 4750 ms
-GET /api/health idle latency: 6 ms
-GET /api/health latency while the catalogue is listing: 17 ms (status 200)
+GET /tests -> 200, discovery=authoritative, took 5198 ms
+GET /api/health idle latency: 4 ms
+GET /api/health latency while the catalogue is listing: 18 ms (status 200)
 EXPECTED: the Bridge keeps answering (< 1000 ms) while one project lists
 VERDICT: OK
 === exit code: 0 ===

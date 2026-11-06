@@ -1,36 +1,36 @@
 === command ===
 node --test tests/discovery.test.mjs
 === output ===
-✔ UT-ATS202-001: a spec is parsed into a case with the project relative file (1.4579ms)
-✔ UT-ATS202-002: the file is resolved against the CLI rootDir, not the project root (0.1811ms)
-✔ UT-ATS202-003: a file outside the project is excluded and reported (0.2188ms)
-✔ UT-ATS202-004: the describe path is read from the suite nesting (0.1817ms)
-✔ UT-ATS202-005: a project matrix reports the same case once per project (0.201ms)
-✔ UT-ATS202-006: the CLI errors are carried over verbatim (0.1066ms)
-✔ UT-ATS202-007: the cases are sorted by file and line (6.7393ms)
-✔ UT-ATS202-008: projectRelativeFile refuses a path outside the project (0.2942ms)
-✔ UT-ATS202-009: the outcome codes are stable (0.1229ms)
-✔ UT-ATS202-010: a project without a trust record is untrusted (0.242ms)
-✔ UT-ATS202-011: a vouched project is trusted (1.9475ms)
-✔ UT-ATS202-012: the trust can be revoked, and the reason is kept (0.1169ms)
-✔ UT-ATS202-013: the trust of one project does not leak into another (0.0854ms)
-✔ UT-ATS202-014: withTrust does not mutate the state it is given (0.1017ms)
-✔ UT-ATS202-015: a unique title keeps the ATS-201 title-key UID (1.1258ms)
-✔ UT-ATS202-016: an explicit annotation wins over every derived key (0.1403ms)
-✔ UT-ATS202-017: the same explicit annotation on two cases binds neither (0.2497ms)
-✔ UT-ATS202-018: the describe path resolves two same-titled cases (0.138ms)
-✔ UT-ATS202-019: two same-titled cases in the same describe path stay ambiguous (0.1448ms)
-✔ UT-ATS202-020: the body fingerprint decides when the describe path does not (0.2078ms)
-✔ UT-ATS202-020b: a DYNAMIC case is decided by the describe path, not by the body (0.1317ms)
-✔ UT-ATS202-021: the UID of an ordinary case is the same as the static one (0.0792ms)
-✔ UT-ATS202-021b: the UID of an ordinary case does not change when the index switches (0.1238ms)
-✔ UT-ATS202-022: the registry keeps the spec ids of the CLI (0.1322ms)
-✔ UT-ATS202-023: an entry of an absent file is not pruned (0.1105ms)
-✔ UT-ATS202-024: an entry of a covered file whose case is gone is pruned (0.0678ms)
-✔ UT-ATS202-025: the comparison reports the cases only one index knows (0.1464ms)
-✔ UT-ATS202-026: the comparison reports agreement when the two agree (0.0576ms)
-✔ UT-ATS202-027: the lexical describe path reads the blocks above the line (0.4462ms)
-✔ UT-ATS202-028: the case key spells the file, the path and the title (0.0557ms)
+✔ UT-ATS202-001: a spec is parsed into a case with the project relative file (1.5877ms)
+✔ UT-ATS202-002: the file is resolved against the CLI rootDir, not the project root (0.1892ms)
+✔ UT-ATS202-003: a file outside the project is excluded and reported (0.204ms)
+✔ UT-ATS202-004: the describe path is read from the suite nesting (0.1917ms)
+✔ UT-ATS202-005: a project matrix reports the same case once per project (0.2045ms)
+✔ UT-ATS202-006: the CLI errors are carried over verbatim (0.0998ms)
+✔ UT-ATS202-007: the cases are sorted by file and line (6.8251ms)
+✔ UT-ATS202-008: projectRelativeFile refuses a path outside the project (0.3385ms)
+✔ UT-ATS202-009: the outcome codes are stable (0.1351ms)
+✔ UT-ATS202-010: a project without a trust record is untrusted (0.3361ms)
+✔ UT-ATS202-011: a vouched project is trusted (2.3573ms)
+✔ UT-ATS202-012: the trust can be revoked, and the reason is kept (0.145ms)
+✔ UT-ATS202-013: the trust of one project does not leak into another (0.0737ms)
+✔ UT-ATS202-014: withTrust does not mutate the state it is given (0.1045ms)
+✔ UT-ATS202-015: a unique title keeps the ATS-201 title-key UID (1.4678ms)
+✔ UT-ATS202-016: an explicit annotation wins over every derived key (0.1888ms)
+✔ UT-ATS202-017: the same explicit annotation on two cases binds neither (0.3805ms)
+✔ UT-ATS202-018: the describe path resolves two same-titled cases (0.2143ms)
+✔ UT-ATS202-019: two same-titled cases in the same describe path stay ambiguous (0.2624ms)
+✔ UT-ATS202-020: the body fingerprint decides when the describe path does not (0.327ms)
+✔ UT-ATS202-020b: a DYNAMIC case is decided by the describe path, not by the body (0.1491ms)
+✔ UT-ATS202-021: the UID of an ordinary case is the same as the static one (0.0886ms)
+✔ UT-ATS202-021b: the UID of an ordinary case does not change when the index switches (0.1476ms)
+✔ UT-ATS202-022: the registry keeps the spec ids of the CLI (0.1392ms)
+✔ UT-ATS202-023: an entry of an absent file is not pruned (0.1076ms)
+✔ UT-ATS202-024: an entry of a covered file whose case is gone is pruned (0.089ms)
+✔ UT-ATS202-025: the comparison reports the cases only one index knows (0.1547ms)
+✔ UT-ATS202-026: the comparison reports agreement when the two agree (0.0516ms)
+✔ UT-ATS202-027: the lexical describe path reads the blocks above the line (0.4749ms)
+✔ UT-ATS202-028: the case key spells the file, the path and the title (0.0604ms)
 ℹ tests 30
 ℹ suites 0
 ℹ pass 30
@@ -38,5 +38,5 @@ node --test tests/discovery.test.mjs
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 154.2622
+ℹ duration_ms 147.6106
 === exit code: 0 ===

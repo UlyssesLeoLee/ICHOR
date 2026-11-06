@@ -1,5 +1,5 @@
 === command ===
-node tools/ats202-probes/review-round1-probe.mjs C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-7f251090c0cd/worktree/examples/sample-playwright/node_modules
+node tools/ats202-probes/review-round1-probe.mjs D:/ICHOR/examples/sample-playwright/node_modules
 === output ===
 
 [CE-A] consistency (与 CLI 发现结果一致的度量) agrees when both indexes see the same two cases
@@ -15,17 +15,17 @@ node tools/ats202-probes/review-round1-probe.mjs C:/Users/seiko/multica_workspac
 
 [CE-C] 切换索引不改变已有 UID — literal case whose title contains an escaped quote
   expected: static uid === authoritative uid
-  actual:   static {title:"user's profile", uid:tc_1_d_f2df1aa5589ed010} vs authoritative {title:"user's profile", uid:tc_1_d_f2df1aa5589ed010, basis:body-key}
+  actual:   static {title:"user's profile", uid:tc_1_d_99e2cce5a19cfbe1} vs authoritative {title:"user's profile", uid:tc_1_d_99e2cce5a19cfbe1, basis:body-key}
   VERDICT:  OK
 
 [CE-D] 切换索引不改变已有 UID — literal case with a >180-char title
   expected: static uid === authoritative uid
-  actual:   static tc_1_d_672f999373856dc5 (title len 199) vs authoritative tc_1_d_672f999373856dc5 (title len 199, basis body-key)
+  actual:   static tc_1_d_8930b7c84f5fd0df (title len 199) vs authoritative tc_1_d_8930b7c84f5fd0df (title len 199, basis body-key)
   VERDICT:  OK
 
 [CE-E1] static index after an authoritative one: the TEMPLATE case must not inherit the UID of a rendered dynamic case
-  expected: template uid === fresh static uid (tc_1_d_b1ffa0f56c1393ea) and !== 'dynamic alpha' uid (tc_1_d_a437a9fc3d8a0861)
-  actual:   template uid after auth = tc_1_d_b1ffa0f56c1393ea (uidSource=derived)
+  expected: template uid === fresh static uid (tc_1_d_7a729c3d42a99d3b) and !== 'dynamic alpha' uid (tc_1_d_158888cd23cb6f63)
+  actual:   template uid after auth = tc_1_d_7a729c3d42a99d3b (uidSource=derived)
   VERDICT:  OK
 
 [CE-E2] static index after an authoritative one: no spurious registry conflict for the template case
@@ -41,18 +41,18 @@ node tools/ats202-probes/review-round1-probe.mjs C:/Users/seiko/multica_workspac
   VERDICT:  OK
 
 [CE-G] (control) a run result for a dynamic case binds to its own authoritative UID
-  expected: uid=tc_1_d_d4cd00363bfec5f9
-  actual:   uid=tc_1_d_d4cd00363bfec5f9 basis=file-line
+  expected: uid=tc_1_d_fae657f5f87f33a6
+  actual:   uid=tc_1_d_fae657f5f87f33a6 basis=file-line
   VERDICT:  OK
 
 [CE-H] (control) a retitled source case keeps its UID under the authoritative index
-  expected: uid=tc_1_d_cd7c313e0a97438b
-  actual:   uid=tc_1_d_cd7c313e0a97438b source=registry
+  expected: uid=tc_1_d_0f8590ef89b1b4c2
+  actual:   uid=tc_1_d_0f8590ef89b1b4c2 source=registry
   VERDICT:  OK
 
 [CE-I] a retitled source case written as a multi-line test( call keeps its UID under the authoritative index (static does)
-  expected: uid=tc_1_d_f60c9412eb196bc0
-  actual:   uid=tc_1_d_f60c9412eb196bc0 source=registry; CLI line=2, scanner line=2
+  expected: uid=tc_1_d_9f31f65792850598
+  actual:   uid=tc_1_d_9f31f65792850598 source=registry; CLI line=2, scanner line=2
   VERDICT:  OK
 
 SUMMARY: 10/10 OK; counterexamples: none
