@@ -4,6 +4,10 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, scanTestCases, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid, normalizeTestPath, bodyKeyOf } from './uid.mjs';
+// ATS-209: the evidence collector. The run record's artifact list and the
+// evidence manifest use the SAME collector, so the two describe the same
+// set of files.
+import { collectEvidence } from './evidence/manifest.mjs';
 import { buildPlaywrightArgs, probePlaywrightCli } from './adapters/playwright-cli.mjs';
 import { openDatabase as openMetadataDatabase } from './sqlite/db.mjs';
 import { storeState } from './sqlite/store.mjs';
@@ -1192,14 +1196,33 @@ export function safeRunArgs(project,testFile,output) {
  if(testFile)sourcePath(project,testFile);
  return args;
 }
-export function runDir(id){if(!/^run_(?:[0-9a-f-]{36}|1_[0-9a-f]{24})$/.test(id)) throw new Error('INVALID_RUN_ID');return path.join(dataDir(),'runs',id);}
-export function filesInRun(id){const root=runDir(id);const result=[];
- function recur(dir,depth){if(depth>8||result.length>400)return;for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
- const full=path.join(dir,entry.name);if(entry.isSymbolicLink())continue;if(entry.isDirectory())recur(full,depth+1);else if(entry.isFile()){
-  const stat=fs.statSync(full),relative=path.relative(root,full).replace(/\\/g,'/');if(stat.size>50_000_000)continue;
-  result.push({file:relative,size:stat.size,sha256:sha(fs.readFileSync(full))});}
- }}if(fs.existsSync(root))recur(root,0);return result;
-}
+/**
+ * Whether a string is a valid run id.
+ *
+ * The run id is used to build a path under the data directory, so it is
+ * checked before it is used: an id that is not a run id must never be
+ * turned into a path. The cleaner uses this check too (ATS-209 review
+ * round 1, E3): a state file that names a run whose id climbs out of the
+ * runs directory must not make the cleaner delete something else.
+ */
+export function isValidRunId(id){return typeof id==='string'&&/^run_(?:[0-9a-f-]{36}|1_[0-9a-f]{24})$/.test(id);}
+export function runDir(id){if(!isValidRunId(id)) throw new Error('INVALID_RUN_ID');return path.join(dataDir(),'runs',id);}
+/**
+ * The evidence files of a run folder.
+ *
+ * ATS-209 review round 1 (E6): this is the SAME collector the manifest
+ * uses -- `collectEvidence` from `server/evidence/manifest.mjs` -- so the
+ * run record's artifact list and the manifest describe the SAME set of
+ * files. Before, the two had separate walks with separate limits, and a
+ * run folder with more files than the limit produced a manifest that
+ * covered only part of it while the run record knew about all of it: the
+ * files outside the manifest were outside the tamper detection.
+ *
+ * The collector excludes the run's RECORD (`events.jsonl`, `stdout.log`),
+ * the manifest itself and the cleaner's own record, so the caller does
+ * not have to filter them out.
+ */
+export function filesInRun(id){const root=runDir(id);return collectEvidence(root);}
 export function artifactPath(id,relative){
  const root=runDir(id);if(typeof relative!=='string'||relative.length>500)throw new Error('INVALID_ARTIFACT_PATH');
  const full=path.resolve(root,relative);if(!isSubpath(root,full))throw new Error('PATH_OUTSIDE_RUN');

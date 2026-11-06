@@ -1,0 +1,53 @@
+=== ATS-602 evidence: the mobile Flow import (unit tests) ===
+tree : 69b6fdf90b9f13e80ad57ef48d1c7af49a90cb54
+date : 2026-11-06T22:42:19Z
+
+✔ UT-MOB-200: the syntax of a Flow file is decided by its extension (1.042ms)
+✔ UT-MOB-201: a maestro Flow is read into its scenarios and steps (2.248ms)
+✔ UT-MOB-202: the linear Flow is read into the same shape (0.8053ms)
+✔ UT-MOB-203: the two syntaxes produce the same SEMANTICS (0.7204ms)
+✔ UT-MOB-204: the line of a step is the line it was declared on (0.4475ms)
+✔ UT-MOB-205: a Flow with no scenario is reported, not silently accepted (1.0852ms)
+✔ UT-MOB-206: a broken Flow is reported with the line it broke on (0.4281ms)
+✔ UT-MOB-207: an anchor in a Flow is an error, not a half-read document (0.4434ms)
+✔ UT-MOB-208: a comment does not become part of the declaration (0.4154ms)
+✔ UT-MOB-209: a step option is not read as a command (0.3846ms)
+✔ UT-MOB-210: every mapped kind is one ATS-601 knows (0.2746ms)
+✔ UT-MOB-211: a command is recognised regardless of its spelling (0.1696ms)
+✔ UT-MOB-212: the command normalisation does not touch the original (1.7913ms)
+✔ UT-MOB-220: a Flow maps onto the unified case model (0.6804ms)
+✔ UT-MOB-221: a scenario becomes a case and a step becomes a step (0.4885ms)
+✔ UT-MOB-222: the assertion of a step is the unified model`s assertion (0.4291ms)
+✔ UT-MOB-223: the two syntaxes map onto the SAME steps (0.638ms)
+✔ UT-MOB-224: a launchApp with no app takes the app the Flow declares (0.2428ms)
+✔ UT-MOB-225: a scenario with no name still gets a deterministic title (0.2733ms)
+✔ UT-MOB-230: an unmappable step is KEPT, not dropped (0.174ms)
+✔ UT-MOB-231: the counter-example -- a step that vanishes silently FAILS the test (0.1139ms)
+✔ UT-MOB-232: a step whose required argument is missing is reported (0.7278ms)
+✔ UT-MOB-233: a step that names no command at all is reported (0.1302ms)
+✔ UT-MOB-234: an argument outside the model is KEPT and reported (0.1511ms)
+✔ UT-MOB-235: the report lists every unsupported step with its text (0.3178ms)
+✔ UT-MOB-240: switching the import method does not move an existing UID (0.4386ms)
+✔ UT-MOB-241: the SAME file read by two syntaxes yields the same uid (0.1612ms)
+✔ UT-MOB-242: a retitled case keeps its uid through the registry (0.1882ms)
+✔ UT-MOB-243: an explicit @TC- annotation wins over every derived key (0.1157ms)
+✔ UT-MOB-244: two cases with the same title and the same steps are ambiguous (0.1841ms)
+✔ UT-MOB-245: two cases with the same title and DIFFERENT steps keep their own uid (0.137ms)
+✔ UT-MOB-246: without a project the uid is provisional, not invented (0.1044ms)
+✔ UT-MOB-250: the Flow files of a project are found in the conventional directories (7.0654ms)
+✔ UT-MOB-251: a file that is not a Flow is not read (2.5441ms)
+✔ UT-MOB-252: a Flow outside the project is refused (2.1866ms)
+✔ UT-MOB-253: a Flow that cannot be read is reported, not thrown (2.4141ms)
+✔ UT-MOB-254: a Flow that cannot be parsed contributes no case and no exception (2.5771ms)
+✔ UT-MOB-255: the import report of a file names the file and the counts (3.094ms)
+✔ UT-MOB-260: the mobile cases join the unified catalogue (7.1169ms)
+✔ UT-MOB-261: a project with no Flow has no mobile cases and no warning about them (4.3358ms)
+✔ UT-MOB-262: an unsupported step is counted in the catalogue warning (3.0922ms)
+ℹ tests 41
+ℹ suites 0
+ℹ pass 41
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 197.0937

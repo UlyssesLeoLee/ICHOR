@@ -57,7 +57,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readBridgeLock } from '../server/core.mjs';
+import { readBridgeLock, isValidRunId } from '../server/core.mjs';
 import {
   DEFAULT_RETENTION_DAYS, verifyEvidence,
 } from '../server/evidence/manifest.mjs';
@@ -72,7 +72,7 @@ const USAGE = `usage: node tools/evidence_retention.mjs <plan|clean|verify|journ
   --days <n>        the retention period in days (default: ${DEFAULT_RETENTION_DAYS})
   --dry-run         report what would be removed, remove nothing
   --yes             confirm the cleaning (required for "clean")
-  --prune-store     also remove the stored blobs that no run refers to any more
+  --prune-store     accepted and ignored: a real cleaning always prunes the store
   --help            this text
 `;
 
@@ -120,8 +120,19 @@ function readState(dataDir) {
   }
 }
 
-/** The folder of a run. */
-const folderOf = (dataDir) => (run) => path.join(dataDir, 'runs', run.id);
+/**
+ * The folder of a run.
+ *
+ * ATS-209 review round 1 (E3): the run id is VALIDATED before it becomes
+ * a path. The state file is data on the disk, and a run id that is not a
+ * run id must never be turned into a path -- a cleaner that built
+ * `<data-dir>/runs/../../state.json` out of one would delete the state
+ * file of the data directory it was cleaning.
+ */
+const folderOf = (dataDir) => (run) => {
+  if (!isValidRunId(run?.id)) return null;
+  return path.join(dataDir, 'runs', run.id);
+};
 
 /**
  * The `plan` command: what the cleaning WOULD do.
@@ -183,6 +194,12 @@ function commandClean(args) {
   console.log(`cleaned  : ${result.cleaned.length}`);
   for (const c of result.cleaned) {
     console.log(`  ${c.runId}: removed ${c.removed.length} file(s), kept ${c.kept.join(', ') || '(nothing)'}`);
+    // ATS-209 review round 1 (E3): the entries that pointed outside the
+    // run folder were refused. They are printed, because a refusal the
+    // operator cannot see is a refusal that did not happen.
+    for (const r of c.rejected ?? []) {
+      console.log(`    refused: ${r.file} (${r.reason})`);
+    }
   }
   for (const s of result.skipped) {
     console.log(`  ${s.runId}: skipped -- ${s.reason}`);
@@ -190,23 +207,43 @@ function commandClean(args) {
   // The RUN RECORDS are untouched. The tool prints the count so the
   // operator can see that the runs are still there after the cleaning.
   console.log(`run records kept: ${(state.runs ?? []).length}`);
-  if (args.pruneStore) {
+  // ATS-209 review round 1 (E8): the stored copies of the cleaned
+  // evidence are removed TOO, by the same command. The evidence may hold
+  // PII, and a cleaning that left the bytes in the store would not be a
+  // deletion at all: the data would still be on the disk, just somewhere
+  // the reader of the run folder does not look.
+  //
+  // The prune is SKIPPED on a dry run: a dry run removes nothing, and
+  // that includes the store (the review probe measures it).
+  if (args.dryRun) {
+    console.log('dry run: nothing was removed');
+  } else {
     const pruned = pruneStore(storeDirOf(dataDir));
     console.log(`store: removed ${pruned.removed.length} unreferenced blob(s), freed ${pruned.bytesFreed} bytes`);
+    console.log(`journal: ${journalFile}`);
   }
-  if (args.dryRun) console.log('dry run: nothing was removed');
-  else console.log(`journal: ${journalFile}`);
   return 0;
 }
 
 /**
  * The `verify` command: does every run's evidence still match its manifest?
+ *
+ * A run whose evidence was removed BY THE RETENTION POLICY is not a
+ * tamper: the cleaner left a record of what it removed, and the
+ * verification reports those files as `cleaned` instead of `missing`. The
+ * run does not fail, and the command does not exit 1 -- otherwise every
+ * cleaned run would keep the verification red for ever, and the tamper
+ * alarm would be worthless (ATS-209 review round 1, E7).
+ *
+ * A run whose evidence was changed, or whose files vanished WITHOUT a
+ * cleaning record, is still reported and still fails.
  */
 function commandVerify(args) {
   const dataDir = args.dataDir ? path.resolve(args.dataDir) : defaultDataDir();
   const { state } = readState(dataDir);
   let checked = 0;
   let failed = 0;
+  let cleanedRuns = 0;
   for (const run of state.runs ?? []) {
     const result = verifyEvidence(folderOf(dataDir)(run));
     if (!result.ok) {
@@ -222,10 +259,21 @@ function commandVerify(args) {
       for (const c of result.changed) {
         console.log(`    changed: ${c.file} (expected ${c.expected}, actual ${c.actual})`);
       }
+      for (const r of result.rejected ?? []) {
+        console.log(`    refused: ${r.file} (${r.reason})`);
+      }
+      if (result.truncated) {
+        console.log('    the manifest does not cover the whole evidence folder');
+      }
+    } else if ((result.cleaned ?? []).length) {
+      // The evidence was cleaned by the retention policy. That is not a
+      // tamper, and the run does not fail.
+      cleanedRuns += 1;
+      console.log(`  ${run.id}: the evidence was cleaned by the retention policy (${result.cleaned.length} file(s))`);
     }
     for (const f of result.extra) console.log(`    extra: ${f} (not in the manifest)`);
   }
-  console.log(`runs checked: ${checked}, not matching: ${failed}`);
+  console.log(`runs checked: ${checked}, not matching: ${failed}, cleaned by the retention policy: ${cleanedRuns}`);
   if (failed) {
     console.error('the evidence of at least one run does not match its manifest');
     return 1;
