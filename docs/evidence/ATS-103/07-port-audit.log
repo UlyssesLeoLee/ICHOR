@@ -1,6 +1,6 @@
 === ATS-103 evidence: ATS-101 hardcoded default-port audit ===
-date      : 2026-11-06T22:48:45Z (UTC)
-commit    : 3f277800a0c531de443c8c897e88deca2f343cd6
+date      : 2026-11-06T23:22:08Z (UTC)
+commit    : 548a6431133f0b65a358cdd735d436d6aa9cdf8c
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats101-probes/scenario-d-port-audit.mjs
@@ -14,7 +14,7 @@ port      : 4577
   apps/studio/lib/api.ts:23  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
   apps/studio/public/fallback.html:3  </style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</spa...
   server/index.mjs:47  const PORT=Number(process.env.ATS_PORT||4577);
-  server/index.mjs:551  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
+  server/index.mjs:556  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
   src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
 total = 6
 
