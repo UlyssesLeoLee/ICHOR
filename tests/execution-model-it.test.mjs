@@ -244,9 +244,14 @@ setInterval(()=>{}, 1000);
   const env = { ...process.env, ATS_PORT: String(crashPort), ATS_DATA_DIR: crashData };
   const start = () => spawn(process.execPath, ['server/index.mjs'], { cwd: root, env, stdio: 'ignore' });
   const up = async () => {
-    for (let i = 0; i < 100; i++) {
+    // The window is deliberately generous: the bridge is a child process
+    // that has to start, read its state and recover its runs before it
+    // answers. Under load (the full suite runs hundreds of cases) 3.5s was
+    // not always enough, and the case then failed with "the bridge did not
+    // come back up" -- a HARNESS flake that says nothing about the product.
+    for (let i = 0; i < 400; i++) {
       try { if ((await fetch(`http://127.0.0.1:${crashPort}/api/health`)).ok) return true; } catch { /* not up */ }
-      await new Promise((r) => setTimeout(r, 35));
+      await new Promise((r) => setTimeout(r, 50));
     }
     return false;
   };
@@ -339,9 +344,14 @@ setInterval(()=>{}, 1000);
   const env = { ...process.env, ATS_PORT: String(crashPort), ATS_DATA_DIR: crashData };
   const start = () => spawn(process.execPath, ['server/index.mjs'], { cwd: root, env, stdio: 'ignore' });
   const up = async () => {
-    for (let i = 0; i < 100; i++) {
+    // The window is deliberately generous: the bridge is a child process
+    // that has to start, read its state and recover its runs before it
+    // answers. Under load (the full suite runs hundreds of cases) 3.5s was
+    // not always enough, and the case then failed with "the bridge did not
+    // come back up" -- a HARNESS flake that says nothing about the product.
+    for (let i = 0; i < 400; i++) {
       try { if ((await fetch(`http://127.0.0.1:${crashPort}/api/health`)).ok) return true; } catch { /* not up */ }
-      await new Promise((r) => setTimeout(r, 35));
+      await new Promise((r) => setTimeout(r, 50));
     }
     return false;
   };
@@ -437,9 +447,12 @@ async function withBridge(dataDir, body) {
   const env = { ...process.env, ATS_PORT: String(port), ATS_DATA_DIR: dataDir };
   const start = () => spawn(process.execPath, ['server/index.mjs'], { cwd: root, env, stdio: 'ignore' });
   const up = async () => {
-    for (let i = 0; i < 100; i++) {
+    // A generous window, for the same reason as the crash helpers above:
+    // a restart that takes longer than the window is a HARNESS flake, not
+    // a product defect.
+    for (let i = 0; i < 400; i++) {
       try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return true; } catch { /* not up */ }
-      await new Promise((r) => setTimeout(r, 35));
+      await new Promise((r) => setTimeout(r, 50));
     }
     return false;
   };

@@ -1,6 +1,6 @@
 === the retried case: counted once, every attempt kept ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
-commit    : bee23d3
+commit    : 5fa9708
 branch    : agent/m3/seikoist-169-e6d7459e54e1
 node      : v24.19.0
 python    : Python 3.11.16
@@ -11,7 +11,7 @@ summary           : {"total":1,"passed":0,"failed":0,"flaky":1,"executions":2}
 summary.cases     : [{"title":"flaky case","file":"tests/flaky.spec.ts","status":"flaky","outcome":"flaky","duration":20,"error":"first attempt failed","attemptsCount":2,"attempts":[{"status":"failed","expectedStatus":null,"outcome":"unknown","retry":0,"duration":11,"error":"first attempt failed"},{"status":"passed","expectedStatus":null,"outcome":"unknown","retry":1,"duration":9,"error":""}]}]
 attempts          : [
   {
-    "uid": "att_1_7e0bfde864bdfeadfa10c2f2",
+    "uid": "att_1_df2fbe34e5602450605b2876",
     "retry": 0,
     "status": "failed",
     "caseStatus": "flaky",
@@ -19,7 +19,7 @@ attempts          : [
     "error": "first attempt failed"
   },
   {
-    "uid": "att_1_ef8b54fa09b08b77558bf248",
+    "uid": "att_1_a0c86f841d0370a37b2a0039",
     "retry": 1,
     "status": "passed",
     "caseStatus": "flaky",
@@ -36,7 +36,7 @@ raw cases         : [{"title":"flaky case","file":"tests/flaky.spec.ts","line":1
 events            : [
   {
     "seq": 1,
-    "at": "2026-11-06T10:22:58.102Z",
+    "at": "2026-11-06T10:39:19.605Z",
     "type": "run.queued",
     "data": {
       "file": "tests/flaky.spec.ts",
@@ -45,16 +45,16 @@ events            : [
   },
   {
     "seq": 2,
-    "at": "2026-11-06T10:22:58.198Z",
+    "at": "2026-11-06T10:39:19.687Z",
     "type": "run.started",
     "data": {
-      "pid": 19184,
+      "pid": 18708,
       "runner": "playwright"
     }
   },
   {
     "seq": 3,
-    "at": "2026-11-06T10:22:58.279Z",
+    "at": "2026-11-06T10:39:19.776Z",
     "type": "run.finished",
     "data": {
       "status": "passed",

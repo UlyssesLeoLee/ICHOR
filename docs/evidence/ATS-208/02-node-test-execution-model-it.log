@@ -1,31 +1,47 @@
 === the execution model integration suite ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
-commit    : bee23d3
+commit    : 5fa9708
 branch    : agent/m3/seikoist-169-e6d7459e54e1
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ IT-EXE-001: the bridge starts (764.6141ms)
-✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (503.2467ms)
-✔ IT-EXE-003: the events of a run replay into its status, gap-free (16.4648ms)
-✔ IT-EXE-004: the events are in the state file AND in the metadata database (3.1803ms)
-✔ IT-EXE-005: the durable log and the state file carry the same events (0.4212ms)
-✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (2693.9818ms)
-✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (2348.3077ms)
-✔ IT-EXE-CLEANUP: stop and cleanup (14.0991ms)
-✔ IT-EXE-008: the bridge starts even when the run folder is gone (3164.127ms)
-✔ IT-EXE-009: a torn event log stays readable (3140.6085ms)
-✔ IT-EXE-010: no event is appended after a terminal event (2388.8848ms)
-✔ IT-EXE-011: a run that was cancelling when the bridge died is recovered (2587.3699ms)
-✔ IT-EXE-012: the summary of a run agrees with the exit code of the engine (1333.7788ms)
-✔ IT-EXE-013: the replay reports the lost and the reused sequence numbers (2586.4577ms)
+✔ IT-EXE-001: the bridge starts (3400.2877ms)
+✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (469.7439ms)
+✔ IT-EXE-003: the events of a run replay into its status, gap-free (13.6979ms)
+✔ IT-EXE-004: the events are in the state file AND in the metadata database (5.5359ms)
+✔ IT-EXE-005: the durable log and the state file carry the same events (0.4852ms)
+✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (8333.5395ms)
+✖ IT-EXE-007: the counter is reconciled with the durable log after a crash (14736.9247ms)
+✔ IT-EXE-CLEANUP: stop and cleanup (14.5921ms)
+✔ IT-EXE-008: the bridge starts even when the run folder is gone (6811.8867ms)
+✔ IT-EXE-009: a torn event log stays readable (3855.8513ms)
+✔ IT-EXE-010: no event is appended after a terminal event (3397.8902ms)
+✔ IT-EXE-011: a run that was cancelling when the bridge died is recovered (3781.7697ms)
+✔ IT-EXE-012: the summary of a run agrees with the exit code of the engine (1662.4425ms)
+✔ IT-EXE-013: the replay reports the lost and the reused sequence numbers (4804.9421ms)
 ℹ tests 14
 ℹ suites 0
-ℹ pass 14
-ℹ fail 0
+ℹ pass 13
+ℹ fail 1
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 21675.3234
+ℹ duration_ms 51435.1149
+
+✖ failing tests:
+
+test at tests\execution-model-it.test.mjs:319:1
+✖ IT-EXE-007: the counter is reconciled with the durable log after a crash (14736.9247ms)
+  AssertionError [ERR_ASSERTION]: the bridge did not come back up
+      at TestContext.<anonymous> (file:///C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree/tests/execution-model-it.test.mjs:390:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
 
 exit code : 0
