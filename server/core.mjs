@@ -69,17 +69,145 @@ export const safeId = (prefix) => `${prefix}_${crypto.randomUUID()}`;
 export const dataDir = () => path.resolve(process.env.ATS_DATA_DIR || path.join(os.homedir(), '.ai-test-studio'));
 export const now = () => new Date().toISOString();
 export function ensureData() { fs.mkdirSync(path.join(dataDir(),'runs'), {recursive:true}); }
+/** Synchronous sleep, for the short bounded retries of the persistence and the lock. */
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.max(0, ms));
+}
+
+/** An error of the state file that names the file and what is wrong with it. */
+function stateFileError(code, file, detail) {
+  const e = new Error(code);
+  e.code = code;
+  e.file = file;
+  e.detail = detail;
+  return e;
+}
+
+/**
+ * Reads `state.json`.
+ *
+ * A missing file is a fresh installation and yields the empty state. A file
+ * that EXISTS but cannot be read as a state is never replaced by the empty
+ * state: that would discard every project and the whole run history on the
+ * next save. It is reported instead --
+ *
+ *   * `STATE_CORRUPT`: the file is not JSON (a zero-length file -- the
+ *     typical leftover of a write that was not synced -- included);
+ *   * `UNSUPPORTED_DATABASE`: the file is JSON but not a schema-1 state.
+ *
+ * Both errors carry `code`, `file` and `detail`.
+ */
 export function loadState() {
   ensureData(); const name=path.join(dataDir(),'state.json');
   if (!fs.existsSync(name)) return {schema:1, projects:[], runs:[], uidRegistry:emptyRegistry()};
-  const v=JSON.parse(fs.readFileSync(name,'utf8'));
-  if (v.schema!==1 || !Array.isArray(v.projects) || !Array.isArray(v.runs)) throw new Error('UNSUPPORTED_DATABASE');
+  const text=fs.readFileSync(name,'utf8');
+  let v;
+  try { v=JSON.parse(text); }
+  catch (cause) { throw stateFileError('STATE_CORRUPT', name, text.length===0 ? 'the file is empty' : cause.message); }
+  if (!v || typeof v!=='object' || v.schema!==1 || !Array.isArray(v.projects) || !Array.isArray(v.runs))
+    throw stateFileError('UNSUPPORTED_DATABASE', name, 'the file is not a schema-1 state with projects and runs arrays');
   // The UID registry is additive: a state file written before ATS-201 has no
   // registry and is loaded with an empty one, so old installations keep
   // working until the migration script rewrites their identifiers.
   if (!v.uidRegistry || typeof v.uidRegistry!=='object') v.uidRegistry=emptyRegistry();
   return v;
 }
+
+/** How often a rename of the state file is attempted on a transient Windows error. */
+export const STATE_RENAME_ATTEMPTS = 5;
+
+/** Rename errors that are transient on Windows (an antivirus or indexer handle). */
+const TRANSIENT_RENAME = new Set(['EPERM', 'EBUSY', 'EACCES']);
+
+/**
+ * Makes a rename inside `dir` durable.
+ *
+ * On POSIX the directory entry is only on disk once the directory itself is
+ * synced. On Windows a directory cannot be opened for fsync, and NTFS
+ * journals the rename metadata, so there is nothing to do.
+ *
+ * @returns {boolean} true when the directory was synced
+ */
+export function syncDirectory(dir, platform = process.platform) {
+  if (platform === 'win32') return false;
+  let fd;
+  try {
+    fd = fs.openSync(dir, 'r');
+    fs.fsyncSync(fd);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+
+/**
+ * Replaces `file` with `text` so that a crash or a power cut at ANY instant
+ * leaves either the previous or the new complete file.
+ *
+ *   1. the text goes to `<file>.<pid>.tmp` -- a temp name per process, so two
+ *      writers never write into each other's temp file;
+ *   2. the temp file is FSYNCED before the rename. Without it the rename can
+ *      reach the disk before the data does, and a power cut leaves a
+ *      zero-length or zero-filled `state.json` -- the rename is the commit
+ *      point, so the data must be durable first;
+ *   3. the rename replaces the file atomically. A transient Windows sharing
+ *      violation is retried a few times;
+ *   4. the directory is synced so the rename itself is durable (POSIX).
+ *
+ * On a failure the temp file is removed and `file` keeps its previous content.
+ */
+export function writeFileDurably(file, text) {
+  const temp=`${file}.${process.pid}.tmp`;
+  const fd=fs.openSync(temp,'w');
+  try {
+    fs.writeFileSync(fd,text,'utf8');
+    fs.fsyncSync(fd);
+  } catch (e) {
+    fs.closeSync(fd);
+    fs.rmSync(temp,{force:true});
+    throw e;
+  }
+  fs.closeSync(fd);
+  for (let attempt=1;;attempt++) {
+    try { fs.renameSync(temp,file); break; }
+    catch (e) {
+      if (TRANSIENT_RENAME.has(e.code) && attempt<STATE_RENAME_ATTEMPTS) { sleepSync(20*attempt); continue; }
+      fs.rmSync(temp,{force:true});
+      throw e;
+    }
+  }
+  syncDirectory(path.dirname(file));
+}
+
+/** The temp files `saveState` writes (`state.json.tmp` is the name older versions used). */
+const STATE_TEMP_FILE = /^state\.json(?:\.\d+)?\.tmp$/;
+
+/**
+ * Removes the temp files a crashed writer left next to `state.json`.
+ *
+ * A temp file is never a committed state: the rename is the commit point, so
+ * a temp file that was not renamed belongs to a save that did not happen.
+ * Only the holder of the data directory lock calls this, before its first
+ * save, so the files cannot belong to a live writer. `state.json` itself and
+ * every other file (the migration backup `state.json.bak` included) are left
+ * alone.
+ *
+ * @returns {string[]} the names of the removed files
+ */
+export function removeStateTempFiles(dir = dataDir()) {
+  let names;
+  try { names = fs.readdirSync(dir); } catch { return []; }
+  const removed = [];
+  for (const name of names) {
+    if (!STATE_TEMP_FILE.test(name)) continue;
+    fs.rmSync(path.join(dir, name), { force: true });
+    removed.push(name);
+  }
+  return removed;
+}
+
 /**
  * Writes the state to `state.json`.
  *
@@ -88,14 +216,17 @@ export function loadState() {
  * metadata database as queryable rows, so the history of the projects and
  * the runs can be queried without parsing the JSON.
  *
+ * The file is written DURABLY (`writeFileDurably`): a crash or a power cut
+ * leaves the previous or the new complete file, never a torn one.
+ *
  * The mirror is best-effort on purpose: a bridge that cannot open the
  * metadata database still has to serve the API, so a failure of the mirror
  * is reported on stderr and the JSON file remains authoritative. It is
  * never the other way round -- the mirror can never break the bridge.
  */
 export function saveState(v) {
-  ensureData(); const file=path.join(dataDir(),'state.json'), tmp=file+'.tmp';
-  fs.writeFileSync(tmp,JSON.stringify(v,null,2),'utf8'); fs.renameSync(tmp,file);
+  ensureData();
+  writeFileDurably(path.join(dataDir(),'state.json'),JSON.stringify(v,null,2));
   mirrorToSqlite(v);
 }
 
@@ -185,6 +316,61 @@ export function mirrorToSqlite(v) {
   }
 }
 
+/** SQLite primary result codes that mean the file is damaged, not busy or newer. */
+const SQLITE_CORRUPT = 11;
+const SQLITE_NOTADB = 26;
+
+/**
+ * Checks the metadata mirror at start-up and moves a DAMAGED one aside.
+ *
+ * Opening the database is SQLite's own crash recovery: the committed frames
+ * of the WAL are applied and an interrupted transaction is discarded.
+ * `PRAGMA quick_check` then tells whether the file is sound.
+ *
+ * The mirror is derived data -- `state.json` is the truth -- so a damaged
+ * mirror is not repaired in place. It is moved aside TOGETHER with its `-wal`
+ * and `-shm` files (a stale WAL must never be replayed into a new database),
+ * and the next `saveState` rebuilds the mirror from the state file. The
+ * damaged copy is kept for inspection.
+ *
+ * Only damage leads to the move. A mirror that cannot be checked for another
+ * reason (a newer schema, a lock held by another process, a path that is not
+ * a file) is left alone and reported.
+ *
+ * @returns {{status:'absent'|'ok'|'quarantined'|'quarantine-failed'|'unchecked'|'unavailable', file:string, reason?:string, moved?:string[]}}
+ */
+export function recoverMetadataMirror(file = metadataPath()) {
+  if (!fs.existsSync(file)) return { status: 'absent', file };
+  let db = null;
+  let problem = null;
+  try {
+    db = openMetadataDatabase(file, { busyTimeoutMs: MIRROR_BUSY_TIMEOUT_MS, migrate: false });
+    const verdict = db.prepare('PRAGMA quick_check').all().map((row) => String(Object.values(row)[0]));
+    if (verdict.length !== 1 || verdict[0] !== 'ok') problem = verdict.slice(0, 5).join('; ');
+  } catch (e) {
+    if (e?.code === 'SQLITE_NOT_AVAILABLE') return { status: 'unavailable', file };
+    const primary = Number(e?.errcode) & 0xff;
+    if (primary !== SQLITE_CORRUPT && primary !== SQLITE_NOTADB) return { status: 'unchecked', file, reason: e.message };
+    problem = e.message;
+  } finally {
+    if (db) { try { db.close(); } catch { /* already closed */ } }
+  }
+  if (problem === null) return { status: 'ok', file };
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const moved = [];
+  try {
+    for (const suffix of ['', '-wal', '-shm']) {
+      if (!fs.existsSync(file + suffix)) continue;
+      const target = `${file}.corrupt-${stamp}${suffix}`;
+      fs.renameSync(file + suffix, target);
+      moved.push(target);
+    }
+  } catch (e) {
+    return { status: 'quarantine-failed', file, reason: `${problem}; the damaged file could not be moved aside (${e.message})`, moved };
+  }
+  return { status: 'quarantined', file, reason: problem, moved };
+}
+
 /* ------------------------------------------------------------------ */
 /* Data directory lock                                                */
 /* ------------------------------------------------------------------ */
@@ -240,6 +426,96 @@ export function processStartTime(pid) {
 }
 
 /**
+ * The start time of THIS process, read once.
+ *
+ * It never changes for the lifetime of the process, and on Windows reading
+ * it spawns PowerShell (hundreds of milliseconds). Memoising it keeps the
+ * acquisition fast and -- more importantly -- keeps the slow step OUT of the
+ * window between "the lock is free" and "the lock is mine".
+ */
+let ownStartTime;
+export function ownProcessStartTime() {
+  if (ownStartTime === undefined) ownStartTime = processStartTime(process.pid);
+  return ownStartTime;
+}
+
+/** The tokens of the locks THIS process published, keyed by resolved path. */
+const heldLocks = new Map();
+
+/**
+ * How often an acquirer retries a lock that keeps CHANGING under it (it
+ * vanished, it was stale and got taken over, a transient filesystem error)
+ * before it gives up with `reason: 'contended'`. Waiting for a live holder
+ * does not consume this budget; `waitMs` bounds the wait.
+ */
+export const LOCK_MAX_ATTEMPTS = 50;
+/** The default poll interval of an acquirer that waits for a live holder. */
+export const LOCK_POLL_MS = 100;
+/** The default interval of the Bridge's holder check (`ATS_LOCK_VERIFY_MS`). */
+export const LOCK_VERIFY_DEFAULT_MS = 5000;
+/** The shortest holder-check interval the Bridge accepts. */
+export const LOCK_VERIFY_MIN_MS = 50;
+
+/** Errors of a filesystem that has no hard links: publication falls back to an exclusive create. */
+const NO_HARD_LINK = new Set(['EPERM', 'ENOTSUP', 'ENOSYS', 'EXDEV', 'EINVAL']);
+
+/** Filesystem errors that are worth one more attempt (Windows sharing violations). */
+const TRANSIENT_FS = new Set(['EPERM', 'EBUSY', 'EACCES']);
+
+/** `ATS_LOCK_WAIT_MS`: a non-negative integer; anything else means "do not wait". */
+export function lockWaitFromEnv(value) {
+  return typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : 0;
+}
+
+/** `ATS_LOCK_VERIFY_MS`: a non-negative integer with a floor; anything else is the default. */
+export function lockVerifyIntervalFromEnv(value) {
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) return LOCK_VERIFY_DEFAULT_MS;
+  return Math.max(LOCK_VERIFY_MIN_MS, Number(value));
+}
+
+/** A non-negative integer option, or the fallback for anything else. */
+function nonNegativeInt(value, fallback) {
+  if (typeof value !== 'number' && typeof value !== 'string') return fallback;
+  if (typeof value === 'string' && value.trim() === '') return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
+}
+
+/** The lock record in `text`, or null when it is not one. */
+function parseLockRecord(text) {
+  try {
+    const raw = JSON.parse(text);
+    return raw && typeof raw === 'object' && Number.isInteger(raw.pid) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The live holder a record names, or null when the record cannot be
+ * attributed to a live holder (dead pid, or a pid reused by another process).
+ */
+function liveHolder(raw, startTimes = null) {
+  if (!raw || !isProcessAlive(raw.pid)) return null;
+  // The holder is alive. Is it the process that took the lock?
+  if (raw.processStartedAt) {
+    // A waiting acquirer re-checks the same holder many times; its start time
+    // is read once per acquisition (on Windows each read spawns PowerShell).
+    let current;
+    if (raw.pid === process.pid) current = ownProcessStartTime();
+    else if (startTimes?.has(raw.pid)) current = startTimes.get(raw.pid);
+    else {
+      current = processStartTime(raw.pid);
+      startTimes?.set(raw.pid, current);
+    }
+    // The pid is alive but its start time is not the recorded one: the pid
+    // was reused by another process, so the lock is stale.
+    if (current !== null && current !== raw.processStartedAt) return null;
+  }
+  return raw;
+}
+
+/**
  * The holder of the lock, or null when the lock is free.
  *
  * A lock is free when it cannot be attributed to a live holder:
@@ -261,52 +537,224 @@ export function processStartTime(pid) {
  * answers such a lock with the recovery steps, not with a guess.
  */
 export function readBridgeLock(file = lockPath()) {
-  if (!fs.existsSync(file)) return null;
-  let raw;
-  try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); }
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); }
   catch { return null; }
-  if (!raw || !Number.isInteger(raw.pid)) return null;
-  if (!isProcessAlive(raw.pid)) return null;
-  // The holder is alive. Is it the process that took the lock?
-  if (raw.processStartedAt) {
-    const now = processStartTime(raw.pid);
-    // The pid is alive but its start time is not the recorded one: the pid
-    // was reused by another process, so the lock is stale.
-    if (now !== null && now !== raw.processStartedAt) return null;
+  return liveHolder(parseLockRecord(text));
+}
+
+/**
+ * Publishes the complete record as the lock file -- or reports that the lock
+ * exists.
+ *
+ * The record is written to a private temp file first and then LINKED into
+ * place. `link` fails with EEXIST when the name exists, so of two processes
+ * that publish at the same instant exactly one succeeds, and the lock file
+ * never exists empty or half-written (a reader can never mistake a lock that
+ * is being written for a garbage, stale one).
+ *
+ * A filesystem without hard links (FAT, some network shares) falls back to an
+ * exclusive create (`wx`). That is still atomic between two creators; only
+ * the "never half-written" property is weaker there.
+ *
+ * @returns {boolean} true when this call published the lock
+ */
+function publishLock(file, body) {
+  const temp = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  fs.writeFileSync(temp, body, { encoding: 'utf8', flag: 'wx' });
+  try {
+    try {
+      fs.linkSync(temp, file);
+      return true;
+    } catch (e) {
+      if (e.code === 'EEXIST') return false;
+      if (!NO_HARD_LINK.has(e.code)) throw e;
+    }
+    try {
+      fs.writeFileSync(file, body, { encoding: 'utf8', flag: 'wx' });
+      return true;
+    } catch (e) {
+      if (e.code === 'EEXIST') return false;
+      throw e;
+    }
+  } finally {
+    fs.rmSync(temp, { force: true });
   }
-  return raw;
+}
+
+/** Puts a displaced lock back -- without ever overwriting a newer one. */
+function restoreLock(aside, file, text) {
+  try {
+    fs.linkSync(aside, file);
+    return;
+  } catch (e) {
+    // EEXIST: a newer lock was published meanwhile. It is kept; the displaced
+    // holder detects the loss with verifyBridgeLock() and stops.
+    if (!NO_HARD_LINK.has(e.code) || text === null) return;
+  }
+  try { fs.writeFileSync(file, text, { encoding: 'utf8', flag: 'wx' }); }
+  catch { /* a newer lock was published meanwhile; it is kept */ }
+}
+
+/**
+ * Removes a lock that was judged STALE -- and only that lock.
+ *
+ * Deleting the file by name would be a race: between "this lock is stale"
+ * and the delete, another process may have taken it over and published a
+ * FRESH lock under the same name, and the delete would remove a live
+ * holder's lock. So the file is first RENAMED to a name only this process
+ * uses, and the bytes that were moved are compared with the bytes that were
+ * judged stale:
+ *
+ *   * identical: the stale lock is out of the way and is deleted;
+ *   * different: a live process published a lock in between. It is put back
+ *     (`link`, which never overwrites) and the caller sees the lock as held.
+ *
+ * Exported for the race tests; the Bridge and the tools call
+ * acquireBridgeLock().
+ *
+ * @returns {boolean} true when the stale lock was removed
+ */
+export function takeOverStaleLock(file, staleText) {
+  const aside = `${file}.stale-${process.pid}-${crypto.randomUUID()}`;
+  try {
+    fs.renameSync(file, aside);
+  } catch (e) {
+    // Somebody else moved it first: nothing of ours to clean up.
+    if (e.code === 'ENOENT') return false;
+    throw e;
+  }
+  let moved = null;
+  try { moved = fs.readFileSync(aside, 'utf8'); } catch { moved = null; }
+  if (moved === staleText) {
+    fs.rmSync(aside, { force: true });
+    return true;
+  }
+  restoreLock(aside, file, moved);
+  fs.rmSync(aside, { force: true });
+  return false;
+}
+
+function lockHeldError(holder, startedMs, reason) {
+  const e = new Error('BRIDGE_ALREADY_RUNNING');
+  e.code = 'BRIDGE_ALREADY_RUNNING';
+  e.holder = holder;
+  e.reason = reason;
+  e.waitedMs = Date.now() - startedMs;
+  return e;
 }
 
 /**
  * Acquires the exclusive lock of the data directory.
- * Throws `BRIDGE_ALREADY_RUNNING` when a live process holds it.
+ *
+ * Throws `BRIDGE_ALREADY_RUNNING` (with `holder`, `reason` and `waitedMs`)
+ * when a live process holds it -- at once, or after `waitMs` milliseconds of
+ * re-checking every `pollMs`. A stale lock (dead holder, reused pid) is taken
+ * over. The acquisition is ATOMIC: of any number of processes that try at the
+ * same instant, exactly one gets the lock.
+ *
+ * @param {string} [file]
+ * @param {object} [options]
+ * @param {number} [options.waitMs=0] how long to wait for a live holder
+ * @param {number} [options.pollMs=100] the re-check interval while waiting
+ * @param {boolean} [options.createDir=true] false: do not recreate a missing directory
+ * @returns {string} the lock file
  */
-export function acquireBridgeLock(file = lockPath()) {
-  const holder = readBridgeLock(file);
-  if (holder) {
-    const e = new Error('BRIDGE_ALREADY_RUNNING');
-    e.code = 'BRIDGE_ALREADY_RUNNING';
-    e.holder = holder;
-    throw e;
-  }
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  // The start time of this process makes the lock verifiable: the next reader
-  // can tell that the recorded pid is still THIS process and not a process
-  // that happens to reuse the pid.
-  fs.writeFileSync(file, JSON.stringify({
+export function acquireBridgeLock(file = lockPath(), options = {}) {
+  const waitMs = nonNegativeInt(options.waitMs, 0);
+  const pollMs = Math.max(1, nonNegativeInt(options.pollMs, LOCK_POLL_MS));
+  if (options.createDir !== false) fs.mkdirSync(path.dirname(file), { recursive: true });
+  const token = crypto.randomUUID();
+  // The record is complete BEFORE the first attempt: the start time (slow on
+  // Windows) is read here, not between "free" and "mine".
+  const body = JSON.stringify({
     pid: process.pid,
     startedAt: now(),
-    processStartedAt: processStartTime(process.pid)
-  }), 'utf8');
-  return file;
+    processStartedAt: ownProcessStartTime(),
+    token
+  });
+  const startedMs = Date.now();
+  const deadline = startedMs + waitMs;
+  let churn = 0;
+  let lastSeen = null;
+  const startTimes = new Map();
+  for (;;) {
+    let published;
+    try {
+      published = publishLock(file, body);
+    } catch (e) {
+      if (!TRANSIENT_FS.has(e.code) || ++churn >= LOCK_MAX_ATTEMPTS) throw e;
+      sleepSync(10);
+      continue;
+    }
+    if (published) {
+      heldLocks.set(path.resolve(file), token);
+      return file;
+    }
+    let text = null;
+    try { text = fs.readFileSync(file, 'utf8'); } catch { text = null; }
+    if (text !== null) {
+      const raw = parseLockRecord(text);
+      lastSeen = raw;
+      const holder = liveHolder(raw, startTimes);
+      if (holder) {
+        const left = deadline - Date.now();
+        if (left <= 0) throw lockHeldError(holder, startedMs, 'held');
+        sleepSync(Math.min(pollMs, left));
+        continue;
+      }
+      try { takeOverStaleLock(file, text); }
+      catch (e) { if (!TRANSIENT_FS.has(e.code)) throw e; }
+    }
+    // The lock vanished or was stale: publish again -- within a budget, so a
+    // lock that keeps changing cannot spin this loop for ever.
+    if (++churn >= LOCK_MAX_ATTEMPTS) throw lockHeldError(lastSeen, startedMs, 'contended');
+  }
 }
 
-/** Releases the lock -- but only when this process is the holder. */
-export function releaseBridgeLock(file = lockPath()) {
+/**
+ * Whether this process still holds the lock it acquired.
+ *
+ * The answer comes from the token this process published, not from the pid:
+ * the file holds our token, or somebody replaced it.
+ *
+ * @returns {{held:boolean, reason:'held'|'absent'|'taken-over'|'unreadable'|'not-acquired', holder:object|null}}
+ */
+export function verifyBridgeLock(file = lockPath()) {
+  const token = heldLocks.get(path.resolve(file));
+  if (!token) return { held: false, reason: 'not-acquired', holder: null };
+  let text;
   try {
-    const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (raw && raw.pid === process.pid) fs.rmSync(file, { force: true });
-  } catch { /* the lock is not ours, or it is already gone */ }
+    text = fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    return { held: false, reason: e.code === 'ENOENT' ? 'absent' : 'unreadable', holder: null };
+  }
+  const raw = parseLockRecord(text);
+  if (!raw) return { held: false, reason: 'unreadable', holder: null };
+  if (raw.token === token && raw.pid === process.pid) return { held: true, reason: 'held', holder: raw };
+  return { held: false, reason: 'taken-over', holder: raw };
+}
+
+/**
+ * Releases the lock -- but only when this process is the holder.
+ *
+ * A record with a token is ours when it carries the token this process
+ * published; a legacy record without a token is ours when it carries our
+ * pid. Another holder's lock is never removed.
+ *
+ * @returns {boolean} true when the lock file was removed
+ */
+export function releaseBridgeLock(file = lockPath()) {
+  const key = path.resolve(file);
+  const token = heldLocks.get(key);
+  let raw = null;
+  try { raw = parseLockRecord(fs.readFileSync(file, 'utf8')); } catch { raw = null; }
+  const ours = raw !== null && raw.pid === process.pid
+    && (raw.token === undefined || (token !== undefined && raw.token === token));
+  if (!ours) return false;
+  fs.rmSync(file, { force: true });
+  heldLocks.delete(key);
+  return true;
 }
 export function validateProjectPath(input) {
   if(typeof input!=='string'||input.length>1024) throw new Error('INVALID_PROJECT_PATH');

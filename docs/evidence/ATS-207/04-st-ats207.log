@@ -1,0 +1,29 @@
+# ATS-207 evidence: ST-017 / ST-025 / ST-026 (real Bridge processes, real Chromium)
+# collected : 2026-11-06T10:02:19Z
+# HEAD      : c7c3d2f946e414e37de5ac3e0eb137943c3a48fb
+# tree      : 06c2ac3f1820b6643b4b45ff90327df085319938
+# node      : v24.19.0
+# command   : node tools/ats207-probes/st-ats207.mjs . D:/tmp/opus-168/ev/st D:/ICHOR/examples/sample-playwright/node_modules
+
+PASS ST-025a first Bridge serves
+PASS ST-025b second Bridge on the same data directory exits 1 -- exit=1
+PASS ST-025c the refusal names the lock and the holder -- holder: pid 30212, started 2026-11-06T10:02:19.6775839Z
+PASS ST-025d the first Bridge still serves
+PASS ST-025e of two Bridges started together exactly one serves -- refused pid 14372, serving pid 7888
+PASS ST-017a a real Playwright run finishes before the crash -- status=failed summary={"passed":1,"failed":1,"skipped":0,"flaky":0,"total":2,"executions":2,"cases":[{"title":"首页响应正常 @REQ-001","file":"home.spec.ts","status":"passed","outcome":"expected","duration":167,"error":"","attemptsCount":1,"attempts":[{"status":"passed","expectedStatus":"passed","outcome":"expected","retry":0,"duration":167,"error":""}]},{"title":"导航入口正常 @REQ-002","file":"home.spec.ts","status":"failed","outcome":"unexpected","duration":5118,"error":"Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('#t')\nExpected: \u001b[32m\"expected-mismatch\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('#t') with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#t')\u001b[22m\n","attemptsCount":1,"attempts":[{"status":"failed","expectedStatus":"passed","outcome":"unexpected","retry":0,"duration":5118,"error":"Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('#t')\nExpected: \u001b[32m\"expected-mismatch\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('#t') with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#t')\u001b[22m\n"}]}]}
+PASS ST-017b the second run is in flight
+PASS ST-017c the crash left the lock behind
+PASS ST-017d the next Bridge takes over the stale lock and serves
+PASS ST-017e the run in flight is interrupted, not finished -- status=interrupted
+PASS ST-017f the finished run keeps its results
+PASS ST-017g the event log replays to interrupted
+PASS ST-017h the mirror is sound and matches the state file -- {"quick":"ok","mirror":true}
+PASS ST-026a a zero-length state file is refused -- exit=1
+PASS ST-026b the refused state file is left untouched
+PASS ST-026c a Bridge starts over a damaged mirror and quarantines it -- the SQLite metadata mirror was damaged and has been quarantined (file is not a database); moved: D:\tmp\opus-168\ev\st\st207-HsiCdb\data\metadata.db.corrupt-2026-11-06T10-02-40-124Z; it is rebuilt from state.json
+PASS ST-026d the rebuilt mirror matches the state file -- {"quick":"ok","mirror":true}
+PASS ST-026e the history is intact after the rebuild
+scratch: D:\tmp\opus-168\ev\st\st207-HsiCdb
+RESULT: 18/18
+
+# exit code: 0

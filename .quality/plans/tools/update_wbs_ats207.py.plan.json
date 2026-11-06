@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "source": "tools/update_wbs_ats207.py",
+  "baseline_source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "prepared_branch": "agent/opus/seikoist-168",
+  "technical_design": ".quality/docs/tools/update_wbs_ats207.py.md",
+  "test_design": ".quality/test-design/tools/update_wbs_ats207.py.test.md",
+  "prepared_technical_design_sha256": "1e32a02c50f23aed08cf468939fdf78817c1afbfa1371389f7fcd70b3a86ab01",
+  "prepared_test_design_sha256": "c109ba6c8fe399d1fbc424beebc71edd759d9142e58faed13a7d02a47b396eeb",
+  "prepared_related_design_sha256": {}
+}

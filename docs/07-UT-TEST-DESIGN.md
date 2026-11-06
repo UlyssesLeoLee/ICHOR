@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：329；已执行通过：312；待执行/未实现：17。**PENDING 不是测试通过**。
+> 设计总数：352；已执行通过：336；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -27,7 +27,7 @@
 |UT-SEC-002|NFR-003|安全|symlink 越界源码|tests/test.spec.ts 指向仓库外|禁止打开与保存|设计用例，待自动化|PENDING|
 |UT-SEC-003|FR-015|安全|恶意附件文件路径|file=../../etc/passwd|拒绝下载|设计用例，待自动化|PENDING|
 |UT-EVT-001|FR-018|正常|事件序列递增|queued→running→finished|序列号单调 +1，无覆写|设计用例，待自动化|PENDING|
-|UT-DATA-001|NFR-010|异常|状态文件格式损坏|state.json 非 JSON|服务拒绝启动，提示备份恢复|设计用例，待自动化|PENDING|
+|UT-DATA-001|NFR-010|异常|状态文件格式损坏|state.json 非 JSON（含零长度）、null、schema 2|报 STATE_CORRUPT / UNSUPPORTED_DATABASE，服务拒绝启动并提示备份恢复，文件不被改写|node --test|PASS|
 |UT-GIT-001|FR-002|正常|非 Git 仓库|存在 package 和 playwright config，无 .git|branch detached/none,不阻断添加|设计用例，待自动化|PENDING|
 |UT-GIT-002|FR-002|正常|dirty 状态变化|修改一份被追踪的 spec.ts|Git status dirty=true|设计用例，待自动化|PENDING|
 |UT-UI-001|FR-020|交互|流程视图复杂代码保护|测试脚本存在条件循环/helper|不修改源文件，不显示可反向编辑能力|待前端测试|PENDING|
@@ -337,6 +337,29 @@
 |ATS-206-UT-039g|NFR-010|正常|--state 直接指向状态文件|用 --state 指定状态文件|plan 成功并称数量保持|node --test|PASS|
 |ATS-206-UT-039h|NFR-010|正常|默认数据目录来自 ATS_DATA_DIR|设置 ATS_DATA_DIR 后跑 plan|plan 成功并称数量保持|node --test|PASS|
 |ATS-206-UT-060|NFR-010|正常|迁移夹具用完即清理|测试跑完之后|临时目录被删除|node --test|PASS|
+|UT-LOCK-001|NFR-010|正常|取锁发布完整记录并可自校验与释放|新数据目录|记录含 pid/启动时间/token；verify 为 held；释放后文件消失，不留临时文件|node --test|PASS|
+|UT-LOCK-002|NFR-010|异常|活持有者的锁不被覆盖|本进程持锁时再次取锁|报 BRIDGE_ALREADY_RUNNING（reason=held），锁文件逐字节不变|node --test|PASS|
+|UT-LOCK-003|NFR-010|边界|等待取锁超时|子进程持锁，waitMs=400|≥400ms 后报 BRIDGE_ALREADY_RUNNING，waitedMs≥400|node --test|PASS|
+|UT-LOCK-004|NFR-010|正常|持有者释放后等待者取得锁|子进程 500ms 后释放，waitMs=15000|取锁成功，记录为本进程|node --test|PASS|
+|UT-LOCK-005|NFR-008|恢复|陈旧锁被接管|死 pid 的锁；pid 被复用的锁|均被接管，不留 .stale- 文件|node --test|PASS|
+|UT-LOCK-006|NFR-010|异常|无可校验身份的活 pid 锁按占用处理|活 pid 无启动时间；非 JSON 锁文件|前者报 BRIDGE_ALREADY_RUNNING；后者被接管|node --test|PASS|
+|UT-LOCK-007|NFR-010|并发|6 个进程同时抢一把新锁|屏障同时放行 6 个子进程|恰 1 个取得锁、5 个报占用，锁文件记赢家|node --test|PASS|
+|UT-LOCK-008|NFR-010|并发|6 个进程同时接管一把陈旧锁|预置死 pid 的锁|恰 1 个取得锁，不留 .stale- 文件|node --test|PASS|
+|UT-LOCK-009|NFR-010|并发|接管时误移的新锁被放回|锁文件已不是判定为陈旧的字节|返回 false，新锁逐字节放回|node --test|PASS|
+|UT-LOCK-010|NFR-010|并发|放回时不覆盖期间发布的更新锁|放回前已有人发布新锁|保留更新的锁，返回 false|node --test|PASS|
+|UT-LOCK-011|NFR-010|兼容|无硬链接的文件系统退化为独占创建|linkSync 报 EPERM / ENOTSUP|取锁成功，第二次取锁被拒|node --test|PASS|
+|UT-LOCK-012|NFR-010|边界|反复变化的锁有尝试上限|锁每次都消失 / 瞬时错误 / 硬错误|报 reason=contended；瞬时错误限次重试；硬错误直接抛出|node --test|PASS|
+|UT-LOCK-013|NFR-010|安全|释放与校验不认领他人的锁|他人 token / 死 pid / 被替换 / 乱码 / 被删除|release 为 false 且不删除；verify 报 taken-over / unreadable / absent|node --test|PASS|
+|UT-LOCK-014|NFR-010|边界|环境变量与取锁选项校验|ATS_LOCK_WAIT_MS / ATS_LOCK_VERIFY_MS 与 waitMs 的非法值|非法值取默认值，不等待|node --test|PASS|
+|UT-LOCK-015|NFR-010|异常|createDir:false 不重建缺失的数据目录|数据目录已不存在|报 ENOENT，目录未被创建|node --test|PASS|
+|UT-DATA-002|NFR-010|可靠性|改名前先 fsync 临时文件|记录 fsync 与 rename 的调用顺序|fsync 在改名之前；临时文件名带 pid；不留临时文件|node --test|PASS|
+|UT-DATA-003|NFR-010|异常|写入失败时旧状态不变|改名瞬时 EPERM 两次 / 持续 EBUSY / ENOSPC / fsync 失败|瞬时冲突重试后成功；其余抛错，旧文件逐字节不变，不留临时文件|node --test|PASS|
+|UT-DATA-004|NFR-010|清理|清理中断保存留下的临时文件|state.json.tmp、state.json.<pid>.tmp、state.json.bak|只删两个临时文件，状态与备份不变|node --test|PASS|
+|UT-DATA-005|NFR-010|兼容|目录同步在不支持的平台上不抛错|win32 / 不存在的目录|返回 false，不抛错|node --test|PASS|
+|UT-WAL-001|NFR-010|正常|健全的镜像通过检查|无镜像；saveState 写出的镜像|absent；ok 且文件不变|node --test|PASS|
+|UT-WAL-002|NFR-010|恢复|非数据库的镜像被隔离并重建|metadata.db 被写成乱码|quarantined；不留旧 -wal/-shm；下一次保存重建且 verifyMirror 通过|node --test|PASS|
+|UT-WAL-003|NFR-010|恢复|页面损坏的镜像被隔离|覆写一个 b-tree 页|quick_check 报错，quarantined|node --test|PASS|
+|UT-WAL-004|NFR-010|异常|只有损坏才会移动镜像|更新的 schema / 路径是目录 / 改名失败|ok / unchecked 且不移动 / quarantine-failed|node --test|PASS|
 
 ## 进入与退出条件
 

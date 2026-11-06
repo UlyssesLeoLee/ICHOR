@@ -1,0 +1,41 @@
+# ATS-207 evidence: UT-LOCK / UT-DATA / UT-WAL
+# collected : 2026-11-06T10:01:09Z
+# HEAD      : c7c3d2f946e414e37de5ac3e0eb137943c3a48fb
+# tree      : 06c2ac3f1820b6643b4b45ff90327df085319938
+# node      : v24.19.0
+# command   : node --test tests/instance-lock.test.mjs
+
+✔ UT-LOCK-001: acquire publishes a complete record that this process can verify and release (684.1444ms)
+✔ UT-LOCK-002: a live holder is never overwritten (4.1298ms)
+✔ UT-LOCK-003: a waiting acquirer gives up after waitMs (1719.6941ms)
+✔ UT-LOCK-004: a waiting acquirer gets the lock once the holder releases it (3587.9369ms)
+✔ UT-LOCK-005: stale locks (dead pid, reused pid) are taken over without leftovers (1369.3866ms)
+✔ UT-LOCK-006: a live pid without a start time is HELD; a garbage lock is taken over (19.6525ms)
+✔ UT-LOCK-007: of 6 processes acquiring at the same instant exactly one wins (3970.1686ms)
+✔ UT-LOCK-008: of 6 processes taking over one stale lock exactly one wins (3679.4203ms)
+✔ UT-LOCK-009: a takeover that moved a FRESH lock puts it back (9.644ms)
+✔ UT-LOCK-010: a restore never overwrites a lock published in the meantime (10.9551ms)
+✔ UT-LOCK-011: a filesystem without hard links falls back to an exclusive create (14.3276ms)
+✔ UT-LOCK-012: a lock that keeps changing ends in reason "contended"; hard errors surface (1125.0728ms)
+✔ UT-LOCK-013: release and verify never claim a lock this process does not hold (9.8424ms)
+✔ UT-LOCK-014: the environment and the options are validated (163.7351ms)
+✔ UT-LOCK-015: createDir:false does not recreate a missing data directory (1.7919ms)
+✔ UT-DATA-001: a damaged state file is refused, never replaced (7.6159ms)
+✔ UT-DATA-002: saveState syncs the temp file before the rename (27.9797ms)
+✔ UT-DATA-003: a failed write leaves the previous state intact (399.9946ms)
+✔ UT-DATA-004: leftover temp files of an interrupted save are removed, nothing else (29.0778ms)
+✔ UT-DATA-005: the directory sync is a no-op where it cannot work and never throws (0.8665ms)
+✔ UT-WAL-001: a missing mirror is absent, a sound mirror is ok and untouched (30.6328ms)
+✔ UT-WAL-002: a mirror that is not a database is moved aside with its WAL and rebuilt (60.9799ms)
+✔ UT-WAL-003: a mirror with a damaged page fails quick_check and is quarantined (106.9359ms)
+✔ UT-WAL-004: only damage leads to the move (49.8258ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17274.8748
+
+# exit code: 0

@@ -17,6 +17,13 @@ import zlib from 'node:zlib';
 import { REPO_ROOT } from './lib/bridge.mjs';
 
 const PORT = '4577';
+/**
+ * The port as a NUMBER: not glued to a letter or a digit on either side. A
+ * longer token that merely contains the four digits -- a SHA-256 such as the
+ * design-plan hashes under .quality/plans, an identifier -- is not the port.
+ */
+const PORT_TOKEN = new RegExp(`(?<![0-9A-Za-z])${PORT}(?![0-9A-Za-z])`, 'g');
+const portCount = (text) => (text.match(PORT_TOKEN) || []).length;
 
 console.log('=== ATS-101 scenario D: hardcoded default-port audit ===');
 console.log(`repo root : ${REPO_ROOT}`);
@@ -98,14 +105,14 @@ for (const file of walk(REPO_ROOT)) {
   const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
   const lines = fs.readFileSync(file, 'utf8').split('\n');
   lines.forEach((line, i) => {
-    if (!line.includes(PORT)) return;
+    if (portCount(line) === 0) return;
     const entry = {
       rel,
       line: i + 1,
       text: line.trim(),
       // A single line may name the port more than once, so the occurrence
       // count is tracked per line -- the document's counts are occurrences.
-      occurrences: line.split(PORT).length - 1,
+      occurrences: portCount(line),
     };
     // Three buckets, in this order:
     //   1. runtime hardcoding -- the port value actually takes effect;

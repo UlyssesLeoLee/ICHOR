@@ -2,7 +2,7 @@
 
 Source: `tools/wbs_common.py`
 
-Source-SHA256: `73e5fd908966b502aa338154c5812e174a55fa973355f4892fcb0c64bd74724b`
+Source-SHA256: `692fd2ec89f391f3372c28ab7a45be61f002ebaacce5c80c25be807e0f254c24`
 
 ## Test Strategy
 
@@ -12,14 +12,16 @@ pytest. The existing `tools/test_wbs_common.py` (merge idempotence, foreign bloc
 
 | Case ID | Input / Setup | Expected Outcome | Test Location |
 | --- | --- | --- | --- |
-| TC-001 | Every `tools/update_wbs_ats*.py` marker vs `MARKERS` | all registered, including `【ATS-106】` and `【ATS-601】` | `tools/test_wbs_common.py` |
-| TC-002 | `NARRATIVE_FRAGMENTS['【ATS-506】']`; `compose_narrative('', 'D6')` and `'D7'` | both fragments present, the cell ends with `。`, ATS-501 fragments still present | `tools/test_wbs_common_helpers.py` |
+| TC-001 | Every `tools/update_wbs_ats*.py` marker vs `MARKERS` | all registered, including `【ATS-207】` | `tools/test_wbs_common.py` |
+| TC-002 | `NARRATIVE_FRAGMENTS['【ATS-506】']` and `NARRATIVE_FRAGMENTS['【ATS-207】']`; `compose_narrative('', 'D6')` and `'D7'` | all fragments present, the cell ends with `。`, ATS-501 fragments still present | `tools/test_wbs_common_helpers.py` |
 | TC-003 | `cell_text` / `cell_number` on a missing cell, a cell without `<x:v>`, a non-numeric value, an escaped value | `''`, `''`, `0.0`, the unescaped text | `tools/test_wbs_common_helpers.py` |
 | TC-004 | `set_cell` keeps `<x:f>` and style, switches `t="n"`/`t="str"`, escapes `<&>`; missing column and missing row | value replaced, formula kept; `SystemExit` for missing column / row | `tools/test_wbs_common_helpers.py` |
 | TC-005 | `merge_marked` with `plain=True` (with and without an existing prefix), `drop_unmarked=True`, `stale_prefixes`/`stale_fragments`, a duplicate own block, an own block already prefixed with the marker | expected cell text for each; second application is a no-op | `tools/test_wbs_common_helpers.py` |
 | TC-006 | `set_marked_cell` and `set_narrative_cell` on XML without the cell; with a cell without `<x:v>` | `SystemExit`; a cell written with the merged text | `tools/test_wbs_common_helpers.py` |
 | TC-007 | `inflate_zip_entries` on non-zip bytes, on a zip with a stored (method 0) member; `read_parts(copy)` on a temporary copy of the workbook | `SystemExit('not a zip container')`; stored member text; same parts as the repository workbook | `tools/test_wbs_common_helpers.py` |
 | TC-008 | `sheet_cells` with shared strings; `totals` with non-numeric K/P and rows outside the ATS range; `totals(parts)` with zero estimate | shared strings resolved; bad numbers ignored; completion rate 0.0 | `tools/test_wbs_common_helpers.py` |
+| TC-001 | Every `tools/update_wbs_ats*.py` marker vs `MARKERS` | all registered, including `【ATS-106】` and `【ATS-601】` | `tools/test_wbs_common.py` |
+| TC-002 | `NARRATIVE_FRAGMENTS['【ATS-506】']`; `compose_narrative('', 'D6')` and `'D7'` | both fragments present, the cell ends with `。`, ATS-501 fragments still present | `tools/test_wbs_common_helpers.py` |
 
 ## Boundary & Failure Cases
 
