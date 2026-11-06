@@ -1,12 +1,12 @@
 === the WBS updater interaction regression (13 updaters) ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-ac5e9b8184ee/worktree
-commit    : 0d0cae9
-branch    : agent/m2/seikoist-167
+repo root : /d/ICHOR
+commit    : 6c0e420
+branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
 === ATS-501 regression: WBS updater interaction ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-ac5e9b8184ee/worktree
+repo root : /d/ICHOR
 updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats201.py tools/update_wbs_ats202.py tools/update_wbs_ats204.py tools/update_wbs_ats205.py tools/update_wbs_ats206.py tools/update_wbs_ats207.py tools/update_wbs_ats208.py tools/update_wbs_ats212.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py tools/update_wbs_ats506.py tools/update_wbs_ats512.py tools/update_wbs_ats601.py tools/update_wbs_ats601_rtm.py
 updater # : 19 (discovered from tools/update_wbs_*.py)
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]

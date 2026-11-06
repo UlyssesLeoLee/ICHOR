@@ -1,8 +1,8 @@
 
 === the python gates under tools/ ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-ac5e9b8184ee/worktree
-commit    : 0d0cae9
-branch    : agent/m2/seikoist-167
+repo root : /d/ICHOR
+commit    : 6c0e420
+branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
@@ -17,6 +17,6 @@ tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
     warn(msg)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-42 passed, 2 warnings in 1.01s
+42 passed, 2 warnings in 1.00s
 
 exit code : 0

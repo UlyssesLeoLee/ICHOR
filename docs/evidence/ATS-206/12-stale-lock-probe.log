@@ -1,7 +1,7 @@
 === the refusal-branch / stale-lock probe ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-ac5e9b8184ee/worktree
-commit    : 0d0cae9
-branch    : agent/m2/seikoist-167
+repo root : /d/ICHOR
+commit    : 6c0e420
+branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
@@ -20,7 +20,7 @@ VERDICT R4-2: ok -- an interrupted migration whose state file is not migrated mu
 
 === R4-3: a SIGKILL leaves a STALE lock; the next run takes it over and holds the lock for every data write ===
 killed: status=1 really killed: true; lock file left behind: true
-recovery ok: true; data writes during the recovery: [["renameSync","run_5c9591f0-fe36-40c4-8005-7a86345dea63",true],["renameSync","run_67cc5378-368c-44f7-8366-f546b4b783c1",true]]
+recovery ok: true; data writes during the recovery: [["renameSync","run_4a1514d5-4615-4cd5-9e1a-d79544406d25",true],["renameSync","run_17771376-ce77-4504-82b8-48b6287c2650",true]]
 stale lock files left behind: []
 then rollback exit 0; state back to v0.1: true; legacy folders: 2/2
 VERDICT R4-3: ok -- a SIGKILL leaves a stale lock; the next run takes it over and every data write happens under the new lock

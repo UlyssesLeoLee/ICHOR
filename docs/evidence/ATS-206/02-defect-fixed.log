@@ -1,13 +1,13 @@
 === the ATS-206 defect probe -- AFTER the fix ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-ac5e9b8184ee/worktree
-commit    : 0d0cae9
-branch    : agent/m2/seikoist-167
+repo root : /d/ICHOR
+commit    : 6c0e420
+branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
 === the ATS-206 defect probe ===
 the legacy project id : proj_11111111-1111-1111-1111-111111111111
-the migrated project  : proj_1_4498eefed9eaeb7713fae169
+the migrated project  : proj_1_de4dff567b4dbffdb763a23b
 
 (A) the trust map
     present in the migrated state : YES
@@ -15,7 +15,7 @@ the migrated project  : proj_1_4498eefed9eaeb7713fae169
     still under the legacy key     : NO
 
 (B) the UID registry
-    the registry keys              : ["proj_1_4498eefed9eaeb7713fae169"]
+    the registry keys              : ["proj_1_de4dff567b4dbffdb763a23b"]
     reachable under the new UID    : YES (1 entries)
     still under the legacy key     : NO
 
