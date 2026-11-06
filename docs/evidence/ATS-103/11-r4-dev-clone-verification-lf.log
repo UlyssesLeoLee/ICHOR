@@ -1,6 +1,6 @@
 === lf ===
 clone      : D:/hermes-multica/home/cache/scratch/tmp/dev-r4-lf
-commit     : b29e8d17513a538f95fd82dd94923039e7d3d634
+commit     : 9d1df33318e89cb7836662a08eee70bbe7a7cc58
 branch     : dev
 autocrlf   : false
 
@@ -9,7 +9,7 @@ v22.23.4
 10.9.9
 
 --- 1. verify_checksums.py ---
-manifest entries : 590
+manifest entries : 631
 digest mismatches: 0
 tracked-not-listed: 0 []
 listed-not-tracked: 0 []
@@ -17,15 +17,15 @@ RESULT: OK
 STEP_EXIT=0
 
 --- 2. the ATS-101 port audit ---
-doc files/mentions claimed      : 7 / 37
-doc files/mentions actual       : 7 / 37
+doc files/mentions claimed      : 10 / 41
+doc files/mentions actual       : 10 / 41
 doc mention count matches       : true
 
 RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
 STEP_EXIT=0
 
 --- 3. the ADR citation check ---
-ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)
+ok   apps/studio/lib/api.ts:23 (the API base URL -- covered by the ATS-101 port audit)
 ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
 ok   src-tauri/src/lib.rs:19 (the ATS_PORT environment default -- covered by the ATS-101 port audit)
 
@@ -33,10 +33,10 @@ RESULT: OK
 STEP_EXIT=0
 
 --- 4. check-wbs-updaters.sh ---
-  D7: 真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；详见 docs/16-BASELINE-ADR.md；CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md；静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112；Bridge 静态路由只覆盖 /，目录索引与 404 未实现；详见 docs/22-FRONTEND-EXPORT.md；权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；详见 docs/23-AUTHORITATIVE-DISCOVERY.md；跨机器的用例身份不在本任务范围（Project UID 依赖绝对路径）；详见 docs/26-IDENTITY-MAPPER.md；元数据层当前只做 state.json 的镜像，不提供查询 API；详见 docs/06-DATA-DESIGN.md §5；迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；详见 docs/24-STATE-MIGRATION.md；断电只以强杀进程模拟，未做真实掉电；桌面壳不显示占用提示；详见 docs/06-DATA-DESIGN.md §5.7；执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；详见 docs/06-DATA-DESIGN.md §5.4；证据清单未签名（不得宣称 WORM 或防篡改等级），清理掉证据后清单与文件夹不再一致（校验会如实报 missing）；详见 docs/27-EVIDENCE-MANIFEST.md；凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；详见 docs/04-DETAILED-DESIGN.md §5A；详见 docs/17-AGENT-CONTRACT.md；远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；详见 docs/19-REMOTE-RUNNER-PROTOCOL.md；控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；详见 docs/21-CONTROL-PLANE-API.md；插件宿主与沙箱未实现（ATS-512 只交付契约层）；详见 docs/21-PLUGIN-CONTRACT.md；移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md。
+  D7: 真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；详见 docs/16-BASELINE-ADR.md；CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md；静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112；Bridge 静态路由只覆盖 /，目录索引与 404 未实现；详见 docs/22-FRONTEND-EXPORT.md；权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；详见 docs/23-AUTHORITATIVE-DISCOVERY.md；跨机器的用例身份不在本任务范围（Project UID 依赖绝对路径）；详见 docs/26-IDENTITY-MAPPER.md；元数据层当前只做 state.json 的镜像，不提供查询 API；详见 docs/06-DATA-DESIGN.md §5；迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；详见 docs/24-STATE-MIGRATION.md；断电只以强杀进程模拟，未做真实掉电；桌面壳不显示占用提示；详见 docs/06-DATA-DESIGN.md §5.7；执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；详见 docs/06-DATA-DESIGN.md §5.4；证据清单未签名（不得宣称 WORM 或防篡改等级），清理掉证据后清单与文件夹不再一致（校验会如实报 missing）；详见 docs/27-EVIDENCE-MANIFEST.md；凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；详见 docs/04-DETAILED-DESIGN.md §5A；质量概览已在真实 Chromium 里实测渲染（两个界面都打开质量概览页、指标与对账表都渲染、两界面数字一致、无 console 错误），但人工可用性（无障碍/键盘/加载态）未评测，属 ATS-111；聚类只到「错误文本归一化后的签名」，不做根因判断；详见 docs/28-QUALITY-OVERVIEW.md；详见 docs/17-AGENT-CONTRACT.md；远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；详见 docs/19-REMOTE-RUNNER-PROTOCOL.md；控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；详见 docs/21-CONTROL-PLANE-API.md；插件宿主与沙箱未实现（ATS-512 只交付契约层）；详见 docs/21-PLUGIN-CONTRACT.md；移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md；移动端执行面仍无任何实现（ATS-602 只交付用例模型与导入映射；真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md。
   PASS  D6 and D7 still carry every task's contribution
 
-RESULT: OK -- the 20 WBS updaters coexist, are idempotent, do not undo
+RESULT: OK -- the 22 WBS updaters coexist, are idempotent, do not undo
         an accepted review, and the 总览 cache always matches 开发WBS.
 STEP_EXIT=0
 
@@ -62,8 +62,8 @@ RESULT: OK -- 8/8 checks passed.
 STEP_EXIT=0
 
 --- 8. npm test ---
-# tests 1007
-# pass 1002
+# tests 1126
+# pass 1121
 # fail 0
 # skipped 5
 STEP_EXIT=0
