@@ -37,7 +37,8 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-301】', '【ATS-401】', '【ATS-501】')
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-205】', '【ATS-206】',
+           '【ATS-208】', '【ATS-212】', '【ATS-301】', '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -79,16 +80,60 @@ NARRATIVE_FRAGMENTS = {
         'D6': '锁文件、依赖清单与 CI 构建门禁已交付',
         'D7': 'CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md',
     },
+    '【ATS-103】': {
+        'D6': 'Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过（ATS-103）',
+        'D7': '静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；'
+              '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112，'
+              '详见 docs/22-FRONTEND-EXPORT.md',
+    },
     '【ATS-401】': {
         'D6': 'Agent 契约层已实现',
         'D7': '详见 docs/17-AGENT-CONTRACT.md',
     },
-    '【ATS-501】': {
-        'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',
-        'D7': '远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；'
-              '详见 docs/19-REMOTE-RUNNER-PROTOCOL.md',
+    '【ATS-202】': {
+        'D6': '权威发现已实现（ATS-202：playwright test --list；未可信仓库回退静态索引）',
+        'D7': '权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；'
+              '详见 docs/23-AUTHORITATIVE-DISCOVERY.md',
     },
-}
+    '【ATS-205】': {
+        'D6': 'SQLite 元数据层已实现（ATS-205：WAL、版本迁移与事务；state.json 的镜像）',
+        'D7': '元数据层当前只做 state.json 的镜像，不提供查询 API；'
+              '详见 docs/06-DATA-DESIGN.md §5',
+    },
+    '【ATS-206】': {
+        'D6': '状态数据迁移 CLI 已实现（ATS-206：安全导入、备份与回滚；数量一致）',
+        'D7': '迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；'
+              '详见 docs/24-STATE-MIGRATION.md',
+    },
+    '【ATS-208】': {
+        'D6': '执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，'
+              '事件可按 run+sequence 复演）',
+        'D7': '执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；'
+              '详见 docs/06-DATA-DESIGN.md §5.4',
+    },
+    '【ATS-212】': {
+        'D6': '项目级环境档案与 runner 环境封口已实现（ATS-212：档案按项目命名空间；'
+              '只有白名单内的变量可传递；runner 不继承宿主环境）',
+        'D7': '凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；'
+              '详见 docs/04-DETAILED-DESIGN.md §5A',
+    },
+    '【ATS-501】': {
+            'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',
+            'D7': '远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；'
+                  '详见 docs/19-REMOTE-RUNNER-PROTOCOL.md',
+        },
+        '【ATS-506】': {
+            'D6': '部署式控制面 API 边界骨架已实现（ATS-506：独立进程/端点/凭据，'
+                  '入站拒绝本地路径与本地 Token）',
+            'D7': '控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；'
+                  '详见 docs/21-CONTROL-PLANE-API.md',
+        },
+        '【ATS-512】': {
+            'D6': '插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）',
+            'D7': '插件宿主与沙箱未实现（ATS-512 只交付契约层）；'
+                  '详见 docs/21-PLUGIN-CONTRACT.md',
+        },
+    }
 
 
 def _text(value):

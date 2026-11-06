@@ -1,11 +1,11 @@
 === ATS-401 probe: the diff whitelist agrees with git apply, both ways ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-c245c91b845d/worktree
-date      : 2026-11-05T10:57:45Z
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-3a39d5f791de/worktree
+date      : 2026-11-05T14:00:55Z
 git       : git version 2.55.0.windows.4
 
 === ATS-401 probe: the diff whitelist agrees with git apply, both ways ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree
-work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree\.ats-evidence-work\bidirectional
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-3a39d5f791de\worktree
+work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-3a39d5f791de\worktree\.ats-evidence-work\bidirectional
 
 --- A. FORWARD: everything the validator accepts, git agrees with ---
   [PASS] git apply accepts what the validator accepted: the legal baseline diff
@@ -17,6 +17,12 @@ work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4
   [ok  ] rejected: CE1a: a second file smuggled in after a blank line (AGENT_PROPOSAL_OUT_OF_SCOPE)
   [ok  ] rejected: CE1b: an unprefixed path (git -p1 strips one component) (AGENT_PROPOSAL_OUT_OF_SCOPE)
   [ok  ] rejected: CE1c: a deletion via +++ /dev/null (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: R4a: a CR inside a new-file path (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: R4b: a CR inside a modified path (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: R4c: a trailing space after a new-file path (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: R4d: a trailing form feed after a new-file path (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: R4e: two spaces before a new-file path (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: R4f: a vertical tab inside a new-file path (AGENT_PROPOSAL_OUT_OF_SCOPE)
   [ok  ] rejected: M1: insert a blank line into the hunk body (AGENT_PROPOSAL_OUT_OF_SCOPE)
   [ok  ] rejected: M2: drop the a/ b/ prefixes (AGENT_PROPOSAL_OUT_OF_SCOPE)
   [ok  ] rejected: M3: turn the target into /dev/null (a deletion) (AGENT_PROPOSAL_OUT_OF_SCOPE)
@@ -30,6 +36,19 @@ work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4
   [PASS] git reports no rename: M7: drop the index header -- summary=(none)
   [PASS] git reports no mode change: M7: drop the index header -- summary=(none)
   [ok  ] rejected: M8: change the file mode (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [ok  ] rejected: M9: a traditional diff that removes every line (AGENT_PROPOSAL_OUT_OF_SCOPE)
+  [PASS] git apply accepts what the validator accepted: M10: the same, with a diff --git header
+  [PASS] git names only in-scope paths: M10: the same, with a diff --git header -- paths=tests/login.spec.ts out-of-scope=none
+  [PASS] git creates nothing outside the scope: M10: the same, with a diff --git header -- created=none
+  [PASS] git reports no delete: M10: the same, with a diff --git header -- summary=(none)
+  [PASS] git reports no rename: M10: the same, with a diff --git header -- summary=(none)
+  [PASS] git reports no mode change: M10: the same, with a diff --git header -- summary=(none)
+  [PASS] git apply accepts what the validator accepted: M11: a traditional diff that removes only some lines
+  [PASS] git names only in-scope paths: M11: a traditional diff that removes only some lines -- paths=tests/login.spec.ts out-of-scope=none
+  [PASS] git creates nothing outside the scope: M11: a traditional diff that removes only some lines -- created=none
+  [PASS] git reports no delete: M11: a traditional diff that removes only some lines -- summary=(none)
+  [PASS] git reports no rename: M11: a traditional diff that removes only some lines -- summary=(none)
+  [PASS] git reports no mode change: M11: a traditional diff that removes only some lines -- summary=(none)
   [PASS] git apply accepts what the validator accepted: R1: a whitespace-only context line
   [PASS] git names only in-scope paths: R1: a whitespace-only context line -- paths=tests/login.spec.ts out-of-scope=none
   [PASS] git creates nothing outside the scope: R1: a whitespace-only context line -- created=none
@@ -54,6 +73,21 @@ work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4
   [PASS] the validator rejects CE1b: an unprefixed path (git -p1 strips one component) -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
   [PASS] the validator rejects CE1c: a deletion via +++ /dev/null -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
 
+--- B2. the round-4 counterexamples are all rejected ---
+  [PASS] the validator rejects R4a: a CR inside a new-file path -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] the validator rejects R4b: a CR inside a modified path -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] the validator rejects R4c: a trailing space after a new-file path -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] the validator rejects R4d: a trailing form feed after a new-file path -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] the validator rejects R4e: two spaces before a new-file path -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] the validator rejects R4f: a vertical tab inside a new-file path -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+
+--- B3. the deletion-shaped diffs follow the measured git behaviour ---
+  [PASS] the validator rejects a traditional diff that removes every line -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
+  [PASS] git really does report a delete for that traditional diff -- summary=delete tests/login.spec.ts
+  [PASS] git does NOT report a delete for the same diff with a git header -- summary=(none)
+  [PASS] the validator accepts the same diff with a git header -- code=null
+  [PASS] the validator accepts a traditional diff that removes only some lines -- code=null
+
 --- C. BACKWARD: real git diff output is accepted ---
   [PASS] the validator accepts R1: a whitespace-only context line -- code=null
   [PASS] the validator accepts R2: a file with no trailing newline -- code=null
@@ -68,7 +102,11 @@ work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4
   [PASS] the no-rename predicate matches git's own rename output -- summary=rename tests/{old.spec.ts => new.spec.ts} (100%)
   [PASS] git spells the rename the way the predicate looks for -- summary=rename tests/{old.spec.ts => new.spec.ts} (100%) -- a predicate written against "rename from"/"rename to" would be vacuous
   [PASS] the no-delete predicate matches git's own deletion output -- summary=delete mode 100644 tests/old.spec.ts
+  [PASS] git prints the bare `delete <path>` spelling for a traditional diff -- summary=0	1	tests/old.spec.ts
+ delete tests/old.spec.ts
+  [PASS] the no-delete predicate matches that second spelling too -- summary=0	1	tests/old.spec.ts
+ delete tests/old.spec.ts
   [PASS] the no-mode-change predicate matches git's own mode change output -- summary=mode change 100644 => 100755 tests/old.spec.ts
 
 --- verdict ---
-PASS: on this corpus (15 inputs, 5 accepted), the contract whitelist and git apply agree in both directions
+PASS: on this corpus (24 inputs, 7 accepted), the contract whitelist and git apply agree in both directions

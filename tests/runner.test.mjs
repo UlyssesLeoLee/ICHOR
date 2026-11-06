@@ -1,6 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {spawn} from 'node:child_process';
+import { freePort } from './helpers/free-port.mjs';
 const root=path.resolve(import.meta.dirname,'..');const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ats-run-'));
-const project=path.join(dir,'fake-pw'),data=path.join(dir,'data'),port=21000+Math.floor(Math.random()*10000);fs.mkdirSync(path.join(project,'node_modules','@playwright','test'),{recursive:true});fs.mkdirSync(path.join(project,'tests'));fs.writeFileSync(path.join(project,'package.json'),'{}');fs.writeFileSync(path.join(project,'playwright.config.ts'),'export default {}');fs.writeFileSync(path.join(project,'tests','pass.spec.ts'),"test('simulated success', ()=>{});");
+const project=path.join(dir,'fake-pw'),data=path.join(dir,'data'),port=await freePort();fs.mkdirSync(path.join(project,'node_modules','@playwright','test'),{recursive:true});fs.mkdirSync(path.join(project,'tests'));fs.writeFileSync(path.join(project,'package.json'),'{}');fs.writeFileSync(path.join(project,'playwright.config.ts'),'export default {}');fs.writeFileSync(path.join(project,'tests','pass.spec.ts'),"test('simulated success', ()=>{});\n");
 // NOT Playwright itself. A test-only CLI double to exercise reporter transport, persistence and artifact paths.
 fs.writeFileSync(path.join(project,'node_modules','@playwright','test','cli.js'),`
 const fs=require('fs'),path=require('path');const args=process.argv.slice(2);const result=process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;const folder=path.dirname(result);

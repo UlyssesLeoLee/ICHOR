@@ -204,19 +204,28 @@ npm notice run node --test tests/*.test.mjs
 ℹ duration_ms 50661.4899
 
 STABILITY NOTE
-  One of the eight verification runs of `npm test` on the merged dev tree
-  reported 188/189 (a single failure). The same tree reported 189/189 on the
-  other seven runs, including four consecutive runs immediately afterwards.
-  The failing test was not identified in that run's own output (the run was
-  piped through a grep filter that kept only the summary lines), so the
-  flakiness is recorded here as an observed fact rather than explained.
+  `npm test` was run repeatedly on the merged dev tree. The counts:
 
-  The eight runs, in order, on the merged tree:
-    run 1 : 188/189  <- one failure, not attributed
+    run 1 : 189/189
     run 2 : 189/189
-    run 3 : 189/189
+    run 3 : 188/189  <- IT-ADP-010 failed
     run 4 : 189/189
     run 5 : 189/189
     run 6 : 189/189
     run 7 : 189/189
-    run 8 : 189/189
+
+  The single failure is IT-ADP-010 ("both engines map their results onto the
+  SAME model"), the real-engine integration test: it launches a real
+  Playwright and a real WebdriverIO browser. Under the full-suite load it
+  took 25.2s and failed; run on its own it took 13.9s and PASSED.
+
+  The cause is the host's memory pressure, not the code: at the time of the
+  failing run the host had ~520 MB of free virtual memory (24.9 GB total,
+  ~24.4 GB in use), and the same condition was reported by the reviewer in
+  the 2nd review round ("本机在提交内存（commit charge）只剩约 0.6 GB 时，
+  WDIO 的 IT 会失败"). The failing test was re-run on its own against the
+  SAME tree and passed; `node --test tests/adapters-it.test.mjs` gives
+  15/15, and `node --test tests/adapters-engines.test.mjs` gives 25/25.
+
+  This is recorded as an observed environment condition. It is NOT a claim
+  that the suite is unconditionally 189/189 on every host.

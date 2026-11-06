@@ -1,10 +1,10 @@
 === ATS-401 probe: 1st-review-round regressions ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-c245c91b845d/worktree
-date      : 2026-11-05T10:57:39Z
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-3a39d5f791de/worktree
+date      : 2026-11-05T14:00:50Z
 
 === ATS-401 probe: 1st-review-round regressions ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree
-work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree\.ats-evidence-work\r1
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-3a39d5f791de\worktree
+work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-3a39d5f791de\worktree\.ats-evidence-work\r1
 
 --- A. the diff-target scope cannot be bypassed ---
   [PASS] a rename section moving a file out of scope is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
@@ -27,12 +27,12 @@ work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4
   [PASS] the adapter rejects a digest mismatch too -- code=AGENT_PROVENANCE_DIGEST_MISMATCH
 
 --- D. the deadline is enforced against a hung provider ---
-  [PASS] a hung provider is cut off at the deadline -- rejected AGENT_BUDGET_EXCEEDED after 1013ms
+  [PASS] a hung provider is cut off at the deadline -- rejected AGENT_BUDGET_EXCEEDED after 1007ms
 
 --- E. only AGENT_* errors are remapped ---
   [PASS] the validate endpoint rejects a digest mismatch -- 400 {"error":"AGENT_PROVENANCE_DIGEST_MISMATCH","details":{"ref":"tests/login.spec.ts"}}
   [PASS] an AGENT_* error carries machine-readable details -- 400 {"error":"AGENT_BUDGET_INVALID","details":{"field":"maxSteps","limit":10}}
-  [PASS] a non-agent error keeps the pre-ATS-401 behaviour -- 500 {"error":"ENOENT: no such file or directory, lstat 'C:\\c\\Users\\seiko\\multica_workspaces_desktop-api.multica.ai\\triton-n4hv-4bc6c5b98085\\seikoist-20-c245c91b845d\\worktree\\.ats-evidence-work\\r1\\no-such-dir'"}
+  [PASS] a non-agent error keeps the pre-ATS-401 behaviour -- 500 {"error":"ENOENT: no such file or directory, lstat 'C:\\c\\Users\\seiko\\multica_workspaces_desktop-api.multica.ai\\triton-n4hv-4bc6c5b98085\\seikoist-20-3a39d5f791de\\worktree\\.ats-evidence-work\\r1\\no-such-dir'"}
 
 --- F. the self-review check is not an exact string comparison ---
   [PASS] "gen-1" cannot review its own proposal -- code=AGENT_REVIEW_SELF_FORBIDDEN

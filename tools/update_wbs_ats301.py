@@ -35,7 +35,7 @@ import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from wbs_common import set_marked_cell
+from wbs_common import format_rate, set_marked_cell
 
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 SHEET2 = 'xl/worksheets/sheet2.xml'
@@ -177,7 +177,14 @@ def patch_workbook():
     done, rate, sum_p = summarise(xml2)
     xml1 = parts[SHEET1].decode('utf-8')
     xml1 = set_cell_in_row(xml1, 8, 'B', str(done), numeric=True)
-    xml1 = set_cell_in_row(xml1, 9, 'B', repr(rate), numeric=True)
+    # B9 is rendered with format_rate (15 decimals), the same width the
+    # workbook's cached values use. Writing repr(rate) instead produced a
+    # DIFFERENT string for the same number (0.087234042553191 vs
+    # 0.08723404255319145), so the updater rewrote a 总览 cell whose value
+    # had not changed -- the reviewer reads "no cell changed" as the
+    # evidence that the committed workbook IS the updater's output, and a
+    # gratuitous rewrite of a cell weakens that evidence.
+    xml1 = set_cell_in_row(xml1, 9, 'B', format_rate(rate), numeric=True)
     xml1 = set_cell_in_row(xml1, 10, 'B', str(int(sum_p)) if sum_p == int(sum_p) else str(sum_p), numeric=True)
     parts[SHEET1] = xml1.encode('utf-8')
     print(f'overview: 已完成={done} 完成率={rate} 剩余人日={sum_p}')

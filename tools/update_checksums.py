@@ -84,9 +84,22 @@ def main():
         blob = git('cat-file', 'blob', f'HEAD:{rel}')
         lines.append(f'{sha256(blob)}  {rel}')
 
-    # the manifest itself uses CRLF line terminators
-    crlf = chr(13) + chr(10)
-    MANIFEST.write_bytes((crlf.join(lines) + crlf).encode('utf-8'))
+    # The manifest uses LF line terminators, so its bytes are the SAME on
+    # every machine and in every checkout.
+    #
+    # This matters because the generator is also run on Windows with
+    # core.autocrlf=true. Writing CRLF there would be a trap: git's clean
+    # filter rewrites the file to LF when it is committed, so the blob is LF,
+    # but the working tree keeps the CRLF bytes -- and on a machine with
+    # core.autocrlf=false the working tree file would then differ from the
+    # committed blob and the generator's own consistency check would refuse
+    # to run. Writing LF makes the working tree file and the committed blob
+    # identical under BOTH settings.
+    #
+    # The digest of each listed file is unaffected: it is the digest of that
+    # file's blob, not of the manifest.
+    lf = chr(10)
+    MANIFEST.write_bytes((lf.join(lines) + lf).encode('utf-8'))
     print(f'{MANIFEST.name}: {len(lines)} entries')
 
 

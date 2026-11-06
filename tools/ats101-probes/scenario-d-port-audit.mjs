@@ -37,6 +37,9 @@ const NON_RUNTIME = new Set([
   'start.sh',             // launcher script: prints a URL
   'tests/test-cases.json', // test-case data (input strings)
   'tools/generate_test_docs.py', // generator for tests/test-cases.json -- rewrites the old port
+  // The WBS updater names the port only inside the NOTE text it writes into
+  // a cell. The value never takes effect at runtime; it is a mention.
+  'tools/update_wbs_ats103.py',
 ]);
 
 /**
@@ -56,7 +59,7 @@ const NON_RUNTIME = new Set([
  * a new probe script, or a port mention added to this README, must not be
  * reported as a runtime hardcoding site.
  */
-const DOC_MENTION_DIRS = ['tools/ats101-probes', 'tools/ats501-probes'];
+const DOC_MENTION_DIRS = ['tools/ats101-probes', 'tools/ats501-probes', 'tools/ats103-probes'];
 /**
  * Every Markdown file is prose, whatever directory it sits in, so a port
  * mention in one is never a runtime hardcoding. The extension is the rule --

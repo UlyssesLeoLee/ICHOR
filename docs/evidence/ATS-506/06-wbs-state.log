@@ -1,0 +1,22 @@
+=== ATS-506 evidence: ATS-506 row and 总览 in docs/WBS.xlsx ===
+date        : 2026-11-05T12:39:10Z (UTC)
+commit      : bf34fdf3f03f03cfa873a9d4a77748a17beb4dd8
+node        : v24.19.0
+python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command     : python -c <read ATS-506 row with tools/wbs_common.py>
+
+ATS-506 row 82:
+  A82 WBS ID: ATS-506
+  B82 名称: S5
+  G82 完成定义: 云端 API 无本地绝对路径/Token；禁止仅依赖 Tauri 特权 API
+  K82 估算人日: 7
+  N82 状态: 待审核
+  O82 完成率: 1
+  P82 剩余人日: 0
+  T82 风险/说明: 阶段内按验收门槛控制；【ATS-501】须落实 ATS-501 硬边界 HB-1/HB-7：控制平面不得直接调用本地桌面 API、不得直接读 Runner 节点文件系统、不得把本地路径当项目引用；本地凭据不进入远程消息；【ATS-506】部署式控制面 API（/cp/v1）已与桌面本地 API 分离：独立进程/端点/凭据/REMOTE_ 错误命名空间，不导入本地模块、不依赖 Tauri；入站拒绝本地绝对路径、以路径或仓库地址代替 UID 与本地会话 Token，出站再扫描；租户由会话推导、跨租户 404；UT-CP 30 条与进程级 IT-CP 15 条已执行，证据见 docs/evidence/ATS-506/；用户 OIDC（ATS-507）、持久化与审计查询（ATS-508/509）未实现，详见 docs/21-CONTROL-PLANE-API.md
+  remaining == estimate * (1 - completion) ? True
+总览 B8=1 (derived 1)  B9=0.057446808510638  B10=443 (derived 443)
+D6: v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT；Next.js 16 静态导出构建已实测通过；锁文件、依赖清单与 CI 构建门禁已交付；Agent 契约层已实现；远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）；部署式控制面 API 边界骨架已实现（ATS-506：独立进程/端点/凭据，入站拒绝本地路径与本地 Token）。
+D7: 真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；详见 docs/16-BASELINE-ADR.md；CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md；详见 docs/17-AGENT-CONTRACT.md；远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；详见 docs/19-REMOTE-RUNNER-PROTOCOL.md；控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；详见 docs/21-CONTROL-PLANE-API.md。
+exit code   : 0

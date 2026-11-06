@@ -63,8 +63,21 @@ function check(label, condition, detail) {
  *   rename old.spec.ts => new.spec.ts (100%)
  *   delete mode 100644 f.txt
  *   mode change 100644 => 100755 f.txt
+ *
+ * NOTE on the delete spelling: git uses TWO of them, and a predicate that
+ * only knows one of them is a check that sits green while git reports the
+ * very thing it claims to look for:
+ *
+ *   delete mode 100644 f.txt      -- a real file deletion
+ *   delete f.txt                  -- what git reports for a TRADITIONAL diff
+ *                                    (no `diff --git` header) whose new side
+ *                                    has no line left
+ *
+ * The round-4 review found the second one. The predicate below matches
+ * both; section E feeds git's own output for each of them through it, so
+ * neither spelling can silently stop matching.
  */
-const detectsDelete = (summary) => /\bdelete mode\b/i.test(summary);
+const detectsDelete = (summary) => /\bdelete (mode\b|\S)/i.test(summary);
 const detectsRename = (summary) => /\brename\b/i.test(summary);
 const detectsModeChange = (summary) => /\bmode change\b/i.test(summary);
 
@@ -205,6 +218,33 @@ const REVIEWER_COUNTEREXAMPLES = [
     '--- a/tests/login.spec.ts\n+++ /dev/null\n@@ -1,2 +0,0 @@\n-test("a", () => {});\n-\n'],
 ];
 
+// The round-4 counterexamples (review comment 01a1ab68-7b95-7d65-b2d5-fc77500a621e).
+//
+// Each of these makes the validator see a DIFFERENT path than the one git
+// writes to disk:
+//
+//   - a CR in the middle of the path -- git truncates the path at the CR;
+//   - a trailing space / form feed -- git KEEPS them;
+//   - two spaces after `+++` -- the second space lands in the path.
+//
+// The validator used to strip every CR and then trim(), so it saw an
+// in-scope `tests/new.spec.ts` while git wrote `tests/new` (or a path with
+// a trailing space) -- outside the scope, and not a test script either.
+const ROUND4_COUNTEREXAMPLES = [
+  ['R4a: a CR inside a new-file path',
+    '--- /dev/null\n+++ b/tests/new\r.spec.ts\n@@ -0,0 +1 @@\n+test("n", () => {});\n'],
+  ['R4b: a CR inside a modified path',
+    '--- a/tests/login\r.spec.ts\n+++ b/tests/login\r.spec.ts\n@@ -1,2 +1,2 @@\n-test("a", () => {});\n+test("b", () => {});\n \n'],
+  ['R4c: a trailing space after a new-file path',
+    '--- /dev/null\n+++ b/tests/new.spec.ts \n@@ -0,0 +1 @@\n+test("n", () => {});\n'],
+  ['R4d: a trailing form feed after a new-file path',
+    '--- /dev/null\n+++ b/tests/new.spec.ts\f\n@@ -0,0 +1 @@\n+test("n", () => {});\n'],
+  ['R4e: two spaces before a new-file path',
+    '--- /dev/null\n+++  b/tests/new.spec.ts\n@@ -0,0 +1 @@\n+test("n", () => {});\n'],
+  ['R4f: a vertical tab inside a new-file path',
+    '--- /dev/null\n+++ b/tests/new\v.spec.ts\n@@ -0,0 +1 @@\n+test("n", () => {});\n'],
+];
+
 // Automatic mutations of the legal diff.
 const MUTATIONS = [
   ['M1: insert a blank line into the hunk body',
@@ -224,6 +264,22 @@ const MUTATIONS = [
     LEGAL.split('\n').filter((l) => !l.startsWith('index ')).join('\n')],
   ['M8: change the file mode',
     `${LEGAL}\ndiff --git a/tests/login.spec.ts b/tests/login.spec.ts\nold mode 100644\nnew mode 100755\n`],
+  // M9: a traditional diff that removes EVERY line. git reports this as
+  // `delete tests/login.spec.ts` in its `--summary` output, so the contract
+  // layer must reject it (deletions are rejected) -- otherwise the contract
+  // and the platform-side `--summary` re-check disagree about the same
+  // proposal.
+  ['M9: a traditional diff that removes every line',
+    '--- a/tests/login.spec.ts\n+++ b/tests/login.spec.ts\n@@ -1,2 +0,0 @@\n-test("a", () => {});\n-\n'],
+  // M10: the same diff WITH a `diff --git` header. git does NOT report a
+  // delete for this one (it decides deletions from `+++ /dev/null`), so it
+  // stays accepted.
+  ['M10: the same, with a diff --git header',
+    'diff --git a/tests/login.spec.ts b/tests/login.spec.ts\n--- a/tests/login.spec.ts\n+++ b/tests/login.spec.ts\n@@ -1,2 +0,0 @@\n-test("a", () => {});\n-\n'],
+  // M11: a traditional diff that only removes SOME lines -- an ordinary
+  // modification, still accepted.
+  ['M11: a traditional diff that removes only some lines',
+    '--- a/tests/login.spec.ts\n+++ b/tests/login.spec.ts\n@@ -1,1 +1,1 @@\n-test("a", () => {});\n+test("b", () => {});\n'],
 ];
 
 // Real `git diff` output that must be ACCEPTED.
@@ -264,6 +320,7 @@ console.log('--- A. FORWARD: everything the validator accepts, git agrees with -
 const corpus = [
   ['the legal baseline diff', LEGAL],
   ...REVIEWER_COUNTEREXAMPLES,
+  ...ROUND4_COUNTEREXAMPLES,
   ...MUTATIONS,
   ...REAL_GIT_DIFFS,
 ];
@@ -310,6 +367,56 @@ for (const [label, diff] of REVIEWER_COUNTEREXAMPLES) {
     { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] }, request, PRODUCER,
   ));
   check(`the validator rejects ${label}`, code === 'AGENT_PROPOSAL_OUT_OF_SCOPE', `code=${code}`);
+}
+
+console.log('');
+console.log('--- B2. the round-4 counterexamples are all rejected ---');
+for (const [label, diff] of ROUND4_COUNTEREXAMPLES) {
+  const code = codeOf(() => validateAgentProposal(
+    { summary: 'x', diff, evidenceRefs: ['tests/login.spec.ts'] }, request, PRODUCER,
+  ));
+  check(`the validator rejects ${label}`, code === 'AGENT_PROPOSAL_OUT_OF_SCOPE', `code=${code}`);
+}
+
+console.log('');
+console.log('--- B3. the deletion-shaped diffs follow the measured git behaviour ---');
+{
+  // A traditional diff whose new side has no line left is a DELETE as far as
+  // git is concerned: `git apply --numstat --summary` reports
+  // `delete tests/login.spec.ts` for it. The contract layer rejects
+  // deletions, so it must reject this too.
+  const removesEverything = '--- a/tests/login.spec.ts\n+++ b/tests/login.spec.ts\n@@ -1,2 +0,0 @@\n-test("a", () => {});\n-\n';
+  const code = codeOf(() => validateAgentProposal(
+    { summary: 'x', diff: removesEverything, evidenceRefs: ['tests/login.spec.ts'] }, request, PRODUCER,
+  ));
+  check('the validator rejects a traditional diff that removes every line',
+    code === 'AGENT_PROPOSAL_OUT_OF_SCOPE', `code=${code}`);
+
+  // ...and the git-side claim that motivates it. This is the assertion that
+  // would stop being true if git changed its mind about traditional diffs.
+  const view = gitApplyView(removesEverything);
+  check('git really does report a delete for that traditional diff',
+    view.ok && detectsDelete(view.summary),
+    `summary=${view.summary || '(none)'}`);
+
+  // The same diff WITH a `diff --git` header is NOT a delete for git.
+  const withGitHeader = 'diff --git a/tests/login.spec.ts b/tests/login.spec.ts\n--- a/tests/login.spec.ts\n+++ b/tests/login.spec.ts\n@@ -1,2 +0,0 @@\n-test("a", () => {});\n-\n';
+  const view2 = gitApplyView(withGitHeader);
+  check('git does NOT report a delete for the same diff with a git header',
+    view2.ok && !detectsDelete(view2.summary),
+    `summary=${view2.summary || '(none)'}`);
+  const code2 = codeOf(() => validateAgentProposal(
+    { summary: 'x', diff: withGitHeader, evidenceRefs: ['tests/login.spec.ts'] }, request, PRODUCER,
+  ));
+  check('the validator accepts the same diff with a git header', code2 === null, `code=${code2}`);
+
+  // A traditional diff that leaves lines behind is an ordinary modification.
+  const removesSome = '--- a/tests/login.spec.ts\n+++ b/tests/login.spec.ts\n@@ -1,1 +1,1 @@\n-test("a", () => {});\n+test("b", () => {});\n';
+  const code3 = codeOf(() => validateAgentProposal(
+    { summary: 'x', diff: removesSome, evidenceRefs: ['tests/login.spec.ts'] }, request, PRODUCER,
+  ));
+  check('the validator accepts a traditional diff that removes only some lines',
+    code3 === null, `code=${code3}`);
 }
 
 console.log('');
@@ -400,6 +507,30 @@ console.log('--- E. the scope checks are not vacuous ---');
     detectsDelete(deleteSummary),
     `summary=${deleteSummary.trim() || '(none)'}`);
   g(['reset', '--hard', '-q', 'HEAD']);
+
+  // The SECOND delete spelling: `delete <path>` instead of `delete mode ...`.
+  // git prints it for a traditional diff (no `diff --git` header) whose new
+  // side has no line left. The predicate has to match this one too -- a
+  // predicate written only against `delete mode` would never fire here,
+  // which is exactly the hole the round-4 review found.
+  {
+    const traditional = [
+      '--- a/tests/old.spec.ts',
+      '+++ b/tests/old.spec.ts',
+      '@@ -1,1 +0,0 @@',
+      '-l1',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(work, 'traditional.diff'), traditional, 'utf8');
+    const traditionalSummary = g(['apply', '--numstat', '--summary', 'traditional.diff']).stdout;
+    check('git prints the bare `delete <path>` spelling for a traditional diff',
+      /\bdelete \S/i.test(traditionalSummary),
+      `summary=${traditionalSummary.trim() || '(none)'}`);
+    check('the no-delete predicate matches that second spelling too',
+      detectsDelete(traditionalSummary),
+      `summary=${traditionalSummary.trim() || '(none)'}`);
+    fs.rmSync(path.join(work, 'traditional.diff'), { force: true });
+  }
 
   // a mode change
   g(['update-index', '--chmod=+x', 'tests/old.spec.ts']);

@@ -1,10 +1,10 @@
 === ATS-401 probe: 2nd-review-round regressions ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-c245c91b845d/worktree
-date      : 2026-11-05T10:57:42Z
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-3a39d5f791de/worktree
+date      : 2026-11-05T14:00:53Z
 
 === ATS-401 probe: 2nd-review-round regressions ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree
-work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-c245c91b845d\worktree\.ats-evidence-work\r2
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-3a39d5f791de\worktree
+work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-3a39d5f791de\worktree\.ats-evidence-work\r2
 
 --- A. the diff scope cannot be bypassed ---
   [PASS] the legacy "rename old/new" headers is rejected -- code=AGENT_PROPOSAL_OUT_OF_SCOPE
@@ -23,7 +23,7 @@ work root : C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4
 --- C. the WBS updater is idempotent ---
   [PASS] the ATS-401 WBS updater runs -- exit1=0 exit2=0 
   [PASS] the note keeps exactly one 【ATS-401】 marker after two runs -- markers=1
-  [PASS] running the updater twice leaves the file byte-identical -- 49430B vs 49430B
+  [PASS] running the updater twice leaves the file byte-identical -- 51962B vs 51962B
   [PASS] running the updater twice leaves the workbook CONTENT identical -- the second run changed the content
   [PASS] the updater is stable against the committed baseline -- the second run differs from the committed workbook
   [PASS] the updater is content-stable against the committed baseline -- the second run differs from the committed workbook content

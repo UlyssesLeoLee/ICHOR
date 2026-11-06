@@ -86,6 +86,15 @@ jobs:
       - name: Syntax check the bridge entrypoint
         run: node --check server/index.mjs
 
+      # The local build gate (tools/ci_build_gate.mjs) claims to run exactly
+      # the steps this workflow runs. That claim is a comment, and a comment
+      # cannot fail -- so it is checked here, in the workflow itself: the
+      # check reads this file and compares every `run:` command with the
+      # commands the local gate issues. A step added to one side and not the
+      # other fails this step.
+      - name: Verify the local build gate matches this workflow
+        run: node tools/ci_build_gate.mjs --check-parity
+
       - name: Upload test output
         if: always()
         uses: actions/upload-artifact@v4

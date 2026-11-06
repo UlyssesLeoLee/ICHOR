@@ -1,0 +1,331 @@
+=== ATS-506 evidence: baseline regression: npm test / node --check / port audit / ATS-501 protocol audit / ADR citations / dependency manifest ===
+date        : 2026-11-05T12:39:10Z (UTC)
+commit      : bf34fdf3f03f03cfa873a9d4a77748a17beb4dd8
+node        : v24.19.0
+python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command     : npm test; node --check server/index.mjs server/control-plane/main.mjs; node tools/ats101-probes/scenario-d-port-audit.mjs; node tools/ats501-probes/audit-remote-protocol.mjs; node tools/ats501-probes/mutation-tests.mjs; python tools/check_adr_citations.py; node tools/gen_dep_manifest.mjs --check
+
+--- npm test ---
+npm notice run ai-test-studio@0.1.0 test
+npm notice run node --test tests/*.test.mjs
+✔ UT-PWA-001: the Playwright adapter reports the probed options as proven (112.361ms)
+✔ UT-PWA-002: the Playwright adapter never claims --screenshot / --video (184.4823ms)
+✔ UT-PWA-003: a project without the CLI reports every capability unsupported with a reason (1.3986ms)
+✔ UT-PWA-004: an unreadable --help does NOT produce a proven capability (97.5657ms)
+✔ UT-PWA-004B: a usage line WITHOUT a positional filter means filterByFile is unsupported (81.6702ms)
+✔ UT-PWA-004C: a usage line WITH a positional filter means filterByFile is supported (79.6877ms)
+✔ UT-PWA-005: the Playwright argument vector contains only probed options (82.6088ms)
+✔ UT-WDA-001: the WDIO adapter reports the reporter packages it found (68.849ms)
+✔ UT-WDA-002: the WDIO adapter refuses to claim an HTML report (68.9146ms)
+✔ UT-WDA-003: the WDIO adapter refuses to claim trace / screenshot / video (198.7112ms)
+✔ UT-WDA-004: a project without the WDIO CLI reports every capability unsupported (0.3272ms)
+✔ UT-WDA-005: mapWdioStatus normalises every WDIO state (0.0843ms)
+✔ UT-WDA-006: mergeWdioReports merges per-worker ResultSets (0.4366ms)
+✔ UT-WDA-007: a worker with several spec files does not guess the case file (0.0899ms)
+✔ UT-WDA-008: parseWdioReport rejects a payload that is not a ResultSet (0.0824ms)
+✔ UT-WDA-009: fileUrlToRelative converts a file:// URL to a path (0.0657ms)
+✔ UT-WDA-010: the generated WDIO config points the reporter at the run output dir (0.3065ms)
+✔ UT-REG-001: the registry knows both runners (0.5668ms)
+✔ UT-REG-002: getAdapter rejects an unknown runner (0.1176ms)
+✔ UT-REG-003: the capability matrix reports every runner for a project (62.9939ms)
+✔ UT-REG-004: selectAdapter picks a runner that supports the request (61.0155ms)
+✔ UT-REG-005: selectAdapter explains why every runner was rejected (60.2275ms)
+✔ UT-REG-006: a pinned runner does NOT fall back to another engine (0.3354ms)
+✔ UT-REG-007: a pinned runner that satisfies the request is returned (61.8547ms)
+✔ UT-CLEANUP: removes the generated fixture (5.6042ms)
+✔ IT-ADP-001: both engines expose the same four operations (1.2926ms)
+✔ IT-ADP-002: both engines return the same discover() shape (3.1406ms)
+✔ IT-ADP-003: the Playwright fixture is discovered (0.9395ms)
+✔ IT-ADP-004: the WDIO fixture is discovered (0.6475ms)
+﹣ IT-ADP-005: negotiation over the real Playwright project proves the CLI options (0.1417ms) # examples/sample-playwright has no node_modules
+﹣ IT-ADP-005B: the real Playwright CLI declares a positional test filter (0.1032ms) # examples/sample-playwright has no node_modules
+﹣ IT-ADP-005C: the real Playwright run passes the filtered file as a positional argument (0.099ms) # examples/sample-playwright has no node_modules
+﹣ IT-ADP-006: negotiation over the real WDIO project proves the reporter (0.1199ms) # examples/sample-wdio has no node_modules
+﹣ IT-ADP-007: an unsupported capability is DETECTABLE, not an exception (0.1396ms) # examples/sample-wdio has no node_modules
+﹣ IT-ADP-008: Playwright start -> collect produces one PASS and one FAIL (0.1817ms) # examples/sample-playwright has no node_modules
+﹣ IT-ADP-009: WDIO start -> collect produces one PASS and one FAIL (0.107ms) # examples/sample-wdio has no node_modules
+﹣ IT-ADP-010: both engines map their results onto the SAME model (0.1774ms) # the fixtures have no node_modules
+﹣ IT-ADP-011: stop() terminates a Playwright run that is in flight (0.1046ms) # examples/sample-playwright has no node_modules
+﹣ IT-ADP-011B: stop() terminates a WebdriverIO run that is in flight (0.06ms) # examples/sample-wdio has no node_modules
+✔ IT-ADP-CLEANUP: removes the generated fixture (1.0777ms)
+✔ UT-ADP-001: contract version is 1 and the operation set is fixed (1.8926ms)
+✔ UT-ADP-002: every vocabulary entry declares a kind (0.3065ms)
+✔ UT-ADP-003: an unsupported capability must carry a reason (0.267ms)
+✔ UT-ADP-004: a supported capability must carry evidence (0.231ms)
+✔ UT-ADP-005: an unknown capability name is rejected (0.4499ms)
+✔ UT-ADP-006: assertAdapter rejects an adapter missing an operation (0.4744ms)
+✔ UT-ADP-007: assertAdapter rejects a contract version mismatch (0.2481ms)
+✔ UT-ADP-008: a conforming adapter passes assertAdapter (0.1573ms)
+✔ UT-ADP-009: negotiation over supported capabilities succeeds (0.4839ms)
+✔ UT-ADP-010: negotiation reports the missing capability with its reason (0.3109ms)
+✔ UT-ADP-011: negotiation reports a capability the adapter does not declare (0.1955ms)
+✔ UT-ADP-012: requireCapability throws CAPABILITY_UNSUPPORTED with the reasons (0.2004ms)
+✔ UT-ADP-013: requireCapability returns the negotiation when everything is supported (0.1594ms)
+✔ UT-ADP-014: supports() and gaps() read the same capability set (0.3987ms)
+✔ UT-ADP-015: parseCliOptions reads EVERY alias on a help line (0.4466ms)
+✔ UT-ADP-016: parseCliOptions does not invent options from the description column (0.1599ms)
+✔ UT-ADP-017: parseCliUsage reads the usage line and detects the positional filter (0.3922ms)
+✔ UT-ADP-017B: hasPositionalFilter accepts a BARE usage line as well as a help text (0.118ms)
+✔ UT-ADP-018: probeCommand never throws when the command is missing (10.9588ms)
+✔ UT-ADP-019: resolveProjectBinary returns null when nothing matches (0.3729ms)
+✔ UT-ADP-020: readPackageVersion reads a version and returns null when absent (2.3197ms)
+✔ UT-ADP-CLEANUP: removes the generated fixture (2.8883ms)
+✔ IT-AGT-SETUP: start server (187.195ms)
+✔ IT-AGT-001: the contract description is exposed (4.6562ms)
+✔ IT-AGT-002: the contract endpoint requires a session token (7.873ms)
+✔ IT-AGT-003: a valid request is accepted by the validator (20.1275ms)
+✔ IT-AGT-004: a request asking for a forbidden capability is rejected with 400 (3.9366ms)
+✔ IT-AGT-005: a request without a budget is rejected with 400 (8.1656ms)
+✔ IT-AGT-006: a request without provenance is rejected with 400 (3.4588ms)
+✔ IT-AGT-007: a request whose scope escapes the project root is rejected with 400 (2.306ms)
+✔ IT-AGT-008: validating a request does not write to the project (9.6128ms)
+✔ IT-AGT-009: the diagnostics endpoint reports the agent contract status (1.5415ms)
+✔ IT-AGT-010: a request whose digest does not match its content is rejected with 400 (13.4254ms)
+✔ IT-AGT-011: an AGENT_* error carries machine-readable details (15.5665ms)
+✔ IT-AGT-012: the error details never contain a local filesystem path (2.7765ms)
+✔ IT-AGT-013: a non-agent error keeps the pre-ATS-401 behaviour (12.9873ms)
+✔ IT-AGT-CLEANUP: stop and cleanup (3.8431ms)
+✔ UT-AGT-001: contract version and roles are stable (2.9987ms)
+✔ UT-AGT-002: no role holds a write or commit capability (0.2873ms)
+✔ UT-AGT-003: scope requires an absolute root and at least one input target (1.0787ms)
+✔ UT-AGT-004: scope rejects paths that escape the project root (0.3293ms)
+✔ UT-AGT-005: scope outputs must be test script files (0.426ms)
+✔ UT-AGT-006: budget must be present, integral and within platform limits (0.569ms)
+✔ UT-AGT-007: provenance must be present and inside the declared scope (1.6195ms)
+✔ UT-AGT-008: provenance digest must be a sha256 hex digest (0.3594ms)
+✔ UT-AGT-009: a request asking for a forbidden capability is rejected (0.8186ms)
+✔ UT-AGT-010: an unknown contract version is rejected (0.3928ms)
+✔ UT-AGT-011: an unknown role is rejected (0.2239ms)
+✔ UT-AGT-012: a request cannot claim a capability its role does not grant (0.4372ms)
+✔ UT-AGT-013: a diff targeting a file outside scope.outputs is rejected (2.8345ms)
+✔ UT-AGT-014: a diff targeting a non test-script file is rejected (0.6113ms)
+✔ UT-AGT-015: a diff escaping the project root is rejected (0.5582ms)
+✔ UT-AGT-016: scope.outputs cannot declare a path outside the project root (0.2199ms)
+✔ UT-AGT-017: the approval state of a proposal is always pending (0.5531ms)
+✔ UT-AGT-018: a script-diff proposal must cite provenance evidence (0.3606ms)
+✔ UT-AGT-019: the producer may not review its own proposal (0.5787ms)
+✔ UT-AGT-020: only a pending proposal can be reviewed (0.4038ms)
+✔ UT-AGT-021: the adapter rejects a forbidden capability at construction time (0.3178ms)
+✔ UT-AGT-022: the adapter rejects a capability the role does not grant (0.1612ms)
+✔ UT-AGT-023: the adapter rejects a request whose role it does not serve (1.013ms)
+✔ UT-AGT-024: the adapter rejects input whose content does not match its digest (0.3542ms)
+✔ UT-AGT-025: the adapter rejects provider output that is not JSON (0.7274ms)
+✔ UT-AGT-026: the adapter rejects provider output larger than the budget (0.6658ms)
+✔ UT-AGT-027: inputs outside the declared egress kinds are not transmitted (0.7613ms)
+✔ UT-AGT-028: the described contract exposes no writable capability (0.2725ms)
+✔ UT-AGT-029: a diff that renames a file out of the scope is rejected (0.5949ms)
+✔ UT-AGT-030: a diff that copies a file out of the scope is rejected (0.3284ms)
+✔ UT-AGT-031: a diff that changes a file mode is rejected (0.3013ms)
+✔ UT-AGT-032: a CRLF-terminated diff header is still scope-checked (0.5052ms)
+✔ UT-AGT-033: a binary patch is rejected (0.4698ms)
+✔ UT-AGT-034: a Binary files ... differ section is rejected (0.4003ms)
+✔ UT-AGT-035: a diff --git header naming an out-of-scope file is rejected (0.3361ms)
+✔ UT-AGT-036: a new test script inside scope.outputs is accepted (0.288ms)
+✔ UT-AGT-037: a deleted file section is rejected (0.1641ms)
+✔ UT-AGT-038: a non-100644 new file mode is rejected (0.1453ms)
+✔ UT-AGT-039: the request validator rejects a digest that does not match the content (0.1021ms)
+✔ UT-AGT-040: the budget limits are enforced on every field (0.1698ms)
+✔ UT-AGT-041: the adapter rejects input that exceeds the input byte budget (0.2256ms)
+✔ UT-AGT-042: the adapter enforces the deadline when the provider hangs (1005.6511ms)
+✔ UT-AGT-043: the adapter reports a provider failure as AGENT_PROVIDER_ERROR (0.5214ms)
+✔ UT-AGT-044: the adapter rejects a provider response without text (0.3472ms)
+✔ UT-AGT-045: the adapter passes an abort signal to the provider (0.2767ms)
+✔ UT-AGT-046: proposal actions are validated (0.2499ms)
+✔ UT-AGT-047: the proposal confidence must be a number between 0 and 1 (0.2244ms)
+✔ UT-AGT-048: evidence-kind provenance must belong to scope.runs (0.2509ms)
+✔ UT-AGT-049: evidence refs must come from the request provenance (0.1404ms)
+✔ UT-AGT-050: the contract layer source contains no I/O capability (9.1462ms)
+✔ UT-AGT-051: the scope projectId must be a non-empty string (0.1679ms)
+✔ UT-AGT-052: every provenance field is validated (0.2423ms)
+✔ UT-AGT-053: run and requirement provenance must be in the scope (0.1701ms)
+✔ UT-AGT-054: the requested capabilities and the egress kinds are validated (0.2222ms)
+✔ UT-AGT-055: a quoted diff path is accepted and a long request id is rejected (0.4319ms)
+✔ UT-AGT-056: the diff argument itself is validated (0.1852ms)
+✔ UT-AGT-057: a non-script-diff proposal must not carry a diff (0.1214ms)
+✔ UT-AGT-058: an absolute diff target is rejected (0.1053ms)
+✔ UT-AGT-059: the evidence refs argument is validated (0.1841ms)
+✔ UT-AGT-060: the proposal must be an object and its kind must match the role (0.1185ms)
+✔ UT-AGT-061: a proposal that needs a capability the request does not grant is rejected (0.1151ms)
+✔ UT-AGT-062: the provider and the adapter constructors are validated (0.1543ms)
+✔ UT-AGT-063: the adapter refuses a capability it does not hold (0.1703ms)
+✔ UT-AGT-064: the adapter describes itself (0.0856ms)
+✔ UT-AGT-065: the review arguments are validated (0.1796ms)
+✔ UT-AGT-066: a provider that fails after the deadline is reported as a budget failure (62.3729ms)
+✔ UT-AGT-067: the self-review check is not an exact string comparison (0.691ms)
+✔ UT-AGT-068: a proposal without a platform-supplied producer is rejected (0.2678ms)
+✔ UT-AGT-069: the legacy "rename old/new" headers cannot bypass the scope check (0.1994ms)
+✔ UT-AGT-070: a C-quoted diff --git header cannot bypass the scope check (0.3591ms)
+✔ UT-AGT-071: the diff header whitelist rejects the constructs outside it (0.4008ms)
+✔ UT-AGT-072: a hunk whose declared line count does not match its body is rejected (0.2096ms)
+✔ UT-AGT-073: the diff --git header may be omitted, and a quoted path is unescaped (0.4492ms)
+✔ UT-AGT-074: a blank line inside a hunk body counts as a context line (0.2323ms)
+✔ UT-AGT-075: a second file smuggled in after a blank line is rejected (0.3659ms)
+✔ UT-AGT-076: an unprefixed path is rejected because git -p1 strips one component (0.2076ms)
+✔ UT-AGT-077: a deletion via +++ /dev/null is rejected (0.1952ms)
+✔ UT-AGT-078: a hunk body that overshoots its declared counts is rejected (0.1933ms)
+✔ UT-AGT-079: the trailing newline of the diff is not a context line (0.1987ms)
+✔ UT-AGT-080: the no-newline marker right after a hunk is still legal (0.1695ms)
+✔ UT-AGT-081: a diff whose file has no trailing newline is accepted (0.18ms)
+✔ UT-AGT-082: a real git diff of a new spec file is accepted (0.2345ms)
+✔ UT-AGT-083: a real git diff with a whitespace-only context line is accepted (0.1963ms)
+✔ UT-AGT-084: a quoted path that decodes to a non-UTF-8 byte is rejected (0.3333ms)
+✔ UT-AGT-085: the deadline holds in a process that holds no other handle (1073.337ms)
+✔ IT-API-SETUP: start server (213.8019ms)
+✔ IT-SEC-001: rejects unauthenticated API (2.7318ms)
+✔ IT-API-001: add existing repository (120.6102ms)
+✔ IT-API-002: import and index tests (96.7417ms)
+✔ IT-SEC-002: rejects foreign origin (2.1199ms)
+✔ IT-API-001B: add a project without the engine installed (92.4734ms)
+✔ IT-RUN-001: no deps => explicit failure rather than fake success (75.046ms)
+✔ IT-API-003: runs survive persisted read (11.3663ms)
+✔ IT-API-010: GET /runners returns the capability matrix (85.6805ms)
+✔ IT-API-011: POST /runners with an unsatisfiable capability is 409 WITH the reason (2.4153ms)
+✔ IT-API-012: POST /runners with a PINNED runner that cannot satisfy the request is 409 WITH the reason (4.86ms)
+✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (17.3853ms)
+✔ IT-API-014: POST /run with an unsatisfiable capability is 409 WITH the reason (3.1238ms)
+✔ IT-API-015: a non-array capabilities is a 400, not a silent empty request (2.8754ms)
+✔ IT-API-CLEANUP: stop and cleanup (3.0536ms)
+✔ IT-CP-SETUP: the local Bridge and the control plane start as independent plain-Node processes (212.1074ms)
+✔ IT-CP-001: the control plane is fully usable without Tauri (5.7033ms)
+✔ IT-CP-002: the local session token is not a control-plane credential (5.3662ms)
+✔ IT-CP-003: the control-plane token is not a local Bridge credential (3.0176ms)
+✔ IT-CP-004: the control plane does not serve local Bridge endpoints (5.1369ms)
+✔ IT-CP-005: the local Bridge does not serve control-plane endpoints (4.1712ms)
+✔ IT-CP-006: registration requests carrying local paths are refused (10.5228ms)
+✔ IT-CP-007: a path or repository address used instead of a UID is refused (7.4221ms)
+✔ IT-CP-008: the local session token in a request body is refused as an inline secret (4.3799ms)
+✔ IT-CP-009: project metadata is registered and read by opaque UID; responses carry no path (6.4549ms)
+✔ IT-CP-010: another tenant gets 404 for the project; a client-chosen tenant is refused (2.7285ms)
+✔ IT-CP-012: the local Bridge still registers projects by path, and the control plane never sees them (94.2597ms)
+✔ IT-CP-011: no control-plane response contains the local data directory, a local project path or the local session token (0.7985ms)
+✔ IT-CP-013: the control plane refuses to share the local Bridge port (108.1256ms)
+✔ IT-CP-CLEANUP: child processes and the temporary data directory are removed (9.8865ms)
+✔ UT-CP-001: local path forms are detected with their rule name (3.3672ms)
+✔ UT-CP-002: values that are not local paths are not flagged (0.4013ms)
+✔ UT-CP-003: percent-encoded paths are refused like the plain form; malformed encoding falls back to the raw text (0.2208ms)
+✔ UT-CP-004: body inspection covers keys and values, nested objects and arrays, without echoing the value (1.5182ms)
+✔ UT-CP-005: path, repository-address and credential field names are classified (0.7159ms)
+✔ UT-CP-006: the local session token shape (48 hex) is refused; 40/64 hex are not (0.2789ms)
+✔ UT-CP-007: nesting deeper than 32 levels is refused; 32 levels pass (0.7354ms)
+✔ UT-CP-008: the code table equals the docs/19 constraint block code by code (1.4838ms)
+✔ UT-CP-009: unknown codes are programming errors; the audit reason never reaches the body (0.8454ms)
+✔ UT-CP-010: authenticators map requests to a tenant or an audit-only reason (1.1747ms)
+✔ UT-CP-011: dev token configuration is validated without echoing tokens (0.6112ms)
+✔ UT-CP-012: startup configuration defaults and accepted variants (5.0108ms)
+✔ UT-CP-013: unsafe startup configurations are refused with exit code 2 (0.5904ms)
+✔ UT-CP-014: HTTPS uses TLS 1.3 minimum; plain HTTP listens and reports the auth mode without tokens (53.7352ms)
+✔ UT-CP-015: health is public and carries no host details (5.248ms)
+✔ UT-CP-016: the local Bridge credential is refused on every route, with or without a valid Bearer (8.7612ms)
+✔ UT-CP-017: browser Origin requests are refused (6.2309ms)
+✔ UT-CP-018: unknown routes, wrong methods and the local /api namespace are policy rejections (12.1397ms)
+✔ UT-CP-019: local paths in path segments or the query string are refused before routing (16.9052ms)
+✔ UT-CP-020: authentication failures share one code; the reason only reaches the audit trail (8.688ms)
+✔ UT-CP-021: the tenant comes from the session; missing or mismatching tenants are refused (11.532ms)
+✔ UT-CP-022: POST bodies must be JSON objects within 64 KiB (23.706ms)
+✔ UT-CP-023: projects are registered and read by opaque UID only (10.1805ms)
+✔ UT-CP-024: another tenant cannot see a project; the answer equals a missing project (9.9345ms)
+✔ UT-CP-025: invalid display names, unknown fields, paths and credentials in the body are refused (17.0114ms)
+✔ UT-CP-026: a response that would carry a local path is never sent (egress guard) (6.3841ms)
+✔ UT-CP-027: an unexpected exception becomes REMOTE_INTERNAL without echoing its message; the audit trail is capped (326.7787ms)
+✔ UT-CP-028: the control-plane sources import no local Bridge module, Tauri API or child_process (1.4755ms)
+✔ UT-CP-029: the Tauri shell hosts only the local Bridge; the UI uses no Tauri API (1.6035ms)
+✔ UT-CP-030: the contract endpoint describes the boundary (3.8639ms)
+✔ UT-CORE-001: validates Playwright project (4.0517ms)
+✔ UT-CORE-002: extracts static test index (1.4859ms)
+✔ UT-SEC-001: rejects path traversal (0.4731ms)
+✔ UT-CORE-003: conditional save avoids lost updates (4.6605ms)
+✔ UT-CORE-004: malformed project rejected (1.0448ms)
+✔ UT-RUN-001: missing local Playwright never auto-installs (0.6156ms)
+✔ UT-RPT-001: report summary counts passed/failed/skipped (1.2416ms)
+✔ UT-CORE-005: removes generated fixture (3.5115ms)
+✔ IT-RUN-MOCK-SETUP: isolated fake CLI adapter (291.5181ms)
+✔ IT-RUN-MOCK-001: Run->JSON->manifest->artifact roundtrip (332.0852ms)
+✔ IT-RUN-MOCK-002: cancel marks cancelled (293.1166ms)
+✔ IT-RUN-MOCK-CLEANUP: cleanup (7.0704ms)
+ℹ tests 234
+ℹ suites 0
+ℹ pass 223
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 10
+ℹ todo 0
+ℹ duration_ms 2354.7162
+
+✖ failing tests:
+
+test at tests\api.test.mjs:68:1
+✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (17.3853ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  409 !== 200
+  
+      at TestContext.<anonymous> (file:///C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-21-602f98649a68/worktree/tests/api.test.mjs:70:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 409,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+exit code   : 1
+
+--- node --check ---
+OK
+
+--- port audit (ATS-101 scenario D) ---
+distinct runtime files          : 5
+non-runtime data files          : 5
+doc-mention files (excl. 16)    : 6
+doc mentions (excl. 16)         : 13
+runtime files missing from §3.1 : (none)
+non-runtime missing from §3.1   : (none)
+runtime positions missing       : (none)
+listed but not found at runtime : (none)
+count claimed in 16 §3.1        : 6
+actual runtime occurrence count : 6
+count matches source            : true
+doc files/mentions claimed      : 6 / 13
+doc files/mentions actual       : 6 / 13
+doc mention count matches       : true
+
+RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
+exit code   : 0
+
+--- ATS-501 protocol audit (docs/19 was edited by ATS-506) ---
+remote codes  : 25
+threats       : 14
+
+RESULT: OK -- the remote protocol contract is self-consistent and agrees with the WBS row, the requirement badges and the baseline ADR register.
+exit code   : 0
+
+--- ATS-501 protocol mutation tests ---
+mutations passed : 11/11
+
+RESULT: OK -- every mutation turned the audit red, so the audit is not vacuous.
+exit code   : 0
+
+--- ADR citations ---
+ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
+ok   apps/studio/lib/api.ts:6 (the API base URL -- covered by the ATS-101 port audit)
+ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
+ok   src-tauri/src/lib.rs:19 (the ATS_PORT environment default -- covered by the ATS-101 port audit)
+
+RESULT: OK
+exit code   : 0
+
+--- dependency manifest ---
+RESULT: OK -- the committed dependency manifest matches the lockfiles.
+  packages=88 licenceKnown=88 reviewRequired=16
+exit code   : 0
+
+--- tests/api.test.mjs on a clean export of dev (624f09f) ---
+✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (2.4337ms)
+ℹ tests 15
+ℹ pass 14
+ℹ fail 1
+✖ failing tests:
+✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (2.4337ms)

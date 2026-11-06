@@ -1,7 +1,13 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {spawn} from 'node:child_process';
+import { freePort } from './helpers/free-port.mjs';
 const root=path.resolve(import.meta.dirname,'..');
 const base=path.resolve(root,'examples/sample-playwright');
-const data=fs.mkdtempSync(path.join(os.tmpdir(),'ats-api-'));const port=19000+Math.floor(Math.random()*10000);
+// Whether the repository example has a local Playwright CLI. The capability
+// negotiation over the four REQUIRED capabilities can only be asserted when
+// the engine is actually installed, so the test that needs it skips itself
+// (the same convention the IT-ADP series uses) instead of failing.
+const pwInstalled=fs.existsSync(path.join(base,'node_modules','@playwright','test','cli.js'));
+const data=fs.mkdtempSync(path.join(os.tmpdir(),'ats-api-'));const port=await freePort();
 // A project that satisfies the Bridge's validation but has NO local Playwright
 // install. IT-RUN-001 needs "the engine is missing => explicit failure", so it
 // owns this fixture instead of depending on whether the repository example
@@ -65,10 +71,19 @@ test('IT-API-012: POST /runners with a PINNED runner that cannot satisfy the req
  assert.ok(m,JSON.stringify(r[1].missing));
  assert.ok(m.reason.length>0);
 });
+// The negotiation SHAPE is a property of the API, not of the engine that
+// happens to be installed under examples/sample-playwright. An EMPTY
+// capability list asks nothing of any runner, so it is satisfiable whether
+// or not the fixture has a local Playwright CLI -- which is what makes this
+// test run on a clean checkout (no node_modules) instead of failing there.
+//
+// The four REQUIRED capabilities are still asserted, but on the real fixture,
+// in IT-API-013B, which skips itself when the engine is not installed (the
+// same convention the IT-ADP series uses).
 test('IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape',async()=>{
- const unpinned=await api(`/api/projects/${projectId}/runners`,'POST',{capabilities:['discover','start','stop','collect']});
+ const unpinned=await api(`/api/projects/${projectId}/runners`,'POST',{capabilities:[]});
  assert.equal(unpinned[0],200);
- const pinned=await api(`/api/projects/${projectId}/runners`,'POST',{runner:'playwright',capabilities:['discover','start','stop','collect']});
+ const pinned=await api(`/api/projects/${projectId}/runners`,'POST',{runner:'playwright',capabilities:[]});
  assert.equal(pinned[0],200);
  // Both carry a negotiation RESULT under the same key, with the same fields.
  for(const r of [unpinned,pinned]){
@@ -78,6 +93,29 @@ test('IT-API-013: the pinned and unpinned success responses have the SAME negoti
   assert.ok(Array.isArray(r[1].negotiation.missing));
   assert.ok(Array.isArray(r[1].negotiation.capabilities));
   assert.equal(typeof r[1].negotiation.adapter,'string');
+ }
+ // An empty request is satisfiable by every runner, so the negotiation
+ // reports success and no capability is missing.
+ assert.equal(unpinned[1].negotiation.supported,true);
+ assert.deepEqual(unpinned[1].negotiation.missing,[]);
+ assert.equal(pinned[1].negotiation.supported,true);
+ assert.deepEqual(pinned[1].negotiation.missing,[]);
+});
+test('IT-API-013B: the four REQUIRED capabilities are supported on the real fixture',{skip:!pwInstalled&&'examples/sample-playwright has no node_modules'},async()=>{
+ const unpinned=await api(`/api/projects/${projectId}/runners`,'POST',{capabilities:['discover','start','stop','collect']});
+ assert.equal(unpinned[0],200);
+ const pinned=await api(`/api/projects/${projectId}/runners`,'POST',{runner:'playwright',capabilities:['discover','start','stop','collect']});
+ assert.equal(pinned[0],200);
+ for(const r of [unpinned,pinned]){
+  assert.ok(r[1].negotiation,JSON.stringify(r[1]));
+  assert.equal(typeof r[1].negotiation.supported,'boolean');
+  assert.ok(Array.isArray(r[1].negotiation.requested));
+  assert.ok(Array.isArray(r[1].negotiation.missing));
+  assert.ok(Array.isArray(r[1].negotiation.capabilities));
+  assert.equal(typeof r[1].negotiation.adapter,'string');
+  // The four required capabilities are the ones the contract declares as
+  // 'required', so they are the ones a real engine has to provide.
+  assert.equal(r[1].negotiation.supported,true,JSON.stringify(r[1].negotiation.missing));
  }
 });
 test('IT-API-014: POST /run with an unsatisfiable capability is 409 WITH the reason',async()=>{
@@ -92,5 +130,28 @@ test('IT-API-015: a non-array capabilities is a 400, not a silent empty request'
  const r=await api(`/api/projects/${projectId}/runners`,'POST',{capabilities:'filterByFile'});
  assert.equal(r[0],400);
  assert.equal(r[1].error,'CAPABILITIES_NOT_AN_ARRAY');
+});
+// --- ATS-201: the duplicate check uses the UID normalisation ---------------
+// `realpathSync` keeps the case of the path it was given, so on a case
+// insensitive filesystem `D:\Proj` and `D:\proj` are the same directory but
+// two different strings. The duplicate check has to use the SAME
+// normalisation as the UID, otherwise the same repository is registered
+// twice under ONE identifier: two records, one id.
+test('IT-API-016: the same project under a different spelling is refused',async()=>{
+ // Its own fixture: the repository example is already registered above.
+ const fixture=fs.mkdtempSync(path.join(os.tmpdir(),'ats-case-proj-'));
+ fs.writeFileSync(path.join(fixture,'package.json'),'{}');
+ fs.writeFileSync(path.join(fixture,'playwright.config.ts'),'export default {}');
+ const first=await api('/api/projects','POST',{path:fixture});
+ assert.equal(first[0],201);
+ const id=first[1].project.id;
+ const second=await api('/api/projects','POST',{path:fixture.toUpperCase()});
+ assert.equal(second[0],409);
+ assert.equal(second[1].error,'PROJECT_ALREADY_REGISTERED');
+ const list=await api('/api/projects');
+ const ids=list[1].projects.map(p=>p.id);
+ assert.equal(new Set(ids).size,ids.length,'every registered project has its own identifier');
+ assert.ok(ids.includes(id));
+ fs.rmSync(fixture,{recursive:true,force:true});
 });
 test('IT-API-CLEANUP: stop and cleanup',()=>{cp.kill();fs.rmSync(data,{recursive:true,force:true});fs.rmSync(noDeps,{recursive:true,force:true});});

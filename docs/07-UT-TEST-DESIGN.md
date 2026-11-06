@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：93；已执行通过：76；待执行/未实现：17。**PENDING 不是测试通过**。
+> 设计总数：329；已执行通过：312；待执行/未实现：17。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -101,6 +101,242 @@
 |UT-AGT-066|FR-024|异常|provider 失败与超时的区分|provider 在 50ms 后抛错|报 AGENT_PROVIDER_ERROR|node --test|PASS|
 |UT-AGT-067|FR-025|安全|自审检查不是精确字符串比较|producedBy=gen-1，reviewer 取 gen-1 / gen-1(空格) / GEN-1 / Gen-1|四种写法均报 AGENT_REVIEW_SELF_FORBIDDEN|node --test|PASS|
 |UT-AGT-068|FR-025|安全|提案人必须由平台侧给出|context.producedBy 缺失或为空白|报 AGENT_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-001|FR-028|正常|插件契约与清单版本固定|describePluginContract()|contract=plugin-contract/v1，manifest=plugin-manifest/v1|node --test|PASS|
+|UT-PLG-002|FR-028|正常|合法清单被归一化|合法 Manifest|字段归一化，permissions/capabilities 为数组|node --test|PASS|
+|UT-PLG-003|FR-028|异常|不支持的清单版本被拒|contract=plugin-manifest/v2|报 PLUGIN_MANIFEST_VERSION_UNSUPPORTED|node --test|PASS|
+|UT-PLG-004|FR-028|异常|清单字段形状不对被拒|id/version/kind/entry/publisher 各自非法|报 PLUGIN_MANIFEST_INVALID|node --test|PASS|
+|UT-PLG-005|FR-028|安全|禁止权限一律被拒|声明 source.write / audit.suppress / evidence.skip 等|报 PLUGIN_PERMISSION_FORBIDDEN|node --test|PASS|
+|UT-PLG-006|FR-028|安全|词汇表外的权限被拒|声明 files.delete|报 PLUGIN_PERMISSION_UNKNOWN|node --test|PASS|
+|UT-PLG-007|FR-028|边界|重复权限被拒|permissions 含两个 test.read|报 PLUGIN_MANIFEST_INVALID|node --test|PASS|
+|UT-PLG-008|FR-028|安全|能力必须在 ATS-301 词汇表内|capabilities 含 teleport|报 PLUGIN_CAPABILITY_UNKNOWN|node --test|PASS|
+|UT-PLG-009|FR-028|异常|runner 插件必须声明四个必需能力|capabilities 只含 discover|报 PLUGIN_CAPABILITY_REQUIRED|node --test|PASS|
+|UT-PLG-010|FR-028|正常|非 runner 插件无需能力|kind=reporter，capabilities 为空|校验通过|node --test|PASS|
+|UT-PLG-011|FR-028|正常|生效权限是声明与档位的交集|observer 档位申请三项|granted 为交集|node --test|PASS|
+|UT-PLG-012|FR-028|安全|超出档位的权限被拒|readonly 档位申请 evidence.read|granted 不含它，denied 记 not-in-tier|node --test|PASS|
+|UT-PLG-013|FR-028|安全|插件不能靠声明抬高自己的权限|同一份声明在三个档位下|三个档位给出三个不同的生效集合|node --test|PASS|
+|UT-PLG-014|FR-028|安全|禁止权限的拒绝原因是 forbidden|声明 source.write|denied 记 forbidden 而非 not-in-tier|node --test|PASS|
+|UT-PLG-015|FR-028|安全|表外权限的拒绝原因是 unknown|声明 files.delete|denied 记 unknown|node --test|PASS|
+|UT-PLG-016|FR-028|安全|每个档位都是词汇表的子集|遍历全部档位|无档位授予表外权限|node --test|PASS|
+|UT-PLG-017|FR-028|安全|没有档位授予禁止权限|遍历全部档位|与禁止清单无交集|node --test|PASS|
+|UT-PLG-018|FR-028|正常|操作按其权限授权|声明 test.read|readTestFile 允许，readRunEvidence 拒绝并给理由|node --test|PASS|
+|UT-PLG-019|FR-028|异常|未知操作不被授权|调用 deleteEverything|allowed=false 并列出已知操作|node --test|PASS|
+|UT-PLG-020|FR-028|正常|describe 不需要权限|permissions 为空|describe 仍被允许|node --test|PASS|
+|UT-PLG-021|FR-028|正常|SDK 的操作面与声明完全相等|比较 SDK 键与操作表|两者集合相等|node --test|PASS|
+|UT-PLG-022|FR-028|安全|SDK 是冻结的，插件不能加方法|给 sdk 赋值新方法|抛 TypeError|node --test|PASS|
+|UT-PLG-023|FR-028|正常|describe 回报生效与被拒权限|声明两项、档位只给一项|grantedPermissions 与 deniedPermissions 正确|node --test|PASS|
+|UT-PLG-024|FR-028|安全|超出档位的操作被拒|readonly 档位调用 readRunEvidence|报 PLUGIN_PERMISSION_DENIED|node --test|PASS|
+|UT-PLG-025|FR-028|安全|被拒的调用同样进审计|制造一次被拒调用|审计 sink 收到 plugin.operation.denied|node --test|PASS|
+|UT-PLG-026|FR-028|正常|审计序号单调且与 sink 一致|连续两次调用|sink 收到 seq 1、2|node --test|PASS|
+|UT-PLG-027|FR-028|安全|插件不能自选审计序号|一次调用后检查事件|seq 由 SDK 分配，pluginId 与 type 正确|node --test|PASS|
+|UT-PLG-028|FR-028|安全|作用域外的文件读不到|读 server/index.mjs|报 PLUGIN_SCOPE_INVALID|node --test|PASS|
+|UT-PLG-029|FR-028|安全|没有作用域时什么都读不到|不传 scope|报 PLUGIN_SCOPE_INVALID|node --test|PASS|
+|UT-PLG-030|FR-028|安全|清单不能扩大自己的作用域|Manifest 里塞 scope 字段|宿主 scope 仍然生效|node --test|PASS|
+|UT-PLG-031|FR-028|安全|没有证据就不许上报结论|evidenceRefs 为空|报 PLUGIN_EVIDENCE_REQUIRED|node --test|PASS|
+|UT-PLG-032|FR-028|安全|证据摘要由宿主计算|宿主 resolver 返回固定摘要|提案里的 sha256 等于宿主算出的值|node --test|PASS|
+|UT-PLG-033|FR-028|安全|插件自带的摘要不被接受|evidenceRefs 传 {ref,sha256}|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-034|FR-028|安全|结论是提案而不是改状态|reportOutcome 返回值|approval=pending，producedBy=plugin:<id>|node --test|PASS|
+|UT-PLG-035|FR-028|异常|非法 status 被拒|status=not-a-status|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-036|FR-028|安全|上报结论也进审计|调用 reportOutcome|审计 sink 收到 plugin.outcome.reported|node --test|PASS|
+|UT-PLG-037|FR-028|安全|提案人不得自审|reviewer 等于 producedBy|报 PLUGIN_REVIEW_SELF_FORBIDDEN|node --test|PASS|
+|UT-PLG-038|FR-028|安全|自审检查不是精确字符串比较|reviewer 取带空格/大写写法|四种写法均报 AGENT_REVIEW_SELF_FORBIDDEN 对应码|node --test|PASS|
+|UT-PLG-039|FR-028|正常|独立评审人可以批准|reviewer 与提案人不同|approval=approved 且内容不变|node --test|PASS|
+|UT-PLG-040|FR-028|异常|仅 pending 提案可被评审|对已批准提案再次评审|报 PLUGIN_REVIEW_STATE_INVALID|node --test|PASS|
+|UT-PLG-041|FR-028|异常|非法评审结论被拒|decision=maybe|报 PLUGIN_REVIEW_STATE_INVALID|node --test|PASS|
+|UT-PLG-042|FR-028|正常|契约描述完整且不夸大|describePluginContract()|权限/禁止/档位/操作/错误码齐全，designStatus=CONTRACT_ONLY|node --test|PASS|
+|UT-PLG-043|FR-028|正常|每个 SDK 操作所需权限都在词汇表内|遍历操作表|无操作需要表外或禁止权限|node --test|PASS|
+|UT-PLG-044|FR-028|正常|契约描述不声称宿主存在|describePluginContract().designStatus|等于 CONTRACT_ONLY|node --test|PASS|
+|UT-PLG-045|FR-028|正常|错误码清单与实际抛出的码一致|比对两个模块源码与清单|两个方向都完全相等|node --test|PASS|
+|UT-PLG-046|FR-028|异常|宿主不完整时拒绝构造 SDK|缺 audit / 缺 readTestFile|分别报 PLUGIN_AUDIT_REQUIRED / PLUGIN_MANIFEST_INVALID|node --test|PASS|
+|UT-PLG-047|FR-028|安全|有权限也读不到作用域外的文件|scope 只给一个文件|同目录另一个文件报 PLUGIN_SCOPE_INVALID 且被审计|node --test|PASS|
+|UT-PLG-048|FR-028|安全|绝对路径一律被拒|读 C:/Windows/win.ini|报 PLUGIN_SCOPE_INVALID|node --test|PASS|
+|UT-PLG-049|FR-028|安全|作用域由宿主给而不是清单给|宿主 scope 为空、清单申请全部权限|仍读不到任何文件|node --test|PASS|
+|UT-PLG-050|FR-028|安全|SDK 自己不碰文件系统|检查 sdk.mjs 源码|不 import node:fs / node:child_process，不 spawn|node --test|PASS|
+|UT-PLG-051|FR-028|安全|禁止权限永不出现在生效集合里|每个档位下解析全量申请|granted 与禁止清单无交集|node --test|PASS|
+|UT-PLG-052|FR-028|正常|SDK 没有写任何文件|检查临时夹目录|目录为空|node --test|PASS|
+|UT-SQL-001|NFR-010|正常|元数据层在当前 Node 构建上可用|node:sqlite 无需 flag|sqliteAvailable() 为 true|node --test|PASS|
+|UT-SQL-002|NFR-010|正常|数据库以 WAL 模式运行|在临时目录打开 metadata.db|PRAGMA journal_mode = wal|node --test|PASS|
+|UT-SQL-003|NFR-010|正常|被锁住的写入者会等待而不是立即失败|另一个进程持有 BEGIN IMMEDIATE 写锁|写入者等到锁释放后才提交成功|node --test|PASS|
+|UT-SQL-003b|NFR-010|异常|busy_timeout 为 0 时被锁住的写入者会失败|同样的锁冲突但 busyTimeoutMs=0|写入抛错而不是等待|node --test|PASS|
+|UT-SQL-004|NFR-010|正常|忙等待超时可配置|busyTimeoutMs=1234|PRAGMA busy_timeout = 1234|node --test|PASS|
+|UT-SQL-005|NFR-010|正常|WAL 模式留下 -wal 伴生文件|写入状态后检查目录|存在 metadata.db-wal|node --test|PASS|
+|UT-SQL-010|NFR-010|正常|已提交的事务对读者可见|在事务中插入计数器行|提交后能查到该行|node --test|PASS|
+|UT-SQL-011|NFR-010|异常|抛错的事务整体回滚|事务内先写一行再抛错|该行不存在，先前提交的行仍在|node --test|PASS|
+|UT-SQL-012|NFR-010|正常|状态在单个事务内写入|连续两次 storeState|第二次后旧行全部消失，无中间态|node --test|PASS|
+|UT-SQL-020|NFR-010|正常|新库处于最新 schema 版本|打开空数据库|currentVersion = latestVersion|node --test|PASS|
+|UT-SQL-021|NFR-010|正常|schema 版本存放在数据库内部|查 meta 表|存在 schema_version 行|node --test|PASS|
+|UT-SQL-022|NFR-010|正常|迁移是幂等的|对已迁移的库再迁移一次|applied 为空，版本不变|node --test|PASS|
+|UT-SQL-023|NFR-010|正常|升级只应用缺失的步骤|先建 version 1 的库，再升级|version 2 的表先不存在后存在|node --test|PASS|
+|UT-SQL-024|NFR-010|异常|迁移失败不改变版本也不留半成品|注入一个第二步是非法 SQL 的迁移步骤|迁移抛错，版本不变，该步的建表被回滚|node --test|PASS|
+|UT-SQL-025|NFR-010|异常|比代码更新的库被拒绝而不是被静默降级|把 schema_version 改成未来版本|抛 SCHEMA_TOO_NEW，版本不变|node --test|PASS|
+|UT-SQL-026|NFR-010|异常|降级删除高版本表及其数据|降到 version 1|artifacts/test_attempts 表与其数据消失|node --test|PASS|
+|UT-SQL-027|NFR-010|异常|降到 version 0 清除全部表|降到 version 0|除 sqlite_ 外没有任何表|node --test|PASS|
+|UT-SQL-028|NFR-010|异常|降级到更高版本被拒绝|降到 version 99|抛 SCHEMA_TOO_NEW，版本不变|node --test|PASS|
+|UT-SQL-029|NFR-010|正常|每个迁移步骤都有 up 与 down 脚本|遍历 MIGRATIONS|每步都有非空 up 与 down，版本连续|node --test|PASS|
+|UT-SQL-030|NFR-010|异常|步骤失败不留半应用的对象|事务内先建表再执行非法语句|半应用的表不存在，版本不变|node --test|PASS|
+|UT-SQL-040|NFR-010|正常|数据库内容与导入的状态完全一致|导入夹具状态后校验|verifyMirror().ok 为 true|node --test|PASS|
+|UT-SQL-041|NFR-010|正常|导入是幂等的|同一状态导入两次|两次读回的 JSON 相同|node --test|PASS|
+|UT-SQL-042|NFR-010|边界|记录保留层未建模的字段|给项目加一个未来字段|读回时该字段仍在|node --test|PASS|
+|UT-SQL-043|NFR-010|异常|镜像差异被报告而不是被掩盖|导入后比对不同状态|ok 为 false 且列出差异|node --test|PASS|
+|UT-SQL-044|NFR-010|正常|层能回答它存在的理由|按项目与按运行查询|项目运行按时间倒序，尝试可查|node --test|PASS|
+|UT-SQL-050|NFR-010|正常|两个并发写入者不丢记录|两个独立进程同时写 40 行|最终 80 行全在|node --test|PASS|
+|UT-SQL-051|NFR-010|正常|写入进行时读者仍能读|写者在子进程里持事务并宣告 IN-TX|读者读到提交前的快照（1 行）|node --test|PASS|
+|UT-SQL-060|NFR-010|正常|命令行报告数据库状态|sqlite_meta.mjs status|输出 schema 版本与行数|node --test|PASS|
+|UT-SQL-061|NFR-010|正常|命令行导入并校验镜像|sqlite_meta.mjs import/verify|输出 mirror: OK，state.json 未被改动|node --test|PASS|
+|UT-SQL-062|NFR-010|正常|命令行按需迁移与降级|sqlite_meta.mjs migrate/downgrade|版本按要求变化|node --test|PASS|
+|UT-SQL-063|NFR-010|异常|命令行拒绝未知命令|sqlite_meta.mjs nonsense|退出码 2|node --test|PASS|
+|UT-SQL-031|NFR-010|正常|并发迁移者不会把同一步骤应用两遍|6 个进程同时把 v2 库升级到一个 ADD COLUMN 的 v3|全部成功，FAIL: 0|node --test|PASS|
+|UT-SQL-032|NFR-010|异常|迁移器不接管形状不同的外来表|库里有同名的外来 projects 表|抛 SCHEMA_OBJECT_CONFLICT|node --test|PASS|
+|UT-SQL-033|NFR-010|正常|形状符合预期的表让迁移保持幂等|用本代码建库后重新打开|currentVersion = latestVersion|node --test|PASS|
+|UT-SQL-034|NFR-010|异常|迁移抛错时不泄漏数据库句柄|让 openDatabase 因 SCHEMA_TOO_NEW 抛错|数据目录可以删除（无 EPERM）|node --test|PASS|
+|UT-SQL-045|NFR-010|异常|校验能发现被篡改的 registry 内容|改 registry 条目的内容但保持条数|ok 为 false 并列出差异|node --test|PASS|
+|UT-SQL-046|NFR-010|异常|校验能发现索引列与记录矛盾|把 runs.status 改成与记录不同的值|ok 为 false，差异点名该字段|node --test|PASS|
+|UT-SQL-047|NFR-010|异常|校验能发现缺失的 attempt 与 artifact 行|删光 test_attempts 与 artifacts|ok 为 false，两者都被点名|node --test|PASS|
+|UT-SQL-048|NFR-010|异常|校验能发现被篡改的 attempt|改 test_attempts 的 status 与 test_uid|ok 为 false|node --test|PASS|
+|UT-SQL-049|NFR-010|异常|镜像在瞬时失败后恢复|另一进程持锁超过镜像的 busy_timeout|失败后下一次写入镜像成功并追平|node --test|PASS|
+|UT-SQL-049b|NFR-010|异常|镜像失败不影响状态文件落盘|写入一个无法镜像的状态|state.json 仍然被正确写入|node --test|PASS|
+|UT-SQL-049c|NFR-010|异常|镜像失败不会拖垮 Bridge|持锁使镜像失败|失败后 Bridge 仍能继续镜像|node --test|PASS|
+|UT-SQL-064|NFR-010|异常|命令行拒绝非法的 --to|--to abc / 99 / -1 / 1.5 / 空|退出码 2，且不创建数据库|node --test|PASS|
+|UT-SQL-065|NFR-010|异常|命令行拒绝未知参数与未知命令|--nonsense / nonsense / 无参数|退出码非 0 并打印用法|node --test|PASS|
+|UT-SQL-066|NFR-010|正常|只读命令不创建数据库文件|status/verify 指向不存在的库|退出码 0/1，文件仍不存在|node --test|PASS|
+|UT-SQL-067|NFR-010|异常|命令行报告它无法恢复的错误|状态文件不存在 / 不是状态 / 库不存在|退出码 1 并打印原因|node --test|PASS|
+|UT-SQL-068|NFR-010|异常|命令行报告镜像不一致并失败|改状态后 verify|退出码 1，输出 MISMATCH 与问题清单|node --test|PASS|
+|UT-DSC-001|FR-021|正常|CLI 报告解析为用例|--list 报告含一个 spec|得到 file/title/line/describePath|node --test|PASS|
+|UT-DSC-002|FR-021|正常|文件相对 rootDir 归一|rootDir=项目/tests，报告写 a.spec.ts|用例文件为 项目相对 tests/a.spec.ts|node --test|PASS|
+|UT-DSC-003|FR-021|安全|项目外的文件被排除并报告|报告的文件解析后落在项目外|用例列表不含它，skipped 里说明|node --test|PASS|
+|UT-DSC-004|FR-021|正常|describe 路径取自 suite 嵌套|outer > inner > 用例|describePath 为 [outer, inner]|node --test|PASS|
+|UT-DSC-005|FR-021|正常|项目矩阵合并为一条用例|同一用例两个 project|一条用例带两个 project 的 spec id|node --test|PASS|
+|UT-DSC-006|FR-021|正常|CLI 错误原样带出|errors[] 含 duplicate test title|错误信息与 location 原样保留|node --test|PASS|
+|UT-DSC-007|FR-021|正常|用例按文件与行排序|b.spec.ts 在前、a.spec.ts 在后|排序后 a 在前|node --test|PASS|
+|UT-DSC-008|FR-021|安全|项目外的路径被拒绝|解析后落在项目外的绝对路径|projectRelativeFile 返回 null|node --test|PASS|
+|UT-DSC-009|FR-021|正常|列举结果码稳定|四个结果码|OK/PLAYWRIGHT_NOT_INSTALLED/PLAYWRIGHT_LIST_FAILED/PLAYWRIGHT_LIST_TIMEOUT|node --test|PASS|
+|UT-DSC-010|FR-021|安全|未背书的项目未可信|state 里没有信任记录|trust=untrusted，reason=未背书|node --test|PASS|
+|UT-DSC-011|FR-021|正常|背书后项目可信|withTrust(trusted)|trust=trusted，带时间戳|node --test|PASS|
+|UT-DSC-012|FR-021|安全|信任可撤销并保留原因|withTrust(untrusted, reason)|trust=untrusted，reason 保留|node --test|PASS|
+|UT-DSC-013|FR-021|安全|信任不串项目|两个不同项目 UID|另一个项目仍为未可信|node --test|PASS|
+|UT-DSC-014|FR-021|正常|信任写入不改原状态|withTrust 不改传入的 state|原对象不变，返回新对象|node --test|PASS|
+|UT-DSC-015|FR-021|正常|唯一标题沿用 ATS-201 标题键|权威用例表里一个用例|uidSource=derived，basis=title-key|node --test|PASS|
+|UT-DSC-016|FR-021|正常|显式标注优先|标题含 @TC-001|uid=tc-001，uidSource=explicit|node --test|PASS|
+|UT-DSC-017|FR-021|安全|重复显式标注不绑定|两个用例都写 @TC-001|两者 uidStable=false，报告 duplicate-explicit-uid|node --test|PASS|
+|UT-DSC-018|FR-021|正常|describe 路径消解同名歧义|同名用例在不同 describe 下|两者 uidStable=true，basis=scope-title|node --test|PASS|
+|UT-DSC-019|FR-021|正常|同 describe 下同名仍歧义|同名同 describe 的两个用例|两者 uidStable=false，报告 identical-title，UID 不合并|node --test|PASS|
+|UT-DSC-020|FR-021|正常|执行体指纹可消解同名|同名同 describe、执行体不同|basis=body-key，两者 UID 不同|node --test|PASS|
+|UT-DSC-020b|FR-021|正常|动态用例不用模板的执行体判定|一个模板生成两个渲染标题|两个用例 UID 不同，basis=title-key|node --test|PASS|
+|UT-DSC-021|FR-021|正常|普通用例的 UID 与静态索引一致|权威表里一个普通用例|UID 等于 deriveTestUid(projectUid, titleKey)|node --test|PASS|
+|UT-DSC-021b|FR-021|正常|切换索引不改变已有 UID|普通用例旁有一个同名动态用例|普通用例 UID 不变，动态用例 basis=scope-title|node --test|PASS|
+|UT-DSC-022|FR-021|正常|注册表保存 CLI 的 spec id|一个用例两个 project|entry.specIds 含两个 spec id|node --test|PASS|
+|UT-DSC-023|FR-021|正常|缺席文件的注册表条目不裁剪|条目文件不在本次发现范围|条目仍在注册表里|node --test|PASS|
+|UT-DSC-024|FR-021|正常|已消失用例的条目被裁剪|条目文件在范围内但用例没了|条目被裁掉|node --test|PASS|
+|UT-DSC-025|FR-021|正常|两个索引的差异被报告|权威多两个动态用例|consistency.onlyAuthoritative 列出两条，agrees=false|node --test|PASS|
+|UT-DSC-026|FR-021|正常|两个索引一致时 agrees 为真|两个索引用例相同|consistency.agrees=true|node --test|PASS|
+|UT-DSC-027|FR-021|正常|词法 describe 路径|两个嵌套 describe 下的用例|describePathAt 给出嵌套路径|node --test|PASS|
+|UT-DSC-028|FR-021|正常|用例键的拼写|文件+路径+标题|caseKey 为 文件 > 路径 > 标题|node --test|PASS|
+|UT-ENV-001|FR-027|正常|档案 ID 由项目与名称派生|同一项目同一名称|UID 相同且格式为 env_1_ + 24 位十六进制|node --test|PASS|
+|UT-ENV-002|FR-027|边界|档案 ID 不跨名称边界碰撞|项目 proj_1_aa 名称 bc 与项目 proj_1_aab 名称 c|两个 UID 不同|node --test|PASS|
+|UT-ENV-003|FR-027|边界|变量名必须是大写单词|BASE_URL / base_url / A=B / 空串 / 数字开头|只有大写单词形式有效|node --test|PASS|
+|UT-ENV-010|FR-027|安全|不在白名单的变量名被拒绝并给出原因|白名单为 BASE_URL，请求 SOME_UNKNOWN|allowed=false 且理由提到白名单|node --test|PASS|
+|UT-ENV-011|FR-027|安全|未授权变量被拒绝而不是被静默丢弃|白名单为 BASE_URL，请求 BASE_URL 与 NOT_ON_THE_LIST|保留 BASE_URL；NOT_ON_THE_LIST 不入档案且被报告|node --test|PASS|
+|UT-ENV-012|FR-027|安全|凭据形态的变量名即使白名单允许也被拒绝|白名单含 API_TOKEN/DB_PASSWORD/MY_SECRET|三个全部 allowed=false 且理由提到 credential|node --test|PASS|
+|UT-ENV-013|FR-027|安全|凭据形态判定不区分大小写|api_token / Api_Token / API_TOKEN|三者皆为凭据形态；BASE_URL 不是|node --test|PASS|
+|UT-ENV-014|FR-027|边界|白名单条目只能是名称或结尾单星号|BASE_URL / FEATURE_* / * / BASE_?RL|星号前缀为空时拒绝，通用 glob 不支持|node --test|PASS|
+|UT-ENV-015|FR-027|安全|白名单不能授权凭据形态的名称|白名单含 BASE_URL/API_TOKEN/BAD NAME/FEATURE_*|只留 BASE_URL 与 FEATURE_*，两个问题被报告|node --test|PASS|
+|UT-ENV-016|FR-027|正常|项目的白名单报告其来源|未配置与已配置两种状态|source 为 default 或 custom，名称列表对应|node --test|PASS|
+|UT-ENV-020|FR-027|安全|保留名即使白名单允许也被拒绝|白名单含 PATH/NODE_OPTIONS|两者均被拒绝且理由提到 reserved|node --test|PASS|
+|UT-ENV-021|FR-027|安全|保留名覆盖加载器劫持与引擎输出变量|LD_PRELOAD / DYLD_INSERT_LIBRARIES / NODE_OPTIONS / PLAYWRIGHT_JSON_OUTPUT_FILE|四个都在保留名列表内|node --test|PASS|
+|UT-ENV-030|FR-027|安全|runner 环境不携带宿主环境|宿主环境含 AWS_SECRET_ACCESS_KEY 与 GITHUB_TOKEN|档案变量在，宿主密钥不在，PATH/HOME 在|node --test|PASS|
+|UT-ENV-031|FR-027|安全|runner 环境只含基础键与档案变量|宿主环境含 RANDOM_HOST_VAR|环境键集合恰为基础键加档案变量名|node --test|PASS|
+|UT-ENV-032|FR-027|安全|没有档案时 runner 环境仍被封口|baseEnv 含 AWS_SECRET_ACCESS_KEY|密钥不在；PATH 在；无档案变量|node --test|PASS|
+|UT-ENV-033|FR-027|正常|适配器自有变量最后生效|档案声明 PLAYWRIGHT_JSON_OUTPUT_FILE|最终值取适配器传入的值|node --test|PASS|
+|UT-ENV-034|FR-027|安全|档案不能覆盖平台关键键|档案声明 PATH，baseEnv 有 PATH 与 SystemRoot|PATH 取基础键值，SystemRoot 保留|node --test|PASS|
+|UT-ENV-040|FR-027|正常|档案在构建前先按白名单校验|含白名单变量与越界变量的档案输入|合法变量保留，越界变量进入 rejected|node --test|PASS|
+|UT-ENV-041|FR-027|边界|档案缺少名称或层级未知被拒绝|空名称与 environment=production|各自产出一个问题；层级恰为 dev/staging/prod|node --test|PASS|
+|UT-ENV-042|FR-027|异常|构建非法档案抛出并附带问题列表|空名称的档案|抛错 code=INVALID_ENV_PROFILE 且 problems 为数组|node --test|PASS|
+|UT-ENV-043|FR-027|安全|运行只记录变量名不记录值|档案含 BASE_URL 与 TENANT|返回名称数组，且不含值|node --test|PASS|
+|UT-ENV-050|FR-027|回归|旧状态没有该字段也能加载|state 无 envProfiles 字段|档案为空、白名单为空，且字段被补充写入|node --test|PASS|
+|UT-ENV-051|FR-027|正常|档案的建立、查找与删除|一个项目与一个档案|归属项目正确；按名称与 UID 都能找到；删除后找不到|node --test|PASS|
+|UT-ENV-052|FR-027|正常|替换档案保持其标识|同名档案写入两次|UID 不变，值更新，档案数仍为一|node --test|PASS|
+|UT-ENV-053|FR-027|安全|档案跨项目不可见|项目 A 的档案|在项目 B 中查不到|node --test|PASS|
+|UT-ENV-054|FR-027|安全|配置的白名单优先于内置默认|项目配置白名单 ONLY_THIS|source=custom；默认中的 BASE_URL 被拒绝|node --test|PASS|
+|UT-ENV-055|FR-027|安全|授权凭据的白名单被拒绝|设置白名单 API_TOKEN|抛错 code=INVALID_ENV_WHITELIST|node --test|PASS|
+|UT-ENV-056|FR-027|安全|档案的公开视图只含变量名|含 BASE_URL 与 TENANT 的档案|variables 为名称数组，且序列化后不含值|node --test|PASS|
+|UT-SQL-ENV-001|FR-027|正常|schema 认识环境相关表|schema version 4|存在 env_profiles 与 env_whitelists；runs 含 env_uid|node --test|PASS|
+|UT-SQL-ENV-002|FR-027|完整性|档案与白名单完整往返|含档案与白名单的 state|读回的档案、白名单、run 的 envUid 与写入一致|node --test|PASS|
+|UT-SQL-ENV-003|FR-027|安全|索引列只存变量名不存值|一个含两个变量的档案|索引列是名称数组且不含值；doc 列保留完整记录|node --test|PASS|
+|UT-SQL-ENV-004|FR-027|完整性|行数统计包含环境表|导入含档案与白名单的 state|envProfiles 与 envWhitelists 计数为 1|node --test|PASS|
+|UT-SQL-ENV-005|FR-027|完整性|镜像报告缺失的档案|删除 env_profiles 一行|verifyMirror 报出该档案缺失|node --test|PASS|
+|UT-SQL-ENV-006|FR-027|完整性|镜像报告被篡改的档案|改档案 doc 中的 BASE_URL 值|verifyMirror 报出 BASE_URL 的差异|node --test|PASS|
+|UT-SQL-ENV-007|FR-027|完整性|镜像报告索引列与记录矛盾|把索引列改成另一个名称集合|verifyMirror 报出 variables 差异|node --test|PASS|
+|UT-SQL-ENV-008|FR-027|完整性|镜像报告不一致的白名单|改白名单的 names 列|verifyMirror 报出该白名单的差异|node --test|PASS|
+|UT-SQL-ENV-009|FR-027|回归|没有环境字段的旧状态镜像正常|state 无 envProfiles|verifyMirror 通过，读回为空档案与空白名单|node --test|PASS|
+|UT-SQL-ENV-010|FR-027|回归|含档案时导入仍幂等|连续导入同一 state 两次|两次读回结果相同，verifyMirror 通过|node --test|PASS|
+|UT-SQL-ENV-011|FR-027|完整性|迁移回滚清除环境表与列|手工执行第 4 步的 down|表与 env_uid 列都不存在|node --test|PASS|
+|UT-CP-001|FR-028|安全|本地路径形态判定矩阵|盘符、UNC、POSIX、file:、家目录、环境变量、路径穿越、仓库地址各形态|逐一返回对应规则名|node --test|PASS|
+|UT-CP-002|FR-028|边界|非路径值不误判|https 地址、prj UID、40 位 SHA、相对片段、ns:name、非字符串|均返回 null|node --test|PASS|
+|UT-CP-003|FR-028|安全|百分号编码的路径同等拒绝|C%3A%5Crepo、%2Fhome%2Fa、损坏编码|前两者命中规则；损坏编码按原文判定不抛错|node --test|PASS|
+|UT-CP-004|FR-028|安全|请求体扫描覆盖键与值、嵌套与数组|{a:[{b:路径}]}、键为路径、干净对象|返回码与位置指针，不回显原值；干净对象为 null|node --test|PASS|
+|UT-CP-005|FR-028|安全|路径/仓库地址/凭据字段名分类|path、Project_Root、repository-url、token、X-ATS-Token|分别 REMOTE_PATH_FORBIDDEN / REMOTE_SECRET_INLINE_FORBIDDEN；出站模式只看值|node --test|PASS|
+|UT-CP-006|NFR-002|安全|本地会话 Token 形态拒绝|48/40/64/47/49 位十六进制|仅 48 位命中，请求体报 REMOTE_SECRET_INLINE_FORBIDDEN|node --test|PASS|
+|UT-CP-007|FR-028|边界|嵌套深度上限|32 层与 33 层嵌套对象|32 层通过，33 层 REMOTE_POLICY_REJECTED|node --test|PASS|
+|UT-CP-008|FR-028|正常|拒绝码表与 docs/19 约束块逐码一致|读取 docs/19 机读约束块|25 个码的 HTTP 与可重试性一致，均在 REMOTE_ 命名空间|node --test|PASS|
+|UT-CP-009|FR-028|异常|未知错误码与审计原因不外泄|构造未知码；带 reason 的错误|抛 TypeError；响应体只有 error/hint/retryable|node --test|PASS|
+|UT-CP-010|NFR-002|安全|认证器映射租户或审计原因|denyAll、正确/错误/过短令牌、Basic、无头|只有正确令牌得到租户，其余给出审计原因|node --test|PASS|
+|UT-CP-011|NFR-002|异常|开发令牌配置校验不回显令牌|空对象、数组、31 字符令牌、非法租户、非法 JSON|抛 TypeError，消息不含令牌|node --test|PASS|
+|UT-CP-012|FR-028|正常|启动配置默认值与允许的变体|空环境、::1、localhost、带 TLS 的 0.0.0.0|默认 127.0.0.1:4610、无 TLS、auth=none；变体被接受|node --test|PASS|
+|UT-CP-013|NFR-002|安全|不安全的启动配置被拒|非回环无 TLS、端口等于 ATS_PORT、非法端口、TLS 只给一半、未知认证、dev-static 非回环|ConfigError，退出码 2，消息点名变量|node --test|PASS|
+|UT-CP-014|FR-028|正常|HTTPS 最低 TLS 1.3 与启动流程|注入 HTTPS 工厂与读文件；真实 HTTP 启动；端口占用；runMain|minVersion=TLSv1.3；日志不含令牌；占用报错；配置错误退出码 2|node --test|PASS|
+|UT-CP-015|FR-028|正常|health 公开且不含主机信息|GET /cp/v1/health|200 + plane=control-plane，无 pid/路径，no-store|node --test|PASS|
+|UT-CP-016|NFR-002|安全|本地凭据在控制面一律无效|带 X-ATS-Token（有无有效 Bearer）|401 REMOTE_UNAUTHENTICATED，审计原因 local_credential_presented|node --test|PASS|
+|UT-CP-017|NFR-002|安全|浏览器跨源请求被拒|Origin=https://x.example、tauri://localhost|403 REMOTE_POLICY_REJECTED|node --test|PASS|
+|UT-CP-018|FR-028|安全|未列举路由、方法与本地 /api 命名空间被拒|/api/session、未知路由、DELETE、根路径|403 REMOTE_POLICY_REJECTED|node --test|PASS|
+|UT-CP-019|FR-028|安全|路径段与查询串中的本地路径在路由前被拒|编码路径段、原始 .. 段、?root=/etc、48 位十六进制段、损坏编码|422 REMOTE_PATH_FORBIDDEN / REMOTE_SECRET_INLINE_FORBIDDEN；损坏编码 403|node --test|PASS|
+|UT-CP-020|NFR-002|安全|认证失败统一码，原因只入审计|无令牌、未知令牌、认证器无返回|401 且响应体相同；审计区分原因|node --test|PASS|
+|UT-CP-021|FR-028|安全|租户由会话推导|会话无租户；头/查询/请求体给出他租户|403 REMOTE_TENANT_REQUIRED / REMOTE_TENANT_MISMATCH|node --test|PASS|
+|UT-CP-022|FR-028|异常|POST 请求体约束|非 JSON 类型、空体、恰好 64KiB、超 64KiB、非对象、深嵌套|403；恰好 64KiB 被读取；超限 413|node --test|PASS|
+|UT-CP-023|FR-028|正常|按不透明 UID 登记与查询项目|POST displayName 后列表、按 UID 查询、未知 UID|201 + prj UID；未知或非 UID 段 404 REMOTE_RESOURCE_NOT_FOUND|node --test|PASS|
+|UT-CP-024|FR-028|安全|跨租户不可见且与不存在无法区分|租户 B 读租户 A 的项目|404，与不存在的 UID 响应体相同|node --test|PASS|
+|UT-CP-025|FR-028|安全|非法名称、未知字段、路径与凭据被拒|空/超长/控制字符名称、branch 字段、path/root/repositoryUrl、token、48 位十六进制|403 / 422 REMOTE_PATH_FORBIDDEN / 422 REMOTE_SECRET_INLINE_FORBIDDEN|node --test|PASS|
+|UT-CP-026|FR-028|安全|出站拦截|存储被注入路径或 Token 形态后读取|500 REMOTE_INTERNAL，响应不含该值，审计 egress_boundary_blocked|node --test|PASS|
+|UT-CP-027|FR-028|异常|未预期异常不回显且审计有上限|UID 生成器抛出含路径的异常；1005 次请求|500 REMOTE_INTERNAL 不含消息；审计保留 1000 条|node --test|PASS|
+|UT-CP-028|FR-028|安全|控制面源码导入白名单|扫描 server/control-plane/*.mjs|不导入本地 Bridge 模块、Tauri、child_process，不发起外呼|node --test|PASS|
+|UT-CP-029|FR-028|安全|桌面侧调用边界|扫描 src-tauri/src/lib.rs 与 apps/studio|Tauri 只注册 local_bridge_status 且只托管本地 Bridge；前端无 Tauri API|node --test|PASS|
+|UT-CP-030|FR-028|正常|契约端点描述边界|GET /cp/v1/contract|tauriRequired=false，localBridgeReachable=false，本地凭据不接受|node --test|PASS|
+|ATS-206-UT-001|NFR-010|正常|状态的可数项被逐项计数|一个含项目/运行/重试/产物/登记的状态|五项计数都与内容相符|node --test|PASS|
+|ATS-206-UT-002|NFR-010|正常|迁移保持项目与历史的数量一致|迁移一个 v0.1 状态|迁移前后五项计数逐项相等|node --test|PASS|
+|ATS-206-UT-003|NFR-010|异常|计数不一致的迁移被拒绝|迁移前后计数不同|抛 MIGRATION_COUNT_MISMATCH|node --test|PASS|
+|ATS-206-UT-010|NFR-010|正常|信任映射在迁移中存活|状态带 trust|迁移结果仍带 trust|node --test|PASS|
+|ATS-206-UT-011|NFR-010|正常|信任映射改键到新的项目 UID|旧键 proj_<uuid>|trust[newUid].trust 为 trusted，旧键消失|node --test|PASS|
+|ATS-206-UT-012|NFR-010|正常|用例登记表在迁移中存活|状态带 uidRegistry|迁移结果仍带 uidRegistry|node --test|PASS|
+|ATS-206-UT-013|NFR-010|正常|用例登记表改键到新的项目 UID|旧键下的登记条目|新键下能查到条目且条目数不变|node --test|PASS|
+|ATS-206-UT-014|NFR-010|正常|非旧标识符的键原地保留|已是当前格式的键|该键与值原样保留|node --test|PASS|
+|ATS-206-UT-015|NFR-010|正常|新键下已有值时旧值不覆盖|新键已有当前值|保留当前值，旧键消失|node --test|PASS|
+|ATS-206-UT-016|NFR-010|正常|迁移不认识的字段也原样带过|状态带一个未来字段|该字段仍在迁移结果里|node --test|PASS|
+|ATS-206-UT-020|NFR-010|正常|状态文件是原子写入的|写入状态文件|内容正确且不残留 .tmp|node --test|PASS|
+|ATS-206-UT-021|NFR-010|异常|不是状态的对象被拒绝|null / 缺 projects|报 STATE_NOT_AN_OBJECT / UNSUPPORTED_DATABASE|node --test|PASS|
+|ATS-206-UT-022|NFR-010|异常|缺失的状态文件被报告|读不存在的状态文件|报 STATE_FILE_MISSING|node --test|PASS|
+|ATS-206-UT-030|NFR-010|正常|plan 命令不写任何东西|对一个数据目录跑 plan|文件逐字节不变，输出称数量保持|node --test|PASS|
+|ATS-206-UT-031|NFR-010|正常|apply 命令迁移并留下备份|对一个数据目录跑 apply|状态已迁移且 .bak 是原始文件|node --test|PASS|
+|ATS-206-UT-032|NFR-010|正常|apply 命令保持数量一致|apply 前后各数一次|五项计数逐项相等|node --test|PASS|
+|ATS-206-UT-033|NFR-010|正常|rollback 命令还原原始状态|apply 之后跑 rollback|状态文件与原始逐字节相同|node --test|PASS|
+|ATS-206-UT-034|NFR-010|正常|回滚把运行目录改回旧名|磁盘上有旧名运行目录|回滚后旧名目录在、新名目录不在|node --test|PASS|
+|ATS-206-UT-035|NFR-010|异常|没有备份时拒绝回滚|没有 .bak 就跑 rollback|退出码 1，报 NO_BACKUP_TO_RESTORE|node --test|PASS|
+|ATS-206-UT-036|NFR-010|异常|Bridge 运行中拒绝迁移|数据目录里有活进程的 bridge.lock|退出码 3 并说明 Bridge 在运行|node --test|PASS|
+|ATS-206-UT-037|NFR-010|异常|未知命令是用法错误|跑一个不存在的命令|退出码 2|node --test|PASS|
+|ATS-206-UT-040|NFR-010|正常|失败的迁移被自动撤销|写完状态与目录后导入失败|状态文件被还原为原始内容|node --test|PASS|
+|ATS-206-UT-041|NFR-010|异常|失败的导入不留下半成品|导入因约束失败|旧状态与旧数据库都在，无 .importing 残留|node --test|PASS|
+|ATS-206-UT-042|NFR-010|正常|备份先于状态文件的改写|apply 之后|.bak 内容是迁移前的原始文件|node --test|PASS|
+|ATS-206-UT-043|NFR-010|正常|备份与还原成对|写文件、备份、改写、还原|文件回到原始内容|node --test|PASS|
+|ATS-206-UT-050|NFR-010|正常|迁移后的状态能导入元数据库|apply --import-db|镜像导入成功且 verify 通过|node --test|PASS|
+|ATS-206-UT-051|NFR-010|正常|镜像里的数量与迁移后一致|导入后读镜像|项目数与运行数与状态相同|node --test|PASS|
+|ATS-206-UT-052|NFR-010|异常|镜像不一致时 verify 失败|改状态使其与库不符|退出码 1 并列出差异|node --test|PASS|
+|ATS-206-UT-038|NFR-010|异常|未知参数是用法错误|跑一个不存在的选项|退出码 2 并打印用法|node --test|PASS|
+|ATS-206-UT-039|NFR-010|异常|没有命令时打印用法|不带命令运行|退出码 2 并打印用法|node --test|PASS|
+|ATS-206-UT-039b|NFR-010|正常|--help 打印用法并成功|带 --help 运行|退出码 0 并打印用法|node --test|PASS|
+|ATS-206-UT-039c|NFR-010|异常|迁移不了的态被拒绝|两个项目共用一个 root|报 PROJECT_UID_COLLISION 并点名两个项目|node --test|PASS|
+|ATS-206-UT-039d|NFR-010|异常|缺失的状态文件被报告|对没有状态文件的目录跑 apply|退出码 1 并说明状态文件不存在|node --test|PASS|
+|ATS-206-UT-039e|NFR-010|异常|失败的迁移报告已撤销的内容|导入因约束失败|退出码 1 并说明已撤销哪些步骤|node --test|PASS|
+|ATS-206-UT-039f|NFR-010|异常|缺失的元数据库被报告|对没有库的目录跑 verify|退出码 1 并说明没有元数据库|node --test|PASS|
+|ATS-206-UT-039g|NFR-010|正常|--state 直接指向状态文件|用 --state 指定状态文件|plan 成功并称数量保持|node --test|PASS|
+|ATS-206-UT-039h|NFR-010|正常|默认数据目录来自 ATS_DATA_DIR|设置 ATS_DATA_DIR 后跑 plan|plan 成功并称数量保持|node --test|PASS|
+|ATS-206-UT-060|NFR-010|正常|迁移夹具用完即清理|测试跑完之后|临时目录被删除|node --test|PASS|
 
 ## 进入与退出条件
 

@@ -1,0 +1,14 @@
+{
+  "contract": "plugin-manifest/v1",
+  "id": "sample-demo-runner",
+  "version": "0.1.0",
+  "kind": "runner",
+  "entry": "index.mjs",
+  "protocol": { "major": 1, "minor": 0 },
+  "capabilities": ["discover", "start", "stop", "collect"],
+  "permissions": ["test.read", "requirements.read"],
+  "publisher": {
+    "name": "AI Test Studio Sample Publisher",
+    "signature": null
+  }
+}

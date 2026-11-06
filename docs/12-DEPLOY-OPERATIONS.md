@@ -8,6 +8,8 @@
 
 便携模式（已通过本地 HTTP IT）：`npm start`，访问 `http://127.0.0.1:4577/fallback.html`；首次无任何项目可点击添加。Windows PowerShell 也可运行 `./start.ps1`。正式 Next 源码模式：`npm --prefix apps/studio install` → `npm run build:web` → `npm start` → 访问根路径。Tauri 开发模式：保证 Node 22/Rust/Tauri CLI 环境，`npx tauri dev`。后两种因离线缺依赖，属于**有源码、待目标环境构建验证**。
 
+部署式控制面 API（ATS-506，已通过进程级 IT）：`npm run start:control-plane`（即 `node server/control-plane/main.mjs`），纯 Node 进程，不依赖 Tauri；默认监听 `http://127.0.0.1:4610`，验证 `GET /cp/v1/health` 返回 `plane=control-plane`。绑定非回环地址时必须同时给出 `ATS_CP_TLS_CERT` 与 `ATS_CP_TLS_KEY`（HTTPS，最低 TLS 1.3），否则拒绝启动；配置错误时进程以退出码 2 结束。用户侧认证默认拒绝一切（OIDC 属 ATS-507）；开发与测试可用 `ATS_CP_AUTH=dev-static`，仅限回环地址。控制面目前不持久化（进程内存储），重启即丢失项目元数据与审计事件。
+
 ## 3. 数据位置与备份恢复
 
 默认 `~/.ai-test-studio/state.json` 和 `runs/<run-id>`；可配置 `ATS_DATA_DIR`。备份时先停止服务器，整体复制 `ATS_DATA_DIR`；恢复时先备份当前，再复制旧目录，检查 `state.json.schema=1`。禁止直接编辑运行状态并声称通过；证据目录和 manifest 应一起保存。v0.1 没有 UI 清理和保留期，长期使用应定期人工迁移或归档敏感文件。
@@ -32,6 +34,10 @@
 - `ATS_PORT`：默认 4577（Next UI 的 API BASE 当前写死 4577，变更端口需同步调整 UI 配置；非动态端口发布模式）
 - `ATS_DATA_DIR`：本地历史/附件目录，默认用户主目录 `.ai-test-studio`
 - `PLAYWRIGHT_JSON_OUTPUT_FILE` 等由 Runner 注入到测试子进程。
+- `ATS_CP_HOST` / `ATS_CP_PORT`：部署式控制面的监听地址与端口，默认 `127.0.0.1` / `4610`；端口与已设置的 `ATS_PORT` 相同即拒绝启动（本地与远程不得共用同一端点）
+- `ATS_CP_TLS_CERT` / `ATS_CP_TLS_KEY`：控制面 HTTPS 证书与私钥文件，必须成对给出；非回环地址必填
+- `ATS_CP_AUTH`：控制面用户侧认证模式，`none`（默认，拒绝一切需认证的请求）或 `dev-static`（仅回环地址）
+- `ATS_CP_DEV_TOKENS`：`dev-static` 的令牌表，JSON `{令牌: 租户ID}`；令牌至少 32 字符，租户 ID 形如 `ten_xxx`；控制面不输出令牌值
 
 ## 6. 运维 SLO 建议（尚未证实）
 

@@ -51,6 +51,9 @@ import {
   resolveProjectBinary,
 } from './contract.mjs';
 import { walkTests } from '../core.mjs';
+// ATS-208: the shared status mapping and the shared aggregation, so that
+// the WDIO engine describes a run in exactly the same way as Playwright.
+import { aggregateCases, mapEngineStatus } from '../execution/model.mjs';
 
 /** Where the local WDIO CLI may live inside the project under test. */
 const CLI_CANDIDATES = [
@@ -76,15 +79,13 @@ const REPORTER_PACKAGES = {
  * WDIO states are: passed | failed | skipped | pending
  * Playwright statuses are: expected | unexpected | flaky | skipped | ...
  * The common model normalises both onto passed/failed/skipped/flaky/unknown.
+ *
+ * ATS-208: the mapping itself lives in `server/execution/model.mjs`, so that
+ * the two engines cannot drift apart. This function stays as the WDIO-flavoured
+ * name for the callers that already use it.
  */
 export function mapWdioStatus(state) {
-  switch (state) {
-    case 'passed': return 'passed';
-    case 'failed': return 'failed';
-    case 'skipped': return 'skipped';
-    case 'pending': return 'skipped';
-    default: return 'unknown';
-  }
+  return mapEngineStatus(state);
 }
 
 /**
@@ -124,9 +125,37 @@ export function findWdioReports(outputDir) {
  * ONE spec file. The json reporter does not carry the spec file on the suite
  * object, and a worker that ran several spec files cannot attribute a case to
  * one of them -- so the adapter leaves `file` empty instead of guessing.
+ *
+ * ATS-208: the aggregation is done by the SHARED aggregation of the model,
+ * so a WDIO case that was executed more than once is ONE case with several
+ * attempts -- exactly like a Playwright case that was retried. The two
+ * engines therefore describe a run in the same way.
+ *
+ * HOW THE ATTEMPTS OF A WDIO CASE ARE FOUND
+ * ------------------------------------------
+ * MEASURED against the real @wdio/reporter 10.1.0 (a case that fails every
+ * try, `mochaOpts.retries: 1`, a real Chrome):
+ *
+ *   - the reporter pushes ONE entry per ATTEMPT: `test:start` pushes a new
+ *     entry every time a test starts, so a retried case appears as two
+ *     CONSECUTIVE entries with the same name in the same suite;
+ *   - the first entry carries the outcome of the first attempt, the second
+ *     the outcome of the retry;
+ *   - the json reporter does NOT carry a retry index (`mapTests` maps only
+ *     name / start / end / duration / state / error), so the retry index is
+ *     the POSITION of the entry inside its group.
+ *
+ * So the attempts of one case are the CONSECUTIVE entries of one suite that
+ * share their name. Entries that are not consecutive are different cases:
+ * two cases that happen to share a title but are not one another's retry
+ * stay two cases.
+ *
+ * The case identity therefore keeps the group's position in its suite:
+ * `file + title + the ordinal of the group`. Without the ordinal two
+ * same-titled cases of one file would merge into one.
  */
 export function mergeWdioReports(reports) {
-  const cases = [];
+  const executions = [];
   let browserName = '';
   let browserVersion = '';
   let unattributed = 0;
@@ -138,11 +167,26 @@ export function mergeWdioReports(reports) {
     const specs = Array.isArray(report.specs) ? report.specs : [];
     const onlySpec = specs.length === 1 ? specs[0] : null;
     for (const suite of report.suites || []) {
+      // The ordinal of every GROUP of consecutive same-named entries in
+      // this suite: it keeps two same-titled cases of one suite apart.
+      let groupOrdinal = 0;
+      let previousName = null;
       for (const test of suite.tests || []) {
         if (!onlySpec) unattributed++;
-        cases.push({
+        const file = onlySpec ? fileUrlToRelative(onlySpec) : '';
+        // A new group starts when the name changes. The FIRST entry of a
+        // group takes the next ordinal.
+        if (previousName === null || test.name !== previousName) groupOrdinal++;
+        previousName = test.name;
+        executions.push({
           title: test.name,
-          file: onlySpec ? fileUrlToRelative(onlySpec) : '',
+          file,
+          // The identity of the case: a WDIO test is named by its file, its
+          // title and the group it belongs to. The group ordinal keeps two
+          // same-titled cases of one suite apart, while the retries of ONE
+          // case -- the consecutive entries with the same name -- share it
+          // and therefore become the attempts of that case.
+          caseKey: `${file} ${test.name} #${groupOrdinal}`,
           status: mapWdioStatus(test.state),
           duration: test.duration || 0,
           error: test.error ? (test.error.message || String(test.error)) : '',
@@ -150,13 +194,28 @@ export function mergeWdioReports(reports) {
       }
     }
   }
+  const aggregated = aggregateCases(executions);
   return {
-    passed: cases.filter((c) => c.status === 'passed').length,
-    failed: cases.filter((c) => c.status === 'failed').length,
-    skipped: cases.filter((c) => c.status === 'skipped').length,
-    flaky: 0,
-    total: cases.length,
-    cases,
+    passed: aggregated.passed,
+    failed: aggregated.failed,
+    skipped: aggregated.skipped,
+    flaky: aggregated.flaky,
+    total: aggregated.total,
+    executions: aggregated.executions,
+    cases: aggregated.cases.map((c) => ({
+      title: c.title,
+      file: c.file,
+      status: c.status,
+      duration: c.duration,
+      error: c.error,
+      attemptsCount: c.attemptsCount,
+      attempts: c.attempts.map((a) => ({
+        status: a.status,
+        retry: a.retry,
+        duration: a.duration,
+        error: a.error,
+      })),
+    })),
     browser: browserName ? `${browserName} ${browserVersion}`.trim() : '',
     unattributedCases: unattributed,
   };
@@ -400,8 +459,13 @@ export function createWdioAdapter() {
      * no local WDIO installation. This is deliberate: the adapter reports the
      * capability as unsupported, so the caller must not reach this point
      * without having negotiated first.
+     *
+     * ATS-212: the environment of the child is SEALED -- the runtime's
+     * prepared environment (the environment profile plus the platform base
+     * keys), not the host's own environment. See the Playwright adapter for
+     * the reasoning.
      */
-    start({ project, run, file, outputDir }) {
+    start({ project, run, file, outputDir, env: runEnv }) {
       const probe = probeWdio(project.root);
       if (!probe) throw new Error('WDIO_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT');
       const cap = this.capabilities(project).find((c) => c.name === 'start');
@@ -418,7 +482,7 @@ export function createWdioAdapter() {
       const args = [probe.cli, 'run', configFile];
       const child = spawn(process.execPath, args, {
         cwd: project.root,
-        env: { ...process.env, CI: '1', FORCE_COLOR: '0' },
+        env: { ...(runEnv ?? {}), CI: '1', FORCE_COLOR: '0' },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
         shell: false,
