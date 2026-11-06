@@ -223,6 +223,90 @@ test('IT-ATS202-API-009: the Bridge keeps answering while a project is listed', 
   assert.ok(during < 1000, `the Bridge answered in ${during} ms while the catalogue was listing (idle ${idle} ms)`);
 });
 
+/* ------------------------------------------------------------------ */
+/* the round-3 review finding: the registry of a LEGACY project record */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A Bridge on its own data directory, with a project record written BY HAND.
+ *
+ * The record is a LEGACY one: it has no `uid` field and its `id` is still
+ * the old `proj_<uuid>` shape. Such a record is what an installation that
+ * was never migrated holds -- `loadState` accepts it on purpose ("old
+ * installations keep working until the migration script rewrites their
+ * identifiers", `server/core.mjs`), and the route pattern accepts the legacy
+ * id too.
+ */
+test('IT-ATS202-API-010: the registry of a LEGACY project record is saved', async () => {
+  // The round-3 reviewer found this with their own probe (`r3-legacy.mjs`):
+  // the catalogue files its registry cell under `projectUidOf(project)`, but
+  // the write-back looked the cell up by `project.uid` / `project.id`. For a
+  // legacy record those two keys do not exist, so the cell was found nowhere,
+  // nothing was written back, and the registry of an unmigrated installation
+  // was lost on every catalogue opening.
+  const legacyRoot = fs.mkdtempSync(path.join(WORK, 'legacy-project-'));
+  fs.mkdirSync(path.join(legacyRoot, 'tests'), { recursive: true });
+  fs.writeFileSync(
+    path.join(legacyRoot, 'tests', 'legacy.spec.ts'),
+    "import { test } from '@playwright/test';\ntest('legacy one', async () => {});\n",
+    'utf8'
+  );
+  const legacyId = 'proj_11111111-2222-4333-8444-555555555555';
+  const legacyState = {
+    schema: 1,
+    // No `uid` field: this is the shape of a record that predates the UID
+    // scheme and has not been migrated yet.
+    projects: [{ id: legacyId, name: 'legacy', root: legacyRoot, addedAt: new Date().toISOString() }],
+    runs: []
+  };
+
+  const legacyPort = await freePort();
+  const legacyData = path.join(WORK, 'legacy-data');
+  fs.mkdirSync(legacyData, { recursive: true });
+  fs.writeFileSync(path.join(legacyData, 'state.json'), JSON.stringify(legacyState), 'utf8');
+  const legacyCp = spawn(process.execPath, ['server/index.mjs'], {
+    cwd: root, env: { ...process.env, ATS_PORT: String(legacyPort), ATS_DATA_DIR: legacyData }, stdio: 'ignore'
+  });
+  try {
+    let up = false;
+    for (let i = 0; i < 100; i++) {
+      try { const r = await fetch(`http://127.0.0.1:${legacyPort}/api/health`); if (r.ok) { up = true; break; } } catch { /* not up yet */ }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    assert.ok(up, 'the bridge did not boot');
+
+    const session = await (await fetch(`http://127.0.0.1:${legacyPort}/api/session`)).json();
+    const legacyToken = session.token;
+    const call = async (endpoint) => {
+      const r = await fetch(`http://127.0.0.1:${legacyPort}${endpoint}`, { headers: { 'X-ATS-Token': legacyToken } });
+      return [r.status, await r.json()];
+    };
+
+    // The legacy id is accepted by the route.
+    const [status, catalog] = await call(`/api/projects/${legacyId}/tests`);
+    assert.equal(status, 200);
+    assert.equal(catalog.discovery, 'static');
+    assert.equal(catalog.tests.length, 1);
+
+    // The catalogue is filed under the RECOMPUTED project UID, because that is
+    // what `projectUidOf(project)` returns for a legacy record.
+    const projectUid = catalog.projectUid;
+    assert.ok(projectUid, 'the catalogue reports its project UID');
+    assert.notEqual(projectUid, legacyId, 'a legacy record is recomputed, not taken as is');
+
+    // The registry of THAT project was written to the state file.
+    const state = JSON.parse(fs.readFileSync(path.join(legacyData, 'state.json'), 'utf8'));
+    const projects = state.uidRegistry?.projects ?? {};
+    assert.deepEqual(Object.keys(projects), [projectUid], 'the registry has exactly one slot: this project');
+    const entries = projects[projectUid]?.entries ?? [];
+    assert.equal(entries.length, 1, 'the registry entry of the discovered case was saved');
+    assert.equal(entries[0].title, 'legacy one');
+  } finally {
+    legacyCp.kill();
+    await new Promise((r) => setTimeout(r, 300));
+  }
+});
+
 test('IT-ATS202-API-CLEANUP: stop and cleanup', () => {
   cp.kill();
   fs.rmSync(WORK, { recursive: true, force: true });

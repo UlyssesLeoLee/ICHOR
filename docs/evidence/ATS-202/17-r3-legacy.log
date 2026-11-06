@@ -1,0 +1,7 @@
+=== command ===
+node tools/ats202-probes/r3/r3-legacy.mjs C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-7f251090c0cd/worktree /tmp/multica-task-3182755422/ats202-ev
+=== output ===
+project record after boot: [{"id":"proj_11111111-2222-4333-8444-555555555555"}]
+GET /tests -> 200 discovery=static projectUid=proj_1_e293610f302594c6b5165be2 tests=1; registry slots=["proj_1_e293610f302594c6b5165be2"]; entries under projectUid=1
+VERDICT: OK
+=== exit code: 0 ===
