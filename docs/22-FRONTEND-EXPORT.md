@@ -150,6 +150,8 @@ Route (app)
 
 > **本轮的门禁已跑通**：用 Node **22.23.4** / npm **10.9.9** 在最终树上跑了 `node tools/ci_build_gate.mjs`，结果 **每一步都通过**（见 §3.7）。前提是先在 `examples/sample-playwright` 执行 `npm install`。
 
+**采集脚本在构建失败时会拒绝继续。** 构建之前先删掉 `apps/studio/out` 与 `.next`；构建之后若 `apps/studio/out/index.html` 不存在，脚本直接以非 0 退出。这样做的原因是一个具体踩过的坑：`npm ci` 在 Windows 上可能以 `ENOTEMPTY` 失败（删除旧树时还有文件句柄），留下半个 `node_modules`，`next build` 随即报 `next is not recognized` 而失败——**但上一轮的 `out/` 还在磁盘上**。浏览器探针把它当成本轮产物加载，拿到 404，读起来像产品缺陷，实际是采集脚本把旧产物当成了新产物。**一个失败的前置步骤如果能被后续步骤当成有效输入，采集出来的证据就没有意义。**
+
 ### 3.3 导出产物 + Bridge + API 全链（IT）
 
 ```
