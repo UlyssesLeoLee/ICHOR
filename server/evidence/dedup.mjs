@@ -23,8 +23,15 @@
  * --------------
  * In the bridge's STATE, next to the projects and the runs -- the same
  * place ATS-212 put the environment profiles, and for the same reasons: the
- * state is the truth, it is written atomically, and it is mirrored into
- * SQLite as queryable rows.
+ * state is the truth, it is written atomically, and it is loaded with the
+ * rest of the state when the Bridge starts.
+ *
+ * It is NOT mirrored into SQLite. The SQLite layer (ATS-205) holds the
+ * metadata of the runs and the cases; the evidence index is a derived
+ * record of which content is shared, and nothing queries it there. An
+ * earlier version of this file claimed a SQLite mirror that does not
+ * exist, and the claim was removed rather than the code being written to
+ * match it: a document must not describe a table that is not there.
  *
  * The field is ADDITIVE: a state file written before ATS-209 has no
  * `evidenceIndex`, and it loads with an empty index. An installation that
@@ -39,13 +46,19 @@
  *
  * So the index is used the way it can be used honestly:
  *
- *   * it REPORTS the duplicate bytes -- how much space the same content
- *     takes more than once -- so the operator can see the pressure;
- *   * it RECORDS which copy is authoritative, so a reader can tell which
- *     of the two files is the one the index points at;
- *   * and the cleaning (`server/evidence/retention.mjs`) removes the
- *     DUPLICATE copies of an EXPIRED run, keeping the copy the index
- *     points at.
+ *   * it REPORTS the duplicated content -- how many bytes the same
+ *     content would take if it were stored once per run -- so the
+ *     operator can see the pressure;
+ *   * it RECORDS which copy was seen first, so a reader can tell which
+ *     of the two files the index points at.
+ *
+ * It does NOT decide what the cleaner removes. The cleaner removes the
+ * EVIDENCE of an expired run -- all of it -- and keeps the run's record.
+ * The index does not keep an "authoritative copy" alive: an expired run's
+ * evidence is removed whether or not another run happens to hold the
+ * same bytes. An earlier version of this file claimed the opposite, and
+ * the claim was removed because the code does not do it and the docs must
+ * not describe a behaviour that does not exist.
  *
  * A run whose evidence is still within its retention period keeps its own
  * copies: a run must always be able to show its own evidence, and
@@ -177,42 +190,64 @@ export function copiesOf(index, digest) {
 }
 
 /**
- * The digests that appear more than once, with the bytes they waste.
+ * The digests that appear more than once, with the bytes they share.
  *
  * The bytes are the SIZE of the content multiplied by the number of copies
  * BEYOND the first: the first copy is the one that has to be kept.
+ *
+ * WHAT THESE BYTES ARE NOT (ATS-209 review round 1)
+ * --------------------------------------------------
+ * The name used to be `wastedBytes`, and it was wrong: the duplicate
+ * copies are HARD LINKS to one inode, so the bytes are on the disk ONCE
+ * and the disk wastes nothing. The number is the size of the content that
+ * is SHARED -- what the copies would cost if they were separate files.
+ * It is therefore called `sharedBytes` now, and the field is kept under
+ * its old name as well so that a reader of the older API does not see it
+ * disappear silently.
  */
 export function duplicatedEvidence(index) {
   const out = [];
   for (const entry of Object.values(index?.entries ?? {})) {
     const copies = Number(entry?.copies) || 1;
     if (copies < 2) continue;
+    const size = Number(entry.size) || 0;
     out.push({
       digest: entry.digest,
-      size: Number(entry.size) || 0,
+      size,
       copies,
-      wastedBytes: (Number(entry.size) || 0) * (copies - 1),
+      sharedBytes: size * (copies - 1),
+      // The old name, kept for the readers that still ask for it. It
+      // means the same thing as `sharedBytes`, and the two are equal --
+      // what changed is that the number is no longer called "wasted",
+      // because nothing is wasted.
+      wastedBytes: size * (copies - 1),
       authoritative: { runId: entry.runId, file: entry.file },
       duplicates: Array.isArray(entry.duplicates) ? entry.duplicates : [],
     });
   }
-  out.sort((a, b) => b.wastedBytes - a.wastedBytes || (a.digest < b.digest ? -1 : 1));
+  out.sort((a, b) => b.sharedBytes - a.sharedBytes || (a.digest < b.digest ? -1 : 1));
   return out;
 }
 
 /**
  * The deduplication report of an index.
  *
- * @returns {{entries:number, duplicated:number, wastedBytes:number, top:object[]}}
+ * `sharedBytes` is the number of bytes the duplicated content would take
+ * if it were stored once per run. The store holds the bytes ONCE, so
+ * this is NOT a measurement of the disk: `storeBytes` is.
+ *
+ * @returns {{entries:number, duplicated:number, sharedBytes:number, wastedBytes:number, top:object[]}}
  */
 export function deduplicationReport(index) {
   const entries = Object.keys(index?.entries ?? {}).length;
   const duplicated = duplicatedEvidence(index);
-  const wastedBytes = duplicated.reduce((n, d) => n + d.wastedBytes, 0);
+  const sharedBytes = duplicated.reduce((n, d) => n + d.sharedBytes, 0);
   return {
     entries,
     duplicated: duplicated.length,
-    wastedBytes,
+    sharedBytes,
+    // The old name, kept for the readers that still ask for it.
+    wastedBytes: sharedBytes,
     // The ten worst offenders: a report that lists every digest would be
     // unreadable, and the biggest ones are the ones that matter.
     top: duplicated.slice(0, 10),

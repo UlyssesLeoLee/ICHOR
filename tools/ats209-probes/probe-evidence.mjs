@@ -28,7 +28,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   buildManifest, cleanRunEvidence, collectEvidence, expiredRuns,
-  sha256OfFile, sha256OfText, verifyEvidence,
+  MAX_EVIDENCE_ENTRIES, sha256OfFile, sha256OfText, verifyEvidence,
 } from '../../server/evidence/manifest.mjs';
 import {
   cleanExpiredEvidence,
@@ -143,10 +143,12 @@ console.log('--- 3. THE NEGATIVE CONTROL: a broken check detects nothing ---');
   // The real source is NOT touched: the copy is written into the scratch
   // directory and imported from there.
   const src = fs.readFileSync(path.join(root, 'server', 'evidence', 'manifest.mjs'), 'utf8');
-  const broken = src.replace(
-    /const verified = missing\.length === 0 && changed\.length === 0;/,
-    'const verified = true;'
-  );
+  // The line that decides whether the archive is intact. It is matched by
+  // its NAME, not by its exact text, so a refactoring of the expression
+  // does not silently turn the control into "the control could not be
+  // built" -- a control that cannot be built proves nothing.
+  const decided = /const verified = [^;]+;/m;
+  const broken = src.replace(decided, 'const verified = true;');
   if (broken === src) {
     check('the negative control could not be built', false, 'the verification line was not found');
   } else {
@@ -282,6 +284,90 @@ console.log('--- 7. THE EVIDENCE SET IS WHAT THE MANIFEST DESCRIBES ---');
   const manifest = buildManifest(makeRun(), folder);
   check('the collected entries and the manifest agree',
     JSON.stringify(entries) === JSON.stringify(manifest.artifacts));
+}
+
+// ---------------------------------------------------------------------------
+console.log('');
+console.log('--- 8. THE REVIEW ROUND 1 PROPERTIES ---');
+{
+  // E1: a blob whose content was tampered with is NOT reused.
+  const storeRoot = fs.mkdtempSync(path.join(dir, 'store-e1-'));
+  const storeDir = storeDirOf(storeRoot);
+  const file = path.join(storeRoot, 'report.json');
+  fs.writeFileSync(file, 'GENUINE');
+  const digest = sha256OfText('GENUINE');
+  const first = storeBlob(storeDir, file, digest);
+  // The tamper: the blob is a hard link to the run file, so an in-place
+  // write to the run file changes the blob too.
+  fs.writeFileSync(first.path, 'TAMPERED');
+  fs.writeFileSync(file, 'GENUINE');
+  const second = storeBlob(storeDir, file, digest);
+  check('a tampered blob is not reused (E1)',
+    fs.readFileSync(second.path, 'utf8') === 'GENUINE',
+    `the blob holds ${JSON.stringify(fs.readFileSync(second.path, 'utf8'))}`);
+
+  // E3: a manifest entry outside the run folder is refused, not followed.
+  const folder = makeRunFolder({ 'report.json': '{}' });
+  const outside = path.join(dir, 'outside-e3.json');
+  fs.writeFileSync(outside, 'NOT THIS RUN\'S EVIDENCE');
+  fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify({
+    version: 2,
+    runId: makeRun().id,
+    artifacts: [
+      { file: 'report.json', size: 2, sha256: sha256OfText('{}') },
+      { file: '../outside-e3.json', size: 20, sha256: sha256OfFile(outside) },
+    ],
+  }));
+  const verified = verifyEvidence(folder);
+  check('an entry outside the run folder is refused (E3)',
+    verified.verified === false && verified.rejected.length === 1,
+    `rejected=${JSON.stringify(verified.rejected)}`);
+  const cleaned = cleanRunEvidence(folder);
+  check('the cleaning does not reach outside the run folder (E3)',
+    fs.existsSync(outside) === true && cleaned.rejected.length === 1);
+
+  // E6: a manifest that hit the entry limit says so and does not verify.
+  const big = makeRunFolder({});
+  for (let i = 0; i < MAX_EVIDENCE_ENTRIES + 10; i++) {
+    fs.writeFileSync(path.join(big, `f-${String(i).padStart(4, '0')}.txt`), `c ${i}`);
+  }
+  const bigManifest = buildManifest(makeRun(), big);
+  check('a manifest that hit the entry limit records it (E6)',
+    bigManifest.evidence.truncated === true && bigManifest.artifacts.length === MAX_EVIDENCE_ENTRIES);
+  fs.writeFileSync(path.join(big, 'manifest.json'), JSON.stringify(bigManifest));
+  const bigVerified = verifyEvidence(big);
+  check('a manifest that does not cover the folder does not verify (E6)',
+    bigVerified.verified === false && bigVerified.truncated === true);
+
+  // E7: evidence removed by the retention policy is not a tamper.
+  const cleanedFolder = makeRunFolder({ 'report.json': '{}', 'results/trace.zip': 'TRACE' });
+  fs.writeFileSync(path.join(cleanedFolder, 'manifest.json'),
+    JSON.stringify(buildManifest(makeRun(), cleanedFolder)));
+  cleanRunEvidence(cleanedFolder);
+  const afterClean = verifyEvidence(cleanedFolder);
+  check('a cleaned run is not reported as tampered (E7)',
+    afterClean.verified === true && afterClean.missing.length === 0
+    && afterClean.cleaned.length > 0,
+    `verified=${afterClean.verified} cleaned=${afterClean.cleaned.length}`);
+
+  // E7 negative control: a file that vanishes WITHOUT a cleaning record.
+  const vanished = makeRunFolder({ 'report.json': '{}' });
+  fs.writeFileSync(path.join(vanished, 'manifest.json'),
+    JSON.stringify(buildManifest(makeRun(), vanished)));
+  fs.rmSync(path.join(vanished, 'report.json'));
+  const afterVanish = verifyEvidence(vanished);
+  check('a file that vanishes without a cleaning record is still a tamper (E7)',
+    afterVanish.verified === false && afterVanish.missing.length === 1);
+
+  // E4: the cleaning reports only what it actually removed.
+  const alreadyGone = makeRunFolder({ 'report.json': '{}' });
+  fs.writeFileSync(path.join(alreadyGone, 'manifest.json'),
+    JSON.stringify(buildManifest(makeRun(), alreadyGone)));
+  fs.rmSync(path.join(alreadyGone, 'report.json'));
+  const secondClean = cleanRunEvidence(alreadyGone);
+  check('the cleaning reports only the files it actually removed (E4)',
+    secondClean.removed.length === 0,
+    `removed=${JSON.stringify(secondClean.removed)}`);
 }
 
 console.log('');

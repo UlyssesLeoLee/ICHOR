@@ -125,26 +125,32 @@ export function cleanExpiredEvidence({
       continue;
     }
     const result = cleanRunEvidence(folder);
-    cleaned.push({
-      runId: run.id,
-      folder,
-      removed: result.removed,
-      kept: result.kept,
-      bytes: 0,
-      dryRun: false,
-    });
-  }
-  // The journal is written even when nothing was cleaned: a cleaning that
-  // found nothing is still an event an auditor has to be able to see.
-  if (!dryRun && journalFile) {
-    const entries = cleaned.map((c) => ({
-      at: new Date(typeof now === 'number' ? now : Date.parse(now)).toISOString(),
-      runId: c.runId,
-      removed: c.removed,
-      kept: c.kept,
-    }));
-    writeJournal(journalFile, entries);
-  }
+        cleaned.push({
+          runId: run.id,
+          folder,
+          removed: result.removed,
+          kept: result.kept,
+          // ATS-209 review round 1 (E3): the manifest entries that pointed
+          // outside the run folder were REFUSED. They are reported so the
+          // refusal is visible in the journal and on the console, and not
+          // silently swallowed.
+          rejected: result.rejected ?? [],
+          bytes: 0,
+          dryRun: false,
+        });
+      }
+      // The journal is written even when nothing was cleaned: a cleaning that
+      // found nothing is still an event an auditor has to be able to see.
+      if (!dryRun && journalFile) {
+        const entries = cleaned.map((c) => ({
+          at: new Date(typeof now === 'number' ? now : Date.parse(now)).toISOString(),
+          runId: c.runId,
+          removed: c.removed,
+          kept: c.kept,
+          rejected: c.rejected ?? [],
+        }));
+        writeJournal(journalFile, entries);
+      }
   return {
     ok: true,
     dryRun: Boolean(dryRun),

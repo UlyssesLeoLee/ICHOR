@@ -1,6 +1,6 @@
 === the environment seal: what the runner child received ===
 repo root : /d/ICHOR
-commit    : b00c3ca
+commit    : bb70d57
 branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
@@ -11,7 +11,7 @@ health        : {"ok":true,"version":"0.1.0","mode":"local","node":"v24.19.0"}
 session token : obtained
 
 === the project ===
-project id    : proj_1_aaadc56c0b595c6c1d0639ab
+project id    : proj_1_790461258cabb8039e05e3e4
 
 === 1. a variable that is not on the whitelist ===
 status        : 400
@@ -25,12 +25,12 @@ rejected      : [{"name":"API_TOKEN","reason":"the name is credential-shaped; a 
 
 === 3. the accepted profile ===
 status        : 200
-profile       : {"id":"env_1_4661d7f6771d0d01aa46e818","uid":"env_1_4661d7f6771d0d01aa46e818","projectUid":"proj_1_aaadc56c0b595c6c1d0639ab","name":"staging","environment":"staging","variables":["BASE_URL","TENANT"],"variableCount":2,"createdAt":"2026-11-06T21:42:31.124Z","updatedAt":"2026-11-06T21:42:31.124Z"}
+profile       : {"id":"env_1_b075bec8560b22cb0075f09e","uid":"env_1_b075bec8560b22cb0075f09e","projectUid":"proj_1_790461258cabb8039e05e3e4","name":"staging","environment":"staging","variables":["BASE_URL","TENANT"],"variableCount":2,"createdAt":"2026-11-06T23:30:37.653Z","updatedAt":"2026-11-06T23:30:37.653Z"}
 carries values: false
 
 === 4. the run and its environment ===
 status        : 202
-envUid        : env_1_4661d7f6771d0d01aa46e818
+envUid        : env_1_b075bec8560b22cb0075f09e
 envName       : staging
 envTier       : staging
 envVariables  : ["BASE_URL","TENANT"]
@@ -40,15 +40,15 @@ carries values: false
 the data dir   :
   bridge.lock
   evidence-store/
-    1f/
-      7f/
-        1f7f152bc9bc61fafcee619d477dd4cff92589f61bccf2527cc06c114f9f280f
-    70/
-      be/
-        70bec4c32697a2d7cca76de91be65cdee32208124e00758d5ea899eb3d9657ac
+    9f/
+      cd/
+        9fcd978856f276db7ea81472b6302c78f6737b2ed1e40f51169ed43bd4a460e0
+    c8/
+      39/
+        c839f0489d44ae488c484959b255e85003bb27195aad0e39bfdb6ebe08249a3f
   metadata.db
   runs/
-    run_1_5ead98f119a378d55e0fb627/
+    run_1_c49090dba1ac9024f9c2d90c/
       events.jsonl
       manifest.json
       report.json
@@ -64,7 +64,7 @@ key count         : 24
 the keys          : BASE_URL, CI, ComSpec, FORCE_COLOR, HOME, HOMEDRIVE, HOMEPATH, LANG, LOGONSERVER, PATH, PATHEXT, PLAYWRIGHT_HTML_OPEN, PLAYWRIGHT_HTML_OUTPUT_DIR, PLAYWRIGHT_JSON_OUTPUT_FILE, SYSTEMDRIVE, SystemRoot, TEMP, TENANT, TMP, TMPDIR, USERDOMAIN, USERNAME, USERPROFILE, windir
 
 === 6. the manifest of the run ===
-manifest.env     : {"uid":"env_1_4661d7f6771d0d01aa46e818","name":"staging","tier":"staging","variables":["BASE_URL","TENANT"]}
+manifest.env     : {"uid":"env_1_b075bec8560b22cb0075f09e","name":"staging","tier":"staging","variables":["BASE_URL","TENANT"]}
 carries values   : false
 
 === 7. a run that references a profile that does not exist ===
