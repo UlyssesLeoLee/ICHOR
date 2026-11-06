@@ -1,7 +1,7 @@
-=== the round-3 review probe (CE7 / CE8 / CE9 / CE10) ===
-repo root : /d/tmp/ats206-merge
-commit    : fd98143
-branch    : ats206-merge
+=== the recovery / stale-lock counterexample probe ===
+repo root : /d/ICHOR
+commit    : 6c0e420
+branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
