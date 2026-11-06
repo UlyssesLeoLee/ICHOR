@@ -556,7 +556,12 @@ const server=http.createServer(async(req,res)=>{
  // (`DELETE /api/projects/<id>/env`), so it has to be in the allowed
  // methods -- a cross-origin client (the Tauri shell, the Next dev server)
  // could not delete a profile without it.
- res.setHeader('Access-Control-Allow-Methods','GET, POST, PUT, DELETE, OPTIONS');res.setHeader('Access-Control-Allow-Headers','Content-Type, X-ATS-Token');res.setHeader('Vary','Origin');}
+ //
+ // `Access-Control-Allow-Origin` names the requesting origin back to the
+ // browser. Without it the browser blocks EVERY cross-origin response, so a
+ // whitelisted client (the Next dev server on 3000, the Tauri shell) could
+ // not read any API answer even though the origin passed the whitelist.
+ res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Access-Control-Allow-Methods','GET, POST, PUT, DELETE, OPTIONS');res.setHeader('Access-Control-Allow-Headers','Content-Type, X-ATS-Token');res.setHeader('Vary','Origin');}
  if(req.method==='OPTIONS'){res.writeHead(204);return res.end();}
  const u=new URL(req.url,`http://127.0.0.1:${PORT}`),p=u.pathname;
  if(p==='/api/health')return respond(res,200,{ok:true,version:'0.1.0',mode:'local',node:process.version});

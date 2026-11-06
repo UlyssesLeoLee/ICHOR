@@ -1,0 +1,56 @@
+=== ATS-103 evidence: ST: the exported UI from a whitelisted cross-origin ===
+date      : 2026-11-06T21:44:59Z (UTC)
+commit    : f955c23bbe7025a5fe35f1b5145f892e11c21b72
+node      : v22.23.4
+npm       : 10.9.9
+command   : node tools/ats103-probes/ui-smoke.mjs --page-origin http://127.0.0.1:3000
+
+PASS  the exported page loads in a real browser  --  HTTP 200, http://127.0.0.1:3000/
+PASS  the page's own session call succeeds  --  GET /api/session -> 200, GET /api/session -> 200
+FAIL  the page's API requests go to the host its own location implies  --  page location host: 127.0.0.1:3000; API request hosts: 127.0.0.1:4577; this check is the same-origin discriminator -- the page is on another origin, so the product uses the absolute base (127.0.0.1:4577) and the request correctly goes there
+PASS  adding a project through the UI registers it and lists the catalog  --  toast=项目添加成功：未修改原仓库, catalog items=2
+PASS  running through the UI reaches a terminal state  --  toast=已提交到本地 Playwright Runner, status=failed
+PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 28 artefacts
+PASS  the page produced no console error and no failed request  --  console errors: none; failed requests: none
+
+--- API calls the page made ---
+  GET /api/session -> 200
+  GET /api/session -> 200
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/runs -> 200
+  POST /api/projects -> 201
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/runs -> 200
+  GET /api/projects -> 200
+  GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/tests -> 200
+  GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/lineage -> 200
+  GET /api/runs -> 200
+  POST /api/projects/proj_1_58fa8e223638d85e8cf3368a/run -> 202
+  GET /api/runs -> 200
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_ac260d1294fc90f9f9e7770d -> 200
+  GET /api/runs/run_1_ac260d1294fc90f9f9e7770d -> 200
+  GET /api/runs/run_1_ac260d1294fc90f9f9e7770d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_ac260d1294fc90f9f9e7770d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_ac260d1294fc90f9f9e7770d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_ac260d1294fc90f9f9e7770d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_ac260d1294fc90f9f9e7770d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_ac260d1294fc90f9f9e7770d -> 200
+--- end ---
+--- bridge stderr ---
+  (node:11844) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+--- end ---
+PASS  the probe executed every registered check  --  8/8 checks executed
+
+RESULT: FAILED -- 7/8 checks passed.
+  FAILED: the page's API requests go to the host its own location implies  page location host: 127.0.0.1:3000; API request hosts: 127.0.0.1:4577; this check is the same-origin discriminator -- the page is on another origin, so the product uses the absolute base (127.0.0.1:4577) and the request correctly goes there
+PROBE_EXIT=1

@@ -16,13 +16,49 @@ const noDeps=fs.mkdtempSync(path.join(os.tmpdir(),'ats-nodeps-'));
 fs.writeFileSync(path.join(noDeps,'package.json'),'{}');
 fs.writeFileSync(path.join(noDeps,'playwright.config.ts'),'export default {}');
 let cp,token,projectId,noDepsId;
-async function ready(){for(let i=0;i<80;i++){try{const r=await fetch(`http://127.0.0.1:${port}/api/health`);if(r.ok)return;}catch{}await new Promise(r=>setTimeout(r,50));}throw Error('server did not boot');}
+// The ready() window below is 400 attempts, not the 70-100 it used to be.
+// `npm test` runs the test files in PARALLEL, and 14 of them each boot a
+// Bridge. Booting 14 servers at once is slow: measured on this machine the
+// boot takes 1289 / 5637 / 8582 ms (min / median / max), while the old
+// windows only allowed 4000 ms (80 x 50ms) or 2450 ms (70 x 35ms). So the
+// slow ones gave up with "server did not boot" -- non-deterministically, on a
+// DIFFERENT subset each run.
+//
+// It was never a port collision: 14 concurrent servers were measured and
+// their ports were all distinct. 400 attempts x 50ms = 20s and x 35ms = 14s,
+// which covers the measured worst case with room to spare, and a test that
+// genuinely cannot start still fails instead of hanging forever.
+// The health probe is BOUNDED. An unbounded fetch turns ONE request that
+// never comes back into a stall of the whole boot window, and the boot wait
+// then reports "the bridge did not come up" for a bridge that IS listening
+// and merely busy. Measured: a hung probe made the wait 31 s long (the 20 s
+// window plus an ~11 s request that never came back). The timeout is far
+// below the window, so a slow-but-alive bridge is still found, and a hung
+// request is retried instead of consuming the wait.
+async function ready(){for(let i=0;i<400;i++){try{const r=await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2000) });if(r.ok)return;}catch{}await new Promise(r=>setTimeout(r,50));}throw Error('server did not boot');}
 async function api(endpoint,method='GET',payload,auth=true){const r=await fetch(`http://127.0.0.1:${port}`+endpoint,{method,headers:auth?{'X-ATS-Token':token,'Content-Type':'application/json'}:{},body:payload?JSON.stringify(payload):undefined});return [r.status,await r.json()];}
 test('IT-API-SETUP: start server',async()=>{cp=spawn(process.execPath,['server/index.mjs'],{cwd:root,env:{...process.env,ATS_PORT:String(port),ATS_DATA_DIR:data},stdio:'ignore'});await ready();const r=await api('/api/session');token=r[1].token;assert.ok(token);});
 test('IT-SEC-001: rejects unauthenticated API',async()=>{const r=await api('/api/projects','GET',undefined,false);assert.equal(r[0],401);});
 test('IT-API-001: add existing repository',async()=>{const r=await api('/api/projects','POST',{path:base});assert.equal(r[0],201);projectId=r[1].project.id;});
 test('IT-API-002: import and index tests',async()=>{const r=await api(`/api/projects/${projectId}/tests`);assert.equal(r[0],200);assert.equal(r[1].tests.length,2);});
 test('IT-SEC-002: rejects foreign origin',async()=>{const r=await fetch(`http://127.0.0.1:${port}/api/session`,{headers:{Origin:'https://evil.example'}});assert.equal(r.status,403);});
+// A WHITELISTED origin gets its own origin name back. The browser blocks
+// every cross-origin response that lacks `Access-Control-Allow-Origin`, so
+// a whitelisted client (the Next dev server on 3000, the Tauri shell) could
+// not read a single API answer without this header -- even though the
+// origin passed the whitelist check.
+test('IT-SEC-002B: a whitelisted origin is echoed back in the CORS header',async()=>{
+ const origin=`http://127.0.0.1:3000`;
+ const r=await fetch(`http://127.0.0.1:${port}/api/session`,{headers:{Origin:origin}});
+ assert.equal(r.status,200);
+ assert.equal(r.headers.get('access-control-allow-origin'),origin,`the CORS header is ${JSON.stringify(r.headers.get('access-control-allow-origin'))}, expected ${origin}`);
+ // The pre-flight has to name the origin too, and it has to allow the
+ // methods the environment routes use (DELETE included).
+ const pre=await fetch(`http://127.0.0.1:${port}/api/projects/x/env`,{method:'OPTIONS',headers:{Origin:origin}});
+ assert.equal(pre.status,204);
+ assert.equal(pre.headers.get('access-control-allow-origin'),origin);
+ assert.match(pre.headers.get('access-control-allow-methods')||'',/\bDELETE\b/);
+});
 test('IT-API-001B: add a project without the engine installed',async()=>{const r=await api('/api/projects','POST',{path:noDeps});assert.equal(r[0],201);noDepsId=r[1].project.id;});
 test('IT-RUN-001: no deps => explicit failure rather than fake success',async()=>{const r=await api(`/api/projects/${noDepsId}/run`,'POST',{});assert.equal(r[0],202);assert.equal(r[1].run.status,'error');});
 test('IT-API-003: runs survive persisted read',async()=>{const r=await api('/api/runs');assert.equal(r[1].runs.length,1);assert.equal(r[1].runs[0].status,'error');});

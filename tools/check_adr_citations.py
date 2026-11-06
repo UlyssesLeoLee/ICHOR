@@ -136,16 +136,12 @@ EXPECTED = {
             354: "'Host=evil.example:",
             451: '同 LAN 他机尝试访问 ',
         },
-        # The ATS-103 WBS updater mentions the port inside a NOTE TEXT (the
-            # value never takes effect). The ADR cites it, so this script checks it.
-            #
-            # The needles deliberately do NOT contain the port literal: writing it
-            # here would add a runtime port occurrence to this file, and the ATS-101
-            # port audit would then report this file as a port-hardcoding site.
-            'tools/update_wbs_ats103.py': {
-                110: 'output:export 下的真实形态是导出页到 127.0.0.1:',
-                114: 'staticFile() 以该目录为静态根',
-            },
+        # The ATS-103 WBS updater used to mention the port inside a NOTE
+        # TEXT (the value never took effect), and the ADR cited that line.
+        # ATS-103 rewrote the note so it names the Bridge rather than
+        # spelling out the port -- the note therefore no longer contains a
+        # port literal, it is no longer a non-runtime port mention, and it
+        # no longer needs a citation here.
         }
 
 # ---------------------------------------------------------------------------
