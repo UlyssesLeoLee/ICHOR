@@ -109,7 +109,7 @@ NOTE = (
     '在第二版（42f5d29）上为红（已实测）；'
     '复核随附的七个探针（pw-semantics / startup-robustness / bridge-e2e / wdio-check / '
     'wdio-dup / verdict-unknown / replay-contract）全部 RESULT: 0 failed；'
-    '全量回归 778 例（778 通过 / 0 失败 / 0 跳过；接入 examples/sample-playwright 与 '
+    '全量回归 795 例（795 通过 / 0 失败 / 0 跳过；接入 examples/sample-playwright 与 '
     'examples/sample-wdio 的 node_modules 后，依赖真实引擎的 IT 不再跳过）；'
     '本任务改动的每个 server 文件行覆盖率均 >90%（server/execution/model.mjs 99.34、'
     'server/adapters/playwright.mjs 99.47、server/adapters/wdio.mjs 97.62、'

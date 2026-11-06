@@ -1,42 +1,42 @@
 === the execution model unit suite ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
-commit    : 41a30a5
-branch    : agent/m3/seikoist-169-e6d7459e54e1
+repo root : /d/d/ats208-landing
+commit    : 981e2c7
+branch    : 
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ UT-EXE-001: every engine status maps onto the common vocabulary (0.8391ms)
-✔ UT-EXE-002: an unknown status becomes unknown, not a guess (0.1549ms)
-✔ UT-EXE-003: the terminal run statuses are the ones a run never leaves (0.114ms)
-✔ UT-EXE-004: a retried case is ONE case that keeps EVERY attempt (0.6461ms)
-✔ UT-EXE-005: the counters count the CASES, never the executions (0.1798ms)
-✔ UT-EXE-006: the aggregation of the attempts follows the documented order (0.1686ms)
-✔ UT-EXE-007: two cases with the same title in one file stay two cases (0.1903ms)
-✔ UT-EXE-008: a case with no execution still exists and is counted once (0.151ms)
-✔ UT-EXE-009: the attempts of one case share the TestDefinition UID (3.8058ms)
-✔ UT-EXE-010: the events of a run replay into its terminal status (0.9459ms)
-✔ UT-EXE-011: an interrupted run replays into `interrupted` (0.1653ms)
-✔ UT-EXE-012: the replay follows the SEQUENCE, not the order of the array (0.1269ms)
-✔ UT-EXE-013: a hole in the sequence is reported, not hidden (0.1155ms)
-✔ UT-EXE-014: an empty stream determines no status (0.0679ms)
-✔ UT-EXE-015: the sequence of a run is gap-free and starts at 1 (0.1047ms)
-✔ UT-EXE-016: the state machine refuses the transitions it can disprove (0.0766ms)
-✔ UT-EXE-017: the event that names the status is the last one of the stream (0.0721ms)
-✔ UT-EXE-018: the unified view carries the run, the cases and the attempts (0.3148ms)
-✔ UT-EXE-019: an empty report does not crash and reports zero (0.0688ms)
-✔ UT-EXE-020: an expected failure is a PASSED case, not a failed one (0.1378ms)
-✔ UT-EXE-021: an UNEXPECTED pass is a FAILED case, not a passed one (0.0932ms)
-✔ UT-EXE-022: the counters of a run agree with the engine's own stats (0.1639ms)
-✔ UT-EXE-023: an execution without a declared expectation is not a guess (0.0779ms)
-✔ UT-EXE-023B: the per-project verdicts decide the case, not the attempt mix (0.1115ms)
-✔ UT-EXE-024: a stream that violates the state machine is NOT valid (0.096ms)
-✔ UT-EXE-025: a stream that obeys the state machine is valid (0.0753ms)
-✔ UT-EXE-026: a torn line is skipped and REPORTED, not fatal (0.2056ms)
-✔ UT-EXE-027: an intact log reports no damage (0.1047ms)
-✔ UT-EXE-028: the state diagram of the design document agrees with the code (0.7693ms)
-✔ UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry (0.5927ms)
-✔ UT-EXE-030: an unknown verdict never becomes `passed` (0.1785ms)
-✔ UT-EXE-031: the replay reports the lost and the reused sequence numbers (0.178ms)
+✔ UT-EXE-001: every engine status maps onto the common vocabulary (1.5229ms)
+✔ UT-EXE-002: an unknown status becomes unknown, not a guess (0.3128ms)
+✔ UT-EXE-003: the terminal run statuses are the ones a run never leaves (0.2107ms)
+✔ UT-EXE-004: a retried case is ONE case that keeps EVERY attempt (1.1827ms)
+✔ UT-EXE-005: the counters count the CASES, never the executions (0.4182ms)
+✔ UT-EXE-006: the aggregation of the attempts follows the documented order (0.3233ms)
+✔ UT-EXE-007: two cases with the same title in one file stay two cases (0.3694ms)
+✔ UT-EXE-008: a case with no execution still exists and is counted once (0.3215ms)
+✔ UT-EXE-009: the attempts of one case share the TestDefinition UID (17.0554ms)
+✔ UT-EXE-010: the events of a run replay into its terminal status (1.9061ms)
+✔ UT-EXE-011: an interrupted run replays into `interrupted` (0.3841ms)
+✔ UT-EXE-012: the replay follows the SEQUENCE, not the order of the array (0.2227ms)
+✔ UT-EXE-013: a hole in the sequence is reported, not hidden (0.2603ms)
+✔ UT-EXE-014: an empty stream determines no status (0.1475ms)
+✔ UT-EXE-015: the sequence of a run is gap-free and starts at 1 (0.173ms)
+✔ UT-EXE-016: the state machine refuses the transitions it can disprove (0.1936ms)
+✔ UT-EXE-017: the event that names the status is the last one of the stream (0.1489ms)
+✔ UT-EXE-018: the unified view carries the run, the cases and the attempts (1.5993ms)
+✔ UT-EXE-019: an empty report does not crash and reports zero (0.3642ms)
+✔ UT-EXE-020: an expected failure is a PASSED case, not a failed one (0.3049ms)
+✔ UT-EXE-021: an UNEXPECTED pass is a FAILED case, not a passed one (0.2273ms)
+✔ UT-EXE-022: the counters of a run agree with the engine's own stats (0.3886ms)
+✔ UT-EXE-023: an execution without a declared expectation is not a guess (0.1544ms)
+✔ UT-EXE-023B: the per-project verdicts decide the case, not the attempt mix (0.2304ms)
+✔ UT-EXE-024: a stream that violates the state machine is NOT valid (0.2167ms)
+✔ UT-EXE-025: a stream that obeys the state machine is valid (0.2239ms)
+✔ UT-EXE-026: a torn line is skipped and REPORTED, not fatal (0.4718ms)
+✔ UT-EXE-027: an intact log reports no damage (0.2383ms)
+✔ UT-EXE-028: the state diagram of the design document agrees with the code (2.6528ms)
+✔ UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry (1.5946ms)
+✔ UT-EXE-030: an unknown verdict never becomes `passed` (0.4444ms)
+✔ UT-EXE-031: the replay reports the lost and the reused sequence numbers (0.4698ms)
 ℹ tests 32
 ℹ suites 0
 ℹ pass 32
@@ -44,6 +44,6 @@ python    : Python 3.11.16
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 120.8392
+ℹ duration_ms 360.9419
 
 exit code : 0

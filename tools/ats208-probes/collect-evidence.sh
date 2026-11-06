@@ -77,19 +77,6 @@ run 08-wbs-row.log "the ATS-208 row of docs/WBS.xlsx" \
 # --- 09: the python gates ----------------------------------------------------
 run 09-python-gates.log "the python gates under tools/" \
   python -m pytest tools/ -q
-{
-  echo
-  echo "=== NOTE ==="
-  echo "The ATS-506 marker assertion (test_tc002_ats506_marker_and_narrative)"
-  echo "FAILED on the first delivery of ATS-208: it asserted that MARKERS[-1]"
-  echo "is 【ATS-506】, but 【ATS-512】 had been appended to MARKERS by a later"
-  echo "delivery without updating the assertion. It failed identically on the"
-  echo "base commit, so it was NOT caused by ATS-208."
-  echo
-  echo "It is FIXED in the tree this delivery was merged into (the ATS-512"
-  echo "delivery updated the assertion), so the suite above is green."
-} >> "$EV/09-python-gates.log"
-
 # --- 10: the coverage of the model -------------------------------------------
 {
   echo "=== the coverage of the execution model ==="

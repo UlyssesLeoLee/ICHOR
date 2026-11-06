@@ -1,0 +1,53 @@
+=== the round-3 review probe (CE7 / CE8 / CE9 / CE10) ===
+repo root : /d/tmp/ats206-merge
+commit    : fd98143
+branch    : ats206-merge
+node      : v24.19.0
+python    : Python 3.11.16
+
+
+=== CE7: migrate -> rollback -> v0.1 keeps working -> migrate again -> rollback ===
+apply exit 0
+rollback exit 0
+apply (2nd) exit 0
+.bak == the state migrated the 2nd time: true
+rollback (2nd, no --force) exit 0
+state == the v0.1 state before the 2nd apply: true
+run recorded in between still in the state: true
+run folders not referenced by the restored state: []
+the v0.1 state was different from the restored one: true
+VERDICT CE7: ok -- the 2nd rollback must restore, byte for byte, the v0.1 state that the 2nd apply migrated (a stale .bak drops the run v0.1 recorded in between)
+
+=== CE8: rollback when there is no marker (state migrated by migrate_uids --backup), a run recorded after ===
+migrate_uids --backup exit 0
+marker present: false
+rollback (no --force) exit 1
+post-migration run still in state: true
+named in the output: true
+VERDICT CE8: ok -- rollback without --force must refuse (exit != 0), keep the run and name it -- marker or not
+
+=== CE9: apply killed right after the state file is renamed into place (before the journal records "state") ===
+killed: exit 137
+journal steps on disk: []
+state migrated: true
+re-run apply exit 0
+messages: note: an interrupted migration was FINISHED: 2 run folder(s) were renamed
+after the re-run: state migrated: true
+runs whose folder is missing: 0/2
+claims UNDONE: false
+journal still on disk: false
+plan reports the interrupted migration: false
+then rollback exit 0
+legacy folders back: 2/2
+VERDICT CE9: ok -- an interrupted migration whose state file is already written must be finished, or refused with the journal kept -- never reported as UNDONE
+
+=== CE10: is the Bridge lock HELD while rollback / import-only apply / recovery write? ===
+main apply path (control): 4 destructive writes, lock held during all: true
+apply --import-db on a migrated state: 3 destructive writes, lock held during all: true
+rollback: 5 destructive writes, lock held during all: true
+recovery after a kill (journal steps ["state","folders"]): 3 destructive writes, lock held during all: true
+VERDICT CE10: ok -- the engine functions (rollbackMigration, import-only applyMigration, recovery) hold the Bridge lock for every destructive write, as the main apply path does
+
+0 counterexample(s) hold
+
+exit code : 0
