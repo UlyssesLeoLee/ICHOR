@@ -1,12 +1,12 @@
 === the WBS updater interaction regression (13 updaters) ===
-repo root : /d/tmp/ats206-merge
-commit    : fd98143
-branch    : ats206-merge
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-9a04603a3725/worktree
+commit    : d5219cb
+branch    : agent/m2/seikoist-167
 node      : v24.19.0
 python    : Python 3.11.16
 
 === ATS-501 regression: WBS updater interaction ===
-repo root : /d/tmp/ats206-merge
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-9a04603a3725/worktree
 updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats201.py tools/update_wbs_ats202.py tools/update_wbs_ats205.py tools/update_wbs_ats206.py tools/update_wbs_ats207.py tools/update_wbs_ats208.py tools/update_wbs_ats212.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py tools/update_wbs_ats506.py tools/update_wbs_ats512.py tools/update_wbs_ats601.py tools/update_wbs_ats601_rtm.py
 updater # : 18 (discovered from tools/update_wbs_*.py)
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -35,14 +35,6 @@ default enc: gbk (what the same interpreter would use without the forcing)
   PASS  tools/update_wbs_ats601_rtm.py leaves the accepted ATS-502 row at 已完成
 
 --- 2. the updaters, in either order ---
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
-  warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
-  warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
-  warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
-  warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
@@ -142,19 +134,11 @@ C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
-  warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
-  warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
-  warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
-  warn(msg)
   PASS  running the 18 updaters twice changes nothing
 
 --- 4. the derived 总览 totals match the sheet ---
-  derived: completed=1 rate=0.139720558882236 remaining=431
-  cached : completed=1 rate=0.139720558882236 (delta 4.441e-16, tolerance 5.0e-16) remaining=431
+  derived: completed=1 rate=0.149700598802395 remaining=426
+  cached : completed=1 rate=0.149700598802395 (delta 1.665e-16, tolerance 5.0e-16) remaining=426
   PASS  the cached 总览 values equal the values derived from 开发WBS
 
 --- 5. the marked notes of every task survive ---
@@ -182,12 +166,8 @@ C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
-  warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
-  warn(msg)
-  baseline markers: {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-212】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1}
-  current markers : {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-212】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1}
+  baseline markers: {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-212】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1}
+  current markers : {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-212】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1}
   PASS  every marked note of the baseline is still in the sheet
 
 --- 6. the shared D6/D7 cells keep every task's text ---
@@ -215,12 +195,8 @@ C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
-  warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
-  warn(msg)
-  D6: v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT；Next.js 16 静态导出构建已实测通过；锁文件、依赖清单与 CI 构建门禁已交付；Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过（ATS-103）；权威发现已实现（ATS-202：playwright test --list；未可信仓库回退静态索引）；SQLite 元数据层已实现（ATS-205：WAL、版本迁移与事务；state.json 的镜像）；状态数据迁移 CLI 已实现（ATS-206：安全导入、备份与回滚；数量一致）；数据目录单实例锁与崩溃恢复已实现（ATS-207：原子抢锁、持有者校验、state.json 落盘同步、损坏镜像隔离重建）；执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，事件可按 run+sequence 复演）；项目级环境档案与 runner 环境封口已实现（ATS-212：档案按项目命名空间；只有白名单内的变量可传递；runner 不继承宿主环境）；Agent 契约层已实现；远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）；部署式控制面 API 边界骨架已实现（ATS-506：独立进程/端点/凭据，入站拒绝本地路径与本地 Token）；插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）。
-  D7: 真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；详见 docs/16-BASELINE-ADR.md；CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md；静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112，详见 docs/22-FRONTEND-EXPORT.md；权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；详见 docs/23-AUTHORITATIVE-DISCOVERY.md；元数据层当前只做 state.json 的镜像，不提供查询 API；详见 docs/06-DATA-DESIGN.md §5；迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；详见 docs/24-STATE-MIGRATION.md；断电只以强杀进程模拟，未做真实掉电；桌面壳不显示占用提示；详见 docs/06-DATA-DESIGN.md §5.7；执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；详见 docs/06-DATA-DESIGN.md §5.4；凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；详见 docs/04-DETAILED-DESIGN.md §5A；详见 docs/17-AGENT-CONTRACT.md；远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；详见 docs/19-REMOTE-RUNNER-PROTOCOL.md；控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；详见 docs/21-CONTROL-PLANE-API.md；插件宿主与沙箱未实现（ATS-512 只交付契约层）；详见 docs/21-PLUGIN-CONTRACT.md。
+  D6: v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT；Next.js 16 静态导出构建已实测通过；锁文件、依赖清单与 CI 构建门禁已交付；Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过（ATS-103）；权威发现已实现（ATS-202：playwright test --list；未可信仓库回退静态索引）；SQLite 元数据层已实现（ATS-205：WAL、版本迁移与事务；state.json 的镜像）；状态数据迁移 CLI 已实现（ATS-206：安全导入、备份与回滚；数量一致）；数据目录单实例锁与崩溃恢复已实现（ATS-207：原子抢锁、持有者校验、state.json 落盘同步、损坏镜像隔离重建）；执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，事件可按 run+sequence 复演）；项目级环境档案与 runner 环境封口已实现（ATS-212：档案按项目命名空间；只有白名单内的变量可传递；runner 不继承宿主环境）；Agent 契约层已实现；远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）；部署式控制面 API 边界骨架已实现（ATS-506：独立进程/端点/凭据，入站拒绝本地路径与本地 Token）；插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）；移动端目标与会话契约已实现（ATS-601：三类目标、会话状态机、能力协商与拒绝规则；无真实设备）。
+  D7: 真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；详见 docs/16-BASELINE-ADR.md；CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md；静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112，详见 docs/22-FRONTEND-EXPORT.md；权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；详见 docs/23-AUTHORITATIVE-DISCOVERY.md；元数据层当前只做 state.json 的镜像，不提供查询 API；详见 docs/06-DATA-DESIGN.md §5；迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；详见 docs/24-STATE-MIGRATION.md；断电只以强杀进程模拟，未做真实掉电；桌面壳不显示占用提示；详见 docs/06-DATA-DESIGN.md §5.7；执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；详见 docs/06-DATA-DESIGN.md §5.4；凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；详见 docs/04-DETAILED-DESIGN.md §5A；详见 docs/17-AGENT-CONTRACT.md；远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；详见 docs/19-REMOTE-RUNNER-PROTOCOL.md；控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；详见 docs/21-CONTROL-PLANE-API.md；插件宿主与沙箱未实现（ATS-512 只交付契约层）；详见 docs/21-PLUGIN-CONTRACT.md；移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md。
   PASS  D6 and D7 still carry every task's contribution
 
 RESULT: OK -- the 18 WBS updaters coexist, are idempotent, do not undo

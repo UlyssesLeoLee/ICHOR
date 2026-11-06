@@ -1,27 +1,27 @@
 === the CLI round trip: plan / apply / verify / rollback ===
-repo root : /d/tmp/ats206-merge
-commit    : fd98143
-branch    : ats206-merge
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-9a04603a3725/worktree
+commit    : d5219cb
+branch    : agent/m2/seikoist-167
 node      : v24.19.0
 python    : Python 3.11.16
 
 === the ATS-206 CLI round trip ===
-data dir : C:\Users\seiko\AppData\Local\Temp\ats206-cli-d4Wfdd
+data dir : C:\Users\seiko\AppData\Local\Temp\ats206-cli-Uk9TS6
 
 the counts BEFORE the migration:
    {"projects":1,"runs":2,"attempts":0,"artifacts":0,"registryEntries":0}
 
 --- 1. plan: reports, writes nothing ---
 $ node tools/migrate_state.mjs plan --data-dir <dataDir>
-state file : C:\Users\seiko\AppData\Local\Temp\ats206-cli-d4Wfdd\state.json
+state file : C:\Users\seiko\AppData\Local\Temp\ats206-cli-Uk9TS6\state.json
 migrated   : no
 before: projects=1 runs=2 attempts=0 artifacts=0 registryEntries=0
 after : projects=1 runs=2 attempts=0 artifacts=0 registryEntries=0
-change: project proj_11111111-1111-1111-1111-111111111111 -> proj_1_85754cd54ef587241e670f93
-change: run run_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -> run_1_a23cb46812455f60315b0eaa
-change: run run_bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -> run_1_9aeab163d45d6cac52602d23
-folder rename: run_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -> run_1_a23cb46812455f60315b0eaa
-folder rename: run_bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -> run_1_9aeab163d45d6cac52602d23
+change: project proj_11111111-1111-1111-1111-111111111111 -> proj_1_1c857e1361be55bdc52af41f
+change: run run_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -> run_1_b73fdc7a34e159c326029165
+change: run run_bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -> run_1_caa256044aa2e0924425a80a
+folder rename: run_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -> run_1_b73fdc7a34e159c326029165
+folder rename: run_bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -> run_1_caa256044aa2e0924425a80a
 the counts are preserved: projects=1, runs=2
 [exit code] 0
 
@@ -31,15 +31,15 @@ the state file is byte-identical after plan: true
 $ node tools/migrate_state.mjs apply --import-db --data-dir <dataDir>
 before: projects=1 runs=2 attempts=0 artifacts=0 registryEntries=0
 after : projects=1 runs=2 attempts=0 artifacts=0 registryEntries=0
-change: project proj_11111111-1111-1111-1111-111111111111 -> proj_1_85754cd54ef587241e670f93
-change: run run_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -> run_1_a23cb46812455f60315b0eaa
-change: run run_bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -> run_1_9aeab163d45d6cac52602d23
-folder rename: run_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -> run_1_a23cb46812455f60315b0eaa
-folder rename: run_bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -> run_1_9aeab163d45d6cac52602d23
-migrated: C:\Users\seiko\AppData\Local\Temp\ats206-cli-d4Wfdd\state.json
-the metadata database was imported: C:\Users\seiko\AppData\Local\Temp\ats206-cli-d4Wfdd\metadata.db
-backup: C:\Users\seiko\AppData\Local\Temp\ats206-cli-d4Wfdd\state.json.bak
-rollback: node tools/migrate_state.mjs rollback --data-dir C:\Users\seiko\AppData\Local\Temp\ats206-cli-d4Wfdd
+change: project proj_11111111-1111-1111-1111-111111111111 -> proj_1_1c857e1361be55bdc52af41f
+change: run run_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -> run_1_b73fdc7a34e159c326029165
+change: run run_bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -> run_1_caa256044aa2e0924425a80a
+folder rename: run_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -> run_1_b73fdc7a34e159c326029165
+folder rename: run_bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -> run_1_caa256044aa2e0924425a80a
+migrated: C:\Users\seiko\AppData\Local\Temp\ats206-cli-Uk9TS6\state.json
+the metadata database was imported: C:\Users\seiko\AppData\Local\Temp\ats206-cli-Uk9TS6\metadata.db
+backup: C:\Users\seiko\AppData\Local\Temp\ats206-cli-Uk9TS6\state.json.bak
+rollback: node tools/migrate_state.mjs rollback --data-dir C:\Users\seiko\AppData\Local\Temp\ats206-cli-Uk9TS6
 [exit code] 0
 
 the counts AFTER the migration:
@@ -50,17 +50,17 @@ the backup is the original  : true
 --- 3. verify: the mirror holds the same data ---
 $ node tools/migrate_state.mjs verify --data-dir <dataDir>
 state: projects=1 runs=2 attempts=0 artifacts=0 registryEntries=0
-the database holds the same data as C:\Users\seiko\AppData\Local\Temp\ats206-cli-d4Wfdd\state.json
+the database holds the same data as C:\Users\seiko\AppData\Local\Temp\ats206-cli-Uk9TS6\state.json
 [exit code] 0
 
 
 --- 4. rollback: the original state is back ---
 $ node tools/migrate_state.mjs rollback --data-dir <dataDir>
-run folder renamed back: run_1_a23cb46812455f60315b0eaa -> run_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
-state file restored: C:\Users\seiko\AppData\Local\Temp\ats206-cli-d4Wfdd\state.json
-backup archived: C:\Users\seiko\AppData\Local\Temp\ats206-cli-d4Wfdd\state.json.bak.rolled-back
-marker removed: C:\Users\seiko\AppData\Local\Temp\ats206-cli-d4Wfdd\.migration-marker.json
-rolled back: C:\Users\seiko\AppData\Local\Temp\ats206-cli-d4Wfdd\state.json
+run folder renamed back: run_1_b73fdc7a34e159c326029165 -> run_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+state file restored: C:\Users\seiko\AppData\Local\Temp\ats206-cli-Uk9TS6\state.json
+backup archived: C:\Users\seiko\AppData\Local\Temp\ats206-cli-Uk9TS6\state.json.bak.rolled-back
+marker removed: C:\Users\seiko\AppData\Local\Temp\ats206-cli-Uk9TS6\.migration-marker.json
+rolled back: C:\Users\seiko\AppData\Local\Temp\ats206-cli-Uk9TS6\state.json
 [exit code] 0
 
 the state file is byte-identical to the original: true

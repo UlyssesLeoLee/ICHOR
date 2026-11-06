@@ -1,19 +1,15 @@
 === the ATS-206 row of docs/WBS.xlsx ===
-repo root : /d/tmp/ats206-merge
-commit    : fd98143
-branch    : ats206-merge
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-9a04603a3725/worktree
+commit    : d5219cb
+branch    : agent/m2/seikoist-167
 node      : v24.19.0
 python    : Python 3.11.16
 
-overview: 已完成=1 完成率=0.13972055888223556 剩余人日=431.0
+overview: 已完成=1 完成率=0.14970059880239517 剩余人日=426.0
 IDEMPOTENT: row ATS-206 unchanged
-overview: 已完成=1 完成率=0.13972055888223556 剩余人日=431.0
+overview: 已完成=1 完成率=0.14970059880239517 剩余人日=426.0
 IDEMPOTENT: a second run leaves row ATS-206 byte-identical
 verify: ATS-206 row 27 状态=待审核 完成率=1 剩余人日=0 marker×1
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
-  warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
-  warn(msg)
 verify: openpyxl loads the workbook in the normal and the data_only mode
 
 exit code : 0
