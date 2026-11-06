@@ -1,6 +1,6 @@
 === the environment seal: what the runner child received ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fbfa95f55f8a/worktree
-commit    : 4bf2d20
+commit    : 246b73f
 branch    : agent/m2/seikoist-170-fbfa95f55f8a
 node      : v24.19.0
 python    : Python 3.11.16
@@ -11,7 +11,7 @@ health        : {"ok":true,"version":"0.1.0","mode":"local","node":"v24.19.0"}
 session token : obtained
 
 === the project ===
-project id    : proj_1_0c479aee208d48a5a042f1ea
+project id    : proj_1_38ec867d82af10b0c7609838
 
 === 1. a variable that is not on the whitelist ===
 status        : 400
@@ -25,12 +25,12 @@ rejected      : [{"name":"API_TOKEN","reason":"the name is credential-shaped; a 
 
 === 3. the accepted profile ===
 status        : 200
-profile       : {"id":"env_1_ed404faf8a02b605857451e6","uid":"env_1_ed404faf8a02b605857451e6","projectUid":"proj_1_0c479aee208d48a5a042f1ea","name":"staging","environment":"staging","variables":["BASE_URL","TENANT"],"variableCount":2,"createdAt":"2026-11-06T14:51:24.421Z","updatedAt":"2026-11-06T14:51:24.421Z"}
+profile       : {"id":"env_1_2d20c773ee5ba8c4e575c6be","uid":"env_1_2d20c773ee5ba8c4e575c6be","projectUid":"proj_1_38ec867d82af10b0c7609838","name":"staging","environment":"staging","variables":["BASE_URL","TENANT"],"variableCount":2,"createdAt":"2026-11-06T16:01:12.531Z","updatedAt":"2026-11-06T16:01:12.531Z"}
 carries values: false
 
 === 4. the run and its environment ===
 status        : 202
-envUid        : env_1_ed404faf8a02b605857451e6
+envUid        : env_1_2d20c773ee5ba8c4e575c6be
 envName       : staging
 envTier       : staging
 envVariables  : ["BASE_URL","TENANT"]
@@ -41,7 +41,7 @@ the data dir   :
   bridge.lock
   metadata.db
   runs/
-    run_1_2c94cccc54461eb8c99e82b5/
+    run_1_4aa4a0d6ab4252238ae6e3d6/
       events.jsonl
       manifest.json
       report.json
@@ -57,7 +57,7 @@ key count         : 24
 the keys          : BASE_URL, CI, COMSPEC, FORCE_COLOR, HOME, HOMEDRIVE, HOMEPATH, LANG, LOGONSERVER, PATH, PATHEXT, PLAYWRIGHT_HTML_OPEN, PLAYWRIGHT_HTML_OUTPUT_DIR, PLAYWRIGHT_JSON_OUTPUT_FILE, SYSTEMDRIVE, SYSTEMROOT, TEMP, TENANT, TMP, TMPDIR, USERDOMAIN, USERNAME, USERPROFILE, windir
 
 === 6. the manifest of the run ===
-manifest.env     : {"uid":"env_1_ed404faf8a02b605857451e6","name":"staging","tier":"staging","variables":["BASE_URL","TENANT"]}
+manifest.env     : {"uid":"env_1_2d20c773ee5ba8c4e575c6be","name":"staging","tier":"staging","variables":["BASE_URL","TENANT"]}
 carries values   : false
 
 === 7. a run that references a profile that does not exist ===
