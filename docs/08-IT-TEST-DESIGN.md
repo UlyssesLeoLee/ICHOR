@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：127；已执行通过：113；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：137；已执行通过：123；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -103,6 +103,16 @@
 |IT-ENV-ADP-004|FR-027|回归|封口不破坏引擎自身的契约|封口环境跑一次 fake CLI|适配器仍能收集到摘要，总数为 1|node --test|PASS|
 |IT-ENV-ADP-005|FR-027|安全|列盘子进程不携带宿主环境|fixture 工程用 fake CLI 跑 test --list，宿主含伪装密钥|捕获的环境不含宿主密钥，含报告路径与 CI=1|node --test|PASS|
 |UT-ENV-057|FR-027|安全|能力探测不把宿主环境交给工程自带 CLI|probeCommand 跑工程目录下的脚本，宿主含伪装密钥|捕获的环境不含宿主密钥，含 PATH|node --test|PASS|
+|IT-EVD-101|NFR-011|正常|证据 IT 的 bridge 启动|隔离 ATS_DATA_DIR 与随机端口|/api/health=200 并取得 token|node --test|PASS|
+|IT-EVD-102|FR-015|正常|运行结束写出带归属与摘要的清单|跑一次真实（替身 CLI）运行|run 目录下有 manifest.json，带 runId、projectUid、sourceCommit 与每条证据的 sha256|node --test|PASS|
+|IT-EVD-103|FR-015|正常|完好的证据集校验通过|刚跑完的运行|GET /api/runs/:id/evidence 返回 verified=true 且 missing 与 changed 为空|node --test|PASS|
+|IT-EVD-104|FR-015|完整性|归档后被改动的文件经 API 被检出|改写归档后的 report.json|verified=false；changed 指出该文件与应有/实际两个摘要|node --test|PASS|
+|IT-EVD-105|FR-015|正常|清单可经 API 读回|一个已结束的运行|GET /api/runs/:id/manifest 返回该运行的清单原文|node --test|PASS|
+|IT-EVD-106|NFR-004|正常|保留期计划与去重报告可查|一个已结束的运行|GET /api/evidence/retention 与 /api/evidence/dedup 均 200 并带空间数字|node --test|PASS|
+|IT-EVD-107|NFR-004|安全|Bridge 持锁时清理被拒绝|bridge 运行中执行清理命令|退出码 3，提示 Bridge 正在运行，证据未被删除|node --test|PASS|
+|IT-EVD-108|NFR-004|完整性|清理删证据但保留 Run 元数据|停掉 bridge 后按 0 天清理|证据消失；state.json 里的 run 记录逐字段不变；事件日志与清单仍在|node --test|PASS|
+|IT-EVD-109|NFR-004|完整性|清理后校验如实报告缺失|清理后再执行 verify|退出码 1 并报出缺失的文件|node --test|PASS|
+|IT-EVD-110|NFR-005|清理|证据 IT 临时目录清理|结束 IT suite|临时目录删除|node --test|PASS|
 |IT-CP-SETUP|NFR-011|正常|本地 Bridge 与控制面以纯 Node 进程并行启动|随机端口、隔离数据目录、dev-static 令牌|两者 health=200，取得本地会话 token|node --test|PASS|
 |IT-CP-001|FR-028|正常|控制面无 Tauri 即可使用|GET /cp/v1/health 与 /cp/v1/contract|200，tauriRequired=false|node --test|PASS|
 |IT-CP-002|NFR-002|安全|本地会话 Token 不是控制面凭据|X-ATS-Token、Bearer 本地 Token、二者并带|401 REMOTE_UNAUTHENTICATED|node --test|PASS|

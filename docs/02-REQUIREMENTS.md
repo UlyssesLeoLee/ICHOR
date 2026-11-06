@@ -32,7 +32,7 @@
 | FR-012 | 运行历史 | 不覆盖旧记录；记录 ID/commit/timestamp/status | P0 | IMPLEMENTED（ATS-208：执行模型统一，重试用例计一次且保留全部 attempt） |
 | FR-013 | 执行日志 | 前端能够轮询本地 stdout/stderr，显示错误 | P0 | IMPLEMENTED |
 | FR-014 | JSON/HTML 与 Trace | 尽力启用原生 reporter/trace/screenshot/video 并按 Run 隔离 | P0 | IMPLEMENTED (requires Playwright) |
-| FR-015 | 文件证据下载 | 路径验证，保留 SHA-256 和相对位置；拒绝路径跳转 | P0 | IMPLEMENTED |
+| FR-015 | 文件证据下载 | 路径验证，保留 SHA-256 和相对位置；拒绝路径跳转 | P0 | IMPLEMENTED（ATS-209：清单带所属运行与整组摘要，篡改可检出并指名文件） |
 | FR-016 | 报告摘要 | 解析 status、duration、cases、error 供可视化展示 | P0 | IMPLEMENTED |
 | FR-017 | 需求关系读取 | 读取 .aitest/requirements.json 和 traceability.json | P0 | IMPLEMENTED (read-only) |
 | FR-018 | 执行事件审计 | 同一次运行生成事件顺序号与 JSONL | P0 | IMPLEMENTED（ATS-208：序号无空洞，事件可按 run+sequence 复演为 run 的状态） |
@@ -63,7 +63,7 @@
 | NFR-001 | 可用性 | 用户项目操作不要求平台云账号；断网仍可检索已登记项目 | P0 | 基础具备 |
 | NFR-002 | 安全 | API 仅 bind 127.0.0.1；token+Origin 拒绝跨站 API 请求 | P0 | 部分具备；无 OS 级身份 |
 | NFR-003 | 安全 | 拒绝 `../`、symlink 越界、非测试文件编辑及任意附件路径 | P0 | 已实现 |
-| NFR-004 | 数据完整性 | 已生成 Evidence 附件记录 SHA-256；每次运行独立目录 | P0 | 已实现 |
+| NFR-004 | 数据完整性 | 已生成 Evidence 附件记录 SHA-256；每次运行独立目录 | P0 | 已实现（ATS-209：证据清单可校验、内容寻址去重、到期清理只删证据不删 Run 元数据） |
 | NFR-005 | 维护性 | npm 项目零迁移；Node bridge 与 Next/Tauri UI 解耦 | P0 | 已实现 |
 | NFR-006 | 性能 | 普通仓库 500 用例索引目标 3 秒内（非环境实测） | P1 | 待 ST 测量 |
 | NFR-007 | 可移植性 | Windows/macOS/Linux Web 便携版；Tauri 各 OS 构建另验 | P1 | 部分 |
