@@ -1,0 +1,15 @@
+=== the whitelist filters the runner environment, not only the write ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-b0b41f101946/worktree
+commit    : 46ff55a
+branch    : agent/m2/seikoist-170-b0b41f101946
+node      : v24.19.0
+python    : Python 3.11.16
+
+profile carries : ["BASE_URL","TENANT"]
+whitelist now   : ["TENANT"]
+filtered        : ["TENANT"]
+refused         : [{"name":"BASE_URL","reason":"the name is not on the environment whitelist of this project"}]
+child sees      : {"BASE_URL":null,"TENANT":"acme"}
+RESULT: OK -- the removed name does not reach the runner
+
+exit code : 0

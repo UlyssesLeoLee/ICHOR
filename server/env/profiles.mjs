@@ -114,29 +114,69 @@ export const BASE_ENV_KEYS = Object.freeze([
  * names are refused even then, because they are the ones that break the
  * platform or the security boundary when they are overridden:
  *
- *   * `PATH` and its relatives: overriding them makes the child unable to
- *     find its own interpreter.
+ *   * `PATH` and its relatives, and the other STRUCTURAL keys
+ *     (`SystemRoot`, `windir`, `ComSpec`): overriding them makes the child
+ *     unable to find its own interpreter or unable to exist at all.
  *   * `NODE_OPTIONS`: it is evaluated by Node BEFORE the program runs, so a
  *     profile could turn into arbitrary code execution.
  *   * `LD_PRELOAD` / `DYLD_INSERT_LIBRARIES`: the classic loader hijack.
- *   * `PLAYWRIGHT_*`: the engine's own output variables; the adapter owns
- *     them (they say where the report goes), so a profile must not redirect
- *     the evidence.
- *   * the `PROXY`/`SSL`/`NODE_TLS*` family: they decide where the traffic
- *     goes, so a profile could silently redirect the traffic of a test run.
+ *   * the ADAPTER-OWNED output variables of the engine (the exact names are
+ *     listed below): they say where the report goes, so a profile must not
+ *     redirect the evidence.
+ *   * `PWDEBUG`: it puts the engine into its INTERACTIVE debug mode, which
+ *     waits for a human -- a profile must not be able to hang a run.
+ *   * the proxy variables (`HTTP_PROXY` and friends) and the TLS trust
+ *     variables (`NODE_TLS_REJECT_UNAUTHORIZED`, `NODE_EXTRA_CA_CERTS`,
+ *     `SSL_CERT_FILE`): they decide where the traffic goes and whether it is
+ *     verified, so a profile could silently redirect the traffic of a run.
+ *
+ * THE LIST IS EXACT, NOT A FAMILY RULE. It names the specific variables
+ * that are refused. It does NOT refuse every `PLAYWRIGHT_*` or every
+ * `*_PROXY` name -- the comment used to claim that, which was not what the
+ * code did. The two claims are now different things:
+ *
+ *   * the variables in the list below are REFUSED at write time;
+ *   * the OTHER engine variables a profile may name (e.g.
+ *     `PLAYWRIGHT_HTML_REPORT`) cannot move the evidence, because the
+ *     adapter's own output variables are applied LAST when the runner
+ *     environment is built. That is a property of the ORDER, not of the
+ *     list, and it is measured by the ATS-212 probe.
  *
  * The refusal is a REFUSAL, not a filter: the caller is told which name was
  * refused and why, so the profile can be fixed.
+ *
+ * The comparison is CASE-INSENSITIVE: an environment block does not
+ * distinguish `PATH` from `Path`, so the names are compared in upper case.
  */
 export const RESERVED_ENV_NAMES = Object.freeze([
-  'PATH', 'Path', 'PATHEXT',
+  // the structural keys: the child cannot exist without them
+  'PATH', 'PATHEXT', 'SYSTEMROOT', 'WINDIR', 'COMSPEC',
+  // the loader and the interpreter
   'NODE_OPTIONS', 'NODE_PATH',
   'LD_PRELOAD', 'LD_LIBRARY_PATH', 'DYLD_INSERT_LIBRARIES', 'DYLD_LIBRARY_PATH',
+  // the adapter-owned output variables of the engine
   'PLAYWRIGHT_JSON_OUTPUT_FILE', 'PLAYWRIGHT_HTML_OUTPUT_DIR', 'PLAYWRIGHT_HTML_OPEN',
   'PLAYWRIGHT_BROWSERS_PATH',
+  // the engine's interactive debug mode
+  'PWDEBUG',
+  // the proxy variables
   'HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY',
-  'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy',
-  'NODE_TLS_REJECT_UNAUTHORIZED', 'NODE_EXTRA_CA_CERTS',
+  // the TLS trust variables
+  'NODE_TLS_REJECT_UNAUTHORIZED', 'NODE_EXTRA_CA_CERTS', 'SSL_CERT_FILE',
+]);
+
+/**
+ * The STRUCTURAL keys -- the ones the child process needs to exist at all.
+ *
+ * They are re-applied unconditionally when the runner environment is built,
+ * and the comparison is case-insensitive: Windows does not distinguish
+ * `WINDIR` from `windir`, and Node itself de-duplicates the keys of an
+ * environment block case-insensitively. A profile that named `WINDIR` could
+ * therefore win over the platform's own `windir` and point the child at a
+ * directory of the profile's choosing.
+ */
+export const STRUCTURAL_ENV_KEYS = Object.freeze([
+  'PATH', 'PATHEXT', 'SYSTEMROOT', 'WINDIR', 'COMSPEC',
 ]);
 
 /**
@@ -185,6 +225,14 @@ export function envUidForProfile(profile) {
  * environment is a map of strings and a number `80` and the string `80` are
  * the same environment value.
  *
+ * TWO SPELLINGS OF ONE NAME ARE REFUSED, NOT COLLAPSED. An environment
+ * block does not distinguish `BASE_URL` from `base_url`: on Windows the key
+ * is compared case-insensitively, so the two are the SAME variable. A
+ * request that carries both spellings therefore states two values for one
+ * variable, and there is no honest way to pick one -- the request is
+ * refused, and BOTH spellings are named in the refusal, so the caller can
+ * see which two collided.
+ *
  * @returns {{variables:object, rejected:Array<{name:string,reason:string}>}}
  *   `rejected` names the entries that were refused, with the reason. The
  *   caller must report them; a silently dropped variable is a variable the
@@ -200,11 +248,34 @@ export function normaliseVariables(variables, { whitelist = null, reserved = RES
       rejected: [{ name: '*', reason: 'the variables must be an object of name/value pairs' }],
     };
   }
-  const reservedSet = new Set(reserved);
-  for (const [rawName, rawValue] of Object.entries(variables)) {
-    const name = String(rawName).trim().toUpperCase();
+  const reservedSet = new Set(reserved.map((n) => String(n).toUpperCase()));
+  const entries = Object.entries(variables);
+  // The spellings of every upper-case name, so that a name written twice in
+  // two cases can be refused instead of collapsed.
+  const spellings = new Map();
+  for (const [rawName] of entries) {
+    const spelling = String(rawName).trim();
+    const upper = spelling.toUpperCase();
+    if (!spellings.has(upper)) spellings.set(upper, []);
+    spellings.get(upper).push(spelling);
+  }
+  for (const [rawName, rawValue] of entries) {
+    const spelling = String(rawName).trim();
+    const name = spelling.toUpperCase();
     if (!isValidEnvName(name)) {
       rejected.push({ name: String(rawName), reason: 'the name is not an upper-case environment variable name' });
+      continue;
+    }
+    const variants = spellings.get(name) ?? [];
+    if (variants.length > 1) {
+      // The two spellings are one variable, and the request states two
+      // values for it. Both are reported -- the refusal names every
+      // spelling that collides, so the caller sees the whole conflict.
+      rejected.push({
+        name: spelling,
+        reason: `the name is written in more than one case (${variants.join(', ')}); ` +
+          'an environment block does not distinguish them, so the request would state two values for one variable',
+      });
       continue;
     }
     if (reservedSet.has(name)) {
@@ -233,11 +304,55 @@ export function normaliseVariables(variables, { whitelist = null, reserved = RES
 }
 
 /**
+ * The variables of a profile that the CURRENT whitelist still permits.
+ *
+ * THE WHITELIST CONSTRAINS THE RUN, NOT ONLY THE WRITE. A profile is
+ * written against the whitelist that is in force at that moment; the
+ * whitelist can be tightened afterwards, and a run that happens later must
+ * then NOT carry the variables that were removed. Otherwise the whitelist
+ * would only ever be a write-time check: the variable would still reach the
+ * code under test, which is exactly the boundary the whitelist exists to
+ * draw.
+ *
+ * The refused names are REPORTED, not silently dropped: the caller says
+ * which variables of the profile did not reach the runner and why.
+ *
+ * @param {object} profile the environment profile
+ * @param {string[]} whitelist the whitelist that is in force NOW
+ * @returns {{variables:object, refused:Array<{name:string,reason:string}>}}
+ */
+export function filterProfileVariables(profile, whitelist) {
+  const out = {};
+  const refused = [];
+  const source = profile?.variables ?? {};
+  if (!Array.isArray(whitelist)) {
+    return { variables: { ...source }, refused };
+  }
+  for (const [name, value] of Object.entries(source)) {
+    const check = checkEnvName(name, whitelist);
+    if (!check.allowed) {
+      refused.push({ name, reason: check.reason });
+      continue;
+    }
+    out[name] = value;
+  }
+  return { variables: out, refused };
+}
+
+/**
  * The variables of a profile that are handed to the runner.
  *
  * This is the SEALED SET: the profile's own variables, plus the platform
  * variables the child process needs to run at all. The host's environment is
  * NOT passed on -- only the base keys are picked out of it, one by one.
+ *
+ * THE STRUCTURAL KEYS ARE RE-APPLIED CASE-INSENSITIVELY. Windows does not
+ * distinguish `WINDIR` from `windir`, and Node de-duplicates the keys of an
+ * environment block case-insensitively -- so a profile that named `WINDIR`
+ * would beat the platform's own `windir` (the key that sorts first wins)
+ * and point the child at a directory of the profile's choosing. Every
+ * spelling of a structural key is therefore removed before the platform's
+ * own value is applied, so the platform always wins.
  *
  * @param {object} profile the environment profile
  * @param {object} [options]
@@ -274,8 +389,27 @@ export function buildRunnerEnv(profile, { baseEnv = process.env, extra = {} } = 
   // not be able to break it. The normaliser already refuses the reserved
   // names, so this is the second line of defence -- the function that
   // builds the environment does not have to trust its caller.
-  for (const key of ['PATH', 'Path', 'SystemRoot', 'SYSTEMROOT', 'windir', 'ComSpec', 'COMSPEC', 'PATHEXT']) {
-    if (baseEnv?.[key] !== undefined && baseEnv[key] !== null) env[key] = String(baseEnv[key]);
+  //
+  // EVERY SPELLING of a structural key is removed first. The environment
+  // block is case-insensitive on Windows, so a leftover `WINDIR` would
+  // shadow the platform's `windir` depending on how the keys happen to sort
+  // -- which is how a profile got to choose the child's `windir`.
+  const structural = new Set(STRUCTURAL_ENV_KEYS);
+  for (const key of Object.keys(env)) {
+    if (structural.has(key.toUpperCase())) delete env[key];
+  }
+  // The platform's own value is applied ONCE per structural key, under the
+  // spelling the host itself uses: `Path` on Windows, `PATH` elsewhere.
+  // Applying both spellings would put the same key into the block twice,
+  // and the block is case-insensitive.
+  const applied = new Set();
+  for (const key of BASE_ENV_KEYS) {
+    const upper = key.toUpperCase();
+    if (!structural.has(upper) || applied.has(upper)) continue;
+    const value = baseEnv?.[key];
+    if (value === undefined || value === null) continue;
+    applied.add(upper);
+    env[key] = String(value);
   }
   return env;
 }
