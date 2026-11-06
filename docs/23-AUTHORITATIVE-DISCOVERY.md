@@ -401,6 +401,7 @@ S4 的 `onlyAuthoritative` 非空是**正确的**：那个用例在表达式体�
 |---|---|---|
 | UT | `UT-ATS202-001` … `UT-ATS202-028`（`tests/discovery.test.mjs`） | 报告解析、路径归一、describe 路径、项目矩阵、失败码、信任闸门、身份阶梯、标题认领、注册表裁剪、两个索引的比较 |
 | UT | `CE-A` … `CE-F`（`tests/discovery-regressions.test.mjs`） | 第 1 轮复核的每一个反例：闭合的 describe、describe 修饰符、转义引号、超长标题、多行调用、动态用例的注册表回流、可信项目显式要静态索引 |
+| UT | `N3` 系列（`tests/discovery-regressions.test.mjs`） | 第 2 轮复核的比较键：details 对象的 describe、带参数列表的回调、函数表达式回调、嵌套 describe、注释、模板字面量标题、变量标题、读不到的文件 |
 | IT | `IT-ATS202-001` … `IT-ATS202-011`（`tests/discovery-it.test.mjs`） | 真实 `@playwright/test` 1.64.1：动态用例进权威索引不进静态索引、未可信项目不执行 `--list`、可信项目确实执行、一致性被测量、UID 不因切换索引而移动、坏配置回退、无 CLI 不安装、超时、CLI 报错 |
 | IT | `IT-ATS202-012` … `IT-ATS202-017`（`tests/discovery-it.test.mjs`） | 第 1 轮复核的反例对**真实 CLI** 再验一遍 |
 | IT | `IT-ATS202-API-001` … `IT-ATS202-API-007`（`tests/discovery-api.test.mjs`） | 真实 HTTP：信任端点、模式切换、非法信任值被拒、强制请求被拒、信任跨重启保留、撤销后回退 |
@@ -408,6 +409,10 @@ S4 的 `onlyAuthoritative` 非空是**正确的**：那个用例在表达式体�
 | UT | `ATS202-ASYNC-001` … `ATS202-ASYNC-015`（`tests/discovery-async.test.mjs`） | **Bridge 真正走的异步列举路径**：成功、超时（子进程被杀）、CLI 崩溃、坏 JSON、报告带错误、无 CLI、无 root、两个变体答案一致、事件循环不被占住 |
 | 实测 | `tools/ats202-probes/list-ground-truth.mjs` | 真实 CLI 的 33 项契约断言（§2.3 与 §2.4 的每一行） |
 | 反例 | `docs/evidence/ATS-202/09-review-round1-probe.log` | 第 1 轮复核的 10 个反例探针，在返工后的树上跑，10/10 OK |
+| 反例 | `docs/evidence/ATS-202/12-r2-race.log` | N1：慢项目列举期间，另一个项目的注册表条目**不被抹掉**（2 → 2） |
+| 反例 | `docs/evidence/ATS-202/13-r2-scope.log` | N3：S1/S2/S3 三个场景现在都是 `onlyStatic=[]`（5/5 OK） |
+| 反例 | `docs/evidence/ATS-202/14-r2-async.log` | 异步超时：子进程确实被杀（配置完成标记不存在） |
+| 反例 | `docs/evidence/ATS-202/15-r2-upgrade.log` | N4：升级前后的静态 UID 对照（**这个探针的 exit 1 是预期的**——它记录的正是那次一次性变化，§4.5.1） |
 
 执行：`npm test`（Node ≥ 22）。
 

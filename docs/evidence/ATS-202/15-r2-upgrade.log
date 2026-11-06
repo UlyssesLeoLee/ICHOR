@@ -1,0 +1,13 @@
+=== command ===
+node D:/ICHOR/tools/ats202-probes/r2/r2-upgrade.mjs D:/hermes-multica/home/cache/scratch/ats202-evidence4/ats202-round0-tree D:/ICHOR D:/hermes-multica/home/cache/scratch/ats202-evidence4
+=== output ===
+[escaped quote] FAIL -- static UID on the round-1 tree tc_1_d_0133d73c628805e2 (title "user\\") -> after upgrade tc_1_d_2d805d451ded5ad8 (derived, title "user's profile")
+[title > 180 chars] OK -- static UID on the round-1 tree tc_1_d_03a9ee2a8d37e5d3 (title "checkout xxxxxxxxxxxxxxxxxxxxx") -> after upgrade tc_1_d_03a9ee2a8d37e5d3 (registry, title "checkout xxxxxxxxxxxxxxxxxxxxx")
+[multi-line call] OK -- static UID on the round-1 tree tc_1_d_44d54cca5562f627 (title "multi line") -> after upgrade tc_1_d_44d54cca5562f627 (registry, title "multi line")
+SUMMARY: 2/3 existing static UIDs survive the upgrade
+=== exit code: 1 ===
+
+=== note ===
+The exit code 1 of this probe is the EXPECTED result: the escaped-quote
+case is expected to change its static UID once (the N4 finding). The
+other two cases must stay OK. See docs/23-AUTHORITATIVE-DISCOVERY.md 4.5.1.

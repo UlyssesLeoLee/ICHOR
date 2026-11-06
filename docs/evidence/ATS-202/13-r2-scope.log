@@ -1,0 +1,10 @@
+=== command ===
+node D:/ICHOR/tools/ats202-probes/r2/r2-scope.mjs D:/ICHOR D:/pime-uat/node_modules D:/hermes-multica/home/cache/scratch/ats202-evidence4
+=== output ===
+[S1 describe title held in a variable] OK -- discovery=authoritative agrees=true onlyStatic=[] onlyAuthoritative=[]
+[S2 describe title as a template literal] OK -- discovery=authoritative agrees=true onlyStatic=[] onlyAuthoritative=[]
+[S3 describe with a details object (tag)] OK -- discovery=authoritative agrees=true onlyStatic=[] onlyAuthoritative=[]
+[S4 describe with an expression-bodied callback] OK -- discovery=authoritative agrees=false onlyStatic=[] onlyAuthoritative=["tests/s.spec.ts expr inside expr"]
+[S5 describe.configure before plain cases] OK -- discovery=authoritative agrees=true onlyStatic=[] onlyAuthoritative=[]
+SUMMARY: 5/5 OK
+=== exit code: 0 ===
