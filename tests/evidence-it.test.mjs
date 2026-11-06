@@ -274,7 +274,7 @@ test('IT-EVD-108: the cleaning removes the evidence and keeps the run metadata',
   assert.match(journalOut, new RegExp(runId));
 });
 
-test('IT-EVD-109: the verification after the cleaning reports the missing evidence', async () => {
+test('IT-EVD-109: the verification after the cleaning reports the cleaned evidence, not a tamper', async () => {
   const cli = spawn(process.execPath, ['tools/evidence_retention.mjs', 'verify', '--data-dir', data], {
     cwd: root,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -284,11 +284,42 @@ test('IT-EVD-109: the verification after the cleaning reports the missing eviden
   cli.stdout.on('data', (b) => { stdout += b.toString(); });
   cli.stderr.on('data', (b) => { stderr += b.toString(); });
   const code = await new Promise((resolve) => cli.on('close', resolve));
-  // The evidence was cleaned, so the manifest lists files that are gone.
-  // The verification says so -- it does not report the archive as intact.
-  assert.equal(code, 1, `the verification must report the missing evidence: ${stdout}`);
-  assert.match(stdout, /does NOT match its manifest/);
-  assert.match(stdout, /missing: /);
+  // ATS-209 review round 1 (E7): the evidence was cleaned by the
+  // RETENTION POLICY, and the cleaning left a record of what it removed.
+  // The verification says so -- it does NOT report the archive as
+  // tampered with, and it does not exit 1: a cleaner that made the
+  // tamper alarm permanently red would make the alarm worthless.
+  assert.equal(code, 0, `a cleaned run must not be reported as a tamper: ${stdout}`);
+  assert.match(stdout, /cleaned by the retention policy/);
+  assert.doesNotMatch(stdout, /does NOT match its manifest/);
+});
+
+test('IT-EVD-111: a file removed WITHOUT a cleaning record is still a tamper', async () => {
+  // The negative control of IT-EVD-109: a run that the cleaning did not
+  // touch. A file that disappears from it is a discrepancy, and the
+  // verification must still report it and exit 1 -- otherwise "cleaned"
+  // would be a blanket excuse for any missing file.
+  const folder = path.join(data, 'runs', 'run_1_0000000000000000000000ff');
+  fs.mkdirSync(folder, { recursive: true });
+  fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify({
+    version: 2,
+    runId: 'run_1_0000000000000000000000ff',
+    artifacts: [{ file: 'report.json', size: 2, sha256: 'ab'.repeat(32) }],
+  }));
+  const statePath = path.join(data, 'state.json');
+  const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  state.runs.push({ id: 'run_1_0000000000000000000000ff', status: 'passed', createdAt: new Date().toISOString(), finishedAt: new Date().toISOString() });
+  fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+  const cli = spawn(process.execPath, ['tools/evidence_retention.mjs', 'verify', '--data-dir', data], {
+    cwd: root,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let out = '';
+  cli.stdout.on('data', (b) => { out += b.toString(); });
+  await new Promise((resolve) => cli.on('close', resolve));
+  assert.match(out, /does NOT match its manifest/);
+  assert.match(out, /missing: report\.json/);
 });
 
 test('IT-EVD-110: the temporary directory is removed', () => {
