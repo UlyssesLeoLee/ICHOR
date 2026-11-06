@@ -39,6 +39,14 @@
  *   numeric address instead. The two are distinguishable, and the probe
  *   reports the host each API request actually went to.
  *
+ * This is the PROOF that the API base is resolved at runtime. The HTTP
+ * probe's static heuristic (that the bundle carries a `location.port`
+ * comparison) is a NECESSARY but not SUFFICIENT condition: mutation B2 in
+ * the mutation evidence bakes the base in AND leaves an unrelated
+ * comparison in the bundle, so the heuristic stays green while the base
+ * is baked. Only this executed discriminator turns red under BOTH
+ * mutation B and mutation B2.
+ *
  * The port (ATS-103 review round 1, finding C5)
  * ---------------------------------------------
  * The default is the Bridge's own default port. The script refuses a

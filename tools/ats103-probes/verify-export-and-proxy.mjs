@@ -74,7 +74,7 @@ const PORT = PORT_EXPLICIT ? Number(argv[PORT_INDEX + 1]) : DEFAULT_PORT;
  * still a check, and a run whose executed check count differs from this
  * number has silently dropped one -- which is itself a failure.
  */
-const EXPECTED_CHECKS = 26;
+const EXPECTED_CHECKS = 25;
 
 /**
  * The names of the checks that must have run. The self-check (the check
@@ -89,8 +89,7 @@ const EXPECTED_NAMES = [
   'export contains _next/static assets',
   'the export contains no server-side API route output',
   'every asset referenced by index.html exists on disk',
-  'the shipped bundle resolves the API base from the page location at runtime',
-  'the shipped bundle does NOT bake the API base at build time',
+  'the shipped bundle carries a comparison of the page location port',
   'bridge boots and answers /api/health',
   'bridge serves the exported index.html at /',
   'the served page carries a CSP that allows the API origin',
@@ -273,9 +272,25 @@ async function main() {
   // would appear as an `api/...` entry (a FILE or a DIRECTORY) at the top
   // of the export directory. Checking two paths that Next.js never writes
   // to (`out/app/api`, `out/.next/server`) cannot fail, so the check is
-  // made over every exported entry instead. The mutation evidence in
-  // docs/evidence/ATS-103/06-mutation-evidence.log shows this check
-  // turning red when an `app/api/**/route.ts` is added to the app.
+  // made over every exported entry instead.
+  //
+  // Two shapes of `app/api/**/route.ts` exist, and only ONE of them is
+  // caught by this check:
+  //
+  //   - a handler that does NOT declare `export const dynamic =
+  //     'force-static'` is REFUSED by the build ("export const dynamic =
+  //     'force-static'/export const revalidate not configured on route
+  //     ... with output: export"), so no export is produced at all. The
+  //     build rejecting it proves the build rejects it; it does not
+  //     exercise this assertion, because there is no export tree to walk.
+  //
+  //   - a handler that DOES declare `export const dynamic =
+  //     'force-static'` is ACCEPTED by the build and PRERENDERED into the
+  //     export as the static file `out/api/session`. That is the shape
+  //     this assertion exists to catch, and the shape the mutation
+  //     evidence (docs/evidence/ATS-103/06-mutation-evidence.log, mutation
+  //     A') exercises: the probe reports "FAIL the export contains no
+  //     server-side API route output -- found: api/session" and exits 1.
   const exportedEntries = walkExport(OUT_DIR);
   const serverRouteOutputs = exportedEntries.filter(
     (rel) => rel === 'api' || rel.startsWith('api/') || rel.startsWith('.next/server'),
@@ -291,13 +306,28 @@ async function main() {
   const missing = assets.filter((a) => !fs.existsSync(path.join(OUT_DIR, a.replace(/^\//, ''))));
   check(`every asset referenced by index.html exists on disk (${assets.length} assets)`, missing.length === 0, missing.join(', '));
 
-  // The API base is resolved at RUNTIME from the page's own location. The
-  // check asserts that the shipped bundle READS the location and BRANCHES
-  // on it: the compiled `root()` compares `window.location.port` against
-  // the default port and picks the base from the result. A bundle that
-  // baked the base in at build time would not read `location.port` at all.
-  // The mutation evidence shows this check turning red when `lib/api.ts`
-  // is changed to a build-time constant.
+  // The API base is supposed to be resolved at RUNTIME from the page's own
+  // location. What can be established from the SHIPPED BUNDLE alone is a
+  // STATIC HEURISTIC, and the heuristic is stated exactly here:
+  //
+  //   the bundle must READ `location.port` and COMPARE it against a literal,
+  //   and it must reference the session path.
+  //
+  // What that heuristic does NOT establish: that the comparison is what
+  // SELECTS the API base. A bundle that bakes the base in AND carries an
+  // unrelated `location.port` comparison satisfies this check. That
+  // counter-example (mutation B2 in
+  // docs/evidence/ATS-103/06-mutation-evidence.log) leaves this check GREEN
+  // -- which is exactly why the check is described as a heuristic and not as
+  // a proof.
+  //
+  // The PROOF that the base is resolved at runtime is EXECUTED, not
+  // inferred: tools/ats103-probes/ui-smoke.mjs opens the exported page by
+  // NAME (`localhost`) and records the host every API request actually went
+  // to. A runtime-resolved base is relative on the Bridge's own port and
+  // therefore goes to `localhost:<port>`; a baked base is absolute and goes
+  // to the numeric address. That discriminator is what turns red under both
+  // mutation B and mutation B2.
   const bundleJs = assets
     .filter((a) => a.endsWith('.js'))
     .map((a) => fs.readFileSync(path.join(OUT_DIR, a.replace(/^\//, '')), 'utf8'))
@@ -316,26 +346,15 @@ async function main() {
   ).test(bundleJs) || new RegExp(
     `(?:===|==|!==|!=)\\s*(?:window\\s*\\.\\s*location\\s*\\.\\s*port|location\\s*\\.\\s*port)`,
   ).test(bundleJs);
+  // ONE check, ONE predicate. The two claims ("the base is resolved from
+  // the location" and "the base is not baked in") are the SAME predicate
+  // read from two sides, so they are asserted once: a second check computed
+  // from the same predicate would be the same check twice, and a reader
+  // would read it as two independent pieces of evidence.
   check(
-    'the shipped bundle resolves the API base from the page location at runtime',
+    'the shipped bundle carries a comparison of the page location port',
     readsLocation && comparesPort && hasSessionPath,
     `reads location.port: ${readsLocation}, compares it: ${comparesPort}, references /api/session: ${hasSessionPath}`,
-  );
-  // The counterpart of the check above, asserted from the OTHER side: the
-  // bundle must not carry the API base as a constant that is used
-  // unconditionally. The compiled `root()` of a baked base is a single
-  // string literal returned from a function, with no port comparison
-  // anywhere near it. The check looks for an absolute API base in the
-  // bundle that is NOT part of a port-conditional expression -- a
-  // heuristic, but one that the mutation evidence shows is decisive.
-  const absoluteBase = /http:\/\/127\.0\.0\.1:\d+/.exec(bundleJs);
-  const bakedBase = !readsLocation || !comparesPort;
-  check(
-    'the shipped bundle does NOT bake the API base at build time',
-    !bakedBase,
-    bakedBase
-      ? `the bundle carries a constant API base${absoluteBase ? ` (${absoluteBase[0]})` : ''}`
-      : 'the API base is selected by a runtime port comparison',
   );
 
   // --- 2. the Bridge serves the export -----------------------------------

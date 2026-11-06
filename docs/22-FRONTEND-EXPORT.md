@@ -9,16 +9,16 @@
 
 ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/项目/运行操作成功**」。两项**均已在 Windows 11 实机实测通过**：
 
-- IT（HTTP 层）：`tools/ats103-probes/verify-export-and-proxy.mjs` —— **26/26 项检查通过，退出码 0**
-- ST（浏览器层）：`tools/ats103-probes/ui-smoke.mjs` —— **7/7 项检查通过，退出码 0**（真实 headless Chromium 驱动导出的那一页）
+- IT（HTTP 层）：`tools/ats103-probes/verify-export-and-proxy.mjs` —— **25/25 项检查通过，退出码 0**
+- ST（浏览器层）：`tools/ats103-probes/ui-smoke.mjs` —— **8/8 项检查通过，退出码 0**（真实 headless Chromium 驱动导出的那一页）
 
 证据见 `docs/evidence/ATS-103/`。
 
 | 验收项 | 结论 | 证据 |
 |---|---|---|
-| Next.js 16 静态导出构建 | **PASS** | `next build`（Next.js **16.4.5**，Turbopack）编译 1.13 s、TypeScript 检查 1.57 s、静态页 3/3；产物 `apps/studio/out/`（`index.html` **12927 字节**、`404.html`、`_next/static/**`）；构建后工作区**不脏** |
-| 导出产物的自洽性 | **PASS** | `index.html` 引用的 **8 个**资源全部存在于磁盘；导出目录的**真实文件树**里没有任何服务端路由产物 |
-| 导出页在运行时解析 API 基址 | **PASS** | 导出的 bundle **读取** `window.location.port` 并据此分支，**不含**构建期写死的基址 |
+| Next.js 16 静态导出构建 | **PASS** | `next build`（Next.js **16.4.5**，Turbopack）**构建成功**（编译/类型检查/静态页的用时数字随机器与负载浮动，**以日志为准**，见 `docs/evidence/ATS-103/02-next-static-export-build.log`）；产物 `apps/studio/out/`（`index.html` **12927 字节**、`404.html`、`_next/static/**`）；构建后工作区**不脏** |
+| 导出产物的自洽性 | **PASS** | `index.html` 引用的 **8 个**资源全部存在于磁盘；导出目录的**真实文件树**里没有任何服务端路由产物（**声明了 `force-static` 的 handler 会被预渲染进 `out/api/**`，由这条断言拦截**，见 §2） |
+| 导出页在运行时解析 API 基址 | **PASS** | **可执行判别**：导出页按主机名 `localhost` 打开，浏览器**实际**把 API 请求发往 `localhost:<port>`（运行时解析得到的是同源相对路径；构建期烘焙的绝对基址会发往数字地址）。静态启发式（bundle 里有对 `location.port` 的比较）是**必要不充分**的辅助信号，见 §2.1 |
 | Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（**12927 字节**），带 CSP（`connect-src` 含 `http://127.0.0.1:4577`）；带哈希的 chunk 亦可取回（HTTP 200） |
 | Bridge 会话操作 | **PASS** | `GET /api/session` 返回 token；**异源 Origin → 403**、**无 token → 401** |
 | Bridge 项目操作 | **PASS** | `POST /api/projects` → 201；`GET /api/projects` → 200；`GET /api/projects/{id}/tests` → 2 个用例 |
@@ -35,7 +35,7 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 
 这一点有两层证据，验证脚本两层都断言：
 
-1. **Next.js 在该模式下于构建期直接拒绝 route handler。** 实测新增 `apps/studio/app/api/session/route.ts` 后 `next build` 失败：
+1. **Next.js 在该模式下于构建期拒绝 route handler——但只拒绝未声明 `force-static` 的那一种。** 实测新增 `apps/studio/app/api/session/route.ts`（未声明 `force-static`）后 `next build` 失败：
 
    ```
    Error: export const dynamic = "force-static"/export const revalidate not configured on route
@@ -43,13 +43,24 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
    Error: Failed to collect page data for /api/session
    ```
 
-   即：**服务端路由连构建都过不去**，谈不上在导出产物里运行。完整日志见 `docs/evidence/ATS-103/06-mutation-evidence.log`（变异 A）。
+   报错原文本身就写着 `dynamic = "force-static" … not configured`：**被拒绝的只是未声明 `force-static` 的 handler**。声明了 `export const dynamic = 'force-static';` 的 handler **照常构建成功**，输出为 `○ /api/session`，并被**预渲染成静态文件** `out/api/session` 进入导出目录。
 
-2. **导出目录的真实文件树里没有服务端路由产物。** 验证脚本遍历 `apps/studio/out` 的**每一个文件与目录**，而不是去检查 Next 从不写出的两个路径（`out/app/api`、`out/.next/server`）——后者是永远不会失败的空转断言。断言本身：
+   因此**「服务端路由连构建都过不去」只对未声明 `force-static` 的形状成立**。完整日志见 `docs/evidence/ATS-103/06-mutation-evidence.log`（变异 A 与变异 A′）。
+
+2. **导出目录的真实文件树里没有服务端路由产物。** 这一层才是真正的保证，**它拦得住上面那两种形状**——尤其是声明了 `force-static` 的那一种。验证脚本遍历 `apps/studio/out` 的**每一个文件与目录**，而不是去检查 Next 从不写出的两个路径（`out/app/api`、`out/.next/server`）——后者是永远不会失败的空转断言。断言本身：
 
    ```
    PASS  the export contains no server-side API route output  --  25 exported entries, none of them a server route
    ```
+
+   变异 A′（声明 `force-static` 的 handler）实测让**这一条**变红：
+
+   ```
+   FAIL  the export contains no server-side API route output  --  found: api/session
+   RESULT: FAILED -- 25/26 checks passed.
+   ```
+
+   而变异 A（未声明 `force-static`）是**构建期就失败**、导出根本没生成——它证明的是「构建被拒绝」，**没有**执行到这段遍历逻辑。两者证明的是**不同的东西**，不能互相顶替。
 
 产品设计的代理形态是**跨源直连**（`docs/03-BASIC-DESIGN.md` §1：Next.js 16 静态导出 → token 鉴权的 localhost HTTP → Node 22 Local Bridge）：
 
@@ -57,16 +68,36 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 2. `apps/studio/lib/api.ts` 的 `root()` 在运行时决定 API 基址：**端口是 4577 时用同源空串**（即 `/api/...`），否则用绝对地址 `http://127.0.0.1:4577`；
 3. 请求带上 `X-ATS-Token` 会话令牌；Bridge 的 `ORIGINS` 白名单与 `checkedRequest()` 负责 Origin/Host 校验。
 
-### 2.1 基址是运行时解析的——如何被证明
+### 2.1 基址是运行时解析的——如何被证明，以及静态启发式的边界
 
-验证脚本断言导出的 bundle **读取并比较** `window.location.port`：
+这个结论由**两条证据**承担，它们的**能力不同**，必须分开说。
+
+**（1）静态启发式（HTTP 探针，必要不充分）。** 验证脚本断言导出的 bundle **读取并比较** `window.location.port`：
 
 ```
-PASS  the shipped bundle resolves the API base from the page location at runtime  --  reads location.port: true, compares it: true, references /api/session: true
-PASS  the shipped bundle does NOT bake the API base at build time  --  the API base is selected by a runtime port comparison
+PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
 ```
 
-变异 B 把 `lib/api.ts` 的 `root()` 改成构建期写死的常量 `()=>'http://127.0.0.1:4577'`，重新构建后**这两条同时变红**，探针退出码 1（`docs/evidence/ATS-103/06-mutation-evidence.log`）。这证明断言不是恒真的字符串匹配——它要求的是**运行时的端口比较**，构建期烘焙就抓不到。
+**它证明的只是「bundle 里存在一个对 `location.port` 的比较」，不证明那个比较就是选基址的那一步。** 反例 B2：`root()` 被写死成绝对地址，同时在页脚另留一个**无关的** `location.port` 比较——这个 bundle 与诚实 bundle 在静态检查下**无法区分**，重新构建后这条断言**仍然绿**（25/25，退出码 0，`docs/evidence/ATS-103/06-mutation-evidence.log` 的变异 B2）。
+
+这条断言与「基址没有在构建期烘焙」原本是**同一个谓词的两面**（`readsLocation && comparesPort`），所以现在**只断言一次**：再断言一次就是同一个检查报两遍，读起来像两件独立的证据。
+
+**（2）可执行判别（ST 探针，真正的证明）。** `tools/ats103-probes/ui-smoke.mjs` 把导出页按**主机名** `http://localhost:<port>/` 打开（不是数字地址），并记录浏览器**实际**请求到的 host：
+
+```
+PASS  the page's API requests go to the host its own location implies  --  page location host: localhost:4577; API request hosts: localhost:4577
+```
+
+产品的 `root()` 在页面位于 Bridge 自身端口时返回**空串**（相对路径），浏览器于是按页面自身 origin 解析，请求去 `localhost:<port>`；而**构建期烘焙**的基址是**绝对地址**，请求去**数字地址**。两者可区分，且这个判别是**执行出来的**，无法被一个只是「提到端口」的 bundle 满足。
+
+两个变异都让它变红：
+
+| 变异 | 静态启发式 | 可执行判别 |
+|---|---|---|
+| **B**（基址写死，bundle 里没有端口比较） | **红** | **红** |
+| **B2**（基址写死**且**留一个无关的端口比较） | **绿**（这就是它的边界） | **红** |
+
+所以准确的表述是：**「基址在运行时解析」由可执行判别证明；静态启发式是一个会抓「完全不读端口」的烘焙的辅助信号，它**证明不了** `root()` 本身是在运行时解析的。**
 
 ### 2.2 可用的来源只有 Origin 白名单内的那些
 
@@ -98,21 +129,20 @@ PASS  the shipped bundle does NOT bake the API base at build time  --  the API b
 
 ```
 $ npm --prefix apps/studio ci --no-audit --no-fund
-added 57 packages in 18s
-
 $ npm --prefix apps/studio run build
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 23ms
-✓ Compiled successfully in 1127ms
+✓ Compiled successfully
   Running TypeScript ...
-  Finished TypeScript in 1572ms ...
-✓ Generating static pages using 5 workers (3/3) in 386ms
+  Finished TypeScript ...
+✓ Generating static pages using 4 workers (3/3)
 
 Route (app)
 ┌ ○ /
 └ ○ /_not-found
 ○  (Static)  prerendered as static content
 ```
+
+**这一段刻意不写用时数字。** `next build` 的编译耗时、类型检查耗时、装包耗时都**随机器与负载浮动**，写死在文档里的数字在重新采集证据后就会与日志对不上——这正是把文档与日志绑死在具体数值上的代价。所以这里只保留**稳定的部分**（版本号、产物形态、路由清单），**用时数字以 `docs/evidence/ATS-103/02-next-static-export-build.log` 为准**：那份日志是逐字记录的实际输出，且日志头部写着它采集自哪个 commit。
 
 构建后 `git status --short` 为空——`next build` 对 `next-env.d.ts` / `tsconfig.json` 的改写是**幂等**的（ATS-102 §6.2 的结论在本分支上依然成立）。
 
@@ -128,8 +158,7 @@ PASS  export contains 404.html
 PASS  export contains _next/static assets
 PASS  the export contains no server-side API route output  --  25 exported entries, none of them a server route
 PASS  every asset referenced by index.html exists on disk (8 assets)
-PASS  the shipped bundle resolves the API base from the page location at runtime  --  reads location.port: true, compares it: true, references /api/session: true
-PASS  the shipped bundle does NOT bake the API base at build time  --  the API base is selected by a runtime port comparison
+PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
 PASS  bridge boots and answers /api/health
 PASS  bridge serves the exported index.html at /  --  HTTP 200, 12927 bytes
 PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
@@ -147,9 +176,9 @@ PASS  the terminal run summary matches the on-disk report.json  --  summary and 
 PASS  the terminal run collected artefacts  --  27 artefacts
 PASS  the collected artefacts include report.json  --  1 report.json entries
 PASS  GET /api/runs lists the run history  --  1 runs
-PASS  the probe executed every registered check  --  26/26 checks executed
+PASS  the probe executed every registered check  --  25/25 checks executed
 
-RESULT: OK -- 26/26 checks passed.
+RESULT: OK -- 25/25 checks passed.
 ```
 
 完整日志：`docs/evidence/ATS-103/01-export-and-proxy-verification.log`。
@@ -160,22 +189,23 @@ RESULT: OK -- 26/26 checks passed.
 
 ```
 $ node tools/ats103-probes/ui-smoke.mjs
-PASS  the exported page loads in a real browser  --  HTTP 200, http://127.0.0.1:4577/
+PASS  the exported page loads in a real browser  --  HTTP 200, http://localhost:4577/
 PASS  the page's own session call succeeds  --  GET /api/session -> 200, GET /api/session -> 200
+PASS  the page's API requests go to the host its own location implies  --  page location host: localhost:4577; API request hosts: localhost:4577
 PASS  adding a project through the UI registers it and lists the catalog  --  toast=项目添加成功：未修改原仓库, catalog items=2
 PASS  running through the UI reaches a terminal state  --  toast=已提交到本地 Playwright Runner, status=failed
-PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 27 artefacts
+PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 28 artefacts
 PASS  the page produced no console error and no failed request  --  console errors: none; failed requests: none
-PASS  the probe executed every registered check  --  7/7 checks executed
+PASS  the probe executed every registered check  --  8/8 checks executed
 
-RESULT: OK -- 7/7 checks passed.
+RESULT: OK -- 8/8 checks passed.
 ```
 
 **白名单跨源**（把导出页放在 `127.0.0.1:3000`，Bridge 在 4577）：
 
 ```
 $ node tools/ats103-probes/ui-smoke.mjs --page-origin http://127.0.0.1:3000
-... RESULT: OK -- 7/7 checks passed.
+... RESULT: OK -- 8/8 checks passed.
 ```
 
 完整日志：`docs/evidence/ATS-103/05-ui-smoke-browser.log` 与 `05b-ui-smoke-cross-origin.log`。
@@ -188,11 +218,15 @@ $ bash tools/ats103-probes/mutation-evidence.sh
 
 | 变异 | 被破坏的断言 | 结果 |
 |---|---|---|
-| **A** 新增 `apps/studio/app/api/session/route.ts` | 「导出不含服务端路由产物」 | `next build` **构建期即失败**（`output: export` 不允许 route handler），探针退出码 1 |
-| **B** `lib/api.ts` 的 `root()` 改成构建期常量 | 「运行时按端口解析基址」+「非构建期烘焙基址」 | **两条同时变红**，探针退出码 1 |
+| **A** 新增 `apps/studio/app/api/session/route.ts`（**未声明** `force-static`） | 「构建拒绝 route handler」 | `next build` **构建期即失败**（`output: export` 不允许未声明 `force-static` 的 handler），**导出根本没生成**。它证明的是**构建被拒绝**，**没有**执行到文件树遍历那段逻辑 |
+| **A′** 同一个 handler，**声明** `export const dynamic = 'force-static';` | 「导出不含服务端路由产物」 | 构建**成功**，handler 被**预渲染**成静态文件 `out/api/session`；断言**变红**：`FAIL the export contains no server-side API route output -- found: api/session`，探针退出码 1 |
+| **B** `lib/api.ts` 的 `root()` 改成构建期常量 | 静态启发式「bundle 里有对 `location.port` 的比较」+ 可执行判别「页面的 API 请求去页面自身 origin 隐含的 host」 | **两条同时变红**，探针退出码 1 |
+| **B2** 基址写死**且** bundle 里留一个**无关的** `location.port` 比较 | 可执行判别（静态启发式**抓不到**它） | 静态启发式**仍然绿**（25/25，退出码 0）——这是它的边界；**可执行判别变红**（`API request hosts: 127.0.0.1:4577`，页面 origin 是 `localhost:4577`），退出码 1 |
 | **C** 移走夹具 `node_modules`（引擎缺失） | 「run 到达 passed/failed 终态」「每例结果非空」「summary 与 report.json 一致」「产物非空」 | **四条同时变红**，探针退出码 1 |
 
-**每个变异只隔离一件事**：B 结束后脚本先把源码还原并**重建**一份干净的导出，再跑 C——否则 C 的日志里会同时出现 B 造成的基址解析失败，看不出是哪一条变异破坏了哪个断言。同理，A 之所以整篇变红，是因为 Next.js 在**构建期**就拒绝了那个 route handler，导出根本没生成。
+**每个变异只隔离一件事**：B 结束后脚本先把源码还原并**重建**一份干净的导出，再跑 B2、再跑 C——否则后面的日志里会同时出现前面变异造成的基址解析失败，看不出是哪一条变异破坏了哪个断言。
+
+**A 与 A′ 证明的是不同的东西，不能互相顶替**：A 之所以整篇变红，是因为 Next.js 在**构建期**就拒绝了那个 handler，导出根本没生成——它**没有**执行到「遍历导出目录的每个文件」这段逻辑；A′ 才是让**那段逻辑**变红的形状（构建成功、handler 进入 `out/api/**`）。
 
 变异**临时**改动产品源码（`apps/studio/lib/api.ts`、新增 `apps/studio/app/api/`、移走夹具 `node_modules`）。脚本用 `trap` 在退出时**还原全部改动并重建导出**，备份与暂存目录都写在**仓库之外**的临时目录里，因此不会出现在 `git status` 里。
 
@@ -338,10 +372,10 @@ GET /_not-found/   -> 404  同上
 
 | 路径 | 类型 | 内容 |
 |---|---|---|
-| `tools/ats103-probes/verify-export-and-proxy.mjs` | 新增 | **26 项**检查的 IT 验证脚本（静态导出 → Bridge → API 全链），可重复执行，退出码即结论；检查项数是常量，缺项即 FAIL |
-| `tools/ats103-probes/ui-smoke.mjs` | 新增 | **7 项**检查的 ST 验证脚本：在真实 headless Chromium 里驱动导出的那一页（会话 → 添加项目 → 运行到终态），断言 console error 为 0 |
+| `tools/ats103-probes/verify-export-and-proxy.mjs` | 新增 | **25 项**检查的 IT 验证脚本（静态导出 → Bridge → API 全链），可重复执行，退出码即结论；检查项数是常量，缺项即 FAIL |
+| `tools/ats103-probes/ui-smoke.mjs` | 新增 | **8 项**检查的 ST 验证脚本：在真实 headless Chromium 里驱动导出的那一页（会话 → 添加项目 → 运行到终态），断言 console error 为 0；同时是「基址在运行时解析」的**可执行判别**（页面按主机名 `localhost` 打开，记录 API 请求实际去的 host） |
 | `tools/ats103-probes/lib/default-port.mjs` | 新增 | 从产品源码 `server/index.mjs` 读出 Bridge 的默认端口（探针自身不写端口字面量） |
-| `tools/ats103-probes/mutation-evidence.sh` | 新增 | 三个变异（服务端路由 / 构建期烘焙基址 / 引擎缺失）的证据脚本 |
+| `tools/ats103-probes/mutation-evidence.sh` | 新增 | 五个变异（A 未声明 `force-static` 的路由 / A′ 声明了 `force-static` 的路由 / B 构建期烘焙基址 / B2 烘焙基址+无关端口比较 / C 引擎缺失）的证据脚本 |
 | `tools/ats103-probes/collect-evidence.sh` | 修改 | 证据收集：构建、IT、ST、跨源 ST、变异、`npm test`、WBS 共存回归、**端口审计**、**ADR 引用校验**、**8 步门禁** |
 | `docs/evidence/ATS-103/01-export-and-proxy-verification.log` | 新增 | §3.3 的完整运行日志 |
 | `docs/evidence/ATS-103/02-next-static-export-build.log` | 新增 | §3.2 的构建日志 |
@@ -349,7 +383,7 @@ GET /_not-found/   -> 404  同上
 | `docs/evidence/ATS-103/04-wbs-updater-regression.log` | 新增 | §3.6 的 WBS 更新脚本共存回归日志 |
 | `docs/evidence/ATS-103/05-ui-smoke-browser.log` | 新增 | §3.3.1 的 ST 日志（同源） |
 | `docs/evidence/ATS-103/05b-ui-smoke-cross-origin.log` | 新增 | §3.3.1 的 ST 日志（白名单跨源 `127.0.0.1:3000`） |
-| `docs/evidence/ATS-103/06-mutation-evidence.log` | 新增 | §3.3.2 的三个变异证据 |
+| `docs/evidence/ATS-103/06-mutation-evidence.log` | 新增 | §3.3.2 的五个变异证据 |
 | `docs/evidence/ATS-103/07-port-audit.log` | 新增 | ATS-101 端口审计的输出（`RESULT: OK`） |
 | `docs/evidence/ATS-103/08-adr-citations.log` | 新增 | ADR 引用校验的输出 |
 | `docs/evidence/ATS-103/09-ci-build-gate.log` | 新增 | 8 步构建门禁的输出（8/8 PASS） |

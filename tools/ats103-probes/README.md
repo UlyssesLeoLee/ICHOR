@@ -8,9 +8,9 @@
 
 | 脚本 | 结论 | 文档位置 |
 |---|---|---|
-| `verify-export-and-proxy.mjs` | **26 项**检查全部通过：(a) 静态导出产物自洽——`index.html`/`404.html`/`_next/static` 齐备，`index.html` 引用的 8 个资源全部存在；(b) 导出目录**不含任何服务端路由产物**——断言直接扫过导出目录的**真实文件树**，因此新增 `app/api/**` 时它会真的变红（变异证据见 `docs/evidence/ATS-103/06-mutation-evidence.log`）；(c) 导出产物里带着**运行时**的 API 基址解析逻辑（构建期不烘焙基址）——断言 bundle **读取** `location.port` 并据此分支，构建期写死基址时它会真的变红；(d) Bridge 能在 `/` 提供该导出并带上允许 API 源的 CSP，哈希 chunk 亦可取回；(e) 会话/项目/运行三类操作实测成功——异源 Origin 403、无 token 401、`POST /api/projects` 201、`GET .../tests` 返回 2 个用例、`POST .../run` 返回 202 并最终到达终态；(f) 真实运行的 **summary 与磁盘上的 `report.json` 逐项一致**、每例结果集非空、证据产物非空——不是「不伪造」这种恒真断言 | 22 §1/§2/§3.3/§3.4 |
-| `ui-smoke.mjs` | **7 项**检查全部通过：在**真实 headless Chromium** 里驱动**导出的那一页**执行它自己的 JS，走完会话 → 添加项目 → 运行到终态，并断言 **console error 为 0**、无失败请求、UI 启动的那次运行就是 Bridge 记录的那次（同样的 ST 路径在 `--page-origin http://127.0.0.1:3000` 的白名单跨源下再跑一遍） | 22 §3.3 |
-| `mutation-evidence.sh` | **三个变异**，每个都必须把探针**变红**（退出码 1）：A 服务端 route handler（Next.js 16 在 `output:'export'` 下于**构建期**直接拒绝）；B API 基址被烘焙成构建期常量（`lib/api.ts` 的 `root()` 被改成常量形式，探针的「运行时基址解析」与「非构建期烘焙」两条同时变红）；C 夹具 `node_modules` 被移走（引擎缺失）。变异**临时**改动产品源码，脚本用 `trap` 在退出时**还原源码并重建导出**，备份写在**仓库之外**的临时目录里 | 22 §3.3.2 |
+| `verify-export-and-proxy.mjs` | **25 项**检查全部通过：(a) 静态导出产物自洽——`index.html`/`404.html`/`_next/static` 齐备，`index.html` 引用的 8 个资源全部存在；(b) 导出目录**不含任何服务端路由产物**——断言直接扫过导出目录的**真实文件树**，因此新增 `app/api/**` 时它会真的变红（变异证据见 `docs/evidence/ATS-103/06-mutation-evidence.log`）；(c) 导出产物里带着**对 `location.port` 的比较**（**静态启发式**：能抓住「完全不读端口」的烘焙，**证明不了** `root()` 本身是在运行时解析的——反例见下 B2）；(d) Bridge 能在 `/` 提供该导出并带上允许 API 源的 CSP，哈希 chunk 亦可取回；(e) 会话/项目/运行三类操作实测成功——异源 Origin 403、无 token 401、`POST /api/projects` 201、`GET .../tests` 返回 2 个用例、`POST .../run` 返回 202 并最终到达终态；(f) 真实运行的 **summary 与磁盘上的 `report.json` 逐项一致**、每例结果集非空、证据产物非空——不是「不伪造」这种恒真断言 | 22 §1/§2/§3.3/§3.4 |
+| `ui-smoke.mjs` | **8 项**检查全部通过：在**真实 headless Chromium** 里驱动**导出的那一页**执行它自己的 JS，走完会话 → 添加项目 → 运行到终态，并断言 **console error 为 0**、无失败请求、UI 启动的那次运行就是 Bridge 记录的那次。它同时是「API 基址在运行时解析」的**可执行判别**：页面按**主机名** `localhost` 打开，探针记录每个 API 请求**实际**去的 host——运行时解析得到的是同源相对路径（→ `localhost:<port>`），写死的基址是绝对地址（→ 数字地址），两者可区分（同样的 ST 路径在 `--page-origin http://127.0.0.1:3000` 的白名单跨源下再跑一遍） | 22 §2.1/§3.3 |
+| `mutation-evidence.sh` | **五个变异**：A 服务端 route handler **未声明** `force-static`（Next.js 16 在 `output:'export'` 下于**构建期**直接拒绝——它证明的是「构建被拒绝」，**不**证明文件树断言）；A′ 同一个 handler **声明了** `force-static`（构建**成功**、handler 被预渲染成 `out/api/session`，**「导出目录无服务端路由产物」这条断言**因此变红，报 `found: api/session`）；B API 基址被烘焙成构建期常量（静态启发式变红，**可执行判别**也变红）；B2 基址被烘焙**且** bundle 里留着一个**无关的** `location.port` 比较（静态启发式**仍然绿**——这就是它的边界；**可执行判别**变红）；C 夹具 `node_modules` 被移走（引擎缺失）。变异**临时**改动产品源码，脚本用 `trap` 在退出时**还原源码并重建导出**，备份写在**仓库之外**的临时目录里 | 22 §2/§3.3.2 |
 | `collect-evidence.sh` | 把上述命令连同 `npm ci`、`next build`、`npm test`、WBS 共存回归、**端口审计**、**ADR 引用校验**、**8 步构建门禁**的**实际输出**写进 `docs/evidence/ATS-103/` | 22 §3 |
 
 ## 运行方式
@@ -23,7 +23,7 @@ node tools/ats103-probes/verify-export-and-proxy.mjs
 node tools/ats103-probes/ui-smoke.mjs
 node tools/ats103-probes/ui-smoke.mjs --page-origin http://127.0.0.1:3000
 
-# 三个变异（会临时改动产品源码并在结束时还原）
+# 五个变异（会临时改动产品源码并在结束时还原）
 bash tools/ats103-probes/mutation-evidence.sh
 
 # 一键重新生成本目录对应的证据日志
@@ -41,6 +41,12 @@ bash tools/ats103-probes/collect-evidence.sh
    验证脚本因此断言的是「**导出目录里没有服务端路由产物**」与「**运行时基址解析**」，
    而不是断言页面里不出现 Bridge 的地址这个字符串——后者会误判：
    页脚把它作为**界面上的地址标签**显示是合理的。
+   其中「运行时基址解析」由**两条**证据承担，能力边界必须写清：
+   HTTP 探针的静态启发式只证明「bundle 里有对 `location.port` 的比较」，
+   **证明不了**那个比较就是选基址的那一步（反例 B2：基址写死**且**留一个无关比较，
+   静态启发式仍然绿）；真正的证明是 `ui-smoke.mjs` 的**可执行判别**——
+   页面按主机名 `localhost` 打开，运行时解析的请求去 `localhost:<port>`，
+   写死的基址去数字地址。B 与 B2 都让它变红。
 2. **不得把 HTTP 202 当成运行完成。** `POST .../run` 返回 202 只表示
    「已受理」。脚本会**轮询** `GET /api/runs/{id}` 直到终态，并且**只接受**
    `passed` / `failed`——`error`、`cancelled`、`interrupted` 与超时**一律判 FAIL**。
