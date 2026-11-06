@@ -1,0 +1,33 @@
+=== the ATS-212 row 33: final state only, unchanged numbers, idempotent updater ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-f1e5e0e59271/worktree
+commit    : f50a774
+branch    : agent/m2/seikoist-170-f1e5e0e59271
+node      : v24.19.0
+python    : Python 3.11.16
+
+=== the ATS-212 WBS row of docs/WBS.xlsx ===
+workbook: C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-f1e5e0e59271\worktree\docs\WBS.xlsx
+updater : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-f1e5e0e59271\worktree\tools\update_wbs_ats212.py
+
+--- 1. the row is still the accepted ATS-212 row ---
+row 33 N=待审核 O=1 P=0 len=3467
+  PASS  the status is 待审核
+  PASS  the completion rate is 1
+  PASS  the remaining days are 0
+  PASS  the note carries exactly one 【ATS-212】 marker
+
+--- 2. the note carries NO process narrative ---
+  PASS  no match for 自查|修掉|曾|早期|改造前|复核|本轮|第 *[0-9一二三] *轮|round in the T cell of row 33
+
+--- 3. the two regression numbers are unchanged ---
+numbers  : ['29 例', '14 例', '11 例', '5 例', '19 例', '1006 例', '564 例', '19 例', '2 例', '19 例']
+  PASS  the full regression still reads 1006 例
+  PASS  the pre-ATS-212 baseline still reads 564 例
+
+--- 4. the updater is idempotent ---
+  PASS  a second run of tools/update_wbs_ats212.py exits 0
+  PASS  a second run leaves docs/WBS.xlsx byte-identical
+
+RESULT: OK -- row 33 carries only the final state, the numbers are unchanged and the updater is idempotent.
+
+exit code : 0

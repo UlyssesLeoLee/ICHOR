@@ -1,13 +1,13 @@
 === the SQLite mirror after the state migration re-keys the profiles ===
-repo root : /d/ICHOR
-commit    : b00c3ca
-branch    : dev
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-f1e5e0e59271/worktree
+commit    : f50a774
+branch    : agent/m2/seikoist-170-f1e5e0e59271
 node      : v24.19.0
 python    : Python 3.11.16
 
-project  : proj_11111111-2222-3333-4444-555555555555 -> proj_1_530932166c959d197d4cd433
-profiles : [{"uid":"env_1_679b9d482062380f22996171","projectUid":"proj_1_530932166c959d197d4cd433"}]
-whitelists: {"proj_1_530932166c959d197d4cd433":["BASE_URL"]}
+project  : proj_11111111-2222-3333-4444-555555555555 -> proj_1_f898955edb1d9658bd552909
+profiles : [{"uid":"env_1_9429cdc0f1ad209e19b0db4b","projectUid":"proj_1_f898955edb1d9658bd552909"}]
+whitelists: {"proj_1_f898955edb1d9658bd552909":["BASE_URL"]}
 mirror problems: 0
 RESULT: OK -- the mirror is exact after the migration
 
