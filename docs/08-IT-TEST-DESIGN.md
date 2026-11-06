@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：138；已执行通过：124；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：146；已执行通过：132；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -128,6 +128,14 @@
 |IT-CP-011|NFR-002|安全|控制面响应不含本地路径与本地 Token|逐条扫描本套件收集的全部控制面响应|不含本地数据目录、本地项目路径、示例仓库路径、家目录、本地 token|node --test|PASS|
 |IT-CP-012|FR-001|回归|本地 Bridge 仍按路径登记项目且控制面看不到|本地 POST /api/projects 示例仓库后查控制面列表|本地 201；控制面列表不含该项目|node --test|PASS|
 |IT-CP-013|NFR-002|安全|控制面拒绝与本地 Bridge 共用端口|ATS_CP_PORT 等于 ATS_PORT 启动控制面|退出码 2，stderr 点名 ATS_CP_PORT|node --test|PASS|
+|IT-ATS602-API-001|FR-032|正常|移动端用例出现在 API 提供的目录里|真实 Bridge + 含 Flow 的夹具项目|目录里 web 用例与 4 个移动端用例都在，移动端用例是 TestDefinition|node --test|PASS|
+|IT-ATS602-API-002|FR-032|正常|移动端用例带着步骤与引擎|读取目录里的某个移动端用例|带 engine、appId、tags 与步骤，断言是统一模型的断言|node --test|PASS|
+|IT-ATS602-API-003|FR-032|安全|导入报告随目录一起提供|读取目录的 mobile 段|每个 Flow 一个报告，不支持步骤带原文与行号与原因|node --test|PASS|
+|IT-ATS602-API-004|FR-032|正常|告警写明有步骤不受支持|读取目录的 warning|告警写明导入的用例数与不受支持的步骤数|node --test|PASS|
+|IT-ATS602-API-005|FR-032|正常|两种语法产出同一种用例|同一项目里一个 YAML Flow 与一个线性 Flow|两者步骤种类相同且字段形状相同|node --test|PASS|
+|IT-ATS602-API-006|FR-032|正常|移动端用例的 UID 跨 Bridge 重启稳定|重启 Bridge 后重新读取目录|移动端用例的 uid 集合与重启前一致|node --test|PASS|
+|IT-ATS602-API-007|FR-032|安全|移动端用例的 UID 与 web 用例不冲突|读取整个目录|没有两个用例共用一个 uid|node --test|PASS|
+|IT-ATS602-API-008|FR-032|正常|没有 Flow 的项目没有移动端用例|登记一个只有 web 用例的项目|移动端用例数为 0|node --test|PASS|
 |IT-CP-CLEANUP|NFR-005|清理|控制面 IT 子进程与夹清理|结束 IT suite|两个子进程退出，临时目录删除|node --test|PASS|
 |IT-SQL-001|NFR-010|正常|Bridge 启动并创建元数据数据库|隔离 ATS_DATA_DIR 启动 server/index.mjs|数据目录出现 metadata.db|node --test|PASS|
 |IT-SQL-002|NFR-010|正常|元数据库携带 schema 版本|读 metadata.db 的 meta 表|schema_version 大于 0|node --test|PASS|

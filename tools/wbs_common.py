@@ -42,8 +42,8 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-204】', '【ATS-205】',
-           '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-216】', '【ATS-301】', '【ATS-401】',
-           '【ATS-501】', '【ATS-506】', '【ATS-512】', '【ATS-601】')
+           '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-216】', '【ATS-301】',
+           '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】', '【ATS-601】', '【ATS-602】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -172,8 +172,14 @@ NARRATIVE_FRAGMENTS = {
                   '无真实设备）',
             'D7': '移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；'
                   '详见 docs/25-MOBILE-APP-TESTING.md',
-            },
-        }
+        },
+        '【ATS-602】': {
+            'D6': '移动端 Flow 导入映射已实现（ATS-602：跨引擎用例模型、映射规则与导入报告；'
+                  '不支持的步骤保留原文并标记，不静默丢弃）',
+            'D7': '移动端执行面仍无任何实现（ATS-602 只交付用例模型与导入映射；'
+                  '真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md',
+        },
+    }
 
 
 def _text(value):
