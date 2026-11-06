@@ -169,7 +169,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 
 ### B-01（严重 / P0）Playwright CLI 参数向量含不存在的选项，真实浏览器执行 100% 失败
 
-- **位置**：`server/core.mjs:1093` `safeRunArgs()`
+- **位置**：`server/core.mjs:1101` `safeRunArgs()`
 - **现状**：传入 `--screenshot only-on-failure --video retain-on-failure`。但 `playwright test` CLI **没有** `--screenshot` 与 `--video` 选项（截图/视频是 `playwright.config.ts` 的 `use` 选项，不是 CLI 选项）。实测 `playwright test --help` 输出中无此二者。
 - **复现脚本**：`tools/ats101-probes/scenario-a-b01-cli-args.mjs`（**产品源码未修改**，用真实 `@playwright/test` + 真实 Chromium）
   ```
