@@ -85,7 +85,7 @@ ATS-301 RunnerAdapter/ReporterAdapter 契约  ←── ATS-601 目标抽象 + A
 ## 3. 目标抽象（ATS-601）
 
 > **实现状态（ATS-601 交付）**：本节的**契约层**已在 `server/adapters/mobile-target.mjs`
-> 与 `server/adapters/mobile.mjs` 实现，并经 UT-MOB-001..089 共 94 例实测
+> 与 `server/adapters/mobile.mjs` 实现，并经 UT-MOB-001..094 共 99 例实测
 > （契约 + 假目标 + 假会话，**不需要真实设备**）。仓库内**仍无任何真实设备、模拟器、
 > ADB 驱动或移动端证据实现**——那些分别属 ATS-603（Android Runner）、ATS-604（证据归档）、
 > ATS-606（iOS 边界）。下面标注 **已实现** 的是契约层；标注 **未实现** 的是真实执行面。
@@ -121,6 +121,11 @@ Session  { sessionId, targetId, state, capabilities[], lastSeenAt, error? }
 
 会话的证明**不得超过**目标的声明：会话声称了目标从未声明的能力时，该声明**未经证明**，
 因此会话在解析阶段即被拒绝（`REMOTE_CAPABILITY_MISSING`），那些能力不进入协商。
+
+**这条规则在两条路径上都成立**：解析路径（`resolveSession`）按未声明能力拒绝整个会话；
+设备层（`device.capabilities`）只把**会话能力 ∩ 目标声明**报成「已证明」，
+目标未声明的能力带理由地报不支持且**不携带证据**。两条路径读的是同一份判定
+（`provableCapabilities()`），因此同一个会话不会在解析路径被拒、在设备层却被报成已证明。
 
 ### 3.2 状态机
 
@@ -208,6 +213,9 @@ idle ──────────▶ created ──────────▶
   引擎能力词表一个字都没改（设备能力是**另一套词表**，不混进引擎词表）。
 - 两层一起协商：`negotiateWithDevice()` 把**引擎缺口**与**设备缺口**分开报告——
   「这个 runner 不支持 trace」和「这台设备导不出视图层级」是两个问题、两种修法。
+- 设备层判定的是**调用方问的那个目标**（`context.target`）：会话能力与目标声明的交集
+  才算「已证明」，目标未声明的能力带理由地报不支持且不携带证据，
+  属于别的目标的会话对该目标不证明任何能力。
 
 **未实现**：真实的 Android/iOS 驱动、ADB 调用、模拟器生命周期、证据写入。
 移动端适配器当前的引擎能力**全部**带理由地报不支持，`start()` 直接以
@@ -379,7 +387,7 @@ Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）�
 
 - **已验证（ATS-601 的契约层）**：§3 的目标/会话模型、状态机迁移、能力协商与拒绝规则、
   安全边界，已由 `server/adapters/mobile-target.mjs` 与 `server/adapters/mobile.mjs` 实现，
-  并经 UT-MOB-001..089 共 94 例实测通过（证据 `docs/evidence/ATS-601/`）。
+  并经 UT-MOB-001..094 共 99 例实测通过（证据 `docs/evidence/ATS-601/`）。
   **这是假目标 + 假会话上的契约测试**，验证的是「规则按设计工作」，**不是**真实设备行为。
 - **未验证（真实移动端执行面）**：§4~§8 的全部内容仍是设计判断，**未在本仓库做过任何
   移动端实测**。没有真实设备、没有真实模拟器、没有 ADB 调用、没有移动端证据。

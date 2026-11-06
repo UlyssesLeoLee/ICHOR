@@ -410,3 +410,139 @@ test('UT-MOB-087: the device layer follows the session it is given', () => {
   const fallback = adapter.device.capabilities({});
   assert.equal(new Map(fallback.map((e) => [e.name, e])).get('app.launch').supported, true);
 });
+
+/* ------------------------------------------------------------------ */
+/* The device layer and the target declaration                        */
+/* ------------------------------------------------------------------ */
+
+test('UT-MOB-090: the device layer does not report an undeclared capability as proved', () => {
+  // A session that claims a capability its TARGET never declared has
+  // proved nothing: the claim was never proven. The device layer must
+  // not report it as supported, and it must not attach the "proved"
+  // evidence -- otherwise the device layer and the resolve path give
+  // opposite answers about ONE session.
+  const narrow = defineTarget({
+    targetId: 'tgt_narrow',
+    kind: TARGET_KIND.LOCAL_EMULATOR,
+    platform: 'android',
+    capabilities: ['screen.capture'],
+  });
+  const wide = defineSession({
+    sessionId: 'ses_wide',
+    targetId: 'tgt_narrow',
+    state: SESSION_STATE.CREATED,
+    capabilities: MOBILE_CAPABILITIES,
+  });
+  const adapter = createMobileAdapter({ target: narrow, session: wide });
+  const entries = adapter.device.capabilities({ session: wide });
+  const byName = new Map(entries.map((e) => [e.name, e]));
+  for (const name of ['ui.hierarchy', 'ui.tap', 'app.launch']) {
+    const e = byName.get(name);
+    assert.equal(e.supported, false, `${name} was never declared by the target, so it was never proved`);
+    assert.equal(e.evidence, '', `${name} carries evidence it never had`);
+    assert.match(e.reason, /not declared by target/);
+  }
+  // The declared capability is still proved by the same session.
+  assert.equal(byName.get('screen.capture').supported, true);
+  assert.match(byName.get('screen.capture').evidence, /proved/);
+});
+
+test('UT-MOB-091: the device layer and the resolve path agree about one session', () => {
+  // The same over-claiming session, seen through the two paths: the
+  // resolve path refuses it, and the device layer reports the
+  // undeclared capability as unsupported. The two must not contradict
+  // each other.
+  const narrow = defineTarget({
+    targetId: 'tgt_narrow',
+    kind: TARGET_KIND.LOCAL_EMULATOR,
+    platform: 'android',
+    capabilities: ['screen.capture'],
+  });
+  const wide = defineSession({
+    sessionId: 'ses_wide',
+    targetId: 'tgt_narrow',
+    state: SESSION_STATE.CREATED,
+    capabilities: MOBILE_CAPABILITIES,
+  });
+  const adapter = createMobileAdapter({ target: narrow, session: wide, registeredSessionIds: ['ses_wide'] });
+  assert.throws(() => adapter.resolveDevice(), (e) => {
+    assert.equal(e.code, MOBILE_REJECTION.CAPABILITY_MISSING);
+    assert.equal(e.details.reason, 'session-capability-undeclared');
+    return true;
+  });
+  const negotiation = negotiateWithDevice(
+    adapter,
+    project,
+    { session: wide, target: narrow, requested: ['ui.hierarchy'] },
+    [],
+  );
+  assert.equal(negotiation.device.supported, false);
+  const missing = negotiation.device.missing.find((m) => m.name === 'ui.hierarchy');
+  assert.ok(missing, 'the undeclared capability is not reported as missing');
+  assert.equal(missing.evidence, '');
+});
+
+test('UT-MOB-092: the device layer judges the target the caller asks about', () => {
+  // The target in the CALLER's context decides what may be proved. A
+  // session of another target proves nothing for it, and a capability
+  // that target declared but the session does not claim is not proved
+  // either.
+  const narrow = defineTarget({
+    targetId: 'tgt_narrow',
+    kind: TARGET_KIND.LOCAL_EMULATOR,
+    platform: 'android',
+    capabilities: ['screen.capture'],
+  });
+  const other = defineSession({
+    sessionId: 'ses_other',
+    targetId: 'tgt_elsewhere',
+    state: SESSION_STATE.CREATED,
+    capabilities: MOBILE_CAPABILITIES,
+  });
+  const adapter = createMobileAdapter({ target, session: other });
+  const entries = adapter.device.capabilities({ session: other, target: narrow });
+  for (const e of entries) {
+    assert.equal(e.supported, false, `${e.name} was proved for a session of another target`);
+    assert.equal(e.evidence, '');
+  }
+});
+
+test('UT-MOB-093: a capability the target declared but the session did not prove stays unsupported', () => {
+  // The control for UT-MOB-090: the rule refuses the UNDECLARED claim,
+  // not every claim. A session that proves exactly what the target
+  // declared is still reported as proved.
+  const narrow = defineTarget({
+    targetId: 'tgt_narrow',
+    kind: TARGET_KIND.LOCAL_EMULATOR,
+    platform: 'android',
+    capabilities: ['screen.capture', 'ui.tap'],
+  });
+  const within = defineSession({
+    sessionId: 'ses_within',
+    targetId: 'tgt_narrow',
+    state: SESSION_STATE.CREATED,
+    capabilities: ['screen.capture'],
+  });
+  const adapter = createMobileAdapter({ target: narrow, session: within });
+  const byName = new Map(adapter.device.capabilities({ session: within }).map((e) => [e.name, e]));
+  assert.equal(byName.get('screen.capture').supported, true);
+  assert.equal(byName.get('ui.tap').supported, false);
+  assert.match(byName.get('ui.tap').reason, /did not prove/);
+});
+
+test('UT-MOB-094: the device layer reports rather than throws when there is no target', () => {
+  // The ATS-301 contract: `capabilities()` is DATA and never throws for a
+  // missing capability. Without a target nothing is declared, so the
+  // session proves nothing -- and the layer says so instead of failing.
+  const orphan = defineSession({
+    sessionId: 'ses_orphan',
+    targetId: 'tgt_emulator_1',
+    state: SESSION_STATE.CREATED,
+    capabilities: MOBILE_CAPABILITIES,
+  });
+  for (const e of createMobileAdapter({ target: null, session: orphan }).device.capabilities({ session: orphan })) {
+    assert.equal(e.supported, false, `${e.name} was proved without a target`);
+    assert.equal(e.evidence, '');
+    assert.ok(e.reason.length > 0, `${e.name} has no reason`);
+  }
+});

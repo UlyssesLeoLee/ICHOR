@@ -277,6 +277,30 @@ check('the refusal names the undeclared capabilities',
   capabilityRefusal && (capabilityRefusal.details.undeclared || []).includes('ui.tap'),
   capabilityRefusal && capabilityRefusal.details.undeclared
     ? `undeclared=${capabilityRefusal.details.undeclared.join(',')}` : '');
+
+// The DEVICE layer must tell the same story about the same session: a
+// capability the target never declared was never proved, so it is not
+// reported as supported and carries no evidence.
+console.log('');
+console.log('--- 6b. the device layer does not prove what the target never declared ---');
+const wideAdapter = createMobileAdapter({
+  target: narrowTarget,
+  session: wideSession,
+  registeredSessionIds: ['ses_wide'],
+});
+const deviceEntries = wideAdapter.device.capabilities({ session: wideSession, target: narrowTarget });
+const deviceByName = new Map(deviceEntries.map((e) => [e.name, e]));
+const hierarchy = deviceByName.get('ui.hierarchy');
+check('an undeclared capability is not reported as proved',
+  hierarchy && hierarchy.supported === false,
+  hierarchy ? `supported=${hierarchy.supported} evidence="${hierarchy.evidence}"` : 'not reported');
+check('an undeclared capability carries no evidence',
+  hierarchy && hierarchy.evidence === '');
+check('the refusal names the target declaration',
+  hierarchy && /not declared by target/.test(hierarchy.reason),
+  hierarchy ? `reason=${hierarchy.reason}` : '');
+check('the declared capability is still proved by the same session',
+  deviceByName.get('screen.capture').supported === true);
 console.log('');
 
 console.log('');
