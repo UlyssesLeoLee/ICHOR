@@ -2,7 +2,7 @@
 node tools/ats101-probes/scenario-d-port-audit.mjs
 === output ===
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-dbb61aae2fe7\worktree
+repo root : D:\ICHOR
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---

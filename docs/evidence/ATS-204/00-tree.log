@@ -1,11 +1,11 @@
 === command ===
 bash -c git log --oneline -5; echo; git status --short
 === output ===
-1d6f354 chore(ATS-204): 合并 dev 后的树
-c7ff24c chore(ATS-204): 在合并后的树上重新生成 CHECKSUMS.sha256
-2c674a3 Merge branch 'dev' into agent/m3/seikoist-166
-f214c78 fix(ATS-204): 显式 token 归「写下它的那个用例」，不归注册表
-f027f6a merge(ATS-601): 拒绝码表点名「被占用」合入 dev
+5d59e99 merge(ATS-204): 把身份映射器（改名/改标题后的 UID 重识别、动态用例锚点、矩阵）合入 dev
+e848131 chore(ATS-204): 在合并后的树上重新生成 CHECKSUMS.sha256
+12072b7 Merge branch 'dev' into agent/m3/seikoist-166
+fb74f84 test(ATS-204): 在合并后的 dev 树上重新采集全部证据
+3bac3bd chore(ATS-601): 重新生成 CHECKSUMS.sha256（覆盖最终交付树）
 
  M docs/evidence/ATS-204/00-tree.log
 === exit code: 0 ===
