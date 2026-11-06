@@ -131,12 +131,12 @@ fi
 
 if want 8; then
 # --- 8. baseline regression ---------------------------------------------------
-header 08-baseline-regression.log "baseline regression: npm test / node --check / port audit / ADR citations / dependency manifest"   "node --test --test-concurrency=2 tests/*.test.mjs; node --check server/index.mjs; node tools/ats101-probes/scenario-d-port-audit.mjs; python tools/check_adr_citations.py; node tools/gen_dep_manifest.mjs --check"
+header 08-baseline-regression.log "baseline regression: npm test / node --check / port audit / ADR citations / dependency manifest"   "node --test --test-concurrency=${ATS106_TEST_CONCURRENCY:-2} tests/*.test.mjs; node --check server/index.mjs; node tools/ats101-probes/scenario-d-port-audit.mjs; python tools/check_adr_citations.py; node tools/gen_dep_manifest.mjs --check"
 {
   # The npm test suite (tests/*.test.mjs) at concurrency 2: unbounded parallelism
   # starts every Bridge-spawning file at once and loaded hosts miss the
   # readiness window (the same setting as .quality/qguard.json).
-  echo "--- npm test suite: node --test --test-concurrency=2 tests/*.test.mjs ---"; node --test --test-concurrency=2 tests/*.test.mjs 2>&1 | grep -E '^(not ok|# (tests|suites|pass|fail|cancelled|skipped|todo))|^✖|^ℹ (tests|suites|pass|fail|cancelled|skipped|todo)'; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
+  echo "--- npm test suite: node --test --test-concurrency=${ATS106_TEST_CONCURRENCY:-2} tests/*.test.mjs ---"; node --test --test-concurrency=${ATS106_TEST_CONCURRENCY:-2} tests/*.test.mjs 2>&1 | grep -E '^(not ok|# (tests|suites|pass|fail|cancelled|skipped|todo))|^✖|^ℹ (tests|suites|pass|fail|cancelled|skipped|todo)'; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
   echo "--- node --check ---"; node --check server/index.mjs && echo "OK"; echo ""
   echo "--- port audit (ATS-101 scenario D) ---"; node tools/ats101-probes/scenario-d-port-audit.mjs 2>&1 | tail -16; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
   echo "--- ADR citations ---"; python tools/check_adr_citations.py 2>&1 | tail -6; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
