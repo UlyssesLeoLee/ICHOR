@@ -153,16 +153,20 @@ if [ -d "$PW_NM2/@playwright/test" ]; then
   echo '--- 15. N4: the scanner fix moves the UID of an escaped-quote title once ---'
   # The OLD tree is the one BEFORE the scanner fix (cc68331). It is exported
   # with `git archive`, so the comparison runs on a clean LF tree.
+  #
+  # The archive is taken from INSIDE the repository: `git -C <msys-path>` is
+  # not understood by the native git, and an empty archive makes tar fail
+  # with "This does not look like a tar archive".
   OLD_TREE="${ATS202_OLD_TREE:-$SCRATCH/ats202-round0-tree}"
   rm -rf "$OLD_TREE"; mkdir -p "$OLD_TREE"
-  if git -C "$ROOT" archive cc68331 2>/dev/null | tar -x -C "$OLD_TREE"; then
+  if (cd "$ROOT" && git archive cc68331) | tar -x -C "$OLD_TREE" 2>/dev/null && [ -f "$OLD_TREE/server/core.mjs" ]; then
     run 15-r2-upgrade.log node "$R2/r2-upgrade.mjs" "$(native "$OLD_TREE")" "$TREE_NATIVE" "$SCRATCH"
   else
     {
       echo "=== command ==="
       echo "node $R2/r2-upgrade.mjs <old-tree> <new-tree> <scratch>"
       echo "=== output ==="
-      echo "SKIPPED: the commit cc68331 is not in this clone."
+      echo "SKIPPED: the commit cc68331 could not be exported from this clone."
       echo "=== exit code: 2 ==="
     } > "$OUT/15-r2-upgrade.log"
     echo "  wrote $OUT/15-r2-upgrade.log (skipped)"
