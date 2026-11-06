@@ -40,6 +40,7 @@ import { resolve as pathResolve } from 'node:path';
 import {
   attemptUidFor, bodyKeyOf, findTestUid, normalizeTestPath, scanTestCases,
 } from '../uid.mjs';
+import { bindReported } from '../identity.mjs';
 
 /* ------------------------------------------------------------------ */
 /* The vocabulary                                                     */
@@ -818,6 +819,25 @@ export function attemptsForRun(run, summary, registry) {
   const occurrence = new Map();
   const bodyCache = new Map();
   const attempts = [];
+  const entries = registry?.projects?.[projectUid]?.entries ?? [];
+
+  /*
+   * How many of the CASES OF THIS RUN share a body fingerprint.
+   *
+   * The fingerprint identifies a case only when it is unique -- among the
+   * registry entries AND among the cases of the run being bound. A body
+   * that two cases of the same run share identifies neither of them, and
+   * binding one of them to the other's uid is the silent mis-association
+   * this mapper exists to prevent.
+   */
+  const bodyCounts = new Map();
+  for (const c of summary.cases) {
+    const file = normalizeTestPath(c.file, { rootDir, projectRoot });
+    const key = reportedBodyKey(projectRoot, file, c, bodyCache);
+    if (!key) continue;
+    bodyCounts.set(key, (bodyCounts.get(key) ?? 0) + 1);
+  }
+
   for (const c of summary.cases) {
     // The report names the test files relative to the Playwright rootDir, the
     // registry stores them relative to the project root. The project root is
@@ -830,11 +850,22 @@ export function attemptsForRun(run, summary, registry) {
     // them apart, so it is computed from the source of THIS run and handed to
     // the lookup. The source is read only when the file is known and only
     // once per file.
-    const found = findTestUid(registry, projectUid, {
+    //
+    // ATS-204: the lookup is the identity mapper. It walks the signals from
+    // the strongest to the weakest -- the explicit annotation, the position,
+    // the body fingerprint, the recorded alias, the title -- and it binds
+    // NOTHING when the signal it reached is not unique. The fingerprint is
+    // what makes a rename AND a retitle survive: the registry remembers the
+    // fingerprint of the body, and the body does not change when the file is
+    // renamed or the title is rewritten.
+    const found = bindReported({
+      entries,
       file,
       title: c.title,
       line: c.line,
-      resolveBodyKey: () => reportedBodyKey(projectRoot, file, c, bodyCache)
+      scope: c.scope ?? null,
+      bodyKey: reportedBodyKey(projectRoot, file, c, bodyCache),
+      bodyCounts,
     });
     const key = `${file} ${c.title} ${c.line}`;
     for (const attempt of attemptsOfCase(c)) {
@@ -849,12 +880,17 @@ export function attemptsForRun(run, summary, registry) {
           occurrence: index
         }),
         runUid: run.uid || run.id,
-        testUid: found.uid,
-        uidBasis: found.basis,
-        file,
-        title: c.title,
-        line: c.line,
-        retry: attempt.retry || 0,
+                testUid: found.uid,
+                uidBasis: found.basis,
+                // ATS-204: when the mapper could not decide, it says WHY and it
+                // lists the candidates. The attempt stays unbound, and the reason
+                // is on the record -- an unbound attempt that says nothing is
+                // indistinguishable from a case that is not in the catalogue.
+                ...(found.ambiguity ? { uidAmbiguity: found.ambiguity } : {}),
+                file,
+                title: c.title,
+                line: c.line,
+                retry: attempt.retry || 0,
         // An Attempt is one EXECUTION, so it records the result level status.
         // The case level status would describe the case as a whole and
         // would report "flaky" for the failed retry as well.
