@@ -1,0 +1,221 @@
+=== the new cases on the SECOND delivery (42f5d29) ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
+commit    : bee23d3
+
+old tree  : 42f5d29 (extracted from git archive)
+test files: the NEW ones of this delivery
+
+✔ IT-EXE-001: the bridge starts (700.652ms)
+✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (430.0473ms)
+✔ IT-EXE-003: the events of a run replay into its status, gap-free (2.4598ms)
+✔ IT-EXE-004: the events are in the state file AND in the metadata database (3.248ms)
+✔ IT-EXE-005: the durable log and the state file carry the same events (0.4186ms)
+✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (1969.418ms)
+✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (2194.344ms)
+✔ IT-EXE-CLEANUP: stop and cleanup (11.402ms)
+✔ IT-EXE-008: the bridge starts even when the run folder is gone (4462.7526ms)
+✖ IT-EXE-009: a torn event log stays readable (4746.4731ms)
+✖ IT-EXE-010: no event is appended after a terminal event (4738.0807ms)
+✖ IT-EXE-011: a run that was cancelling when the bridge died is recovered (4726.7017ms)
+✔ IT-EXE-012: the summary of a run agrees with the exit code of the engine (3318.7409ms)
+✖ IT-EXE-013: the replay reports the lost and the reused sequence numbers (6548.7783ms)
+✔ UT-EXE-001: every engine status maps onto the common vocabulary (1.2012ms)
+✔ UT-EXE-002: an unknown status becomes unknown, not a guess (0.2008ms)
+✔ UT-EXE-003: the terminal run statuses are the ones a run never leaves (0.1382ms)
+✔ UT-EXE-004: a retried case is ONE case that keeps EVERY attempt (0.7155ms)
+✔ UT-EXE-005: the counters count the CASES, never the executions (0.215ms)
+✔ UT-EXE-006: the aggregation of the attempts follows the documented order (0.1833ms)
+✔ UT-EXE-007: two cases with the same title in one file stay two cases (0.1963ms)
+✔ UT-EXE-008: a case with no execution still exists and is counted once (0.1481ms)
+✔ UT-EXE-009: the attempts of one case share the TestDefinition UID (4.2125ms)
+✔ UT-EXE-010: the events of a run replay into its terminal status (1.0042ms)
+✔ UT-EXE-011: an interrupted run replays into `interrupted` (0.1651ms)
+✔ UT-EXE-012: the replay follows the SEQUENCE, not the order of the array (0.0997ms)
+✔ UT-EXE-013: a hole in the sequence is reported, not hidden (0.125ms)
+✔ UT-EXE-014: an empty stream determines no status (0.0689ms)
+✔ UT-EXE-015: the sequence of a run is gap-free and starts at 1 (0.0637ms)
+✔ UT-EXE-016: the state machine refuses the transitions it can disprove (0.1056ms)
+✔ UT-EXE-017: the event that names the status is the last one of the stream (0.0919ms)
+✔ UT-EXE-018: the unified view carries the run, the cases and the attempts (0.3388ms)
+✔ UT-EXE-019: an empty report does not crash and reports zero (0.7676ms)
+✔ UT-EXE-020: an expected failure is a PASSED case, not a failed one (0.1861ms)
+✔ UT-EXE-021: an UNEXPECTED pass is a FAILED case, not a passed one (0.0992ms)
+✔ UT-EXE-022: the counters of a run agree with the engine's own stats (0.1794ms)
+✔ UT-EXE-023: an execution without a declared expectation is not a guess (0.0657ms)
+✔ UT-EXE-023B: the per-project verdicts decide the case, not the attempt mix (0.0994ms)
+✔ UT-EXE-024: a stream that violates the state machine is NOT valid (0.0803ms)
+✔ UT-EXE-025: a stream that obeys the state machine is valid (0.0658ms)
+✔ UT-EXE-026: a torn line is skipped and REPORTED, not fatal (0.1875ms)
+✔ UT-EXE-027: an intact log reports no damage (0.0921ms)
+✖ UT-EXE-028: the state diagram of the design document agrees with the code (1.5816ms)
+✖ UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry (0.5583ms)
+✖ UT-EXE-030: an unknown verdict never becomes `passed` (0.1984ms)
+✖ UT-EXE-031: the replay reports the lost and the reused sequence numbers (0.3468ms)
+ℹ tests 46
+ℹ suites 0
+ℹ pass 38
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34002.4152
+
+✖ failing tests:
+
+test at tests\execution-model-it.test.mjs:629:1
+✖ IT-EXE-009: a torn event log stays readable (4746.4731ms)
+  AssertionError [ERR_ASSERTION]: the bridge did not come up
+      at withBridge (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:481:12)
+      at async TestContext.<anonymous> (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:634:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\execution-model-it.test.mjs:676:1
+✖ IT-EXE-010: no event is appended after a terminal event (4738.0807ms)
+  AssertionError [ERR_ASSERTION]: the bridge did not come up
+      at withBridge (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:481:12)
+      at async TestContext.<anonymous> (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:681:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\execution-model-it.test.mjs:745:1
+✖ IT-EXE-011: a run that was cancelling when the bridge died is recovered (4726.7017ms)
+  AssertionError [ERR_ASSERTION]: the bridge did not come up
+      at withBridge (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:481:12)
+      at async TestContext.<anonymous> (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:750:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\execution-model-it.test.mjs:862:1
+✖ IT-EXE-013: the replay reports the lost and the reused sequence numbers (6548.7783ms)
+  AssertionError [ERR_ASSERTION]: []
+      at file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:892:14
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async withBridge (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:483:5)
+      at async TestContext.<anonymous> (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model-it.test.mjs:867:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\execution-model.test.mjs:751:1
+✖ UT-EXE-028: the state diagram of the design document agrees with the code (1.5816ms)
+  AssertionError [ERR_ASSERTION]: the marking of the unreachable edges does not match: the diagram marks  but the edges no code path produces are cancelling->error, cancelling->failed, queued->cancelling
+  + actual - expected
+  
+  + []
+  - [
+  -   'cancelling->error',
+  -   'cancelling->failed',
+  -   'queued->cancelling'
+  - ]
+  
+      at TestContext.<anonymous> (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model.test.mjs:840:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'cancelling->error', 'cancelling->failed', 'queued->cancelling' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\execution-model.test.mjs:870:1
+✖ UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry (0.5583ms)
+  AssertionError [ERR_ASSERTION]: [{"title":"renders","file":"/p/test/specs/a.e2e.js","status":"passed","duration":2,"error":"","attemptsCount":2,"attempts":[{"status":"passed","retry":0,"duration":1,"error":""},{"status":"passed","retry":1,"duration":1,"error":""}]}]
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model.test.mjs:896:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\execution-model.test.mjs:929:1
+✖ UT-EXE-030: an unknown verdict never becomes `passed` (0.1984ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'passed' !== null
+  
+      at TestContext.<anonymous> (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model.test.mjs:931:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'passed',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\execution-model.test.mjs:979:1
+✖ UT-EXE-031: the replay reports the lost and the reused sequence numbers (0.3468ms)
+  AssertionError [ERR_ASSERTION]: {"status":"interrupted","terminal":true,"sequence":[3],"gaps":[],"events":[{"seq":3,"at":"t","type":"run.interrupted","data":{}}],"valid":true,"violations":[]}
+  + actual - expected
+  
+  + []
+  - [
+  -   1,
+  -   2
+  - ]
+  
+      at TestContext.<anonymous> (file:///D:/ats208-work/tmp/ats208-mutation-42f5d29/tree/tests/execution-model.test.mjs:984:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 1, 2 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+exit code : 1 (non-zero is EXPECTED: the cases must be red on the old tree)
