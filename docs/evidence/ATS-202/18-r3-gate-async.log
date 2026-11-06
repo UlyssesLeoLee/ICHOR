@@ -1,0 +1,7 @@
+=== command ===
+node tools/ats202-probes/r3/r3-gate-async.mjs C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-7f251090c0cd/worktree C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-7f251090c0cd/worktree/examples/sample-playwright/node_modules /tmp/multica-task-3182755422/ats202-ev
+=== output ===
+[UNTRUSTED] OK -- discovery=static outcome=SKIPPED_UNTRUSTED marker=false
+[UNTRUSTED+authoritative=true] OK -- discovery=static outcome=SKIPPED_UNTRUSTED marker=false
+[TRUSTED (control)] OK -- discovery=authoritative marker=true
+=== exit code: 0 ===

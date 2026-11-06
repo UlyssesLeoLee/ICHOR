@@ -1,5 +1,5 @@
 === command ===
-node D:/ICHOR/tools/ats202-probes/r2/r2-race.mjs D:/ICHOR D:/pime-uat/node_modules D:/hermes-multica/home/cache/scratch/ats202-evidence4
+node C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-7f251090c0cd/worktree/tools/ats202-probes/r2/r2-race.mjs C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-7f251090c0cd/worktree C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-7f251090c0cd/worktree/examples/sample-playwright/node_modules /tmp/multica-task-3182755422/ats202-ev
 === output ===
 B GET /tests -> 200 static; A GET /tests -> 200 authoritative
 registry entries of B right after B's discovery : 2
