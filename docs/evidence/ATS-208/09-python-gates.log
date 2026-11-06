@@ -1,7 +1,7 @@
 === the python gates under tools/ ===
-repo root : /d/ICHOR
-commit    : 328cdc1
-branch    : dev
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
+commit    : 6dc311d
+branch    : agent/m3/seikoist-169-e6d7459e54e1
 node      : v24.19.0
 python    : Python 3.11.16
 
@@ -16,16 +16,6 @@ tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
     warn(msg)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-42 passed, 2 warnings in 7.42s
+42 passed, 2 warnings in 7.13s
 
 exit code : 0
-
-=== NOTE ===
-The ATS-506 marker assertion (test_tc002_ats506_marker_and_narrative)
-FAILED on the first delivery of ATS-208: it asserted that MARKERS[-1]
-is 【ATS-506】, but 【ATS-512】 had been appended to MARKERS by a later
-delivery without updating the assertion. It failed identically on the
-base commit, so it was NOT caused by ATS-208.
-
-It is FIXED in the tree this delivery was merged into (the ATS-512
-delivery updated the assertion), so the suite above is green.
