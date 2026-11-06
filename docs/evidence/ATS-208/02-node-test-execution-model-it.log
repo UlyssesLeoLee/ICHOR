@@ -1,24 +1,24 @@
 === the execution model integration suite ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
-commit    : 41a30a5
+commit    : 6dc311d
 branch    : agent/m3/seikoist-169-e6d7459e54e1
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ IT-EXE-001: the bridge starts (661.1739ms)
-✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (416.5595ms)
-✔ IT-EXE-003: the events of a run replay into its status, gap-free (2.4009ms)
-✔ IT-EXE-004: the events are in the state file AND in the metadata database (3.2595ms)
-✔ IT-EXE-005: the durable log and the state file carry the same events (0.4139ms)
-✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (2049.8085ms)
-✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (1993.1764ms)
-✔ IT-EXE-CLEANUP: stop and cleanup (13.415ms)
-✔ IT-EXE-008: the bridge starts even when the run folder is gone (2309.7279ms)
-✔ IT-EXE-009: a torn event log stays readable (2291.7656ms)
-✔ IT-EXE-010: no event is appended after a terminal event (2259.9166ms)
-✔ IT-EXE-011: a run that was cancelling when the bridge died is recovered (4203.1539ms)
-✔ IT-EXE-012: the summary of a run agrees with the exit code of the engine (3650.4392ms)
-✔ IT-EXE-013: the replay reports the lost and the reused sequence numbers (5027.0412ms)
+✔ IT-EXE-001: the bridge starts (829.4833ms)
+✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (868.5871ms)
+✔ IT-EXE-003: the events of a run replay into its status, gap-free (16.8804ms)
+✔ IT-EXE-004: the events are in the state file AND in the metadata database (3.9559ms)
+✔ IT-EXE-005: the durable log and the state file carry the same events (0.5671ms)
+✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (2677.075ms)
+✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (2799.3085ms)
+✔ IT-EXE-CLEANUP: stop and cleanup (15.7685ms)
+✔ IT-EXE-008: the bridge starts even when the run folder is gone (4543.4136ms)
+✔ IT-EXE-009: a torn event log stays readable (4583.6337ms)
+✔ IT-EXE-010: no event is appended after a terminal event (3445.2201ms)
+✔ IT-EXE-011: a run that was cancelling when the bridge died is recovered (5426.347ms)
+✔ IT-EXE-012: the summary of a run agrees with the exit code of the engine (1824.7574ms)
+✔ IT-EXE-013: the replay reports the lost and the reused sequence numbers (3225.8616ms)
 ℹ tests 14
 ℹ suites 0
 ℹ pass 14
@@ -26,6 +26,6 @@ python    : Python 3.11.16
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 25078.8426
+ℹ duration_ms 30398.7347
 
 exit code : 0

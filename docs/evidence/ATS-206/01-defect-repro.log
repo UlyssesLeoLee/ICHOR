@@ -1,5 +1,5 @@
 === the ATS-206 defect probe -- BEFORE the fix ===
-repo root : /tmp/multica-task-3050753066/ats206-base
+repo root : /tmp/multica-task-1988034415/ats206-base
 base commit: 3a9d1e302556bd4bdca34764e575a6a33b3c1d2a
 node      : v24.19.0
 
@@ -10,7 +10,7 @@ identifier is not re-keyed.
 
 === the ATS-206 defect probe ===
 the legacy project id : proj_11111111-1111-1111-1111-111111111111
-the migrated project  : proj_1_f7160f13b3a6405f6d2994e3
+the migrated project  : proj_1_e7a3130ed89c22d8faf43dc8
 
 (A) the trust map
     present in the migrated state : NO  <<DROPPED>>
