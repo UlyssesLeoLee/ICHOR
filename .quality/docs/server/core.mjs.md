@@ -2,7 +2,7 @@
 
 Source: `server/core.mjs`
 
-Source-SHA256: `a82d1f748e1824e35e92f30f22b6d67f8b0b9fd27544f3445a97b9b433e26941`
+Source-SHA256: `baacd433f122a4cc8c356cb6af502644b16fc48cb77534987623a48b51e2b688`
 
 ## Responsibility
 
@@ -53,7 +53,8 @@ The Bridge's shared core. This design covers the two sections ATS-207 owns. The 
     - `waitedMs`;
     - `reason`: `'held'`, or `'contended'` after the bounded retry budget (`LOCK_MAX_ATTEMPTS`) is used up by a lock that keeps changing.
   - **`waitMs`.** With `waitMs > 0`, the acquirer re-checks every `pollMs` (synchronous sleep) until the lock frees or `waitMs` has elapsed.
-  - **Invalid options.** Invalid `waitMs` / `pollMs` values (negative, NaN, non-numeric) are treated as `0` and the default.
+  - **Invalid options.** Invalid `waitMs` / `pollMs` values (negative, NaN, non-numeric, boolean, `null`, blank) are treated as `0` and the default. `pollMs` has a floor of 1 ms.
+  - **Holder start time.** A waiting acquirer reads each holder's start time once per acquisition (on Windows each read spawns PowerShell); its own start time is read once per process (`ownProcessStartTime`).
   - **`createDir: false`.** The acquirer does not recreate a missing data directory and throws `ENOENT` instead.
 - **`verifyBridgeLock(file)`**: returns `{held, reason, holder}`. `held` is true only when the file holds the token this process published. `reason` is one of:
   - `'held'`
@@ -96,7 +97,7 @@ The Bridge's shared core. This design covers the two sections ATS-207 owns. The 
      - `'absent'`: no mirror file.
      - `'ok'`: `quick_check` returned exactly `ok`.
      - `'quarantined'`: `quick_check` reported problems, or opening failed with `SQLITE_CORRUPT` (11) / `SQLITE_NOTADB` (26). `metadata.db`, `-wal` and `-shm` are renamed together to `metadata.db.corrupt-<stamp>[-wal|-shm]`, so a stale WAL can never be replayed into a new database. The next `saveState` rebuilds the mirror from `state.json`.
-     - `'unchecked'`: any other error, such as `SCHEMA_TOO_NEW` or a busy lock. This is not corruption, so the file is kept.
+     - `'unchecked'`: any other error, such as a lock held by another process or a path that is not a file. This is not corruption, so the file is kept. A newer schema version is not damage either: the check opens the mirror without migrating, so such a mirror reports `'ok'`, and the next save reports the version conflict as before.
      - `'unavailable'`: no `node:sqlite`.
      - `'quarantine-failed'`: a rename failed, e.g. a handle held by another process. The file stays and the reason is reported.
 

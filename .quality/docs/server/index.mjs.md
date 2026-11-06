@@ -2,7 +2,7 @@
 
 Source: `server/index.mjs`
 
-Source-SHA256: `c8055b7bb9773c45f7cca6c9f0dfc6f3f8fbb02eab9eb236d7cd2147ed074f10`
+Source-SHA256: `316ad963a76d3cbc81e455b6cb708e92fe6374946d0d21c2e506e9129984cde1`
 
 ## Responsibility
 
@@ -35,7 +35,7 @@ Start-up order. Every step runs before the HTTP server listens.
 1. **Take the lock.** `acquireBridgeLock(lockPath(), {waitMs: lockWaitFromEnv(ATS_LOCK_WAIT_MS)})`.
    - On `BRIDGE_ALREADY_RUNNING` the process prints the refusal to stderr and exits with code 1. The message:
      - contains `holds the data directory lock`;
-     - names the lock path, the holder pid and the holder's start time;
+     - names the lock path, the holder pid and the holder's start time, plus the time waited when `ATS_LOCK_WAIT_MS` is set;
      - states the check (`no Bridge is running`) before the recovery step (`delete the lock file`).
    - Any other error is printed and exits 1.
 2. `process.on('exit')` releases the lock. Release is token-checked, so a Bridge never removes a lock it no longer holds.
@@ -54,7 +54,8 @@ Start-up order. Every step runs before the HTTP server listens.
 7. **Holder check.** `setInterval(guard, lockVerifyIntervalFromEnv(ATS_LOCK_VERIFY_MS)).unref()`. Each tick calls `verifyBridgeLock()`:
    - `held`: nothing to do.
    - `absent` (the file was deleted while the Bridge runs): re-acquire with `{createDir:false}`. On success, report `re-acquired`. On failure, report `lost the data directory lock` and exit 1.
-   - `taken-over` or `unreadable`: report `lost the data directory lock` with the new holder pid, then exit 1. Two Bridges must never share one data directory.
+   - `unreadable`: report once and check again on the next tick. A transient read failure clears itself; a garbage file that stays is taken over by the next starter as stale, and is then reported as `taken-over`.
+   - `taken-over`: report `lost the data directory lock` with the new holder pid, then exit 1. Two Bridges must never share one data directory.
 
 Exit codes: 0 on a normal stop; 1 for a refused start (lock held, damaged state, any start-up error) and for a lost lock.
 
