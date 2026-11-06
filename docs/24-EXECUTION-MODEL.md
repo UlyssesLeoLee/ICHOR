@@ -271,7 +271,7 @@ false，`violations` 非空）；事件流**复用了序号**（`valid` 为 fals
 |---|---|---|
 | UT | `docs/evidence/ATS-208/01-node-test-execution-model-ut.log` | 32 例全通过 |
 | IT | `docs/evidence/ATS-208/02-node-test-execution-model-it.log` | 14 例全通过 |
-| 全量回归 | `docs/evidence/ATS-208/03-node-test-full.log` | 718 例 / 707 通过 / 0 失败 / 11 跳过（跳过项是 `examples/sample-*` 未安装 `node_modules` 的既有 IT） |
+| 全量回归 | `docs/evidence/ATS-208/03-node-test-full.log` | 718 例 / 718 通过 / 0 失败 / 0 跳过（接入 `examples/sample-playwright` 与 `examples/sample-wdio` 的 `node_modules` 后，11 个依赖真实引擎的 IT 不再跳过） |
 | 复核探针（第 1 轮） | `docs/evidence/ATS-208/11-reviewer-probes.log` | 四个探针全部 `RESULT: 0 failed` |
 | 复核探针（第 2 轮） | `docs/evidence/ATS-208/14-reviewer-probes-round2.log` | 三个探针全部 `RESULT: 0 failed` |
 | 重试行为 | `docs/evidence/ATS-208/04-probe-current-behaviour.log` | 用例计一次、两次 attempt 各自保留 |
@@ -280,7 +280,7 @@ false，`violations` 非空）；事件流**复用了序号**（`valid` 为 fals
 | 质量门 | `docs/evidence/ATS-208/07-quality-gates.log` | RESULT: OK |
 | WBS 行 | `docs/evidence/ATS-208/08-wbs-row.log` | 幂等，openpyxl 两种模式均可加载 |
 | python 门 | `docs/evidence/ATS-208/09-python-gates.log` | 29 例全通过 |
-| 覆盖率 | `docs/evidence/ATS-208/10-coverage.log` | 本任务改动的每个 server 文件行覆盖率均 >90% |
+| 覆盖率 | `docs/evidence/ATS-208/10-coverage.log` | 本任务改动的每个 server 文件行覆盖率均 >90%（`server/index.mjs` 以子进程方式运行，在进程内测得的覆盖率按惯例不计） |
 | 缺陷用例的红（第 1 版基线） | `docs/evidence/ATS-208/12-mutation-evidence.log` | 恢复类用例在 `8c9dd79` 上为红 |
 | 缺陷用例的红（第 2 版基线） | `docs/evidence/ATS-208/13-mutation-evidence-round2.log` | `UT-EXE-029/030/031` 与 `IT-EXE-013` 在 `42f5d29` 上为红 |
 

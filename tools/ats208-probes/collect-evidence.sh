@@ -112,10 +112,12 @@ echo "wrote $EV/10-coverage.log"
 # for them in the places they can be:
 #
 #   $ATS208_REVIEW_PROBES   -- a directory with the four probe scripts
-#   .work/r1/probes/probes   -- the default location of the downloaded
-#                              attachment
+#   .work/r1/probes          -- the default location of the downloaded
+#                              attachment (probes/ holds the scripts)
+#   .work/r1/fixtures        -- the fixtures of that attachment (the real
+#                              Playwright report and the probe projects)
 #
-# When neither exists the step says so instead of pretending it ran.
+# When none of them exists the step says so instead of pretending it ran.
 {
   echo "=== the probes of the first review round ==="
   echo "repo root : $(pwd)"
@@ -124,7 +126,7 @@ echo "wrote $EV/10-coverage.log"
   echo
   PROBES="${ATS208_REVIEW_PROBES:-}"
   if [ -z "$PROBES" ]; then
-    for candidate in .work/r1/probes/probes "$HOME/Downloads/ats208-r1-probes/probes"; do
+    for candidate in .work/r1/probes/probes .work/r1/probes "$HOME/Downloads/ats208-r1-probes/probes"; do
       if [ -d "$candidate" ]; then PROBES="$candidate"; break; fi
     done
   fi
@@ -146,6 +148,42 @@ echo "wrote $EV/10-coverage.log"
     SCRATCH_NATIVE="$(cd "$SCRATCH" && pwd -W 2>/dev/null || pwd)"
     echo "tree      : $TREE_NATIVE"
     echo
+    # The fixtures of the attachment: the REAL Playwright report (the shape
+    # only the engine itself produces) and the probe projects. The pw-semantics
+    # probe reads the report, and bridge-e2e runs the real Playwright CLI
+    # through the Bridge.
+    FIXTURES="${ATS208_REVIEW_FIXTURES:-}"
+    if [ -z "$FIXTURES" ]; then
+      for candidate in .work/r1/fixtures "$HOME/Downloads/ats208-r1-probes/fixtures"; do
+        if [ -d "$candidate" ]; then FIXTURES="$candidate"; break; fi
+      done
+    fi
+    if [ -n "$FIXTURES" ] && [ -d "$FIXTURES" ]; then
+      echo "fixtures  : $FIXTURES"
+      cp "$FIXTURES/pw-report.json" "$SCRATCH_NATIVE/pw-report.json" 2>/dev/null || true
+      # The probe project needs the REAL @playwright/test: the fixture is
+      # checked in as a SOURCE (package.json + spec files), its node_modules
+      # are installed into it.
+      if [ -d "$FIXTURES/pwproj2" ]; then
+        rm -rf "$SCRATCH_NATIVE/pwproj2"
+        cp -r "$FIXTURES/pwproj2" "$SCRATCH_NATIVE/pwproj2"
+        if [ ! -d "$SCRATCH_NATIVE/pwproj2/node_modules/@playwright/test" ] \
+           && [ -d "examples/sample-playwright/node_modules/@playwright/test" ]; then
+          mkdir -p "$SCRATCH_NATIVE/pwproj2/node_modules"
+          cp -r examples/sample-playwright/node_modules/@playwright \
+                "$SCRATCH_NATIVE/pwproj2/node_modules/"
+          cp -r examples/sample-playwright/node_modules/playwright \
+                "$SCRATCH_NATIVE/pwproj2/node_modules/" 2>/dev/null || true
+          cp -r examples/sample-playwright/node_modules/playwright-core \
+                "$SCRATCH_NATIVE/pwproj2/node_modules/" 2>/dev/null || true
+        fi
+      fi
+      echo
+    else
+      echo "fixtures  : NOT AVAILABLE -- the probes that need them will report"
+      echo "            what they could not do."
+      echo
+    fi
     echo "--- pw-semantics: does the model agree with Playwright's own verdict? ---"
     node "$PROBES/pw-semantics.mjs" "$TREE_NATIVE" "${ATS208_PW_REPORT:-$SCRATCH_NATIVE/pw-report.json}" 2>&1
     echo "exit code : $?"
