@@ -963,7 +963,13 @@ test('UT-EXE-030: an unknown verdict never becomes `passed`', () => {
 
   // An outcome that is unknown does not decide a case either.
   assert.equal(aggregateOutcomes([OUTCOME.UNKNOWN]), OUTCOME.UNKNOWN);
-  assert.equal(aggregateOutcomes([OUTCOME.UNKNOWN, OUTCOME.EXPECTED]), OUTCOME.EXPECTED);
+  // `expected` is a claim about EVERY outcome in the list, so an unknown
+  // outcome in the list makes the list `unknown` rather than `expected`:
+  // the outcome that says nothing cannot be counted as evidence that the
+  // case behaved as declared. (See UT-EXE-032 for the defect this rules
+  // out: a `skipped` attempt next to a `failed` one used to be aggregated
+  // as `expected`, which rewrote the failure as a pass.)
+  assert.equal(aggregateOutcomes([OUTCOME.UNKNOWN, OUTCOME.EXPECTED]), OUTCOME.UNKNOWN);
 });
 
 /**
@@ -1015,4 +1021,76 @@ test('UT-EXE-031: the replay reports the lost and the reused sequence numbers', 
   // An event without a usable sequence number is reported as such.
   const unsequenced = replayEvents([ev(0, EVENT_TYPE.QUEUED), ev(1, EVENT_TYPE.STARTED)]);
   assert.deepEqual(unsequenced.unsequenced, [0], JSON.stringify(unsequenced));
+});
+
+/**
+ * A SKIPPED entry must not turn a failure into a pass.
+ *
+ * WDIO declares no expectation, so every execution of a WDIO case has the
+ * `unknown` outcome. The outcome aggregation used to DROP the unknown
+ * outcomes and declare the rest `expected` -- so a case whose attempts were
+ * `skipped` and `failed` was read as "expected", and the status aggregation
+ * then rewrote the FAILED case as `passed`. The engine had exited nonzero
+ * and the summary said everything passed.
+ *
+ * Two rules keep that from happening:
+ *
+ *   1. `expected` is a claim about EVERY outcome in the list, so a list
+ *      that holds an unknown outcome is not `expected`;
+ *   2. a skipped entry ends the WDIO group, because a skipped test is not
+ *      retried -- an entry that follows it is a DIFFERENT test.
+ */
+test('UT-EXE-032: a skipped attempt never turns a failure into a pass', () => {
+  const wdio = (states) => mergeWdioReports([{
+    report: {
+      specs: ['file:///p/test/specs/a.e2e.js'],
+      suites: [{
+        name: 's',
+        tests: states.map((s) => ({
+          name: 'renders',
+          state: s,
+          duration: 1,
+          error: s === 'failed' ? { message: 'boom' } : undefined,
+        })),
+      }],
+    },
+  }]);
+
+  // The model level root: an unknown outcome next to a skipped one is NOT
+  // `expected`, so it cannot rewrite a failure into a pass.
+  assert.equal(aggregateOutcomes([OUTCOME.SKIPPED, OUTCOME.UNKNOWN]), OUTCOME.UNKNOWN);
+  assert.equal(aggregateOutcomes([OUTCOME.UNKNOWN, OUTCOME.SKIPPED]), OUTCOME.UNKNOWN);
+  // A list of KNOWN outcomes still aggregates as before.
+  assert.equal(aggregateOutcomes([OUTCOME.EXPECTED, OUTCOME.EXPECTED]), OUTCOME.EXPECTED);
+  assert.equal(aggregateOutcomes([OUTCOME.SKIPPED, OUTCOME.SKIPPED]), OUTCOME.SKIPPED);
+  assert.equal(aggregateOutcomes([OUTCOME.UNEXPECTED, OUTCOME.SKIPPED]), OUTCOME.UNEXPECTED);
+
+  // And the STATUS aggregation keeps the failure, in both orders.
+  for (const attempts of [
+    [{ status: CASE_STATUS.SKIPPED, outcome: OUTCOME.SKIPPED }, { status: CASE_STATUS.FAILED, outcome: OUTCOME.UNKNOWN, error: 'boom' }],
+    [{ status: CASE_STATUS.FAILED, outcome: OUTCOME.UNKNOWN, error: 'boom' }, { status: CASE_STATUS.SKIPPED, outcome: OUTCOME.SKIPPED }],
+  ]) {
+    const agg = aggregateAttempts(attempts);
+    assert.notEqual(agg.status, CASE_STATUS.PASSED, JSON.stringify(agg));
+    assert.equal(agg.status, CASE_STATUS.FAILED, JSON.stringify(agg));
+    assert.equal(agg.error, 'boom', JSON.stringify(agg));
+  }
+
+  // The adapter: a skipped entry ends its group, so the failure that
+  // follows it is a case of its own and stays in the summary.
+  const skippedThenFailed = wdio(['skipped', 'failed']);
+  assert.equal(skippedThenFailed.failed, 1, JSON.stringify(skippedThenFailed.cases));
+  assert.equal(skippedThenFailed.passed, 0, JSON.stringify(skippedThenFailed.cases));
+  assert.equal(skippedThenFailed.total, 2, JSON.stringify(skippedThenFailed.cases));
+
+  const failedThenSkipped = wdio(['failed', 'skipped']);
+  assert.equal(failedThenSkipped.failed, 1, JSON.stringify(failedThenSkipped.cases));
+  assert.equal(failedThenSkipped.passed, 0, JSON.stringify(failedThenSkipped.cases));
+  // The failure is the FIRST attempt of its group, so it is kept as the
+  // case's error.
+  assert.match(failedThenSkipped.cases[0].error, /boom/);
+
+  // A skipped entry followed by a passed one is two cases as well.
+  const skippedThenPassed = wdio(['skipped', 'passed']);
+  assert.equal(skippedThenPassed.total, 2, JSON.stringify(skippedThenPassed.cases));
 });
