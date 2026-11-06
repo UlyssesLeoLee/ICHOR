@@ -23,7 +23,8 @@ const data = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-plg-api-'));
 const port = 33000 + Math.floor(Math.random() * 6000);
 let cp, token;
 
-// The ready() window below is 400 attempts, not the 70-100 it used to be.
+// The ready() window below is 400 attempts: under parallel load the Bridge needs
+// more than 100 attempts to come up, and a short window turns into a flaky failure.
 // `npm test` runs the test files in PARALLEL, and 14 of them each boot a
 // Bridge. Booting 14 servers at once is slow: measured on this machine the
 // boot takes 1289 / 5637 / 8582 ms (min / median / max), while the old

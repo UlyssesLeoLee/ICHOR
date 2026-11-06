@@ -125,7 +125,7 @@ PASS  the page's API requests go to the host its own location implies  --  page 
 | Next.js | 16.4.5（Turbopack） |
 | 夹具 | `examples/sample-playwright`（真实 Playwright **1.64.1** + 真实 Chromium） |
 
-> 本轮用的是仓库门禁 `tools/ci_build_gate.mjs` 所要求的 Node 22 / npm 10.9.9，**构建门禁已整条跑通**（见 §3.7），不再是「未验证」。
+> 本轮用的是仓库门禁 `tools/ci_build_gate.mjs` 所要求的 Node 22 / npm 10.9.9，**构建门禁已整条跑通**（见 §3.7）。
 
 ### 3.2 静态导出构建（ST-021）
 
@@ -443,7 +443,7 @@ GET /_not-found/   -> 404  同上
 - **本任务不修它**：修 `staticFile()` 属于产品代码改动，按 UQH 流程须**设计先行**，不在本任务范围。
 - **本任务把「路由可用」的范围收窄为「仅 `/`」**，并把该缺陷**登记到 `docs/16-BASELINE-ADR.md` §7**（未验证项/缺陷表）与 `docs/WBS.xlsx` 的 ATS-103 风险列，指明归属为 Bridge 侧。
 
-### 4.3 本次交付对这两条缺陷做的唯一改动：断言改为非恒真
+### 4.3 对这两条缺陷做的唯一改动：断言写成非恒真
 
 旧版探针有一条名为「a failed/error run never reports a fabricated summary」的断言，其实现是 `passed||failed ? !!summary : true`——`error` 一律放行，且**永远检测不到伪造的 summary**；在 §4.1 描述的崩溃场景（`failed` 且无 summary）下它反而会 FAIL，与旧文档「如实反映 `summary=none`」的说法自相矛盾。
 
