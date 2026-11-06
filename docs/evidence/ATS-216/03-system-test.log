@@ -1,0 +1,27 @@
+PASS the Bridge starts
+PASS ST-216-5a the shared module is served -- HTTP 200
+PASS ST-216-5b the shared module is served as JavaScript -- text/javascript; charset=utf-8
+PASS ST-216-5c the Next workbench imports the shared module
+PASS ST-216-5d the portable UI imports the shared module
+PASS the fixture project is registered
+PASS ST-216-1a the real run reaches a terminal state -- failed
+PASS ST-216-1b the run that fails is reported as failed -- status=failed
+PASS ST-216-1c the run carries a real summary -- {"total":2,"passed":1,"failed":1}
+PASS ST-216-3a the retried run reaches a terminal state -- passed
+PASS ST-216-3b the retried case is counted as flaky, not as a plain pass -- statuses=["flaky"]
+PASS ST-216-3c the first failed attempt of the retried case is kept -- attempts=["failed","passed"]
+PASS ST-216-2a the slow run is in flight
+PASS ST-216-2b the stopped run ends as cancelled -- status=cancelled
+PASS ST-216-2c the cancelled run is counted as cancelled, NOT as a failure -- cancelled=1/1 failed=1/1 passed=1 cases.failed=1/1 cases.passed=1/1
+PASS ST-216-2d the cancelled run is NOT in the run pass rate, and the grouping matches the raw statuses -- verdict=2/2 inconclusive=1/1 inFlight=0/0 of 3 run(s)
+PASS ST-216-3d the flaky case is counted in the flaky bucket, not in passed -- flaky=1 passed=1 failed=1 raw=["flaky","passed","failed"]
+PASS ST-216-3e the retry is counted as a retry -- retried=2/2 retries=2
+PASS ST-216-4a the overview reconciles with the raw results -- module says true, the probe recomputes 0 mismatch(es): []
+PASS ST-216-4b every reconciliation check is a real comparison -- 20 checks
+PASS ST-216-4d a run whose counters disagree with its case list IS reported -- consistent=false failed checks=1
+PASS ST-216-4c the per-run checks are anchored to the bridge-reported counters -- 12 per-run checks
+PASS ST-216-6a the same defect behind different ids clusters together -- AssertionError: expected <n> to be <n> -- id <uuid>
+PASS ST-216-6b a different defect does NOT share the signature -- TimeoutError: page.waitForTimeout exceeded
+PASS ST-216-6c the real failures are clustered exactly as the raw error texts say -- raw groups=[["Error: expect(locator).toHaveText(expected) failed",1]] module groups=[["Error: expect(locator).toHaveText(expected) failed",1]]
+scratch: C:\tmp\multica-task-3945425265\ats216-ev2\st216-Ea3aJf
+RESULT: 25/25

@@ -91,8 +91,8 @@
   },
   {
     "requirement": "FR-016",
-    "design": "B05",
-    "tests": "UT-RPT-001、UT-RPT-002、UT-RPT-003",
+    "design": "B05/UI-011",
+    "tests": "UT-RPT-001、UT-QUAL-001、UT-QUAL-002、UT-QUAL-003、UT-QUAL-004、UT-QUAL-005、UT-QUAL-006、UT-QUAL-007、UT-QUAL-008、UT-QUAL-009、UT-RPT-002、UT-RPT-003、ST-027、ST-028、ST-029、ST-030",
     "status": "IMPLEMENTED"
   },
   {

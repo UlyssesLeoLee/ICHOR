@@ -42,8 +42,8 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-204】', '【ATS-205】',
-           '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-212】', '【ATS-301】', '【ATS-401】', '【ATS-501】',
-           '【ATS-506】', '【ATS-512】', '【ATS-601】')
+           '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-212】', '【ATS-216】', '【ATS-301】', '【ATS-401】',
+           '【ATS-501】', '【ATS-506】', '【ATS-512】', '【ATS-601】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -133,6 +133,14 @@ NARRATIVE_FRAGMENTS = {
               '只有白名单内的变量可传递；runner 不继承宿主环境）',
         'D7': '凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；'
               '详见 docs/04-DETAILED-DESIGN.md §5A',
+    },
+    '【ATS-216】': {
+        'D6': '质量概览模块已实现（ATS-216：失败聚类/Flaky 基础指标，非 AI；'
+              '失败/重试/取消分开计数，指标与原始结果可核对）',
+        'D7': '质量概览已在真实 Chromium 里实测渲染（两个界面都打开质量概览页、指标与对账表都渲染、'
+              '两界面数字一致、无 console 错误），但人工可用性（无障碍/键盘/加载态）未评测，属 ATS-111；'
+              '聚类只到「错误文本归一化后的签名」，不做根因判断；'
+              '详见 docs/27-QUALITY-OVERVIEW.md',
     },
     '【ATS-501】': {
             'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',

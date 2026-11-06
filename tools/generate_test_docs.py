@@ -10,6 +10,15 @@ UT=[
 ('UT-CORE-004','FR-001','异常','缺失 package.json','提供上级临时目录','抛 PROJECT_PACKAGE_JSON_REQUIRED','node --test','PASS'),
 ('UT-RUN-001','FR-009','异常','项目没有 Playwright CLI','node_modules 无 CLI','不自动安装，抛 PLAYWRIGHT_NOT_INSTALLED','node --test','PASS'),
 ('UT-RPT-001','FR-016','正常','报告摘要计数','JSON 含 expected/unexpected/skipped','总数3,通过1,失败1,跳过1','node --test','PASS'),
+('UT-QUAL-001','FR-016','正常','运行状态分组','passed/failed/cancelled/error/interrupted/queued/running/cancelling','verdict / inconclusive / inFlight 三组，未知状态归 inconclusive','node --test','PASS'),
+('UT-QUAL-002','FR-016','正常','取消的运行不算失败也不算通过','一次取消 + 一次失败','取消计入 cancelled；其用例归 inconclusive；通过率的分母不含取消','node --test','PASS'),
+('UT-QUAL-003','FR-016','正常','重试后通过的用例单列','一次 failed + 一次 passed 的 attempt','用例计入 flaky 而非 passed/failed；初次尝试的 failed 仍可见','node --test','PASS'),
+('UT-QUAL-004','FR-016','边界','未知状态不猜测','用例状态与运行状态各一个未知值','用例归 unknown、运行归 inconclusive，均不折成通过或失败','node --test','PASS'),
+('UT-QUAL-005','FR-016','正常','指标与 Bridge 报告的计数器对账','summary 与用例列表一致的运行','逐项一致，对账结论为一致','node --test','PASS'),
+('UT-QUAL-006','FR-016','异常','summary 与用例列表不一致时报告差异','summary 声称 1 通过 0 失败，列表里是一个失败用例','对账结论为不一致，且逐项指出差异','node --test','PASS'),
+('UT-QUAL-007','FR-016','正常','失败聚类按归一化后的签名','同一断言的两个实例（id/数字不同）','归一化后相同，聚为一类；不同错误类型不共享签名','node --test','PASS'),
+('UT-QUAL-008','FR-016','边界','ANSI 颜色码不改变签名','带色与不带色的同一错误','签名相同，且不含转义字符','node --test','PASS'),
+('UT-QUAL-009','FR-016','正常','跨运行维度识别不稳定用例','一个运行失败、另一个运行通过的同一用例','判为不稳定并单列；同名不同文件视为不同用例','node --test','PASS'),
 ('UT-CORE-005','NFR-005','清理','临时夹清理','准备好独立测试 fixture','测试后的临时夹可删除','node --test','PASS'),
 ('UT-CORE-006','FR-003','边界','忽略 node_modules 中测试','仓库含 node_modules/test.spec.ts','不出现在测试清单','设计用例，待自动化','PENDING'),
 ('UT-CORE-007','FR-004','边界','嵌套深度上限','超过 14 层的测试路径','安全终止扫描，不陷入递归','设计用例，待自动化','PENDING'),
@@ -549,6 +558,10 @@ ST+=[
 # --- ATS-207: system test with real Bridge processes and a real Playwright run ---
 ('ST-025','NFR-010','单实例','同一数据目录只允许一个 Bridge','真实 Bridge：A 服务时启动 B；两个 Bridge 同时启动','B 退出码 1 并报持有者；同时启动恰一个服务','node tools/ats207-probes/st-ats207.mjs','PASS'),
 ('ST-026','NFR-010','恢复','崩溃后损坏文件的处理','零长度 state.json；损坏的 metadata.db','前者拒绝启动且文件不变；后者隔离并由 state.json 重建，历史完整','node tools/ats207-probes/st-ats207.mjs','PASS'),
+('ST-027','FR-016','功能','质量概览：失败/重试/取消分开计数','真实 Bridge + 真实 Playwright：一次真实失败运行、一次真实重试后通过、一次真实停止','失败计入失败桶、重试用例计入 flaky 桶、停止的运行计入 cancelled 且不计入失败与通过率','node tools/ats216-probes/st-ats216.mjs','PASS'),
+('ST-028','FR-016','功能','质量概览：指标与原始结果可核对','同一批真实运行的 summary 与用例列表','逐项对账全部一致；对账结论由模块与探针独立复算两次','node tools/ats216-probes/st-ats216.mjs','PASS'),
+('ST-029','FR-016','功能','两个界面共用同一份质量指标实现','便携 UI 与 Next 工作台','两者都 import 同一模块；Bridge 以 JavaScript MIME 提供该模块','node tools/ats216-probes/st-ats216.mjs','PASS'),
+('ST-030','FR-016','可靠性','质量指标的实现被破坏时测试变红','对模块做 7 个变异（取消算失败、flaky 算通过、对账恒真、聚类常量、丢重试计数、留 ANSI 码、忽略 attempt 数）','每个变异都被 UT 或 ST 抓住，无一漏网','node tools/ats216-probes/mutation-check.mjs','PASS'),
 ]
 
 # --- ATS-601: the mobile target and session contract ---
@@ -669,7 +682,7 @@ emit('08-IT-TEST-DESIGN.md','ATS-IT-001 結合テスト設計書','结合测试�
 emit('09-ST-TEST-DESIGN.md','ATS-ST-001 システムテスト設計書','系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。',ST)
 # ensure precise traceability coverage for all FR
 rtm=[]
-manual={'FR-001':'B01/UC-01','FR-002':'B01','FR-003':'B02','FR-004':'B02','FR-005':'UI-002','FR-006':'B03/UI-004','FR-007':'B03','FR-008':'B06/UI-003','FR-009':'B04','FR-010':'B04','FR-011':'B04','FR-012':'B05','FR-013':'B05/UI-005','FR-014':'B05','FR-015':'B05','FR-016':'B05','FR-017':'B07/UI-007','FR-018':'B05','FR-019':'B03','FR-020':'B06','FR-021':'P1 AST/CLI','FR-022':'P1 AST','FR-023':'P1 WDIO','FR-024':'P1 Agent','FR-025':'P1 Agent','FR-026':'P1 Graph','FR-027':'P1 Secret','FR-028':'P2 Remote','FR-029':'P2 Explore','FR-030':'P2 RBAC'}
+manual={'FR-001':'B01/UC-01','FR-002':'B01','FR-003':'B02','FR-004':'B02','FR-005':'UI-002','FR-006':'B03/UI-004','FR-007':'B03','FR-008':'B06/UI-003','FR-009':'B04','FR-010':'B04','FR-011':'B04','FR-012':'B05','FR-013':'B05/UI-005','FR-014':'B05','FR-015':'B05','FR-016':'B05/UI-011','FR-017':'B07/UI-007','FR-018':'B05','FR-019':'B03','FR-020':'B06','FR-021':'P1 AST/CLI','FR-022':'P1 AST','FR-023':'P1 WDIO','FR-024':'P1 Agent','FR-025':'P1 Agent','FR-026':'P1 Graph','FR-027':'P1 Secret','FR-028':'P2 Remote','FR-029':'P2 Explore','FR-030':'P2 RBAC'}
 for i in range(1,31):
  fid=f'FR-{i:03d}';cases=[x[0] for x in UT+IT+ST if x[1]==fid]
  # FR-021 is IMPLEMENTED as of ATS-202 (v0.2.0): the authoritative discovery

@@ -33,7 +33,7 @@
 | FR-013 | 执行日志 | 前端能够轮询本地 stdout/stderr，显示错误 | P0 | IMPLEMENTED |
 | FR-014 | JSON/HTML 与 Trace | 尽力启用原生 reporter/trace/screenshot/video 并按 Run 隔离 | P0 | IMPLEMENTED (requires Playwright) |
 | FR-015 | 文件证据下载 | 路径验证，保留 SHA-256 和相对位置；拒绝路径跳转 | P0 | IMPLEMENTED |
-| FR-016 | 报告摘要 | 解析 status、duration、cases、error 供可视化展示 | P0 | IMPLEMENTED |
+| FR-016 | 报告摘要 | 解析 status、duration、cases、error 供可视化展示 | P0 | IMPLEMENTED（ATS-216：质量概览模块；失败/重试/取消分开计数，指标与原始结果逐项对账；失败聚类为确定性归一化，非 AI） |
 | FR-017 | 需求关系读取 | 读取 .aitest/requirements.json 和 traceability.json | P0 | IMPLEMENTED (read-only) |
 | FR-018 | 执行事件审计 | 同一次运行生成事件顺序号与 JSONL | P0 | IMPLEMENTED（ATS-208：序号无空洞，事件可按 run+sequence 复演为 run 的状态） |
 | FR-019 | Git 一致性与冲突提示 | 源码变化导致 stale hash 时返回 409/错误提示 | P0 | IMPLEMENTED |

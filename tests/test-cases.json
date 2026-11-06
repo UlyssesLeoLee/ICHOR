@@ -77,6 +77,105 @@
     "level": "UT"
   },
   {
+    "id": "UT-QUAL-001",
+    "req": "FR-016",
+    "category": "正常",
+    "title": "运行状态分组",
+    "input": "passed/failed/cancelled/error/interrupted/queued/running/cancelling",
+    "expected": "verdict / inconclusive / inFlight 三组，未知状态归 inconclusive",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-QUAL-002",
+    "req": "FR-016",
+    "category": "正常",
+    "title": "取消的运行不算失败也不算通过",
+    "input": "一次取消 + 一次失败",
+    "expected": "取消计入 cancelled；其用例归 inconclusive；通过率的分母不含取消",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-QUAL-003",
+    "req": "FR-016",
+    "category": "正常",
+    "title": "重试后通过的用例单列",
+    "input": "一次 failed + 一次 passed 的 attempt",
+    "expected": "用例计入 flaky 而非 passed/failed；初次尝试的 failed 仍可见",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-QUAL-004",
+    "req": "FR-016",
+    "category": "边界",
+    "title": "未知状态不猜测",
+    "input": "用例状态与运行状态各一个未知值",
+    "expected": "用例归 unknown、运行归 inconclusive，均不折成通过或失败",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-QUAL-005",
+    "req": "FR-016",
+    "category": "正常",
+    "title": "指标与 Bridge 报告的计数器对账",
+    "input": "summary 与用例列表一致的运行",
+    "expected": "逐项一致，对账结论为一致",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-QUAL-006",
+    "req": "FR-016",
+    "category": "异常",
+    "title": "summary 与用例列表不一致时报告差异",
+    "input": "summary 声称 1 通过 0 失败，列表里是一个失败用例",
+    "expected": "对账结论为不一致，且逐项指出差异",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-QUAL-007",
+    "req": "FR-016",
+    "category": "正常",
+    "title": "失败聚类按归一化后的签名",
+    "input": "同一断言的两个实例（id/数字不同）",
+    "expected": "归一化后相同，聚为一类；不同错误类型不共享签名",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-QUAL-008",
+    "req": "FR-016",
+    "category": "边界",
+    "title": "ANSI 颜色码不改变签名",
+    "input": "带色与不带色的同一错误",
+    "expected": "签名相同，且不含转义字符",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-QUAL-009",
+    "req": "FR-016",
+    "category": "正常",
+    "title": "跨运行维度识别不稳定用例",
+    "input": "一个运行失败、另一个运行通过的同一用例",
+    "expected": "判为不稳定并单列；同名不同文件视为不同用例",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
     "id": "UT-CORE-005",
     "req": "NFR-005",
     "category": "清理",
@@ -6684,6 +6783,50 @@
     "input": "零长度 state.json；损坏的 metadata.db",
     "expected": "前者拒绝启动且文件不变；后者隔离并由 state.json 重建，历史完整",
     "evidence": "node tools/ats207-probes/st-ats207.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-027",
+    "req": "FR-016",
+    "category": "功能",
+    "title": "质量概览：失败/重试/取消分开计数",
+    "input": "真实 Bridge + 真实 Playwright：一次真实失败运行、一次真实重试后通过、一次真实停止",
+    "expected": "失败计入失败桶、重试用例计入 flaky 桶、停止的运行计入 cancelled 且不计入失败与通过率",
+    "evidence": "node tools/ats216-probes/st-ats216.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-028",
+    "req": "FR-016",
+    "category": "功能",
+    "title": "质量概览：指标与原始结果可核对",
+    "input": "同一批真实运行的 summary 与用例列表",
+    "expected": "逐项对账全部一致；对账结论由模块与探针独立复算两次",
+    "evidence": "node tools/ats216-probes/st-ats216.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-029",
+    "req": "FR-016",
+    "category": "功能",
+    "title": "两个界面共用同一份质量指标实现",
+    "input": "便携 UI 与 Next 工作台",
+    "expected": "两者都 import 同一模块；Bridge 以 JavaScript MIME 提供该模块",
+    "evidence": "node tools/ats216-probes/st-ats216.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-030",
+    "req": "FR-016",
+    "category": "可靠性",
+    "title": "质量指标的实现被破坏时测试变红",
+    "input": "对模块做 7 个变异（取消算失败、flaky 算通过、对账恒真、聚类常量、丢重试计数、留 ANSI 码、忽略 attempt 数）",
+    "expected": "每个变异都被 UT 或 ST 抓住，无一漏网",
+    "evidence": "node tools/ats216-probes/mutation-check.mjs",
     "status": "PASS",
     "level": "ST"
   }
