@@ -1,0 +1,21 @@
+=== the python gates under tools/ ===
+repo root : /d/ICHOR
+commit    : a916ad4
+branch    : dev
+node      : v24.19.0
+python    : Python 3.11.16
+
+.............................                                            [100%]
+29 passed in 0.35s
+
+exit code : 0
+
+=== NOTE ===
+The ATS-506 marker assertion (test_tc002_ats506_marker_and_narrative)
+FAILED on the first delivery of ATS-208: it asserted that MARKERS[-1]
+is 【ATS-506】, but 【ATS-512】 had been appended to MARKERS by a later
+delivery without updating the assertion. It failed identically on the
+base commit, so it was NOT caused by ATS-208.
+
+It is FIXED in the tree this delivery was merged into (the ATS-512
+delivery updated the assertion), so the suite above is green.

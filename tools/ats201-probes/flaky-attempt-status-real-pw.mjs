@@ -98,20 +98,29 @@ ok('the case is flaky in the real report', report.stats.flaky === 1, JSON.string
 
 log('');
 log('--- 2. the raw report carries BOTH status levels ---');
+// ATS-208: the retried case is ONE case with TWO attempts. The case level
+// status is the aggregate; each attempt keeps its own result level status.
 const summary = parseReport(report);
 for (const c of summary.cases) {
-  log(`   case="${c.title}"  caseStatus=${c.status}  resultStatus=${c.resultStatus}  retry=${c.retry}`);
+  for (const a of c.attempts ?? []) {
+    log(`   case="${c.title}"  caseStatus=${c.status}  resultStatus=${a.status}  retry=${a.retry}`);
+  }
 }
-ok('the report has two executions', summary.cases.length === 2, String(summary.cases.length));
+ok('the report has ONE case', summary.cases.length === 1, String(summary.cases.length));
+const attemptsOfCase = summary.cases[0]?.attempts ?? [];
+ok('the case has two attempts', attemptsOfCase.length === 2, String(attemptsOfCase.length));
 ok('the first execution really failed',
-  summary.cases.find((c) => c.retry === 0)?.resultStatus === 'failed',
-  String(summary.cases.find((c) => c.retry === 0)?.resultStatus));
+  attemptsOfCase.find((a) => a.retry === 0)?.status === 'failed',
+  String(attemptsOfCase.find((a) => a.retry === 0)?.status));
 ok('the second execution really passed',
-  summary.cases.find((c) => c.retry === 1)?.resultStatus === 'passed',
-  String(summary.cases.find((c) => c.retry === 1)?.resultStatus));
+  attemptsOfCase.find((a) => a.retry === 1)?.status === 'passed',
+  String(attemptsOfCase.find((a) => a.retry === 1)?.status));
 ok('the CASE level status is still flaky',
   summary.cases.every((c) => c.status === 'flaky'),
   summary.cases.map((c) => c.status).join(','));
+ok('the case is counted ONCE and the executions separately',
+  summary.total === 1 && summary.executions === 2,
+  `total=${summary.total} executions=${summary.executions}`);
 
 log('');
 log('--- 3. the ATTEMPTS of the product code ---');

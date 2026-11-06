@@ -43,7 +43,7 @@
  */
 
 /** The schema version this build of the code understands. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 4;
 
 /**
  * The migration steps, in order.
@@ -174,13 +174,112 @@ export const MIGRATIONS = [
       `CREATE INDEX IF NOT EXISTS idx_attempts_run_status ON test_attempts(run_uid, status)`,
     ],
     down: [
-      `DROP INDEX IF EXISTS idx_attempts_run_status`,
-      `DROP TABLE IF EXISTS test_attempts`,
-      `DROP INDEX IF EXISTS idx_artifacts_run`,
-      `DROP TABLE IF EXISTS artifacts`,
-    ],
-  },
-];
+          'DROP INDEX IF EXISTS idx_attempts_run_status',
+          'DROP TABLE IF EXISTS test_attempts',
+          'DROP INDEX IF EXISTS idx_artifacts_run',
+          'DROP TABLE IF EXISTS artifacts',
+        ],
+      },
+      {
+        version: 3,
+        name: 'execution-events',
+        tables: {
+          events: ['run_uid', 'seq', 'at', 'type', 'data'],
+        },
+        up: [
+          // ATS-208: the execution events become queryable rows of their own.
+          //
+          // The composite primary key `(run_uid, seq)` is the IDENTITY of an
+          // event: the sequence number is per run, so `seq` alone would collide
+          // between two runs of the same project. The key also ENFORCES the
+          // property the acceptance criterion asks for: the sequence of a run is
+          // gap-free and never reused, because a second event with the same
+          // (run, seq) cannot be written at all.
+          //
+          // `data` keeps the payload of the event verbatim, so a field the layer
+          // does not model is not lost.
+          `CREATE TABLE IF NOT EXISTS events (
+             run_uid TEXT NOT NULL,
+             seq     INTEGER NOT NULL,
+             at      TEXT,
+             type    TEXT NOT NULL,
+             data    TEXT NOT NULL,
+             PRIMARY KEY (run_uid, seq)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_events_type ON events(type)`,
+        ],
+        down: [
+          'DROP INDEX IF EXISTS idx_events_type',
+          'DROP TABLE IF EXISTS events',
+        ],
+      },
+      {
+        version: 4,
+        name: 'environment-profiles',
+        tables: {
+          // The environment profiles of ATS-212. `doc` keeps the profile
+          // verbatim -- including its variables -- so the layer never loses
+          // a field it does not model.
+          env_profiles: [
+            'uid', 'project_uid', 'name', 'environment', 'variables', 'created_at', 'updated_at', 'doc',
+          ],
+          // The whitelist a project configured, if it configured one. A
+          // project that uses the built-in default has NO row here: the
+          // absence of a row is what "the default is in force" means, so
+          // the table does not carry a copy of the default that could go
+          // out of step with it.
+          env_whitelists: [
+            'project_uid', 'names', 'updated_at', 'doc',
+          ],
+        },
+        up: [
+          // The environment profile a run ran under. The column is ADDITIVE:
+          // a run that ran without a profile carries NULL, and the run record
+          // stays exactly as it was.
+          //
+          // The `runs` table is NOT declared in `tables` on purpose: that
+          // declaration is the runner's "the table this step would create
+          // must have these columns" contract, and `runs` was created by
+          // step 1. Declaring it here would make the runner compare the
+          // CURRENT shape of `runs` against a list that does not yet carry
+          // `env_uid` and refuse the step.
+          'ALTER TABLE runs ADD COLUMN env_uid TEXT',
+          // The environment profiles become queryable rows of their own.
+          //
+          // `variables` holds the NAMES of the variables the profile
+          // carries -- NOT their values. The values stay in the state file
+          // and in the `doc` column, which is the profile's own record; the
+          // indexed column is the part a query needs, and it is the part
+          // that is safe to read out of a shared database.
+          `CREATE TABLE IF NOT EXISTS env_profiles (
+             uid         TEXT PRIMARY KEY,
+             project_uid TEXT NOT NULL,
+             name        TEXT NOT NULL,
+             environment TEXT NOT NULL,
+             variables   TEXT NOT NULL,
+             created_at  TEXT,
+             updated_at  TEXT,
+             doc         TEXT NOT NULL
+           )`,
+          'CREATE INDEX IF NOT EXISTS idx_env_profiles_project ON env_profiles(project_uid)',
+          'CREATE INDEX IF NOT EXISTS idx_runs_env_uid ON runs(env_uid)',
+          // The whitelist a project configured.
+          `CREATE TABLE IF NOT EXISTS env_whitelists (
+             project_uid TEXT PRIMARY KEY,
+             names       TEXT NOT NULL,
+             updated_at  TEXT,
+             doc         TEXT NOT NULL
+           )`,
+        ],
+        down: [
+          'DROP INDEX IF EXISTS idx_runs_env_uid',
+          'DROP INDEX IF EXISTS idx_env_profiles_project',
+          'DROP TABLE IF EXISTS env_whitelists',
+          'DROP TABLE IF EXISTS env_profiles',
+          'ALTER TABLE runs DROP COLUMN env_uid',
+        ],
+      },
+    ];
 
 /** The migration step that brings the database from `version - 1` to `version`. */
 export function stepFor(version) {

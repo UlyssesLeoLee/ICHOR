@@ -157,6 +157,72 @@ test('IT-ATS202-API-007: the trust can be revoked, and the index falls back', as
   assert.equal(r[1].authoritative.attempted, false);
 });
 
+/* ------------------------------------------------------------------ */
+/* the round-1 review findings                                         */
+/* ------------------------------------------------------------------ */
+
+test('IT-ATS202-API-008: a TRUSTED project that asks for the static index is not reported as untrusted', async () => {
+  await api(`/api/projects/${projectId}/trust`, 'POST', { trust: 'trusted' });
+  const r = await api(`/api/projects/${projectId}/tests?authoritative=false`);
+  assert.equal(r[0], 200);
+  assert.equal(r[1].discovery, 'static');
+  assert.equal(r[1].trust.trust, 'trusted');
+  // The outcome says "the caller asked for the static index", NOT "the
+  // project is untrusted" -- the project IS trusted.
+  assert.equal(r[1].authoritative.outcome, 'NOT_REQUESTED');
+  assert.doesNotMatch(r[1].warning, /未可信仓库不可调用/);
+});
+
+test('IT-ATS202-API-009: the Bridge keeps answering while a project is listed', { skip: installed ? false : 'no real Playwright' }, async () => {
+  // The listing executes the PROJECT'S OWN CONFIG. A config whose top level
+  // takes four seconds therefore takes four seconds -- and the Bridge must
+  // not stop answering for those four seconds: the health check, the
+  // catalogue of another project and the stop button of a running test all
+  // go through the same event loop.
+  //
+  // The round-1 reviewer measured 4233-4287 ms of latency for /api/health
+  // while one project was listed.
+  const slow = path.join(WORK, 'slow');
+  fs.mkdirSync(path.join(slow, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(slow, 'package.json'), '{"name":"slow","private":true}', 'utf8');
+  fs.writeFileSync(
+    path.join(slow, 'playwright.config.ts'),
+    [
+      "import { defineConfig } from '@playwright/test';",
+      'const end = Date.now() + 4000; while (Date.now() < end) { /* slow config top level */ }',
+      "export default defineConfig({ testDir: './tests' });",
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+  fs.writeFileSync(path.join(slow, 'tests', 'a.spec.ts'), "import { test } from '@playwright/test';\ntest('a', async () => {});\n", 'utf8');
+  fs.cpSync(path.join(FIXTURE, 'node_modules'), path.join(slow, 'node_modules'), { recursive: true });
+
+  const [, reg] = await api('/api/projects', 'POST', { path: slow });
+  const id = reg.project.id;
+  await api(`/api/projects/${id}/trust`, 'POST', { trust: 'trusted' });
+
+  // The idle latency, as the baseline.
+  let t = Date.now();
+  await fetch(`http://127.0.0.1:${port}/api/health`);
+  const idle = Date.now() - t;
+
+  // Open the catalogue, and 300 ms later ask the Bridge for /api/health.
+  const t0 = Date.now();
+  const catalogue = api(`/api/projects/${id}/tests`).then(([status, body]) => ({ status, body, ms: Date.now() - t0 }));
+  await new Promise((r) => setTimeout(r, 300));
+  t = Date.now();
+  const health = await fetch(`http://127.0.0.1:${port}/api/health`);
+  const during = Date.now() - t;
+  const c = await catalogue;
+
+  assert.equal(c.status, 200);
+  assert.equal(c.body.discovery, 'authoritative');
+  assert.ok(c.ms >= 3000, `the listing really was slow (${c.ms} ms)`);
+  assert.equal(health.status, 200, 'the Bridge still answers');
+  assert.ok(during < 1000, `the Bridge answered in ${during} ms while the catalogue was listing (idle ${idle} ms)`);
+});
+
 test('IT-ATS202-API-CLEANUP: stop and cleanup', () => {
   cp.kill();
   fs.rmSync(WORK, { recursive: true, force: true });

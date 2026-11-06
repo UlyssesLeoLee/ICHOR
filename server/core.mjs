@@ -7,10 +7,62 @@ import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, sc
 import { buildPlaywrightArgs, probePlaywrightCli } from './adapters/playwright-cli.mjs';
 import { openDatabase as openMetadataDatabase } from './sqlite/db.mjs';
 import { storeState } from './sqlite/store.mjs';
-import { listTests, LIST_OUTCOME } from './discovery/playwright-list.mjs';
+import { listTests, listTestsAsync, LIST_OUTCOME } from './discovery/playwright-list.mjs';
 import { resolveAuthoritativeIdentities } from './discovery/authoritative.mjs';
 import { compareDiscoveries, readBodies, staticCasesWithScope, DISCOVERY } from './discovery/index.mjs';
 import { TRUST, trustOf } from './discovery/trust.mjs';
+// ATS-208: the unified Run/Test/Attempt/ExecutionEvent model. The report
+// parsing, the attempt building and the status vocabulary live THERE, so
+// that the bridge, the adapters and the SQLite layer describe a run in ONE
+// way. The functions below are re-exported from this module so that the
+// existing callers keep working.
+import {
+  CASE_STATUS,
+  EVENT_TYPE,
+  OUTCOME,
+  RESULT_STATUSES,
+  RUN_STATUS,
+  aggregateCases,
+  aggregateAttempts,
+  aggregateOutcomes,
+  attemptsForRun,
+  caseIdentity,
+  isAllowedTransition,
+  isTerminalRunStatus,
+  mapEngineStatus,
+  nextEventSeq,
+  outcomeOf,
+  parseEventLog,
+  parseReport,
+  replayEvents,
+  reportedBodyKey,
+  runView,
+  statusOfEvent,
+} from './execution/model.mjs';
+
+export {
+  CASE_STATUS,
+  EVENT_TYPE,
+  OUTCOME,
+  RESULT_STATUSES,
+  RUN_STATUS,
+  aggregateCases,
+  aggregateAttempts,
+  aggregateOutcomes,
+  attemptsForRun,
+  caseIdentity,
+  isAllowedTransition,
+  isTerminalRunStatus,
+  mapEngineStatus,
+  nextEventSeq,
+  outcomeOf,
+  parseEventLog,
+  parseReport,
+  replayEvents,
+  reportedBodyKey,
+  runView,
+  statusOfEvent,
+};
 
 export const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 export const safeId = (prefix) => `${prefix}_${crypto.randomUUID()}`;
@@ -332,6 +384,86 @@ export function discoverStatic(project, registry) {
 }
 
 /**
+ * The decision the TRUST and the REQUEST make together.
+ *
+ * The trust says whether the authoritative index is ALLOWED; the request
+ * (`?authoritative=`) says whether it is WANTED. Three situations:
+ *
+ * | trust   | request          | index   | outcome              |
+ * |---------|------------------|---------|----------------------|
+ * | trusted | default / `true` | auth.   | the listing runs     |
+ * | trusted | `false`          | static  | `NOT_REQUESTED`      |
+ * | untrusted| default / `true`| static  | `SKIPPED_UNTRUSTED`  |
+ *
+ * The third row is the trust gate: a FORCE never overrides it.
+ *
+ * The second row used to be reported as `SKIPPED_UNTRUSTED` as well, which
+ * told the user that a project they had vouched for was not vouched for.
+ * The project IS trusted; the caller simply asked for the static index. The
+ * two situations need different codes, because the user's next action is
+ * different: one needs a vouch, the other needs no action at all.
+ */
+function decideDiscovery(trust, force) {
+  const trusted = trust.trust === TRUST.TRUSTED;
+  if (!trusted) {
+    return { wantsAuthoritative: false, mode: 'untrusted', forced: force === true };
+  }
+  if (force === false) {
+    return { wantsAuthoritative: false, mode: 'not-requested', forced: false };
+  }
+  return { wantsAuthoritative: true, mode: force === true ? 'forced' : 'default', forced: force === true };
+}
+
+/**
+ * The static answer, with the reason the authoritative index was not used.
+ *
+ * The warning says what actually happened. A project that is not trusted
+ * gets the trust gate; a TRUSTED project that asked for the static index
+ * gets a plain note that the request was honoured -- it must not be told
+ * that it is not trusted, because it is.
+ *
+ * The `fallback` mode is the third case: the listing was ALLOWED and it
+ * FAILED. The project is trusted, so the trust gate does not apply and the
+ * warning must not mention it -- the caller says what actually went wrong.
+ */
+function staticCatalog(project, registry, trust, decision) {
+  const base = {
+    ...discoverStatic(project, registry),
+    trust,
+    authoritative: {
+      attempted: false,
+      outcome: decision.mode === 'untrusted' ? 'SKIPPED_UNTRUSTED' : 'NOT_REQUESTED',
+      reason: decision.mode === 'untrusted' ? trust.reason : ''
+    }
+  };
+  if (decision.mode === 'not-requested') {
+    return {
+      ...base,
+      discovery: DISCOVERY.STATIC,
+      warning: `${base.warning} 已按请求使用静态索引（该项目已标记为可信，改用权威索引请去掉 authoritative 参数）。`
+    };
+  }
+  if (decision.mode === 'fallback') {
+    // The listing was allowed and it failed. The trust gate does not apply
+    // here, so the warning must not talk about it.
+    return { ...base, discovery: DISCOVERY.STATIC, warning: base.warning };
+  }
+  // The untrusted project never runs `--list`. The reason is part of the
+  // answer -- and so is the way to get the authoritative index, which is
+  // to vouch for the project (the decision is per project and revocable).
+  //
+  // The forced case (`?authoritative=true`) and the default case get the
+  // SAME answer: the force says WHICH index to use, the trust says whether
+  // it is ALLOWED to, and the trust wins.
+  return {
+    ...base,
+    discovery: DISCOVERY.STATIC,
+    warning: `${base.warning} 未可信仓库不可调用 --list（${trust.reason}），已使用静态索引；`
+      + `把该仓库标记为可信（POST /api/projects/:id/trust {trust:"trusted"}）后即可使用权威索引。`
+  };
+}
+
+/**
  * Discovers the test cases of a project: the STATIC index or the
  * AUTHORITATIVE one (`playwright test --list`), whichever the trust allows.
  *
@@ -364,116 +496,123 @@ export function discoverStatic(project, registry) {
  * case by case and the difference is reported in `consistency`. A case that
  * only the CLI knows is a dynamic case; a case that only the static scanner
  * knows is a case the CLI does not enumerate.
+ *
+ * THE TWO VARIANTS
+ * -----------------
+ * `discoverTests` runs the listing SYNCHRONOUSLY; `discoverTestsAsync` runs
+ * it asynchronously. Both build the catalogue with the SAME code, so the
+ * two answers differ in nothing but the timing.
+ *
+ * The Bridge uses the asynchronous one: the listing executes the project's
+ * config, and a project whose config takes four seconds would otherwise
+ * freeze the whole Bridge for those four seconds -- including the health
+ * check and the stop button of a running test.
  */
 export function discoverTests(project, state, registry, options = {}) {
- const trust = trustOf(state, project);
- const trusted = trust.trust === TRUST.TRUSTED;
- const force = options.authoritative;
- // A forced authoritative discovery still needs the trust: the force says
- // WHICH index to use, the trust says whether it is ALLOWED to.
- const wantsAuthoritative = force === undefined ? trusted : (Boolean(force) && trusted);
+  const trust = trustOf(state, project);
+  const decision = decideDiscovery(trust, options.authoritative);
+  if (!decision.wantsAuthoritative) {
+    return staticCatalog(project, registry, trust, decision);
+  }
+  const listed = listTests(project, { timeoutMs: options.timeoutMs });
+  return authoritativeCatalog(project, registry, trust, decision, listed);
+}
 
- const staticResult = () => ({
-   ...discoverStatic(project, registry),
-   trust,
-   authoritative: {
-     attempted: false,
-     outcome: wantsAuthoritative ? 'NOT_ATTEMPTED' : 'SKIPPED_UNTRUSTED',
-     reason: wantsAuthoritative ? '' : trust.reason
-   }
- });
+/**
+ * The asynchronous variant of `discoverTests`.
+ *
+ * The Bridge calls this one: the listing is a CHILD PROCESS that runs the
+ * project's own code, and it may take a long time. Awaiting it keeps the
+ * event loop free, so the Bridge keeps answering while a project is listed.
+ */
+export async function discoverTestsAsync(project, state, registry, options = {}) {
+  const trust = trustOf(state, project);
+  const decision = decideDiscovery(trust, options.authoritative);
+  if (!decision.wantsAuthoritative) {
+    return staticCatalog(project, registry, trust, decision);
+  }
+  const listed = await listTestsAsync(project, { timeoutMs: options.timeoutMs });
+  return authoritativeCatalog(project, registry, trust, decision, listed);
+}
 
- if (!wantsAuthoritative) {
-   const base = staticResult();
-   // The untrusted project never runs `--list`. The reason is part of the
-   // answer -- and so is the way to get the authoritative index, which is
-   // to vouch for the project (the decision is per project and revocable).
-   //
-   // The forced case (`?authoritative=true`) and the default case get the
-   // SAME answer: the force says WHICH index to use, the trust says whether
-   // it is ALLOWED to, and the trust wins.
-   return {
-     ...base,
-     discovery: DISCOVERY.STATIC,
-     warning: `${base.warning} 未可信仓库不可调用 --list（${trust.reason}），已使用静态索引；`
-       + `把该仓库标记为可信（POST /api/projects/:id/trust {trust:"trusted"}）后即可使用权威索引。`
-   };
- }
+/**
+ * The authoritative answer: the catalogue of the CLI's own case list, with
+ * the UIDs resolved and the agreement with the static index measured.
+ */
+function authoritativeCatalog(project, registry, trust, decision, listed) {
+  if (!listed.ok) {
+    const base = staticCatalog(project, registry, trust, { ...decision, mode: 'fallback', wantsAuthoritative: false });
+    const detail = listed.errors && listed.errors.length ? ` — ${listed.errors[0].message}` : '';
+    return {
+      ...base,
+      discovery: DISCOVERY.STATIC,
+      authoritative: {
+        attempted: true,
+        outcome: listed.outcome,
+        reason: listed.reason,
+        errors: listed.errors || [],
+        cli: listed.cli || null,
+        version: listed.version || null
+      },
+      warning: `${base.warning} 权威发现失败（${listed.outcome}）：${listed.reason}${detail}，已回退到静态索引。`
+    };
+  }
 
- const listed = listTests(project, { timeoutMs: options.timeoutMs });
- if (!listed.ok) {
-   const base = staticResult();
-   const detail = listed.errors && listed.errors.length ? ` — ${listed.errors[0].message}` : '';
-   return {
-     ...base,
-     discovery: DISCOVERY.STATIC,
-     authoritative: {
-       attempted: true,
-       outcome: listed.outcome,
-       reason: listed.reason,
-       errors: listed.errors || [],
-       cli: listed.cli || null,
-       version: listed.version || null
-     },
-     warning: `${base.warning} 权威发现失败（${listed.outcome}）：${listed.reason}${detail}，已回退到静态索引。`
-   };
- }
+  // The authoritative case list, with the UIDs resolved.
+  const files = listed.files;
+  const bodies = readBodies(project.root, files);
+  const projectUid = projectUidOf(project);
+  const projectRegistry = (registry && registry.projects && registry.projects[projectUid]) || { version: UID_SCHEME_VERSION, entries: [] };
+  const resolved = resolveAuthoritativeIdentities({
+    projectUid,
+    cases: listed.tests,
+    bodies,
+    registry: projectRegistry,
+    scope: new Set(files)
+  });
 
- // The authoritative case list, with the UIDs resolved.
- const files = listed.files;
- const bodies = readBodies(project.root, files);
- const projectUid = projectUidOf(project);
- const projectRegistry = (registry && registry.projects && registry.projects[projectUid]) || { version: UID_SCHEME_VERSION, entries: [] };
- const resolved = resolveAuthoritativeIdentities({
-   projectUid,
-   cases: listed.tests,
-   bodies,
-   registry: projectRegistry,
-   scope: new Set(files)
- });
+  const tests = resolved.items.map(t => ({
+    id: t.uid, uid: t.uid, uidSource: t.uidSource, uidStable: t.uidStable,
+    uidBasis: t.basis,
+    file: t.file, title: t.title, line: t.line,
+    describePath: t.scope,
+    specIds: t.specIds,
+    source: 'authoritative', level: 'ST',
+    ...(t.ambiguity ? { ambiguity: t.ambiguity } : {})
+  }));
 
- const tests = resolved.items.map(t => ({
-   id: t.uid, uid: t.uid, uidSource: t.uidSource, uidStable: t.uidStable,
-   uidBasis: t.basis,
-   file: t.file, title: t.title, line: t.line,
-   describePath: t.scope,
-   specIds: t.specIds,
-   source: 'authoritative', level: 'ST',
-   ...(t.ambiguity ? { ambiguity: t.ambiguity } : {})
- }));
+  const consistency = compareDiscoveries(listed.tests, staticCasesWithScope(project.root, files));
+  const ambiguous = tests.filter(t => !t.uidStable).length;
+  const duplicatedExplicit = tests.filter(t => t.ambiguity?.reason === 'duplicate-explicit-uid').length;
+  const outside = (listed.skipped && listed.skipped.length) || 0;
 
- const consistency = compareDiscoveries(listed.tests, staticCasesWithScope(project.root, files));
- const ambiguous = tests.filter(t => !t.uidStable).length;
- const duplicatedExplicit = tests.filter(t => t.ambiguity?.reason === 'duplicate-explicit-uid').length;
- const outside = (listed.skipped && listed.skipped.length) || 0;
+  let warning = `权威索引来自 playwright test --list（CLI ${listed.version || '?'}）：动态与参数化用例已包含在内。`;
+  if (ambiguous) warning += ` ${ambiguous} 个用例的 UID 为临时值（标题与 describe 路径都无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
+  if (duplicatedExplicit) warning += ` ${duplicatedExplicit} 个用例标注了同一个 @TC-xxx，这些用例都没有绑定到该 UID，需要人工消歧。`;
+  if (outside) warning += ` ${outside} 个用例位于项目根目录之外，已被排除。`;
+  if (!consistency.agrees) warning += ` 与静态索引的差异：${consistency.onlyAuthoritative.length} 个用例仅权威索引可见，${consistency.onlyStatic.length} 个用例仅静态索引可见。`;
 
- let warning = `权威索引来自 playwright test --list（CLI ${listed.version || '?'}）：动态与参数化用例已包含在内。`;
- if (ambiguous) warning += ` ${ambiguous} 个用例的 UID 为临时值（标题与 describe 路径都无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
- if (duplicatedExplicit) warning += ` ${duplicatedExplicit} 个用例标注了同一个 @TC-xxx，这些用例都没有绑定到该 UID，需要人工消歧。`;
- if (outside) warning += ` ${outside} 个用例位于项目根目录之外，已被排除。`;
- if (!consistency.agrees) warning += ` 与静态索引的差异：${consistency.onlyAuthoritative.length} 个用例仅权威索引可见，${consistency.onlyStatic.length} 个用例仅静态索引可见。`;
-
- return {
-   files,
-   tests,
-   discovery: DISCOVERY.AUTHORITATIVE,
-   uidVersion: resolved.registry.version,
-   projectUid,
-   registry: { version: resolved.registry.version, projects: { ...((registry && registry.projects) || {}), [projectUid]: resolved.registry } },
-   warning,
-   trust,
-   authoritative: {
-     attempted: true,
-     outcome: LIST_OUTCOME.OK,
-     reason: '',
-     cli: listed.cli,
-     version: listed.version,
-     rootDir: listed.rootDir,
-     durationMs: listed.durationMs,
-     specCount: listed.tests.length
-   },
-   consistency
- };
+  return {
+    files,
+    tests,
+    discovery: DISCOVERY.AUTHORITATIVE,
+    uidVersion: resolved.registry.version,
+    projectUid,
+    registry: { version: resolved.registry.version, projects: { ...((registry && registry.projects) || {}), [projectUid]: resolved.registry } },
+    warning,
+    trust,
+    authoritative: {
+      attempted: true,
+      outcome: LIST_OUTCOME.OK,
+      reason: '',
+      cli: listed.cli,
+      version: listed.version,
+      rootDir: listed.rootDir,
+      durationMs: listed.durationMs,
+      specCount: listed.tests.length
+    },
+    consistency
+  };
 }
 export function resolvePlaywright(project) {
  const candidates=['node_modules/@playwright/test/cli.js','node_modules/playwright/cli.js','node_modules/playwright-core/cli.js'];
@@ -528,20 +667,16 @@ export function artifactPath(id,relative){
 /**
  * Parses a Playwright JSON report into the run summary.
  *
- * Two details of the report format matter for the UID scheme:
+ * ATS-208: the parsing, the aggregation and the status vocabulary moved to
+ * `server/execution/model.mjs`, which is the ONE place the execution model
+ * is defined. This function is re-exported from there (see the imports at
+ * the top of this file) and kept here so that the existing callers keep
+ * working.
  *
- *   * `spec.file` is relative to the Playwright `rootDir`, which is derived
- *     from `testDir`. The registry stores the file relative to the project
- *     root, so the report's `rootDir` is reported alongside the cases and the
- *     two spellings are reconciled by the caller.
- *   * a retried test case is ONE entry in `spec.tests[]` whose `results[]`
- *     array holds one element per retry. Every retry is a separate execution
- *     of the case, so every retry becomes its own case record here.
- *
- * The two LEVELS of status are kept apart, because they answer different
+ * The two levels of status are kept apart, because they answer different
  * questions:
  *
- *   * `status` -- the CASE level status (`expected` / `unexpected` / `flaky` /
+ *   * `status` -- the CASE level status (`passed` / `failed` / `flaky` /
  *     `skipped`). It describes the case as a whole: a flaky case is `flaky`
  *     even though its first retry failed.
  *   * `resultStatus` -- the RESULT level status of THIS execution
@@ -553,129 +688,10 @@ export function artifactPath(id,relative){
  * case level status would report "flaky" for both attempts and hide that the
  * first one actually failed.
  */
-export function parseReport(report){
- let passed=0,failed=0,skipped=0,flaky=0;const cases=[];
- function walk(s){for(const x of s.specs||[]){for(const t of x.tests||[]){
-  const status=t.status||'unknown';if(['expected'].includes(status))passed++;else if(status==='flaky')flaky++;else if(status==='skipped')skipped++;else failed++;
-  const results=Array.isArray(t.results)&&t.results.length?t.results:[{}];
-  const file=x.file||s.file||'';
-  results.forEach((r,index)=>{
-   cases.push({title:x.title,file,status,resultStatus:r.status??status,duration:r.duration||0,error:r.error?.message||'',retry:Number.isInteger(r.retry)?r.retry:index,line:x.line||null,column:x.column||null});
-  });
- }}for(const sub of s.suites||[])walk(sub);}
- for(const suite of report.suites||[])walk(suite);
- const rootDir=report?.config?.rootDir||null;
- // `total` counts the test cases of the run, the same unit as passed / failed /
- // skipped / flaky. A retried case is still ONE case; its retries are counted
- // separately as `executions`, because each retry is a separate execution.
- const total=passed+failed+skipped+flaky;
- return {passed,failed,skipped,flaky,total,executions:cases.length,cases,rootDir};
-}
-
-/**
- * The body fingerprint of the case a report names.
- *
- * A report names a case by file, title and line. The source of the file is
- * read and scanned, and the case that sits at the reported line with the
- * reported title is located; its body is fingerprinted. The fingerprint is
- * what tells two cases that share a title apart.
- *
- * Returns null when the file cannot be read, when the case is not in the file
- * any more, or when several cases share the title and the line does not pick
- * one of them. A null fingerprint leaves the case unbound, which is the honest
- * answer: it is better to report no UID than the UID of a different case.
- *
- * `cache` holds the scanned cases per file, so a file is read and scanned at
- * most once per run.
- */
-export function reportedBodyKey(projectRoot, file, reported, cache = new Map()) {
-  if (!projectRoot || !file) return null;
-  let cases = cache.get(file);
-  if (cases === undefined) {
-    let content = null;
-    try {
-      const full = path.resolve(projectRoot, file);
-      if (fs.existsSync(full) && fs.statSync(full).isFile()) content = fs.readFileSync(full, 'utf8');
-    } catch { content = null; }
-    cases = content === null ? null : scanTestCases(content);
-    cache.set(file, cases);
-  }
-  if (!cases) return null;
-  const titled = cases.filter((x) => x.title === reported.title);
-  if (!titled.length) return null;
-  if (titled.length === 1) return bodyKeyOf(titled[0].bodyText ?? null);
-  // Several cases share the title: the reported line picks one of them.
-  const atLine = titled.filter((x) => x.line === reported.line);
-  if (atLine.length === 1) return bodyKeyOf(atLine[0].bodyText ?? null);
-  return null;
-}
 
 /**
  * Builds the Attempt records of one Run.
  *
- * One Attempt is the execution of one test case inside one Run; a retried
- * case produces one Attempt per retry. The Attempt UID is derived from the
- * Run UID, the TestDefinition UID, the retry index and the occurrence index
- * of the case inside the report, so the same attempt can be recomputed from
- * the recorded fields (that is what the migration script relies on).
- *
- * `registry` supplies the mapping from a reported case to the stable
- * TestDefinition UID. A case that cannot be bound unambiguously keeps
- * `testUid: null` and records the reason in `uidBasis`.
+ * ATS-208: moved to `server/execution/model.mjs` and re-exported here.
  */
-export function attemptsForRun(run, summary, registry) {
-  if (!summary || !Array.isArray(summary.cases)) return [];
-  const projectUid = run.projectUid ?? '';
-  const projectRoot = run.projectRoot ?? null;
-  const rootDir = summary.rootDir ?? null;
-  const occurrence = new Map();
-  const bodyCache = new Map();
-  const attempts = [];
-  for (const c of summary.cases) {
-    // The report names the file relative to the Playwright rootDir, the
-    // registry stores it relative to the project root. Both are reduced to
-    // the project relative spelling before they are compared.
-    const file = normalizeTestPath(c.file, { rootDir, projectRoot });
-    // A title that several cases in the same file share does not identify one
-    // of them, and the line cannot make it one: the case at the reported line
-    // may be a different case than the one that was there when the registry
-    // was written. The BODY FINGERPRINT of the reported case is what tells
-    // them apart, so it is computed from the source of THIS run and handed to
-    // the lookup. The source is read only when the file is known and only
-    // once per file.
-    const found = findTestUid(registry, projectUid, {
-      file,
-      title: c.title,
-      line: c.line,
-      resolveBodyKey: () => reportedBodyKey(projectRoot, file, c, bodyCache)
-    });
-    const key = `${file} ${c.title} ${c.line}`;
-    const index = occurrence.get(key) ?? 0;
-    occurrence.set(key, index + 1);
-    attempts.push({
-      uid: attemptUidFor({
-        runUid: run.uid || run.id,
-        testUid: found.uid,
-        retry: c.retry,
-        fallbackKey: `${file} ${c.title} ${c.line}`,
-        occurrence: index
-      }),
-      runUid: run.uid || run.id,
-      testUid: found.uid,
-      uidBasis: found.basis,
-      file,
-      title: c.title,
-      line: c.line,
-      retry: c.retry || 0,
-      // An Attempt is one EXECUTION, so it records the result level status.
-      // The case level status (`flaky`) would describe the case as a whole and
-      // would report "flaky" for the failed retry as well.
-      status: c.resultStatus ?? c.status,
-      caseStatus: c.status,
-      duration: c.duration,
-      error: c.error || ''
-    });
-  }
-  return attempts;
-}
 export function compactLog(log){return log.length>150000?log.slice(-150000):log;}

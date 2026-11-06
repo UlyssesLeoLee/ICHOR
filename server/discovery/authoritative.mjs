@@ -70,13 +70,31 @@ import { bodyKeyOf, deriveTestUid, extractExplicitUid, normalizeTitleKey, pruneR
  * lookup and the existing run binding keep working) plus the two facts only
  * the authoritative discovery knows: the `describe` path and the CLI's own
  * per-project spec ids.
+ *
+ * THE BODY KEY OF A DYNAMIC CASE IS NOT STORED
+ * ----------------------------------------------
+ * A dynamic case has no source of its own: the body the scanner read at its
+ * position is the body of the TEMPLATE it was generated from. Storing that
+ * fingerprint as the case's `bodyKey` makes the template look like the case:
+ *
+ *   * the STATIC index then finds the template's fingerprint in the
+ *     registry and hands the template the UID of a rendered case -- a case
+ *     that does not exist gets the identity of a case that does;
+ *   * when the template renders MORE than one case, the same fingerprint
+ *     matches several registry entries, and the static index reports a
+ *     conflict that no user can act on.
+ *
+ * So a case that is not a source case carries NO body key. It is identified
+ * by its describe path and its title, which is exactly what rule 5 and rule
+ * 6 of the ladder use. The run binding still finds it: it looks the case up
+ * by file, title and line, and the entry keeps all three.
  */
 function entryOf(item) {
   return {
     uid: item.uid,
     uidSource: item.uidSource,
     titleKey: item.titleKey,
-    bodyKey: item.bodyKey,
+    bodyKey: item.source ? item.bodyKey : null,
     file: item.file,
     title: item.title,
     line: item.line,

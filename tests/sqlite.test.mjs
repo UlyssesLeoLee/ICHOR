@@ -373,16 +373,24 @@ test('UT-SQL-026: a downgrade drops the higher version and its data', () => {
   try {
     storeState(db, sampleState());
     assert.ok(counts(db).testAttempts > 0, 'the fixture wrote no attempts');
-    // Going back to version 1 reverts step 2: the attempts and the
-    // artifacts are dropped, and their data is gone with them.
+    // Going back to version 1 reverts every step above it, in DESCENDING
+    // order: the steps are 1..N, so the ones above 1 are the steps that
+    // have to be reverted. The list is derived from the migration table
+    // rather than written down, so a new step does not break the test.
+    const expected = MIGRATIONS
+      .filter((m) => m.version > 1)
+      .map((m) => m.version)
+      .sort((a, b) => b - a);
     const result = downgradeDatabase(db, 1);
-    assert.deepEqual(result.applied, [2]);
+    assert.deepEqual(result.applied, expected);
     assert.equal(currentVersion(db), 1);
     const hasArtifacts = db
       .prepare(`SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name='artifacts'`)
       .get().n;
     assert.equal(Number(hasArtifacts), 0, 'the downgraded table still exists');
     assert.equal(counts(db).testAttempts, 0, 'the dropped table still holds rows');
+    // The events table (ATS-208, step 3) is gone with the rest.
+    assert.equal(counts(db).events, 0, 'the events table survived the downgrade');
     // The tables of version 1 are still there.
     assert.equal(counts(db).projects, 2);
   } finally { closeDatabase(db); }
@@ -807,6 +815,116 @@ test('UT-SQL-048: the verification catches a tampered attempt', () => {
     db.exec(`UPDATE test_attempts SET status='passed', test_uid='zzz'`);
     const check = verifyMirror(db, state);
     assert.equal(check.ok, false, 'the tampered attempt was not reported');
+  } finally { closeDatabase(db); }
+});
+
+// ---------------------------------------------------------------------------
+// The events of the mirror: every difference is reported
+// ---------------------------------------------------------------------------
+
+/**
+ * A state whose run carries the events of a normal run.
+ *
+ * The event comparison of `verifyMirror` was added by ATS-208 without a
+ * single NEGATIVE case: no test proved that a missing row, a payload that
+ * is not JSON, a drifted indexed column or an extra row is reported. A
+ * comparison that is never shown to fail is a comparison nobody can trust.
+ */
+function sampleStateWithEvents() {
+  const state = sampleState();
+  state.runs[0].events = [
+    { seq: 1, at: '2026-01-01T00:00:01.000Z', type: 'run.queued', data: { file: 'tests/a.spec.ts' } },
+    { seq: 2, at: '2026-01-01T00:00:02.000Z', type: 'run.started', data: { pid: 42 } },
+    { seq: 3, at: '2026-01-01T00:00:09.000Z', type: 'run.finished', data: { status: 'passed', code: 0 } },
+  ];
+  return state;
+}
+
+test('UT-SQL-050: the verification catches a MISSING event row', () => {
+  const db = openDatabase(':memory:');
+  try {
+    const state = sampleStateWithEvents();
+    importState(db, state);
+    assert.equal(verifyMirror(db, state).ok, true);
+    db.exec('DELETE FROM events WHERE seq=2');
+    const check = verifyMirror(db, state);
+    assert.equal(check.ok, false, 'the missing event row was not reported');
+    assert.ok(
+      check.problems.some((p) => p.includes('run_1_0001#2') && p.includes('missing')),
+      `the problem does not name the event: ${check.problems.join('; ')}`
+    );
+  } finally { closeDatabase(db); }
+});
+
+test('UT-SQL-051: the verification catches an event payload that is not JSON', () => {
+  const db = openDatabase(':memory:');
+  try {
+    const state = sampleStateWithEvents();
+    importState(db, state);
+    db.exec(`UPDATE events SET data='not json at all' WHERE seq=1`);
+    const check = verifyMirror(db, state);
+    assert.equal(check.ok, false, 'the unreadable payload was not reported');
+    assert.ok(
+      check.problems.some((p) => p.includes('run_1_0001#1') && p.includes('not JSON')),
+      `the problem does not name the event: ${check.problems.join('; ')}`
+    );
+  } finally { closeDatabase(db); }
+});
+
+test('UT-SQL-052: the verification catches a DRIFTED event payload', () => {
+  const db = openDatabase(':memory:');
+  try {
+    const state = sampleStateWithEvents();
+    importState(db, state);
+    // The payload of the event no longer says what the event says.
+    db.exec(`UPDATE events SET data='{"file":"tests/OTHER.spec.ts"}' WHERE seq=1`);
+    const check = verifyMirror(db, state);
+    assert.equal(check.ok, false, 'the drifted payload was not reported');
+    assert.ok(
+      check.problems.some((p) => p.includes('run_1_0001#1') && p.includes('file')),
+      `the problem does not name the field: ${check.problems.join('; ')}`
+    );
+  } finally { closeDatabase(db); }
+});
+
+test('UT-SQL-053: the verification catches a DRIFTED indexed event column', () => {
+  const db = openDatabase(':memory:');
+  try {
+    const state = sampleStateWithEvents();
+    importState(db, state);
+    // The indexed type and the indexed timestamp no longer describe the
+    // event: a query that reads the columns answers with something the
+    // state does not say.
+    db.exec(`UPDATE events SET type='run.started' WHERE seq=1`);
+    db.exec(`UPDATE events SET at='2020-01-01T00:00:00.000Z' WHERE seq=2`);
+    const check = verifyMirror(db, state);
+    assert.equal(check.ok, false, 'the drifted indexed columns were not reported');
+    assert.ok(
+      check.problems.some((p) => p.includes('run_1_0001#1') && p.includes('type')),
+      `the type drift was not reported: ${check.problems.join('; ')}`
+    );
+    assert.ok(
+      check.problems.some((p) => p.includes('run_1_0001#2') && p.includes('timestamp')),
+      `the timestamp drift was not reported: ${check.problems.join('; ')}`
+    );
+  } finally { closeDatabase(db); }
+});
+
+test('UT-SQL-054: the verification catches an EXTRA event row', () => {
+  const db = openDatabase(':memory:');
+  try {
+    const state = sampleStateWithEvents();
+    importState(db, state);
+    // A row that the state does not know about.
+    db.exec(
+      `INSERT INTO events(run_uid,seq,at,type,data) VALUES('run_1_0001',99,'2026-01-01T00:00:10.000Z','run.finished','{"status":"passed"}')`
+    );
+    const check = verifyMirror(db, state);
+    assert.equal(check.ok, false, 'the extra event row was not reported');
+    assert.ok(
+      check.problems.some((p) => p.includes('run_1_0001#99') && p.includes('not in the state')),
+      `the problem does not name the event: ${check.problems.join('; ')}`
+    );
   } finally { closeDatabase(db); }
 });
 
