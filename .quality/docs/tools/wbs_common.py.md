@@ -34,4 +34,4 @@ ATS-207 registers its marker (canonical position after `【ATS-206】`) and its 
 
 ATS-506 registers its marker and narrative fragments; no function changes. The ATS-501 D6/D7 fragments stay true because the remote execution plane (queue, nodes) still has no implementation. A concurrent task that also appends a marker produces a textual merge conflict on the `MARKERS` line; the resolution is the union in WBS-ID order.
 
-ATS-106 registers `【ATS-106】` and the `【ATS-601】` marker that the ATS-601 updater already writes but had not registered (the `tools/test_wbs_common.py` registry check failed on dev without it); no function changes.
+ATS-106 registers `【ATS-106】` (the marker of `tools/update_wbs_ats106.py`); no function changes.
