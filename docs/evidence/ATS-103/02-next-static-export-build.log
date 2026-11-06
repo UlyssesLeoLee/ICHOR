@@ -1,46 +1,8 @@
 === ATS-103 evidence: Next.js 16 static export build ===
-date      : 2026-11-06T12:32:48Z (UTC)
-commit    : c0e0d7d4d4422cf99d1f701c961d365e29fa1957
+date      : 2026-11-06T12:37:21Z (UTC)
+commit    : fe9cb967f9b8ee0462ee4610b7647849e70bb6c1
 node      : v22.23.4
 npm       : 10.9.9
 command   : npm --prefix apps/studio ci --no-audit --no-fund && npm --prefix apps/studio run build
 
 --- npm ci (apps/studio) ---
-
-added 57 packages in 56s
-
---- next build ---
-
-> @ai-test-studio/ui@0.1.0 build
-> next build
-
-▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 31ms
-
-  Creating an optimized production build ...
-✓ Compiled successfully in 158ms
-  Running TypeScript ...
-  Finished TypeScript in 1355ms ...
-  Collecting page data using 4 workers ...
-  Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 580ms
-  Finalizing page optimization ...
-
-Route (app)
-┌ ○ /
-└ ○ /_not-found
-
-
-○  (Static)  prerendered as static content
-
-BUILD_EXIT=0
-
---- artefact ---
--rw-r--r-- 1 seiko 197610  7697 11月  6 21:33 apps/studio/out/404.html
--rw-r--r-- 1 seiko 197610 12927 11月  6 21:33 apps/studio/out/index.html
-
---- git status of the two tracked files next build rewrites ---
-(the two lines above are empty: the rewrite is idempotent)
-
---- git status of the whole worktree after the build ---
- M docs/evidence/ATS-103/02-next-static-export-build.log
