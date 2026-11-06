@@ -247,6 +247,16 @@ c4b662b52ab83939222a30c49bfaf3c29ccf7f032be8f7f1df3a9aff94ef113d  docs/evidence/
 b4f71a4bf1b3b0c73d03f0d9e0acc9ff0d4949c54555925c5387b4ab35952d5a  docs/evidence/ATS-512/07-adr-citation-check.log
 7ecd6040002b98fce2ee1deb9b8eed1e32271f2fa549c4d74a94e14317a78b74  docs/evidence/ATS-512/08-port-audit.log
 2446cd74ef4c78860dc74f63454eecf38b5d238dc5b2423c026b38957394fc4e  docs/evidence/ATS-512/09-baseline-regression.log
+6d32cfc18e7a7ad02dc81e4b78cf53b4cebcfb0bdb5481475a9f01935e14cb58  docs/evidence/ATS-601/01-node-test-mobile-contract.log
+bd844f0fe8b26765585f580ab74da61f1bf4bcd93a3cb7d79aeafa5a91f05d92  docs/evidence/ATS-601/02-probe-mobile-contract.log
+f783118915eab0289b546596a87e137126e31b42198af758c5a390ba8e5b86cf  docs/evidence/ATS-601/03-coverage-mobile.log
+aec86037be648cf5a400e40511f8d8feb914af1d190cb6928d90530c73544cc9  docs/evidence/ATS-601/04-node-test-full.log
+a2208fa80f01bd5ab04102249567e4dadc70fca6108d90f76c52771d0ff04768  docs/evidence/ATS-601/05-quality-gates-ats301.log
+062cb2b13972e5738ddf45682f35964b1d4768c97265570731e5f885ba46761f  docs/evidence/ATS-601/06-wbs-updaters.log
+07b2f10f05e68fa031f8f4823772fcbc26c3925cbc6c136aaf93de8673254533  docs/evidence/ATS-601/07-remote-protocol-audit.log
+91b0037f046765af000fbf17edf719253e14ab2f5358fb67c90ae626df143e88  docs/evidence/ATS-601/08-python-gates.log
+8ff09568e619cb7dbd84e2411119feadddd858a036845475f124f6d68b7f61a0  docs/evidence/ATS-601/09-wbs-row.log
+3b13cd7b79d97ae8dba80e64231b824a1bd0e41f654d891ade48300ac99ec9ba  docs/evidence/ATS-601/10-environment-declaration.log
 034cfd1216e9869aa7c09c0b071249855c0e9afdd1c69da002a364323c3473eb  examples/sample-playwright/.aitest/requirements.json
 a38fd6cabd33c52acd8530e91f9a6fab1e19f200fe25d38e3101500137835275  examples/sample-playwright/.aitest/traceability.json
 08c3f2bbe3c2bdd973ecf9b085c1f0e36dab30233ceda7f23a5e6678c61ae944  examples/sample-playwright/package.json
