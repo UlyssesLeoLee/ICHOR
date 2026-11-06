@@ -1,6 +1,6 @@
 === the listing environment: sealed vs. host, A/B over 5 rounds ===
 repo root : /d/ICHOR
-commit    : b00c3ca
+commit    : efab092
 branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
