@@ -1,41 +1,41 @@
 === the ATS-201 migration regression suite ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-9a04603a3725/worktree
-commit    : 81b5dbc
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-ac5e9b8184ee/worktree
+commit    : 0d0cae9
 branch    : agent/m2/seikoist-167
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ UT-MIG-REG-001: the lock is held by the process that took it (561.0174ms)
-✔ UT-MIG-REG-002: a lock of a dead process does not block (5.8583ms)
-✔ UT-MIG-REG-003: a second owner is refused while the lock is held (4.916ms)
-✔ UT-MIG-REG-004: the migration is refused while a Bridge holds the lock (95.0723ms)
-✔ UT-MIG-REG-005: the migration runs when the lock is free (595.2421ms)
-✔ UT-MIG-REG-006: the rollback restores the state AND the run folders (687.0473ms)
-✔ UT-MIG-REG-007: a rollback without a backup is refused (85.6852ms)
-✔ UT-MIG-REG-008: the Bridge refuses to start while a migration holds the lock (1103.0782ms)
-✔ UT-MIG-REG-009: the Bridge releases the lock when it stops (2105.6807ms)
-✔ UT-MIG-REG-011: the lock records the start time of its holder (3.5511ms)
-✔ UT-MIG-REG-012: a lock whose pid was reused by another process is stale (497.4983ms)
-✔ UT-MIG-REG-013: a lock of a live holder is not stale (8.9876ms)
-✔ UT-MIG-REG-014: the Bridge states the recovery steps when the lock is held (620.0444ms)
-✔ UT-MIG-REG-015: the Bridge starts when the lock belongs to a reused pid (2055.8985ms)
-✔ UT-MIG-REG-016: cleanup removes the temporary fixture (18.1374ms)
-✔ UT-MIG-001: a legacy state is detected as not migrated (0.8267ms)
-✔ UT-MIG-002: the project UID is recomputed from the root path (1.2232ms)
-✔ UT-MIG-003: the run UIDs are recomputed and stay distinct (0.3555ms)
-✔ UT-MIG-004: the migrated state passes the migrated check (0.3044ms)
-✔ UT-MIG-005: migrating twice produces the same result (0.9303ms)
-✔ UT-MIG-006: the run order of the history is preserved (0.2459ms)
-✔ UT-MIG-007: the run UID matches the one the bridge computes (0.2394ms)
-✔ UT-MIG-008: the run folders are renamed on disk (3.406ms)
-✔ UT-MIG-009: the CLI migrates a state file and is idempotent (803.7936ms)
-✔ UT-MIG-010: the dry run writes nothing (93.8452ms)
-✔ UT-MIG-011: a broken state file is reported, not silently overwritten (87.6498ms)
-✔ UT-MIG-012: the backup keeps the original file (601.9695ms)
-✔ UT-MIG-014: the migrated run still points at its project (0.2882ms)
-✔ UT-MIG-015: the durable run counter survives the migration (0.2282ms)
-✔ UT-MIG-016: the counter is derived from the migrated runs when it is absent (0.1259ms)
-✔ UT-MIG-013: cleanup removes the temporary fixture (4.1231ms)
+✔ UT-MIG-REG-001: the lock is held by the process that took it (435.3332ms)
+✔ UT-MIG-REG-002: a lock of a dead process does not block (7.6198ms)
+✔ UT-MIG-REG-003: a second owner is refused while the lock is held (5.8584ms)
+✔ UT-MIG-REG-004: the migration is refused while a Bridge holds the lock (144.4324ms)
+✔ UT-MIG-REG-005: the migration runs when the lock is free (610.8422ms)
+✔ UT-MIG-REG-006: the rollback restores the state AND the run folders (728.6038ms)
+✔ UT-MIG-REG-007: a rollback without a backup is refused (158.9171ms)
+✔ UT-MIG-REG-008: the Bridge refuses to start while a migration holds the lock (996.2543ms)
+✔ UT-MIG-REG-009: the Bridge releases the lock when it stops (1967.8798ms)
+✔ UT-MIG-REG-011: the lock records the start time of its holder (3.689ms)
+✔ UT-MIG-REG-012: a lock whose pid was reused by another process is stale (362.9757ms)
+✔ UT-MIG-REG-013: a lock of a live holder is not stale (5.9804ms)
+✔ UT-MIG-REG-014: the Bridge states the recovery steps when the lock is held (560.4662ms)
+✔ UT-MIG-REG-015: the Bridge starts when the lock belongs to a reused pid (1778.3472ms)
+✔ UT-MIG-REG-016: cleanup removes the temporary fixture (12.6221ms)
+✔ UT-MIG-001: a legacy state is detected as not migrated (1.3631ms)
+✔ UT-MIG-002: the project UID is recomputed from the root path (1.8514ms)
+✔ UT-MIG-003: the run UIDs are recomputed and stay distinct (0.5531ms)
+✔ UT-MIG-004: the migrated state passes the migrated check (0.5122ms)
+✔ UT-MIG-005: migrating twice produces the same result (1.5838ms)
+✔ UT-MIG-006: the run order of the history is preserved (0.4375ms)
+✔ UT-MIG-007: the run UID matches the one the bridge computes (0.4055ms)
+✔ UT-MIG-008: the run folders are renamed on disk (5.6522ms)
+✔ UT-MIG-009: the CLI migrates a state file and is idempotent (693.0435ms)
+✔ UT-MIG-010: the dry run writes nothing (168.1154ms)
+✔ UT-MIG-011: a broken state file is reported, not silently overwritten (156.359ms)
+✔ UT-MIG-012: the backup keeps the original file (577.4077ms)
+✔ UT-MIG-014: the migrated run still points at its project (0.4974ms)
+✔ UT-MIG-015: the durable run counter survives the migration (0.393ms)
+✔ UT-MIG-016: the counter is derived from the migrated runs when it is absent (0.2586ms)
+✔ UT-MIG-013: cleanup removes the temporary fixture (6.2565ms)
 ℹ tests 31
 ℹ suites 0
 ℹ pass 31
@@ -43,6 +43,6 @@ python    : Python 3.11.16
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 8599.6906
+ℹ duration_ms 7993.1948
 
 exit code : 0

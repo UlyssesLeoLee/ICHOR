@@ -1,6 +1,6 @@
-=== the round-3 review probe (CE7 / CE8 / CE9 / CE10) ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-9a04603a3725/worktree
-commit    : 81b5dbc
+=== the recovery / stale-lock counterexample probe ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-ac5e9b8184ee/worktree
+commit    : 0d0cae9
 branch    : agent/m2/seikoist-167
 node      : v24.19.0
 python    : Python 3.11.16
