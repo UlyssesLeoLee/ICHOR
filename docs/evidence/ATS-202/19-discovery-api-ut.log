@@ -1,0 +1,24 @@
+=== command ===
+node --test tests/discovery-api.test.mjs
+=== output ===
+✔ IT-ATS202-API-SETUP: start the bridge (879.6487ms)
+✔ IT-ATS202-API-001: a project starts untrusted (134.4876ms)
+✔ IT-ATS202-API-002: an untrusted project gets the STATIC index (115.3537ms)
+✔ IT-ATS202-API-003: an invalid trust value is refused (1.8439ms)
+✔ IT-ATS202-API-004: forcing the authoritative index on an untrusted project is refused (120.0501ms)
+✔ IT-ATS202-API-005: the trust can be granted, and the index switches (881.6161ms)
+✔ IT-ATS202-API-006: the trust survives a restart of the bridge (1112.0758ms)
+✔ IT-ATS202-API-007: the trust can be revoked, and the index falls back (226.4077ms)
+✔ IT-ATS202-API-008: a TRUSTED project that asks for the static index is not reported as untrusted (265.0042ms)
+✔ IT-ATS202-API-009: the Bridge keeps answering while a project is listed (5392.5312ms)
+✔ IT-ATS202-API-010: the registry of a LEGACY project record is saved (1118.8826ms)
+✔ IT-ATS202-API-CLEANUP: stop and cleanup (351.4573ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12191.7194
+=== exit code: 0 ===

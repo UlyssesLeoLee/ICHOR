@@ -1,13 +1,16 @@
 # 25-MOBILE-APP-TESTING.md ｜ 移动端（App）测试执行面设计书
 
-- 文书 ID：ATS-D-025｜状态：**DESIGNED**（全部为设计，仓库内无任何移动端实现）
+- 文书 ID：ATS-D-025｜状态：**PARTIAL**（ATS-601 的**契约层**已实现并经 UT 实测；§4~§8 仍为纯设计，仓库内无任何真实移动端执行）
 - 目标版本：v0.5.0｜阶段：S6｜WBS：ATS-601 ~ ATS-606
 - 需求：FR-031 ~ FR-035、NFR-013
 - 起草：2026-11-06
 
-> **基线声明**：本文描述的是**设计**，不是已实现的能力。仓库内没有设备会话、没有移动端 Runner、
-> 没有移动端证据适配层。任何一项在 ATS-601 ~ ATS-606 完成并通过复核之前，都不得被称作
-> 「已实现」。
+> **基线声明**：本文描述的是**设计**，不是已实现的能力。仓库内没有真实设备会话、
+> 没有真实移动端 Runner、没有移动端证据适配层。**唯一例外**是 §3 的**契约层**
+> （目标/会话模型、状态机、能力协商、拒绝规则、安全边界），它已由 ATS-601 实现并经
+> UT-MOB-001..070 实测——但那是**假目标 + 假会话**上的契约测试，**不是真实设备实测**。
+> 契约层已实现 ≠ 移动端能跑；任何一项在 ATS-601 ~ ATS-606 完成并通过复核之前，
+> 都不得被称作「已实现」。
 
 ---
 
@@ -80,6 +83,12 @@ ATS-301 RunnerAdapter/ReporterAdapter 契约  ←── ATS-601 目标抽象 + A
 
 ## 3. 目标抽象（ATS-601）
 
+> **实现状态（2026-11-06，ATS-601 交付）**：本节的**契约层**已在 `server/adapters/mobile-target.mjs`
+> 与 `server/adapters/mobile.mjs` 实现并经 UT-MOB-001..070 实测（契约 + 假目标 + 假会话，
+> **不需要真实设备**）。仓库内**仍无任何真实设备、模拟器、ADB 驱动或移动端证据实现**——
+> 那些分别属 ATS-603（Android Runner）、ATS-604（证据归档）、ATS-606（iOS 边界）。
+> 下面标注 **已实现** 的是契约层；标注 **未实现** 的是真实执行面。
+
 ### 3.1 目标与会话
 
 **目标（Target）** 是「在哪里执行」的静态描述；**会话（Session）** 是「当前连着的那台设备」。
@@ -91,11 +100,23 @@ Session  { sessionId, targetId, state, capabilities[], lastSeenAt, error? }
 
 `kind` 三取值：
 
-| kind | 含义 | 生命周期 |
-|---|---|---|
-| `local-emulator` | 本机 Android 模拟器 / iOS 模拟器 | 由本平台创建与销毁；不创建则拒绝执行 |
-| `local-device` | 已通过 ADB / XCUITest 连接的真机 | 平台**不接管**其安装与配对，只借用 |
-| `remote-farm` | 远端设备农场分配到的会话 | 租约式；租约过期必须回收（复用 ATS-502 的租约语义） |
+| kind | 含义 | 生命周期 | 契约层 |
+|---|---|---|---|
+| `local-emulator` | 本机 Android 模拟器 / iOS 模拟器 | 由本平台创建与销毁；不创建则拒绝执行 | **已实现** |
+| `local-device` | 已通过 ADB / XCUITest 连接的真机 | 平台**不接管**其安装与配对，只借用 | **已实现** |
+| `remote-farm` | 远端设备农场分配到的会话 | 租约式；租约过期必须回收（复用 ATS-502 的租约语义） | **已实现** |
+
+三种 kind 的平台权限是**契约里写死的事实**，不是调用方的选择：
+
+| kind | 平台掌管生命周期 | 平台可安装 App | 需要租约 |
+|---|---|---|---|
+| `local-emulator` | 是 | 是 | 否 |
+| `local-device` | 否 | **否**（只借用） | 否 |
+| `remote-farm` | 否 | 否 | **是** |
+
+`Target.capabilities` 是**声明**（目标应该能做什么）；`Session.capabilities` 是**证明**
+（这台设备**已经证明**能做什么）。能力缺口按**会话**算，不按目标算——目标声明了
+`ui.hierarchy` 而会话没有证明时，缺口依然存在。
 
 ### 3.2 状态机
 
@@ -115,6 +136,27 @@ idle ──────────▶ created ──────────▶
 - 会话必须能回答「我现在连的是哪台设备、它支持哪些步骤」。答不上来 ⇒ 拒绝执行。
 - 真机（`local-device`）**不由平台安装 App、不接管设备配对**；平台只负责下发步骤与回收证据。
 
+**契约层已实现**（`server/adapters/mobile-target.mjs`）：
+
+| 规则 | 行为 | 拒绝码 |
+|---|---|---|
+| 目标不存在 | 拒绝 | `REMOTE_TARGET_UNAVAILABLE`（reason=target-not-found） |
+| 目标没有会话 | 拒绝 | `REMOTE_TARGET_UNAVAILABLE`（reason=session-not-found） |
+| 会话属于别的目标 | 拒绝 | `REMOTE_TARGET_UNAVAILABLE`（reason=session-target-mismatch） |
+| 会话处于 `failed` | 拒绝 | `REMOTE_TARGET_UNAVAILABLE`（reason=session-failed） |
+| 农场租约过期（含**没有到期时间**的会话） | 拒绝 | `REMOTE_TARGET_UNAVAILABLE`（reason=lease-expired） |
+| 能力不满足 | 拒绝 | `REMOTE_CAPABILITY_MISSING`（details.gaps 给出缺口清单） |
+
+非法状态迁移（如 `idle → running`）是**编程错误**，抛
+`MOBILE_SESSION_TRANSITION_INVALID` 并列出允许的下一状态，而不是静默移动。
+租约过期的农场会话由 `reclaimExpiredSession()` **回收**为 `idle`——租约语义与 ATS-502 一致：
+过期必须回收，不能一直占着设备。
+
+两个拒绝码登记在**唯一的拒绝码表** `server/control-plane/errors.mjs`，并与
+`docs/19-REMOTE-RUNNER-PROTOCOL.md` §6.2 的正文表和 §10 机读约束块逐码一致
+（由 `tests/control-plane.test.mjs` UT-CP-008 与 `tools/ats501-probes/audit-remote-protocol.mjs` 守护）。
+`REMOTE_CAPABILITY_MISSING` 复用 ATS-501 既有码，避免同一件事有两个码。
+
 ### 3.3 能力协商
 
 步骤类型与目标能力的匹配在**执行前**完成，产出「本次执行的能力缺口清单」：
@@ -130,6 +172,41 @@ idle ──────────▶ created ──────────▶
 
 缺 `ui.hierarchy` 时，`tapOn` **不可用**——不能用坐标盲点。这与 ATS-104/303 的桌面侧同理：
 能力不足要在执行前说清楚，不要在执行中炸出一个无关的错误。
+
+能力词表（7 项）：`app.install` / `app.launch` / `ui.tap` / `ui.hierarchy` /
+`screen.capture` / `screen.record` / `log.read`。
+
+### 3.4 与既有契约的关系（ATS-301 的扩展，不是另起一套）
+
+移动端 Runner 是 **ATS-301 适配器契约的扩展**，不是第二套契约：
+
+| 层 | 回答的问题 | 由谁定义 |
+|---|---|---|
+| 引擎层 | 哪个**引擎**驱动这个项目？ | `server/adapters/contract.mjs`（ATS-301，未改动其能力词表） |
+| 设备层 | 在**哪台设备**上跑、它能做什么？ | `server/adapters/mobile-target.mjs`（ATS-601，本次新增） |
+
+- `server/adapters/mobile.mjs` 注册进**同一个**适配器注册表，通过**同一套** `assertAdapter`。
+- 设备层是**可选**的 `device` 段：既有 `playwright` / `wdio` 适配器不受影响，
+  引擎能力词表一个字都没改（设备能力是**另一套词表**，不混进引擎词表）。
+- 两层一起协商：`negotiateWithDevice()` 把**引擎缺口**与**设备缺口**分开报告——
+  「这个 runner 不支持 trace」和「这台设备导不出视图层级」是两个问题、两种修法。
+
+**未实现**：真实的 Android/iOS 驱动、ADB 调用、模拟器生命周期、证据写入。
+移动端适配器当前的引擎能力**全部**带理由地报不支持，`start()` 直接以
+`REMOTE_TARGET_UNAVAILABLE` 拒绝——调用方要移动端执行时得到的是**明确拒绝**，
+而不是被悄悄换成一个浏览器跑。
+
+### 3.5 安全边界（§9 的契约层落点）
+
+| 边界 | 契约层行为 | 拒绝码 |
+|---|---|---|
+| App 包名 | 只允许项目登记过的包名 | `MOBILE_APP_PACKAGE_NOT_REGISTERED` |
+| Flow 文件 | 同一套可信仓库判定，未可信项目不得执行 | `MOBILE_PROJECT_UNTRUSTED` |
+| 设备选择 | 只允许用户显式登记的会话 | `MOBILE_SESSION_NOT_REGISTERED` |
+| 证据落盘 | 同一套路径校验（越根拒绝）+ 宿主计算的 SHA-256 | `MOBILE_EVIDENCE_PATH_FORBIDDEN` / `MOBILE_EVIDENCE_NOT_FOUND` |
+
+证据摘要**由宿主计算**，不接受调用方自带的摘要——设备产出的截图是**不可信输入**，
+不可信输入没有资格给自己的内容命名摘要。
 
 ---
 
@@ -275,13 +352,24 @@ Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）�
 
 本设计文档自身的事实状态：
 
-- **已验证**：无。本文档全部内容是设计判断，未在本仓库做过任何移动端实测。
+- **已验证（ATS-601 的契约层）**：§3 的目标/会话模型、状态机迁移、能力协商与拒绝规则、
+  安全边界，已由 `server/adapters/mobile-target.mjs` 与 `server/adapters/mobile.mjs` 实现，
+  并经 UT-MOB-001..070 实测通过（证据 `docs/evidence/ATS-601/`）。
+  **这是假目标 + 假会话上的契约测试**，验证的是「规则按设计工作」，**不是**真实设备行为。
+- **未验证（真实移动端执行面）**：§4~§8 的全部内容仍是设计判断，**未在本仓库做过任何
+  移动端实测**。没有真实设备、没有真实模拟器、没有 ADB 调用、没有移动端证据。
 - Maestro 的产品结构与能力来自 2026-11-06 的官方文档调査（`docs/15-REFERENCES-LICENSES.md`
   登记引用）；调査结论本身不是对本平台的实测。
 - 本机无 Android SDK/AVD、无 iOS 环境、无 ADB 连接设备——ATS-603 的真实冒烟是否能在本机完成，
   **未验证**，由 ATS-605 负责在执行时给出明确声明。
 - 若本机确实不具备 Android 环境，ATS-603 面临的是「无法实测」而非「实现困难」；
   此时应把该项的验证方式降级并在 WBS 备注里写明，而不是把 PENDING 写成 PASS。
+- 已知边界（ATS-601 契约层自身）：
+  - 会话的**能力集由调用方提供**——契约校验它的一致性并据此计算缺口，
+    但**证明**设备能力的动作（探测层级树、试抓截图）属真实驱动（ATS-603）。
+  - 目标与会话是**内存中的数据**，本任务**不引入持久化**；会话的存储与恢复随 ATS-603 一并落地。
+  - 移动端适配器当前**没有任何可用能力**，它存在的意义是把「移动端执行」这件事的
+    **入口与拒绝路径**定下来，让 ATS-603 有地方可长，而不是一个平行的 Playwright 专用实现。
 
 ---
 

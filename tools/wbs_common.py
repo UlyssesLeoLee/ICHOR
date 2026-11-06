@@ -145,8 +145,14 @@ NARRATIVE_FRAGMENTS = {
             'D6': '插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）',
             'D7': '插件宿主与沙箱未实现（ATS-512 只交付契约层）；'
                   '详见 docs/21-PLUGIN-CONTRACT.md',
-        },
-    }
+            },
+        '【ATS-601】': {
+            'D6': '移动端目标与会话契约已实现（ATS-601：三类目标、会话状态机、能力协商与拒绝规则；'
+                  '无真实设备）',
+            'D7': '移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；'
+                  '详见 docs/25-MOBILE-APP-TESTING.md',
+            },
+        }
 
 
 def _text(value):

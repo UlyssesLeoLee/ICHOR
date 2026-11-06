@@ -1,0 +1,7 @@
+=== command ===
+node tools/ats202-probes/r3/r3-legacy.mjs D:/ICHOR /tmp/multica-task-3182755422/ats202-dev-ev
+=== output ===
+project record after boot: [{"id":"proj_11111111-2222-4333-8444-555555555555"}]
+GET /tests -> 200 discovery=static projectUid=proj_1_77b18797fab3d04f1db97484 tests=1; registry slots=["proj_1_77b18797fab3d04f1db97484"]; entries under projectUid=1
+VERDICT: OK
+=== exit code: 0 ===

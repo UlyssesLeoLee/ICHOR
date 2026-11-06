@@ -48,7 +48,7 @@
 | FR-028 | CI/CD 与远程执行 | RunnerAdapter/Queue/工作区隔离 | P2 | DESIGNED |
 | FR-029 | Agent 自主探索 | 异常流程候选、人工验证后固化 | P2 | DESIGNED |
 | FR-030 | 团队多用户 | RBAC、审计、团队项目与云数据同步 | P2 | DESIGNED |
-| FR-031 | 移动端执行目标抽象 | 设备/模拟器/远端会话三类目标统一描述；会话有唯一标识、能力集与生命周期 | P1 | DESIGNED（S6 / ATS-601） |
+| FR-031 | 移动端执行目标抽象 | 设备/模拟器/远端会话三类目标统一描述；会话有唯一标识、能力集与生命周期 | P1 | PARTIAL（S6 / ATS-601：目标与会话契约层已实现并经 UT 实测；真实设备执行仍 DESIGNED） |
 | FR-032 | 移动端用例模型 | 移动端 Flow 可映射到统一 TestDefinition；不支持的步骤保留原文并标记，不静默丢弃 | P1 | DESIGNED（S6 / ATS-602） |
 | FR-033 | Android 设备执行 | 在真实 Android 模拟器上跑通一条 Flow；启动/点按/断言/截图实测通过；失败暴露驱动错误 | P1 | DESIGNED（S6 / ATS-603） |
 | FR-034 | 移动端证据归档 | 移动端截图/录屏/日志/层级树进统一 Evidence，与 Web/Tauri 引擎可一起查询 | P1 | DESIGNED（S6 / ATS-604） |

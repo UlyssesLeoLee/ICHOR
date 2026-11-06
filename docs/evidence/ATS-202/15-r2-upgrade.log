@@ -1,5 +1,5 @@
 === command ===
-node D:/ICHOR/tools/ats202-probes/r2/r2-upgrade.mjs D:/hermes-multica/home/cache/scratch/ats202-evidence4/ats202-round0-tree D:/ICHOR D:/hermes-multica/home/cache/scratch/ats202-evidence4
+node D:/ICHOR/tools/ats202-probes/r2/r2-upgrade.mjs C:/Users/seiko/AppData/Local/Temp/multica-task-3182755422/ats202-dev-ev/ats202-round0-tree D:/ICHOR /tmp/multica-task-3182755422/ats202-dev-ev
 === output ===
 [escaped quote] FAIL -- static UID on the round-1 tree tc_1_d_0133d73c628805e2 (title "user\\") -> after upgrade tc_1_d_2d805d451ded5ad8 (derived, title "user's profile")
 [title > 180 chars] OK -- static UID on the round-1 tree tc_1_d_03a9ee2a8d37e5d3 (title "checkout xxxxxxxxxxxxxxxxxxxxx") -> after upgrade tc_1_d_03a9ee2a8d37e5d3 (registry, title "checkout xxxxxxxxxxxxxxxxxxxxx")

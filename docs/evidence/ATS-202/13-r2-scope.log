@@ -1,5 +1,5 @@
 === command ===
-node D:/ICHOR/tools/ats202-probes/r2/r2-scope.mjs D:/ICHOR D:/pime-uat/node_modules D:/hermes-multica/home/cache/scratch/ats202-evidence4
+node D:/ICHOR/tools/ats202-probes/r2/r2-scope.mjs D:/ICHOR D:/ICHOR/examples/sample-playwright/node_modules /tmp/multica-task-3182755422/ats202-dev-ev
 === output ===
 [S1 describe title held in a variable] OK -- discovery=authoritative agrees=true onlyStatic=[] onlyAuthoritative=[]
 [S2 describe title as a template literal] OK -- discovery=authoritative agrees=true onlyStatic=[] onlyAuthoritative=[]
