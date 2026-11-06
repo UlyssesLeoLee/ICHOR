@@ -335,11 +335,15 @@ $ bash tools/ats103-probes/verify-r4.sh <clone-dir> <label>
 
 | 项 | CRLF clone | LF clone |
 |---|---|---|
-| `verify_checksums.py` | **OK**（484 条，0 处失配） | **OK**（484 条，0 处失配） |
+| `verify_checksums.py` | **OK**（485 条，0 处失配） | **OK**（485 条，0 处失配） |
 | ATS-101 端口审计 | **OK** | **OK** |
 | `check_adr_citations.py` | **OK** | **OK** |
 | `check-wbs-updaters.sh` | **OK**（18 个更新器） | **OK**（18 个更新器） |
 | `npm test` | **0 失败** | **0 失败** |
+
+每一步的退出码取的是**那一步命令本身**的退出码（`PIPESTATUS[0]`），不是管道末端 `tail` 的——否则步骤失败也会显示 0。脚本在任何一步失败时整体以非 0 退出。
+
+**这一步抓到了一个真问题。** 第一次跑克隆验证时，`verify_checksums.py` 报 `MISMATCH`：`verify-r4.sh` 本身在生成校验和清单**之后**被改过（把 `EXIT=$?` 改成 `PIPESTATUS[0]`），清单里那条记录的哈希已经过期。工作区自证**不会**发现这个问题——工作区里的文件是改过的、清单里的哈希对不上，但只有**克隆里**跑的是「已提交的文件对已提交的清单」这个真实场景。这正是 R4 要求在克隆里跑的原因。
 
 完整日志：`docs/evidence/ATS-103/10-r4-clone-verification-crlf.log` 与 `10-r4-clone-verification-lf.log`（两份日志的头部记着各自的 commit 与 `core.autocrlf` 取值）。
 
