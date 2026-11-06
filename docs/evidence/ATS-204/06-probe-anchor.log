@@ -1,0 +1,18 @@
+=== command ===
+node tools/ats204-probes/probe-anchor.mjs
+=== output ===
+=== 1. the first discovery ===
+  uid=tc_1_d_06b302ca4e456309 source=derived basis=title-key title="adds 1 item"
+  uid=tc_1_d_ed8615981627b01c source=derived basis=title-key title="adds 2 items"
+  the registry carries the anchor: true
+  the anchors: [{"kind":"position","file":"tests/dyn.spec.ts","line":7,"scope":[],"ordinal":0,"count":2},{"kind":"position","file":"tests/dyn.spec.ts","line":7,"scope":[],"ordinal":1,"count":2}]
+=== 2. the template is re-worded: every rendered title changes ===
+  uid=tc_1_d_06b302ca4e456309 source=registry basis=position-anchor title="adds 1 item to the cart"
+  uid=tc_1_d_ed8615981627b01c source=registry basis=position-anchor title="adds 2 items to the cart"
+  the uids survived the re-wording: true
+=== 3. the template GAINS a render: the ordinals may have shifted ===
+  uid=tc_1_d_08896328401d3c79 source=derived basis=title-key title="adds 0 items" ambiguity=render-shift-possible
+  uid=tc_1_d_3511e71e17cbb696 source=derived basis=title-key title="adds 1 item to the cart" ambiguity=render-shift-possible
+  uid=tc_1_d_2d2ad022b3894a7f source=derived basis=title-key title="adds 2 items to the cart" ambiguity=-
+  (the shift is reported, not guessed: the ordinal of a render may now name a different one)
+=== exit code: 0 ===

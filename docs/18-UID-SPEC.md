@@ -348,7 +348,7 @@ node tools/migrate_uids.mjs --state <path to state.json> --rollback
 | 边界 | 归属 |
 |---|---|
 | 动态/参数化用例（`test.each`、fixture、代码生成）的权威发现 | **ATS-202 已实现**（见 `docs/23-AUTHORITATIVE-DISCOVERY.md`）；本规范描述的是静态发现范围内的 UID，权威发现的身份阶梯在 ATS-202 的设计书里 |
-| 文件/标题变化时的 UID 重识别与歧义提示的完整策略 | ATS-204 |
+| 文件/标题变化时的 UID 重识别与歧义提示的完整策略 | **ATS-204 已实现**（见 `docs/26-IDENTITY-MAPPER.md`） |
 | SQLite WAL 持久化与版本迁移 | ATS-205 |
 | Run/Test/Attempt 与事件序号统一模型 | ATS-208 |
 

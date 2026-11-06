@@ -1,0 +1,120 @@
+=== command ===
+bash tools/ats204-probes/counterexample.sh
+=== output ===
+the tree before the task: 83c8bc50447d8ce2edadf39362be4680c3658429
+checked out: 83c8bc5 chore(agent): baseline — the task worktree started here
+
+=== node --test tests/identity.test.mjs ===
+✔ UT-ATS204-001: the UID survives a rename, and the old spelling is recorded as an alias (7.9448ms)
+✔ UT-ATS204-002: the UID survives a rename AND a retitle (4.3494ms)
+✖ UT-ATS204-003: an attempt of a renamed+retitled case is bound to the original UID (5.3914ms)
+✔ UT-ATS204-004: an attempt of a case whose file was renamed is bound to the original UID (4.6397ms)
+✔ UT-ATS204-005: a case that took over the old file name does NOT get the old UID (3.9092ms)
+✔ UT-ATS204-006: a body that two cases of the same run share identifies neither (0.3985ms)
+✔ UT-ATS204-007: an ambiguous title in the project binds nothing (0.1793ms)
+✔ UT-ATS204-008: a case that shares its title with another in the SAME file is bound by the body (0.1082ms)
+✔ UT-ATS204-009: the alias is used only when the body is unavailable (0.1354ms)
+✔ UT-ATS204-010: an explicit annotation always wins over the position (0.1325ms)
+✔ UT-ATS204-011: a duplicated explicit annotation binds neither case (0.0937ms)
+✖ UT-ATS204-012: a dynamic case keeps its UID when the template is re-worded (5.7695ms)
+✖ UT-ATS204-013: a template that GAINS a render reports the shift instead of guessing (4.1499ms)
+✔ UT-ATS204-014: the anchor names the position and the ordinal of a case (0.3131ms)
+✖ UT-ATS204-015: the two rows the CLI writes for one case in two projects are ONE case (0.7287ms)
+✔ UT-ATS204-016: the two attempts of a matrix case carry the SAME TestDefinition UID (2.8758ms)
+✔ UT-ATS204-018: a renamed case is bound by its body even though the position does not match (0.1463ms)
+✔ UT-ATS204-019: a positional hit whose body CONTRADICTS it does not bind, and says so (0.1371ms)
+✔ UT-ATS204-020: a positional hit whose body AGREES binds, and reports nothing (0.0702ms)
+✔ UT-ATS204-021: a NEW case with an explicit token binds to it, registry or not (0.0692ms)
+✔ UT-ATS204-017: the old lookup keeps its documented behaviour (2.3215ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 17
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 142.7449
+
+✖ failing tests:
+
+test at tests\identity.test.mjs:98:1
+✖ UT-ATS204-003: an attempt of a renamed+retitled case is bound to the original UID (5.3914ms)
+  AssertionError [ERR_ASSERTION]: the attempt is bound to the original uid
+  + actual - expected
+  
+  + null
+  - 'tc_1_d_f978b9708e1a1f79'
+  
+      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-1262047543/tmp.K1qDfdRRk6/tree/tests/identity.test.mjs:123:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 'tc_1_d_f978b9708e1a1f79',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\identity.test.mjs:287:1
+✖ UT-ATS204-012: a dynamic case keeps its UID when the template is re-worded (5.7695ms)
+  AssertionError [ERR_ASSERTION]: the registry carries the anchor of every case
+      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-1262047543/tmp.K1qDfdRRk6/tree/tests/identity.test.mjs:295:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\identity.test.mjs:308:1
+✖ UT-ATS204-013: a template that GAINS a render reports the shift instead of guessing (4.1499ms)
+  AssertionError [ERR_ASSERTION]: the shift is reported
+      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-1262047543/tmp.K1qDfdRRk6/tree/tests/identity.test.mjs:320:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\identity.test.mjs:346:1
+✖ UT-ATS204-015: the two rows the CLI writes for one case in two projects are ONE case (0.7287ms)
+  AssertionError [ERR_ASSERTION]: the two rows are ONE logical case
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-1262047543/tmp.K1qDfdRRk6/tree/tests/identity.test.mjs:368:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== exit code: 1 ===
+=== exit code: 0 ===
