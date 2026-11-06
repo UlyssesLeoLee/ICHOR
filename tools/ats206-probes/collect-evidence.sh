@@ -136,18 +136,19 @@ if [ "$PY_GATES_EXIT" -ne 0 ]; then
 fi
 echo "wrote $EV/10-python-gates.log"
 
-# --- 11: the round-3 review probe ---------------------------------------------
-# The four counterexamples of the round-3 rework (CE7, CE8, CE9, CE10),
-# against the tree that is delivered.
-run 11-review-round3-probe.log "the round-3 review probe (CE7 / CE8 / CE9 / CE10)" \
-  node tools/ats206-probes/ce206r3.mjs . "${TMPDIR:-/tmp}/ats206-r3-scratch"
+# --- 11: the recovery / stale-lock counterexample probe ------------------------
+# The recovery counterexamples (the recovery that must refuse, the recovery
+# whose rename fails, the stale lock that a real kill leaves behind), against
+# the tree that is delivered.
+run 11-recovery-refusal-probe.log "the recovery / stale-lock counterexample probe" \
+  node tools/ats206-probes/recovery-refusal-probe.mjs . "${TMPDIR:-/tmp}/ats206-recovery-scratch"
 
-# --- 12: the round-4 review probe ---------------------------------------------
+# --- 12: the refusal-branch / stale-lock probe --------------------------------
 # The two recovery branches that refuse (a rename that throws, a journal that
 # claims "state" over an unmigrated state file) and the stale lock that a
 # REAL kill leaves behind.
-run 12-review-round4-probe.log "the round-4 review probe (the refusal branches + a real SIGKILL)" \
-  node tools/ats206-probes/ce206r4.mjs . "${TMPDIR:-/tmp}/ats206-r4-scratch"
+run 12-stale-lock-probe.log "the refusal-branch / stale-lock probe" \
+  node tools/ats206-probes/stale-lock-probe.mjs . "${TMPDIR:-/tmp}/ats206-stale-lock-scratch"
 
 # --- 13: the ADR citation check ----------------------------------------------
 run 13-adr-citations.log "the ADR citation check" \

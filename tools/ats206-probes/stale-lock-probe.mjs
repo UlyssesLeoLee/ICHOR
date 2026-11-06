@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// ATS-206 review probe (round 4): the recovery branches that refuse, and the
-// lock under a REAL kill.
+// ATS-206 probe: the recovery branches that refuse, and the lock under a
+// REAL kill.
 //
-// usage: node ce206r4.mjs <tree-root> <scratch-dir>        exit 1 when any counterexample holds.
+// usage: node stale-lock-probe.mjs <tree-root> <scratch-dir>   exit 1 when any counterexample holds.
 //
 // Every case prints facts and a verdict line; exit 1 when any counterexample holds.
 //
@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 const TREE = path.resolve(process.argv[2] ?? '.');
-const SCR = path.resolve(process.argv[3] ?? './ce206r4-scratch');
+const SCR = path.resolve(process.argv[3] ?? './ats206-stale-lock-scratch');
 const CLI = path.join(TREE, 'tools', 'migrate_state.mjs');
 const APPLY = pathToFileURL(path.join(TREE, 'server', 'migration', 'apply.mjs')).href;
 fs.rmSync(SCR, { recursive: true, force: true });

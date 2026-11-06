@@ -333,21 +333,22 @@ Bridge 可以在读锁与写之间启动。这把锁是在**引擎函数内部**
 | `08-wbs-row.log` | WBS 行同步 |
 | `09-wbs-updaters.log` | WBS 更新器的幂等性验证 |
 | `10-python-gates.log` | Python 既有门禁的结果（含基线同样失败的用例） |
-| `11-review-round3-probe.log` | 恢复路径反例探针（CE7 / CE8 / CE9 / CE10） |
-| `12-review-round4-probe.log` | 拒绝分支反例探针（两条拒绝分支 + 真实 SIGKILL 的陈旧锁接管） |
+| `11-recovery-refusal-probe.log` | 恢复路径反例探针（恢复被拒、恢复时改名失败、陈旧锁接管） |
+| `12-stale-lock-probe.log` | 拒绝分支反例探针（两条拒绝分支 + 真实 SIGKILL 的陈旧锁接管） |
 | `13-adr-citations.log` | ADR 引用的一致性检查 |
 
 **验证结果（在合并了 dev 的最终交付树上采集）：**
 
 | 项 | 结果 |
 | --- | --- |
-| ATS-206 用例 `tests/migrate-state.test.mjs` | 92 项通过（39 主体 + 33 反例段 + 9 恢复路径反例 + 3 拒绝分支反例 + 其余） |
+| ATS-206 用例 `tests/migrate-state.test.mjs` | 92 项通过（按编号分组：数量口径 3、字段保全与改键 7、状态校验与原子写 3、CLI 命令与退出码 18、失败自动回滚与备份顺序 4、SQLite 镜像 3、夹具清理 1、`--state` 指定文件与备份保护 15、目录改名与回滚分叉拒绝 5、错误报告与分叉检测 13、备份归档与丢运行拒绝 4、中断恢复以状态文件为准 3、锁的覆盖 4、dry-run 与中断恢复 5、退出与被杀 4） |
 | ATS-201 存量用例 | 31 项通过（无回归） |
 | 全量 `node --test` | 875 项：864 通过 / 0 失败 / 11 跳过 |
 | 覆盖率 | `apply.mjs` 94.81%、`state-migration.mjs` 99.06%、`migrate_state.mjs` 96.58%、`migrate_uids.mjs` 94.33%（四个文件均 > 90%） |
 | 审核反例探针 `ce206.mjs` | 8/8 反例均不成立（`0 counterexample(s) hold`） |
 | 审核反例探针 `ce206r2.mjs` | 4/4 反例均不成立（`0 counterexample(s) hold`） |
+| 恢复与陈旧锁探针 `ce206r3.mjs` | 4/4 反例均不成立（`0 counterexample(s) hold`） |
 | 审核反例探针 `ce206k.mjs`（真实 SIGKILL） | 3/3 反例均不成立（`0 counterexample(s) hold`） |
 | 审核反例探针 `k4.mjs`（恢复期 EBUSY） | 反例不成立 |
-| 第 4 轮探针 `ce206r4.mjs` | 3/3 反例均不成立（`0 counterexample(s) hold`） |
+| 恢复拒绝与陈旧锁探针 `ce206r4.mjs` | 3/3 反例均不成立（`0 counterexample(s) hold`） |
 | 端到端探针 `e2e206.mjs` | 用真实 v0.1 Bridge + Playwright 产出的 v0.1 数据，迁移 → 新 Bridge 读取 → 回滚 → v0.1 Bridge 读取，全链路 PASS（0 failure） |

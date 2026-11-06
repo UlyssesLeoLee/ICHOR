@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ATS-206 round-3 review probe.
+// ATS-206 recovery / stale-lock counterexample probe.
 //
 // The four counterexamples of the round-3 rework (CE7, CE8, CE9, CE10),
 // as executable checks against a given tree. It is the counterpart of the
@@ -15,7 +15,7 @@
 // of the lock record otherwise. Writes of the lock mechanism itself are
 // excluded, because they happen before the lock is held.
 //
-// Usage: node tools/ats206-probes/ce206r3.mjs <tree-root> <scratch-dir>
+// Usage: node tools/ats206-probes/recovery-refusal-probe.mjs <tree-root> <scratch-dir>
 // Exit 1 when any counterexample holds. The states are GENUINE v0.1 shapes:
 // only `schema` / `projects` / `runs`, with uuid identifiers.
 import fs from 'node:fs';
@@ -25,7 +25,7 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 const TREE = path.resolve(process.argv[2] ?? '.');
-const SCR = path.resolve(process.argv[3] ?? './ce206r3-scratch');
+const SCR = path.resolve(process.argv[3] ?? './ats206-recovery-scratch');
 if (SCR.includes(`${path.sep}docs${path.sep}evidence`)) {
   console.error('the scratch directory must not live inside docs/evidence: it is not evidence.');
   process.exit(2);
