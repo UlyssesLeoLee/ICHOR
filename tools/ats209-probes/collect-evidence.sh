@@ -75,6 +75,9 @@ run_step 01-node-test-evidence-ut.log "the ATS-209 unit suite" \
 run_step 02-node-test-evidence-it.log "the ATS-209 integration suite" \
   node --test tests/evidence-it.test.mjs
 
+run_step 02b-node-test-evidence-cli.log "the ATS-209 CLI suite" \
+  node --test tests/evidence-cli.test.mjs
+
 run_step 03-probe-evidence.log "the ATS-209 probe" \
   node tools/ats209-probes/probe-evidence.mjs
 
@@ -91,7 +94,10 @@ run_step 07-node-test-full.log "the full node test suite" \
   npm test
 
 run_step 08-coverage.log "the line coverage of the ATS-209 modules" \
-  node --test --experimental-test-coverage tests/evidence.test.mjs tests/evidence-it.test.mjs
+  node --test --experimental-test-coverage tests/evidence.test.mjs tests/evidence-it.test.mjs tests/evidence-cli.test.mjs
+
+run_step 09-review-probe.log "the round 1 review probe against this tree" \
+  node "$TREE/tools/ats209-probes/ats209-r1-probe.mjs" "$TREE" "$TMPDIR/ats209-r1-probe"
 
 hdr "done"
 echo "the evidence of this run is in $OUT/"
