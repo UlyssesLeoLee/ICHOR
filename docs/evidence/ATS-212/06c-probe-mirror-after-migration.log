@@ -1,0 +1,14 @@
+=== the SQLite mirror after the state migration re-keys the profiles ===
+repo root : /tmp/multica-task-2307562344/ats212-work/merge-dev
+commit    : 6f8897d
+branch    : 
+node      : v24.19.0
+python    : Python 3.11.16
+
+project  : proj_11111111-2222-3333-4444-555555555555 -> proj_1_e018ee1a5ea1842840eaec1e
+profiles : [{"uid":"env_1_c1b576a810f6573594067287","projectUid":"proj_1_e018ee1a5ea1842840eaec1e"}]
+whitelists: {"proj_1_e018ee1a5ea1842840eaec1e":["BASE_URL"]}
+mirror problems: 0
+RESULT: OK -- the mirror is exact after the migration
+
+exit code : 0

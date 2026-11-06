@@ -1,0 +1,15 @@
+=== the whitelist filters the runner environment, not only the write ===
+repo root : /tmp/multica-task-2307562344/ats212-work/merge-dev
+commit    : 6f8897d
+branch    : 
+node      : v24.19.0
+python    : Python 3.11.16
+
+profile carries : ["BASE_URL","TENANT"]
+whitelist now   : ["TENANT"]
+filtered        : ["TENANT"]
+refused         : [{"name":"BASE_URL","reason":"the name is not on the environment whitelist of this project"}]
+child sees      : {"BASE_URL":null,"TENANT":"acme"}
+RESULT: OK -- the removed name does not reach the runner
+
+exit code : 0

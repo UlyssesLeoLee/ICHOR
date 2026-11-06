@@ -1,0 +1,209 @@
+
+==============================================================
+the tree under test
+==============================================================
+tree    : D:/hermes-multica/home/cache/scratch/ats601-lf
+commit  : e906ae08450fa594ff04e52b788c8dcdef95b3c4
+branch  : dev
+node    : v24.19.0
+python  : Python 3.11.16
+
+==============================================================
+R6.1 -- the device layer does not prove what the target never declared
+==============================================================
+  PASS  ui.hierarchy (never declared) is not supported -- supported=false
+  PASS  ui.hierarchy carries no "proved" evidence -- evidence=""
+  PASS  the reason names the target declaration -- reason=the session ses_wide claims ui.hierarchy: not declared by target tgt_narrow, so it was never proven
+  PASS  the DECLARED capability is still proved by the same session
+  PASS  negotiateWithDevice does not report it as proved -- device.supported=false
+  PASS  the resolve path refuses the same session -- code=REMOTE_CAPABILITY_MISSING
+
+RESULT: 0 failed
+exit code : 0
+
+==============================================================
+R6.2 -- the new unit tests are RED on the pre-fix tree (3bac3bd)
+==============================================================
+✖ UT-MOB-090: the device layer does not report an undeclared capability as proved (0.6851ms)
+✖ UT-MOB-091: the device layer and the resolve path agree about one session (0.2692ms)
+✖ UT-MOB-092: the device layer judges the target the caller asks about (0.1655ms)
+✖ UT-MOB-094: the device layer reports rather than throws when there is no target (0.1194ms)
+ℹ tests 99
+ℹ pass 95
+ℹ fail 4
+✖ failing tests:
+✖ UT-MOB-090: the device layer does not report an undeclared capability as proved (0.6851ms)
+✖ UT-MOB-091: the device layer and the resolve path agree about one session (0.2692ms)
+✖ UT-MOB-092: the device layer judges the target the caller asks about (0.1655ms)
+✖ UT-MOB-094: the device layer reports rather than throws when there is no target (0.1194ms)
+--- the control cases that must stay green on the pre-fix tree ---
+✔ UT-MOB-093: a capability the target declared but the session did not prove stays unsupported (0.1025ms)
+(none of the new cases pass on the pre-fix tree)
+
+==============================================================
+R6.3a -- the mobile contract unit tests
+==============================================================
+✔ UT-MOB-088: a state the transition table does not know has no transition (0.0379ms)
+✔ UT-MOB-089: a session carries its error and its lease expiry when it has them (0.0691ms)
+ℹ tests 99
+ℹ suites 0
+ℹ pass 99
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 142.7107
+
+==============================================================
+R6.3b -- the mobile contract probe
+==============================================================
+--- 6. a session may not claim capabilities its target never declared ---
+  PASS  a session claiming undeclared capabilities is refused -- code=REMOTE_CAPABILITY_MISSING
+  PASS  the refusal names the undeclared capabilities -- undeclared=app.install,app.launch,log.read,screen.record,ui.hierarchy,ui.tap
+
+--- 6b. the device layer does not prove what the target never declared ---
+  PASS  an undeclared capability is not reported as proved -- supported=false evidence=""
+  PASS  an undeclared capability carries no evidence
+  PASS  the refusal names the target declaration -- reason=the session ses_wide claims ui.hierarchy: not declared by target tgt_narrow, so it was never proven
+  PASS  the declared capability is still proved by the same session
+
+
+RESULT: 0 failed -- the mobile contract refuses explicitly, never degrades silently.
+exit code : 0
+
+==============================================================
+R6.3c -- the line and branch coverage of the mobile contract
+==============================================================
+✔ UT-MOB-054: the mobile runner is registered in the SAME registry (0.9806ms)
+✔ UT-MOB-055: the mobile adapter passes the SAME assertAdapter check (0.1283ms)
+✔ UT-MOB-061: the device layer of the mobile adapter follows the SESSION (0.1752ms)
+✔ UT-MOB-062: the mobile adapter refuses to start instead of running something else (0.2314ms)
+✔ UT-MOB-063: the mobile adapter reports every engine capability as unsupported WITH a reason (0.6569ms)
+✔ UT-MOB-064: the mobile adapter describes itself as a contract, not as a driver (0.1942ms)
+✔ UT-MOB-068: the mobile runner is never silently chosen for a web project (0.8323ms)
+✔ UT-MOB-069: the mobile adapter source carries no driver of its own (0.5348ms)
+✔ UT-MOB-045: an untrusted project may not execute a mobile flow (0.0808ms)
+ℹ tests 99
+ℹ pass 99
+ℹ fail 0
+ℹ start of coverage report
+ℹ   mobile-target.mjs   | 100.00 |    93.10 |  100.00 | 
+ℹ   mobile.mjs          | 100.00 |   100.00 |  100.00 | 
+ℹ all files             |  57.36 |    68.55 |   22.74 | 
+ℹ end of coverage report
+
+==============================================================
+R6.3d -- the review probe (review-r1.mjs) against the delivered tree
+==============================================================
+PASS  R1  resolveSession never hands out a idle local-device session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  adapter.resolveDevice never hands out a idle local-device session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  resolveSession never hands out a running local-device session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  adapter.resolveDevice never hands out a running local-device session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  resolveSession never hands out a idle local-emulator session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  adapter.resolveDevice never hands out a idle local-emulator session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  resolveSession never hands out a running local-emulator session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  adapter.resolveDevice never hands out a running local-emulator session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  resolveSession never hands out a idle remote-farm session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  adapter.resolveDevice never hands out a idle remote-farm session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  resolveSession never hands out a running remote-farm session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  adapter.resolveDevice never hands out a running remote-farm session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  an expired farm lease is refused even with { requireConnected: false }  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R2  adapter.resolveDevice refuses an unregistered session (registeredSessionIds omitted)  -- code=MOBILE_SESSION_NOT_REGISTERED
+PASS  R2  adapter.resolveDevice refuses an unregistered session (registeredSessionIds = [])  -- code=MOBILE_SESSION_NOT_REGISTERED
+PASS  R2  adapter.resolveDevice refuses an unregistered session (registeredSessionIds = null)  -- code=MOBILE_SESSION_NOT_REGISTERED
+PASS  R2  adapter.resolveDevice refuses an unregistered session (registeredSessionIds = "ses_unreg_x" (string))  -- code=MOBILE_SESSION_NOT_REGISTERED
+PASS  C2  control: a registered created session still resolves  -- returned state=created
+PASS  R3  a session claiming capabilities its target never declared cannot negotiate tapOn  -- code=REMOTE_CAPABILITY_MISSING
+PASS  C3  control: a session within its target still negotiates takeScreenshot
+PASS  R4  assertTrustedProject accepts the trustOf() verdict of a TRUSTED project
+PASS  C4  control: assertTrustedProject refuses the trustOf() verdict of a revoked project
+PASS  C4  control: assertTrustedProject refuses the trustOf() verdict of a never vouched project
+PASS  R5  negotiateWithDevice does not report ui.hierarchy as proved by a FAILED session
+PASS  R6  negotiateWithDevice does not report ui.hierarchy (never declared by the target) as proved
+PASS  C6  control: a declared and proved capability (screen.capture) is still supported in the device layer
+PASS  C6  control: resolveDevice still refuses the over-claiming session  -- code=REMOTE_CAPABILITY_MISSING
+NOTE  A1  ses_1 registered for another target is not usable on tgt_farm  -- accepted (sessionId-only registration)
+NOTE  A2  leaseExpiresAt="12345" is not a live lease  -- Date.parse -> +012344-12-31T15:00:00.000Z
+NOTE  A2  leaseExpiresAt="99999" is not a live lease  -- Date.parse -> +099998-12-31T15:00:00.000Z
+
+RESULT: 0 failed (required + control lines only; A* lines are advisory)
+exit code : 0
+
+==============================================================
+R6.3e -- the full regression (every test file)
+==============================================================
+✔ UT-UID-025: a report path relative to the Playwright rootDir is bound to the registry (0.8912ms)
+✔ UT-UID-026: the static scanner numbers the line of the test call (2.3363ms)
+✔ UT-UID-027: a retried case produces one attempt per retry (0.8861ms)
+✔ UT-UID-021: cleanup removes the temporary fixture (3.1212ms)
+ℹ tests 938
+ℹ suites 0
+ℹ pass 938
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 64321.2961
+
+==============================================================
+R6.3f -- the ATS-301 gate
+==============================================================
+doc files/mentions claimed      : 9 / 27
+doc files/mentions actual       : 9 / 27
+doc mention count matches       : true
+
+RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
+  PASS  tools/ats101-probes/scenario-d-port-audit.mjs
+
+RESULT: OK -- the WBS helper regression, the ADR citation check and the port audit all pass.
+exit code : 0
+
+==============================================================
+R6.3g -- the remote protocol audit (rejection code table)
+==============================================================
+  PASS  the implemented-claim matcher is not vacuous (positive control fires)
+  PASS  the implemented-claim matcher ignores a negated claim (negative control)
+
+checks passed : 108/108
+remote codes  : 26
+threats       : 14
+
+RESULT: OK -- the remote protocol contract is self-consistent and agrees with the WBS row, the requirement badges and the baseline ADR register.
+exit code : 0
+
+==============================================================
+R6.3h -- the WBS updater coexistence regression
+==============================================================
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+  D6: v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT；Next.js 16 静态导出构建已实测通过；锁文件、依赖清单与 CI 构建门禁已交付；Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过（ATS-103）；权威发现已实现（ATS-202：playwright test --list；未可信仓库回退静态索引）；身份映射器已实现（ATS-204：改名/改标题后的 UID 重识别、动态用例的锚点、歧义不误关联）；SQLite 元数据层已实现（ATS-205：WAL、版本迁移与事务；state.json 的镜像）；状态数据迁移 CLI 已实现（ATS-206：安全导入、备份与回滚；数量一致）；数据目录单实例锁与崩溃恢复已实现（ATS-207：原子抢锁、持有者校验、state.json 落盘同步、损坏镜像隔离重建）；执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，事件可按 run+sequence 复演）；项目级环境档案与 runner 环境封口已实现（ATS-212：档案按项目命名空间；只有白名单内的变量可传递；runner 不继承宿主环境）；Agent 契约层已实现；远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）；部署式控制面 API 边界骨架已实现（ATS-506：独立进程/端点/凭据，入站拒绝本地路径与本地 Token）；插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）；移动端目标与会话契约已实现（ATS-601：三类目标、会话状态机、能力协商与拒绝规则；无真实设备）。
+  D7: 真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；详见 docs/16-BASELINE-ADR.md；CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md；静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112，详见 docs/22-FRONTEND-EXPORT.md；权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；详见 docs/23-AUTHORITATIVE-DISCOVERY.md；跨机器的用例身份不在本任务范围（Project UID 依赖绝对路径）；详见 docs/26-IDENTITY-MAPPER.md；元数据层当前只做 state.json 的镜像，不提供查询 API；详见 docs/06-DATA-DESIGN.md §5；迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；详见 docs/24-STATE-MIGRATION.md；断电只以强杀进程模拟，未做真实掉电；桌面壳不显示占用提示；详见 docs/06-DATA-DESIGN.md §5.7；执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；详见 docs/06-DATA-DESIGN.md §5.4；凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；详见 docs/04-DETAILED-DESIGN.md §5A；详见 docs/17-AGENT-CONTRACT.md；远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；详见 docs/19-REMOTE-RUNNER-PROTOCOL.md；控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；详见 docs/21-CONTROL-PLANE-API.md；插件宿主与沙箱未实现（ATS-512 只交付契约层）；详见 docs/21-PLUGIN-CONTRACT.md；移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md。
+  PASS  D6 and D7 still carry every task's contribution
+
+RESULT: OK -- the 19 WBS updaters coexist, are idempotent, do not undo
+        an accepted review, and the 总览 cache always matches 开发WBS.
+exit code : 0
+
+==============================================================
+R6.3i -- the python gates under tools/
+==============================================================
+tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
+  C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+    warn(msg)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+42 passed, 2 warnings in 1.99s
+exit code : 0
+
+==============================================================
+R6.3j -- the checksum manifest
+==============================================================
+digest mismatches: 0
+tracked-not-listed: 0 []
+listed-not-tracked: 0 []
+RESULT: OK
+exit code : 0
+
+==============================================================
+done
+==============================================================

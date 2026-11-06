@@ -31,6 +31,7 @@
 | 23-AUTHORITATIVE-DISCOVERY.md | 权威发现设计书 | ATS-202：`playwright test --list` 权威索引、信任闸门（未可信仓库不可调用 `--list`）、身份阶梯、CLI 一致性的度量、实测证据与已知边界 |
 | 24-STATE-MIGRATION.md | 状态迁移设计书 | ATS-206：v0.1 状态的安全导入迁移 CLI、计数一致性口径、备份与自动回滚、迁移内核的两条规则与已知边界 |
 | 26-IDENTITY-MAPPER.md | 身份映射器设计书 | ATS-204：文件/标题变化时的 UID 重识别与歧义提示；运行侧按信号强度绑定的阶梯、整次运行才算得清的四件事、动态用例的锚点（位置 + 次序；次序 = CLI 的报告次序）、锚点不得覆盖已有身份的三条规则、项目矩阵是一个用例（caseKey 带 describe 路径）、实测证据与已知边界 |
+| 27-EVIDENCE-MANIFEST.md | 证据清单设计书 | ATS-209：Evidence Manifest、SHA-256、内容寻址去重与保留期清理；清单带所属运行与整组摘要、篡改可检出并指名文件、到期只删证据不删 Run 元数据、清理离线执行与审计日志、已知边界 |
 | 18-RUNNER-ADAPTER-CONTRACT.md | Runner/Reporter 适配器契约 | ATS-301：适配器契约 v1、能力协商与拒绝规则 |
 | 19-REMOTE-RUNNER-PROTOCOL.md | 远程协议・威胁模型 | S5 远程执行面的信任边界、认证、版本握手、租户隔离、拒绝规则（ADR-015~023，全部 DESIGNED） |
 | 20-PARALLEL-ORCHESTRATION.md | 并行编排 | 多任务并行执行的编排约束 |

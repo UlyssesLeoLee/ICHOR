@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：450；已执行通过：434；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：494；已执行通过：478；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -269,6 +269,45 @@
 |UT-SQL-ENV-009|FR-027|回归|没有环境字段的旧状态镜像正常|state 无 envProfiles|verifyMirror 通过，读回为空档案与空白名单|node --test|PASS|
 |UT-SQL-ENV-010|FR-027|回归|含档案时导入仍幂等|连续导入同一 state 两次|两次读回结果相同，verifyMirror 通过|node --test|PASS|
 |UT-SQL-ENV-011|FR-027|完整性|迁移回滚清除环境表与列|手工执行第 4 步的 down|表与 env_uid 列都不存在|node --test|PASS|
+|UT-EVD-001|FR-015|正常|清单说明它属于哪一次运行|一个已结束的 run 与它的文件夹|清单带 runId、projectUid、sourceCommit 与每条证据的 sha256|node --test|PASS|
+|UT-EVD-002|FR-015|正常|清单不列出自己与运行记录|文件夹含 events.jsonl、stdout.log 与 manifest.json|清单只列证据文件|node --test|PASS|
+|UT-EVD-003|FR-015|正常|清单是运行与文件夹的函数|同一运行与同一文件夹建两次清单|两次清单完全相同|node --test|PASS|
+|UT-EVD-004|FR-015|完整性|整组证据的摘要与条目顺序无关|同样两条证据换顺序|setDigest 相同；大小不同则不同|node --test|PASS|
+|UT-EVD-005|FR-015|正常|证据条目按相对路径排序|文件夹含 z.txt、a.txt、m/n.txt|条目顺序为 a.txt、m/n.txt、z.txt|node --test|PASS|
+|UT-EVD-006|NFR-003|安全|符号链接不是证据|文件夹内一个指向外部的链接|该链接不进证据集|node --test|PASS|
+|UT-EVD-007|FR-015|完整性|摘要按原始字节计算|内容为 hello 的文件|摘要等于 sha256(hello)|node --test|PASS|
+|UT-EVD-008|FR-015|异常|清单读不出来时报错而不是当作空|无清单或清单不是 JSON|报告原因，不返回空证据集|node --test|PASS|
+|UT-EVD-009|FR-015|正常|完好的证据集校验通过|按清单归档且未改动|verified=true，missing 与 changed 均为空|node --test|PASS|
+|UT-EVD-010|FR-015|完整性|归档后被改动的文件被检出|改写归档后的 report.json|verified=false；changed 指出该文件与两个摘要|node --test|PASS|
+|UT-EVD-011|FR-015|完整性|归档后被删除的文件被报为缺失|删除清单列出的一个文件|missing 列出该文件；changed 为空|node --test|PASS|
+|UT-EVD-012|FR-015|边界|归档后追加的文件被报为 extra|加一个清单未列的文件|extra 列出该文件；已归档文件仍算完好|node --test|PASS|
+|UT-EVD-013|FR-015|异常|没有清单的目录无法校验|只有证据没有清单|ok=false 且给出原因|node --test|PASS|
+|UT-EVD-014|NFR-004|正常|只有终态的 run 才是清理对象|状态取遍 8 个运行状态|终态五个为真；在飞三个为假|node --test|PASS|
+|UT-EVD-015|NFR-004|安全|在飞的 run 永不被清理|running/queued/cancelling 且很旧|到期列表为空|node --test|PASS|
+|UT-EVD-016|NFR-004|正常|到期的是超过期限的终态 run|一个 31 天前结束、一个昨天结束|只有前者到期|node --test|PASS|
+|UT-EVD-017|NFR-004|异常|非法的保留期被拒绝|负数或非数字的期限|抛 INVALID_RETENTION_PERIOD|node --test|PASS|
+|UT-EVD-018|NFR-004|正常|清理删证据但保留运行记录|含证据、事件日志与原始输出的目录|证据消失；事件日志、原始输出与清单仍在|node --test|PASS|
+|UT-EVD-019|NFR-004|完整性|清理不碰 run 记录本身|带 status/summary/attempts/events 的 run 记录|清理后逐字段不变|node --test|PASS|
+|UT-EVD-020|NFR-004|安全|Bridge 持锁时拒绝清理|lockHeld=true|ok=false 且证据仍在|node --test|PASS|
+|UT-EVD-021|NFR-004|正常|演练只报告不删除|dryRun=true|报告将删的文件；文件仍在|node --test|PASS|
+|UT-EVD-022|NFR-004|完整性|清理写审计日志|带日志路径的清理|日志有一条记录，含 runId 与删除的文件|node --test|PASS|
+|UT-EVD-023|NFR-004|异常|损坏的日志行被报出而不是丢弃|日志中混一行非 JSON|unreadable 报出该行号|node --test|PASS|
+|UT-EVD-024|NFR-004|正常|保留期计划给出到期与空间|两个 run，一个到期一个未到期|expiredCount=1；字节数分别计入|node --test|PASS|
+|UT-EVD-025|NFR-004|正常|计划不改动任何文件|调用计划|证据文件仍在|node --test|PASS|
+|UT-EVD-026|NFR-004|完整性|第二份相同证据被记为重复|两个 run 同一份内容|copies=2，第二份是重复项|node --test|PASS|
+|UT-EVD-027|NFR-004|回归|没有索引字段的旧状态得到空索引|state 无 evidenceIndex|索引为空且字段被补上|node --test|PASS|
+|UT-EVD-028|NFR-004|完整性|重新扫描一个 run 覆盖旧记录|先登记 a.txt 再登记 b.txt|旧条目消失，新条目存在|node --test|PASS|
+|UT-EVD-029|NFR-004|完整性|去重报告指出被存了多份的内容|两份同样的 100 字节证据|duplicated=1，浪费 100 字节|node --test|PASS|
+|UT-EVD-030|NFR-004|正常|证据副本的键是派生的|runId 与 file|键为 runId:file|node --test|PASS|
+|UT-EVD-031|NFR-004|完整性|共享字节按重复份数计|两个 run 各一份 10 字节|共享 10 字节|node --test|PASS|
+|UT-EVD-032|NFR-004|完整性|副本按自己的摘要存放|一个证据文件|副本路径以摘要命名且内容相同|node --test|PASS|
+|UT-EVD-033|NFR-004|完整性|相同内容只存一份|两个内容相同的文件|store 只占一份的字节数|node --test|PASS|
+|UT-EVD-034|NFR-004|异常|与摘要不符的副本不被存放|摘要与文件内容不符|不存放且给出原因|node --test|PASS|
+|UT-EVD-036|NFR-004|完整性|run 文件成为副本的硬链接|存放后链接到 run 文件|两者是同一 inode，链接数为 2|node --test|PASS|
+|UT-EVD-037|NFR-004|完整性|删掉 run 副本后副本仍在|删除 run 侧链接|store 中的副本仍在且内容不变|node --test|PASS|
+|UT-EVD-038|NFR-004|安全|仍被引用的副本不被回收|run 仍持有链接|回收列表为空，副本仍在|node --test|PASS|
+|UT-EVD-039|NFR-004|正常|无人引用的副本被回收|删掉 run 侧链接后回收|回收一个副本并报出释放的字节|node --test|PASS|
+|UT-EVD-040|NFR-004|正常|副本路径由摘要派生|一个 SHA-256 摘要|路径末段是摘要；非法摘要无路径|node --test|PASS|
 |UT-CP-001|FR-028|安全|本地路径形态判定矩阵|盘符、UNC、POSIX、file:、家目录、环境变量、路径穿越、仓库地址各形态|逐一返回对应规则名|node --test|PASS|
 |UT-CP-002|FR-028|边界|非路径值不误判|https 地址、prj UID、40 位 SHA、相对片段、ns:name、非字符串|均返回 null|node --test|PASS|
 |UT-CP-003|FR-028|安全|百分号编码的路径同等拒绝|C%3A%5Crepo、%2Fhome%2Fa、损坏编码|前两者命中规则；损坏编码按原文判定不抛错|node --test|PASS|
@@ -458,6 +497,11 @@
 |UT-MOB-087|FR-031|正常|设备层跟随调用方给出的会话|上下文会话与适配器自带会话不同|以上下文会话为准|node --test|PASS|
 |UT-MOB-088|FR-031|异常|迁移表里没有的状态没有可用迁移|查 canTransition|未知状态到任何状态均为假|node --test|PASS|
 |UT-MOB-089|FR-031|正常|会话携带错误原因与租约到期时间|构造带 error 与 leaseExpiresAt 的会话|两者如实携带，缺省时为 null|node --test|PASS|
+|UT-MOB-090|FR-031|安全|设备层不把目标未声明的能力报成已证明|目标只声明 screen.capture，会话声称七项|未声明的能力 supported=false、无证据、理由点名|node --test|PASS|
+|UT-MOB-091|FR-031|安全|设备层与解析路径对同一会话结论一致|同一条超声明会话走两条路径|解析路径拒绝，设备层报不支持且无证据|node --test|PASS|
+|UT-MOB-092|FR-031|安全|设备层按调用方给出的目标判定|上下文目标与会话所属目标不同|该目标下不证明任何能力|node --test|PASS|
+|UT-MOB-093|FR-031|正常|目标声明了但会话没证明的能力仍报不支持|目标声明两项，会话只证明一项|已证明的那项支持，另一项理由为未证明|node --test|PASS|
+|UT-MOB-094|FR-031|异常|没有目标时设备层报不支持而不是抛错|适配器 target=null 且带会话|每条能力 supported=false、无证据、带理由|node --test|PASS|
 
 ## 进入与退出条件
 

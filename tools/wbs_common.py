@@ -42,8 +42,8 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-204】', '【ATS-205】',
-           '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-212】', '【ATS-301】', '【ATS-401】', '【ATS-501】',
-           '【ATS-506】', '【ATS-512】', '【ATS-601】')
+           '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-301】', '【ATS-401】',
+           '【ATS-501】', '【ATS-506】', '【ATS-512】', '【ATS-601】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -133,6 +133,13 @@ NARRATIVE_FRAGMENTS = {
               '只有白名单内的变量可传递；runner 不继承宿主环境）',
         'D7': '凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；'
               '详见 docs/04-DETAILED-DESIGN.md §5A',
+    },
+    '【ATS-209】': {
+        'D6': '证据清单与保留策略已实现（ATS-209：清单带所属运行与整组摘要、'
+              '内容寻址去重、到期清理只删证据不删 Run 元数据）',
+        'D7': '证据清单未签名（不得宣称 WORM 或防篡改等级），'
+              '清理掉证据后清单与文件夹不再一致（校验会如实报 missing）；'
+              '详见 docs/27-EVIDENCE-MANIFEST.md',
     },
     '【ATS-501】': {
             'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',
