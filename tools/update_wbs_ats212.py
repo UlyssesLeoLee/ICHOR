@@ -111,7 +111,7 @@ NOTE = (
     '列盘子进程的封口另用 A/B 实测（tools/ats212-probes/ab-listing-env.mjs）：'
     '真实 Playwright，封口环境与宿主环境各跑 5 轮，两侧 5/5 成功且分布相同，'
     '说明封口没有破坏列举；'
-    '全量回归 990 例（990 通过 / 0 失败 / 0 跳过，'
+    '全量回归 1006 例（1006 通过 / 0 失败 / 0 跳过，'
     'examples/sample-playwright 与 examples/sample-wdio 的 fixture 依赖已装齐，'
     'IT-ADP-005~011B 不再以「跳过」计），'
     '本任务落地前的基线为 564 例（564 通过 / 0 失败 / 0 跳过，'

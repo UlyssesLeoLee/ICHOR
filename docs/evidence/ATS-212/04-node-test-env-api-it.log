@@ -1,30 +1,31 @@
 === the environment profile API suite ===
-repo root : /tmp/multica-task-2307562344/ats212-work/merge-dev
-commit    : 6f8897d
-branch    : 
+repo root : /d/ICHOR
+commit    : f6a52d4
+branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ IT-ENV-SETUP: start the bridge (344.4236ms)
-✔ IT-ENV-001: a project is registered (61.8654ms)
-✔ IT-ENV-002: a profile is created and the answer carries the NAMES, not the values (12.6104ms)
-✔ IT-ENV-003: GET /env lists the profiles and the whitelist (8.813ms)
-✔ IT-ENV-004: a variable that is not on the whitelist is REFUSED with the reason (31.6644ms)
-✔ IT-ENV-005: a credential-shaped name is REFUSED even when the whitelist allows it (30.3949ms)
-✔ IT-ENV-006: a whitelist that authorises a credential is REFUSED (31.2408ms)
-✔ IT-ENV-007: a run names the profile it ran under and the NAMES of its variables (70.5784ms)
-✔ IT-ENV-008: a run that names a profile that does not exist is REFUSED (69.9998ms)
-✔ IT-ENV-009: the profile lives in the data directory and NOT in the project (0.8322ms)
-✔ IT-ENV-010: the profile survives a restart of the bridge (341.7922ms)
-✔ IT-ENV-011: the profile is deleted (61.8463ms)
-✔ IT-ENV-CLEANUP: stop the bridge (3.1775ms)
-ℹ tests 13
+✔ IT-ENV-SETUP: start the bridge (510.2775ms)
+✔ IT-ENV-001: a project is registered (102.5608ms)
+✔ IT-ENV-002: a profile is created and the answer carries the NAMES, not the values (19.2942ms)
+✔ IT-ENV-003: GET /env lists the profiles and the whitelist (6.5959ms)
+✔ IT-ENV-004: a variable that is not on the whitelist is REFUSED with the reason (14.3779ms)
+✔ IT-ENV-005: a credential-shaped name is REFUSED even when the whitelist allows it (16.2484ms)
+✔ IT-ENV-006: a whitelist that authorises a credential is REFUSED (30.1056ms)
+✔ IT-ENV-007: a run names the profile it ran under and the NAMES of its variables (102.3536ms)
+✔ IT-ENV-008: a run that names a profile that does not exist is REFUSED (84.1169ms)
+✔ IT-ENV-009: the profile lives in the data directory and NOT in the project (0.8866ms)
+✔ IT-ENV-010: the profile survives a restart of the bridge (464.2288ms)
+✔ IT-ENV-011: the profile is deleted (51.4921ms)
+✔ IT-ENV-012: the CORS pre-flight allows DELETE on the environment endpoints (3.0684ms)
+✔ IT-ENV-CLEANUP: stop the bridge (4.017ms)
+ℹ tests 14
 ℹ suites 0
-ℹ pass 13
+ℹ pass 14
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1171.1698
+ℹ duration_ms 1551.7674
 
 exit code : 0
