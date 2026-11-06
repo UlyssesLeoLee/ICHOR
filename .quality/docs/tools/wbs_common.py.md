@@ -2,7 +2,7 @@
 
 Source: `tools/wbs_common.py`
 
-Source-SHA256: `2c11affaa71e13e67dbe3e240556eeb2be9eee59a64331a98ab3e7f871e3ec64`
+Source-SHA256: `52615023214051d6a999861465006ae22cbe1ea0e969fdbf5f77dacc525262f2`
 
 ## Responsibility
 
@@ -23,3 +23,5 @@ Shared helpers of every `tools/update_wbs_*.py` updater: reading the workbook zi
 ## Change Notes
 
 ATS-506 registers its marker and narrative fragments; no function changes. The ATS-501 D6/D7 fragments stay true because the remote execution plane (queue, nodes) still has no implementation. A concurrent task that also appends a marker produces a textual merge conflict on the `MARKERS` line; the resolution is the union in WBS-ID order.
+
+ATS-106 registers `【ATS-106】` and the `【ATS-601】` marker that the ATS-601 updater already writes but had not registered (the `tools/test_wbs_common.py` registry check failed on dev without it); no function changes.
