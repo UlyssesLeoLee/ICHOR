@@ -1,6 +1,6 @@
 === ATS-103 evidence: ST: the exported UI from a whitelisted cross-origin ===
-date      : 2026-11-06T11:36:37Z (UTC)
-commit    : d65b5720bb639e5a35bc40c514d343ad7742abbf
+date      : 2026-11-06T11:56:29Z (UTC)
+commit    : bc90df52f42ab104be653586a6d6886efa8a4af0
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats103-probes/ui-smoke.mjs --page-origin http://127.0.0.1:3000
@@ -29,26 +29,24 @@ PASS  the page produced no console error and no failed request  --  console erro
   GET /api/runs -> 200
   POST /api/projects/proj_1_58fa8e223638d85e8cf3368a/run -> 202
   GET /api/runs -> 200
-  GET /api/runs -> 200
   GET /api/projects -> 200
-  GET /api/runs/run_1_e6c7cf75434de26515a2de68 -> 200
-  GET /api/runs/run_1_e6c7cf75434de26515a2de68 -> 200
-  GET /api/runs/run_1_e6c7cf75434de26515a2de68 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_e6c7cf75434de26515a2de68 -> 200
+  GET /api/runs/run_1_1054dc843afc6dc48cb37598 -> 200
+  GET /api/runs/run_1_1054dc843afc6dc48cb37598 -> 200
+  GET /api/runs/run_1_1054dc843afc6dc48cb37598 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_e6c7cf75434de26515a2de68 -> 200
+  GET /api/runs/run_1_1054dc843afc6dc48cb37598 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_e6c7cf75434de26515a2de68 -> 200
+  GET /api/runs/run_1_1054dc843afc6dc48cb37598 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_e6c7cf75434de26515a2de68 -> 200
+  GET /api/runs/run_1_1054dc843afc6dc48cb37598 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_e6c7cf75434de26515a2de68 -> 200
+  GET /api/runs/run_1_1054dc843afc6dc48cb37598 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_e6c7cf75434de26515a2de68 -> 200
+  GET /api/runs/run_1_1054dc843afc6dc48cb37598 -> 200
 --- end ---
 --- bridge stderr ---
-  (node:20648) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+  (node:15088) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 --- end ---
 PASS  the probe executed every registered check  --  8/8 checks executed
