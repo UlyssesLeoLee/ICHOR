@@ -1,9 +1,9 @@
 === ATS-601 evidence: the ATS-301 gate (WBS shared-cell regression + ADR citations + port audit) ===
-tree : 2c08c471407f0ed878b97b0da7d3b46d75d9d219
-date : 2026-11-06T18:44:44Z
+tree : 1c300822e2af53cea4508f765fee473c95d50af7
+date : 2026-11-06T20:39:08Z
 
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /d/ICHOR
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-49-5bade1091cde/worktree
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 node      : v24.19.0
@@ -20,6 +20,7 @@ PASS 【ATS-102】 is idempotent
 PASS 【ATS-103】 is idempotent
 PASS 【ATS-201】 is idempotent
 PASS 【ATS-202】 is idempotent
+PASS 【ATS-204】 is idempotent
 PASS 【ATS-205】 is idempotent
 PASS 【ATS-206】 is idempotent
 PASS 【ATS-207】 is idempotent
@@ -42,6 +43,8 @@ PASS update_wbs_ats201.py declares exactly one marker
 PASS 【ATS-201】 (from update_wbs_ats201.py) is registered in MARKERS
 PASS update_wbs_ats202.py declares exactly one marker
 PASS 【ATS-202】 (from update_wbs_ats202.py) is registered in MARKERS
+PASS update_wbs_ats204.py declares exactly one marker
+PASS 【ATS-204】 (from update_wbs_ats204.py) is registered in MARKERS
 PASS update_wbs_ats205.py declares exactly one marker
 PASS 【ATS-205】 (from update_wbs_ats205.py) is registered in MARKERS
 PASS update_wbs_ats206.py declares exactly one marker
@@ -74,8 +77,8 @@ all checks passed
   apps/studio/app/page.tsx         81
   apps/studio/lib/api.ts           14
   apps/studio/public/fallback.html 3
-  server/core.mjs                  1093, 762
-  server/index.mjs                 224, 30, 446-476, 460, 478, 489, 674, 834, 851, 852
+  server/core.mjs                  1101, 762
+  server/index.mjs                 224, 30, 449-479, 463, 481, 492, 681, 867, 884, 885
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
@@ -94,17 +97,17 @@ ok   tools/update_wbs_ats103.py:110
 ok   tools/update_wbs_ats103.py:114
 ok   server/index.mjs:30
 ok   server/index.mjs:224
-ok   server/index.mjs:446
-ok   server/index.mjs:460
-ok   server/index.mjs:478
-ok   server/index.mjs:489
-ok   server/index.mjs:674
-ok   server/index.mjs:834
-ok   server/index.mjs:851
-ok   server/index.mjs:852
+ok   server/index.mjs:449
+ok   server/index.mjs:463
+ok   server/index.mjs:481
+ok   server/index.mjs:492
+ok   server/index.mjs:681
+ok   server/index.mjs:867
+ok   server/index.mjs:884
+ok   server/index.mjs:885
 ok   server/core.mjs:762
-ok   server/core.mjs:1093
-ok   server/index.mjs:446-476 (cancelRun extent)
+ok   server/core.mjs:1101
+ok   server/index.mjs:449-479 (cancelRun extent)
 ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)
 ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
@@ -115,7 +118,7 @@ RESULT: OK
 
 --- 3. the hardcoded default port list in 16 §3.1 matches the source ---
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : D:\ICHOR
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-49-5bade1091cde\worktree
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
@@ -123,7 +126,7 @@ port      : 4577
   apps/studio/lib/api.ts:14  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
   apps/studio/public/fallback.html:3  </style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</spa...
   server/index.mjs:30  const PORT=Number(process.env.ATS_PORT||4577);
-  server/index.mjs:489  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
+  server/index.mjs:492  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
   src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
 total = 6
 
@@ -131,9 +134,9 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:5122  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:5188  "input": "Host=evil.example:4577",
-  tests/test-cases.json:6453  "input": "同 LAN 他机尝试访问 4577",
+  tests/test-cases.json:5221  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:5287  "input": "Host=evil.example:4577",
+  tests/test-cases.json:6552  "input": "同 LAN 他机尝试访问 4577",
   tools/generate_test_docs.py:290  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
   tools/generate_test_docs.py:296  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
   tools/generate_test_docs.py:382  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),

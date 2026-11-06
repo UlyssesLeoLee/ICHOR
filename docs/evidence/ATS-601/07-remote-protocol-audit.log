@@ -1,9 +1,9 @@
 === ATS-601 evidence: the remote protocol audit (rejection code table) ===
-tree : 2c08c471407f0ed878b97b0da7d3b46d75d9d219
-date : 2026-11-06T18:44:44Z
+tree : 1c300822e2af53cea4508f765fee473c95d50af7
+date : 2026-11-06T20:39:08Z
 
 === ATS-501 probe: remote protocol contract audit ===
-repo root : D:\ICHOR
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-49-5bade1091cde\worktree
 document  : docs\19-REMOTE-RUNNER-PROTOCOL.md
 
 REMOTE_ tokens in the document : 26

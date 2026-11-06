@@ -1,6 +1,6 @@
 === ATS-601 evidence: the contract probe: the hard rules side by side ===
-tree : 2c08c471407f0ed878b97b0da7d3b46d75d9d219
-date : 2026-11-06T18:44:44Z
+tree : 1c300822e2af53cea4508f765fee473c95d50af7
+date : 2026-11-06T20:39:08Z
 
 === ATS-601 probe: the mobile target/session contract ===
   (fake targets and fake sessions; no device, no emulator, no ADB)
@@ -45,6 +45,12 @@ date : 2026-11-06T18:44:44Z
 --- 6. a session may not claim capabilities its target never declared ---
   PASS  a session claiming undeclared capabilities is refused -- code=REMOTE_CAPABILITY_MISSING
   PASS  the refusal names the undeclared capabilities -- undeclared=app.install,app.launch,log.read,screen.record,ui.hierarchy,ui.tap
+
+--- 6b. the device layer does not prove what the target never declared ---
+  PASS  an undeclared capability is not reported as proved -- supported=false evidence=""
+  PASS  an undeclared capability carries no evidence
+  PASS  the refusal names the target declaration -- reason=the session ses_wide claims ui.hierarchy: not declared by target tgt_narrow, so it was never proven
+  PASS  the declared capability is still proved by the same session
 
 
 RESULT: 0 failed -- the mobile contract refuses explicitly, never degrades silently.
