@@ -50,7 +50,11 @@ echo '--- 5. the full Node test suite ---'
 run 05-node-test-full.log node --test tests/*.test.mjs
 
 echo '--- 6. the line coverage of the discovery modules ---'
-run 06-line-coverage.log node --test --experimental-test-coverage tests/discovery.test.mjs tests/discovery-it.test.mjs tests/discovery-api.test.mjs
+# The coverage is measured over the WHOLE suite, not over the discovery tests
+# alone: the modules of this task are also exercised by the other suites (the
+# UID registry, the execution model, the API), and a coverage number that
+# only counted the three files above would report less than the real one.
+run 06-line-coverage.log node --test --experimental-test-coverage tests/*.test.mjs
 
 echo '--- 7. the WBS updater: the XML escaping and the idempotency ---'
 run 07-wbs-updater.log python tools/update_wbs_ats202.py
@@ -125,35 +129,59 @@ run 11-adr-citations.log python tools/check_adr_citations.py
 # @playwright/test. It defaults to the sample project and can be pointed
 # elsewhere with ATS202_PW_NODE_MODULES.
 PW_NM2="${ATS202_PW_NODE_MODULES:-$ROOT/examples/sample-playwright/node_modules}"
-case "$PW_NM2" in
-  /*) PW_NM2="$(cd "$PW_NM2" 2>/dev/null && pwd -W 2>/dev/null || echo "$PW_NM2")" ;;
-esac
-R2="$ROOT/tools/ats202-probes/r2"
+# The probes are run by NODE, which is a NATIVE program: an MSYS path like
+# /d/ICHOR is read as "D:\d\ICHOR" and the module is not found. So both the
+# tree and the fixture are converted to NATIVE paths here.
+native() {
+  case "$1" in
+    /*) (cd "$1" 2>/dev/null && pwd -W 2>/dev/null || echo "$1") ;;
+    *)  echo "$1" ;;
+  esac
+}
+PW_NM2="$(native "$PW_NM2")"
+TREE_NATIVE="$(native "$ROOT")"
+R2="$TREE_NATIVE/tools/ats202-probes/r2"
 SCRATCH="${ATS202_SCRATCH:-$(mktemp -d)}"
+SCRATCH="$(native "$SCRATCH")"
 
 if [ -d "$PW_NM2/@playwright/test" ]; then
   echo '--- 12. N1: an awaited listing must not erase another project''s registry entries ---'
-  run 12-r2-race.log node "$R2/r2-race.mjs" "$ROOT" "$PW_NM2" "$SCRATCH"
+  run 12-r2-race.log node "$R2/r2-race.mjs" "$TREE_NATIVE" "$PW_NM2" "$SCRATCH"
 
   echo '--- 13. N3: a case the CLI enumerates never lands in onlyStatic ---'
-  run 13-r2-scope.log node "$R2/r2-scope.mjs" "$ROOT" "$PW_NM2" "$SCRATCH"
+  run 13-r2-scope.log node "$R2/r2-scope.mjs" "$TREE_NATIVE" "$PW_NM2" "$SCRATCH"
 
   echo '--- 14. the async listing path: the timeout kills the child ---'
-  run 14-r2-async.log node "$R2/r2-async.mjs" "$ROOT" "$PW_NM2" "$SCRATCH"
+  run 14-r2-async.log node "$R2/r2-async.mjs" "$TREE_NATIVE" "$PW_NM2" "$SCRATCH"
 
   echo '--- 15. N4: the scanner fix moves the UID of an escaped-quote title once ---'
   # The OLD tree is the one BEFORE the scanner fix (cc68331). It is exported
   # with `git archive`, so the comparison runs on a clean LF tree.
+  #
+  # The archive is taken from INSIDE the repository: `git -C <msys-path>` is
+  # not understood by the native git, and an empty archive makes tar fail
+  # with "This does not look like a tar archive".
+  #
+  # This probe exits 1 ON PURPOSE: the escaped-quote case is EXPECTED to
+  # change its UID, and that change is what the probe documents (N4). So the
+  # exit code is recorded, not treated as a failure of the collection.
   OLD_TREE="${ATS202_OLD_TREE:-$SCRATCH/ats202-round0-tree}"
   rm -rf "$OLD_TREE"; mkdir -p "$OLD_TREE"
-  if git -C "$ROOT" archive cc68331 2>/dev/null | tar -x -C "$OLD_TREE"; then
-    run 15-r2-upgrade.log node "$R2/r2-upgrade.mjs" "$OLD_TREE" "$ROOT" "$SCRATCH"
+  if (cd "$ROOT" && git archive cc68331) | tar -x -C "$OLD_TREE" 2>/dev/null && [ -f "$OLD_TREE/server/core.mjs" ]; then
+    run 15-r2-upgrade.log node "$R2/r2-upgrade.mjs" "$(native "$OLD_TREE")" "$TREE_NATIVE" "$SCRATCH"
+    {
+      echo ""
+      echo "=== note ==="
+      echo "The exit code 1 of this probe is the EXPECTED result: the escaped-quote"
+      echo "case is expected to change its static UID once (the N4 finding). The"
+      echo "other two cases must stay OK. See docs/23-AUTHORITATIVE-DISCOVERY.md 4.5.1."
+    } >> "$OUT/15-r2-upgrade.log"
   else
     {
       echo "=== command ==="
       echo "node $R2/r2-upgrade.mjs <old-tree> <new-tree> <scratch>"
       echo "=== output ==="
-      echo "SKIPPED: the commit cc68331 is not in this clone."
+      echo "SKIPPED: the commit cc68331 could not be exported from this clone."
       echo "=== exit code: 2 ==="
     } > "$OUT/15-r2-upgrade.log"
     echo "  wrote $OUT/15-r2-upgrade.log (skipped)"
