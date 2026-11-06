@@ -1,6 +1,6 @@
 === ATS-601 evidence: the review probe (review-r1.mjs) against the delivered tree ===
-tree : 1c300822e2af53cea4508f765fee473c95d50af7
-date : 2026-11-06T20:39:08Z
+tree : e906ae08450fa594ff04e52b788c8dcdef95b3c4
+date : 2026-11-06T20:44:11Z
 
 PASS  R1  resolveSession never hands out a idle local-device session  -- code=REMOTE_TARGET_UNAVAILABLE
 PASS  R1  adapter.resolveDevice never hands out a idle local-device session  -- code=REMOTE_TARGET_UNAVAILABLE

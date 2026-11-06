@@ -1,9 +1,9 @@
 === ATS-601 evidence: the ATS-301 gate (WBS shared-cell regression + ADR citations + port audit) ===
-tree : 1c300822e2af53cea4508f765fee473c95d50af7
-date : 2026-11-06T20:39:08Z
+tree : e906ae08450fa594ff04e52b788c8dcdef95b3c4
+date : 2026-11-06T20:44:11Z
 
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-49-5bade1091cde/worktree
+repo root : /d/hermes-multica/home/cache/scratch/ats601-lf
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 node      : v24.19.0
@@ -118,7 +118,7 @@ RESULT: OK
 
 --- 3. the hardcoded default port list in 16 §3.1 matches the source ---
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-49-5bade1091cde\worktree
+repo root : D:\hermes-multica\home\cache\scratch\ats601-lf
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
