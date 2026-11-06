@@ -2,7 +2,7 @@
 
 Source: `tools/wbs_common.py`
 
-Source-SHA256: `692fd2ec89f391f3372c28ab7a45be61f002ebaacce5c80c25be807e0f254c24`
+Source-SHA256: `6e158f3a3d5d03d2a45e271c60a37a30cd5cedda4f6049fce65d25a04c00e68a`
 
 ## Responsibility
 
