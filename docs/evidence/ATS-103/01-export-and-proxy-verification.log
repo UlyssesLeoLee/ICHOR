@@ -1,6 +1,6 @@
 === ATS-103 evidence: static export + Bridge API seam verification ===
-date      : 2026-11-06T16:46:14Z (UTC)
-commit    : 4c60ad50e6d754f2dd63197a3296d29c7de29d45
+date      : 2026-11-06T17:22:26Z (UTC)
+commit    : fc4d206f33e8f728e86054aed2200abed9f96bea
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats103-probes/verify-export-and-proxy.mjs
@@ -33,22 +33,22 @@ PASS  the collected artefacts include report.json  --  1 report.json entries
   status    : failed
   error     : (none)
   reportWarn: (none)
-  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-BBWvpx\runs\run_1_412caeeac5bef0dfde9cdbdb\results --trace on --workers 1
+  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-HCOuNp\runs\run_1_c881a60497ef5ec59ae1f763\results --trace on --workers 1
   log tail  : 
-    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-BBWvpx\runs\run_1_412caeeac5bef0dfde9cdbdb\results\home-导航入口正常-REQ-002\error-context.md
+    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-HCOuNp\runs\run_1_c881a60497ef5ec59ae1f763\results\home-导航入口正常-REQ-002\error-context.md
 
     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
-    D:\hermes-multica\home\cache\scratch\tmp\ats103-BBWvpx\runs\run_1_412caeeac5bef0dfde9cdbdb\results\home-导航入口正常-REQ-002\trace.zip
+    D:\hermes-multica\home\cache\scratch\tmp\ats103-HCOuNp\runs\run_1_c881a60497ef5ec59ae1f763\results\home-导航入口正常-REQ-002\trace.zip
     Usage:
 
-        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-BBWvpx\runs\run_1_412caeeac5bef0dfde9cdbdb\results\home-导航入口正常-REQ-002\trace.zip
+        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-HCOuNp\runs\run_1_c881a60497ef5ec59ae1f763\results\home-导航入口正常-REQ-002\trace.zip
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
 
   1 failed
     tests\home.spec.ts:22:1 › 导航入口正常 @REQ-002 ──────────────────────────────────────────────────────
-  1 passed (6.3s)
+  1 passed (6.2s)
 
 --- end run detail ---
 
