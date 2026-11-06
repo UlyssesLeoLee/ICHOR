@@ -1,6 +1,6 @@
 === ATS-601 evidence: the review probe (review-r1.mjs) against the delivered tree ===
-tree : 2c08c471407f0ed878b97b0da7d3b46d75d9d219
-date : 2026-11-06T18:47:20Z
+tree : e906ae08450fa594ff04e52b788c8dcdef95b3c4
+date : 2026-11-06T20:44:11Z
 
 PASS  R1  resolveSession never hands out a idle local-device session  -- code=REMOTE_TARGET_UNAVAILABLE
 PASS  R1  adapter.resolveDevice never hands out a idle local-device session  -- code=REMOTE_TARGET_UNAVAILABLE
@@ -26,6 +26,9 @@ PASS  R4  assertTrustedProject accepts the trustOf() verdict of a TRUSTED projec
 PASS  C4  control: assertTrustedProject refuses the trustOf() verdict of a revoked project
 PASS  C4  control: assertTrustedProject refuses the trustOf() verdict of a never vouched project
 PASS  R5  negotiateWithDevice does not report ui.hierarchy as proved by a FAILED session
+PASS  R6  negotiateWithDevice does not report ui.hierarchy (never declared by the target) as proved
+PASS  C6  control: a declared and proved capability (screen.capture) is still supported in the device layer
+PASS  C6  control: resolveDevice still refuses the over-claiming session  -- code=REMOTE_CAPABILITY_MISSING
 NOTE  A1  ses_1 registered for another target is not usable on tgt_farm  -- accepted (sessionId-only registration)
 NOTE  A2  leaseExpiresAt="12345" is not a live lease  -- Date.parse -> +012344-12-31T15:00:00.000Z
 NOTE  A2  leaseExpiresAt="99999" is not a live lease  -- Date.parse -> +099998-12-31T15:00:00.000Z

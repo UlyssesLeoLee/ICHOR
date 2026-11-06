@@ -103,7 +103,7 @@ def main():
     # The script is idempotent: a marker identifies the note this script owns,
     # so re-running replaces it instead of appending a second copy.
     notes = {
-        'ATS-103': '交付物为验证与证据（产品代码零改动）：tools/ats103-probes/verify-export-and-proxy.mjs '
+        'ATS-103': '交付物为验证与证据，另含一处 CORS 修复：tools/ats103-probes/verify-export-and-proxy.mjs '
                    '25/25 项通过（静态导出产物自洽、导出目录无服务端路由产物、'
                    'Bridge 在 / 提供该导出并带 connect-src CSP、会话/项目/运行三类操作实测成功、'
                    '真实运行 1 PASS/1 FAIL 共 2 例并采集 28 个产物）；'
@@ -114,6 +114,10 @@ def main():
                    '五个变异划出各条断言的真实边界：声明了 force-static 的路由 handler 会被预渲染进 '
                    'out/api/** 并由文件树断言拦下，烘焙基址会被可执行判别（页面按主机名 localhost 打开，'
                    '记录 API 请求实际去的 host）变红。'
+                   '此外合入 dev 后发现并修掉一处产品缺陷：server/index.mjs 的 CORS 段给白名单内的 '
+                   'Origin 设了 Allow-Methods/Allow-Headers/Vary 却没有设 Access-Control-Allow-Origin，'
+                   '浏览器因此拦掉全部跨源响应；修法是把该头设回该 Origin，回归用例 IT-SEC-002B '
+                   '断言白名单 Origin 被原样回显（去掉该头即红、加回即绿）。'
                    '详见 docs/22-FRONTEND-EXPORT.md §2',
         'ATS-104': '前置 ATS-103 已交付静态导出基线：apps/studio/out 可由 Bridge 直接提供（server/index.mjs '
                    '的 staticFile() 以该目录为静态根），本项的 Tauri 壳可直接加载该导出；'

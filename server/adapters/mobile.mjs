@@ -40,12 +40,47 @@ import {
   MOBILE_REJECTION,
   MobileTargetError,
   assertRegisteredSession,
+  provableCapabilities,
   resolveSession,
   sessionUsability,
 } from './mobile-target.mjs';
 
 /** The reason every engine capability carries: there is no driver yet. */
 const NO_DRIVER = 'the mobile runner has no driver yet; the Android adapter is ATS-603';
+
+/**
+ * Why one device capability is NOT supported by this session.
+ *
+ * The reason names the rule that refused it, because an unsupported
+ * capability without a reason is not an actionable report. The rules, in
+ * the order they are checked:
+ *
+ *   1. the session cannot be used at all (`not usable (<reason>)`);
+ *   2. the session belongs to another target;
+ *   3. the session claims a capability the target never declared
+ *      (`not declared by target`);
+ *   4. the session simply did not prove it.
+ *
+ * Rule 3 is the one that keeps the device layer and the resolve path in
+ * agreement: a claim the target never declared was never proven, so it
+ * must not carry the "proved" evidence.
+ */
+function unsupportedReason(name, s, t, usability, undeclared, targetMismatch) {
+  if (!usability.usable) {
+    return `the session ${s ? s.sessionId : '(none)'} is not usable (${usability.reason})`;
+  }
+  if (targetMismatch) {
+    return `the session ${s.sessionId} belongs to target ${s.targetId}, not to the target asked about`;
+  }
+  if (!t) {
+    // Without a target nothing is declared, so the session proves nothing.
+    return `there is no target, so the session ${s.sessionId} proves no capability`;
+  }
+  if (undeclared.includes(name)) {
+    return `the session ${s.sessionId} claims ${name}: not declared by target ${t.targetId}, so it was never proven`;
+  }
+  return `the session ${s.sessionId} did not prove ${name}`;
+}
 
 /**
  * The mobile adapter.
@@ -95,13 +130,22 @@ export function createMobileAdapter(opts = {}) {
      * reports every capability as UNSUPPORTED with the reason, and never
      * carries the "proved" evidence: a failed session that still claims
      * to have proved `ui.hierarchy` would be a false piece of evidence.
+     *
+     * A session that claims a capability its TARGET never declared proves
+     * it just as little -- the claim was never proven, so it is reported
+     * as unsupported with the reason, and no evidence is attached. The
+     * target in question is the one the CALLER asks about
+     * (`context.target`), so the device layer answers the same question
+     * the resolve path asks.
      */
     device: {
       contractVersion: DEVICE_CONTRACT_VERSION,
       capabilities(context = {}) {
         const s = context.session ?? session;
+        const t = context.target ?? target;
         const usability = sessionUsability(s);
-        const available = usability.usable ? new Set(s.capabilities) : new Set();
+        const { provable, undeclared, targetMismatch } = provableCapabilities(t, s);
+        const available = usability.usable ? new Set(provable) : new Set();
         return MOBILE_CAPABILITIES.map((name) => (
           available.has(name)
             ? deviceCapability(name, true, {
@@ -109,9 +153,7 @@ export function createMobileAdapter(opts = {}) {
               detail: { sessionId: s.sessionId, targetId: s.targetId },
             })
             : deviceCapability(name, false, {
-              reason: usability.usable
-                ? `the session ${s.sessionId} did not prove ${name}`
-                : `the session ${s ? s.sessionId : '(none)'} is not usable (${usability.reason})`,
+              reason: unsupportedReason(name, s, t, usability, undeclared, targetMismatch),
               detail: { sessionId: s ? s.sessionId : null, sessionState: s ? s.state : null },
             })
         ));
