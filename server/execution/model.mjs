@@ -111,6 +111,159 @@ export const CASE_STATUS = Object.freeze({
   UNKNOWN: 'unknown',
 });
 
+/**
+ * The OUTCOME of one execution: did it behave the way the case was declared
+ * to behave?
+ *
+ * THIS IS NOT THE SAME QUESTION AS THE STATUS.
+ *
+ * The STATUS says what happened ("the assertion failed"). The OUTCOME says
+ * whether that was EXPECTED ("the case declares `test.fail()`, so a failure
+ * is the expected outcome").
+ *
+ * Playwright reports both, and the report is the authority:
+ *
+ *   * `expectedStatus` -- what the case declared it wanted (`passed` by
+ *     default, `failed` after `test.fail()`);
+ *   * `status` -- the case level verdict the engine reached:
+ *     `expected` (it behaved as declared), `unexpected` (it did not),
+ *     `flaky` (it needed a retry), `skipped`.
+ *
+ * WITHOUT the expected status, the verdict of a `test.fail()` case is
+ * INVERTED: the engine says `expected` (the case failed on purpose) and a
+ * model that only looks at the raw result status calls that failure a
+ * `failed` case. The measured symptom was a run that Playwright judged
+ * `passed` (exit code 0) while the summary reported `failed: 1`.
+ *
+ * The vocabulary mirrors the engine's own:
+ *
+ *   expected   -- it behaved as the case declared
+ *   unexpected -- it did NOT behave as the case declared
+ *   skipped    -- it did not run
+ *   unknown   -- the engine did not say
+ */
+export const OUTCOME = Object.freeze({
+  EXPECTED: 'expected',
+  UNEXPECTED: 'unexpected',
+  FLAKY: 'flaky',
+  SKIPPED: 'skipped',
+  UNKNOWN: 'unknown',
+});
+
+/**
+ * The OUTCOME of an execution, derived from the report.
+ *
+ * The rule is the engine's own rule, applied to the two facts the report
+ * carries: the result level status (what happened) and the expected status
+ * (what was declared).
+ *
+ *   * the case was SKIPPED          -> `skipped`
+ *   * it behaved as declared        -> `expected`
+ *   * it did not behave as declared -> `unexpected`
+ *
+ * A result the engine does not report (no status at all) is `unknown`: the
+ * engine did not say, so the model does not guess.
+ *
+ * @param {string|null} status the RESULT level status (`passed` / `failed` / ...)
+ * @param {string|null} expectedStatus what the case declared it wanted
+ * @returns {string} one of the OUTCOME values
+ */
+export function outcomeOf(status, expectedStatus) {
+  const result = String(status ?? '').toLowerCase();
+  if (result === 'skipped') return OUTCOME.SKIPPED;
+  if (!result) return OUTCOME.UNKNOWN;
+  // Without a declared expectation the only honest answer is "we do not
+  // know": a result without an expectation cannot be called expected or
+  // unexpected. Engines that declare no expectation (WDIO) therefore report
+  // their raw status instead of an outcome.
+  if (!expectedStatus) return OUTCOME.UNKNOWN;
+  const expected = String(expectedStatus).toLowerCase();
+  // `timedOut` and `interrupted` are failures of the execution itself, and
+  // they are never what the case declared.
+  const behaved = result === 'passed' ? expected === 'passed'
+    : result === 'failed' ? expected === 'failed'
+      : false;
+  return behaved ? OUTCOME.EXPECTED : OUTCOME.UNEXPECTED;
+}
+
+/**
+ * The OUTCOME of a case, from the outcomes of its PROJECTS.
+ *
+ * The rule is the engine's own:
+ *
+ *   1. every project skipped              -> `skipped`
+ *   2. some project unexpected             -> `unexpected`
+ *      (the case did NOT behave as declared in at least one project)
+ *   3. some project flaky                  -> `flaky`
+ *      (it needed a retry in at least one project)
+ *   4. every project expected              -> `expected`
+ *
+ * The outcomes are the outcomes of the PROJECTS of the case, in the order
+ * the projects ran. A case that ran in one project only has one outcome.
+ *
+ * An outcome of `unknown` (no declared expectation) does not decide
+ * anything: a case whose projects say nothing keeps the `unknown` outcome,
+ * and the STATUS aggregation decides it.
+ */
+export function aggregateOutcomes(outcomes) {
+  const list = Array.isArray(outcomes) ? outcomes : [];
+  const known = list.filter((o) => o !== OUTCOME.UNKNOWN);
+  if (!known.length) return OUTCOME.UNKNOWN;
+  if (list.every((o) => o === OUTCOME.SKIPPED)) return OUTCOME.SKIPPED;
+  if (known.some((o) => o === OUTCOME.UNEXPECTED)) return OUTCOME.UNEXPECTED;
+  if (known.some((o) => o === OUTCOME.FLAKY)) return OUTCOME.FLAKY;
+  return OUTCOME.EXPECTED;
+}
+
+/**
+ * The OUTCOME of one PROJECT of a case, from the engine's verdict.
+ *
+ * The engine's verdict already answers the question: `expected` means the
+ * project behaved as the case declared, `unexpected` means it did not,
+ * `flaky` means it needed a retry, `skipped` means it did not run.
+ */
+export function outcomeOfVerdict(verdict) {
+  switch (verdict) {
+    case CASE_STATUS.PASSED: return OUTCOME.EXPECTED;
+    case CASE_STATUS.FAILED: return OUTCOME.UNEXPECTED;
+    case CASE_STATUS.FLAKY: return OUTCOME.FLAKY;
+    case CASE_STATUS.SKIPPED: return OUTCOME.SKIPPED;
+    default: return OUTCOME.UNKNOWN;
+  }
+}
+
+/**
+ * The CASE level status, from the verdicts of its PROJECTS.
+ *
+ * This is the rule Playwright itself applies to a spec that ran in several
+ * projects (measured against @playwright/test 1.64.1):
+ *
+ *   1. some project `unexpected`  -> `failed`
+ *      (the case did not behave as declared in at least one project)
+ *   2. some project `flaky`       -> `flaky`
+ *      (it needed a retry in at least one project)
+ *   3. every project `skipped`    -> `skipped`
+ *   4. otherwise                  -> `passed`
+ *
+ * WITHOUT the per-project verdicts the model cannot tell "the case failed in
+ * project b only" (a failure) from "the case failed once and passed on the
+ * retry" (a flaky case): both look like "some attempt failed, some attempt
+ * passed". The verdicts are what tell them apart, so they are used when the
+ * engine provides them.
+ *
+ * Returns null when no verdict is known -- the caller then falls back to
+ * the aggregation of the attempt statuses (which is what an engine that
+ * declares no per-project verdict, such as WDIO, needs).
+ */
+export function aggregateVerdicts(verdicts) {
+  const list = (Array.isArray(verdicts) ? verdicts : []).filter((v) => v);
+  if (!list.length) return null;
+  if (list.some((v) => v === CASE_STATUS.FAILED)) return CASE_STATUS.FAILED;
+  if (list.some((v) => v === CASE_STATUS.FLAKY)) return CASE_STATUS.FLAKY;
+  if (list.every((v) => v === CASE_STATUS.SKIPPED)) return CASE_STATUS.SKIPPED;
+  return CASE_STATUS.PASSED;
+}
+
 /** Every status of the common result model. */
 export const RESULT_STATUSES = Object.freeze([
   CASE_STATUS.PASSED,
@@ -211,6 +364,15 @@ export function caseIdentity(execution) {
  *      attempt of a retried case is still there with its own `failed`
  *      status and its own error.
  *
+ * THE COUNTED STATUS IS THE OUTCOME, NOT THE RAW STATUS.
+ *
+ * The status a reader counts is the one the ENGINE counted: a case that
+ * declares `test.fail()` and fails is an `expected` outcome, so it is a
+ * `passed` case for the run -- exactly what Playwright's own `stats` says.
+ * Counting the raw result status instead would report the expected failure
+ * as a failed case while the engine exits 0, and the summary would
+ * contradict the exit code.
+ *
  * The counters are computed from the CASES, never from the executions: a
  * retried case is ONE case, so it is counted ONCE. The number of
  * executions is reported separately, as `executions`.
@@ -238,14 +400,21 @@ export function aggregateCases(executions) {
     }
     const group = groups.get(key);
     group.attempts.push({
-      // The result level status of THIS execution.
+      // The result level status of THIS execution: what happened.
       status,
+      // What the case declared it wanted (`passed` by default, `failed`
+      // after `test.fail()`), and therefore whether THIS execution behaved
+      // as declared. Without the declared expectation the outcome is
+      // `unknown`, not a guess.
+      expectedStatus: raw.expectedStatus ?? null,
+      outcome: raw.outcome ?? outcomeOf(raw.status, raw.expectedStatus),
       // The retry index of this execution (0 = the first try).
       retry: Number.isInteger(raw.retry) ? raw.retry : group.attempts.length,
       duration: Number.isFinite(raw.duration) ? raw.duration : 0,
       error: raw.error ?? '',
       at: raw.at ?? null,
     });
+    group.caseKey = key;
   }
 
   const cases = [];
@@ -256,8 +425,16 @@ export function aggregateCases(executions) {
       file: group.file,
       line: group.line,
       column: group.column,
+      // The key the case is grouped by: the parser of the report decides
+      // it, and it is kept so that a caller can attach the engine's own
+      // per-project verdicts to the case afterwards.
+      caseKey: group.caseKey,
       // The CASE level status: the aggregate of the attempts.
       status: aggregate.status,
+      // The aggregate of the OUTCOMES, next to the aggregate of the raw
+      // statuses: a reader that wants the engine's own verdict reads it
+      // here.
+      outcome: aggregate.outcome,
       // The attempts, in order. The first attempt of a retried case is
       // still here -- with its own status and its own error.
       attempts: group.attempts,
@@ -288,7 +465,6 @@ export function aggregateCases(executions) {
     executions: cases.reduce((n, c) => n + c.attemptsCount, 0),
   };
 }
-
 /**
  * The case level status of a list of attempts, and the error to report.
  *
@@ -303,10 +479,23 @@ export function aggregateCases(executions) {
  *
  * A case that failed once and then passed is FLAKY, not passed: the case
  * needed a retry, and a reader who only sees `passed` cannot know that.
+ *
+ * THE OUTCOME IS AGGREGATED SEPARATELY, and it is the OUTCOME that decides
+ * whether a case counts as passed or failed:
+ *
+ *   1. every attempt skipped             -> `skipped`
+ *   2. every attempt expected            -> `expected`
+ *   3. some expected and some unexpected -> `unexpected`
+ *   4. every attempt unexpected          -> `unexpected`
+ *   5. otherwise                         -> `unknown`
+ *
+ * A case whose attempts all have an unknown outcome (an engine that declares
+ * no expectation) keeps the STATUS aggregation, so the two never disagree
+ * about a case that has no outcome at all.
  */
 export function aggregateAttempts(attempts) {
   const list = Array.isArray(attempts) ? attempts : [];
-  if (!list.length) return { status: CASE_STATUS.UNKNOWN, error: '' };
+  if (!list.length) return { status: CASE_STATUS.UNKNOWN, outcome: OUTCOME.UNKNOWN, error: '' };
 
   const statuses = list.map((a) => a.status);
   const has = (s) => statuses.includes(s);
@@ -319,11 +508,38 @@ export function aggregateAttempts(attempts) {
   else if (has(CASE_STATUS.FAILED)) status = CASE_STATUS.FAILED;
   else status = CASE_STATUS.UNKNOWN;
 
-  // The error of the case is the error of the FIRST failing attempt.
+  // The OUTCOME aggregation. The outcomes are only known when the engine
+  // declared an expectation; an attempt without one has the `unknown`
+  // outcome, and an unknown outcome never decides the case.
+  const outcome = aggregateOutcomes(list.map((a) => a.outcome ?? OUTCOME.UNKNOWN));
+
+  // The status of the case follows the OUTCOME when the outcome is known:
+  // the engine's own verdict is the authority, and the raw result statuses
+  // are only a fallback for an engine that declares no expectation.
+  //
+  // THE FLAKY OUTCOME IS NOT A VERDICT, IT IS A FACT ABOUT THE HISTORY: it
+  // says the case needed a retry. It therefore never overrides the status
+  // the raw statuses produced -- the status aggregation already knows
+  // whether the retry RECOVERED the case (some passed and some failed ->
+  // `flaky`) or whether it did not (every attempt failed -> `failed`).
+  // Only the two outcomes that CHANGE the verdict act on the status:
+  if (outcome === OUTCOME.EXPECTED && status === CASE_STATUS.FAILED) {
+    // Every attempt failed, but every attempt was SUPPOSED to fail: the
+    // case is `passed` for the run, exactly as the engine counts it.
+    status = CASE_STATUS.PASSED;
+  } else if (outcome === OUTCOME.UNEXPECTED && status === CASE_STATUS.PASSED) {
+    // Every attempt passed, but the case declared it wanted to fail: the
+    // case is `failed` for the run -- an unexpected pass is a defect.
+    status = CASE_STATUS.FAILED;
+  } else if (outcome === OUTCOME.SKIPPED && status !== CASE_STATUS.SKIPPED) {
+    status = CASE_STATUS.SKIPPED;
+  }
+
+  // The error of the case is the error of its FIRST failing attempt.
   const firstFailure = list.find((a) => a.status === CASE_STATUS.FAILED && a.error);
   const error = firstFailure ? firstFailure.error : (list.find((a) => a.error)?.error ?? '');
 
-  return { status, error };
+  return { status, outcome, error };
 }
 
 /* ------------------------------------------------------------------ */
@@ -373,6 +589,10 @@ export function parseReport(report) {
   /** The ordinal of every spec, so that two specs with the same identity
    *  (the same file, the same title and NO line) stay two cases. */
   let specOrdinal = 0;
+  /** The verdict of every PROJECT of every case, keyed by the case key.
+   *  The verdict is what the engine itself concluded about the case in
+   *  that project (`expected` / `unexpected` / `flaky` / `skipped`). */
+  const verdicts = new Map();
 
   function walk(s) {
     for (const x of s.specs || []) {
@@ -385,13 +605,21 @@ export function parseReport(report) {
       const caseKey = `${file} ${x.title ?? ''} ${line} #${specOrdinal++}`;
       for (const t of x.tests || []) {
         const caseStatus = t.status || 'unknown';
+        // What the case DECLARED it wanted: `passed` by default, `failed`
+        // after `test.fail()`. The report carries it per TEST (i.e. per
+        // project), so it is read from there and not from the spec.
+        const expectedStatus = t.expectedStatus ?? null;
+        // The engine's own verdict for this project of the case.
+        const verdict = mapEngineStatus(caseStatus);
+        if (!verdicts.has(caseKey)) verdicts.set(caseKey, []);
+        verdicts.get(caseKey).push(verdict);
         const results = Array.isArray(t.results) && t.results.length ? t.results : [];
         if (!results.length) {
           // A case with no execution: it was skipped or it never ran. It
           // still exists, and it is still counted ONCE.
           executions.push({
             title: x.title, file, line, column, caseKey,
-            status: caseStatus, retry: 0, duration: 0, error: '',
+            status: caseStatus, expectedStatus, retry: 0, duration: 0, error: '',
           });
           continue;
         }
@@ -402,6 +630,10 @@ export function parseReport(report) {
             // carries no status, the case level status is the best the
             // report says.
             status: r.status ?? caseStatus,
+            // The declared expectation travels with the execution, so the
+            // OUTCOME of this execution (did it behave as declared?) can be
+            // derived without the whole report.
+            expectedStatus,
             retry: Number.isInteger(r.retry) ? r.retry : index,
             duration: Number.isFinite(r.duration) ? r.duration : 0,
             error: r.error?.message || '',
@@ -413,7 +645,44 @@ export function parseReport(report) {
   }
 
   for (const suite of report?.suites || []) walk(suite);
-  return { ...aggregateCases(executions), rootDir };
+  const aggregated = aggregateCases(executions);
+  // The engine's per-project verdicts decide the case level status and
+  // outcome when the engine provides them. They are what tell "the case
+  // failed in project b only" (a failure) from "the case failed once and
+  // passed on the retry" (a flaky case) apart.
+  for (const c of aggregated.cases) {
+    const key = c.caseKey;
+    const projectVerdicts = verdicts.get(key);
+    if (!projectVerdicts) continue;
+    const status = aggregateVerdicts(projectVerdicts);
+    if (status !== null) c.status = status;
+    c.outcome = aggregateOutcomes(projectVerdicts.map(outcomeOfVerdict));
+  }
+  // The counters are computed from the FINAL statuses: the verdicts may
+  // have changed them, and a counter that does not match the cases it
+  // counts is a lie.
+  return { ...countCases(aggregated.cases), cases: aggregated.cases, rootDir };
+}
+
+/**
+ * The counters of a list of cases.
+ *
+ * The counters count the CASES, never the executions: a retried case is
+ * ONE case, so it is counted ONCE. The number of executions is reported
+ * separately, as `executions`.
+ */
+export function countCases(cases) {
+  const list = Array.isArray(cases) ? cases : [];
+  return {
+    passed: list.filter((c) => c.status === CASE_STATUS.PASSED).length,
+    failed: list.filter((c) => c.status === CASE_STATUS.FAILED).length,
+    skipped: list.filter((c) => c.status === CASE_STATUS.SKIPPED).length,
+    flaky: list.filter((c) => c.status === CASE_STATUS.FLAKY).length,
+    // `total` counts the CASES. A retried case is still one case.
+    total: list.length,
+    // `executions` counts the attempts.
+    executions: list.reduce((n, c) => n + (c.attemptsCount ?? 0), 0),
+  };
 }
 
 /**
@@ -471,6 +740,8 @@ function attemptsOfCase(c) {
   if (Array.isArray(c.attempts)) return c.attempts;
   return [{
     status: mapEngineStatus(c.resultStatus ?? c.status),
+    expectedStatus: c.expectedStatus ?? null,
+    outcome: c.outcome ?? outcomeOf(c.resultStatus ?? c.status, c.expectedStatus),
     retry: Number.isInteger(c.retry) ? c.retry : 0,
     duration: Number.isFinite(c.duration) ? c.duration : 0,
     error: c.error ?? '',
@@ -546,9 +817,18 @@ export function attemptsForRun(run, summary, registry) {
         // The case level status would describe the case as a whole and
         // would report "flaky" for the failed retry as well.
         status: attempt.status,
+        // What the case DECLARED it wanted (`passed` by default, `failed`
+        // after `test.fail()`), and whether THIS execution behaved as
+        // declared. Without the declared expectation the outcome is
+        // `unknown` -- the model does not guess.
+        expectedStatus: attempt.expectedStatus ?? null,
+        outcome: attempt.outcome ?? OUTCOME.UNKNOWN,
         // The case level status next to it: the aggregate of the attempts of
         // the case this attempt belongs to.
         caseStatus: Array.isArray(c.attempts) ? c.status : mapEngineStatus(c.status),
+        // The OUTCOME of the case next to it: the aggregate of the outcomes
+        // of its attempts.
+        caseOutcome: Array.isArray(c.attempts) ? (c.outcome ?? OUTCOME.UNKNOWN) : OUTCOME.UNKNOWN,
         duration: attempt.duration,
         error: attempt.error || ''
       });
@@ -670,11 +950,25 @@ export function statusOfEvent(event) {
  * arrive: the sequence number is the order the model defines, so a stream
  * that is read out of order still replays correctly.
  *
+ * THE REPLAY ALSO CHECKS THE STATE MACHINE.
+ *
+ * Folding the events yields a status, but a status is not enough: a stream
+ * that violates `RUN_TRANSITIONS` describes a run that never existed. The
+ * replay therefore reports the violations it found, and a stream with
+ * violations is NOT a valid description of a run -- so the answer says so
+ * instead of agreeing with a contradictory record.
+ *
+ * The check follows the same rule as the writer: an event is written BEFORE
+ * the status changes, so each event names the status the run is LEAVING.
+ * The `run.queued` event is the exception: it is written while the run is
+ * still `queued`.
+ *
  * @param {object[]} events the events of the run
- * @returns {{status:string|null,terminal:boolean,sequence:number[],gaps:number[],events:object[]}}
+ * @returns {{status:string|null,terminal:boolean,sequence:number[],gaps:number[],events:object[],valid:boolean,violations:object[]}}
  *   `status` is null when the events determine no status (an empty stream,
  *   or a stream that ends before the run reached one). `gaps` lists the
- *   sequence numbers that are missing from the stream.
+ *   sequence numbers that are missing from the stream. `violations` lists
+ *   the events that the state machine does not allow.
  */
 export function replayEvents(events) {
   const list = (Array.isArray(events) ? events : [])
@@ -683,9 +977,26 @@ export function replayEvents(events) {
     .sort((a, b) => (Number(a.seq) || 0) - (Number(b.seq) || 0));
 
   let status = null;
+  // The status the run is in, as the events describe it. It starts out
+  // unknown: the first event has to tell us where the run was.
+  let current = null;
+  const violations = [];
   for (const event of list) {
     const implied = statusOfEvent(event);
     if (implied !== null) status = implied;
+    // The state machine check. An event is written BEFORE the status
+    // changes, so the status the run is in when the event is written is
+    // the status the PREVIOUS event left behind.
+    if (!isAllowedTransition(current, event.type)) {
+      violations.push({
+        seq: Number(event.seq) || 0,
+        type: event.type,
+        from: current,
+        to: implied,
+        reason: `the event ${event.type} is not allowed from the status ${current}`,
+      });
+    }
+    if (implied !== null) current = implied;
   }
 
   const sequence = list.map((e) => Number(e.seq) || 0);
@@ -700,6 +1011,9 @@ export function replayEvents(events) {
     sequence,
     gaps,
     events: list,
+    // A stream that violates the state machine does not describe a run.
+    valid: violations.length === 0,
+    violations,
   };
 }
 
@@ -714,6 +1028,54 @@ export function replayEvents(events) {
 export function nextEventSeq(run) {
   const current = Number(run?.eventSeq);
   return Number.isInteger(current) && current > 0 ? current + 1 : 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* The durable event log                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Reads the durable event log of a run.
+ *
+ * THE LOG MAY BE DAMAGED, and a damaged log must not take the bridge down.
+ *
+ * A crash in the middle of an append leaves a TORN last line: a fragment of
+ * JSON that does not parse. The reader therefore does not `JSON.parse` the
+ * whole file and hope: it parses line by line, SKIPS the lines that do not
+ * parse, and REPORTS them. A reader that threw on the first bad line would
+ * answer `/events` and `/replay` with a 500 for the rest of the run's life,
+ * and the run would become unreadable because of one torn byte.
+ *
+ * The skipped lines are reported so that the damage is visible: a reader
+ * that silently drops an event cannot tell "the run did that" from "the log
+ * lost that".
+ *
+ * @param {string} text the content of `events.jsonl`
+ * @returns {{events:object[],unreadable:number[],truncated:boolean}}
+ *   `unreadable` lists the 1-based line numbers that could not be parsed.
+ *   `truncated` is true when the file does not end with a newline, i.e.
+ *   when the last line may be torn.
+ */
+export function parseEventLog(text) {
+  const events = [];
+  const unreadable = [];
+  const raw = String(text ?? '');
+  if (!raw.trim()) return { events, unreadable, truncated: false };
+  const lines = raw.split('\n');
+  // A file that does not end with a newline has a torn last line: the
+  // writer was interrupted in the middle of the append.
+  const truncated = !raw.endsWith('\n') && lines.length > 0;
+  lines.forEach((line, index) => {
+    if (!line.trim()) return;
+    try {
+      const parsed = JSON.parse(line);
+      if (parsed && typeof parsed === 'object') events.push(parsed);
+      else unreadable.push(index + 1);
+    } catch {
+      unreadable.push(index + 1);
+    }
+  });
+  return { events, unreadable, truncated };
 }
 
 /* ------------------------------------------------------------------ */
@@ -749,7 +1111,10 @@ export function runView(run, executions = []) {
         line: c.line,
         retry: attempt.retry,
         status: attempt.status,
+        expectedStatus: attempt.expectedStatus ?? null,
+        outcome: attempt.outcome ?? OUTCOME.UNKNOWN,
         caseStatus: c.status,
+        caseOutcome: c.outcome ?? OUTCOME.UNKNOWN,
         duration: attempt.duration,
         error: attempt.error,
       });
@@ -770,11 +1135,14 @@ export function runView(run, executions = []) {
         title: c.title,
         file: c.file,
         status: c.status,
+        outcome: c.outcome ?? OUTCOME.UNKNOWN,
         duration: c.duration,
         error: c.error,
         attemptsCount: c.attemptsCount,
         attempts: c.attempts.map((a) => ({
           status: a.status,
+          expectedStatus: a.expectedStatus ?? null,
+          outcome: a.outcome ?? OUTCOME.UNKNOWN,
           retry: a.retry,
           duration: a.duration,
           error: a.error,

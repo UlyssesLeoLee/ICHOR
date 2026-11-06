@@ -59,6 +59,40 @@ ATS-208 的交付物是「执行状态机 v2」：把执行模型的四个概念
 报 `passed` 是凭空造一次成功。映射是**幂等**的：通用词表里的状态映射到自身，
 所以对模型输出再映射一次不会把它毁掉。
 
+### 3.1.1 状态与判定：两个不同的词表（ATS-208 第 2 轮修正）
+
+**status 说的是「发生了什么」，outcome 说的是「是否符合声明」。**
+
+第 1 轮复核实测到的缺陷 B1：只看 attempt 的原始状态，会把 `test.fail()` 的
+**预期失败**算成 `failed` 用例。而 Playwright 自己的判定是 `expected`、引擎
+退出码是 0——summary 与退出码自相矛盾。实测症状：一个 Playwright 判定为
+`passed` 的 run，summary 报 `failed: 1`。
+
+因此模型有第二个词表：
+
+| 词表 | 含义 | 取值 |
+|---|---|---|
+| `status` | 发生了什么 | `passed` / `failed` / `skipped` / `flaky` / `unknown` |
+| `outcome` | 是否符合声明 | `expected` / `unexpected` / `flaky` / `skipped` / `unknown` |
+
+- 引擎声明了 `expectedStatus`（`test.fail()` 之后是 `failed`）时，这一次执行
+  的 outcome 是 `expected` 或 `unexpected`；引擎没声明时 outcome 是 `unknown`
+  ——**不猜测**。
+- Case 的 outcome 由它**各 project** 的 outcome 聚合：某个 project
+  `unexpected` → `unexpected`；某个 project `flaky` → `flaky`；全部 `skipped`
+  → `skipped`；否则 `expected`。
+- Case 的**状态**在 outcome 已知时由 outcome 决定：`expected` 且全部 attempt
+  失败 → `passed`（预期失败是成功）；`unexpected` 且全部 attempt 通过 →
+  `failed`（意外通过是缺陷）。outcome 为 `flaky` 时不覆盖状态——状态聚合
+  本来就知道重试有没有救回来。
+- **Attempt 仍然保留自己的原始 `status` 和自己的错误**：预期失败的那一次
+  执行确实失败了，这个事实不能因为它「符合预期」而消失。
+
+**为什么需要各 project 的判定**：一个用例跨多个 project 时，「在 project b
+里失败」（`failed`）和「第一次失败、重试通过」（`flaky`）的 attempt 分布看起来
+一模一样（有的失败有的通过），只有引擎的判定能区分。模型因此在
+`parseReport` 里读出每个 project 的判定并用它决定 Case 的状态。
+
 ### 3.2 「重试不覆盖初次尝试」
 
 Playwright 报告是三层嵌套的：
@@ -93,6 +127,13 @@ Case 的状态是它**全部 attempt 的聚合**，规则是确定的：
 - 同一 case 的各 attempt 绑定到**同一个** TestDefinition UID（逐条绑定会让
   一个 flaky 用例的两个 attempt 落到两个 UID 上，历史就没法读了）。
 
+**WDIO 的重试**（第 2 轮修正）：实测 @wdio/reporter 10.1.0，`test:start`
+每次都推一条**新条目**，所以一个重试用例在 suite 里表现为**连续同名**的两条
+条目；json reporter 不带重试序号，因此重试序号就是条目在分组内的位置。
+适配器据此把连续同名的条目合并为**一个 case 的多个 attempt**——与 Playwright
+的形状一致。上一版注释声称「WDIO 多次执行合并为一个 case」，但 `caseKey` 里
+带着执行序号，合并**从未生效**；现在是**真的合并了**。
+
 ### 3.3 「事件可按 run+sequence 复演」
 
 事件流的性质：
@@ -113,6 +154,30 @@ Case 的状态是它**全部 attempt 的聚合**，规则是确定的：
 ATS-208 补上了缺失的 **`run.interrupted`** 事件：Bridge 崩溃时写下它，因此
 被打断的 run 也能复演为 `interrupted`。这是修复前该场景推不出任何状态的原因。
 
+**复演同时校验状态机**（第 2 轮修正）：`replayEvents` 按 `RUN_TRANSITIONS`
+逐条检查事件流，答案带 `valid` 与 `violations`。一条违反状态机的流（例如
+`[queued, started, finished(passed), interrupted]`）描述的是一个从未存在过
+的 run，因此它**不得**报 `agrees: true`。
+
+### 3.3.1 恢复以持久日志为准（第 2 轮修正）
+
+第 1 轮复核实测到四个恢复场景的缺陷（B2/B3/B4/B5）。现在：
+
+| 场景 | 修复前 | 修复后 |
+|---|---|---|
+| run 目录缺失 | Bridge 启动即 ENOENT 退出，**每次重启都崩** | 降级：记录问题、run 恢复为终态、Bridge 照常启动 |
+| 日志尾行被撕裂 | `/events` 与 `/replay` **永久 500** | 逐行解析、跳过并报告无法解析的行；写入方先补一个换行 |
+| 日志已有终态事件、状态还没存 | 在终态事件之后追加 `run.interrupted`，事件流违反状态机却报 `agrees: true` | 采用日志的终态，**不追加任何事件**；复演报告 `valid: false` 与 `violations` |
+| 死于 `cancelling` | 永远停在 `cancelling`（非终态），占住项目运行锁，`/stop` 返回 500 | 写 `run.interrupted` 进入终态；`/stop` 释放它 |
+
+规则的措辞：
+
+- 日志里**已有终态事件**时，采用该终态，**不再追加任何事件**；
+- 日志里没有终态事件、而 run 停在 `queued` / `running` / **`cancelling`** 时，
+  写下 `run.interrupted` 并进入终态；
+- 日志**缺失、不可读或尾行被撕裂**时降级——**一个损坏的 run 不得拖垮整个
+  安装**。
+
 ### 3.4 事件住在三处
 
 | 位置 | 作用 |
@@ -131,8 +196,8 @@ ATS-208 补上了缺失的 **`run.interrupted`** 事件：Bridge 崩溃时写下
 
 | 端点 | 作用 |
 |---|---|
-| `GET /api/runs/:id/events` | 事件的原始流（既有） |
-| `GET /api/runs/:id/replay` | **新增**：复演结果、与 run 记录是否一致、序号空洞 |
+| `GET /api/runs/:id/events` | 事件的原始流（既有），外加日志损坏报告 `unreadable` / `missing` / `truncated` |
+| `GET /api/runs/:id/replay` | **新增**：复演结果、与 run 记录是否一致、序号空洞、状态机校验 |
 
 复演的响应：
 
@@ -142,30 +207,36 @@ ATS-208 补上了缺失的 **`run.interrupted`** 事件：Bridge 崩溃时写下
   "status": "interrupted",
   "replayedStatus": "interrupted",
   "agrees": true,
+  "valid": true,
+  "violations": [],
   "terminal": true,
   "sequence": [1, 2, 3],
   "gaps": [],
-  "events": [ ... ]
+  "events": [ ... ],
+  "unreadable": [],
+  "missing": false,
+  "truncated": false
 }
 ```
 
-`agrees` 为 false 有两种情形：复演出的状态与 run 记录不同，或者事件流根本
-推不出状态（`replayedStatus` 为 null）——后者同样是「事件流不描述这个 run」。
+`agrees` 为 false 有三种情形：复演出的状态与 run 记录不同；事件流根本
+推不出状态（`replayedStatus` 为 null）；事件流**违反状态机**（`valid` 为
+false，`violations` 非空）。后两者同样是「事件流不描述这个 run」。
 
 ## 5. 交付物清单
 
 | 文件 | 职责 |
 |---|---|
-| `server/execution/model.mjs` | 统一模型：词表、聚合、报告解析、attempt 绑定、事件词表、状态机、复演 |
+| `server/execution/model.mjs` | 统一模型：词表（status + outcome）、聚合、报告解析、attempt 绑定、事件词表、状态机、复演、日志读取 |
 | `server/core.mjs` | 从模型模块**再导出**既有函数（`parseReport` / `attemptsForRun` 等），既有调用方不受影响 |
-| `server/index.mjs` | 事件写入（先写事件后改状态）、启动恢复写 `run.interrupted`、事件回填、`/replay` 端点 |
-| `server/adapters/playwright.mjs` | `collect()` 改为按 case 聚合（不再把重试摊平） |
-| `server/adapters/wdio.mjs` | `mapWdioStatus` 改用共享映射；`mergeWdioReports` 改用共享聚合 |
+| `server/index.mjs` | 事件写入（先写事件后改状态、修复撕裂的尾行）、启动恢复（以日志为准、`cancelling` 纳入恢复、降级不崩）、`/events` 与 `/replay` 端点 |
+| `server/adapters/playwright.mjs` | `collect()` 改为按 case 聚合（不再把重试摊平），并带出 outcome |
+| `server/adapters/wdio.mjs` | `mapWdioStatus` 改用共享映射；`mergeWdioReports` 改用共享聚合，并把连续同名的重试合并为一个 case |
 | `server/sqlite/schema.mjs` | schema version 3：`events` 表（主键 `(run_uid, seq)`） |
 | `server/sqlite/store.mjs` | 把事件写成可查询的行；`eventsOfRun()` 查询 |
-| `server/sqlite/import.mjs` | 镜像校验覆盖事件（逐条比对 payload 与索引列） |
-| `tests/execution-model.test.mjs` | 19 例 UT：词表、聚合、复演、状态机 |
-| `tests/execution-model-it.test.mjs` | 8 例 IT：Bridge 端到端、崩溃恢复、崩溃窗口下的序号校准、三处一致 |
+| `server/sqlite/import.mjs` | 镜像校验覆盖事件（逐条比对 payload 与索引列），并有负向用例 |
+| `tests/execution-model.test.mjs` | 29 例 UT：词表、聚合、判定语义、复演、状态机、日志读取、状态图与代码一致 |
+| `tests/execution-model-it.test.mjs` | 13 例 IT：Bridge 端到端、崩溃恢复、崩溃窗口下的序号校准、三处一致、日志损坏、终态后不追加事件、`cancelling` 恢复 |
 | `tools/ats208-probes/` | 两个可重跑探针 + 证据收集脚本 |
 | `tools/update_wbs_ats208.py` | WBS 行同步（幂等，XML 转义安全） |
 | `apps/studio/lib/api.ts`、`app/page.tsx` | 前端类型与结果列表同步到统一模型 |
@@ -176,18 +247,38 @@ ATS-208 补上了缺失的 **`run.interrupted`** 事件：Bridge 崩溃时写下
 
 | 项 | 证据 | 结果 |
 |---|---|---|
-| UT | `docs/evidence/ATS-208/01-node-test-execution-model-ut.log` | 19 例全通过 |
-| IT | `docs/evidence/ATS-208/02-node-test-execution-model-it.log` | 8 例全通过 |
-| 全量回归 | `docs/evidence/ATS-208/03-node-test-full.log` | 539 例 / 528 通过 / 0 失败 / 11 跳过 |
+| UT | `docs/evidence/ATS-208/01-node-test-execution-model-ut.log` | 29 例全通过 |
+| IT | `docs/evidence/ATS-208/02-node-test-execution-model-it.log` | 13 例全通过 |
+| 全量回归 | `docs/evidence/ATS-208/03-node-test-full.log` | 583 例 / 583 通过 / 0 失败 / 0 跳过 |
+| 复核探针 | `docs/evidence/ATS-208/11-reviewer-probes.log` | 四个探针全部 `RESULT: 0 failed` |
 | 重试行为 | `docs/evidence/ATS-208/04-probe-current-behaviour.log` | 用例计一次、两次 attempt 各自保留 |
 | 事件复演 | `docs/evidence/ATS-208/05-probe-event-replay.log` | 崩溃场景复演为 `interrupted`，序号无空洞 |
 | ADR 引用 | `docs/evidence/ATS-208/06-adr-citations.log` | RESULT: OK |
 | 质量门 | `docs/evidence/ATS-208/07-quality-gates.log` | RESULT: OK |
 | WBS 行 | `docs/evidence/ATS-208/08-wbs-row.log` | 幂等，openpyxl 两种模式均可加载 |
 | python 门 | `docs/evidence/ATS-208/09-python-gates.log` | 28 通过 / 1 失败（**既有**，见下） |
-| 覆盖率 | `docs/evidence/ATS-208/10-coverage.log` | 模型的聚合/复演/状态机分支均有对应用例 |
+| 覆盖率 | `docs/evidence/ATS-208/10-coverage.log` | 本任务改动的每个 server 文件行覆盖率均 >90% |
+| 缺陷用例的红 | `docs/evidence/ATS-208/12-mutation-evidence.log` | B1–B5 的用例在 `8c9dd79` 上为红 |
 
-### 6.1 自查发现并修掉的两处缺陷
+### 6.1 第 1 轮复核的驳回项与修法
+
+第 1 轮复核（Opus）以 **REJECT** 驳回，列出 8 项必须修改。修法与实测结果：
+
+| # | 驳回项 | 修法 | 实测 |
+|---|---|---|---|
+| B1 | `test.fail()` 的判定被反转，summary 与退出码矛盾 | 模型新增 `outcome` 词表，按引擎的 `expectedStatus` 与各 project 的判定决定 Case 的状态与计数 | 复核探针 `pw-semantics`：4/10 MISMATCH → **0/10**，summary 与 Playwright 的 `stats` 完全一致 |
+| B2 | run 目录缺失时 Bridge 启动即崩 | 恢复路径降级：记录问题、run 仍恢复为终态、Bridge 照常启动 | 探针 `startup-robustness` S1 ok |
+| B3 | 终态事件后仍追加事件；`/replay` 不校验状态机 | 恢复以日志为准（已有终态则采用它、不追加）；复演按 `RUN_TRANSITIONS` 校验并报 `valid`/`violations` | 探针 S3 ok；`UT-EXE-024` 断言 `[queued, started, finished, interrupted]` 为违规 |
+| B4 | 死于 `cancelling` 的 run 永远卡住 | `cancelling` 纳入恢复集合，写 `run.interrupted` 进入终态；`/stop` 释放无 job 的在飞 run | 探针 `bridge-e2e` E3 ok |
+| B5 | 日志尾行撕裂 → `/events` 与 `/replay` 永久 500 | 读取方逐行解析、跳过并报告；写入方在文件不以换行结尾时先补换行 | 探针 S2 ok |
+| B6 | B1–B5 未转为用例；`verifyMirror` 事件比对无负向用例；覆盖率不足 | 每个驳回项都有 UT/IT（在 `8c9dd79` 上为红，已实测）；补 5 个 `verifyMirror` 负向用例；本任务改动的每个 server 文件行覆盖率 >90% | 见 `12-mutation-evidence.log` 与 `10-coverage.log` |
+| B7 | 文档与代码不符 | `docs/04` §3 的状态图与 `RUN_TRANSITIONS` 对齐（补 4 条边、去掉 1 条代码不会走的边），并加 `UT-EXE-028` 守护两者不再漂移 | UT-EXE-028 通过 |
+| B8 | 合并与复跑 | 合并回 `dev`，在合并树上复跑四个探针、全量测试、ATS-301 门禁与 `verify_checksums.py` | 见 `11-reviewer-probes.log` |
+
+复核同时提出的非阻断项也一并处理：W1（WDIO 的重试从未合并）改为**真的合并**，
+并把注释改成事实；多 project 的用例改为由引擎各 project 的判定决定（`UT-EXE-023B`）。
+
+### 6.2 自查发现并修掉的两处缺陷
 
 交付前的自查（`fix(ATS-208)` 两次提交）发现并修掉了两处**本任务自己引入的**
 缺陷。两处都有可证伪的回归用例。
@@ -215,14 +306,22 @@ ATS-208 补上了缺失的 **`run.interrupted`** 事件：Bridge 崩溃时写下
 ## 7. 已知边界
 
 - **真实浏览器 ST 未执行**。本任务的夹具是 **CLI 替身**，它只建模报告的
-  形状（`results[]` 的重试结构），不启动浏览器。真实 Playwright 报告契约的
-  核对仍由 ATS-201 的探针负责（`tools/ats201-probes/flaky-attempt-status-real-pw.mjs`，
-  已同步到新的模型形状）。
-- **多 project 的用例**在报告中是同一 spec 下的多个 `test`，模型把它们算作
-  **同一个 case 的多个 attempt**。跨 project 的 UID 绑定复用 ATS-201 的注册表
-  逻辑，尚未单独验证。
-- **WDIO 的重试**未被实测：WDIO 的 json reporter 不像 Playwright 那样把重试
-  放在 `results[]` 里，因此 WDIO 侧每个 case 通常只有一个 attempt。
+  形状（`results[]` 的重试结构、`expectedStatus`），不启动浏览器。真实
+  Playwright 报告契约的核对由**第 1 轮复核的探针**完成（`pw-semantics`：
+  真实 @playwright/test 1.64.1 生成的报告，10 个用例与引擎判定 0 分歧），
+  ATS-201 的探针继续负责其余部分。
+- **多 project 的用例**：模型按引擎**各 project 的判定**决定 Case 的状态，
+  这一条已有用例覆盖（`UT-EXE-023B`）。但 **attempt 上没有 project 字段**：
+  同一 case 在两个 project 下的两个 `retry:0` attempt 只能靠 occurrence
+  区分。这是**已知边界**，不是已验证的结论。
+- **WDIO 的重试**已实测：@wdio/reporter 10.1.0 每次尝试推一条同名条目，
+  适配器把连续同名的条目合并为一个 case 的多个 attempt（复核探针
+  `wdio-check`：合并前 `total: 2`，合并后 `total: 1, flaky: 1,
+  executions: 2`）。但 WDIO 的 json reporter **不带重试序号**，重试序号由
+  条目在分组内的位置推出——若报告乱序，这个位置就不可靠。
 - **回放（replay 到世界状态）**不在本任务范围内：这里的「复演」指事件流折叠
   出 run 的状态，不是把事件重放成一次新的执行。
+- **事件日志的损坏只被报告，不被修复**：`/events` 与 `/replay` 会跳过无法
+  解析的行并报告行号，但那些事件**没有**被恢复——它们确实丢了。写入方只
+  修复「下一行不要粘在碎片上」这一点。
 - SQLite 层仍是 `state.json` 的**镜像**，不提供查询 API（见 `docs/06-DATA-DESIGN.md` §5）。

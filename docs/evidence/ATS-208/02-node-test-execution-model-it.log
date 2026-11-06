@@ -1,25 +1,30 @@
 === the execution model integration suite ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-1643614c08b5/worktree
-commit    : 69c783b
-branch    : agent/m3/seikoist-169
+repo root : /d/ICHOR
+commit    : a916ad4
+branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ IT-EXE-001: the bridge starts (307.8785ms)
-✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (344.2695ms)
-✔ IT-EXE-003: the events of a run replay into its status, gap-free (18.3259ms)
-✔ IT-EXE-004: the events are in the state file AND in the metadata database (4.0805ms)
-✔ IT-EXE-005: the durable log and the state file carry the same events (0.4014ms)
-✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (1312.2901ms)
-✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (1287.799ms)
-✔ IT-EXE-CLEANUP: stop and cleanup (3.7195ms)
-ℹ tests 8
+✔ IT-EXE-001: the bridge starts (326.519ms)
+✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (344.8406ms)
+✔ IT-EXE-003: the events of a run replay into its status, gap-free (15.8509ms)
+✔ IT-EXE-004: the events are in the state file AND in the metadata database (2.5505ms)
+✔ IT-EXE-005: the durable log and the state file carry the same events (0.4007ms)
+✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (1228.2998ms)
+✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (1190.5972ms)
+✔ IT-EXE-CLEANUP: stop and cleanup (4.9832ms)
+✔ IT-EXE-008: the bridge starts even when the run folder is gone (1374.4305ms)
+✔ IT-EXE-009: a torn event log stays readable (1464.0873ms)
+✔ IT-EXE-010: no event is appended after a terminal event (1468.1937ms)
+✔ IT-EXE-011: a run that was cancelling when the bridge died is recovered (1692.9844ms)
+✔ IT-EXE-012: the summary of a run agrees with the exit code of the engine (735.6555ms)
+ℹ tests 13
 ℹ suites 0
-ℹ pass 8
+ℹ pass 13
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 3378.0766
+ℹ duration_ms 9956.9356
 
 exit code : 0

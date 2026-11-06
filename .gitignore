@@ -44,3 +44,8 @@ conclusion.md
 
 # The review probes are downloaded into the worktree during a review round.
 .probes/
+
+# The reviewer probe material downloaded for a review round: it is INPUT,
+# not a deliverable. The evidence the delivery keeps lives in
+# docs/evidence/ATS-208/.
+.work/
