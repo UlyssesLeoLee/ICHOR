@@ -1,0 +1,12 @@
+=== the coverage of the execution model ===
+repo root : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-3111785a4ef3/worktree
+commit    : 82340dc
+
+ℹ start of coverage report
+ℹ   playwright.mjs        |  99.47 |    87.32 |   93.33 | 318-319
+ℹ   wdio.mjs              |  97.70 |    72.82 |  100.00 | 279-280 346-347 350-351 363-365 518-519 551-552
+ℹ   model.mjs             |  99.35 |    82.01 |   96.88 | 384-388 577-578 765
+ℹ   import.mjs            |  95.92 |    77.55 |   95.12 | 43-50 82-84 284-285 321-323 343-344 525-526 538-539
+ℹ end of coverage report
+ℹ  core.mjs               |  97.82 |    86.10 |   88.71 | 306-309 423 578-579 768-770 1083-1085 1096 1100 1104-1109 1111-1114
+ℹ all files               |  93.35 |    82.14 |   93.11 | 

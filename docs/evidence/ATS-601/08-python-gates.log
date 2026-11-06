@@ -1,0 +1,77 @@
+=== ATS-601 evidence: the python gates ===
+tree : 4ff5c36866f17704a930c1d60d8e55aab4e01e86
+date : 2026-11-06T15:06:38Z
+
+--- pytest (WBS helpers, updaters, test-doc generator) ---
+.....................................                                    [100%]
+============================== warnings summary ===============================
+tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
+  C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+    warn(msg)
+
+tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
+  C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+    warn(msg)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+37 passed, 2 warnings in 8.73s
+
+--- the WBS shared-cell regression ---
+PASS ATS-401 note carrying its own marker is not doubled
+PASS ATS-401 note without the marker yields the same cell
+PASS a second merge of the same block is a no-op
+PASS the merged cell carries the marker exactly once
+PASS the foreign marker survives
+PASS the own marker is present
+PASS 【ATS-101】 is idempotent
+PASS 【ATS-102】 is idempotent
+PASS 【ATS-103】 is idempotent
+PASS 【ATS-201】 is idempotent
+PASS 【ATS-202】 is idempotent
+PASS 【ATS-205】 is idempotent
+PASS 【ATS-206】 is idempotent
+PASS 【ATS-207】 is idempotent
+PASS 【ATS-208】 is idempotent
+PASS 【ATS-212】 is idempotent
+PASS 【ATS-301】 is idempotent
+PASS 【ATS-401】 is idempotent
+PASS 【ATS-501】 is idempotent
+PASS 【ATS-506】 is idempotent
+PASS 【ATS-512】 is idempotent
+PASS 【ATS-601】 is idempotent
+PASS at least one updater declares a marker
+PASS update_wbs_ats101.py declares exactly one marker
+PASS 【ATS-101】 (from update_wbs_ats101.py) is registered in MARKERS
+PASS update_wbs_ats102.py declares exactly one marker
+PASS 【ATS-102】 (from update_wbs_ats102.py) is registered in MARKERS
+PASS update_wbs_ats103.py declares exactly one marker
+PASS 【ATS-103】 (from update_wbs_ats103.py) is registered in MARKERS
+PASS update_wbs_ats201.py declares exactly one marker
+PASS 【ATS-201】 (from update_wbs_ats201.py) is registered in MARKERS
+PASS update_wbs_ats202.py declares exactly one marker
+PASS 【ATS-202】 (from update_wbs_ats202.py) is registered in MARKERS
+PASS update_wbs_ats205.py declares exactly one marker
+PASS 【ATS-205】 (from update_wbs_ats205.py) is registered in MARKERS
+PASS update_wbs_ats206.py declares exactly one marker
+PASS 【ATS-206】 (from update_wbs_ats206.py) is registered in MARKERS
+PASS update_wbs_ats207.py declares exactly one marker
+PASS 【ATS-207】 (from update_wbs_ats207.py) is registered in MARKERS
+PASS update_wbs_ats208.py declares exactly one marker
+PASS 【ATS-208】 (from update_wbs_ats208.py) is registered in MARKERS
+PASS update_wbs_ats212.py declares exactly one marker
+PASS 【ATS-212】 (from update_wbs_ats212.py) is registered in MARKERS
+PASS update_wbs_ats301.py declares exactly one marker
+PASS 【ATS-301】 (from update_wbs_ats301.py) is registered in MARKERS
+PASS update_wbs_ats401.py declares exactly one marker
+PASS 【ATS-401】 (from update_wbs_ats401.py) is registered in MARKERS
+PASS update_wbs_ats501.py declares exactly one marker
+PASS 【ATS-501】 (from update_wbs_ats501.py) is registered in MARKERS
+PASS update_wbs_ats506.py declares exactly one marker
+PASS 【ATS-506】 (from update_wbs_ats506.py) is registered in MARKERS
+PASS update_wbs_ats512.py declares exactly one marker
+PASS 【ATS-512】 (from update_wbs_ats512.py) is registered in MARKERS
+PASS update_wbs_ats601.py declares exactly one marker
+PASS 【ATS-601】 (from update_wbs_ats601.py) is registered in MARKERS
+PASS the declared markers are exactly MARKERS
+
+all checks passed

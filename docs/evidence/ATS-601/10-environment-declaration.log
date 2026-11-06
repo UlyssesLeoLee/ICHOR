@@ -1,0 +1,29 @@
+=== ATS-601 evidence: the environment declaration ===
+tree : 4ff5c36866f17704a930c1d60d8e55aab4e01e86
+date : 2026-11-06T15:08:22Z
+
+--- ATS-601 的验证方式（审查 + UT）---
+本项是契约层交付：设计 + 契约测试，用假目标与假会话。
+按本任务书「本项是契约层——不需要真实设备」，本项**不依赖**真实设备。
+
+--- 本机的移动端环境（记录事实，不作通过/未通过声明）---
+adb          /c/Users/seiko/AppData/Local/Android/Sdk/platform-tools/adb
+emulator     (not found)
+sdkmanager   (not found)
+avdmanager   (not found)
+xcrun        (not found)
+idevice_id   (not found)
+
+ANDROID_HOME : C:\Users\seiko\AppData\Local\Android\Sdk
+
+--- 仓库内的移动端实现（应当只有契约层，没有驱动）---
+契约层:
+server/adapters/mobile.mjs
+server/adapters/mobile-target.mjs
+
+驱动/ADB/模拟器调用（server/ 下契约层之外，应当为空）:
+(以上为空表示仓库内没有任何设备驱动)
+
+结论：ATS-601 的 UT 全部跑在假目标 + 假会话上，不需要也不使用任何真实设备。
+真实 Android 模拟器冒烟属 ATS-603；本机是否具备该环境由 ATS-605 在执行时给出声明。
+本项**未**把任何未执行的真实设备测试写成 PASS。

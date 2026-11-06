@@ -204,6 +204,20 @@ export function outcomeOf(status, expectedStatus) {
  * An outcome of `unknown` (no declared expectation) does not decide
  * anything: a case whose projects say nothing keeps the `unknown` outcome,
  * and the STATUS aggregation decides it.
+ *
+ * AN UNKNOWN OUTCOME DOES NOT MAKE THE LIST `expected`.
+ *
+ * Dropping the unknown outcomes and then declaring the rest `expected`
+ * would claim that EVERY outcome in the list was `expected` -- including
+ * the one that said nothing at all. That claim is not evidence: an engine
+ * that declares no expectation (WDIO) gives every execution the `unknown`
+ * outcome, so a list that mixes `skipped` with `unknown` would be read as
+ * `expected`, and the STATUS aggregation would then rewrite a FAILED case
+ * as `passed` (the case failed, but the outcome claims it was expected).
+ *
+ * So `expected` is a claim about EVERY outcome in the list, and a list that
+ * holds an unknown outcome cannot make that claim: it stays `unknown` --
+ * the honest answer for an engine that declared nothing.
  */
 export function aggregateOutcomes(outcomes) {
   const list = Array.isArray(outcomes) ? outcomes : [];
@@ -212,6 +226,10 @@ export function aggregateOutcomes(outcomes) {
   if (list.every((o) => o === OUTCOME.SKIPPED)) return OUTCOME.SKIPPED;
   if (known.some((o) => o === OUTCOME.UNEXPECTED)) return OUTCOME.UNEXPECTED;
   if (known.some((o) => o === OUTCOME.FLAKY)) return OUTCOME.FLAKY;
+  // `expected` claims EVERY outcome in the list was expected. An unknown
+  // outcome is not part of that claim, so the list is only `expected` when
+  // it holds no unknown at all.
+  if (list.some((o) => o === OUTCOME.UNKNOWN)) return OUTCOME.UNKNOWN;
   return OUTCOME.EXPECTED;
 }
 
