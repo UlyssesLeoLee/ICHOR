@@ -42,6 +42,23 @@ test('IT-SEC-001: rejects unauthenticated API',async()=>{const r=await api('/api
 test('IT-API-001: add existing repository',async()=>{const r=await api('/api/projects','POST',{path:base});assert.equal(r[0],201);projectId=r[1].project.id;});
 test('IT-API-002: import and index tests',async()=>{const r=await api(`/api/projects/${projectId}/tests`);assert.equal(r[0],200);assert.equal(r[1].tests.length,2);});
 test('IT-SEC-002: rejects foreign origin',async()=>{const r=await fetch(`http://127.0.0.1:${port}/api/session`,{headers:{Origin:'https://evil.example'}});assert.equal(r.status,403);});
+// A WHITELISTED origin gets its own origin name back. The browser blocks
+// every cross-origin response that lacks `Access-Control-Allow-Origin`, so
+// a whitelisted client (the Next dev server on 3000, the Tauri shell) could
+// not read a single API answer without this header -- even though the
+// origin passed the whitelist check.
+test('IT-SEC-002B: a whitelisted origin is echoed back in the CORS header',async()=>{
+ const origin=`http://127.0.0.1:3000`;
+ const r=await fetch(`http://127.0.0.1:${port}/api/session`,{headers:{Origin:origin}});
+ assert.equal(r.status,200);
+ assert.equal(r.headers.get('access-control-allow-origin'),origin,`the CORS header is ${JSON.stringify(r.headers.get('access-control-allow-origin'))}, expected ${origin}`);
+ // The pre-flight has to name the origin too, and it has to allow the
+ // methods the environment routes use (DELETE included).
+ const pre=await fetch(`http://127.0.0.1:${port}/api/projects/x/env`,{method:'OPTIONS',headers:{Origin:origin}});
+ assert.equal(pre.status,204);
+ assert.equal(pre.headers.get('access-control-allow-origin'),origin);
+ assert.match(pre.headers.get('access-control-allow-methods')||'',/\bDELETE\b/);
+});
 test('IT-API-001B: add a project without the engine installed',async()=>{const r=await api('/api/projects','POST',{path:noDeps});assert.equal(r[0],201);noDepsId=r[1].project.id;});
 test('IT-RUN-001: no deps => explicit failure rather than fake success',async()=>{const r=await api(`/api/projects/${noDepsId}/run`,'POST',{});assert.equal(r[0],202);assert.equal(r[1].run.status,'error');});
 test('IT-API-003: runs survive persisted read',async()=>{const r=await api('/api/runs');assert.equal(r[1].runs.length,1);assert.equal(r[1].runs[0].status,'error');});

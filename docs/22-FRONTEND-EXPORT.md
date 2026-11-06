@@ -23,7 +23,7 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 | Bridge 会话操作 | **PASS** | `GET /api/session` 返回 token；**异源 Origin → 403**、**无 token → 401** |
 | Bridge 项目操作 | **PASS** | `POST /api/projects` → 201；`GET /api/projects` → 200；`GET /api/projects/{id}/tests` → 2 个用例 |
 | Bridge 运行操作 | **PASS** | `POST /api/projects/{id}/run` → **202**，随后到达终态 `failed`，**真实结果 1 PASS / 1 FAIL / 共 2 例**，采集 **28 个**证据产物（含 `report.json`、HTML 报告、每例 `trace.zip`）；API 报告的 summary 与磁盘上的 `report.json` **逐项一致** |
-| **ST：真实浏览器驱动导出的 UI** | **PASS** | headless Chromium 打开导出的页面，页面自身的 `/api/session` → 200；点「添加项目」→ toast「项目添加成功」、目录列出 2 个用例；点「运行全部」→ 202 → 终态 `failed`（2 例 / 28 产物）；**console error 0 条、无失败请求**；同源与白名单跨源（`127.0.0.1:3000`）**两种来源都跑通** |
+| **ST：真实浏览器驱动导出的 UI** | **PASS** | headless Chromium 打开导出的页面，页面自身的 `/api/session` → 200；点「添加项目」→ toast「项目添加成功」、目录列出 2 个用例；点「运行全部」→ 202 → 终态 `failed`（2 例 / 28 产物）；**console error 0 条、无失败请求**；同源与白名单跨源（`127.0.0.1:3000`）**两种来源的 UI 流程都跑通**（跨源那一遍只有「基址解析」这条断言不适用，见 §3.3.1） |
 
 **本次交付没有改动产品代码。** `apps/studio/next.config.mjs`、`app/page.tsx`、`lib/api.ts` 与 `server/index.mjs` 全部保持 ATS-102 交付时的状态——实测证明这套配置**已经**满足本任务的完成定义（静态导出可用、路由可用、Bridge 三类操作可用）。本任务交付的是**可复跑的验证脚本 + 证据 + 结论文档**，以及两处**它发现的真实缺陷**（见 §4）。
 
@@ -209,10 +209,21 @@ RESULT: OK -- 8/8 checks passed.
 
 ```
 $ node tools/ats103-probes/ui-smoke.mjs --page-origin http://127.0.0.1:3000
-... RESULT: OK -- 8/8 checks passed.
+... RESULT: FAILED -- 7/8 checks passed.
 ```
 
+**跨源这一遍有且只有一条断言变红，而且它变红是设计使然，不是缺陷**：变红的是「页面的 API 请求去页面自身 origin 隐含的 host」。这条断言测的是**同源**场景下的基址解析——页面在 `localhost:4577` 上时，相对基址解析成 `localhost:4577`，写死的绝对基址则是 `127.0.0.1:4577`，两者可区分。**跨源场景下页面在 `127.0.0.1:3000`**，产品按「端口不是 4577 ⇒ 用绝对基址」的规则请求 `127.0.0.1:4577`，**这是正确行为**（相对基址在跨源时无法工作），所以这条断言在这里不适用。
+
+其余七条（含「页面自身的会话调用成功」「通过 UI 添加项目」「跑到终态」「console error 为 0、无失败请求」）在跨源下**全部通过**——这说明**白名单跨源路径是真的通的**：Bridge 接受了该 Origin、返回了可读的回答、整条 UI 流程走完。
+
 完整日志：`docs/evidence/ATS-103/05-ui-smoke-browser.log` 与 `05b-ui-smoke-cross-origin.log`。
+
+> **本轮在 dev 上发现并修掉的一个产品缺陷（CORS）**：合入 dev 后，这一遍的失败从 7/8 掉到 **2/8**——页面连会话都调不通，浏览器报 `No 'Access-Control-Allow-Origin' header is present on the requested resource`。根因在 `server/index.mjs` 的 CORS 段：它给白名单内的 Origin 设了 `Access-Control-Allow-Methods` / `Allow-Headers` / `Vary`，**却没有设 `Access-Control-Allow-Origin`**。浏览器会拦掉**每一个**缺这个头的跨源响应，于是白名单内的客户端（3000 上的 Next 开发服务器、Tauri 壳）一个 API 回答都读不到。
+>
+> 定位到它的是 ATS-212 的提交 `7fdb1ca`（`fix(ATS-212): 第 2 轮复核的 6 项修改`）：该提交把 `DELETE` 加进 `Access-Control-Allow-Methods`，改写那一行时**连带丢掉了同一行的 `Access-Control-Allow-Origin`**。它自己的回归用例 `UT-ENV-R2-050` 只用正则匹配 `Access-Control-Allow-Methods` 的取值，因此没有发现这一行的另一半被删了。
+>
+> **修法**：把 `Access-Control-Allow-Origin` 设回该 Origin（它本来就只对**白名单内**的 Origin 设，白名单外的 Origin 在更早的 `checkedRequest()` 里已经 403 了）。**回归用例 `IT-SEC-002B`**（`tests/api.test.mjs`）断言白名单内的 Origin 被原样回显，且预检响应的 `Allow-Methods` 含 `DELETE`；实测**去掉该头即变红、加回即变绿**。
+
 
 ### 3.3.2 变异证据（每条保留下来的断言都必须会变红）
 
