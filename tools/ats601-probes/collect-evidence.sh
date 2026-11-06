@@ -54,7 +54,7 @@ hdr() {
   echo "date : $STAMP"
   echo
   node --test --experimental-test-coverage tests/mobile-adapter.test.mjs tests/mobile-target.test.mjs 2>&1 \
-    | grep -E "^(ℹ|✔|✖)" | grep -vE "^✔ UT-MOB-0(0|1|2)" | tail -30
+    | grep -E "^(ℹ tests|ℹ pass|ℹ fail|ℹ (start|end) of coverage|ℹ +mobile|ℹ +all files|✖)"
 } > "$EV/03-coverage-mobile.log" 2>&1
 
 # --- 04: the full regression ------------------------------------------------
@@ -124,8 +124,13 @@ xml = z.read(SHEET2).decode('utf-8')
 rows = {}
 for m in re.finditer(r'<x:row[^>]*r="(\d+)"[^>]*>(.*?)</x:row>', xml, re.S):
     body = m.group(2)
-    for wbs in re.findall(r'<x:v>(ATS-\d+)</x:v>', body):
-        rows[wbs] = int(m.group(1))
+    # The WBS ID lives in the A cell. Reading it from there -- and not
+    # from anywhere in the row -- matters: the dependency column (H)
+    # also carries ATS-xxx values, so a row-wide search would file
+    # ATS-602 under the row of ATS-601.
+    a = re.search(r'<x:c r="A\d+"[^>]*>.*?<x:v>(ATS-\d+)</x:v>', body, re.S)
+    if a:
+        rows[a.group(1)] = int(m.group(1))
 
 for wbs in ('ATS-601', 'ATS-602', 'ATS-603', 'ATS-604', 'ATS-605', 'ATS-606'):
     rid = rows.get(wbs)
