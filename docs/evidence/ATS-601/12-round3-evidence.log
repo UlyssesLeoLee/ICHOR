@@ -2,9 +2,9 @@
 ==============================================================
 the tree under test
 ==============================================================
-tree    : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-49-5bade1091cde/worktree
-commit  : a7bd815bb1d3439c40acf9c203870cf02809b1eb
-branch  : agent/m3/seikoist-493
+tree    : D:/hermes-multica/home/cache/scratch/ats601-lf
+commit  : e906ae08450fa594ff04e52b788c8dcdef95b3c4
+branch  : dev
 node    : v24.19.0
 python  : Python 3.11.16
 
@@ -24,27 +24,27 @@ exit code : 0
 ==============================================================
 R6.2 -- the new unit tests are RED on the pre-fix tree (3bac3bd)
 ==============================================================
-✖ UT-MOB-090: the device layer does not report an undeclared capability as proved (1.3238ms)
-✖ UT-MOB-091: the device layer and the resolve path agree about one session (0.5406ms)
-✖ UT-MOB-092: the device layer judges the target the caller asks about (0.3425ms)
-✖ UT-MOB-094: the device layer reports rather than throws when there is no target (0.2731ms)
+✖ UT-MOB-090: the device layer does not report an undeclared capability as proved (0.6851ms)
+✖ UT-MOB-091: the device layer and the resolve path agree about one session (0.2692ms)
+✖ UT-MOB-092: the device layer judges the target the caller asks about (0.1655ms)
+✖ UT-MOB-094: the device layer reports rather than throws when there is no target (0.1194ms)
 ℹ tests 99
 ℹ pass 95
 ℹ fail 4
 ✖ failing tests:
-✖ UT-MOB-090: the device layer does not report an undeclared capability as proved (1.3238ms)
-✖ UT-MOB-091: the device layer and the resolve path agree about one session (0.5406ms)
-✖ UT-MOB-092: the device layer judges the target the caller asks about (0.3425ms)
-✖ UT-MOB-094: the device layer reports rather than throws when there is no target (0.2731ms)
+✖ UT-MOB-090: the device layer does not report an undeclared capability as proved (0.6851ms)
+✖ UT-MOB-091: the device layer and the resolve path agree about one session (0.2692ms)
+✖ UT-MOB-092: the device layer judges the target the caller asks about (0.1655ms)
+✖ UT-MOB-094: the device layer reports rather than throws when there is no target (0.1194ms)
 --- the control cases that must stay green on the pre-fix tree ---
-✔ UT-MOB-093: a capability the target declared but the session did not prove stays unsupported (0.2107ms)
+✔ UT-MOB-093: a capability the target declared but the session did not prove stays unsupported (0.1025ms)
 (none of the new cases pass on the pre-fix tree)
 
 ==============================================================
 R6.3a -- the mobile contract unit tests
 ==============================================================
-✔ UT-MOB-088: a state the transition table does not know has no transition (0.0671ms)
-✔ UT-MOB-089: a session carries its error and its lease expiry when it has them (0.1342ms)
+✔ UT-MOB-088: a state the transition table does not know has no transition (0.0379ms)
+✔ UT-MOB-089: a session carries its error and its lease expiry when it has them (0.0691ms)
 ℹ tests 99
 ℹ suites 0
 ℹ pass 99
@@ -52,7 +52,7 @@ R6.3a -- the mobile contract unit tests
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 217.212
+ℹ duration_ms 142.7107
 
 ==============================================================
 R6.3b -- the mobile contract probe
@@ -74,15 +74,15 @@ exit code : 0
 ==============================================================
 R6.3c -- the line and branch coverage of the mobile contract
 ==============================================================
-✔ UT-MOB-054: the mobile runner is registered in the SAME registry (1.8739ms)
-✔ UT-MOB-055: the mobile adapter passes the SAME assertAdapter check (0.2388ms)
-✔ UT-MOB-061: the device layer of the mobile adapter follows the SESSION (0.3703ms)
-✔ UT-MOB-062: the mobile adapter refuses to start instead of running something else (0.3966ms)
-✔ UT-MOB-063: the mobile adapter reports every engine capability as unsupported WITH a reason (0.1767ms)
-✔ UT-MOB-064: the mobile adapter describes itself as a contract, not as a driver (0.2579ms)
-✔ UT-MOB-068: the mobile runner is never silently chosen for a web project (2.9427ms)
-✔ UT-MOB-069: the mobile adapter source carries no driver of its own (0.9638ms)
-✔ UT-MOB-045: an untrusted project may not execute a mobile flow (0.317ms)
+✔ UT-MOB-054: the mobile runner is registered in the SAME registry (0.9806ms)
+✔ UT-MOB-055: the mobile adapter passes the SAME assertAdapter check (0.1283ms)
+✔ UT-MOB-061: the device layer of the mobile adapter follows the SESSION (0.1752ms)
+✔ UT-MOB-062: the mobile adapter refuses to start instead of running something else (0.2314ms)
+✔ UT-MOB-063: the mobile adapter reports every engine capability as unsupported WITH a reason (0.6569ms)
+✔ UT-MOB-064: the mobile adapter describes itself as a contract, not as a driver (0.1942ms)
+✔ UT-MOB-068: the mobile runner is never silently chosen for a web project (0.8323ms)
+✔ UT-MOB-069: the mobile adapter source carries no driver of its own (0.5348ms)
+✔ UT-MOB-045: an untrusted project may not execute a mobile flow (0.0808ms)
 ℹ tests 99
 ℹ pass 99
 ℹ fail 0
@@ -132,10 +132,10 @@ exit code : 0
 ==============================================================
 R6.3e -- the full regression (every test file)
 ==============================================================
-✔ UT-UID-025: a report path relative to the Playwright rootDir is bound to the registry (0.6408ms)
-✔ UT-UID-026: the static scanner numbers the line of the test call (2.0424ms)
-✔ UT-UID-027: a retried case produces one attempt per retry (0.8239ms)
-✔ UT-UID-021: cleanup removes the temporary fixture (2.7553ms)
+✔ UT-UID-025: a report path relative to the Playwright rootDir is bound to the registry (0.8912ms)
+✔ UT-UID-026: the static scanner numbers the line of the test call (2.3363ms)
+✔ UT-UID-027: a retried case produces one attempt per retry (0.8861ms)
+✔ UT-UID-021: cleanup removes the temporary fixture (3.1212ms)
 ℹ tests 938
 ℹ suites 0
 ℹ pass 938
@@ -143,7 +143,7 @@ R6.3e -- the full regression (every test file)
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 77496.9365
+ℹ duration_ms 64321.2961
 
 ==============================================================
 R6.3f -- the ATS-301 gate
@@ -192,17 +192,17 @@ tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
     warn(msg)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-42 passed, 2 warnings in 1.01s
+42 passed, 2 warnings in 1.99s
 exit code : 0
 
 ==============================================================
 R6.3j -- the checksum manifest
 ==============================================================
-    tools/update_wbs_ats601.py 64ea3caab47fd558551a88c98c26d4a6d7d9c15b3818762605147328f0133504 != 3dba3b809468b9e57aea78304365c4c75cd90724d1241517551262ec252c3577
-tracked-not-listed: 1 ['tools/ats601-probes/collect-round3-evidence.sh']
+digest mismatches: 0
+tracked-not-listed: 0 []
 listed-not-tracked: 0 []
-RESULT: MISMATCH
-exit code : 1
+RESULT: OK
+exit code : 0
 
 ==============================================================
 done
