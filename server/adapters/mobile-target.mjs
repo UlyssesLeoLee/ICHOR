@@ -601,14 +601,13 @@ export function reclaimExpiredSession(target, session, { now = new Date() } = {}
   if (!target || !session) return session;
   if (!TARGET_KIND_POLICY[target.kind].leaseRequired) return session;
   if (!isLeaseExpired(session, now)) return session;
-  if (!canTransition(session.state, SESSION_STATE.IDLE)) {
-    throw new MobileTargetError(
-      'MOBILE_SESSION_TRANSITION_INVALID',
-      `session ${session.sessionId} cannot be reclaimed from ${session.state}`,
-      { from: session.state, to: SESSION_STATE.IDLE },
-    );
-  }
-  return defineSession({ ...session, state: SESSION_STATE.IDLE, error: null });
+  // A session that is already `idle` holds no device, so there is nothing
+  // to reclaim: the operation is idempotent, not an error.
+  if (session.state === SESSION_STATE.IDLE) return session;
+  // The move itself goes through the state machine, so an illegal move is
+  // reported by the ONE place that knows the rules -- and a reclaimed
+  // session carries no error any more.
+  return transitionSession(session, SESSION_STATE.IDLE, { error: null });
 }
 
 /* ------------------------------------------------------------------ */

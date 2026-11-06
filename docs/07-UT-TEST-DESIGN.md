@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：422；已执行通过：406；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：427；已执行通过：411；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -371,7 +371,9 @@
 |UT-MOB-009|FR-031|异常|词表外的能力被拒|capabilities 含 ui.teleport|报 MOBILE_TARGET_INVALID 并点名该能力|node --test|PASS|
 |UT-MOB-010|FR-031|异常|什么都做不了的目标被拒|capabilities 为空|报 MOBILE_TARGET_INVALID|node --test|PASS|
 |UT-MOB-011|FR-031|异常|缺 id 或缺 platform 的目标被拒|分别置空 targetId / platform|均报 MOBILE_TARGET_INVALID|node --test|PASS|
+|UT-MOB-011b|FR-031|异常|能力集不是列表时被拒|capabilities 传字符串|报 MOBILE_TARGET_INVALID|node --test|PASS|
 |UT-MOB-012|FR-031|正常|会话携带身份、状态与能力集|构造会话|sessionId / targetId / state / capabilities 齐备|node --test|PASS|
+|UT-MOB-012b|FR-031|异常|会话缺 id、缺目标或能力集不是列表时被拒|分别置空 sessionId / targetId、capabilities 传字符串|均报 MOBILE_SESSION_INVALID|node --test|PASS|
 |UT-MOB-013|FR-031|异常|未知会话状态被拒|state=sleeping|报 MOBILE_SESSION_INVALID|node --test|PASS|
 |UT-MOB-014|FR-031|异常|会话的词表外能力被拒|capabilities 含 screen.mirror|报 MOBILE_SESSION_INVALID|node --test|PASS|
 |UT-MOB-015|FR-031|正常|状态机允许 idle→created→running→idle|逐条查询 canTransition|三条边均为真|node --test|PASS|
@@ -391,6 +393,7 @@
 |UT-MOB-029|FR-031|正常|过期的农场会话被回收|租约过期且处于 running|回收后状态为 idle|node --test|PASS|
 |UT-MOB-030|FR-031|正常|未过期的农场会话不被回收|租约未过期且处于 running|状态保持 running|node --test|PASS|
 |UT-MOB-031|FR-031|正常|本地真机没有租约因而不回收|local-device 且租约时间在过去|状态不变|node --test|PASS|
+|UT-MOB-031b|FR-031|正常|failed 的农场会话也能被回收|failed 态且租约过期|回收为 idle 且不再带错误|node --test|PASS|
 |UT-MOB-032|FR-031|正常|两个拒绝码都在唯一的拒绝码表里|查 REMOTE_CODES|REMOTE_TARGET_UNAVAILABLE 与 REMOTE_CAPABILITY_MISSING 均已登记|node --test|PASS|
 |UT-MOB-033|FR-031|正常|launchApp 需要 app.install 或 app.launch|分别只给一个能力|两者之一即可满足；都没有则缺口为这两个|node --test|PASS|
 |UT-MOB-034|FR-031|正常|tapOn 需要 ui.tap 与 ui.hierarchy|只给 ui.tap|不满足，缺口为 ui.hierarchy|node --test|PASS|
@@ -411,6 +414,8 @@
 |UT-MOB-049|FR-031|安全|越出证据根的路径被拒|relative=../escape.png|报 MOBILE_EVIDENCE_PATH_FORBIDDEN|node --test|PASS|
 |UT-MOB-050|FR-031|异常|缺失的证据文件被报告而不是按空摘要处理|读取不存在的文件|报 MOBILE_EVIDENCE_NOT_FOUND|node --test|PASS|
 |UT-MOB-051|FR-031|异常|空证据路径被拒|relative 为空串|报 MOBILE_EVIDENCE_PATH_INVALID|node --test|PASS|
+|UT-MOB-051b|FR-031|安全|证据路径是目录时被拒|relative 指向子目录|报 MOBILE_EVIDENCE_PATH_FORBIDDEN|node --test|PASS|
+|UT-MOB-051c|FR-031|安全|指向证据根之外的证据软链被拒|根内软链指向根外文件|报 MOBILE_EVIDENCE_PATH_FORBIDDEN|node --test|PASS|
 |UT-MOB-052|FR-031|安全|契约层自身没有任何设备驱动|静态检查契约源码|不 import 子进程/网络模块，也不 spawn|node --test|PASS|
 |UT-MOB-053|FR-031|正常|拒绝码就是设计书点名的两个|查 MOBILE_REJECTION|REMOTE_TARGET_UNAVAILABLE 与 REMOTE_CAPABILITY_MISSING|node --test|PASS|
 |UT-MOB-054|FR-031|正常|移动端 Runner 在同一个注册表里|查 listRunners|注册表同时含 playwright / wdio / mobile|node --test|PASS|
