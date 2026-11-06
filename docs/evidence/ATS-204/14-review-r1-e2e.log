@@ -3,77 +3,77 @@ node tools/ats204-probes/review-r1/r1-e2e.mjs . D:/hermes-multica/home/cache/scr
 === output ===
 
 [E1] loop data bob->dave: the UNCHANGED render (carol) keeps its uid; dave does not inherit bob or carol
-  expected: carol=tc_1_d_b22df98a1f482bc1, dave!=bob
-  actual:   carol=tc_1_d_b22df98a1f482bc1, dave=tc_1_d_cd455ba637afc022
+  expected: carol=tc_1_d_500d89c4fe7c8689, dave!=bob
+  actual:   carol=tc_1_d_500d89c4fe7c8689, dave=tc_1_d_5196be7006bdcbdc
   before:
-    "user alice" line=4 scope=[] uid=tc_1_d_7cc454d28c9bb76e basis=title-key anchor=#0/3
-    "user bob" line=4 scope=[] uid=tc_1_d_5dd2e96306c22c53 basis=title-key anchor=#1/3
-    "user carol" line=4 scope=[] uid=tc_1_d_b22df98a1f482bc1 basis=title-key anchor=#2/3
+    "user alice" line=4 scope=[] uid=tc_1_d_79b035660d229e2a basis=title-key anchor=#0/3
+    "user bob" line=4 scope=[] uid=tc_1_d_f01e92dd87a7a5ef basis=title-key anchor=#1/3
+    "user carol" line=4 scope=[] uid=tc_1_d_500d89c4fe7c8689 basis=title-key anchor=#2/3
   after:
-    "user alice" line=4 scope=[] uid=tc_1_d_7cc454d28c9bb76e basis=title-key anchor=#0/3
-    "user carol" line=4 scope=[] uid=tc_1_d_b22df98a1f482bc1 basis=title-key anchor=#2/3
-    "user dave" line=4 scope=[] uid=tc_1_d_cd455ba637afc022 basis=title-key anchor=#1/3 amb=render-partially-changed
+    "user alice" line=4 scope=[] uid=tc_1_d_79b035660d229e2a basis=title-key anchor=#0/3
+    "user carol" line=4 scope=[] uid=tc_1_d_500d89c4fe7c8689 basis=title-key anchor=#2/3
+    "user dave" line=4 scope=[] uid=tc_1_d_5196be7006bdcbdc basis=title-key anchor=#1/3 amb=render-partially-changed
   VERDICT:  OK
 
 [E2] loop data reordered: every render keeps its own uid
   expected: unchanged uids
   actual:   unchanged
   before:
-    "user alice" line=4 scope=[] uid=tc_1_d_37e9e49af2ab22f5 basis=title-key anchor=#1/2
-    "user bob" line=4 scope=[] uid=tc_1_d_82972a29b7a2d8e5 basis=title-key anchor=#0/2
+    "user alice" line=4 scope=[] uid=tc_1_d_7ed7e5b0cf691646 basis=title-key anchor=#1/2
+    "user bob" line=4 scope=[] uid=tc_1_d_5e39e90b3761cf34 basis=title-key anchor=#0/2
   after:
-    "user alice" line=4 scope=[] uid=tc_1_d_37e9e49af2ab22f5 basis=title-key anchor=#0/2
-    "user bob" line=4 scope=[] uid=tc_1_d_82972a29b7a2d8e5 basis=title-key anchor=#1/2
+    "user alice" line=4 scope=[] uid=tc_1_d_7ed7e5b0cf691646 basis=title-key anchor=#0/2
+    "user bob" line=4 scope=[] uid=tc_1_d_5e39e90b3761cf34 basis=title-key anchor=#1/2
   VERDICT:  OK
 
 [E3] insert a new test above an existing one: the EXISTING test keeps its uid (old evidence stays linked)
-  expected: login works=tc_1_d_cf98d0486e3819dc
-  actual:   login works=tc_1_d_cf98d0486e3819dc, new=tc_1_d_95b36cd71a2b2da9
+  expected: login works=tc_1_d_1efb4d613c535523
+  actual:   login works=tc_1_d_1efb4d613c535523, new=tc_1_d_0eab522f305e9007
   before:
-    "login works" line=3 scope=[] uid=tc_1_d_cf98d0486e3819dc basis=title-key anchor=#0/1
+    "login works" line=3 scope=[] uid=tc_1_d_1efb4d613c535523 basis=title-key anchor=#0/1
   after:
-    "search finds item" line=3 scope=[] uid=tc_1_d_95b36cd71a2b2da9 basis=title-key anchor=#0/1
-    "login works" line=5 scope=[] uid=tc_1_d_cf98d0486e3819dc basis=body-key anchor=#0/1
+    "search finds item" line=3 scope=[] uid=tc_1_d_0eab522f305e9007 basis=title-key anchor=#0/1
+    "login works" line=5 scope=[] uid=tc_1_d_1efb4d613c535523 basis=body-key anchor=#0/1
   VERDICT:  OK
 
 [E4] a test replaced by a different test (new title + new body): new identity (doc 26 §7 / ATS-201 boundary)
-  expected: uid != tc_1_d_009c4876dce5e87b
-  actual:   uid = tc_1_d_b323fc0962964ed7
+  expected: uid != tc_1_d_fb4c93eb57198741
+  actual:   uid = tc_1_d_269ffd811b7a90f7
   before:
-    "login works" line=3 scope=[] uid=tc_1_d_009c4876dce5e87b basis=title-key anchor=#0/1
+    "login works" line=3 scope=[] uid=tc_1_d_fb4c93eb57198741 basis=title-key anchor=#0/1
   after:
-    "search finds item" line=3 scope=[] uid=tc_1_d_b323fc0962964ed7 basis=title-key anchor=#0/1
+    "search finds item" line=3 scope=[] uid=tc_1_d_269ffd811b7a90f7 basis=title-key anchor=#0/1
   VERDICT:  OK
 
 [E5] control: re-worded template keeps uids (2 Playwright projects; anchor count = renders, not rows)
   expected: uids kept; anchor counts [2,2]
   actual:   kept; anchor counts [2,2]
   before:
-    "adds 1 item" line=4 scope=[] uid=tc_1_d_28fb35985c505145 basis=title-key anchor=#0/2
-    "adds 2 item" line=4 scope=[] uid=tc_1_d_c2952a0f102f9e2d basis=title-key anchor=#1/2
+    "adds 1 item" line=4 scope=[] uid=tc_1_d_0825f745e82278ff basis=title-key anchor=#0/2
+    "adds 2 item" line=4 scope=[] uid=tc_1_d_357087d35e8c3edd basis=title-key anchor=#1/2
   after:
-    "adds 1 item to the cart" line=4 scope=[] uid=tc_1_d_28fb35985c505145 basis=position-anchor anchor=#0/2
-    "adds 2 item to the cart" line=4 scope=[] uid=tc_1_d_c2952a0f102f9e2d basis=position-anchor anchor=#1/2
+    "adds 1 item to the cart" line=4 scope=[] uid=tc_1_d_0825f745e82278ff basis=position-anchor anchor=#0/2
+    "adds 2 item to the cart" line=4 scope=[] uid=tc_1_d_357087d35e8c3edd basis=position-anchor anchor=#1/2
   VERDICT:  OK
 
 [E6] doc 26 §4.1/identity.mjs: the ordinal is the order the template GENERATED the renders in ('zed' first)
   expected: user zed ordinal 0
   actual:   user zed ordinal 0
-    "user amy" line=4 scope=[] uid=tc_1_d_886ccba71cb43d28 basis=title-key anchor=#1/2
-    "user zed" line=4 scope=[] uid=tc_1_d_1b7c0a33320d6b72 basis=title-key anchor=#0/2
+    "user amy" line=4 scope=[] uid=tc_1_d_cae60a6121d9a6c6 basis=title-key anchor=#1/2
+    "user zed" line=4 scope=[] uid=tc_1_d_f8fb6439e2e36287 basis=title-key anchor=#0/2
   VERDICT:  OK
 
 [M1] 1 project(s): 'a > works' passes, 'b > works' fails -> two cases, one failed
   expected: total=2 passed=1 failed=1
   actual:   total=2 passed=1 failed=1
   catalogue: 2 cases
-    "works" line=5 scope=["a"] uid=tc_1_d_774c08375f5ad09d basis=scope-title anchor=#0/1
-    "works" line=5 scope=["b"] uid=tc_1_d_59abb428cb45b54a basis=scope-title anchor=#0/1
+    "works" line=5 scope=["a"] uid=tc_1_d_aaba929c5fe10c01 basis=scope-title anchor=#0/1
+    "works" line=5 scope=["b"] uid=tc_1_d_ebff3527c1f64b22 basis=scope-title anchor=#0/1
   VERDICT:  OK
 
 [M1b] attemptsForRun: the attempts of 'a > works' and 'b > works' are not merged into one case
   expected: 2 cases, 1 attempt each
-  actual:   2 case(s) carrying 2 attempt(s) [retries [0,0]], testUids=["tc_1_d_774c08375f5ad09d","tc_1_d_59abb428cb45b54a"], statuses=["passed","failed"]
+  actual:   2 case(s) carrying 2 attempt(s) [retries [0,0]], testUids=["tc_1_d_aaba929c5fe10c01","tc_1_d_ebff3527c1f64b22"], statuses=["passed","failed"]
   VERDICT:  OK
 
 [S1] doc 26 §3 signal 2 (file-scope-title) is reachable: parseReport carries the describe path to attemptsForRun
@@ -85,14 +85,14 @@ node tools/ats204-probes/review-r1/r1-e2e.mjs . D:/hermes-multica/home/cache/scr
   expected: total=2 passed=1 failed=1
   actual:   total=2 passed=1 failed=1
   catalogue: 2 cases
-    "works" line=5 scope=["a"] uid=tc_1_d_1b47df868888aded basis=scope-title anchor=#0/1
-    "works" line=5 scope=["b"] uid=tc_1_d_556222548caff207 basis=scope-title anchor=#0/1
+    "works" line=5 scope=["a"] uid=tc_1_d_5309b970b88350da basis=scope-title anchor=#0/1
+    "works" line=5 scope=["b"] uid=tc_1_d_c7869236a1db5440 basis=scope-title anchor=#0/1
   VERDICT:  OK
 
 [X1] catalogue says @TC-001 is duplicated (owned by neither); a single-file run must not bind it to one of them
   expected: attempt unbound / explicit-ambiguous
   actual:   refund @TC-001:null(explicit-ambiguous)
-  catalogue: checkout @TC-001:tcp_1_5a058c28b0722e95_1(duplicate-explicit-uid), refund @TC-001:tcp_1_0b52d3649b0dbe8e_2(duplicate-explicit-uid)
+  catalogue: checkout @TC-001:tcp_1_f8cc64047b960b60_1(duplicate-explicit-uid), refund @TC-001:tcp_1_edcf16740e9c7811_2(duplicate-explicit-uid)
   VERDICT:  OK
 
 SUMMARY: 0 counterexample(s) hold

@@ -5,8 +5,8 @@ python tools/check_adr_citations.py
   apps/studio/app/page.tsx         116
   apps/studio/lib/api.ts           23
   apps/studio/public/fallback.html 3
-  server/core.mjs                  1186, 776
-  server/index.mjs                 241, 47, 508-538, 522, 540, 551, 744, 981, 998, 999
+  server/core.mjs                  1190, 780
+  server/index.mjs                 1010, 1011, 241, 47, 513-543, 527, 545, 556, 749, 993
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
@@ -22,17 +22,17 @@ ok   tools/generate_test_docs.py:363
 ok   tools/generate_test_docs.py:460
 ok   server/index.mjs:47
 ok   server/index.mjs:241
-ok   server/index.mjs:508
-ok   server/index.mjs:522
-ok   server/index.mjs:540
-ok   server/index.mjs:551
-ok   server/index.mjs:744
-ok   server/index.mjs:981
-ok   server/index.mjs:998
-ok   server/index.mjs:999
-ok   server/core.mjs:776
-ok   server/core.mjs:1186
-ok   server/index.mjs:508-538 (cancelRun extent)
+ok   server/index.mjs:513
+ok   server/index.mjs:527
+ok   server/index.mjs:545
+ok   server/index.mjs:556
+ok   server/index.mjs:749
+ok   server/index.mjs:993
+ok   server/index.mjs:1010
+ok   server/index.mjs:1011
+ok   server/core.mjs:780
+ok   server/core.mjs:1190
+ok   server/index.mjs:513-543 (cancelRun extent)
 ok   apps/studio/app/page.tsx:116 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:23 (the API base URL -- covered by the ATS-101 port audit)
 ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)

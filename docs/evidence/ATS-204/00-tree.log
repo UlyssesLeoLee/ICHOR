@@ -1,30 +1,11 @@
 === command ===
 bash -c git log --oneline -5; echo; git status --short
 === output ===
-c07037a fix(ATS-204): 静态目录的重复 token 判定要传到运行侧；锚点不把源码用例的 UID 交给别的用例
-7a93973 chore(agent): baseline — the task worktree started here
-a52ac67 chore(ATS-216): 重新生成 CHECKSUMS.sha256（同步 ADR 行号之后）
-f1ed114 fix(ATS-216): 按 ATS-602 改动后的源码行号同步 ADR 引用与端口清单
-7946659 chore(ATS-602): 在采集证据之后重新生成 CHECKSUMS.sha256
+8bbe2fa chore(ATS-204): 在合并 dev 之后重新生成 CHECKSUMS.sha256
+c77d398 Merge branch 'dev' into agent/m3/seikoist-166
+12f9b83 test(ATS-204): 采集第 2 轮的证据（17 份日志），并补上反例复现脚本
+c0a98b0 chore(ATS-212): 重新生成 CHECKSUMS.sha256（覆盖最终 dev 树）
+3e5fb88 test(ATS-212): 在最终 dev 树上重新采集证据（15 份日志全部 exit 0，全量 1126/1126）
 
- M docs/26-IDENTITY-MAPPER.md
  M docs/evidence/ATS-204/00-tree.log
- M docs/evidence/ATS-204/01-identity-ut.log
- M docs/evidence/ATS-204/02-uid-discovery-ut.log
- M docs/evidence/ATS-204/03-execution-model-ut.log
- M docs/evidence/ATS-204/04-node-test-full.log
- M docs/evidence/ATS-204/05-probe-gaps.log
- M docs/evidence/ATS-204/06-probe-anchor.log
- M docs/evidence/ATS-204/07-probe-matrix.log
- M docs/evidence/ATS-204/08-cli-facts.log
- M docs/evidence/ATS-204/09-adr-citations.log
- M docs/evidence/ATS-204/10-port-audit.log
- M docs/evidence/ATS-204/11-wbs-row.log
- M docs/evidence/ATS-204/12-counterexample.log
- M docs/evidence/ATS-204/13-review-r1-anchor.log
- M docs/evidence/ATS-204/14-review-r1-e2e.log
- M docs/evidence/ATS-204/15-coverage.log
- M tools/ats204-probes/collect-evidence.sh
-?? docs/evidence/ATS-204/16-review-r2-e2e.log
-?? tools/ats204-probes/counterexample-r2.sh
 === exit code: 0 ===

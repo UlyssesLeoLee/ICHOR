@@ -5,47 +5,47 @@ the tree before the round-2 fix: 43bb07e
 checked out: 43bb07e merge(ATS-204): 把第 1 轮复核的第 7 项（导入清理）合入 dev
 
 === node --test tests/identity.test.mjs ===
-✔ UT-ATS204-001: the UID survives a rename, and the old spelling is recorded as an alias (8.3969ms)
-✔ UT-ATS204-002: the UID survives a rename AND a retitle (4.5858ms)
-✔ UT-ATS204-003: an attempt of a renamed+retitled case is bound to the original UID (5.5703ms)
-✔ UT-ATS204-004: an attempt of a case whose file was renamed is bound to the original UID (4.1898ms)
-✔ UT-ATS204-005: a case that took over the old file name does NOT get the old UID (4.5293ms)
-✔ UT-ATS204-006: a body that two cases of the same run share identifies neither (0.1411ms)
-✔ UT-ATS204-007: an ambiguous title in the project binds nothing (0.1674ms)
-✔ UT-ATS204-008: a case that shares its title with another in the SAME file is bound by the body (0.1322ms)
-✔ UT-ATS204-009: the alias is used only when the body is unavailable (0.1291ms)
-✔ UT-ATS204-010: an explicit annotation always wins over the position (0.1375ms)
-✔ UT-ATS204-011: a duplicated explicit annotation binds neither case (0.1259ms)
-✔ UT-ATS204-012: a dynamic case keeps its UID when the template is re-worded (3.3115ms)
-✔ UT-ATS204-013: a template that GAINS a render reports the shift instead of guessing (2.6247ms)
-✔ UT-ATS204-014: the anchor names the position and the ordinal of a case (0.1649ms)
-✔ UT-ATS204-015: the two rows the CLI writes for one case in two projects are ONE case (0.6038ms)
-✔ UT-ATS204-016: the two attempts of a matrix case carry the SAME TestDefinition UID (2.7468ms)
-✔ UT-ATS204-018: a renamed case is bound by its body even though the position does not match (0.1238ms)
-✔ UT-ATS204-019: a positional hit whose body CONTRADICTS it does not bind, and says so (0.0958ms)
-✔ UT-ATS204-020: a positional hit whose body AGREES binds, and reports nothing (0.0565ms)
-✔ UT-ATS204-021: a NEW case with an explicit token binds to it, registry or not (0.0575ms)
-✔ UT-ATS204-017: the old lookup keeps its documented behaviour (2.6317ms)
-✔ UT-ATS204-022 (E1): a replaced loop element does not take the removed render's uid (2.7114ms)
-✔ UT-ATS204-023 (E3): a case inserted above keeps the existing case's uid (2.549ms)
-✔ UT-ATS204-024 (E4): a case replaced in place by a different one is a NEW case (2.314ms)
-✔ UT-ATS204-025 (M1): two same-titled cases under different describes are TWO cases (2.407ms)
-✔ UT-ATS204-026 (M1b): the two describes bind to their OWN TestDefinition (3.0614ms)
-✔ UT-ATS204-027 (X1): an explicit token the catalogue judged DUPLICATE is not bound (2.6736ms)
-✖ UT-ATS204-037 (X3): the STATIC catalogue also records the duplicate verdict, so a single-file run does not bind it (4.6039ms)
-✖ UT-ATS204-038 (X2s): the static catalogue forgets the verdict once the duplicate is gone (3.7116ms)
-✔ UT-ATS204-028: the anchor counts the CLI's REPORT order, not the title-sorted order (0.1377ms)
-✔ UT-ATS204-029: the anchor does not decide a case the scanner CAN see (0.07ms)
-✔ UT-ATS204-030: a partly rewritten group is reported and binds nothing (0.1163ms)
-✔ UT-ATS204-031: two anchors at the same ordinal are reported, not resolved (0.1255ms)
-✖ UT-ATS204-039 (N4): the anchor does not hand a SOURCE case its uid to a different case at the same position (0.5864ms)
-✔ UT-ATS204-040 (N4): a DYNAMIC entry may still be recognised by the anchor (0.1006ms)
-✔ UT-ATS204-032: a group that grew reports the shift (0.097ms)
-✔ UT-ATS204-033: the anchor of a case names its position and its ordinal (0.1158ms)
-✔ UT-ATS204-034: two entries that share the file, the line and the title stay unbound (0.0719ms)
-✔ UT-ATS204-034B: the file-line signal reports when it cannot pick one (0.069ms)
-✔ UT-ATS204-035: two entries under the same describe path and title are ambiguous (0.0757ms)
-✔ UT-ATS204-036: the scope signal needs the body to AGREE (0.0672ms)
+✔ UT-ATS204-001: the UID survives a rename, and the old spelling is recorded as an alias (9.1375ms)
+✔ UT-ATS204-002: the UID survives a rename AND a retitle (4.9735ms)
+✔ UT-ATS204-003: an attempt of a renamed+retitled case is bound to the original UID (6.3119ms)
+✔ UT-ATS204-004: an attempt of a case whose file was renamed is bound to the original UID (5.4404ms)
+✔ UT-ATS204-005: a case that took over the old file name does NOT get the old UID (5.2601ms)
+✔ UT-ATS204-006: a body that two cases of the same run share identifies neither (0.1658ms)
+✔ UT-ATS204-007: an ambiguous title in the project binds nothing (0.1668ms)
+✔ UT-ATS204-008: a case that shares its title with another in the SAME file is bound by the body (0.1324ms)
+✔ UT-ATS204-009: the alias is used only when the body is unavailable (0.1364ms)
+✔ UT-ATS204-010: an explicit annotation always wins over the position (0.1473ms)
+✔ UT-ATS204-011: a duplicated explicit annotation binds neither case (0.1347ms)
+✔ UT-ATS204-012: a dynamic case keeps its UID when the template is re-worded (4.1226ms)
+✔ UT-ATS204-013: a template that GAINS a render reports the shift instead of guessing (3.1776ms)
+✔ UT-ATS204-014: the anchor names the position and the ordinal of a case (0.2432ms)
+✔ UT-ATS204-015: the two rows the CLI writes for one case in two projects are ONE case (0.6774ms)
+✔ UT-ATS204-016: the two attempts of a matrix case carry the SAME TestDefinition UID (3.2689ms)
+✔ UT-ATS204-018: a renamed case is bound by its body even though the position does not match (0.1334ms)
+✔ UT-ATS204-019: a positional hit whose body CONTRADICTS it does not bind, and says so (0.1139ms)
+✔ UT-ATS204-020: a positional hit whose body AGREES binds, and reports nothing (0.0669ms)
+✔ UT-ATS204-021: a NEW case with an explicit token binds to it, registry or not (0.0591ms)
+✔ UT-ATS204-017: the old lookup keeps its documented behaviour (4.1795ms)
+✔ UT-ATS204-022 (E1): a replaced loop element does not take the removed render's uid (3.4331ms)
+✔ UT-ATS204-023 (E3): a case inserted above keeps the existing case's uid (2.8026ms)
+✔ UT-ATS204-024 (E4): a case replaced in place by a different one is a NEW case (2.3215ms)
+✔ UT-ATS204-025 (M1): two same-titled cases under different describes are TWO cases (2.3615ms)
+✔ UT-ATS204-026 (M1b): the two describes bind to their OWN TestDefinition (2.6402ms)
+✔ UT-ATS204-027 (X1): an explicit token the catalogue judged DUPLICATE is not bound (2.6391ms)
+✖ UT-ATS204-037 (X3): the STATIC catalogue also records the duplicate verdict, so a single-file run does not bind it (5.397ms)
+✖ UT-ATS204-038 (X2s): the static catalogue forgets the verdict once the duplicate is gone (3.963ms)
+✔ UT-ATS204-028: the anchor counts the CLI's REPORT order, not the title-sorted order (0.1521ms)
+✔ UT-ATS204-029: the anchor does not decide a case the scanner CAN see (0.0743ms)
+✔ UT-ATS204-030: a partly rewritten group is reported and binds nothing (0.1288ms)
+✔ UT-ATS204-031: two anchors at the same ordinal are reported, not resolved (0.0928ms)
+✖ UT-ATS204-039 (N4): the anchor does not hand a SOURCE case its uid to a different case at the same position (0.4406ms)
+✔ UT-ATS204-040 (N4): a DYNAMIC entry may still be recognised by the anchor (0.1688ms)
+✔ UT-ATS204-032: a group that grew reports the shift (0.119ms)
+✔ UT-ATS204-033: the anchor of a case names its position and its ordinal (0.1316ms)
+✔ UT-ATS204-034: two entries that share the file, the line and the title stay unbound (0.0919ms)
+✔ UT-ATS204-034B: the file-line signal reports when it cannot pick one (0.0691ms)
+✔ UT-ATS204-035: two entries under the same describe path and title are ambiguous (0.0827ms)
+✔ UT-ATS204-036: the scope signal needs the body to AGREE (0.0762ms)
 ℹ tests 41
 ℹ suites 0
 ℹ pass 38
@@ -53,14 +53,14 @@ checked out: 43bb07e merge(ATS-204): 把第 1 轮复核的第 7 项（导入清�
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 168.9971
+ℹ duration_ms 187.7378
 
 ✖ failing tests:
 
 test at tests\identity.test.mjs:753:1
-✖ UT-ATS204-037 (X3): the STATIC catalogue also records the duplicate verdict, so a single-file run does not bind it (4.6039ms)
+✖ UT-ATS204-037 (X3): the STATIC catalogue also records the duplicate verdict, so a single-file run does not bind it (5.397ms)
   AssertionError [ERR_ASSERTION]: the verdict is recorded on the registry entries
-      at TestContext.<anonymous> (file:///D:/hermes-multica/home/cache/scratch/tmp.9FP8dS02wz/tree/tests/identity.test.mjs:775:12)
+      at TestContext.<anonymous> (file:///D:/hermes-multica/home/cache/scratch/tmp.rJlkBK1fDd/tree/tests/identity.test.mjs:775:12)
       at Test.runInAsyncScope (node:async_hooks:227:14)
       at Test.run (node:internal/test_runner/test:1382:25)
       at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
@@ -76,9 +76,9 @@ test at tests\identity.test.mjs:753:1
   }
 
 test at tests\identity.test.mjs:796:1
-✖ UT-ATS204-038 (X2s): the static catalogue forgets the verdict once the duplicate is gone (3.7116ms)
+✖ UT-ATS204-038 (X2s): the static catalogue forgets the verdict once the duplicate is gone (3.963ms)
   AssertionError [ERR_ASSERTION]: the duplicate is recorded
-      at TestContext.<anonymous> (file:///D:/hermes-multica/home/cache/scratch/tmp.9FP8dS02wz/tree/tests/identity.test.mjs:807:12)
+      at TestContext.<anonymous> (file:///D:/hermes-multica/home/cache/scratch/tmp.rJlkBK1fDd/tree/tests/identity.test.mjs:807:12)
       at Test.runInAsyncScope (node:async_hooks:227:14)
       at Test.run (node:internal/test_runner/test:1382:25)
       at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
@@ -94,14 +94,14 @@ test at tests\identity.test.mjs:796:1
   }
 
 test at tests\identity.test.mjs:914:1
-✖ UT-ATS204-039 (N4): the anchor does not hand a SOURCE case its uid to a different case at the same position (0.5864ms)
+✖ UT-ATS204-039 (N4): the anchor does not hand a SOURCE case its uid to a different case at the same position (0.4406ms)
   AssertionError [ERR_ASSERTION]: the source case keeps its uid
   + actual - expected
   
   + 'tc-source'
   - null
   
-      at TestContext.<anonymous> (file:///D:/hermes-multica/home/cache/scratch/tmp.9FP8dS02wz/tree/tests/identity.test.mjs:932:10)
+      at TestContext.<anonymous> (file:///D:/hermes-multica/home/cache/scratch/tmp.rJlkBK1fDd/tree/tests/identity.test.mjs:932:10)
       at Test.runInAsyncScope (node:async_hooks:227:14)
       at Test.run (node:internal/test_runner/test:1382:25)
       at Test.processPendingSubtests (node:internal/test_runner/test:960:18)

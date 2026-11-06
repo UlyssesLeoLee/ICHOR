@@ -289,7 +289,7 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 | 反例 | `tools/ats204-probes/review-r2/r2-e2e.mjs` | 复核第 2 轮的端到端反例（真实 Playwright CLI）：**X3 静态目录的重复判定要传到运行侧**、X2/X2s 重复修好后 token 重新绑定、M3 不同 describe 的同名用例各自绑定、N2/N4 两条边界 |
 | 反例 | `tools/ats204-probes/counterexample.sh` | 同一批用例在第一次交付的树（`9a559c6`）上跑，**5 项失败** |
 
-执行：`npm test`（Node ≥ 22）。**全量 1101 例：1090 通过 / 0 失败 / 11 跳过**
+执行：`npm test`（Node ≥ 22）。**全量 1130 例：1119 通过 / 0 失败 / 11 跳过**
 （跳过的 11 项是示例工程没有 `node_modules`（`examples/sample-wdio` 等）的
 既有 IT，与本任务无关；装了示例工程的 fixture 依赖后它们执行并通过）。
 
@@ -313,10 +313,10 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 
 | 文件 | 行 | 分支 | 函数 |
 |---|---|---|---|
-| `server/identity.mjs` | 99.10% | 84.38% | 100% |
+| `server/identity.mjs` | 98.45% | 82.82% | 100% |
 | `server/execution/model.mjs` | 99.34% | 85.06% | 96.88% |
 | `server/discovery/authoritative.mjs` | 97.08% | 85.04% | 86.67% |
-| `server/core.mjs` | 97.98% | 84.49% | 86.36% |
+| `server/core.mjs` | 98.49% | 84.47% | 89.55% |
 | `server/uid.mjs` | 98.68% | 81.67% | 97.44% |
 
 ### 8.2 证据索引
@@ -331,7 +331,7 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 | `01-identity-ut.log` | 身份映射器的 41 项 UT |
 | `02-uid-discovery-ut.log` | UID 与发现的既有 UT（未回归） |
 | `03-execution-model-ut.log` | 执行模型的既有 UT（矩阵的回归） |
-| `04-node-test-full.log` | 全量 1101 例 |
+| `04-node-test-full.log` | 全量 1130 例 |
 | `05-probe-gaps.log` | 本任务修好的缺口（改名 + 改标题的 attempt 由 unbound 变为按 body-key 绑定） |
 | `06-probe-anchor.log` | 锚点：模板改文案后 UID 不变；渲染数变化时报位移 |
 | `07-probe-matrix.log` | 矩阵：两种报告形状给同一个答案 |

@@ -1,10 +1,10 @@
 === command ===
 bash -c node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout tests/*.test.mjs 2>&1 | grep -E 'identity.mjs|model.mjs|authoritative.mjs|core.mjs|uid.mjs|all files'
 === output ===
-ℹ  core.mjs                 |  97.98 |    84.87 |   86.36 | 320-323 437 592-593 782-784 1176-1178 1189 1193 1197-1202 1204-1207
+ℹ  core.mjs                 |  98.49 |    84.47 |   89.55 | 324-327 441 596-597 786-788 1180-1182 1193 1197 1227-1230
 ℹ   authoritative.mjs       |  97.08 |    85.04 |   86.67 | 444-447 471-481
 ℹ   model.mjs               |  99.34 |    85.06 |   96.88 | 396-401 597-598 814
-ℹ  identity.mjs             |  99.10 |    84.38 |  100.00 | 385-389 514-515
+ℹ  identity.mjs             |  98.45 |    82.82 |  100.00 | 385-389 472-476 514-515
 ℹ  uid.mjs                  |  98.68 |    81.67 |   97.44 | 162 176 187 213 228 888 918-921 1059 1070 1132-1134
-ℹ all files                 |  93.03 |    79.43 |   92.23 | 
+ℹ all files                 |  93.34 |    80.07 |   92.69 | 
 === exit code: 0 ===
