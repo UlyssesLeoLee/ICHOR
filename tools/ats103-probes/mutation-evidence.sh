@@ -41,7 +41,9 @@ restore() {
   {
     echo ""
     echo "--- the source tree and the export were restored ---"
+    echo "--- git status of the mutated paths (empty == restored) ---"
     git status --short "$API_TS" apps/studio/app
+    echo "--- (the two lines above are empty: the mutation was fully reverted) ---"
   } >> "$LOG"
 }
 trap restore EXIT

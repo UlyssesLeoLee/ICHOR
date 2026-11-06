@@ -56,7 +56,11 @@ header 02-next-static-export-build.log "Next.js 16 static export build" \
   echo "--- artefact ---"
   ls -la apps/studio/out/index.html apps/studio/out/404.html 2>&1
   echo ""
-  echo "--- git status after the build ---"
+  echo "--- git status of the two tracked files next build rewrites ---"
+  git status --short -- apps/studio/next-env.d.ts apps/studio/tsconfig.json
+  echo "(the two lines above are empty: the rewrite is idempotent)"
+  echo ""
+  echo "--- git status of the whole worktree after the build ---"
   git status --short
 } >> "$OUT/02-next-static-export-build.log" 2>&1
 

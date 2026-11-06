@@ -1,6 +1,6 @@
 === ATS-103 evidence: ADR citation check ===
-date      : 2026-11-06T10:29:39Z (UTC)
-commit    : 227065a87ecb93697ed918079277e3fe91f500d0
+date      : 2026-11-06T11:01:29Z (UTC)
+commit    : e40e36890fe15b6acfb4efcc7c83aa76704a4b38
 node      : v22.23.4
 npm       : 10.9.9
 command   : python tools/check_adr_citations.py
@@ -10,7 +10,7 @@ command   : python tools/check_adr_citations.py
   apps/studio/lib/api.ts           14
   apps/studio/public/fallback.html 3
   server/core.mjs                  1093, 762
-  server/index.mjs                 224, 30, 446-482, 460, 478, 489, 639, 790, 807, 808
+  server/index.mjs                 224, 30, 446-482, 460, 478, 489, 659, 810, 827, 828
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
@@ -30,10 +30,10 @@ ok   server/index.mjs:446
 ok   server/index.mjs:460
 ok   server/index.mjs:478
 ok   server/index.mjs:489
-ok   server/index.mjs:639
-ok   server/index.mjs:790
-ok   server/index.mjs:807
-ok   server/index.mjs:808
+ok   server/index.mjs:659
+ok   server/index.mjs:810
+ok   server/index.mjs:827
+ok   server/index.mjs:828
 ok   server/core.mjs:762
 ok   server/core.mjs:1093
 ok   server/index.mjs:446-482 (cancelRun extent)

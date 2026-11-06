@@ -97,7 +97,9 @@ PASS  the page's API requests go to the host its own location implies  --  page 
 | **B**（基址写死，bundle 里没有端口比较） | **红** | **红** |
 | **B2**（基址写死**且**留一个无关的端口比较） | **绿**（这就是它的边界） | **红** |
 
-所以准确的表述是：**「基址在运行时解析」由可执行判别证明；静态启发式是一个会抓「完全不读端口」的烘焙的辅助信号，它**证明不了** `root()` 本身是在运行时解析的。**
+所以准确的表述是：
+
+> **「基址在运行时解析」由可执行判别证明。** 静态启发式只是一个辅助信号——它能抓住「完全不读端口」的那种烘焙，**证明不了** `root()` 本身是在运行时解析的。
 
 ### 2.2 可用的来源只有 Origin 白名单内的那些
 
@@ -144,7 +146,7 @@ Route (app)
 
 **这一段刻意不写用时数字。** `next build` 的编译耗时、类型检查耗时、装包耗时都**随机器与负载浮动**，写死在文档里的数字在重新采集证据后就会与日志对不上——这正是把文档与日志绑死在具体数值上的代价。所以这里只保留**稳定的部分**（版本号、产物形态、路由清单），**用时数字以 `docs/evidence/ATS-103/02-next-static-export-build.log` 为准**：那份日志是逐字记录的实际输出，且日志头部写着它采集自哪个 commit。
 
-构建后 `git status --short` 为空——`next build` 对 `next-env.d.ts` / `tsconfig.json` 的改写是**幂等**的（ATS-102 §6.2 的结论在本分支上依然成立）。
+构建后，`git status --short -- apps/studio/next-env.d.ts apps/studio/tsconfig.json` **没有任何输出**——`next build` 对这两个受版本控制的文件的改写是**幂等**的（ATS-102 §6.2 的结论在本分支上依然成立）。日志里同时还记了**整个工作区**的 `git status`；那份输出里可能有别的条目（本次采集时是本文件与该日志本身），所以**上面这条断言说的是那两个具体文件，不是「工作区完全干净」**。
 
 > **本轮的门禁已跑通**：用 Node **22.23.4** / npm **10.9.9** 在最终树上跑了 `node tools/ci_build_gate.mjs`，结果 **8/8 PASS**（见 §3.7）。前提是先在 `examples/sample-playwright` 执行 `npm install`。
 
@@ -395,7 +397,7 @@ GET /_not-found/   -> 404  同上
 | `docs/16-BASELINE-ADR.md` | 修改 | §3.1 的 (c) 类统计口径按实测更新；§5.2 追加 ATS-103 的静态导出/接缝实测结论；§7 追加未验证项与 Bridge 静态路由缺陷 |
 | `CHECKSUMS.sha256` | 修改 | 随新增/修改的受控文件重新生成 |
 
-**产品代码零改动**：`apps/studio/**` 与 `server/**` 未被修改——这不是「偷懒」，而是本任务的实测结论：**既有配置已经满足完成定义**。（变异脚本会临时改动 `apps/studio/lib/api.ts` 并新增 `apps/studio/app/api/`，但**每次都在结束时还原**，日志末尾记录了还原后的 `git status` 为空。）
+**产品代码零改动**：`apps/studio/**` 与 `server/**` 未被修改——这不是「偷懒」，而是本任务的实测结论：**既有配置已经满足完成定义**。（变异脚本会临时改动 `apps/studio/lib/api.ts` 并新增 `apps/studio/app/api/`，但**每次都在结束时还原**，日志末尾记录了还原后的 `git status`；那份输出里**没有 `apps/studio/**` 或 `server/**` 的条目**。）
 
 ## 6. 未验证项声明（PENDING ≠ PASS）
 
