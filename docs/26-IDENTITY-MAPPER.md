@@ -189,14 +189,14 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 
 | 类别 | 用例 | 覆盖内容 |
 |---|---|---|
-| UT | `UT-ATS204-001` … `UT-ATS204-020`（`tests/identity.test.mjs`） | 改名保 UID、改名 + 改标题保 UID、运行侧绑定、旧证据不误关联、执行体共享不绑定、标题歧义不绑定、同文件同名靠指纹区分、别名只在指纹不可得时使用、显式标注优先、重复显式标注不绑定、锚点保住动态用例 UID、渲染数变化报位移、锚点的位置与次序、矩阵是一个用例、矩阵的两个 attempt 共享 UID、改名用例靠执行体绑定、位置与执行体矛盾则不绑定、位置与执行体一致则绑定、既有查找行为不变 |
+| UT | `UT-ATS204-001` … `UT-ATS204-021`（`tests/identity.test.mjs`） | 改名保 UID、改名 + 改标题保 UID、运行侧绑定、旧证据不误关联、执行体共享不绑定、标题歧义不绑定、同文件同名靠指纹区分、别名只在指纹不可得时使用、显式标注优先、重复显式标注不绑定、锚点保住动态用例 UID、渲染数变化报位移、锚点的位置与次序、矩阵是一个用例、矩阵的两个 attempt 共享 UID、改名用例靠执行体绑定、位置与执行体矛盾则不绑定、位置与执行体一致则绑定、新用例的显式 token 照样绑定、既有查找行为不变 |
 | 实测 | `tools/ats204-probes/cli-facts.mjs` | 真实 CLI 的事实：每个 project 一行 spec、渲染标题与行号、describe 路径、spec id |
 | 实测 | `tools/ats204-probes/probe-gaps.mjs` | 改动前的缺口：改名 + 改标题的 attempt 是 `unbound` |
 | 实测 | `tools/ats204-probes/probe-anchor.mjs` | 锚点：模板改文案后 UID 不变；渲染数变化时报位移 |
 | 实测 | `tools/ats204-probes/probe-matrix.mjs` | 矩阵：两种报告形状给同一个答案 |
 | 反例 | `tools/ats204-probes/counterexample.sh` | 同一批用例在改动前的树（`83c8bc5`）上跑，**4 项失败** |
 
-执行：`npm test`（Node ≥ 22）。全量 892 例：**881 通过 / 0 失败 / 11 跳过**
+执行：`npm test`（Node ≥ 22）。全量 912 例：**901 通过 / 0 失败 / 11 跳过**
 （跳过的 11 项是仓库既有项：示例工程缺 fixture 依赖，与本任务无关）。
 
 **反例回归的可证伪性**：`tests/identity.test.mjs` 在改动前的树（`83c8bc5`）
@@ -212,10 +212,10 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 | 日志 | 内容 |
 |---|---|
 | `00-tree.log` | 采证据时的树（commit 与工作区状态） |
-| `01-identity-ut.log` | 身份映射器的 20 项 UT |
+| `01-identity-ut.log` | 身份映射器的 21 项 UT |
 | `02-uid-discovery-ut.log` | UID 与发现的既有 UT（未回归） |
 | `03-execution-model-ut.log` | 执行模型的既有 UT（矩阵的回归） |
-| `04-node-test-full.log` | 全量 892 例 |
+| `04-node-test-full.log` | 全量 912 例 |
 | `05-probe-gaps.log` | 本任务修好的缺口（改名 + 改标题的 attempt 由 unbound 变为按 body-key 绑定） |
 | `06-probe-anchor.log` | 锚点：模板改文案后 UID 不变；渲染数变化时报位移 |
 | `07-probe-matrix.log` | 矩阵：两种报告形状给同一个答案 |
