@@ -1,6 +1,6 @@
 === ATS-103 evidence: WBS updater coexistence regression (all tools/update_wbs_*.py) ===
-date      : 2026-11-06T21:44:59Z (UTC)
-commit    : f955c23bbe7025a5fe35f1b5145f892e11c21b72
+date      : 2026-11-06T22:28:41Z (UTC)
+commit    : f6fb8b6dcc612b7f1dd3e62894b73c452910b4c3
 node      : v22.23.4
 npm       : 10.9.9
 command   : python tools/test_wbs_common.py && bash tools/ats501-probes/check-wbs-updaters.sh
