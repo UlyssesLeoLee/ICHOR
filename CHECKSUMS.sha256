@@ -154,7 +154,7 @@ f00e99481ae4c1231036bc291ebdb6615bea1242364b101834c2d2bf277292bd  docs/evidence/
 926388a52064eda229a0a463da81e58ea1b5ccd5adb33b10f4f90e89e72eb994  docs/evidence/ATS-206/07-coverage.log
 4ac84d4cbfc688358521913fe160db9788954808ee2e891eb63d7c4b79c4bc35  docs/evidence/ATS-206/08-wbs-row.log
 a365cc32361aaf7f217425780e5800fad6eac27f2e1fd7a8bd1ed718cae46ac5  docs/evidence/ATS-206/09-wbs-updaters.log
-8afaf2e37f1c966c82b58211f7b8e9aeec0ee945d479e21372bd9d99d782bf31  docs/evidence/ATS-206/10-python-gates.log
+6f37fcb031efa6e06474ccc07470b1a9d18f18242bcc4bb0a072a3677e99fe98  docs/evidence/ATS-206/10-python-gates.log
 f9079b091c454adade81744a927b21411e5391bba3d4f22b98c87347b40d245c  docs/evidence/ATS-206/11-review-round3-probe.log
 54e019259504aa22539d90ae27aaf73ac215eeb97c30a94156aca8688232fed1  docs/evidence/ATS-206/12-review-round4-probe.log
 b8e69b61a3d1284e2b2a41b4a445dadaefa81a825be8003be0e557a28555ee82  docs/evidence/ATS-206/13-adr-citations.log
@@ -411,7 +411,7 @@ aac32f8e84c067869dd60a35fc500ccae905d2fe99d22f15bb192db47b977399  tools/ats205-p
 21fd823e9cfb93395cb02f79f8e0e00795b6a748160afd2d1ba1ce9f92b44a54  tools/ats206-probes/ce206r3.mjs
 de1c5cacec84c3258bee63d97e32375762d1bcc2d7920003f17f7c1494cad872  tools/ats206-probes/ce206r4.mjs
 ae7fe3cf4d7b60ebd8f4bed001f127ccadd597840d7f9406db6a1efcd4655ce3  tools/ats206-probes/cli-roundtrip.mjs
-5e4e9f37bc574548626f41399d495eef5c5ff98d7e6dbb2a589c324a0d60a9b5  tools/ats206-probes/collect-evidence.sh
+f2f6566a7cc9f0da487dc830d39f5d5c47ae9a746656b22fc5b454496f727a42  tools/ats206-probes/collect-evidence.sh
 6ff3c8b6345b4a18285b31119491f6aa278b216776e2c84481689fcca45c6f6b  tools/ats206-probes/defect-probe.mjs
 493f5f15f1a7a5843dda3c2be9f4cee40206ca13c1ec669e065bab5a3f246ba8  tools/ats207-probes/collect-evidence.sh
 8984c2fe4dee52b06c226bb341c270754ea59033b194c9498acb3c7a99cdfa5b  tools/ats207-probes/coverage-of.mjs
