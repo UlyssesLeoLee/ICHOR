@@ -1,0 +1,11 @@
+=== ATS-601 evidence: line coverage of the mobile contract ===
+tree : 3966b6d6a79b29b413970adab6d7c33937748b4f
+
+ℹ tests 75
+ℹ pass 75
+ℹ fail 0
+ℹ start of coverage report
+ℹ   mobile-target.mjs   | 100.00 |    90.35 |  100.00 | 
+ℹ   mobile.mjs          | 100.00 |    64.29 |  100.00 | 
+ℹ all files             |  58.56 |    61.36 |   20.77 | 
+ℹ end of coverage report

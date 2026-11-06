@@ -1,0 +1,18 @@
+=== the R1 probe on the delivered tree ===
+tree: D:/hermes-multica/home/cache/scratch/ats208-v/tree-tip
+commit: 82340dc
+
+ok   WDIO [skipped, failed] keeps the failure  -- {"total":2,"passed":0,"failed":1,"skipped":1,"flaky":0,"cases":["skippedx1","failedx1"]}
+ok   WDIO [failed, skipped] keeps the failure  -- {"total":1,"passed":0,"failed":1,"skipped":0,"flaky":0,"cases":["failedx2"]}
+ok   WDIO [skipped, passed] is two cases, or one case that does not claim passed  -- {"total":2,"passed":1,"failed":0,"skipped":1,"flaky":0,"cases":["skippedx1","passedx1"]}
+ok   aggregateAttempts([skipped, failed(outcome unknown)]) is not passed  -- {"status":"failed","outcome":"unknown","error":"boom"}
+ok   aggregateAttempts([failed(outcome unknown), skipped]) is not passed  -- {"status":"failed","outcome":"unknown","error":"boom"}
+info: aggregateOutcomes(['skipped','unknown']) = unknown
+
+RESULT: 0 failed check(s)
+
+=== the R1 probe on the pre-fix tree (must be red) ===
+FAIL aggregateAttempts([failed(outcome unknown), skipped]) is not passed  -- {"status":"passed","outcome":"expected","error":"boom"}
+info: aggregateOutcomes(['skipped','unknown']) = expected
+
+RESULT: 4 failed check(s)

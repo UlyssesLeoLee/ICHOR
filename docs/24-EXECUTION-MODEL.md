@@ -81,10 +81,16 @@ ATS-208 的交付物是「执行状态机 v2」：把执行模型的四个概念
 - Case 的 outcome 由它**各 project** 的 outcome 聚合：某个 project
   `unexpected` → `unexpected`；某个 project `flaky` → `flaky`；全部 `skipped`
   → `skipped`；否则 `expected`。
+- **`expected` 是对列表里每一个 outcome 的断言**，所以列表里只要有一个
+  `unknown`，聚合结果就不是 `expected` 而是 `unknown`。那个「什么都没说」的
+  outcome 不能算作「符合声明」的证据——否则 WDIO（不声明期望，outcome 全是
+  `unknown`）的一次 `skipped` 会把一次 `failed` 聚合成 `expected`，再由状态
+  聚合把失败改判成通过，而引擎的退出码仍是非零。
 - Case 的**状态**在 outcome 已知时由 outcome 决定：`expected` 且全部 attempt
   失败 → `passed`（预期失败是成功）；`unexpected` 且全部 attempt 通过 →
   `failed`（意外通过是缺陷）。outcome 为 `flaky` 时不覆盖状态——状态聚合
-  本来就知道重试有没有救回来。
+  本来就知道重试有没有救回来。outcome 为 `unknown` 时同样不覆盖状态，状态由
+  attempt 的原始状态聚合决定。
 - **Attempt 仍然保留自己的原始 `status` 和自己的错误**：预期失败的那一次
   执行确实失败了，这个事实不能因为它「符合预期」而消失。
 
@@ -138,6 +144,12 @@ Case 的状态是它**全部 attempt 的聚合**，规则是确定的：
 把它们合并会**藏掉一次真实的失败**：两个同名用例（第二个失败）会并成一个 flaky
 case 且 `failed: 0`，失败的用例从 summary 里消失。因此一条通过的条目就结束它
 所在的分组，同名的下一条另起一个分组。
+
+**被跳过的条目同样结束分组。** 被跳过的用例也不会被重试（reporter 只在上一试
+**没有通过**时才推重试条目，而跳过不是通过），所以**跟在一条跳过条目之后**的
+同名条目也是**另一个**用例。把它们合并会让 `[skipped, failed]` 变成一个 case：
+outcome 聚合把跳过的那次和失败的那次读成同一个用例，失败就从 summary 里消失了，
+而引擎的退出码仍是非零。
 
 剩下的歧义**写明而不猜测**：报告里 `[failed, passed]` 与「一个用例失败后重试
 通过」在报告层面无法区分。适配器按重试读取（这是实测到的 reporter 形状支持的
