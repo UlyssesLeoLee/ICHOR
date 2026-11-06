@@ -1,0 +1,24 @@
+# ATS-207 evidence: the ATS-207 row of docs/WBS.xlsx
+# collected : 2026-11-06T10:05:53Z
+# HEAD      : c7c3d2f946e414e37de5ac3e0eb137943c3a48fb
+# tree      : 06c2ac3f1820b6643b4b45ff90327df085319938
+# node      : v24.19.0
+# command   : python -X utf8 -c 
+import sys, openpyxl
+sys.path.insert(0, 'tools')
+from wbs_common import read_parts, sheet_cells, SHEET2
+r = next(c for c in sheet_cells(read_parts('docs/WBS.xlsx'), SHEET2).values() if c.get('A') == 'ATS-207')
+print('状态', r['N'], '| 完成率', r['O'], '| 剩余人日', r['P'], '| 估算', r['K'])
+print('风险/说明', r['T'])
+wb = openpyxl.load_workbook('docs/WBS.xlsx'); wb.close(); print('openpyxl: the workbook loads')
+
+
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+状态 待审核 | 完成率 1 | 剩余人日 0 | 估算 4
+风险/说明 阶段内按验收门槛控制；【ATS-207】数据目录单实例锁与崩溃恢复已实现：bridge.lock 以「完整记录写私有临时文件后硬链接发布」原子抢占，同一时刻多个进程恰一个成功（改动前的实现 6 个并发进程 6 个都「抢到」，竞态探针实测），陈旧锁先改名再比对字节后接管、绝不删除活持有者的锁；锁记录带 token，Bridge 周期校验仍持有锁，锁被删则重取、被他人占用则退出；第二个 Bridge 以退出码 1 拒绝并报持有者 pid，ATS_LOCK_WAIT_MS 可等待锁空出；state.json 每进程临时文件、fsync 后改名，损坏的状态文件报 STATE_CORRUPT 并拒绝启动且不改写；SQLite 镜像启动时 quick_check，损坏则连同 -wal/-shm 隔离并由 state.json 重建；崩溃中的 run 恢复为 interrupted（ATS-208 的日志驱动恢复）；UT 24 条（tests/instance-lock.test.mjs）、真实 Bridge 进程 IT 10 条（tests/instance-lock-it.test.mjs）、真实 Chromium 的 ST-017/025/026（tools/ats207-probes/st-ats207.mjs，18/18）已执行，证据见 docs/evidence/ATS-207/；断电以强杀进程模拟，未做真实掉电；桌面壳不显示「已占用」提示且未实测（本机无 Rust/Tauri 工具链）；详见 docs/06-DATA-DESIGN.md §5.7
+openpyxl: the workbook loads
+
+# exit code: 0
