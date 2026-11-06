@@ -1,0 +1,82 @@
+=== ATS-602 evidence: the contract probe (the mapping rule side by side) ===
+tree : 69b6fdf90b9f13e80ad57ef48d1c7af49a90cb54
+date : 2026-11-06T22:42:19Z
+
+
+========================================================================
+ATS-602 contract probe: the mobile Flow import
+========================================================================
+
+This probe runs on FIXTURES. It needs no Android SDK, no AVD, no ADB
+device and no driver: the import is a CONTRACT level operation.
+A PASS here says the MAPPING works. It says NOTHING about whether a
+mobile Flow can be EXECUTED on a device -- that is ATS-603.
+
+========================================================================
+1. the two syntaxes map onto the SAME steps
+========================================================================
+
+the YAML Flow:
+  scenarios : 2
+  steps     : Login with email -> [launchApp, tapOn, assertVisible, takeScreenshot] | Browse the catalogue -> [launchApp, tapOn]
+
+the linear Flow:
+  scenarios : 2
+  steps     : Login with email -> [launchApp, tapOn, assertVisible, takeScreenshot] | Browse the catalogue -> [launchApp, tapOn]
+
+the two syntaxes produce the SAME steps : YES
+
+========================================================================
+2. a step the platform cannot run is KEPT, not dropped
+========================================================================
+
+unsupported steps : 1
+  line 17: - swipe:
+      reason    : unknown-command -- the command "swipe" names no action the unified mobile case model knows
+      suggestion: (none)
+
+declared steps accounted for : 7 (mapped 6 + reported 1)
+
+========================================================================
+3. the import report
+========================================================================
+
+导入报告：flows/login.yaml
+  语法          ：maestro
+  App           ：com.example.app
+  用例数        ：2
+  已映射步骤数  ：6
+  不支持步骤数  ：1
+  参数告警数    ：0
+  读取错误数    ：0
+
+不支持的步骤（保留原文，未静默丢弃）：
+  第 17 行：- swipe:
+      原因：unknown-command — the command "swipe" names no action the unified mobile case model knows
+
+========================================================================
+4. the UIDs
+========================================================================
+
+  tc_1_d_b3823b615842aa6d  derived    stable=true  Login with email
+  tc_1_d_0c8ab2bd12be3c8a  derived    stable=true  Browse the catalogue
+
+after the retitle "Login with email" -> "Login with the email address":
+  tc_1_d_b3823b615842aa6d  registry   stable=true  Login with the email address
+  tc_1_d_0c8ab2bd12be3c8a  registry   stable=true  Browse the catalogue
+
+the uids survive the retitle : YES
+
+========================================================================
+5. the verdict
+========================================================================
+
+the mobile Flow maps onto the unified TestDefinition  : YES
+an unmappable step keeps its original text and is
+reported as unsupported                              : YES
+switching the import method does not move a uid       : YES
+
+NOT verified here: the execution of a Flow on a real device.
+That is ATS-603, and it needs an Android emulator this machine
+does not have. Nothing in this probe may be read as a mobile
+execution PASS.
