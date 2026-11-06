@@ -240,6 +240,8 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 | 同一逻辑用例的**跨 project**身份（当前一个用例携带每个 project 的 spec id，但 UID 按逻辑用例唯一） | 本设计已实现矩阵侧的计数与绑定；spec id 到具体 project 的映射仍由 `specIds` 承担 |
 | 沙箱化执行（`--list` 在宿主上执行仓库代码） | ATS-415 |
 | 标题的**语义**相似（改标题不只是改字，改的是意思） | 不可能自动判定；`@TC-xxx` 是唯一的确定手段 |
+| **`body-key` 的范围跨文件** | 第 5 步（执行体指纹）的查找范围是**整个项目**，而唯一性只在**本次运行内**计算。于是：一个新文件里复制来的同一执行体，在注册表陈旧时会绑到**旧**用例上。要固定身份就用显式标注 `@TC-xxx`；这条边界由本设计记录，不宣称已解决 |
+| **同一 describe 路径下共享执行体** | 两个用例共享执行体且坐在**同一** describe 路径下时，指纹认不出其中任何一个，任何不使用指纹的信号都不绑定（§3.2）。跨 describe 的共享不挡住信号 2（§3.1） |
 
 **改标题就改身份的情形**：用例的执行体被改了，此时指纹变了，标题也变了，
 用例就换了身份。这条边界是 ATS-201 定下的（`docs/18-UID-SPEC.md` §3.2），
@@ -258,8 +260,9 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 | 反例 | `tools/ats204-probes/review-r1/r1-e2e.mjs` | 复核第 1 轮的 11 条端到端反例（真实 Playwright CLI） |
 | 反例 | `tools/ats204-probes/counterexample.sh` | 同一批用例在第一次交付的树（`9a559c6`）上跑，**5 项失败** |
 
-执行：`npm test`（Node ≥ 22）。**全量 931 例：920 通过 / 0 失败 / 11 跳过**
-（跳过的 11 项是示例工程缺 `node_modules`，与本任务无关）。
+执行：`npm test`（Node ≥ 22）。**全量 931 例：926 通过 / 0 失败 / 5 跳过**
+（跳过的 5 项是 `examples/sample-wdio` 没有 `node_modules`，与本任务无关；
+装了示例工程的 fixture 依赖后，此前跳过的另外 6 项也执行并通过）。
 
 **反例回归的可证伪性**：`tests/identity.test.mjs` 在第一次交付的树
 （`9a559c6`）上实测有 **5 项失败**（UT-ATS204-022 / 023 / 024 / 025 / 027，
@@ -275,9 +278,9 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 | 文件 | 行 | 分支 | 函数 |
 |---|---|---|---|
 | `server/identity.mjs` | 99.03% | 84.08% | 100% |
-| `server/execution/model.mjs` | 99.34% | 84.92% | 96.88% |
+| `server/execution/model.mjs` | 99.34% | 84.97% | 96.88% |
 | `server/discovery/authoritative.mjs` | 97.08% | 85.04% | 86.67% |
-| `server/core.mjs` | 97.83% | 84.95% | 86.15% |
+| `server/core.mjs` | 97.83% | 84.67% | 86.15% |
 
 ### 8.2 证据索引
 
@@ -288,18 +291,21 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 | 日志 | 内容 |
 |---|---|
 | `00-tree.log` | 采证据时的树（commit 与工作区状态） |
-| `01-identity-ut.log` | 身份映射器的 21 项 UT |
+| `01-identity-ut.log` | 身份映射器的 37 项 UT |
 | `02-uid-discovery-ut.log` | UID 与发现的既有 UT（未回归） |
 | `03-execution-model-ut.log` | 执行模型的既有 UT（矩阵的回归） |
-| `04-node-test-full.log` | 全量 912 例 |
+| `04-node-test-full.log` | 全量 931 例 |
 | `05-probe-gaps.log` | 本任务修好的缺口（改名 + 改标题的 attempt 由 unbound 变为按 body-key 绑定） |
 | `06-probe-anchor.log` | 锚点：模板改文案后 UID 不变；渲染数变化时报位移 |
 | `07-probe-matrix.log` | 矩阵：两种报告形状给同一个答案 |
-| `08-cli-facts.log` | 真实 CLI 的事实（真实 `@playwright/test` 1.64.1） |
+| `08-cli-facts.log` | 真实 CLI 的事实（真实 `@playwright/test` 1.64.1）——**全部确认，退出码 0** |
 | `09-adr-citations.log` | ADR 引用门禁 |
 | `10-port-audit.log` | ATS-101 端口审计 |
 | `11-wbs-row.log` | WBS 行的定点更新与幂等性 |
-| `12-counterexample.log` | 同一批用例在改动前的树上的结果（4 项失败） |
+| `12-counterexample.log` | 同一批用例在第一次交付的树（`9a559c6`）上的结果（**5 项失败**） |
+| `13-review-r1-anchor.log` | 复核第 1 轮的 6 条发现侧反例——**全部消失** |
+| `14-review-r1-e2e.log` | 复核第 1 轮的 11 条端到端反例——**全部消失** |
+| `15-coverage.log` | 四个文件的行/分支/函数覆盖率 |
 
 ## 9. 与既有设计的关系
 

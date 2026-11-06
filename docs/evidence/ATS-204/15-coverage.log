@@ -1,0 +1,9 @@
+=== command ===
+bash -c node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout tests/*.test.mjs 2>&1 | grep -E 'identity.mjs|model.mjs|authoritative.mjs|core.mjs|all files'
+=== output ===
+ℹ  core.mjs               |  97.83 |    84.67 |   86.15 | 306-309 423 578-579 768-770 1091-1093 1104 1108 1112-1117 1119-1122
+ℹ   authoritative.mjs     |  97.08 |    85.04 |   86.67 | 444-447 471-481
+ℹ   model.mjs             |  99.34 |    84.97 |   96.88 | 396-401 597-598 814
+ℹ  identity.mjs           |  99.03 |    84.08 |  100.00 | 375-379 504-505
+ℹ all files               |  93.63 |    82.79 |   92.61 | 
+=== exit code: 0 ===

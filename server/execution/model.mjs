@@ -964,17 +964,17 @@ export function attemptsForRun(run, summary, registry) {
           occurrence: index
         }),
         runUid: run.uid || run.id,
-                testUid: found.uid,
-                uidBasis: found.basis,
-                // ATS-204: when the mapper could not decide, it says WHY and it
-                // lists the candidates. The attempt stays unbound, and the reason
-                // is on the record -- an unbound attempt that says nothing is
-                // indistinguishable from a case that is not in the catalogue.
-                ...(found.ambiguity ? { uidAmbiguity: found.ambiguity } : {}),
-                file,
-                title: c.title,
-                line: c.line,
-                retry: attempt.retry || 0,
+        testUid: found.uid,
+        uidBasis: found.basis,
+        // ATS-204: when the mapper could not decide, it says WHY and it
+        // lists the candidates. The attempt stays unbound, and the reason
+        // is on the record -- an unbound attempt that says nothing is
+        // indistinguishable from a case that is not in the catalogue.
+        ...(found.ambiguity ? { uidAmbiguity: found.ambiguity } : {}),
+        file,
+        title: c.title,
+        line: c.line,
+        retry: attempt.retry || 0,
         // An Attempt is one EXECUTION, so it records the result level status.
         // The case level status would describe the case as a whole and
         // would report "flaky" for the failed retry as well.
