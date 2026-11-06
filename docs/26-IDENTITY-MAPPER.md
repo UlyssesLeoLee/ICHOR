@@ -249,22 +249,37 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 
 | 类别 | 用例 | 覆盖内容 |
 |---|---|---|
-| UT | `UT-ATS204-001` … `UT-ATS204-021`（`tests/identity.test.mjs`） | 改名保 UID、改名 + 改标题保 UID、运行侧绑定、旧证据不误关联、执行体共享不绑定、标题歧义不绑定、同文件同名靠指纹区分、别名只在指纹不可得时使用、显式标注优先、重复显式标注不绑定、锚点保住动态用例 UID、渲染数变化报位移、锚点的位置与次序、矩阵是一个用例、矩阵的两个 attempt 共享 UID、改名用例靠执行体绑定、位置与执行体矛盾则不绑定、位置与执行体一致则绑定、新用例的显式 token 照样绑定、既有查找行为不变 |
-| 实测 | `tools/ats204-probes/cli-facts.mjs` | 真实 CLI 的事实：每个 project 一行 spec、渲染标题与行号、describe 路径、spec id |
+| UT | `UT-ATS204-001` … `UT-ATS204-036`（`tests/identity.test.mjs`） | 改名保 UID、改名 + 改标题保 UID、运行侧绑定、旧证据不误关联、执行体共享不绑定、标题歧义不绑定、同文件同名靠指纹区分、别名只在指纹不可得时使用、显式标注优先、重复显式标注不绑定、锚点保住动态用例 UID、渲染数变化报位移、锚点的位置与次序、矩阵是一个用例、矩阵的两个 attempt 共享 UID、改名用例靠执行体绑定、位置与执行体矛盾则不绑定、位置与执行体一致则绑定、新用例的显式 token 照样绑定、既有查找行为不变、**复核第 1 轮的 5 条反例（E1/E3/E4/M1/X1）**、锚点只数 CLI 报告次序、锚点不决定源码用例、部分改写的组只报不绑 |
+| 实测 | `tools/ats204-probes/cli-facts.mjs` | 真实 CLI 的事实：每个 project 一行 spec、渲染标题与行号、describe 路径、spec id、**报告次序 ≠ 排序名次** |
 | 实测 | `tools/ats204-probes/probe-gaps.mjs` | 改动前的缺口：改名 + 改标题的 attempt 是 `unbound` |
 | 实测 | `tools/ats204-probes/probe-anchor.mjs` | 锚点：模板改文案后 UID 不变；渲染数变化时报位移 |
 | 实测 | `tools/ats204-probes/probe-matrix.mjs` | 矩阵：两种报告形状给同一个答案 |
-| 反例 | `tools/ats204-probes/counterexample.sh` | 同一批用例在改动前的树（`83c8bc5`）上跑，**4 项失败** |
+| 反例 | `tools/ats204-probes/review-r1/r1-anchor.mjs` | 复核第 1 轮的 6 条发现侧反例（锚点） |
+| 反例 | `tools/ats204-probes/review-r1/r1-e2e.mjs` | 复核第 1 轮的 11 条端到端反例（真实 Playwright CLI） |
+| 反例 | `tools/ats204-probes/counterexample.sh` | 同一批用例在第一次交付的树（`9a559c6`）上跑，**5 项失败** |
 
-执行：`npm test`（Node ≥ 22）。**在合入后的 `dev` 树（`5d59e99`）上实测全量
-912 例：912 通过 / 0 失败 / 0 跳过**（该树装了示例工程的 fixture 依赖，
-此前在别的检出里被跳过的 11 项在这里全部执行并通过）。
+执行：`npm test`（Node ≥ 22）。**全量 931 例：920 通过 / 0 失败 / 11 跳过**
+（跳过的 11 项是示例工程缺 `node_modules`，与本任务无关）。
 
-**反例回归的可证伪性**：`tests/identity.test.mjs` 在改动前的树（`83c8bc5`）
-上实测有 **4 项失败**（UT-ATS204-003 / 012 / 013 / 015）——断言确实能抓住
-缺陷，不是恒真断言。复现：`bash tools/ats204-probes/counterexample.sh`。
+**反例回归的可证伪性**：`tests/identity.test.mjs` 在第一次交付的树
+（`9a559c6`）上实测有 **5 项失败**（UT-ATS204-022 / 023 / 024 / 025 / 027，
+即复核者测出的 E1 / E3 / E4 / M1 / X1）——断言确实能抓住缺陷，不是恒真
+断言。复现：`bash tools/ats204-probes/counterexample.sh`。
 
-### 8.1 证据索引
+复核第 1 轮时，复核者附了两个探针（`tools/ats204-probes/review-r1/`）。它们
+在本树上**全部通过**：锚点探针 6/6，端到端探针 11/11（真实
+`@playwright/test` 1.64.1）。
+
+### 8.1 覆盖率
+
+| 文件 | 行 | 分支 | 函数 |
+|---|---|---|---|
+| `server/identity.mjs` | 99.03% | 84.08% | 100% |
+| `server/execution/model.mjs` | 99.34% | 84.92% | 96.88% |
+| `server/discovery/authoritative.mjs` | 97.08% | 85.04% | 86.67% |
+| `server/core.mjs` | 97.83% | 84.95% | 86.15% |
+
+### 8.2 证据索引
 
 `docs/evidence/ATS-204/` 下的每一份日志都由
 `tools/ats204-probes/collect-evidence.sh` 在当前的树上实际执行并原样捕获，

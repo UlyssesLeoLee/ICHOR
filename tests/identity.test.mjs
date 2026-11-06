@@ -20,7 +20,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { emptyRegistry, findTestUid, projectUidFor } from '../server/uid.mjs';
-import { bindReported, groupByPosition, positionKey, reidentifyRendered, AMBIGUITY } from '../server/identity.mjs';
+import { bindReported, anchorOf, groupByPosition, positionKey, reidentifyRendered, AMBIGUITY } from '../server/identity.mjs';
 import { discoverStatic, attemptsForRun } from '../server/core.mjs';
 import { resolveAuthoritativeIdentities } from '../server/discovery/authoritative.mjs';
 import { parseReport } from '../server/execution/model.mjs';
@@ -810,4 +810,118 @@ test('UT-ATS204-030: a partly rewritten group is reported and binds nothing', ()
   assert.equal(dave.uid, null, 'nothing is bound');
   assert.equal(dave.ambiguity.reason, AMBIGUITY.RENDER_PARTIAL);
   assert.deepEqual(dave.ambiguity.candidates.sort(), ['tc-alice', 'tc-bob']);
+});
+
+test('UT-ATS204-031: two anchors at the same ordinal are reported, not resolved', () => {
+  // Two registry entries claim the SAME ordinal of the same position. The
+  // mapper cannot say which of them the render is, so it reports them.
+  const cases = [{ file: 'tests/dyn.spec.ts', title: 'user dave', line: 7, scope: [] }];
+  const decisions = reidentifyRendered({
+    cases,
+    entries: [
+      { uid: 'tc-one', title: 'user bob', anchor: { file: 'tests/dyn.spec.ts', line: 7, scope: [], ordinal: 0, count: 1 } },
+      { uid: 'tc-two', title: 'user carol', anchor: { file: 'tests/dyn.spec.ts', line: 7, scope: [], ordinal: 0, count: 1 } },
+    ],
+  });
+  const decision = decisions.get(cases[0]);
+  assert.ok(decision, 'the render is decided -- by NOT deciding it');
+  assert.equal(decision.uid, null);
+  assert.equal(decision.ambiguity.reason, AMBIGUITY.RENDER_AMBIGUOUS);
+  assert.deepEqual(decision.ambiguity.candidates.sort(), ['tc-one', 'tc-two']);
+});
+
+test('UT-ATS204-032: a group that grew reports the shift', () => {
+  // The template gained a render: the group is bigger than it was, so the
+  // ordinals may have shifted.
+  const cases = [
+    { file: 'tests/dyn.spec.ts', title: 'user zoe', line: 7, scope: [] },
+    { file: 'tests/dyn.spec.ts', title: 'user alice', line: 7, scope: [] },
+  ];
+  const decisions = reidentifyRendered({
+    cases,
+    entries: [
+      { uid: 'tc-alice', title: 'user alice', anchor: { file: 'tests/dyn.spec.ts', line: 7, scope: [], ordinal: 0, count: 1 } },
+    ],
+  });
+  const zoe = decisions.get(cases[0]);
+  assert.ok(zoe, 'the new render is decided -- by NOT deciding it');
+  assert.equal(zoe.uid, null);
+  assert.equal(zoe.ambiguity.reason, AMBIGUITY.RENDER_SHIFT);
+  assert.equal(zoe.ambiguity.previousCount, 1);
+  assert.equal(zoe.ambiguity.currentCount, 2);
+});
+
+test('UT-ATS204-033: the anchor of a case names its position and its ordinal', () => {
+  const cases = [
+    { file: 'tests/dyn.spec.ts', title: 'adds 1 item', line: 7, scope: [], reportOrder: 0 },
+    { file: 'tests/dyn.spec.ts', title: 'adds 2 items', line: 7, scope: [], reportOrder: 1 },
+  ];
+  const groups = groupByPosition(cases);
+  const anchor = anchorOf(cases[1], groups);
+  assert.equal(anchor.kind, 'position');
+  assert.equal(anchor.file, 'tests/dyn.spec.ts');
+  assert.equal(anchor.line, 7);
+  assert.deepEqual(anchor.scope, []);
+  assert.equal(anchor.ordinal, 1, 'the ordinal is the index in the report order');
+  assert.equal(anchor.count, 2);
+});
+
+test('UT-ATS204-034: two entries that share the file, the line and the title stay unbound', () => {
+  // Two entries share the file, the line AND the title: the position does
+  // not identify either of them, and without a body nothing can.
+  const entries = [
+    { uid: 'tc_1_d_aaaaaaaaaaaaaaaa', bodyKey: null, file: 'tests/a.spec.ts', title: 'works', line: 3, aliases: [] },
+    { uid: 'tc_1_d_bbbbbbbbbbbbbbbb', bodyKey: null, file: 'tests/a.spec.ts', title: 'works', line: 3, aliases: [] },
+  ];
+  const hit = bindReported({ entries, file: 'tests/a.spec.ts', title: 'works', line: 3 });
+  assert.equal(hit.uid, null, 'the case stays unbound');
+  // The group is ambiguous as a whole, so the file+title signal is the one
+  // that reports it (the line cannot pick one of the two either).
+  assert.equal(hit.basis, 'file-title-ambiguous');
+  assert.equal(hit.ambiguity.reason, AMBIGUITY.SAME_TITLE);
+  assert.deepEqual(hit.ambiguity.candidates.sort(), ['tc_1_d_aaaaaaaaaaaaaaaa', 'tc_1_d_bbbbbbbbbbbbbbbb']);
+});
+
+test('UT-ATS204-034B: the file-line signal reports when it cannot pick one', () => {
+  // The two entries share the file and the title but sit on DIFFERENT
+  // lines, and the report names a line that holds neither of them -- so
+  // the file-line signal finds two candidates and reports them.
+  const entries = [
+    { uid: 'tc_1_d_aaaaaaaaaaaaaaaa', bodyKey: null, file: 'tests/a.spec.ts', title: 'works', line: 3, aliases: [] },
+    { uid: 'tc_1_d_bbbbbbbbbbbbbbbb', bodyKey: null, file: 'tests/a.spec.ts', title: 'works', line: 3, aliases: [] },
+  ];
+  // The same title, but the reported line does not match either entry's
+  // line: the positional hit finds the two entries by title only.
+  const hit = bindReported({
+    entries: entries.map((e) => ({ ...e, title: 'other' })),
+    file: 'tests/a.spec.ts', title: 'other', line: 3,
+  });
+  assert.equal(hit.uid, null);
+  assert.equal(hit.basis, 'file-title-ambiguous');
+});
+
+test('UT-ATS204-035: two entries under the same describe path and title are ambiguous', () => {
+  const entries = [
+    { uid: 'tc_1_d_aaaaaaaaaaaaaaaa', bodyKey: null, file: 'tests/a.spec.ts', title: 'works', line: 3, scope: ['g'], aliases: [] },
+    { uid: 'tc_1_d_bbbbbbbbbbbbbbbb', bodyKey: null, file: 'tests/a.spec.ts', title: 'works', line: 9, scope: ['g'], aliases: [] },
+  ];
+  const hit = bindReported({ entries, file: 'tests/a.spec.ts', title: 'works', scope: ['g'] });
+  assert.equal(hit.uid, null);
+  assert.equal(hit.basis, 'file-scope-title-ambiguous');
+  assert.equal(hit.ambiguity.reason, AMBIGUITY.SAME_SCOPE_TITLE);
+});
+
+test('UT-ATS204-036: the scope signal needs the body to AGREE', () => {
+  // The describe path is a position, not an identity: a hit whose body
+  // disagrees is a stale-position coincidence and does not bind.
+  const entries = [{
+    uid: 'tc_1_d_aaaaaaaaaaaaaaaa', bodyKey: 'k1', file: 'tests/a.spec.ts', title: 'works', line: 3, scope: ['g'], aliases: [],
+  }];
+  const disagrees = bindReported({
+    entries, file: 'tests/a.spec.ts', title: 'works', line: 3, scope: ['g'],
+    bodyKey: 'k9', bodyCounts: new Map([['k9', 1]]),
+  });
+  assert.equal(disagrees.uid, null, 'the positional hit does not bind');
+  assert.equal(disagrees.basis, 'file-line-body-mismatch');
+  assert.equal(disagrees.ambiguity.reason, AMBIGUITY.BODY);
 });
