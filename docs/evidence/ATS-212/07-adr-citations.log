@@ -1,6 +1,6 @@
 === the ADR citation check ===
 repo root : /d/ICHOR
-commit    : efab092
+commit    : bb70d57
 branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
