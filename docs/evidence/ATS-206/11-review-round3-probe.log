@@ -1,6 +1,6 @@
 === the round-3 review probe (CE7 / CE8 / CE9 / CE10) ===
 repo root : /d/tmp/ats206-merge
-commit    : 3c45c7d
+commit    : 708b021
 branch    : ats206-merge
 node      : v24.19.0
 python    : Python 3.11.16
@@ -42,10 +42,10 @@ legacy folders back: 2/2
 VERDICT CE9: ok -- an interrupted migration whose state file is already written must be finished, or refused with the journal kept -- never reported as UNDONE
 
 === CE10: is the Bridge lock HELD while rollback / import-only apply / recovery write? ===
-main apply path (control): 3 destructive writes, lock held during all: true
-apply --import-db on a migrated state: 2 destructive writes, lock held during all: true
-rollback: 4 destructive writes, lock held during all: true
-recovery after a kill (journal steps ["state","folders"]): 2 destructive writes, lock held during all: true
+main apply path (control): 4 destructive writes, lock held during all: true
+apply --import-db on a migrated state: 3 destructive writes, lock held during all: true
+rollback: 5 destructive writes, lock held during all: true
+recovery after a kill (journal steps ["state","folders"]): 3 destructive writes, lock held during all: true
 VERDICT CE10: ok -- the engine functions (rollbackMigration, import-only applyMigration, recovery) hold the Bridge lock for every destructive write, as the main apply path does
 
 0 counterexample(s) hold

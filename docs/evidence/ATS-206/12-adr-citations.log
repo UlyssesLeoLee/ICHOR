@@ -1,6 +1,6 @@
 === the ADR citation check ===
 repo root : /d/tmp/ats206-merge
-commit    : 3c45c7d
+commit    : 708b021
 branch    : ats206-merge
 node      : v24.19.0
 python    : Python 3.11.16

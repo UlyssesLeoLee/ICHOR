@@ -47,6 +47,56 @@ import { openDatabase, closeDatabase, sqliteAvailable } from '../sqlite/db.mjs';
 import { importState, verifyMirror } from '../sqlite/import.mjs';
 import { acquireBridgeLock, releaseBridgeLock, readBridgeLock, lockPath } from '../core.mjs';
 
+/**
+ * The exit handlers that release the engine locks, by lock file.
+ *
+ * @type {Map<string, () => void>}
+ */
+const exitHandlers = new Map();
+
+/**
+ * Takes the lock of a data directory -- INSIDE the engine -- and returns the
+ * function that releases it.
+ *
+ * The lock is released by the `finally` of the caller, and ALSO by an exit
+ * handler: a migration that is killed half way through (that is what the
+ * journal is FOR) must not leave the lock behind. A lock left behind is
+ * STALE, and the next run has to take it over -- and the takeover renames
+ * and deletes the lock file, which are writes that happen BEFORE the new
+ * lock is published. A process that is doing its recovery would then be
+ * seen writing without holding the lock.
+ *
+ * The exit handler is registered once per lock file and removed when the
+ * lock is released normally, so a clean run leaves no handler behind.
+ *
+ * @param {string} lockFile the lock file
+ * @returns {() => void} the function that releases the lock
+ */
+function takeEngineLock(lockFile) {
+  acquireBridgeLock(lockFile);
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    const handler = exitHandlers.get(lockFile);
+    if (handler) {
+      process.off('exit', handler);
+      exitHandlers.delete(lockFile);
+    }
+    releaseBridgeLock(lockFile);
+  };
+  if (!exitHandlers.has(lockFile)) {
+    const handler = () => {
+      // The process is ending: the lock must not outlive it. The lock file
+      // is removed only when it is still ours.
+      try { releaseBridgeLock(lockFile); } catch { /* the process is going down */ }
+    };
+    exitHandlers.set(lockFile, handler);
+    process.once('exit', handler);
+  }
+  return release;
+}
+
 /** The name of the backup of a file. */
 export const BACKUP_SUFFIX = '.bak';
 
@@ -434,11 +484,10 @@ export function applyMigration(dataDir, options = {}) {
   // The lock is taken HERE -- inside the engine -- and not in the CLI: the
   // CLI only READS the lock, and a read leaves a window between the check
   // and the write, in which the Bridge can start.
-  let locked = false;
+  let releaseLock = null;
   if (!options.dryRun) {
     try {
-      acquireBridgeLock(paths.lockFile);
-      locked = true;
+      releaseLock = takeEngineLock(paths.lockFile);
     } catch (e) {
       report.problems.push(`BRIDGE_ALREADY_RUNNING: ${e.message}`);
       report.failed = true;
@@ -691,7 +740,7 @@ export function applyMigration(dataDir, options = {}) {
     report.ok = true;
     return report;
   } finally {
-    if (locked) releaseBridgeLock(paths.lockFile);
+    if (releaseLock) releaseLock();
   }
 }
 
@@ -862,10 +911,9 @@ export function rollbackMigration(dataDir, options = {}) {
   // for the WHOLE write, exactly like the migration takes it: a lock that
   // is only READ leaves a window in which the Bridge can start and write
   // its own copy of the state back over the restored one.
-  let locked = false;
+  let releaseLock = null;
   try {
-    acquireBridgeLock(paths.lockFile);
-    locked = true;
+    releaseLock = takeEngineLock(paths.lockFile);
   } catch (e) {
     return {
       restored: false,
@@ -877,7 +925,7 @@ export function rollbackMigration(dataDir, options = {}) {
   try {
     return rollbackMigrationLocked(dataDir, paths, options, problems, undone, lost, backup);
   } finally {
-    if (locked) releaseBridgeLock(paths.lockFile);
+    if (releaseLock) releaseLock();
   }
 }
 

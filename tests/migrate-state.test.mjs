@@ -1270,13 +1270,15 @@ function lockProbe(dataDir, call) {
       try { return JSON.parse(fs.readFileSync(lock, 'utf8')).pid === process.pid; }
       catch { return false; }
     };
-    // The lock implementation's OWN writes are not the engine's writes:
-    // publishing the lock happens before the lock is held.
-    const isLockInternal = (p) => String(p).includes('bridge.lock');
+    // EVERY rename/copy/delete is counted -- including the lock's own.
+    // The lock is published before it is held, so the engine has to leave
+    // no stale lock behind: a killed migration that left one would make
+    // the next run take it over, and the takeover writes the lock file
+    // before the new lock is published.
     for (const fn of ['renameSync', 'copyFileSync', 'rmSync']) {
       const orig = fs[fn];
       fs[fn] = (a, ...rest) => {
-        if (!isLockInternal(a) && !String(a).endsWith('.tmp')
+        if (!String(a).endsWith('.tmp')
             && !String(a).includes('migration-')) seen.push(held());
         return orig(a, ...rest);
       };
@@ -1698,6 +1700,38 @@ test('ATS-206-UT-118: an interrupted migration whose state was NOT written is re
   assert.equal(migrated.projects[0].id, projectUidFor(path.join(dataDir, 'app')));
   assert.equal(migrated.projects[0].legacyId, before.projects[0].id);
   assert.equal(migrated.runs[0].legacyId, before.runs[0].id);
+});
+
+test('ATS-206-UT-119: a killed migration leaves NO lock behind', () => {
+  // A migration that is killed half way through must not leave the lock
+  // behind. A lock left behind is stale: the next run has to take it over,
+  // and the takeover renames and deletes the lock file -- writes that
+  // happen BEFORE the new lock is published. The run that is doing its
+  // recovery would then be seen writing without holding the lock.
+  const { dataDir } = makeData('ce-stale-lock', 2);
+  const killed = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    import fs from 'node:fs';
+    const orig = fs.renameSync;
+    fs.renameSync = (a, b) => {
+      if (String(a).includes(${JSON.stringify(path.join(dataDir, 'runs') + path.sep)})) process.exit(137);
+      return orig(a, b);
+    };
+    const { applyMigration } = await import(${JSON.stringify(applyModule)});
+    applyMigration(${JSON.stringify(dataDir)}, {});
+  `], { encoding: 'utf8' });
+  assert.equal(killed.status, 137, 'the migration was not killed');
+  const lock = path.join(dataDir, 'bridge.lock');
+  assert.equal(fs.existsSync(lock), false, 'the killed migration left its lock behind');
+  assert.deepEqual(
+    fs.readdirSync(dataDir).filter((n) => n.includes('.stale-')), [],
+    'the killed migration left a stale lock file behind'
+  );
+
+  // The recovery therefore runs without taking a stale lock over -- and
+  // every write it does is under the lock it holds.
+  const probe = lockProbe(dataDir, `m.applyMigration(${JSON.stringify(dataDir)}, {})`);
+  assert.ok(probe.count > 0, 'the recovery did not write anything');
+  assert.equal(probe.allHeld, true, `the lock was not held during the recovery: ${JSON.stringify(probe.held)}`);
 });
 
 /* ---------------------------------------------------------------- */
