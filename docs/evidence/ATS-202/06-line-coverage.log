@@ -1,0 +1,100 @@
+=== command ===
+node --test --experimental-test-coverage tests/discovery.test.mjs tests/discovery-it.test.mjs tests/discovery-api.test.mjs
+=== output ===
+✔ IT-ATS202-API-SETUP: start the bridge (408.1787ms)
+✔ IT-ATS202-API-001: a project starts untrusted (65.1302ms)
+✔ IT-ATS202-API-002: an untrusted project gets the STATIC index (76.4318ms)
+✔ IT-ATS202-API-003: an invalid trust value is refused (11.0147ms)
+✔ IT-ATS202-API-004: forcing the authoritative index on an untrusted project is refused (59.084ms)
+✔ IT-ATS202-API-005: the trust can be granted, and the index switches (773.3926ms)
+✔ IT-ATS202-API-006: the trust survives a restart of the bridge (694.5662ms)
+✔ IT-ATS202-API-007: the trust can be revoked, and the index falls back (137.7077ms)
+✔ IT-ATS202-API-008: a TRUSTED project that asks for the static index is not reported as untrusted (145.9972ms)
+✔ IT-ATS202-API-009: the Bridge keeps answering while a project is listed (5168.8204ms)
+✔ IT-ATS202-API-CLEANUP: stop and cleanup (182.4911ms)
+✔ IT-ATS202-SETUP: the real Playwright is installed (0.7475ms)
+✔ IT-ATS202-001: the listing reports the cases of the project (612.314ms)
+✔ IT-ATS202-002: a DYNAMIC case is in the authoritative index and not in the static one (604.937ms)
+✔ IT-ATS202-003: the trusted project gets the authoritative index (532.5527ms)
+✔ IT-ATS202-004: the UNTRUSTED project never runs --list (2.0943ms)
+✔ IT-ATS202-005: the trusted project DOES execute the listing (611.2539ms)
+✔ IT-ATS202-006: the agreement with the CLI is measured, not asserted (530.9734ms)
+✔ IT-ATS202-007: the UID of a case does not move when the index switches (543.2848ms)
+✔ IT-ATS202-008: a broken project config falls back and says why (521.5101ms)
+✔ IT-ATS202-009: a project without a local Playwright CLI is reported, not installed (1.2392ms)
+✔ IT-ATS202-010: a listing that does not finish in time is reported as a timeout (16.3005ms)
+✔ IT-ATS202-011: a CLI that reports an error is a failure, not an empty index (597.1449ms)
+✔ IT-ATS202-012: the consistency agrees for a case after a CLOSED describe (603.4064ms)
+✔ IT-ATS202-013: the consistency agrees for the describe MODIFIERS (589.9892ms)
+✔ IT-ATS202-014: the UID of a case with an ESCAPED QUOTE does not move (579.076ms)
+✔ IT-ATS202-015: the UID of a case with a LONG title does not move (576.1702ms)
+✔ IT-ATS202-016: the UID of a MULTI-LINE test( call survives a retitle (1179.3262ms)
+✔ IT-ATS202-017: the TEMPLATE of a dynamic case does not inherit a rendered UID (579.163ms)
+✔ IT-ATS202-CLEANUP: remove the temporary fixture (105.8302ms)
+✔ UT-ATS202-001: a spec is parsed into a case with the project relative file (1.9033ms)
+✔ UT-ATS202-002: the file is resolved against the CLI rootDir, not the project root (0.2057ms)
+✔ UT-ATS202-003: a file outside the project is excluded and reported (0.1916ms)
+✔ UT-ATS202-004: the describe path is read from the suite nesting (0.1614ms)
+✔ UT-ATS202-005: a project matrix reports the same case once per project (0.2267ms)
+✔ UT-ATS202-006: the CLI errors are carried over verbatim (0.1109ms)
+✔ UT-ATS202-007: the cases are sorted by file and line (7.2566ms)
+✔ UT-ATS202-008: projectRelativeFile refuses a path outside the project (0.2308ms)
+✔ UT-ATS202-009: the outcome codes are stable (0.11ms)
+✔ UT-ATS202-010: a project without a trust record is untrusted (0.2969ms)
+✔ UT-ATS202-011: a vouched project is trusted (0.946ms)
+✔ UT-ATS202-012: the trust can be revoked, and the reason is kept (0.2183ms)
+✔ UT-ATS202-013: the trust of one project does not leak into another (0.0898ms)
+✔ UT-ATS202-014: withTrust does not mutate the state it is given (0.1552ms)
+✔ UT-ATS202-015: a unique title keeps the ATS-201 title-key UID (1.7107ms)
+✔ UT-ATS202-016: an explicit annotation wins over every derived key (0.1441ms)
+✔ UT-ATS202-017: the same explicit annotation on two cases binds neither (0.2793ms)
+✔ UT-ATS202-018: the describe path resolves two same-titled cases (0.1711ms)
+✔ UT-ATS202-019: two same-titled cases in the same describe path stay ambiguous (0.1655ms)
+✔ UT-ATS202-020: the body fingerprint decides when the describe path does not (0.1839ms)
+✔ UT-ATS202-020b: a DYNAMIC case is decided by the describe path, not by the body (0.1428ms)
+✔ UT-ATS202-021: the UID of an ordinary case is the same as the static one (0.1093ms)
+✔ UT-ATS202-021b: the UID of an ordinary case does not change when the index switches (0.1448ms)
+✔ UT-ATS202-022: the registry keeps the spec ids of the CLI (0.1543ms)
+✔ UT-ATS202-023: an entry of an absent file is not pruned (0.1364ms)
+✔ UT-ATS202-024: an entry of a covered file whose case is gone is pruned (0.0965ms)
+✔ UT-ATS202-025: the comparison reports the cases only one index knows (0.1841ms)
+✔ UT-ATS202-026: the comparison reports agreement when the two agree (0.0839ms)
+✔ UT-ATS202-027: the lexical describe path reads the blocks above the line (0.4223ms)
+✔ UT-ATS202-028: the case key spells the file, the path and the title (0.0588ms)
+ℹ tests 60
+ℹ suites 0
+ℹ pass 60
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9880.0144
+ℹ start of coverage report
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ file                  | line % | branch % | funcs % | uncovered lines
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ server                |        |          |         | 
+ℹ  adapters             |        |          |         | 
+ℹ   contract.mjs        |  65.03 |   100.00 |    7.69 | 76-80 94-110 120-131 146-167 174-180 184-186 193-194 202-210 229-240 251-256 276-279 299-306
+ℹ   playwright-cli.mjs  |  66.00 |   100.00 |    0.00 | 37-47 56-64 78-85 89-90 94-95 99-100
+ℹ  core.mjs             |  77.50 |    69.23 |   30.23 | 65-74 89-92 157-178 203-206 220-232 256-270 277-294 298-302 304-310 312-314 317-324 327-331 404-405 432-437 521-528 610-613 627-629 638-645 648-653 655-658
+ℹ  discovery            |        |          |         | 
+ℹ   authoritative.mjs   |  95.86 |    83.65 |   85.71 | 300-303 320-330
+ℹ   index.mjs           |  93.51 |    71.43 |   92.86 | 167 196-207 230-231 255-256
+ℹ   playwright-list.mjs |  85.60 |    60.92 |   86.67 | 185-186 270-288 300-339 415-418 437-441
+ℹ   trust.mjs           |  96.30 |    65.38 |   83.33 | 122 132-135
+ℹ  execution            |        |          |         | 
+ℹ   model.mjs           |  56.49 |   100.00 |    0.00 | 89-90 165-174 189-193 222-290 308-327 371-417 436-455 470-478 501-558 630-633 647-664 680-704 715-717 735-786
+ℹ  sqlite               |        |          |         | 
+ℹ   db.mjs              |  46.06 |   100.00 |    0.00 | 47-59 63-64 78-112 116-117 124-132 137-148 164-182 195-204 228-255 277-317
+ℹ   schema.mjs          |  98.23 |   100.00 |    0.00 | 220-221 225-226
+ℹ   store.mjs           |  28.23 |   100.00 |    0.00 | 44-185 194-214 220-226 232-238 249-262 266-267 277-294
+ℹ  uid.mjs              |  71.93 |    63.85 |   54.69 | 68-73 77-78 89 157-163 165-168 170-177 187 213 217-229 525-553 599-601 607-609 613-626 629-637 650-666 685-686 689-697 711-712 714-729 736-738 765-767 780-793 863-877 885-886 903-916 925-927 940-942 983-1059 1081-1111 1120-1122
+ℹ tests                 |        |          |         | 
+ℹ  helpers              |        |          |         | 
+ℹ   free-port.mjs       | 100.00 |    83.33 |   80.00 | 
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ all files             |  71.69 |    69.36 |   44.86 | 
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ end of coverage report
+=== exit code: 0 ===

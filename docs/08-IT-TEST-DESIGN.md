@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：71；已执行通过：57；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：117；已执行通过：103；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -64,6 +64,45 @@
 |IT-PLG-012|FR-028|正常|诊断端点报告插件契约状态|GET /api/diagnostics|pluginContract.version=plugin-contract/v1，status=CONTRACT_ONLY|node --test|PASS|
 |IT-PLG-013|NFR-011|异常|非插件错误保持 ATS-512 之前的行为|POST /api/projects 指向不存在的目录|500 + 原始 ENOENT 消息，无插件 details|node --test|PASS|
 |IT-PLG-CLEANUP|NFR-005|清理|插件 API 子进程与夹清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
+|IT-DSC-SETUP|FR-021|正常|真实 Playwright 装入夹具|临时目录 npm install @playwright/test 1.64.1|node_modules/@playwright/test/cli.js 存在|node --test|PASS|
+|IT-DSC-001|FR-021|正常|列举报告项目的用例|真实 CLI --list|得到 file/title/line 与 CLI 版本|node --test|PASS|
+|IT-DSC-002|FR-021|正常|动态用例只在权威索引里|一个模板生成两个渲染标题|权威索引有两个，静态索引只有一个模板条目|node --test|PASS|
+|IT-DSC-003|FR-021|正常|可信项目得到权威索引|信任状态 trusted|discovery=authoritative，动态用例 UID 互不相同|node --test|PASS|
+|IT-DSC-004|FR-021|安全|未可信项目不调用 --list|夹具里放一个会写标记文件的 spec|未可信项目下标记文件不存在，attempted=false|node --test|PASS|
+|IT-DSC-005|FR-021|安全|可信项目确实执行了列举|同一夹具，信任状态 trusted|标记文件存在（实测 --list 会执行仓库代码）|node --test|PASS|
+|IT-DSC-006|FR-021|正常|与 CLI 的一致性被度量|权威与静态两个索引|consistency 报告只有权威可见的用例|node --test|PASS|
+|IT-DSC-007|FR-021|正常|切换索引不改变已有 UID|先静态后权威|普通用例的 UID 相同|node --test|PASS|
+|IT-DSC-008|FR-021|异常|坏配置回退并说明|playwright.config.ts 语法错误|discovery=static，outcome=FAILED，warning 含原因|node --test|PASS|
+|IT-DSC-009|FR-021|安全|没有本地 CLI 时不安装|项目无 node_modules|outcome=PLAYWRIGHT_NOT_INSTALLED，node_modules 未被创建|node --test|PASS|
+|IT-DSC-010|FR-021|边界|列举超时被单独报告|timeoutMs=1|outcome=PLAYWRIGHT_LIST_TIMEOUT，不与失败混淆|node --test|PASS|
+|IT-DSC-011|FR-021|异常|CLI 报错时不是空索引|重名用例|outcome=FAILED，errors 含 duplicate test title|node --test|PASS|
+|IT-DSC-API-001|FR-021|安全|项目初始为未可信|GET /api/projects/:id/trust|trust=untrusted，带原因|node --test|PASS|
+|IT-DSC-API-002|FR-021|安全|未可信项目得到静态索引|GET /api/projects/:id/tests|discovery=static，outcome=SKIPPED_UNTRUSTED|node --test|PASS|
+|IT-DSC-API-003|FR-021|异常|非法信任值被拒|POST trust {trust: maybe}|400 INVALID_TRUST_VALUE|node --test|PASS|
+|IT-DSC-API-004|FR-021|安全|强制请求权威索引也被拒|GET /tests?authoritative=true（未可信）|仍为 static，warning 说明未可信仓库不可调用|node --test|PASS|
+|IT-DSC-API-005|FR-021|正常|授予信任后索引切换|POST trust {trust: trusted}|discovery=authoritative，动态用例在索引里|node --test|PASS|
+|IT-DSC-API-006|FR-021|正常|信任跨重启保留|重启 Bridge 后再读|trust 仍为 trusted|node --test|PASS|
+|IT-DSC-API-007|FR-021|安全|撤销信任后回退|POST trust {trust: untrusted}|trust=untrusted 且索引回到 static|node --test|PASS|
+|IT-DSC-CLEANUP|NFR-005|清理|临时夹与进程清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
+|IT-ENV-SETUP|NFR-011|正常|Bridge 启动以承载环境档案接口|隔离 ATS_DATA_DIR 与随机端口启动 server/index.mjs|/api/health=200 且拿到会话令牌|node --test|PASS|
+|IT-ENV-001|FR-027|正常|登记一个项目|POST /api/projects 指向临时工程|201 且返回项目 id|node --test|PASS|
+|IT-ENV-002|FR-027|安全|建立档案且响应只含变量名|POST 项目 /env 含 BASE_URL 与 TENANT|响应含 uid/name/environment；variables 为名称数组；不含值|node --test|PASS|
+|IT-ENV-003|FR-027|正常|GET /env 列出档案与白名单|GET 项目 /env|profiles 含该档案；whitelist 报告来源；environments 为三个层级|node --test|PASS|
+|IT-ENV-004|FR-027|安全|越界变量被拒绝且给出理由|POST 项目 /env 含 NOT_ON_THE_LIST|400 ENV_VARIABLE_NOT_ALLOWED 且 rejected 给出理由；档案未入库|node --test|PASS|
+|IT-ENV-005|FR-027|安全|凭据形态变量被拒绝|PUT 白名单含 EXTRA_SETTING，POST 档案含 API_TOKEN|400 ENV_VARIABLE_NOT_ALLOWED，理由提到 credential|node --test|PASS|
+|IT-ENV-006|FR-027|安全|授权凭据的白名单被拒绝且不生效|PUT 白名单含 DB_PASSWORD|400 INVALID_ENV_WHITELIST；原白名单保持不变|node --test|PASS|
+|IT-ENV-007|FR-027|安全|运行记录所用档案与变量名|POST 项目 /run 带 env=staging|202；run 含 envUid/envName/envTier 与变量名数组；不含值|node --test|PASS|
+|IT-ENV-008|FR-027|异常|引用不存在的档案的运行被拒绝|POST 项目 /run 带 env=no-such-profile|404 ENV_PROFILE_NOT_FOUND；未产生带档案的运行|node --test|PASS|
+|IT-ENV-009|FR-027|安全|档案存于数据目录而不进项目|建立档案后扫描项目工程目录|项目目录文件数不变，且无文件含档案的值|node --test|PASS|
+|IT-ENV-010|FR-027|回归|档案在 Bridge 重启后仍在|重启 Bridge 后 GET 项目 /env|档案仍在，变量名列表不变|node --test|PASS|
+|IT-ENV-011|FR-027|正常|删除档案|DELETE 项目 /env?ref=staging|200；列表为空；再删为 404 ENV_PROFILE_NOT_FOUND|node --test|PASS|
+|IT-ENV-CLEANUP|NFR-005|清理|环境档案 IT 子进程与夹清理|结束 IT suite|子进程退出，临时目录删除|node --test|PASS|
+|IT-ENV-ADP-001|FR-027|安全|子进程收到档案变量而收不到宿主环境|fixture 工程装 fake Playwright CLI，宿主含伪装密钥|捕获的环境含 BASE_URL/TENANT，不含宿主密钥，含 PATH|node --test|PASS|
+|IT-ENV-ADP-002|FR-027|正常|适配器的输出变量优先于档案|档案声明 PLAYWRIGHT_JSON_OUTPUT_FILE|捕获值为适配器指定的路径而非档案值|node --test|PASS|
+|IT-ENV-ADP-003|FR-027|安全|没有档案时子进程环境仍被封口|不传档案，宿主含伪装密钥|捕获的环境不含宿主密钥，含 PATH 与报告路径|node --test|PASS|
+|IT-ENV-ADP-004|FR-027|回归|封口不破坏引擎自身的契约|封口环境跑一次 fake CLI|适配器仍能收集到摘要，总数为 1|node --test|PASS|
+|IT-ENV-ADP-005|FR-027|安全|列盘子进程不携带宿主环境|fixture 工程用 fake CLI 跑 test --list，宿主含伪装密钥|捕获的环境不含宿主密钥，含报告路径与 CI=1|node --test|PASS|
+|UT-ENV-057|FR-027|安全|能力探测不把宿主环境交给工程自带 CLI|probeCommand 跑工程目录下的脚本，宿主含伪装密钥|捕获的环境不含宿主密钥，含 PATH|node --test|PASS|
 |IT-CP-SETUP|NFR-011|正常|本地 Bridge 与控制面以纯 Node 进程并行启动|随机端口、隔离数据目录、dev-static 令牌|两者 health=200，取得本地会话 token|node --test|PASS|
 |IT-CP-001|FR-028|正常|控制面无 Tauri 即可使用|GET /cp/v1/health 与 /cp/v1/contract|200，tauriRequired=false|node --test|PASS|
 |IT-CP-002|NFR-002|安全|本地会话 Token 不是控制面凭据|X-ATS-Token、Bearer 本地 Token、二者并带|401 REMOTE_UNAUTHENTICATED|node --test|PASS|
@@ -79,6 +118,13 @@
 |IT-CP-012|FR-001|回归|本地 Bridge 仍按路径登记项目且控制面看不到|本地 POST /api/projects 示例仓库后查控制面列表|本地 201；控制面列表不含该项目|node --test|PASS|
 |IT-CP-013|NFR-002|安全|控制面拒绝与本地 Bridge 共用端口|ATS_CP_PORT 等于 ATS_PORT 启动控制面|退出码 2，stderr 点名 ATS_CP_PORT|node --test|PASS|
 |IT-CP-CLEANUP|NFR-005|清理|控制面 IT 子进程与夹清理|结束 IT suite|两个子进程退出，临时目录删除|node --test|PASS|
+|IT-SQL-001|NFR-010|正常|Bridge 启动并创建元数据数据库|隔离 ATS_DATA_DIR 启动 server/index.mjs|数据目录出现 metadata.db|node --test|PASS|
+|IT-SQL-002|NFR-010|正常|元数据库携带 schema 版本|读 metadata.db 的 meta 表|schema_version 大于 0|node --test|PASS|
+|IT-SQL-003|NFR-010|正常|登记的项目出现在元数据库|POST /api/projects|projects 表有一行且 uid 非空|node --test|PASS|
+|IT-SQL-004|NFR-010|正常|镜像与 JSON 状态一致|比对行数与 state.json|projects/runs/run_counters 行数相同|node --test|PASS|
+|IT-SQL-005|NFR-010|回归|加入镜像后 Bridge 仍正常提供 API|GET /api/projects|200 且项目列表完整|node --test|PASS|
+|IT-SQL-006|NFR-010|异常|持锁超时后镜像恢复|另一进程持写锁超过镜像的 busy_timeout|锁释放后 Bridge 继续镜像，verify 退出码 0|node --test|PASS|
+|IT-SQL-CLEANUP|NFR-005|清理|元数据层 IT 子进程与夹清理|结束 IT suite|子进程退出，临时目录删除|node --test|PASS|
 
 ## 进入与退出条件
 

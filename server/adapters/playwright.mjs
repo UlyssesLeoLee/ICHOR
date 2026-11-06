@@ -49,7 +49,13 @@ import {
   playwrightReportFile,
   probePlaywrightCli,
 } from './playwright-cli.mjs';
-import { discoverStatic, parseReport, sourcePath } from '../core.mjs';
+import { discoverStatic, sourcePath } from '../core.mjs';
+import {
+  CASE_STATUS,
+  aggregateCases,
+  mapEngineStatus,
+  parseReport,
+} from '../execution/model.mjs';
 
 /**
  * Read the `use` block of the project's playwright config to find out whether
@@ -250,8 +256,20 @@ export function createPlaywrightAdapter() {
     /**
      * Start a run.
      * Returns a handle the runtime can stream logs from and stop.
+     *
+     * ATS-212: the environment of the child is SEALED. The adapter does not
+     * pass the host environment on -- it passes the environment the runtime
+     * prepared (the project's environment profile, plus the platform
+     * variables the child needs) and adds the engine's own output
+     * variables, which say where the report goes.
+     *
+     * The host environment is NOT spread in. Before ATS-212 the adapter
+     * used `{...process.env, ...}`, so everything the operator had in their
+     * shell -- their cloud credentials, their CI tokens -- reached the code
+     * under test, and the code under test could print it into a report that
+     * is archived as evidence.
      */
-    start({ project, run, file, outputDir }) {
+    start({ project, run, file, outputDir, env: runEnv }) {
       const probe = probeCli(project.root);
       if (!probe) throw new Error('PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT');
       if (file) sourcePath(project, file); // rejects anything outside the project
@@ -266,8 +284,12 @@ export function createPlaywrightAdapter() {
         outputDir,
         testFile: file || null,
       });
+      // The sealed environment: the runtime's environment (the profile's
+      // variables plus the platform base keys) and the engine's own output
+      // variables on top. `buildRunnerEnv` is what decides what the base
+      // keys are; the adapter only adds what the ENGINE owns.
       const env = {
-        ...process.env,
+        ...(runEnv ?? {}),
         PLAYWRIGHT_JSON_OUTPUT_FILE: playwrightReportFile(outputDir),
         PLAYWRIGHT_HTML_OUTPUT_DIR: playwrightHtmlDir(outputDir),
         PLAYWRIGHT_HTML_OPEN: 'never',
@@ -298,33 +320,58 @@ export function createPlaywrightAdapter() {
     },
 
     /**
-     * Collect the results of a finished run and map them onto the common
-     * result model. Returns null when the engine produced no report.
-     *
-     * The counts are recomputed from the MAPPED statuses, so the summary and
-     * the per-case statuses cannot drift apart.
-     */
-    collect({ outputDir }) {
-      const reportFile = playwrightReportFile(outputDir);
-      if (!fs.existsSync(reportFile)) return null;
-      const raw = parseReport(JSON.parse(fs.readFileSync(reportFile, 'utf8')));
-      const cases = raw.cases.map((c) => ({ ...c, status: mapPlaywrightStatus(c.status) }));
-      return {
-        summary: {
-          passed: cases.filter((c) => c.status === 'passed').length,
-          failed: cases.filter((c) => c.status === 'failed').length,
-          skipped: cases.filter((c) => c.status === 'skipped').length,
-          flaky: cases.filter((c) => c.status === 'flaky').length,
-          total: cases.length,
-          cases: cases.map((c) => ({
-            title: c.title,
-            file: c.file,
-            status: c.status,
-            duration: c.duration,
-            error: c.error,
-          })),
+         * Collect the results of a finished run and map them onto the common
+         * result model. Returns null when the engine produced no report.
+         *
+         * ATS-208: the retried case is ONE case with SEVERAL attempts, and the
+         * counters are computed from the CASES. The earlier implementation
+         * flattened every execution into its own "case", so a case that failed
+         * once and then passed was counted TWICE and its first attempt was
+         * lost: the summary said `total: 2, passed: 0, flaky: 2` for a case
+         * that had one failure and one success.
+         *
+         * The cases now carry their attempts, so a reader can see that the first
+         * attempt failed and the second one passed.
+         */
+        collect({ outputDir }) {
+          const reportFile = playwrightReportFile(outputDir);
+          if (!fs.existsSync(reportFile)) return null;
+          const report = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
+          // The report is parsed by the ONE parser of the model, so the bridge
+          // and the adapter describe the same run in the same way.
+          const parsed = parseReport(report);
+          return {
+            summary: {
+              passed: parsed.passed,
+              failed: parsed.failed,
+              skipped: parsed.skipped,
+              flaky: parsed.flaky,
+              total: parsed.total,
+              executions: parsed.executions,
+              cases: parsed.cases.map((c) => ({
+                title: c.title,
+                file: c.file,
+                status: c.status,
+                // The OUTCOME of the case: what the ENGINE concluded about
+                // it (`expected` / `unexpected` / `flaky` / `skipped`).
+                // It is what makes the counters agree with the engine's own
+                // `stats` -- a case that declares `test.fail()` and fails
+                // is an `expected` outcome, not a failed case.
+                outcome: c.outcome,
+                duration: c.duration,
+                error: c.error,
+                attemptsCount: c.attemptsCount,
+                attempts: c.attempts.map((a) => ({
+                  status: a.status,
+                  expectedStatus: a.expectedStatus ?? null,
+                  outcome: a.outcome,
+                  retry: a.retry,
+                  duration: a.duration,
+                  error: a.error,
+                })),
+              })),
+            },
+          };
         },
-      };
-    },
   };
 }

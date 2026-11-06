@@ -1,0 +1,31 @@
+=== command ===
+node tools/ats201-probes/review-round2-regressions.mjs
+=== output ===
+--- CE7: a line shift does not make a case borrow the other uid ---
+PASS  CE7 the two same-titled cases have different uids  -- tc_1_d_cfe0b7a672e5757b vs tc_1_d_094bcb1a44a67fb3
+PASS  CE7 the shifted case is not bound to the other case  -- bound tc_1_d_cfe0b7a672e5757b (logout is tc_1_d_094bcb1a44a67fb3)
+PASS  CE7 the shifted case keeps its own uid  -- bound tc_1_d_cfe0b7a672e5757b
+PASS  CE7 the basis names the body fingerprint  -- file-title-body
+--- CE8: a case keeps its uid while its file is absent ---
+PASS  CE8 the retitled case keeps its uid  -- tc_1_d_80a742494cccd87b vs tc_1_d_80a742494cccd87b
+PASS  CE8 the entry of the absent file is kept  -- tc_1_d_80a742494cccd87b, tc_1_d_c230925354dd696a
+PASS  CE8 the case comes back with the same uid  -- tc_1_d_80a742494cccd87b vs tc_1_d_80a742494cccd87b
+PASS  CE8 the case comes back through the registry  -- registry
+--- L1: a lock whose pid was reused does not block the Bridge ---
+PASS  L1 the Bridge starts despite the reused pid  -- exit still running: 
+--- L1: a lock of unknown identity produces recovery steps ---
+PASS  L1 the Bridge refuses to start  -- exit 1
+PASS  L1 the refusal names the lock  -- another process holds the data directory lock (C:\Users\seiko\AppData\Local\Temp\ats201-r2-QwynBp\data2\bridge.lock): BRIDGE_ALREADY_RUNNING
+The lock file recor
+PASS  L1 the refusal states the recovery step  -- another process holds the data directory lock (C:\Users\seiko\AppData\Local\Temp\ats201-r2-QwynBp\data2\bridge.lock): BRIDGE_ALREADY_RUNNING
+The lock file records the process that took it. To recover:
+  1. check whether that process is a Bridge: tasklist /FI "PID eq 31356"
+  2. if no Bridge is runni
+PASS  L1 the refusal states the check first  -- another process holds the data directory lock (C:\Users\seiko\AppData\Local\Temp\ats201-r2-QwynBp\data2\bridge.lock): BRIDGE_ALREADY_RUNNING
+The lock file records the process that took it. To recover:
+  1. check whether that process is a Bridge: tasklist /FI "PID eq 31356"
+  2. if no Bridge is runni
+
+checks: 13, failures: 0
+RESULT: OK -- every second-round review counterexample behaves as required.
+=== exit code: 0 ===

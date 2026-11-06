@@ -73,5 +73,12 @@ run 19-wbs-updaters-coexist.log bash tools/ats501-probes/check-wbs-updaters.sh
 echo '--- 13. the marked-cell merge regression ---'
 run 20-wbs-common-regression.log python tools/test_wbs_common.py
 
+echo '--- 14. the counterexamples of the second review ---'
+# The three counterexamples of the second review (CE7 / CE8 / L1) live in the
+# review comment, not in the repository. They are reproduced by the script
+# below, which the reviewer attached to comment
+# 01a1ac07-70e8-7c89-afd4-2b52d85cd5f3.
+run 21-review-round2-regressions.log node tools/ats201-probes/review-round2-regressions.mjs
+
 echo ''
 echo 'evidence written to docs/evidence/ATS-201/'

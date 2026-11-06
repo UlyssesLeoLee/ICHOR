@@ -145,7 +145,15 @@ const REGEX_ALLOWED_BEFORE = new Set([
   '<', '>', '~', '^', '\n'
 ]);
 
-function regexAllowedAt(src, i) {
+/**
+ * True when a `/` at `i` opens a regular expression literal.
+ *
+ * Exported because the lexical readers of the discovery modules have to
+ * agree with the body extraction on what a regular expression is. Two
+ * lexers that disagree would read different code as a string and different
+ * code as a pattern.
+ */
+export function regexAllowedAt(src, i) {
   for (let j = i - 1; j >= 0; j--) {
     const c = src[j];
     if (c === ' ' || c === '\t' || c === '\r' || c === '\n') continue;
@@ -168,7 +176,7 @@ function skipBlockComment(src, i) {
   return i;
 }
 
-function skipQuoted(src, i, quote) {
+export function skipQuoted(src, i, quote) {
   i++;
   while (i < src.length) {
     const c = src[i];
@@ -179,7 +187,7 @@ function skipQuoted(src, i, quote) {
   return i;
 }
 
-function skipTemplate(src, i) {
+export function skipTemplate(src, i) {
   i++;
   while (i < src.length) {
     const c = src[i];
@@ -205,7 +213,7 @@ function skipTemplate(src, i) {
   return i;
 }
 
-function skipRegexLiteral(src, i) {
+export function skipRegexLiteral(src, i) {
   i++;
   let inClass = false;
   while (i < src.length) {
@@ -264,6 +272,211 @@ export function extractCallbackBody(content, afterTitle, maxLength = 200000) {
   const { text } = scanArgument(src, i);
   if (text.length > maxLength) return { text: null, reason: 'body-too-large' };
   return { text, reason: null };
+}
+
+/* ------------------------------------------------------------------ */
+/* Test cases: the source scanner                                      */
+/* ------------------------------------------------------------------ */
+
+/** The modifiers a test call may carry. */
+const CALL_MODIFIERS = new Set(['only', 'skip', 'fixme']);
+
+/** True for the characters an identifier may start with. */
+const IDENT_START_RE = /[A-Za-z_$]/;
+/** True for the characters an identifier may continue with. */
+const IDENT_PART_RE = /[A-Za-z0-9_$]/;
+
+/**
+ * The positions of the line breaks of a source.
+ *
+ * They are counted once per file, so that the line of a call is a binary
+ * search instead of a scan of the whole prefix of the file.
+ */
+function newlineOffsets(src) {
+  const out = [];
+  for (let i = 0; i < src.length; i++) if (src[i] === '\n') out.push(i);
+  return out;
+}
+
+/** The line (1-based) the character at `index` sits on. */
+function lineAt(offsets, index) {
+  let lo = 0;
+  let hi = offsets.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (offsets[mid] < index) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo + 1;
+}
+
+/**
+ * Decodes the escape sequences of a string literal.
+ *
+ * Only the escapes a test title realistically carries are decoded; an
+ * unknown escape yields the escaped character itself, which is what
+ * JavaScript does for a non-standard escape in a string.
+ */
+function decodeEscapes(raw) {
+  if (!raw.includes('\\')) return raw;
+  let out = '';
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] !== '\\') { out += raw[i]; continue; }
+    const e = raw[i + 1];
+    if (e === undefined) { out += '\\'; break; }
+    if (e === 'n') out += '\n';
+    else if (e === 't') out += '\t';
+    else if (e === 'r') out += '\\r';
+    else out += e;
+    i++;
+  }
+  return out;
+}
+
+/**
+ * The title literal at `i`, decoded.
+ *
+ * The DECODED value is what the source MEANS: `test('user\'s profile')` is
+ * the title `user's profile`. The scanner used to cut the title at the first
+ * quote -- escaped or not -- so it read `user\`, a title the CLI never
+ * reports. The two indexes then derived different UIDs from the same case,
+ * and switching between them moved the UID of every case with an escape in
+ * its title.
+ *
+ * A template literal is read as it is WRITTEN: the scanner cannot know what
+ * a template renders to, and the template is what the static index reports.
+ *
+ * Returns null when there is no literal at `i`.
+ */
+export function readTitleLiteral(src, i) {
+  const quote = src[i];
+  if (quote === '`') {
+    const end = skipTemplate(src, i);
+    if (end <= i + 1) return null;
+    return { value: src.slice(i + 1, end - 1), end };
+  }
+  if (quote !== '"' && quote !== "'") return null;
+  const end = skipQuoted(src, i, quote);
+  if (end <= i + 1) return null;
+  return { value: decodeEscapes(src.slice(i + 1, end - 1)), end };
+}
+
+/**
+ * Skips a quoted literal, but only when it is closed on its own line.
+ *
+ * A quote that never closes would otherwise swallow the rest of the file --
+ * and with it every test case in it. A literal that is not closed on its
+ * line is not a literal, so the scan simply steps over the quote.
+ */
+export function skipStringLiteral(src, i, quote) {
+  const end = skipQuoted(src, i, quote);
+  if (end >= src.length || src.indexOf('\n', i) < end) return i + 1;
+  return end;
+}
+
+/**
+ * The test call that starts with the identifier at [wordStart, wordEnd).
+ *
+ * Returns null when the identifier is not a call the scanner indexes.
+ */
+function readTestCall(src, wordStart, wordEnd, newlines) {
+  // The call must OPEN A LINE: only whitespace may precede it. That is the
+  // restriction the first scanner had, and it keeps a `test` that is a
+  // property or a variable out of the index.
+  const lineStart = src.lastIndexOf('\n', wordStart - 1) + 1;
+  for (let k = lineStart; k < wordStart; k++) {
+    const c = src[k];
+    if (c !== ' ' && c !== '\t') return null;
+  }
+  let i = wordEnd;
+  // An optional modifier: `test.only(`, `test.skip(`, `test.fixme(`.
+  let j = i;
+  while (j < src.length && (src[j] === ' ' || src[j] === '\t')) j++;
+  if (src[j] === '.') {
+    let k = j + 1;
+    while (k < src.length && IDENT_PART_RE.test(src[k])) k++;
+    if (CALL_MODIFIERS.has(src.slice(j + 1, k))) i = k;
+  }
+  // The opening parenthesis, then the title argument.
+  let k = i;
+  while (k < src.length && /\s/.test(src[k])) k++;
+  if (src[k] !== '(') return null;
+  let m = k + 1;
+  while (m < src.length && /\s/.test(src[m])) m++;
+  const literal = readTitleLiteral(src, m);
+  if (!literal) return null;
+  return {
+    title: literal.value,
+    // The line of the CALL, not of the title. A Playwright report numbers
+    // the call, and a call whose title sits on the next line has to be
+    // found at the position the CLI reports -- otherwise the case is not
+    // recognised as a source case and its identity stops being tracked
+    // across a retitle.
+    line: lineAt(newlines, wordStart),
+    afterTitle: literal.end,
+    end: literal.end
+  };
+}
+
+/**
+ * The test calls of a source file, in the order they appear.
+ *
+ * The scanner walks the file with the same restricted lexer the body
+ * extraction uses: strings, template literals, comments and regular
+ * expressions are SKIPPED, so a `test(` that only appears inside one of
+ * them is not indexed.
+ */
+function findTestCalls(src) {
+  const calls = [];
+  const n = src.length;
+  const newlines = newlineOffsets(src);
+  let i = 0;
+  while (i < n) {
+    const c = src[i];
+    if (c === '/' && src[i + 1] === '/') { i = skipLineComment(src, i); continue; }
+    if (c === '/' && src[i + 1] === '*') { i = skipBlockComment(src, i); continue; }
+    if (c === '"' || c === "'") { i = skipStringLiteral(src, i, c); continue; }
+    if (c === '`') { i = skipTemplate(src, i); continue; }
+    if (c === '/' && regexAllowedAt(src, i)) { i = skipRegexLiteral(src, i); continue; }
+    if (IDENT_START_RE.test(c)) {
+      const start = i;
+      while (i < n && IDENT_PART_RE.test(src[i])) i++;
+      const word = src.slice(start, i);
+      if (word === 'test' || word === 'it') {
+        const call = readTestCall(src, start, i, newlines);
+        if (call) { calls.push(call); i = call.end; continue; }
+      }
+      continue;
+    }
+    i++;
+  }
+  return calls;
+}
+
+/**
+ * Scans one source file for the test cases it declares.
+ *
+ * The scanner recognises the common `test()` / `it()` forms, including the
+ * `.only` / `.skip` / `.fixme` modifiers. For every case it reports the
+ * title, the line of the CALL (a Playwright report numbers the call, not the
+ * whitespace in front of it) and the text of the callback body.
+ *
+ * The title is the title the source MEANS: it is read as a literal, so an
+ * escape inside it is decoded, and it is NOT cut to a fixed length. A title
+ * that is cut or mis-read is a title the CLI does not report, and the UID
+ * derived from it is therefore a UID the other index cannot reproduce.
+ *
+ * It is pure: it reads the source text that is handed to it and touches
+ * nothing else.
+ */
+export function scanTestCases(content) {
+  const src = String(content ?? '');
+  const cases = [];
+  for (const call of findTestCalls(src)) {
+    const body = extractCallbackBody(src, call.afterTitle);
+    cases.push({ title: call.title, line: call.line, bodyText: body.text });
+  }
+  return cases;
 }
 
 /* ------------------------------------------------------------------ */
@@ -361,7 +574,7 @@ function matchRegistry(it, { registryByBody, bodyCounts, reserved }) {
  * up in the ambiguity report, because the author wrote down the same uid twice
  * and only the author can say which case it belongs to.
  */
-export function resolveIdentities({ projectUid, discovered, registry }) {
+export function resolveIdentities({ projectUid, discovered, registry, scope = null }) {
   const reg = registryOf(registry, projectUid);
   const items = discovered.map((d) => ({
     ...d,
@@ -527,7 +740,7 @@ export function resolveIdentities({ projectUid, discovered, registry }) {
     };
   }
 
-  const entries = mergeRegistry(reg, candidates);
+  const entries = mergeRegistry(reg, candidates, scope);
   return { items: candidates, registry: { version: UID_SCHEME_VERSION, projects: { ...(registry?.projects ?? {}), [projectUid]: entries } } };
 }
 
@@ -544,7 +757,7 @@ export function resolveIdentities({ projectUid, discovered, registry }) {
  *     discovered case would keep a deleted case alive forever and could hand
  *     its uid to a different case later on.
  */
-function mergeRegistry(reg, candidates) {
+function mergeRegistry(reg, candidates, scope = null) {
   const entries = reg.entries.slice();
   const byBody = new Map();
   for (const e of entries) {
@@ -592,7 +805,7 @@ function mergeRegistry(reg, candidates) {
     if (!byBody.has(c.bodyKey)) byBody.set(c.bodyKey, []);
     byBody.get(c.bodyKey).push(entry);
   }
-  return { version: UID_SCHEME_VERSION, entries: pruneRegistry(entries, candidates) };
+  return { version: UID_SCHEME_VERSION, entries: pruneRegistry(entries, candidates, scope) };
 }
 
 /**
@@ -607,10 +820,26 @@ function mergeRegistry(reg, candidates) {
  * The pruning is what makes a stale entry stop blocking rule 2: without it a
  * deleted case keeps its body key forever and every later case with the same
  * body is reported as ambiguous.
+ *
+ * ABSENCE IS NOT DELETION. An entry is only pruned when the file it belongs to
+ * was part of THIS discovery and the case is gone from that file. A file that
+ * is not in the discovery at all -- a branch that does not contain it, a file
+ * that was moved, a project that is discovered in pieces -- says nothing about
+ * the cases inside it. Pruning such an entry would drop the identity of a case
+ * that still exists, and the case would come back with a NEW uid after the
+ * file returns.
+ *
+ * `scope` is the set of files this discovery covered. An entry whose file is
+ * outside the scope is kept, whatever its uid.
+ *
+ * It is exported because the ATS-202 authoritative discovery prunes the
+ * registry with the SAME rule: an entry is dropped only when its file was
+ * part of THIS discovery and no resolved case claims its uid.
  */
-function pruneRegistry(entries, candidates) {
+export function pruneRegistry(entries, candidates, scope = null) {
   const live = new Set(candidates.map((c) => c.uid).filter(Boolean));
-  const kept = entries.filter((e) => !e.uid || live.has(e.uid));
+  const inScope = (e) => scope === null || scope.has(e.file);
+  const kept = entries.filter((e) => !e.uid || live.has(e.uid) || !inScope(e));
   // Two entries with the same uid describe the same case; the later one wins
   // so that the newest position (file / title / line) is the one kept.
   const byUid = new Map();
@@ -734,6 +963,15 @@ export function attemptUidFor({ runUid, testUid, retry, fallbackKey, occurrence 
  * So a file-line hit whose title does not match is not a hit; the lookup
  * falls through to the title-based steps, which are position independent.
  *
+ * A title that several cases in the same file share is not an identity
+ * either, and the line cannot make it one: the case that sits at the reported
+ * line TODAY may be a different case than the one that sat there when the
+ * registry was written. Such a group is only bound when the BODY FINGERPRINT
+ * of the reported case singles out one entry -- the body is what tells two
+ * same-titled cases apart. `bodyKey` carries that fingerprint; `resolveBodyKey`
+ * computes it on demand, so the source file is only read when the group is
+ * actually ambiguous.
+ *
  * Steps 2 and 3 only match when the signal is unambiguous: if two registry
  * entries share the signal, the case is reported as unbound rather than
  * bound to an arbitrary entry. Uniqueness is counted over the DISTINCT uids,
@@ -741,7 +979,7 @@ export function attemptUidFor({ runUid, testUid, retry, fallbackKey, occurrence 
  *
  * Returns `{uid, basis, candidates}`.
  */
-export function findTestUid(registry, projectUid, { file, title, line }) {
+export function findTestUid(registry, projectUid, { file, title, line, bodyKey = null, resolveBodyKey = null }) {
   const entries = registry?.projects?.[projectUid]?.entries ?? [];
   const byFileLine = new Map();
   const byFileTitle = new Map();
@@ -768,6 +1006,34 @@ export function findTestUid(registry, projectUid, { file, title, line }) {
     if (uids.length > 1) return { uid: null, basis: `${basis}-ambiguous`, candidates: uids.length };
     return { uid: null, basis: 'unbound', candidates: 0 };
   };
+
+  // The entries that describe a case with this title in this file. The number
+  // of DISTINCT uids among them says whether the title identifies the case on
+  // its own: one means yes, several mean that only the body can.
+  const sameFileTitle = byFileTitle.get(`${file} ${title}`) ?? [];
+  const titleUids = [...new Set(sameFileTitle.map((h) => h.uid).filter(Boolean))];
+  if (titleUids.length > 1) {
+    // The body of the reported case is what tells the same-titled cases apart.
+    // When the caller can compute it, the body decides -- and when the body
+    // cannot be computed, nothing can: the case stays unbound instead of
+    // being bound by position to a case it may not be.
+    if (typeof resolveBodyKey === 'function' || bodyKey) {
+      const key = bodyKey ?? resolveBodyKey();
+      if (key) {
+        const byBody = sameFileTitle.filter((h) => h.bodyKey === key);
+        const uids = [...new Set(byBody.map((h) => h.uid).filter(Boolean))];
+        if (uids.length === 1) return { uid: uids[0], basis: 'file-title-body', candidates: 1 };
+        return {
+          uid: null,
+          basis: uids.length ? 'title-body-ambiguous' : 'title-body-unknown',
+          candidates: uids.length
+        };
+      }
+      return { uid: null, basis: 'file-title-ambiguous', candidates: titleUids.length };
+    }
+    // The caller does not match on bodies, so the positional signal is the
+    // only evidence left, and it is used below.
+  }
 
   if (Number.isInteger(line) && line > 0) {
     // The line is only an identity together with the title: a reported case

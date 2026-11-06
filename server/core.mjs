@@ -3,8 +3,66 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid, normalizeTestPath } from './uid.mjs';
+import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, scanTestCases, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid, normalizeTestPath, bodyKeyOf } from './uid.mjs';
 import { buildPlaywrightArgs, probePlaywrightCli } from './adapters/playwright-cli.mjs';
+import { openDatabase as openMetadataDatabase } from './sqlite/db.mjs';
+import { storeState } from './sqlite/store.mjs';
+import { listTests, listTestsAsync, LIST_OUTCOME } from './discovery/playwright-list.mjs';
+import { resolveAuthoritativeIdentities } from './discovery/authoritative.mjs';
+import { compareDiscoveries, readBodies, staticCasesWithScope, DISCOVERY } from './discovery/index.mjs';
+import { TRUST, trustOf } from './discovery/trust.mjs';
+// ATS-208: the unified Run/Test/Attempt/ExecutionEvent model. The report
+// parsing, the attempt building and the status vocabulary live THERE, so
+// that the bridge, the adapters and the SQLite layer describe a run in ONE
+// way. The functions below are re-exported from this module so that the
+// existing callers keep working.
+import {
+  CASE_STATUS,
+  EVENT_TYPE,
+  OUTCOME,
+  RESULT_STATUSES,
+  RUN_STATUS,
+  aggregateCases,
+  aggregateAttempts,
+  aggregateOutcomes,
+  attemptsForRun,
+  caseIdentity,
+  isAllowedTransition,
+  isTerminalRunStatus,
+  mapEngineStatus,
+  nextEventSeq,
+  outcomeOf,
+  parseEventLog,
+  parseReport,
+  replayEvents,
+  reportedBodyKey,
+  runView,
+  statusOfEvent,
+} from './execution/model.mjs';
+
+export {
+  CASE_STATUS,
+  EVENT_TYPE,
+  OUTCOME,
+  RESULT_STATUSES,
+  RUN_STATUS,
+  aggregateCases,
+  aggregateAttempts,
+  aggregateOutcomes,
+  attemptsForRun,
+  caseIdentity,
+  isAllowedTransition,
+  isTerminalRunStatus,
+  mapEngineStatus,
+  nextEventSeq,
+  outcomeOf,
+  parseEventLog,
+  parseReport,
+  replayEvents,
+  reportedBodyKey,
+  runView,
+  statusOfEvent,
+};
 
 export const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 export const safeId = (prefix) => `${prefix}_${crypto.randomUUID()}`;
@@ -22,9 +80,109 @@ export function loadState() {
   if (!v.uidRegistry || typeof v.uidRegistry!=='object') v.uidRegistry=emptyRegistry();
   return v;
 }
+/**
+ * Writes the state to `state.json`.
+ *
+ * The JSON file stays the SOURCE OF TRUTH. The SQLite metadata layer
+ * (ATS-205) is a MIRROR of it: the same state is written into the
+ * metadata database as queryable rows, so the history of the projects and
+ * the runs can be queried without parsing the JSON.
+ *
+ * The mirror is best-effort on purpose: a bridge that cannot open the
+ * metadata database still has to serve the API, so a failure of the mirror
+ * is reported on stderr and the JSON file remains authoritative. It is
+ * never the other way round -- the mirror can never break the bridge.
+ */
 export function saveState(v) {
   ensureData(); const file=path.join(dataDir(),'state.json'), tmp=file+'.tmp';
   fs.writeFileSync(tmp,JSON.stringify(v,null,2),'utf8'); fs.renameSync(tmp,file);
+  mirrorToSqlite(v);
+}
+
+/**
+ * The metadata mirror is BEST-EFFORT, and a failure is not permanent.
+ *
+ * The JSON state file is the source of truth, so a failure of the mirror
+ * must never take the bridge down -- but it must also never LOSE records.
+ * The earlier revision of this module set a flag on the FIRST failure and
+ * never wrote the mirror again for the lifetime of the process: one
+ * transient failure (a concurrent writer holding the database lock, a full
+ * disk, an antivirus scanner holding the file) silently dropped every
+ * later project, run, attempt and artifact from SQLite. The mirror writes
+ * the WHOLE state in one transaction, so a retry is self-healing: the next
+ * successful write replaces the whole table set and the mirror catches up.
+ *
+ * The only failure that disables the mirror for good is
+ * `SQLITE_NOT_AVAILABLE` -- the running Node build has no `node:sqlite`
+ * at all, and no retry can change that.
+ */
+
+/** True when the Node build has no SQLite support at all: the mirror is off. */
+let metaDbUnavailable = false;
+
+/** The path of the metadata database inside the data directory. */
+export const metadataPath = (dir = dataDir()) => path.join(dir, 'metadata.db');
+
+/**
+ * The busy timeout of the MIRROR connection, in milliseconds.
+ *
+ * The mirror runs SYNCHRONOUSLY on the bridge's event loop, so the wait
+ * for a write lock has to be BOUNDED, and the bound has to be SHORT: a
+ * mirror that waits for the layer's default 5000 ms blocks the event loop
+ * for five seconds, and during those five seconds the bridge does not
+ * answer a single request -- `GET /api/health` waited 5274 ms in the
+ * measurement that motivated this value.
+ *
+ * The mirror therefore uses a SHORT timeout (1 second). When it expires
+ * the mirror write is abandoned and the NEXT save tries again: the mirror
+ * replaces the whole table set in one transaction, so a retry is
+ * self-healing and the mirror catches up as soon as the obstruction is
+ * gone. The state file is the truth and it is written before the mirror
+ * runs, so nothing is lost by giving up on a write.
+ *
+ * §5.3 of the data design states this as the bound on how long a single
+ * `saveState` can block the bridge.
+ */
+export const MIRROR_BUSY_TIMEOUT_MS = 1000;
+
+/**
+ * Writes the state into the metadata database.
+ *
+ * The database is opened for the write and closed again right after it.
+ * The handle is deliberately NOT kept open: on Windows an open file
+ * cannot be deleted, and a bridge that holds the metadata database open
+ * would keep the data directory locked for every tool that tries to
+ * clean it up. Opening a SQLite database is cheap, and the state is
+ * written a handful of times per run.
+ *
+ * A failure is retried on the NEXT save: the write replaces the whole
+ * table set, so the mirror heals itself as soon as the obstruction is
+ * gone.
+ *
+ * @returns {boolean} true when the state was mirrored
+ */
+export function mirrorToSqlite(v) {
+  if (metaDbUnavailable) return false;
+  let db = null;
+  try {
+    db = openMetadataDatabase(metadataPath(), { busyTimeoutMs: MIRROR_BUSY_TIMEOUT_MS });
+    storeState(db, v);
+    return true;
+  } catch (e) {
+    // A mirror failure must not take the bridge down: the JSON state file
+    // is the truth and it was written already.
+    if (e?.code === 'SQLITE_NOT_AVAILABLE') {
+      // The Node build has no SQLite at all. No retry can change that, so
+      // the mirror stays off for the lifetime of the process.
+      metaDbUnavailable = true;
+    }
+    console.error(`the SQLite metadata mirror failed: ${e.message}`);
+    return false;
+  } finally {
+    if (db) {
+      try { db.close(); } catch { /* already closed */ }
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -56,11 +214,51 @@ export function isProcessAlive(pid) {
 }
 
 /**
+ * The start time of a process, as the operating system reports it.
+ *
+ * The start time is what makes a process identifier VERIFIABLE: a pid alone
+ * does not identify a process, because the operating system reuses pids. The
+ * pair (pid, start time) does -- as long as both are read with the same
+ * source, the same process always yields the same value.
+ *
+ * Returns null when the process does not exist or when the platform cannot
+ * report the value.
+ */
+export function processStartTime(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  if (process.platform === 'win32') {
+    const r = spawnSync('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-Command',
+      `(Get-Process -Id ${pid} -ErrorAction SilentlyContinue).StartTime.ToUniversalTime().ToString("o")`
+    ], { encoding: 'utf8', windowsHide: true, timeout: 10000 });
+    const out = (r.stdout ?? '').trim();
+    return out || null;
+  }
+  const r = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8', timeout: 10000 });
+  const out = (r.stdout ?? '').trim();
+  return out || null;
+}
+
+/**
  * The holder of the lock, or null when the lock is free.
  *
- * A lock whose holder is gone is a STALE lock: the process was killed and
- * left the file behind. A stale lock does not block anybody -- it is
- * overwritten by the next owner.
+ * A lock is free when it cannot be attributed to a live holder:
+ *
+ *   * the file does not exist, or it cannot be parsed;
+ *   * the recorded pid is gone -- the process was killed and left the file
+ *     behind. That is a STALE lock, and it does not block anybody;
+ *   * the recorded pid is alive but it is a DIFFERENT process than the one
+ *     that took the lock -- the pid was reused. That is a STALE lock too, and
+ *     it does not block anybody.
+ *
+ * The last case is the reason the lock records the start time of the holder:
+ * without it, a reused pid looks exactly like a live holder and a leftover
+ * lock file keeps the Bridge from starting.
+ *
+ * A lock that carries no verifiable identity -- one written by an older
+ * version, or by hand -- is reported as HELD: its holder cannot be told from
+ * a reused pid, and the state it guards may really be in use. The caller
+ * answers such a lock with the recovery steps, not with a guess.
  */
 export function readBridgeLock(file = lockPath()) {
   if (!fs.existsSync(file)) return null;
@@ -69,6 +267,13 @@ export function readBridgeLock(file = lockPath()) {
   catch { return null; }
   if (!raw || !Number.isInteger(raw.pid)) return null;
   if (!isProcessAlive(raw.pid)) return null;
+  // The holder is alive. Is it the process that took the lock?
+  if (raw.processStartedAt) {
+    const now = processStartTime(raw.pid);
+    // The pid is alive but its start time is not the recorded one: the pid
+    // was reused by another process, so the lock is stale.
+    if (now !== null && now !== raw.processStartedAt) return null;
+  }
   return raw;
 }
 
@@ -85,7 +290,14 @@ export function acquireBridgeLock(file = lockPath()) {
     throw e;
   }
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify({ pid: process.pid, startedAt: now() }), 'utf8');
+  // The start time of this process makes the lock verifiable: the next reader
+  // can tell that the recorded pid is still THIS process and not a process
+  // that happens to reuse the pid.
+  fs.writeFileSync(file, JSON.stringify({
+    pid: process.pid,
+    startedAt: now(),
+    processStartedAt: processStartTime(process.pid)
+  }), 'utf8');
   return file;
 }
 
@@ -139,18 +351,14 @@ export function discoverStatic(project, registry) {
  const files=walkTests(project.root);const discovered=[];
  for(const file of files){
    const content=fs.readFileSync(path.join(project.root,file),'utf8');
-   const re=/(?:^|\n)[ \t]*(?:test|it)(?:\.(?:only|skip|fixme))?\s*\(\s*(['"`])([^\n]*?)\1/g;
-   let m;while((m=re.exec(content))!==null){
-     // The line of the `test(` call itself, not the line of the whitespace
-     // that precedes it: a Playwright report numbers the line of the call.
-     const title=m[2].slice(0,180);
-     const line=content.slice(0,m.index+m[0].length).split('\n').length;
-     const body=extractCallbackBody(content,m.index+m[0].length);
-     discovered.push({file,title,line,bodyText:body.text});
-   }
+   for(const c of scanTestCases(content))discovered.push({file,...c});
  }
  const projectUid=projectUidOf(project);
- const resolved=resolveIdentities({projectUid,discovered,registry});
+ // The scope of this discovery is the set of files it covered. The registry
+ // only prunes entries whose file is INSIDE the scope: a file that is not part
+ // of this discovery says nothing about the cases inside it, and pruning its
+ // entries would drop the identity of a case that still exists.
+ const resolved=resolveIdentities({projectUid,discovered,registry,scope:new Set(files)});
  const tests=resolved.items.map(t=>({
    id:t.uid,uid:t.uid,uidSource:t.uidSource,uidStable:t.uidStable,
    file:t.file,title:t.title,line:t.line,source:'static',level:'ST',
@@ -162,11 +370,249 @@ export function discoverStatic(project, registry) {
  // but the memory of the past cases is inconsistent and a reader has to know.
  const conflicts=tests.filter(t=>t.ambiguity&&t.ambiguity.reason!=='identical-title'&&t.ambiguity.reason!=='identical-title-and-body');
  const duplicatedExplicit=tests.filter(t=>t.ambiguity?.reason==='duplicate-explicit-uid').length;
- let warning='静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试请以 Playwright --list 为准。';
+ // The static index is the HEURISTIC one: it sees the literal test()/it()
+ // calls and nothing else. The authoritative index (`playwright test
+ // --list`) sees the dynamic and parameterised cases too, but it EXECUTES
+ // the project's code, so it only runs on a project the user has vouched
+ // for. The warning therefore points at the way to get it, not at the raw
+ // command.
+ let warning='静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试不在其中。';
  if(ambiguous)warning+=` ${ambiguous} 个用例的 UID 为临时值（标题重复且无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
  if(duplicatedExplicit)warning+=` ${duplicatedExplicit} 个用例标注了同一个 @TC-xxx（重复的显式 UID），这些用例都没有绑定到该 UID，需要人工消歧。`;
  if(conflicts.length)warning+=` ${conflicts.length} 个用例的注册表记录与本次发现不一致（${[...new Set(conflicts.map(t=>t.ambiguity.reason))].join('、')}），其 UID 由本次发现派生，需要人工复核。`;
  return {files,tests,discovery:'static',uidVersion:UID_SCHEME_VERSION,projectUid,registry:resolved.registry,warning};
+}
+
+/**
+ * The decision the TRUST and the REQUEST make together.
+ *
+ * The trust says whether the authoritative index is ALLOWED; the request
+ * (`?authoritative=`) says whether it is WANTED. Three situations:
+ *
+ * | trust   | request          | index   | outcome              |
+ * |---------|------------------|---------|----------------------|
+ * | trusted | default / `true` | auth.   | the listing runs     |
+ * | trusted | `false`          | static  | `NOT_REQUESTED`      |
+ * | untrusted| default / `true`| static  | `SKIPPED_UNTRUSTED`  |
+ *
+ * The third row is the trust gate: a FORCE never overrides it.
+ *
+ * The second row used to be reported as `SKIPPED_UNTRUSTED` as well, which
+ * told the user that a project they had vouched for was not vouched for.
+ * The project IS trusted; the caller simply asked for the static index. The
+ * two situations need different codes, because the user's next action is
+ * different: one needs a vouch, the other needs no action at all.
+ */
+function decideDiscovery(trust, force) {
+  const trusted = trust.trust === TRUST.TRUSTED;
+  if (!trusted) {
+    return { wantsAuthoritative: false, mode: 'untrusted', forced: force === true };
+  }
+  if (force === false) {
+    return { wantsAuthoritative: false, mode: 'not-requested', forced: false };
+  }
+  return { wantsAuthoritative: true, mode: force === true ? 'forced' : 'default', forced: force === true };
+}
+
+/**
+ * The static answer, with the reason the authoritative index was not used.
+ *
+ * The warning says what actually happened. A project that is not trusted
+ * gets the trust gate; a TRUSTED project that asked for the static index
+ * gets a plain note that the request was honoured -- it must not be told
+ * that it is not trusted, because it is.
+ *
+ * The `fallback` mode is the third case: the listing was ALLOWED and it
+ * FAILED. The project is trusted, so the trust gate does not apply and the
+ * warning must not mention it -- the caller says what actually went wrong.
+ */
+function staticCatalog(project, registry, trust, decision) {
+  const base = {
+    ...discoverStatic(project, registry),
+    trust,
+    authoritative: {
+      attempted: false,
+      outcome: decision.mode === 'untrusted' ? 'SKIPPED_UNTRUSTED' : 'NOT_REQUESTED',
+      reason: decision.mode === 'untrusted' ? trust.reason : ''
+    }
+  };
+  if (decision.mode === 'not-requested') {
+    return {
+      ...base,
+      discovery: DISCOVERY.STATIC,
+      warning: `${base.warning} 已按请求使用静态索引（该项目已标记为可信，改用权威索引请去掉 authoritative 参数）。`
+    };
+  }
+  if (decision.mode === 'fallback') {
+    // The listing was allowed and it failed. The trust gate does not apply
+    // here, so the warning must not talk about it.
+    return { ...base, discovery: DISCOVERY.STATIC, warning: base.warning };
+  }
+  // The untrusted project never runs `--list`. The reason is part of the
+  // answer -- and so is the way to get the authoritative index, which is
+  // to vouch for the project (the decision is per project and revocable).
+  //
+  // The forced case (`?authoritative=true`) and the default case get the
+  // SAME answer: the force says WHICH index to use, the trust says whether
+  // it is ALLOWED to, and the trust wins.
+  return {
+    ...base,
+    discovery: DISCOVERY.STATIC,
+    warning: `${base.warning} 未可信仓库不可调用 --list（${trust.reason}），已使用静态索引；`
+      + `把该仓库标记为可信（POST /api/projects/:id/trust {trust:"trusted"}）后即可使用权威索引。`
+  };
+}
+
+/**
+ * Discovers the test cases of a project: the STATIC index or the
+ * AUTHORITATIVE one (`playwright test --list`), whichever the trust allows.
+ *
+ * WHY THE TRUST DECIDES
+ * ---------------------
+ * `playwright test --list` is NOT a read-only operation. It LOADS the project
+ * config (executing the config's top level) and it EVALUATES the test files
+ * (executing their top level) in order to collect the cases. Running it on a
+ * repository therefore means RUNNING that repository's code -- the same trust
+ * boundary as `playwright test` itself (ADR-005, docs/11-SECURITY-RISK.md).
+ *
+ * The difference is the TRIGGER. A run happens because the user asked for
+ * it; an index is read whenever the catalogue is opened. An index that
+ * silently executed code would turn "browse the catalogue" into "run the
+ * repository's code", so the index only runs `--list` on a project the user
+ * has vouched for.
+ *
+ * Therefore:
+ *   * a TRUSTED project   -> the authoritative index (`discovery:
+ *     'authoritative'`), which includes the dynamic and parameterised cases;
+ *   * an UNTRUSTED project -> the STATIC index (`discovery: 'static'`), and
+ *     the response says WHY the authoritative index was not used.
+ *
+ * The fallback is a fallback, not a failure: the user still gets an index,
+ * and the index says plainly that it is the heuristic one.
+ *
+ * WHAT "与 CLI 发现结果一致" MEANS HERE
+ * ------------------------------------
+ * The agreement is MEASURED, not asserted: the two case lists are compared
+ * case by case and the difference is reported in `consistency`. A case that
+ * only the CLI knows is a dynamic case; a case that only the static scanner
+ * knows is a case the CLI does not enumerate.
+ *
+ * THE TWO VARIANTS
+ * -----------------
+ * `discoverTests` runs the listing SYNCHRONOUSLY; `discoverTestsAsync` runs
+ * it asynchronously. Both build the catalogue with the SAME code, so the
+ * two answers differ in nothing but the timing.
+ *
+ * The Bridge uses the asynchronous one: the listing executes the project's
+ * config, and a project whose config takes four seconds would otherwise
+ * freeze the whole Bridge for those four seconds -- including the health
+ * check and the stop button of a running test.
+ */
+export function discoverTests(project, state, registry, options = {}) {
+  const trust = trustOf(state, project);
+  const decision = decideDiscovery(trust, options.authoritative);
+  if (!decision.wantsAuthoritative) {
+    return staticCatalog(project, registry, trust, decision);
+  }
+  const listed = listTests(project, { timeoutMs: options.timeoutMs });
+  return authoritativeCatalog(project, registry, trust, decision, listed);
+}
+
+/**
+ * The asynchronous variant of `discoverTests`.
+ *
+ * The Bridge calls this one: the listing is a CHILD PROCESS that runs the
+ * project's own code, and it may take a long time. Awaiting it keeps the
+ * event loop free, so the Bridge keeps answering while a project is listed.
+ */
+export async function discoverTestsAsync(project, state, registry, options = {}) {
+  const trust = trustOf(state, project);
+  const decision = decideDiscovery(trust, options.authoritative);
+  if (!decision.wantsAuthoritative) {
+    return staticCatalog(project, registry, trust, decision);
+  }
+  const listed = await listTestsAsync(project, { timeoutMs: options.timeoutMs });
+  return authoritativeCatalog(project, registry, trust, decision, listed);
+}
+
+/**
+ * The authoritative answer: the catalogue of the CLI's own case list, with
+ * the UIDs resolved and the agreement with the static index measured.
+ */
+function authoritativeCatalog(project, registry, trust, decision, listed) {
+  if (!listed.ok) {
+    const base = staticCatalog(project, registry, trust, { ...decision, mode: 'fallback', wantsAuthoritative: false });
+    const detail = listed.errors && listed.errors.length ? ` — ${listed.errors[0].message}` : '';
+    return {
+      ...base,
+      discovery: DISCOVERY.STATIC,
+      authoritative: {
+        attempted: true,
+        outcome: listed.outcome,
+        reason: listed.reason,
+        errors: listed.errors || [],
+        cli: listed.cli || null,
+        version: listed.version || null
+      },
+      warning: `${base.warning} 权威发现失败（${listed.outcome}）：${listed.reason}${detail}，已回退到静态索引。`
+    };
+  }
+
+  // The authoritative case list, with the UIDs resolved.
+  const files = listed.files;
+  const bodies = readBodies(project.root, files);
+  const projectUid = projectUidOf(project);
+  const projectRegistry = (registry && registry.projects && registry.projects[projectUid]) || { version: UID_SCHEME_VERSION, entries: [] };
+  const resolved = resolveAuthoritativeIdentities({
+    projectUid,
+    cases: listed.tests,
+    bodies,
+    registry: projectRegistry,
+    scope: new Set(files)
+  });
+
+  const tests = resolved.items.map(t => ({
+    id: t.uid, uid: t.uid, uidSource: t.uidSource, uidStable: t.uidStable,
+    uidBasis: t.basis,
+    file: t.file, title: t.title, line: t.line,
+    describePath: t.scope,
+    specIds: t.specIds,
+    source: 'authoritative', level: 'ST',
+    ...(t.ambiguity ? { ambiguity: t.ambiguity } : {})
+  }));
+
+  const consistency = compareDiscoveries(listed.tests, staticCasesWithScope(project.root, files));
+  const ambiguous = tests.filter(t => !t.uidStable).length;
+  const duplicatedExplicit = tests.filter(t => t.ambiguity?.reason === 'duplicate-explicit-uid').length;
+  const outside = (listed.skipped && listed.skipped.length) || 0;
+
+  let warning = `权威索引来自 playwright test --list（CLI ${listed.version || '?'}）：动态与参数化用例已包含在内。`;
+  if (ambiguous) warning += ` ${ambiguous} 个用例的 UID 为临时值（标题与 describe 路径都无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
+  if (duplicatedExplicit) warning += ` ${duplicatedExplicit} 个用例标注了同一个 @TC-xxx，这些用例都没有绑定到该 UID，需要人工消歧。`;
+  if (outside) warning += ` ${outside} 个用例位于项目根目录之外，已被排除。`;
+  if (!consistency.agrees) warning += ` 与静态索引的差异：${consistency.onlyAuthoritative.length} 个用例仅权威索引可见，${consistency.onlyStatic.length} 个用例仅静态索引可见。`;
+
+  return {
+    files,
+    tests,
+    discovery: DISCOVERY.AUTHORITATIVE,
+    uidVersion: resolved.registry.version,
+    projectUid,
+    registry: { version: resolved.registry.version, projects: { ...((registry && registry.projects) || {}), [projectUid]: resolved.registry } },
+    warning,
+    trust,
+    authoritative: {
+      attempted: true,
+      outcome: LIST_OUTCOME.OK,
+      reason: '',
+      cli: listed.cli,
+      version: listed.version,
+      rootDir: listed.rootDir,
+      durationMs: listed.durationMs,
+      specCount: listed.tests.length
+    },
+    consistency
+  };
 }
 export function resolvePlaywright(project) {
  const candidates=['node_modules/@playwright/test/cli.js','node_modules/playwright/cli.js','node_modules/playwright-core/cli.js'];
@@ -221,20 +667,16 @@ export function artifactPath(id,relative){
 /**
  * Parses a Playwright JSON report into the run summary.
  *
- * Two details of the report format matter for the UID scheme:
+ * ATS-208: the parsing, the aggregation and the status vocabulary moved to
+ * `server/execution/model.mjs`, which is the ONE place the execution model
+ * is defined. This function is re-exported from there (see the imports at
+ * the top of this file) and kept here so that the existing callers keep
+ * working.
  *
- *   * `spec.file` is relative to the Playwright `rootDir`, which is derived
- *     from `testDir`. The registry stores the file relative to the project
- *     root, so the report's `rootDir` is reported alongside the cases and the
- *     two spellings are reconciled by the caller.
- *   * a retried test case is ONE entry in `spec.tests[]` whose `results[]`
- *     array holds one element per retry. Every retry is a separate execution
- *     of the case, so every retry becomes its own case record here.
- *
- * The two LEVELS of status are kept apart, because they answer different
+ * The two levels of status are kept apart, because they answer different
  * questions:
  *
- *   * `status` -- the CASE level status (`expected` / `unexpected` / `flaky` /
+ *   * `status` -- the CASE level status (`passed` / `failed` / `flaky` /
  *     `skipped`). It describes the case as a whole: a flaky case is `flaky`
  *     even though its first retry failed.
  *   * `resultStatus` -- the RESULT level status of THIS execution
@@ -246,78 +688,10 @@ export function artifactPath(id,relative){
  * case level status would report "flaky" for both attempts and hide that the
  * first one actually failed.
  */
-export function parseReport(report){
- let passed=0,failed=0,skipped=0,flaky=0;const cases=[];
- function walk(s){for(const x of s.specs||[]){for(const t of x.tests||[]){
-  const status=t.status||'unknown';if(['expected'].includes(status))passed++;else if(status==='flaky')flaky++;else if(status==='skipped')skipped++;else failed++;
-  const results=Array.isArray(t.results)&&t.results.length?t.results:[{}];
-  const file=x.file||s.file||'';
-  results.forEach((r,index)=>{
-   cases.push({title:x.title,file,status,resultStatus:r.status??status,duration:r.duration||0,error:r.error?.message||'',retry:Number.isInteger(r.retry)?r.retry:index,line:x.line||null,column:x.column||null});
-  });
- }}for(const sub of s.suites||[])walk(sub);}
- for(const suite of report.suites||[])walk(suite);
- const rootDir=report?.config?.rootDir||null;
- // `total` counts the test cases of the run, the same unit as passed / failed /
- // skipped / flaky. A retried case is still ONE case; its retries are counted
- // separately as `executions`, because each retry is a separate execution.
- const total=passed+failed+skipped+flaky;
- return {passed,failed,skipped,flaky,total,executions:cases.length,cases,rootDir};
-}
 
 /**
  * Builds the Attempt records of one Run.
  *
- * One Attempt is the execution of one test case inside one Run; a retried
- * case produces one Attempt per retry. The Attempt UID is derived from the
- * Run UID, the TestDefinition UID, the retry index and the occurrence index
- * of the case inside the report, so the same attempt can be recomputed from
- * the recorded fields (that is what the migration script relies on).
- *
- * `registry` supplies the mapping from a reported case to the stable
- * TestDefinition UID. A case that cannot be bound unambiguously keeps
- * `testUid: null` and records the reason in `uidBasis`.
+ * ATS-208: moved to `server/execution/model.mjs` and re-exported here.
  */
-export function attemptsForRun(run, summary, registry) {
-  if (!summary || !Array.isArray(summary.cases)) return [];
-  const projectUid = run.projectUid ?? '';
-  const projectRoot = run.projectRoot ?? null;
-  const rootDir = summary.rootDir ?? null;
-  const occurrence = new Map();
-  const attempts = [];
-  for (const c of summary.cases) {
-    // The report names the file relative to the Playwright rootDir, the
-    // registry stores it relative to the project root. Both are reduced to
-    // the project relative spelling before they are compared.
-    const file = normalizeTestPath(c.file, { rootDir, projectRoot });
-    const found = findTestUid(registry, projectUid, { file, title: c.title, line: c.line });
-    const key = `${file} ${c.title} ${c.line}`;
-    const index = occurrence.get(key) ?? 0;
-    occurrence.set(key, index + 1);
-    attempts.push({
-      uid: attemptUidFor({
-        runUid: run.uid || run.id,
-        testUid: found.uid,
-        retry: c.retry,
-        fallbackKey: `${file} ${c.title} ${c.line}`,
-        occurrence: index
-      }),
-      runUid: run.uid || run.id,
-      testUid: found.uid,
-      uidBasis: found.basis,
-      file,
-      title: c.title,
-      line: c.line,
-      retry: c.retry || 0,
-      // An Attempt is one EXECUTION, so it records the result level status.
-      // The case level status (`flaky`) would describe the case as a whole and
-      // would report "flaky" for the failed retry as well.
-      status: c.resultStatus ?? c.status,
-      caseStatus: c.status,
-      duration: c.duration,
-      error: c.error || ''
-    });
-  }
-  return attempts;
-}
 export function compactLog(log){return log.length>150000?log.slice(-150000):log;}
