@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ATS-206 recovery / stale-lock counterexample probe.
 //
-// The four counterexamples of the round-3 rework (CE7, CE8, CE9, CE10),
+// The four counterexamples of the recovery rework (CE7, CE8, CE9, CE10),
 // as executable checks against a given tree. It is the counterpart of the
 // reviewer's `ce206r2.mjs`, and it exists because that probe's lock
 // predicate ("the lock file names this process") does not survive ATS-207:
