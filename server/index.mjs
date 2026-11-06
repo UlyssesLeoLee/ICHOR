@@ -38,7 +38,8 @@ const jobs=new Map();
 // ATS-207: the acquisition is ATOMIC -- of two Bridges that start at the
 // same instant exactly one gets the lock -- and a starting Bridge may WAIT
 // for a busy lock (ATS_LOCK_WAIT_MS, default 0: refuse at once).
-try{acquireBridgeLock(lockPath(),{waitMs:lockWaitFromEnv(process.env.ATS_LOCK_WAIT_MS)});}
+const lockWaitMs=lockWaitFromEnv(process.env.ATS_LOCK_WAIT_MS);
+try{acquireBridgeLock(lockPath(),{waitMs:lockWaitMs});}
 catch(e){
   if(e.code!=='BRIDGE_ALREADY_RUNNING'){
     console.error(`the data directory lock (${lockPath()}) could not be taken: ${e.message}`);
@@ -53,7 +54,7 @@ catch(e){
     `another process holds the data directory lock (${lockPath()}): ${e.message}
 ` +
     `holder: pid ${holderPid}, started ${e.holder?.processStartedAt ?? e.holder?.startedAt ?? 'unknown'}` +
-    (e.waitedMs ? ` (waited ${e.waitedMs} ms)` : '') + `
+    (lockWaitMs>0 ? ` (waited ${e.waitedMs} ms)` : '') + `
 ` +
     `Only one Bridge can use a data directory at a time. To recover:
 ` +
