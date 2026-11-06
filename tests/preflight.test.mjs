@@ -250,6 +250,11 @@ test('UT-ARG-008: any option the Bridge does not emit is refused', () => {
     [...base, 'tests/a.spec.ts', 'tests/b.spec.ts'], [...base, 'tests/a|b.spec.ts'], [...base, 'x\ny'], [...base, 7], 'not-an-array',
   ];
   for (const args of bad) assert.throws(() => assertSafePlaywrightArgv(args, { cli: CLI }), (e) => e.code === 'UNSAFE_CLI_ARGUMENT' && typeof e.reason === 'string', JSON.stringify(args));
+  // A foreign option is refused AS AN OPTION, not only because it would also
+  // fail the filter check further down.
+  for (const [args, name] of [[[...base, '--config', 'x'], '--config'], [[...base, '-c', 'x'], '-c'], [[...base, '--project=chromium'], '--project'], [[...base, '--grep', 'x'], '--grep']]) {
+    assert.throws(() => assertSafePlaywrightArgv(args, { cli: CLI }), (e) => e.reason === `the option ${name} is not allowed`, name);
+  }
 });
 
 test('UT-ARG-009: the builder refuses an unsafe filter instead of returning a vector', () => {
