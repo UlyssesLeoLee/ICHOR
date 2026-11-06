@@ -1,0 +1,5 @@
+B GET /tests -> 200 static; A GET /tests -> 200 authoritative
+registry entries of B right after B's discovery : 2
+registry entries of B after A's listing finished: 0   (A has 2)
+EXPECTED: A's listing must not erase the registry entries B wrote while A was being listed
+VERDICT: FAIL (counterexample): lost update -- A wrote back a registry snapshot taken before its await

@@ -1,0 +1,6 @@
+[S1 describe title held in a variable] FAIL -- discovery=authoritative agrees=false onlyStatic=["tests/s.spec.ts  pays"] onlyAuthoritative=["tests/s.spec.ts checkout pays"]
+[S2 describe title as a template literal] FAIL -- discovery=authoritative agrees=false onlyStatic=["tests/s.spec.ts area ${area} adds"] onlyAuthoritative=["tests/s.spec.ts area cart adds"]
+[S3 describe with a details object (tag)] FAIL -- discovery=authoritative agrees=false onlyStatic=["tests/s.spec.ts  inside tagged"] onlyAuthoritative=["tests/s.spec.ts tagged inside tagged"]
+[S4 describe with an expression-bodied callback] OK -- discovery=authoritative agrees=false onlyStatic=[] onlyAuthoritative=["tests/s.spec.ts expr inside expr"]
+[S5 describe.configure before plain cases] OK -- discovery=authoritative agrees=true onlyStatic=[] onlyAuthoritative=[]
+SUMMARY: 2/5 OK
