@@ -1,7 +1,7 @@
 === the ADR citation check ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
-commit    : 41a30a5
-branch    : agent/m3/seikoist-169-e6d7459e54e1
+repo root : /d/ICHOR
+commit    : 328cdc1
+branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
