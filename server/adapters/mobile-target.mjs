@@ -69,7 +69,7 @@ import { resolve as pathResolve } from 'node:path';
 // `isSubpath` is the same containment check the artifact resolver uses and
 // `sha` is the same digest function, so a mobile screenshot is validated
 // and hashed exactly like every other piece of evidence (FR-015).
-import { isSubpath, sha } from '../core.mjs';
+import { isSubpath, sha } from '../paths.mjs';
 
 /* ------------------------------------------------------------------ */
 /* The vocabulary                                                      */

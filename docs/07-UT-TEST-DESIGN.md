@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：513；已执行通过：497；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：554；已执行通过：538；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -521,6 +521,47 @@
 |UT-MOB-092|FR-031|安全|设备层按调用方给出的目标判定|上下文目标与会话所属目标不同|该目标下不证明任何能力|node --test|PASS|
 |UT-MOB-093|FR-031|正常|目标声明了但会话没证明的能力仍报不支持|目标声明两项，会话只证明一项|已证明的那项支持，另一项理由为未证明|node --test|PASS|
 |UT-MOB-094|FR-031|异常|没有目标时设备层报不支持而不是抛错|适配器 target=null 且带会话|每条能力 supported=false、无证据、带理由|node --test|PASS|
+|UT-MOB-200|FR-032|正常|Flow 的语法由扩展名决定|.yaml/.yml 为 YAML 声明，.flow 为线性声明|两种语法各自识别，其他扩展名不是 Flow|node --test|PASS|
+|UT-MOB-201|FR-032|正常|YAML Flow 被读成场景与步骤|含 appId 与两个场景的 YAML 声明|读出 2 个场景、标签与每一步的命令与参数|node --test|PASS|
+|UT-MOB-202|FR-032|正常|线性 Flow 被读成同一形状|含 app 与两个场景的线性声明|读出与 YAML 同形的场景与步骤|node --test|PASS|
+|UT-MOB-203|FR-032|正常|两种语法产出同一组语义|同一场景分别用两种语法书写|步骤种类序列相同|node --test|PASS|
+|UT-MOB-204|FR-032|正常|步骤的行号是它声明的那一行|步骤前有空行与注释|行号指向步骤所在行，不是外层键所在行|node --test|PASS|
+|UT-MOB-205|FR-032|异常|没有场景的 Flow 被报告|只有 appId 的声明|零个场景且产生读取错误|node --test|PASS|
+|UT-MOB-206|FR-032|异常|缩进坏掉的 Flow 被报告|同一列表里第二步缩进更深|产生带行号的读取错误|node --test|PASS|
+|UT-MOB-207|FR-032|安全|锚点不被读成半个文档|使用 &anchor 的声明|报错误而不是读一半|node --test|PASS|
+|UT-MOB-208|FR-032|正常|注释不进入声明|行尾带 # 注释|注释被剥离，声明内容不受影响|node --test|PASS|
+|UT-MOB-209|FR-032|正常|步骤选项不被读成命令|步骤只带 label 键|命令是真正的步骤键，不是 label|node --test|PASS|
+|UT-MOB-210|FR-032|安全|映射出的步骤种类都在 ATS-601 词表内|遍历语义表的全部种类|每个种类都在 ATS-601 的六类词表内|node --test|PASS|
+|UT-MOB-211|FR-032|正常|命令的拼写不影响判定|launchApp/launch/launch_app/LAUNCHAPP|都判定为同一语义；无关命令判不出|node --test|PASS|
+|UT-MOB-212|FR-032|安全|报告保留作者的原文|不支持的命令 NotACommand|raw 是作者写的那一行，command 是原拼写|node --test|PASS|
+|UT-MOB-220|FR-032|正常|Flow 映射到统一用例模型|含两个场景的声明|产出 2 个用例，各带稳定 uid、文件与行号|node --test|PASS|
+|UT-MOB-221|FR-032|正常|场景成用例、步骤成步骤|一个含四步的场景|用例带标题与标签，步骤按顺序映射|node --test|PASS|
+|UT-MOB-222|FR-032|正常|步骤的断言进统一模型|assertVisible 步骤|断言是 {visible: 目标}|node --test|PASS|
+|UT-MOB-223|FR-032|正常|两种语法映射到相同的步骤|同一场景的两种写法|种类、参数与断言完全相同|node --test|PASS|
+|UT-MOB-224|FR-032|正常|未写 app 的启动步骤继承文件的 app|文件声明 appId，步骤只写 launchApp|步骤拿到该 app，场景也记录该 app|node --test|PASS|
+|UT-MOB-225|FR-032|边界|没有名字的场景得到确定的标题|场景无 name|标题由位置派生，两次导入相同|node --test|PASS|
+|UT-MOB-230|FR-032|安全|映射不了的步骤被保留而不是丢弃|场景含一个未知命令|步骤不在用例里，但进不支持清单，带原文与行号与原因|node --test|PASS|
+|UT-MOB-231|FR-032|安全|静默丢弃的步骤会让测试失败|场景含三个步骤，其中两个不支持|声明数 = 已映射 + 已报告，无一步消失|node --test|PASS|
+|UT-MOB-232|FR-032|异常|缺必需参数的步骤被报告|tapOn 没有任何参数|该步骤进不支持清单，原因点名缺 text|node --test|PASS|
+|UT-MOB-233|FR-032|异常|没有命令的步骤被报告|步骤只带选项键|该步骤进不支持清单并带原文|node --test|PASS|
+|UT-MOB-234|FR-032|安全|模型外的参数被保留并告警|步骤带一个未知参数|参数保留在步骤里并产生一条告警|node --test|PASS|
+|UT-MOB-235|FR-032|正常|导入报告列出每个不支持步骤|一个不支持的步骤|报告给出原文、行号与原因|node --test|PASS|
+|UT-MOB-240|FR-032|正常|切换导入方式不改变已有 UID|同一份声明导入两次|两次得到同一个 uid|node --test|PASS|
+|UT-MOB-241|FR-032|正常|同一场景在两种语法下步骤指纹相同|同一场景的两种写法|步骤指纹相同，因此可被同一个注册表认回|node --test|PASS|
+|UT-MOB-242|FR-032|正常|改标题后用例保住 UID|先导入再改标题重导入|uid 不变且 uidSource=registry|node --test|PASS|
+|UT-MOB-243|FR-032|正常|显式 @TC- 标注优先于一切派生键|标题含 @TC-601|uid 是该标注，来源 explicit|node --test|PASS|
+|UT-MOB-244|FR-032|边界|同名同步骤的两个用例被判为歧义|两个同名同步骤的场景|两个都是临时 uid 并报告歧义|node --test|PASS|
+|UT-MOB-245|FR-032|边界|同名不同步骤的两个用例各保其 uid|两个同名但步骤不同的场景|两个 uid 不同且都稳定|node --test|PASS|
+|UT-MOB-246|FR-032|边界|没有项目 UID 时不编造稳定标识|不带项目 UID 导入|uid 是临时的且 uidStable=false|node --test|PASS|
+|UT-MOB-250|FR-032|正常|Flow 在约定目录下被发现|项目里有 flows/ 与 mobile/ 下的 Flow 与一个无关 YAML|只发现约定目录下的 Flow|node --test|PASS|
+|UT-MOB-251|FR-032|正常|不是 Flow 的文件不被读取|flows/ 下放一个 .txt|该文件不进发现结果|node --test|PASS|
+|UT-MOB-252|FR-032|安全|项目之外的 Flow 被拒绝|传入 ../outside.yaml|报 flow-outside-project 且零个用例|node --test|PASS|
+|UT-MOB-253|FR-032|异常|读不出的 Flow 被报告而不是抛错|导入一个不存在的文件|报 flow-unreadable|node --test|PASS|
+|UT-MOB-254|FR-032|异常|读不动的文档不产出用例也不抛异常|缩进坏掉的 Flow|该文档零个用例、错误被报告、ok=false|node --test|PASS|
+|UT-MOB-255|FR-032|正常|导入报告给出文件名与计数|导入一个 Flow 文件|报告给出文件名、用例数与已映射步骤数|node --test|PASS|
+|UT-MOB-260|FR-032|正常|移动端用例进入统一目录|项目里有一个 Flow 与一个 web 用例|目录里两种用例都在，移动端用例是 TestDefinition|node --test|PASS|
+|UT-MOB-261|FR-032|正常|没有 Flow 的项目没有移动端用例|项目里只有 web 用例|移动端用例数为 0 且目录不含移动端字样|node --test|PASS|
+|UT-MOB-262|FR-032|安全|不支持的步骤计入目录的告警|Flow 里有一个不支持的步骤|告警写明 1 个移动端步骤不受支持|node --test|PASS|
 
 ## 进入与退出条件
 
