@@ -114,5 +114,10 @@ else
   echo "  wrote $OUT/16-review-r2-e2e.log (skipped: no real @playwright/test)"
 fi
 
+echo '--- 17. the counterexample of the round 2: the new assertions on the rejected tree ---'
+# The three assertions of the round-2 fix, run against the tree the round-2
+# review rejected (43bb07e). They must FAIL there.
+run 17-counterexample-r2.log bash tools/ats204-probes/counterexample-r2.sh
+
 echo
 echo "evidence collected into $OUT"

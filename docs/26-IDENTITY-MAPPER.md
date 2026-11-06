@@ -289,9 +289,9 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 | 反例 | `tools/ats204-probes/review-r2/r2-e2e.mjs` | 复核第 2 轮的端到端反例（真实 Playwright CLI）：**X3 静态目录的重复判定要传到运行侧**、X2/X2s 重复修好后 token 重新绑定、M3 不同 describe 的同名用例各自绑定、N2/N4 两条边界 |
 | 反例 | `tools/ats204-probes/counterexample.sh` | 同一批用例在第一次交付的树（`9a559c6`）上跑，**5 项失败** |
 
-执行：`npm test`（Node ≥ 22）。**全量 1004 例：999 通过 / 0 失败 / 5 跳过**
-（跳过的 5 项是 `examples/sample-wdio` 没有 `node_modules`，与本任务无关；
-装了示例工程的 fixture 依赖后，此前跳过的另外 6 项也执行并通过）。
+执行：`npm test`（Node ≥ 22）。**全量 1101 例：1090 通过 / 0 失败 / 11 跳过**
+（跳过的 11 项是示例工程没有 `node_modules`（`examples/sample-wdio` 等）的
+既有 IT，与本任务无关；装了示例工程的 fixture 依赖后它们执行并通过）。
 
 **反例回归的可证伪性**：`tests/identity.test.mjs` 在第一次交付的树
 （`9a559c6`）上实测有 **5 项失败**（UT-ATS204-022 / 023 / 024 / 025 / 027，
@@ -302,14 +302,22 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 在本树上**全部通过**：锚点探针 6/6，端到端探针 11/11（真实
 `@playwright/test` 1.64.1）。
 
+复核第 2 轮时，复核者附了第三个探针（`tools/ats204-probes/review-r2/`）。
+它在本树上**全部通过**：X2、X3、X2s、M3 全部 OK，N4 也从「继承了旧 UID」
+变成「换了新 UID」，N2 仍是记录在案的那条边界（探针本身把它标成 INFO）。
+本轮新增的三条断言（UT-ATS204-037 / 038 / 039）在**被驳回的那棵树**
+（`43bb07e`）上实测 **3 项失败**——断言能抓住缺陷。复现：
+`bash tools/ats204-probes/counterexample-r2.sh`。
+
 ### 8.1 覆盖率
 
 | 文件 | 行 | 分支 | 函数 |
 |---|---|---|---|
-| `server/identity.mjs` | 99.03% | 84.08% | 100% |
-| `server/execution/model.mjs` | 99.34% | 84.97% | 96.88% |
+| `server/identity.mjs` | 99.10% | 84.38% | 100% |
+| `server/execution/model.mjs` | 99.34% | 85.06% | 96.88% |
 | `server/discovery/authoritative.mjs` | 97.08% | 85.04% | 86.67% |
-| `server/core.mjs` | 97.83% | 84.67% | 86.15% |
+| `server/core.mjs` | 97.98% | 84.49% | 86.36% |
+| `server/uid.mjs` | 98.68% | 81.67% | 97.44% |
 
 ### 8.2 证据索引
 
@@ -320,10 +328,10 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 | 日志 | 内容 |
 |---|---|
 | `00-tree.log` | 采证据时的树（commit 与工作区状态） |
-| `01-identity-ut.log` | 身份映射器的 37 项 UT |
+| `01-identity-ut.log` | 身份映射器的 41 项 UT |
 | `02-uid-discovery-ut.log` | UID 与发现的既有 UT（未回归） |
 | `03-execution-model-ut.log` | 执行模型的既有 UT（矩阵的回归） |
-| `04-node-test-full.log` | 全量 1004 例 |
+| `04-node-test-full.log` | 全量 1101 例 |
 | `05-probe-gaps.log` | 本任务修好的缺口（改名 + 改标题的 attempt 由 unbound 变为按 body-key 绑定） |
 | `06-probe-anchor.log` | 锚点：模板改文案后 UID 不变；渲染数变化时报位移 |
 | `07-probe-matrix.log` | 矩阵：两种报告形状给同一个答案 |
@@ -334,8 +342,9 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 | `12-counterexample.log` | 同一批用例在第一次交付的树（`9a559c6`）上的结果（**5 项失败**） |
 | `13-review-r1-anchor.log` | 复核第 1 轮的 6 条发现侧反例——**全部消失** |
 | `14-review-r1-e2e.log` | 复核第 1 轮的 11 条端到端反例——**全部消失** |
-| `15-coverage.log` | 四个文件的行/分支/函数覆盖率 |
+| `15-coverage.log` | 五个文件的行/分支/函数覆盖率 |
 | `16-review-r2-e2e.log` | 复核第 2 轮的端到端反例（真实 `@playwright/test` 1.64.1）——**X3/X2/X2s/M3 全部 OK** |
+| `17-counterexample-r2.log` | 复核第 2 轮的三条新断言在被驳回的树（`43bb07e`）上——**3 项失败** |
 
 ## 9. 与既有设计的关系
 
