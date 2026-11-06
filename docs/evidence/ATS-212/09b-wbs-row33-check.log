@@ -1,13 +1,13 @@
 === the ATS-212 row 33: final state only, unchanged numbers, idempotent updater ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-f1e5e0e59271/worktree
-commit    : f50a774
-branch    : agent/m2/seikoist-170-f1e5e0e59271
+repo root : /d/ICHOR
+commit    : efab092
+branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
 === the ATS-212 WBS row of docs/WBS.xlsx ===
-workbook: C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-f1e5e0e59271\worktree\docs\WBS.xlsx
-updater : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-f1e5e0e59271\worktree\tools\update_wbs_ats212.py
+workbook: D:\ICHOR\docs\WBS.xlsx
+updater : D:\ICHOR\tools\update_wbs_ats212.py
 
 --- 1. the row is still the accepted ATS-212 row ---
 row 33 N=待审核 O=1 P=0 len=3467
