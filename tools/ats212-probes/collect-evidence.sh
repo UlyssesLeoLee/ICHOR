@@ -120,7 +120,19 @@ else
 fi
 
 # --- 12: the checksum verification -------------------------------------------
-run 12-checksums.log "the CHECKSUMS.sha256 verification against the committed tree" \
-  python tools/verify_checksums.py
+# NOT HERE, ON PURPOSE. The manifest lists the evidence logs, so a log that
+# records the manifest's own verification cannot live inside the manifest it
+# describes: writing the log changes the log's digest, which changes the
+# manifest, which invalidates the log. The verification is therefore the
+# LAST step of the delivery, run after the manifest has been regenerated
+# over the final tree:
+#
+#   python tools/update_checksums.py   # over the committed tree
+#   python tools/verify_checksums.py   # independent verification
+#
+# ATS-208 uses the same arrangement (its evidence set has no checksum log
+# either); the ATS-301 LF-clone log exists only because it was collected in
+# a SEPARATE clone and never entered the manifest it verifies.
+echo "the checksum verification is a post-commit gate, not an evidence step (see the header)"
 
 echo "done"
