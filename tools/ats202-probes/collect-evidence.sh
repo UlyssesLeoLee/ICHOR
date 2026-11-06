@@ -50,7 +50,11 @@ echo '--- 5. the full Node test suite ---'
 run 05-node-test-full.log node --test tests/*.test.mjs
 
 echo '--- 6. the line coverage of the discovery modules ---'
-run 06-line-coverage.log node --test --experimental-test-coverage tests/discovery.test.mjs tests/discovery-it.test.mjs tests/discovery-api.test.mjs
+# The coverage is measured over the WHOLE suite, not over the discovery tests
+# alone: the modules of this task are also exercised by the other suites (the
+# UID registry, the execution model, the API), and a coverage number that
+# only counted the three files above would report less than the real one.
+run 06-line-coverage.log node --test --experimental-test-coverage tests/*.test.mjs
 
 echo '--- 7. the WBS updater: the XML escaping and the idempotency ---'
 run 07-wbs-updater.log python tools/update_wbs_ats202.py
@@ -157,10 +161,21 @@ if [ -d "$PW_NM2/@playwright/test" ]; then
   # The archive is taken from INSIDE the repository: `git -C <msys-path>` is
   # not understood by the native git, and an empty archive makes tar fail
   # with "This does not look like a tar archive".
+  #
+  # This probe exits 1 ON PURPOSE: the escaped-quote case is EXPECTED to
+  # change its UID, and that change is what the probe documents (N4). So the
+  # exit code is recorded, not treated as a failure of the collection.
   OLD_TREE="${ATS202_OLD_TREE:-$SCRATCH/ats202-round0-tree}"
   rm -rf "$OLD_TREE"; mkdir -p "$OLD_TREE"
   if (cd "$ROOT" && git archive cc68331) | tar -x -C "$OLD_TREE" 2>/dev/null && [ -f "$OLD_TREE/server/core.mjs" ]; then
     run 15-r2-upgrade.log node "$R2/r2-upgrade.mjs" "$(native "$OLD_TREE")" "$TREE_NATIVE" "$SCRATCH"
+    {
+      echo ""
+      echo "=== note ==="
+      echo "The exit code 1 of this probe is the EXPECTED result: the escaped-quote"
+      echo "case is expected to change its static UID once (the N4 finding). The"
+      echo "other two cases must stay OK. See docs/23-AUTHORITATIVE-DISCOVERY.md 4.5.1."
+    } >> "$OUT/15-r2-upgrade.log"
   else
     {
       echo "=== command ==="
