@@ -1,5 +1,5 @@
 === command ===
-node C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-7f251090c0cd/worktree/tools/ats202-probes/r2/r2-scope.mjs C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-7f251090c0cd/worktree C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-7f251090c0cd/worktree/examples/sample-playwright/node_modules /tmp/multica-task-3182755422/ats202-ev
+node D:/ICHOR/tools/ats202-probes/r2/r2-scope.mjs D:/ICHOR D:/ICHOR/examples/sample-playwright/node_modules /tmp/multica-task-3182755422/ats202-dev-ev
 === output ===
 [S1 describe title held in a variable] OK -- discovery=authoritative agrees=true onlyStatic=[] onlyAuthoritative=[]
 [S2 describe title as a template literal] OK -- discovery=authoritative agrees=true onlyStatic=[] onlyAuthoritative=[]
