@@ -176,7 +176,7 @@ export function aliasIndex(entries) {
  */
 export function bindReported({
   entries = [], file = null, title = '', line = null, scope = null,
-  bodyKey = null, bodyCounts = null, allowAlias = null,
+  bodyKey = null, bodyCounts = null, explicitCounts = null, allowAlias = null,
 } = {}) {
   const usable = (entries ?? []).filter((e) => e.uid);
   const scopePath = Array.isArray(scope) ? scope : [];
@@ -186,11 +186,17 @@ export function bindReported({
   const explicit = extractExplicitUid(title);
   if (explicit) {
     const owners = usable.filter((e) => e.uid === explicit);
-    if (owners.length === 1) return { uid: explicit, basis: 'explicit', candidates: 1 };
+    // The token belongs to the case that carries it -- and to ONE case.
+    // Two cases of the SAME RUN carrying it means neither of them owns
+    // it: only the author can say which case it belongs to.
+    const claimants = explicitCounts ? (explicitCounts.get(explicit) ?? 0) : 0;
+    if (owners.length === 1 && claimants <= 1) {
+      return { uid: explicit, basis: 'explicit', candidates: 1 };
+    }
     return {
       uid: null,
       basis: 'explicit-ambiguous',
-      candidates: owners.length,
+      candidates: Math.max(owners.length, claimants),
       ambiguity: { reason: 'duplicate-explicit-uid', explicitUid: explicit },
     };
   }
@@ -210,8 +216,27 @@ export function bindReported({
   const fileTitleUids = distinctUids(sameFileTitle);
   const ambiguousGroup = fileTitleUids.length > 1;
 
-  /* 2. the file, the describe path and the title: the CLI's own identity. */
-  if (scopeKey) {
+  /*
+   * Is the body shared by several cases of THIS RUN?
+   *
+   * When it is, the fingerprint does not tell them apart, and every signal
+   * that does NOT use the fingerprint must not bind them to the same uid:
+   * two cases of one run carrying one uid is the silent mis-association
+   * this mapper exists to prevent. The positional signals are safe -- two
+   * cases that report the same file, the same describe path, the same
+   * title AND the same line are the same case (a retry).
+   */
+  const bodySharedInRun = Boolean(bodyKey) && bodyCounts
+    ? (bodyCounts.get(bodyKey) ?? 0) > 1
+    : false;
+
+  /*
+   * 2. the file, the describe path and the title: the CLI's own identity.
+   *
+   * Like the line, the position is not an identity: it binds only when
+   * the body agrees with it, or when there is no body to disagree with.
+   */
+  if (scopeKey && !bodySharedInRun) {
     const sameFileScopeTitle = sameFile.filter((e) => e.title === title && scopeOf(e) === scopeKey);
     const uids = distinctUids(sameFileScopeTitle);
     if (uids.length === 1) return { uid: uids[0], basis: 'file-scope-title', candidates: 1 };
@@ -224,11 +249,26 @@ export function bindReported({
   }
 
   if (!ambiguousGroup) {
-    /* 3. the file, the line and the title. */
-    if (Number.isInteger(line) && line > 0) {
+    /*
+     * 3. the file, the line and the title.
+     *
+     * The line is NOT an identity: a case inserted above shifts every
+     * line below it, and two same-titled cases in one file then sit on
+     * each other's old lines. So when the body of the reported case COULD
+     * be computed, the positional hit must AGREE with it -- a hit whose
+     * body disagrees is a stale-line coincidence, and it does not bind.
+     *
+     * When the body could NOT be computed, the positional signal stands
+     * on its own: it is the only evidence there is. The boundary is
+     * reported by the basis, not hidden.
+     */
+    if (Number.isInteger(line) && line > 0 && !bodySharedInRun) {
       const atLine = sameFile.filter((e) => Number.isInteger(e.line) && e.line === line);
       const sameTitleAtLine = atLine.filter((e) => e.title === title);
-      const uids = distinctUids(sameTitleAtLine);
+      const agrees = bodyKey
+        ? sameTitleAtLine.filter((e) => !e.bodyKey || e.bodyKey === bodyKey)
+        : sameTitleAtLine;
+      const uids = distinctUids(agrees);
       if (uids.length === 1) return { uid: uids[0], basis: 'file-line', candidates: 1 };
       if (uids.length > 1) {
         return {
@@ -236,10 +276,28 @@ export function bindReported({
           ambiguity: { reason: AMBIGUITY.SAME_FILE_LINE, candidates: uids },
         };
       }
+      if (sameTitleAtLine.length && !agrees.length) {
+        // The positional hit contradicts the body: the case at that line
+        // is a DIFFERENT case than the one the registry remembers there.
+        // The body decides below -- and the position is not used.
+        const contradicted = distinctUids(sameTitleAtLine);
+        return {
+          uid: null, basis: 'file-line-body-mismatch', candidates: contradicted.length,
+          ambiguity: { reason: AMBIGUITY.BODY, candidates: contradicted },
+        };
+      }
     }
 
-    /* 4. the file and the title. */
-    if (fileTitleUids.length === 1) return { uid: fileTitleUids[0], basis: 'file-title', candidates: 1 };
+    /*
+     * 4. the file and the title.
+     *
+     * The signal is skipped when the body is shared inside the run: the
+     * file and the title would then bind BOTH of the shared cases to the
+     * same uid. The body signal below reports the sharing instead.
+     */
+    if (fileTitleUids.length === 1 && !bodySharedInRun) {
+      return { uid: fileTitleUids[0], basis: 'file-title', candidates: 1 };
+    }
   } else {
     /*
      * The group is ambiguous. The body decides it -- and the body is the
@@ -249,11 +307,24 @@ export function bindReported({
     if (bodyKey) {
       const byBody = sameFileTitle.filter((e) => e.bodyKey === bodyKey);
       const uids = distinctUids(byBody);
-      if (uids.length === 1) return { uid: uids[0], basis: 'file-title-body', candidates: 1 };
+      const sharedInRun = bodyCounts ? (bodyCounts.get(bodyKey) ?? 0) : 1;
+      // A body that TWO CASES OF THE SAME RUN share identifies neither of
+      // them: the two cases are the same case as far as the fingerprint
+      // can tell, and binding one of them to the other's uid is a
+      // mis-association.
+      if (uids.length === 1 && sharedInRun === 1) {
+        return { uid: uids[0], basis: 'file-title-body', candidates: 1 };
+      }
       if (uids.length > 1) {
         return {
           uid: null, basis: 'file-title-ambiguous', candidates: uids.length,
           ambiguity: { reason: AMBIGUITY.BODY, candidates: uids },
+        };
+      }
+      if (sharedInRun > 1) {
+        return {
+          uid: null, basis: 'file-title-body-shared', candidates: sharedInRun,
+          ambiguity: { reason: AMBIGUITY.BODY_SHARED, candidates: [] },
         };
       }
       // The body could be computed and it does NOT match any entry of the
@@ -306,9 +377,14 @@ export function bindReported({
     }
   }
 
-  /* 7. the title alone -- only when it identifies one case in the project. */
+  /*
+   * 7. the title alone -- only when it identifies one case in the project,
+   * and only when the body does not tell several cases of this run apart.
+   */
   const titleUids = distinctUids(sameTitle);
-  if (titleUids.length === 1) return { uid: titleUids[0], basis: 'title', candidates: 1 };
+  if (titleUids.length === 1 && !bodySharedInRun) {
+    return { uid: titleUids[0], basis: 'title', candidates: 1 };
+  }
   if (titleUids.length > 1) {
     return {
       uid: null, basis: 'title-ambiguous', candidates: titleUids.length,

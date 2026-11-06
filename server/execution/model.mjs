@@ -38,7 +38,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve as pathResolve } from 'node:path';
 import {
-  attemptUidFor, bodyKeyOf, findTestUid, normalizeTestPath, scanTestCases,
+  attemptUidFor, bodyKeyOf, extractExplicitUid, findTestUid, normalizeTestPath, scanTestCases,
 } from '../uid.mjs';
 import { bindReported } from '../identity.mjs';
 
@@ -629,8 +629,15 @@ export function aggregateAttempts(attempts) {
 export function parseReport(report) {
   const executions = [];
   const rootDir = report?.config?.rootDir || null;
-  /** The ordinal of every spec, so that two specs with the same identity
-   *  (the same file, the same title and NO line) stay two cases. */
+  /*
+   * The ordinal of the specs that carry NO line.
+   *
+   * ATS-204: the ordinal used to be taken for EVERY spec, and that made the
+   * two rows the CLI writes for one case in two PROJECTS into two cases.
+   * The ordinal is only needed for the specs the report cannot tell apart
+   * -- the ones WITHOUT a line. A spec WITH a line is identified by its
+   * position, and the two projects of one case share that position.
+   */
   let specOrdinal = 0;
   /** The verdict of every PROJECT of every case, keyed by the case key.
    *  The verdict is what the engine itself concluded about the case in
@@ -645,7 +652,14 @@ export function parseReport(report) {
       // The identity of the SPEC: its file, its title and its line. The
       // ordinal keeps two same-titled specs apart when the report carries no
       // line for them.
-      const caseKey = `${file} ${x.title ?? ''} ${line} #${specOrdinal++}`;
+      //
+      // ATS-204: the ordinal is taken ONLY for the specs without a line.
+      // A spec WITH a line is keyed by its position alone, so the two rows
+      // the CLI writes for one case in two projects are ONE case -- which
+      // is what the counters and the per-project verdicts are about.
+      const caseKey = Number.isInteger(line)
+        ? `${file} ${x.title ?? ''} ${line}`
+        : `${file} ${x.title ?? ''} #${specOrdinal++}`;
       for (const t of x.tests || []) {
         const caseStatus = t.status || 'unknown';
         // What the case DECLARED it wanted: `passed` by default, `failed`
@@ -837,6 +851,20 @@ export function attemptsForRun(run, summary, registry) {
     if (!key) continue;
     bodyCounts.set(key, (bodyCounts.get(key) ?? 0) + 1);
   }
+  /*
+   * How many cases of THIS RUN carry an explicit token.
+   *
+   * The token belongs to the case that carries it -- and to ONE case. Two
+   * cases of the same run carrying `@TC-001` means neither of them owns
+   * it, and the mapper is asked about one case at a time, so it has to be
+   * told.
+   */
+  const explicitCounts = new Map();
+  for (const c of summary.cases) {
+    const token = extractExplicitUid(c.title);
+    if (!token) continue;
+    explicitCounts.set(token, (explicitCounts.get(token) ?? 0) + 1);
+  }
 
   for (const c of summary.cases) {
     // The report names the test files relative to the Playwright rootDir, the
@@ -866,6 +894,7 @@ export function attemptsForRun(run, summary, registry) {
       scope: c.scope ?? null,
       bodyKey: reportedBodyKey(projectRoot, file, c, bodyCache),
       bodyCounts,
+      explicitCounts,
     });
     const key = `${file} ${c.title} ${c.line}`;
     for (const attempt of attemptsOfCase(c)) {
