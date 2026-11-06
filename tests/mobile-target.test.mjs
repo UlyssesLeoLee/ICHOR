@@ -174,6 +174,24 @@ test('UT-MOB-011: a target without an id or a platform is refused', () => {
   assert.throws(() => target({ platform: '' }), (e) => e.code === 'MOBILE_TARGET_INVALID');
 });
 
+test('UT-MOB-011b: a target whose capability list is not a list is refused', () => {
+  assert.throws(() => target({ capabilities: 'ui.tap' }), (e) => {
+    assert.equal(e.code, 'MOBILE_TARGET_INVALID');
+    assert.match(e.message, /capability list/);
+    return true;
+  });
+});
+
+test('UT-MOB-012b: a session without an id, a target or a capability list is refused', () => {
+  assert.throws(() => session({ sessionId: '' }), (e) => e.code === 'MOBILE_SESSION_INVALID');
+  assert.throws(() => session({ targetId: '' }), (e) => e.code === 'MOBILE_SESSION_INVALID');
+  assert.throws(() => session({ capabilities: 'ui.tap' }), (e) => {
+    assert.equal(e.code, 'MOBILE_SESSION_INVALID');
+    assert.match(e.message, /capability list/);
+    return true;
+  });
+});
+
 test('UT-MOB-012: a session carries its identity, its state and its capability set', () => {
   const s = session();
   assert.equal(s.sessionId, 'ses_1');
@@ -337,6 +355,22 @@ test('UT-MOB-031: a local device is not reclaimed -- it has no lease', () => {
   const t = target({ targetId: 'tgt_phone_1', kind: TARGET_KIND.LOCAL_DEVICE });
   const s = session({ targetId: 'tgt_phone_1', leaseExpiresAt: PAST });
   assert.equal(reclaimExpiredSession(t, s, { now: NOW }).state, 'created');
+});
+
+test('UT-MOB-031b: a failed farm session IS reclaimed -- failed may only leave for idle', () => {
+  // `failed` may only leave for `idle`, so the lease path CAN reclaim a
+  // failed farm session: the device goes back to the pool instead of
+  // staying stuck in `failed` forever.
+  const t = target({ targetId: 'tgt_farm_1', kind: TARGET_KIND.REMOTE_FARM });
+  const broken = session({
+    targetId: 'tgt_farm_1',
+    state: SESSION_STATE.FAILED,
+    error: 'adb: device offline',
+    leaseExpiresAt: PAST,
+  });
+  const reclaimed = reclaimExpiredSession(t, broken, { now: NOW });
+  assert.equal(reclaimed.state, 'idle');
+  assert.equal(reclaimed.error, null, 'a reclaimed session carries no error any more');
 });
 
 test('UT-MOB-032: both rejection codes are declared in the ONE rejection table', () => {
@@ -508,6 +542,41 @@ test('UT-MOB-050: a missing evidence file is reported, not hashed as empty', () 
 test('UT-MOB-051: an empty evidence path is refused', () => {
   assert.throws(() => resolveMobileEvidence('/tmp', ''),
     (e) => e.code === 'MOBILE_EVIDENCE_PATH_INVALID');
+});
+
+test('UT-MOB-051b: an evidence path that is a directory is refused', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ats601-evidence-'));
+  fs.mkdirSync(path.join(root, 'subdir'));
+  assert.throws(() => resolveMobileEvidence(root, 'subdir'), (e) => {
+    assert.equal(e.code, 'MOBILE_EVIDENCE_PATH_FORBIDDEN');
+    return true;
+  });
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('UT-MOB-051c: an evidence symlink that points outside the root is refused', () => {
+  // A screenshot that a device wrote may be a symlink; if it points out of
+  // the evidence root, the containment check must refuse it too.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ats601-evidence-'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'ats601-outside-'));
+  const secret = path.join(outside, 'secret.txt');
+  fs.writeFileSync(secret, 'not yours');
+  let linked = false;
+  try {
+    fs.symlinkSync(secret, path.join(root, 'link.txt'));
+    linked = true;
+  } catch {
+    // A platform without symlink permission cannot run this case; the
+    // containment rule is covered by UT-MOB-049 either way.
+  }
+  if (linked) {
+    assert.throws(() => resolveMobileEvidence(root, 'link.txt'), (e) => {
+      assert.equal(e.code, 'MOBILE_EVIDENCE_PATH_FORBIDDEN');
+      return true;
+    });
+  }
+  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(outside, { recursive: true, force: true });
 });
 
 /* ------------------------------------------------------------------ */
