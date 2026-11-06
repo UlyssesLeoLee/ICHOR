@@ -165,10 +165,10 @@ Case 的状态是它**所有 attempt 的聚合**，规则是确定的（不是�
 「先失败后通过」的用例是 **flaky 而不是 passed**：它需要过一次重试，只看 `passed` 的读者不会知道这一点。
 
 **但计数用的是引擎的判定（OUTCOME），不是 attempt 的原始状态。**
-这是第 1 轮复核实测到的缺陷 B1：只看原始状态会把 `test.fail()` 的**预期失败**
-算成 `failed` 用例，而 Playwright 自己的判定是 `expected`、引擎退出码是 0——
-summary 与退出码自相矛盾。实测症状：一个 Playwright 判定为 `passed` 的 run，
-summary 报 `failed: 1`。
+只看原始状态会把 `test.fail()` 的**预期失败**算成 `failed` 用例，而
+Playwright 自己的判定是 `expected`、引擎退出码是 0——summary 与退出码
+自相矛盾。实测症状：一个 Playwright 判定为 `passed` 的 run，summary 报
+`failed: 1`。
 
 因此模型多了一个词表：
 
@@ -202,7 +202,7 @@ summary 报 `failed: 1`。
 - Case 报告的错误是它**第一次失败**的 attempt 的错误——读者要看的失败是最先发生的那次。
 - 同一 case 的各 attempt 绑定到**同一个** TestDefinition UID（逐条绑定会让一个 flaky 用例的两个 attempt 落到两个 UID 上，历史就没法读了）。
 - Case 跨多个 project 时，**引擎各 project 的判定**决定 Case 的状态：「在 project b 里失败」是 `failed`，「第一次失败、重试通过」是 `flaky`——两者的 attempt 分布看起来一样（有的失败有的通过），只有判定能区分。
-- WDIO 的重试：实测 @wdio/reporter 10.1.0 每次尝试推一条**同名条目**，所以同一 suite 里**连续同名**的条目是同一个用例的多次 attempt，合并为一个 case；非同名的同标题用例仍是两个 case。
+- WDIO 的重试：实测 @wdio/reporter 10.1.0 每次尝试推一条**同名条目**，所以同一 suite 里**连续同名**的条目是同一个用例的多次 attempt，合并为一个 case；非同名的同标题用例仍是两个 case。**分组在第一个通过的条目处结束**：WDIO 的重试用例在第一次通过时就停，所以跟在一条通过条目之后的同名条目是**另一个**用例——把它们合并会藏掉一次真实的失败。剩下的歧义（报告里的 `[failed, passed]` 无法与「失败后重试通过」区分）是**写明的边界**。
 
 #### 5.4.3 「事件可按 run+sequence 复演」
 
@@ -216,12 +216,20 @@ summary 报 `failed: 1`。
 
 ATS-208 补上了缺失的 `run.interrupted` 事件：Bridge 崩溃时它写下这个事件，run 因此可复演为 `interrupted`。
 
-**复演同时校验状态机**（第 1 轮复核的缺陷 B3）：`replayEvents` 按
-`RUN_TRANSITIONS` 逐条检查事件流，答案带 `valid` 与 `violations`。一条违反
-状态机的流（例如终态事件之后又追加了 `run.interrupted`）描述的是一个从未
-存在过的 run，因此**不得**报 `agrees: true`。
+**复演同时校验状态机**：`replayEvents` 按 `RUN_TRANSITIONS` 逐条检查事件流，
+答案带 `valid` 与 `violations`。一条违反状态机的流（例如终态事件之后又追加了
+`run.interrupted`）描述的是一个从未存在过的 run，因此**不得**报 `agrees: true`。
 
-**恢复以持久日志为准**（缺陷 B2 / B3 / B4 / B5）：
+**复演同时校验序号**：一个 run 的序号是 1..N，序号从 1 起算。
+
+- **丢失的序号**（`gaps`）：开头缺号同样是缺口——只丢了开头几个事件的日志不是
+  完好的日志。
+- **重复的序号**（`duplicates`）：两个事件带同一个序号。元数据层的主键
+  `(run_uid, seq)` 会拒绝这样的一对，因此这样的流**不描述**一个 run：
+  `valid` 为 false。
+- **没有序号的事件**（`unsequenced`）：序号不是一个正整数的事件无法放进流里。
+
+**恢复以持久日志为准**：
 
 - 日志里已有终态事件时，采用该终态，**不追加任何事件**（终态事件之后追加
   事件会让事件流违反状态机）；

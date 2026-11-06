@@ -116,15 +116,15 @@ stateDiagram-v2
  [*] --> queued: POST run
  queued --> running: spawn success
  queued --> error: the engine could not be started
- queued --> cancelling: stop requested before the engine started
+ queued --> cancelling: stop requested before the engine started [状态机允许、当前代码不产生]
  queued --> interrupted: the bridge died before the engine started
  running --> passed: exit code 0
  running --> failed: exit code nonzero
  running --> cancelling: stop requested
  running --> interrupted: the bridge died while the run was in flight
  cancelling --> cancelled: the engine was stopped on request
- cancelling --> failed: the engine exited nonzero while being stopped
- cancelling --> error: the engine could not be reported
+ cancelling --> failed: the engine exited nonzero while being stopped [状态机允许、当前代码不产生]
+ cancelling --> error: the engine could not be reported [状态机允许、当前代码不产生]
  cancelling --> interrupted: the bridge died while the run was stopping
  passed --> [*]
  failed --> [*]
@@ -135,19 +135,24 @@ stateDiagram-v2
 
 P0 实现是单项目至多一个并发 run；不同项目可同时执行。`runs` 写入 state 后再 spawn；退出事件在同一 Node 进程内串行处理。对信号停止采取 best effort：Unix 直接 SIGTERM 子进程，Windows 尝试 `taskkill /T /F`；Unix 子进程后代清理仍有限制，因此长远需要进程组与沙箱。
 
-**本图与代码一致（ATS-208 第 2 轮复核修正）**：图上的每一条边都是
-`server/execution/model.mjs` 的 `RUN_TRANSITIONS` 允许的迁移；反之，代码会
-走到的迁移都在图上。上一版图与代码有五处不符：图上有而代码不会走的
-`running → error`（引擎进程的 `error` 事件走 `finishRun(127)`，结果是
-`failed`；`error` 状态只在**引擎还没起来**时出现，即 `queued → error`），
-以及图上缺的四条边 `queued → cancelling`、`queued → interrupted`、
-`cancelling → error`、`cancelling → interrupted`。
+**本图与代码的关系**：图上的每一条边都是 `server/execution/model.mjs` 的
+`RUN_TRANSITIONS` 允许的迁移；反之，代码会走到的迁移都在图上。`UT-EXE-028`
+逐条比对这张图与 `RUN_TRANSITIONS`：图上多一条代码不允许的边、或者代码会走
+的边图上没有，用例都变红。
 
-`RUN_TRANSITIONS` 还允许 `running → error` 与 `cancelling → error`；图中只画
-了 `cancelling → error`（它是停止过程中引擎无法上报时的出口），
-`running → error` 没有画出，因为**当前没有任何代码路径会产生它**：引擎进程
-的 `error` 事件走 `finishRun(run, 127)`，终态是 `failed`。状态机是宽松的
-（它只拒绝能被证伪的迁移），图画的是**实际会发生**的状态迁移。
+**标着「状态机允许、当前代码不产生」的三条边**：`queued → cancelling`、
+`cancelling → failed`、`cancelling → error`。状态机是**宽松**的——它只拒绝
+能被证伪的迁移——而这三条边**当前没有任何代码路径会产生**：
+
+- `queued → cancelling`：引擎起来之前没有活动 job，`cancelRun()` 对没有
+  job 的在飞 run 写下的是 `run.interrupted`，不是 `run.cancelling`；
+- `cancelling → failed`：`finishRun()` 对 `cancelling` 的 run 一律给出
+  `cancelled`，因此「停止过程中引擎非零退出」这一标签描述的路径不存在；
+- `cancelling → error`：`run.error` 只在**引擎还没起来**时写下（适配器启动
+  抛错），那时 run 仍是 `queued`。
+
+图保留这三条边，是因为它们是**状态机允许**的迁移；标注是为了让读者知道
+它们**当前不会发生**，而不是让读者以为它们是常规路径。
 
 **事件流（ATS-208 已实现）**：事件记录 `run.queued`, `run.started`, `run.cancelling`, `run.finished`, `run.error`, `run.interrupted`。三条性质是这条流的设计目标，定义在 `server/execution/model.mjs`：
 

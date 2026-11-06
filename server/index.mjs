@@ -762,7 +762,16 @@ const server=http.createServer(async(req,res)=>{
       violations:replay.violations,
       terminal:replay.terminal,
       sequence:replay.sequence,
+      // The holes in the sequence: the numbers that are MISSING from the
+      // stream. The sequence starts at 1, so a log that lost its first
+      // events is not an intact log either.
       gaps:replay.gaps,
+      // The numbers that are used MORE THAN ONCE: two events claiming the
+      // same place in the stream. The metadata layer's primary key
+      // (run_uid, seq) refuses such a pair.
+      duplicates:replay.duplicates,
+      // The events that carry no usable sequence number.
+      unsequenced:replay.unsequenced,
       events:replay.events,
       // The damage of the log is reported here too, so that a reader of the
       // replay knows that the stream it folds is not the whole story.
