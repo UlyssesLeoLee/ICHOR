@@ -62,7 +62,7 @@
  * and an ambiguity report. An ambiguous case is never merged into another.
  */
 import { bodyKeyOf, deriveTestUid, extractExplicitUid, normalizeTitleKey, pruneRegistry, provisionalTestUid } from '../uid.mjs';
-import { AMBIGUITY, groupByPosition, positionKey, reidentifyRendered } from '../identity.mjs';
+import { groupByPosition, reidentifyRendered } from '../identity.mjs';
 
 /**
  * The registry entry of one authoritative case.
