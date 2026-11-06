@@ -68,8 +68,18 @@ let token = null;
 /** The identifier of the run the tests below inspect. */
 let runId = null;
 
+// The boot wait below is 400 attempts x 50 ms = 20 s. The old 100 x 50 ms
+// = 5 s window was not enough: 14 servers booting concurrently were measured
+// at 1289 / 5637 / 8582 ms (min / median / max), so the slowest ones gave up
+// with "the bridge did not boot" -- non-deterministically, on a DIFFERENT
+// subset each run.
+//
+// It was never a port collision: 14 concurrent servers were measured and
+// their ports were all distinct. 20 s covers the measured worst case with
+// room to spare, and a server that genuinely cannot start still fails instead
+// of hanging forever.
 async function ready() {
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 400; i++) {
     try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return; } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 35));
   }
