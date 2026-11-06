@@ -125,8 +125,15 @@ run 10-python-gates.log "the python gates under tools/" \
 run 11-review-round3-probe.log "the round-3 review probe (CE7 / CE8 / CE9 / CE10)" \
   node tools/ats206-probes/ce206r3.mjs . "${TMPDIR:-/tmp}/ats206-r3-scratch"
 
-# --- 12: the ADR citation check ----------------------------------------------
-run 12-adr-citations.log "the ADR citation check" \
+# --- 12: the round-4 review probe ---------------------------------------------
+# The two recovery branches that refuse (a rename that throws, a journal that
+# claims "state" over an unmigrated state file) and the stale lock that a
+# REAL kill leaves behind.
+run 12-review-round4-probe.log "the round-4 review probe (the refusal branches + a real SIGKILL)" \
+  node tools/ats206-probes/ce206r4.mjs . "${TMPDIR:-/tmp}/ats206-r4-scratch"
+
+# --- 13: the ADR citation check ----------------------------------------------
+run 13-adr-citations.log "the ADR citation check" \
   python tools/check_adr_citations.py
 
 echo "done"

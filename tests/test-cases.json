@@ -3619,6 +3619,50 @@
     "level": "UT"
   },
   {
+    "id": "ATS-206-UT-119",
+    "req": "NFR-010",
+    "category": "异常",
+    "title": "process.exit 退出的迁移不留锁",
+    "input": "迁移在改名运行目录时 process.exit(137)",
+    "expected": "锁文件不存在，且没有 .stale- 残留",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "ATS-206-UT-120",
+    "req": "NFR-010",
+    "category": "异常",
+    "title": "恢复时改名失败则拒绝并保留日志",
+    "input": "恢复期改名抛 EBUSY",
+    "expected": "退出码非 0、不报 UNDONE、日志保留；随后 rollback 逐字节还原 v0.1 且目录全部改回旧名",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "ATS-206-UT-121",
+    "req": "NFR-010",
+    "category": "异常",
+    "title": "日志记着 state 但状态文件未迁移则拒绝",
+    "input": "日志 steps=[state]，状态文件是 v0.1",
+    "expected": "退出码非 0、日志保留、状态文件逐字节未变",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "ATS-206-UT-122",
+    "req": "NFR-010",
+    "category": "恢复",
+    "title": "SIGKILL 留下的陈旧锁由下一次运行接管",
+    "input": "迁移被 SIGKILL 杀掉",
+    "expected": "锁文件留在盘上；下一次运行接管它，恢复的每一次数据写入都在新锁下；无 .stale- 残留",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
     "id": "UT-LOCK-001",
     "req": "NFR-010",
     "category": "正常",

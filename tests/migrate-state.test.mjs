@@ -1251,9 +1251,12 @@ test('ATS-206-UT-102: a rollback still refuses when a run was added after the mi
  *
  * @param {string} dataDir the data directory
  * @param {string} call the call to make (the engine is `m`)
+ * @param {(p:string)=>boolean} [exclude] paths that are NOT counted -- e.g.
+ *   the lock file's own operations, which the takeover of a stale lock
+ *   performs BEFORE the new lock is published
  * @returns {{count:number, allHeld:boolean, held:boolean[]}}
  */
-function lockProbe(dataDir, call) {
+function lockProbe(dataDir, call, exclude = null) {
   const child = spawnSync(process.execPath, ['--input-type=module', '-e', `
     import fs from 'node:fs';
     const core = await import(${JSON.stringify(coreModule)});
@@ -1279,7 +1282,8 @@ function lockProbe(dataDir, call) {
       const orig = fs[fn];
       fs[fn] = (a, ...rest) => {
         if (!String(a).endsWith('.tmp')
-            && !String(a).includes('migration-')) seen.push(held());
+            && !String(a).includes('migration-')
+            && !${exclude ? `(${exclude})(String(a))` : 'false'}) seen.push(held());
         return orig(a, ...rest);
       };
     }
@@ -1311,6 +1315,83 @@ function killAfterStateWrite(dataDir) {
     const { applyMigration } = await import(${JSON.stringify(applyModule)});
     applyMigration(${JSON.stringify(dataDir)}, {});
   `], { encoding: 'utf8' });
+}
+
+/**
+ * Kills a migration at the first rename of a run folder.
+ *
+ * The journal has then recorded the "state" and the "folders" steps, the
+ * state file holds the migrated identifiers and the run folders are still
+ * named after the old ones -- an interrupted migration that the next run
+ * has to finish.
+ *
+ * @param {string} dataDir the data directory
+ */
+function killAtFirstRunRename(dataDir) {
+  spawnSync(process.execPath, ['--input-type=module', '-e', `
+    import fs from 'node:fs';
+    const orig = fs.renameSync;
+    const sep = ${JSON.stringify(path.sep)};
+    fs.renameSync = (a, b) => {
+      if (String(a).includes(sep + 'runs' + sep)) process.exit(137);
+      return orig(a, b);
+    };
+    const { applyMigration } = await import(${JSON.stringify(applyModule)});
+    applyMigration(${JSON.stringify(dataDir)}, {});
+  `], { encoding: 'utf8' });
+}
+
+/**
+ * A preload module that makes a rename of a run folder fail with `EBUSY`.
+ *
+ * The recovery of an interrupted migration renames the run folders, and a
+ * rename that throws -- a folder that is open in the Explorer on Windows,
+ * for instance -- has to make the recovery REFUSE instead of reporting a
+ * success over a half-migrated directory. The failure is injected into a
+ * CHILD process (the CLI runs with `--import <preload>`), so that the test
+ * itself is not affected by it.
+ *
+ * @param {string} dataDir the data directory whose run folders are blocked
+ * @param {string} name the name of the preload file
+ * @param {object} [options]
+ * @param {number} [options.failAtNth] the Nth rename of a run folder
+ *   throws; the ones before it go through. Without it, every rename throws.
+ * @returns {string} the path of the preload module
+ */
+function writeEbusyPreload(dataDir, name, options = {}) {
+  const file = path.join(ceDir, `${name}.mjs`);
+  const runs = path.join(dataDir, 'runs') + path.sep;
+  const failAtNth = options.failAtNth ?? 0;
+  fs.writeFileSync(file, `
+import fs from 'node:fs';
+const RUNS = ${JSON.stringify(runs)};
+const FAIL_AT = ${JSON.stringify(failAtNth)};
+let seen = 0;
+const orig = fs.renameSync;
+fs.renameSync = (a, b, ...rest) => {
+  const from = String(a), to = String(b);
+  if (from.startsWith(RUNS) || to.startsWith(RUNS)) {
+    seen++;
+    if (FAIL_AT === 0 || seen === FAIL_AT) {
+      const e = new Error('EBUSY: resource busy or locked');
+      e.code = 'EBUSY';
+      throw e;
+    }
+  }
+  return orig(a, b, ...rest);
+};
+`, 'utf8');
+  return file;
+}
+
+/** Runs the CLI with a preload module in front of it. */
+function runCliWithPreload(preload, args) {
+  const r = spawnSync(
+    process.execPath,
+    ['--import', pathToFileURL(preload).href, ceCli, ...args],
+    { encoding: 'utf8' }
+  );
+  return { code: r.status, out: r.stdout, err: r.stderr };
 }
 
 /* ---------------------------------------------------------------- */
@@ -1702,12 +1783,13 @@ test('ATS-206-UT-118: an interrupted migration whose state was NOT written is re
   assert.equal(migrated.runs[0].legacyId, before.runs[0].id);
 });
 
-test('ATS-206-UT-119: a killed migration leaves NO lock behind', () => {
-  // A migration that is killed half way through must not leave the lock
-  // behind. A lock left behind is stale: the next run has to take it over,
-  // and the takeover renames and deletes the lock file -- writes that
-  // happen BEFORE the new lock is published. The run that is doing its
-  // recovery would then be seen writing without holding the lock.
+test('ATS-206-UT-119: a migration that exits with process.exit leaves NO lock behind', () => {
+  // A migration that ends with `process.exit` runs the 'exit' handlers, and
+  // the handler releases the lock. This case is about THAT exit path -- it
+  // says nothing about a process that is killed from the outside
+  // (SIGKILL / TerminateProcess, a power cut, Ctrl+C): those do NOT run the
+  // exit handlers, so they DO leave the lock behind. UT-122 is the case for
+  // that one.
   const { dataDir } = makeData('ce-stale-lock', 2);
   const killed = spawnSync(process.execPath, ['--input-type=module', '-e', `
     import fs from 'node:fs';
@@ -1732,6 +1814,159 @@ test('ATS-206-UT-119: a killed migration leaves NO lock behind', () => {
   const probe = lockProbe(dataDir, `m.applyMigration(${JSON.stringify(dataDir)}, {})`);
   assert.ok(probe.count > 0, 'the recovery did not write anything');
   assert.equal(probe.allHeld, true, `the lock was not held during the recovery: ${JSON.stringify(probe.held)}`);
+});
+
+/* ---------------------------------------------------------------- */
+/* the recovery branches that refuse                                 */
+/* ---------------------------------------------------------------- */
+
+test('ATS-206-UT-120: a recovery whose rename fails refuses and keeps the journal', () => {
+  // The recovery renames the run folders, and a rename can fail: a folder
+  // that another process holds open on Windows is renamed with EBUSY. The
+  // recovery must then REFUSE -- it must not report a success over a
+  // half-migrated directory -- and it must KEEP the journal, because the
+  // directory is still half-migrated. The rollback afterwards restores v0.1
+  // byte for byte and puts every folder back under its old name.
+  const { dataDir, state, text } = makeData('ce-ebusy', 3);
+  // The migration is killed at the first rename: the state file is written
+  // and the journal records "state" and "folders", but the folders are
+  // still named after the old ones.
+  killAtFirstRunRename(dataDir);
+  assert.equal(fs.existsSync(path.join(dataDir, '.migration-journal.json')), true);
+
+  // The SECOND rename of a run folder throws EBUSY: the first one goes
+  // through, so the directory is left half-renamed -- the interesting case.
+  const preload = writeEbusyPreload(dataDir, 'ce-ebusy-preload', { failAtNth: 2 });
+  const res = runCliWithPreload(preload, ['apply', '--data-dir', dataDir]);
+  const output = res.out + res.err;
+
+  // It refuses ...
+  assert.notEqual(res.code, 0, 'the recovery reported a success over a half-renamed directory');
+  // ... it does NOT claim to have undone anything ...
+  assert.doesNotMatch(output, /UNDONE/);
+  // ... it names the failure ...
+  assert.match(output, /EBUSY/);
+  // ... and it KEEPS the journal.
+  assert.equal(
+    fs.existsSync(path.join(dataDir, '.migration-journal.json')),
+    true,
+    'the journal of an unresolved interrupted migration was cleared'
+  );
+
+  // The rollback restores the v0.1 state byte for byte and puts every
+  // folder back under the name the restored state refers to.
+  const back = runCli(['rollback', '--data-dir', dataDir]);
+  assert.equal(back.code, 0, back.err);
+  assert.equal(fs.readFileSync(path.join(dataDir, 'state.json'), 'utf8'), text);
+  for (const r of state.runs) {
+    assert.equal(
+      fs.existsSync(path.join(dataDir, 'runs', r.id)),
+      true,
+      `the folder of run ${r.id} was not renamed back`
+    );
+  }
+  assert.deepEqual(missingFolders(dataDir), []);
+});
+
+test('ATS-206-UT-121: an interrupted migration whose state file is NOT migrated is refused', () => {
+  // The journal says the "state" step happened, but the state file holds a
+  // v0.1 state -- the migration did not really write it, or it was put back.
+  // The two disagree, and neither of them can be trusted enough to act on:
+  // the recovery must REFUSE and keep the journal, instead of guessing.
+  const { dataDir, text } = makeData('ce-unresolved', 2);
+  // A journal that claims the state was written ...
+  fs.writeFileSync(
+    path.join(dataDir, '.migration-journal.json'),
+    JSON.stringify({
+      steps: ['state'],
+      renamedFolders: [],
+      backups: [path.join(dataDir, 'state.json')],
+      appliedDigest: null,
+      appliedIdentityDigest: null,
+      statePath: path.join(dataDir, 'state.json'),
+    }, null, 2),
+    'utf8'
+  );
+  // ... while the state file itself is still the v0.1 one.
+
+  const res = runCli(['apply', '--data-dir', dataDir]);
+  const output = res.out + res.err;
+  assert.notEqual(res.code, 0, 'the recovery acted on a state file it could not trust');
+  assert.match(output, /could not be resolved automatically/);
+  // The journal is kept: the operator has to look at it.
+  assert.equal(
+    fs.existsSync(path.join(dataDir, '.migration-journal.json')),
+    true,
+    'the journal of an unresolved interrupted migration was cleared'
+  );
+  // And the state file is untouched: nothing was guessed, nothing was written.
+  assert.equal(fs.readFileSync(path.join(dataDir, 'state.json'), 'utf8'), text);
+});
+
+test('ATS-206-UT-122: a SIGKILL leaves a stale lock, and the next run takes it over', () => {
+  // `process.exit` runs the exit handlers, so the lock is released. A
+  // SIGKILL -- TerminateProcess on Windows -- does NOT: it leaves the lock
+  // behind, and that lock is STALE (its holder is gone). The next run has
+  // to take it over, and every write it does after the takeover has to be
+  // under the NEW lock: the takeover itself (renaming the stale lock file
+  // aside and deleting it) happens before the new lock is published, and
+  // that is exactly why the lock's own operations are not counted here.
+  const { dataDir, state, text } = makeData('ce-sigkill', 2);
+  const killed = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    import fs from 'node:fs';
+    const orig = fs.renameSync;
+    const sep = ${JSON.stringify(path.sep)};
+    fs.renameSync = (a, b) => {
+      if (String(a).includes(sep + 'runs' + sep)) {
+        console.log('ABOUT TO BE KILLED');
+        process.kill(process.pid, 'SIGKILL');
+        console.log('STILL ALIVE -- the kill did not work');
+      }
+      return orig(a, b);
+    };
+    const { applyMigration } = await import(${JSON.stringify(applyModule)});
+    applyMigration(${JSON.stringify(dataDir)}, {});
+  `], { encoding: 'utf8' });
+  // On Windows a SIGKILL is a TerminateProcess: the child dies at once and
+  // the parent sees a non-zero status with no signal, so the kill is
+  // verified by the marker that is printed AFTER it -- it must be absent.
+  assert.match(killed.stdout, /ABOUT TO BE KILLED/, 'the migration did not reach the rename');
+  assert.doesNotMatch(killed.stdout, /STILL ALIVE/, 'the process was not killed');
+  assert.notEqual(killed.status, 0, 'the killed migration reported a success');
+  // The lock IS left behind: the exit handlers did not run.
+  assert.equal(
+    fs.existsSync(path.join(dataDir, 'bridge.lock')),
+    true,
+    'a SIGKILLed migration left no lock behind -- the exit handler must not have run'
+  );
+
+  // The next run takes the stale lock over and finishes the migration, and
+  // every data write it does is under the new lock.
+  const probe = lockProbe(
+    dataDir,
+    `m.applyMigration(${JSON.stringify(dataDir)}, {})`,
+    `(p) => p.includes('bridge.lock')`
+  );
+  assert.ok(probe.count > 0, 'the recovery did not write anything');
+  assert.equal(
+    probe.allHeld,
+    true,
+    `the lock was not held during the recovery: ${JSON.stringify(probe.held)}`
+  );
+
+  // The takeover removed the stale lock file -- it did not leave it behind.
+  assert.deepEqual(
+    fs.readdirSync(dataDir).filter((n) => n.includes('.stale-')), [],
+    'the takeover of the stale lock left a file behind'
+  );
+
+  // And the rollback restores v0.1 byte for byte.
+  const back = runCli(['rollback', '--data-dir', dataDir]);
+  assert.equal(back.code, 0, back.err);
+  assert.equal(fs.readFileSync(path.join(dataDir, 'state.json'), 'utf8'), text);
+  for (const r of state.runs) {
+    assert.equal(fs.existsSync(path.join(dataDir, 'runs', r.id)), true);
+  }
 });
 
 /* ---------------------------------------------------------------- */

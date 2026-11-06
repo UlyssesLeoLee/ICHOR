@@ -496,6 +496,10 @@ UT+=[
 ('ATS-206-UT-039g','NFR-010','正常','--state 直接指向状态文件','用 --state 指定状态文件','plan 成功并称数量保持','node --test','PASS'),
 ('ATS-206-UT-039h','NFR-010','正常','默认数据目录来自 ATS_DATA_DIR','设置 ATS_DATA_DIR 后跑 plan','plan 成功并称数量保持','node --test','PASS'),
 ('ATS-206-UT-060','NFR-010','正常','迁移夹具用完即清理','测试跑完之后','临时目录被删除','node --test','PASS'),
+('ATS-206-UT-119','NFR-010','异常','process.exit 退出的迁移不留锁','迁移在改名运行目录时 process.exit(137)','锁文件不存在，且没有 .stale- 残留','node --test','PASS'),
+('ATS-206-UT-120','NFR-010','异常','恢复时改名失败则拒绝并保留日志','恢复期改名抛 EBUSY','退出码非 0、不报 UNDONE、日志保留；随后 rollback 逐字节还原 v0.1 且目录全部改回旧名','node --test','PASS'),
+('ATS-206-UT-121','NFR-010','异常','日志记着 state 但状态文件未迁移则拒绝','日志 steps=[state]，状态文件是 v0.1','退出码非 0、日志保留、状态文件逐字节未变','node --test','PASS'),
+('ATS-206-UT-122','NFR-010','恢复','SIGKILL 留下的陈旧锁由下一次运行接管','迁移被 SIGKILL 杀掉','锁文件留在盘上；下一次运行接管它，恢复的每一次数据写入都在新锁下；无 .stale- 残留','node --test','PASS'),
 ]
 
 # ATS-207 cases (tests/instance-lock.test.mjs, tests/instance-lock-it.test.mjs,
