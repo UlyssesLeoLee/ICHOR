@@ -14,6 +14,9 @@ import { storeState } from './sqlite/store.mjs';
 import { listTests, listTestsAsync, LIST_OUTCOME } from './discovery/playwright-list.mjs';
 import { resolveAuthoritativeIdentities } from './discovery/authoritative.mjs';
 import { compareDiscoveries, readBodies, staticCasesWithScope, DISCOVERY } from './discovery/index.mjs';
+// ATS-602: the mobile Flow import. A Flow file declares cases like a spec
+// file declares cases, so the mobile cases join the SAME catalogue.
+import { importProjectFlows } from './discovery/mobile-flow-import.mjs';
 import { TRUST, trustOf } from './discovery/trust.mjs';
 // ATS-208: the unified Run/Test/Attempt/ExecutionEvent model. The report
 // parsing, the attempt building and the status vocabulary live THERE, so
@@ -68,7 +71,18 @@ export {
   statusOfEvent,
 };
 
-export const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
+// ATS-602: `sha` and `isSubpath` live in `server/paths.mjs`, a module that
+// depends on nothing but the Node builtins. They used to be defined here,
+// and the mobile contract imported them from here -- which made a CYCLE
+// once the mobile Flow import entered the chain (core -> discovery ->
+// adapters/mobile-target -> core). The definitions moved; the re-export
+// keeps every existing caller working.
+//
+// The helpers are IMPORTED, not only re-exported: a bare
+// `export { sha } from './paths.mjs'` does NOT create a binding that this
+// module can use, and the module uses both of them below.
+import { sha, isSubpath } from './paths.mjs';
+export { sha, isSubpath };
 export const safeId = (prefix) => `${prefix}_${crypto.randomUUID()}`;
 export const dataDir = () => path.resolve(process.env.ATS_DATA_DIR || path.join(os.homedir(), '.ai-test-studio'));
 export const now = () => new Date().toISOString();
@@ -772,7 +786,7 @@ export function gitInfo(root) {
   function git(...args) {let a=spawnSync('git',['-C',root,...args],{encoding:'utf8',timeout:4000});return a.status===0?a.stdout.trim():'';}
   return {branch:git('branch','--show-current')||'detached / none',commit:git('rev-parse','--short','HEAD')||'untracked',dirty:Boolean(git('status','--porcelain'))};
 }
-export function isSubpath(root,other) {const rel=path.relative(root,other); return rel!=='' && rel!=='..'&&!rel.startsWith('..'+path.sep)&&!path.isAbsolute(rel);}
+
 export function sourcePath(project,relative) {
   if(typeof relative!=='string'||relative.length>500 || !/\.(spec|test)\.[cm]?[jt]sx?$/.test(relative)) throw new Error('INVALID_SOURCE_FILE');
   const joined=path.resolve(project.root,relative);
@@ -799,6 +813,45 @@ export function walkTests(root,rel='',depth=0,acc=[]) {
     else if(ent.isFile()&&/\.(spec|test)\.[cm]?[jt]sx?$/.test(ent.name))acc.push(child.replace(/\\/g,'/'));
   }return acc;
 }
+/**
+ * ATS-602: the mobile cases of a project.
+ *
+ * A Flow file declares cases like a spec file declares cases, so the
+ * mobile cases are part of the SAME catalogue. They are TestDefinitions
+ * with a `source` that says where they came from -- the UID rules, the
+ * registry and every lookup by file/line work on them unchanged.
+ *
+ * The import is SEPARATE from the static scan for a reason that is not
+ * tidiness: the two read different things and fail differently. A spec
+ * file that cannot be parsed is a broken test file; a Flow file that
+ * cannot be parsed is a Flow with a step the platform cannot run, and the
+ * answer to that is the IMPORT REPORT, not an exception that takes the
+ * whole discovery down.
+ *
+ * So a Flow that fails to import contributes NO cases and reports its
+ * problem in `mobile.imports`; the rest of the catalogue is unaffected.
+ */
+export function discoverMobile(project, registry, projectUid) {
+  const imported=importProjectFlows(project.root,{projectUid,registry});
+  const cases=imported.cases.map(c=>({
+   id:c.uid,uid:c.uid,uidSource:c.uidSource,uidStable:c.uidStable,
+   uidBasis:c.uidBasis,
+   file:c.file,title:c.title,line:c.line,
+   source:'mobile',engine:'mobile',level:'ST',
+   appId:c.appId,tags:c.tags,
+   steps:c.steps,
+   unsupportedCount:c.unsupportedCount,
+   ...(c.ambiguity?{ambiguity:c.ambiguity}:{})
+  }));
+  return {
+   cases,
+   files:imported.files,
+   imports:imported.results.map(r=>r.report),
+   unsupported:imported.unsupported,
+   errors:imported.errors,
+  };
+}
+
 export function discoverStatic(project, registry) {
  const files=walkTests(project.root);const discovered=[];
  for(const file of files){
@@ -816,12 +869,22 @@ export function discoverStatic(project, registry) {
    file:t.file,title:t.title,line:t.line,source:'static',level:'ST',
    ...(t.ambiguity?{ambiguity:t.ambiguity}:{})
  }));
- const ambiguous=tests.filter(t=>!t.uidStable).length;
+ // ATS-602: the MOBILE cases. A Flow file declares cases like a spec file
+ // declares cases, so the mobile cases are part of the SAME catalogue --
+ // they are TestDefinitions with a `source` that says where they came
+ // from. They are NOT a second kind of case: the UID rules, the registry
+ // and every lookup by file/line work on them unchanged.
+ const mobile=discoverMobile(project,registry,projectUid);
+ // The mobile cases JOIN the catalogue: a Flow file declares cases, and a
+ // case is a case. They carry their own `source`, so a reader can tell
+ // where a case came from, and the UID rules work on them unchanged.
+ const allTests=[...tests,...mobile.cases];
+ const ambiguous=allTests.filter(t=>!t.uidStable).length;
  // Every kind of uncertainty is REPORTED. A case that got a uid but whose
  // registry entry disagreed with it is reported as well: the uid is usable,
  // but the memory of the past cases is inconsistent and a reader has to know.
- const conflicts=tests.filter(t=>t.ambiguity&&t.ambiguity.reason!=='identical-title'&&t.ambiguity.reason!=='identical-title-and-body');
- const duplicatedExplicit=tests.filter(t=>t.ambiguity?.reason==='duplicate-explicit-uid').length;
+ const conflicts=allTests.filter(t=>t.ambiguity&&t.ambiguity.reason!=='identical-title'&&t.ambiguity.reason!=='identical-title-and-body');
+ const duplicatedExplicit=allTests.filter(t=>t.ambiguity?.reason==='duplicate-explicit-uid').length;
  // The static index is the HEURISTIC one: it sees the literal test()/it()
  // calls and nothing else. The authoritative index (`playwright test
  // --list`) sees the dynamic and parameterised cases too, but it EXECUTES
@@ -832,7 +895,29 @@ export function discoverStatic(project, registry) {
  if(ambiguous)warning+=` ${ambiguous} 个用例的 UID 为临时值（标题重复且无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
  if(duplicatedExplicit)warning+=` ${duplicatedExplicit} 个用例标注了同一个 @TC-xxx（重复的显式 UID），这些用例都没有绑定到该 UID，需要人工消歧。`;
  if(conflicts.length)warning+=` ${conflicts.length} 个用例的注册表记录与本次发现不一致（${[...new Set(conflicts.map(t=>t.ambiguity.reason))].join('、')}），其 UID 由本次发现派生，需要人工复核。`;
- return {files,tests,discovery:'static',uidVersion:UID_SCHEME_VERSION,projectUid,registry:resolved.registry,warning};
+ // ATS-602: the mobile import reports itself. A step the platform cannot
+ // run is NOT silently dropped -- it is counted here and listed in the
+ // import report, so the author of the Flow learns which of their steps
+ // the platform does not support yet.
+ if(mobile.cases.length)warning+=` 移动端 Flow 导入 ${mobile.cases.length} 个用例（${mobile.files.length} 个文件）。`;
+ if(mobile.unsupported.length)warning+=` ${mobile.unsupported.length} 个移动端步骤不受支持，已保留原文并记录在导入报告中。`;
+ if(mobile.errors.length)warning+=` ${mobile.errors.length} 个移动端 Flow 读取错误，详见导入报告。`;
+ return {
+  files,
+  tests:allTests,
+  discovery:'static',
+  uidVersion:UID_SCHEME_VERSION,
+  projectUid,
+  registry:resolved.registry,
+  warning,
+  mobile:{
+   files:mobile.files,
+   cases:mobile.cases.length,
+   unsupportedSteps:mobile.unsupported.length,
+   errors:mobile.errors.length,
+   imports:mobile.imports,
+  }
+ };
 }
 
 /**

@@ -1,17 +1,23 @@
 # 25-MOBILE-APP-TESTING.md ｜ 移动端（App）测试执行面设计书
 
-- 文书 ID：ATS-D-025｜状态：**PARTIAL**（ATS-601 的**契约层**已实现并经 UT 实测；§4~§8 仍为纯设计，仓库内无任何真实移动端执行）
+- 文书 ID：ATS-D-025｜状态：**PARTIAL**（ATS-601 的**契约层**与 ATS-602 的**用例模型/导入映射层**已实现并经 UT/IT 实测；§5~§8 仍为纯设计，仓库内无任何真实移动端执行）
 - 目标版本：v0.5.0｜阶段：S6｜WBS：ATS-601 ~ ATS-606
 - 需求：FR-031 ~ FR-035、NFR-013
 - 起草：2026-11-06
 
 > **基线声明**：本文描述的是**设计**，不是已实现的能力。仓库内没有真实设备会话、
-> 没有真实移动端 Runner、没有移动端证据适配层。**唯一例外**是 §3 的**契约层**
-> （目标/会话模型、状态机、能力协商、拒绝规则、安全边界），它已由 ATS-601 实现并经
-> UT-MOB-001..070（含 5 个字母后缀的补充例）共 75 例实测——但那是**假目标 + 假会话**上的
-> 契约测试，**不是真实设备实测**。
-> 契约层已实现 ≠ 移动端能跑；任何一项在 ATS-601 ~ ATS-606 完成并通过复核之前，
-> 都不得被称作「已实现」。
+> 没有真实移动端 Runner、没有移动端证据适配层。**已实现的两层**是：
+>
+>   * §3 的**契约层**（目标/会话模型、状态机、能力协商、拒绝规则、安全边界）——
+>     由 ATS-601 实现，UT-MOB-001..094 共 99 例实测；那是**假目标 + 假会话**上的
+>     契约测试，**不是真实设备实测**；
+>   * §4 的**用例模型与导入映射层**（Flow 解析、语义映射、不支持步骤的保留、
+>     导入报告、UID 规则）——由 ATS-602 实现，UT-MOB-200..262 共 51 例 +
+>     IT-ATS602-API-001..008 共 8 例实测；那是**文本夹具**上的映射测试，
+>     **不涉及任何设备**。
+>
+> 契约层已实现 ≠ 移动端能跑；用例模型已实现 ≠ Flow 能在设备上跑。
+> 任何一项在 ATS-601 ~ ATS-606 完成并通过复核之前，都不得被称作「已实现」。
 
 ---
 
@@ -245,6 +251,14 @@ idle ──────────▶ created ──────────▶
 
 ## 4. 用例模型（ATS-602）
 
+> **实现状态（ATS-602 交付）**：本节的**用例模型与导入映射层**已在
+> `server/discovery/mobile-flow.mjs`（解析）、`server/discovery/mobile-import.mjs`
+> （语义映射与 UID）与 `server/discovery/mobile-flow-import.mjs`（文件级入口）
+> 实现，并经 UT-MOB-200..262 共 51 例 + IT-ATS602-API-001..008 共 8 例实测。
+> 那是**文本夹具**上的映射测试，**不涉及任何设备、SDK 或驱动**。
+> 仓库内**仍无真实设备执行**——那属 ATS-603（Android Runner）与 ATS-604（证据归档）。
+> 下文标注 **已实现** 的是映射层；标注 **未实现** 的是真实执行面。
+
 ### 4.1 映射规则
 
 移动端 Flow（无论何种语法）映射到统一的 `TestDefinition`：
@@ -256,11 +270,79 @@ idle ──────────▶ created ──────────▶
 | 场景内的一步 | 一个 `TestStep`，带 `kind` 与参数 |
 | 步骤的断言 | `TestStep.assertion` |
 
+**已实现**：移动端用例进入**同一个**用例目录（`discoverStatic` 的 `mobile` 段），
+与 Web 用例同为 `TestDefinition`——同样的 `uid`/`uidSource`/`uidStable`/`file`/
+`title`/`line`/`level`，多出 `engine: 'mobile'`、`steps`、`appId`、`tags`。
+UID 规则与注册表**一个字都没改**：移动端用例走 ATS-201 的同一套阶梯。
+
+### 4.1.1 映射按语义判定，不按拼写
+
+§8.2 的原则在这里是实现约束：**判定只看「这一步在设备上做什么」**。
+所以映射表是**语义表**——每个语义动作（启动 App / 点按元素 / 断言可见 / 截图 /
+录屏 / 读日志）列出各语法可能用的**拼写**：
+
+| 语义动作（= ATS-601 的 step kind） | 读得懂的拼写 |
+|---|---|
+| `launchApp` | `launchApp` / `launch` |
+| `tapOn` | `tapOn` / `tap` |
+| `assertVisible` | `assertVisible` / `assert` |
+| `takeScreenshot` | `takeScreenshot` / `screenshot` |
+| `recordScreen` | `recordScreen` / `record` |
+| `readLogs` | `readLogs` / `logs` |
+
+拼写的匹配**忽略大小写与分隔符**（`tap_on` = `tapOn`），但**报告里保留原文**。
+
+**步骤词表是封闭的**：映射器在**装载时**校验自己产出的每个 step kind 都在
+ATS-601 冻结的词表里。往语义表里加一个 ATS-601 没有的种类会**直接报错**——
+因为 ATS-601 之外的种类没有能力要求，§3.3 的能力协商就没有东西可匹配。
+
+### 4.1.2 两种语法
+
+平台自带两种 Flow 语法，按**文件扩展名**选择（`.yaml`/`.yml` 为 YAML 声明，
+`.flow` 为线性声明）：
+
+```
+app: com.example.app          |    appId: com.example.app
+scenario: Login with email    |    ---
+  tags: smoke,login           |    - name: Login with email
+  launch com.example.app      |      tags:
+  tap "Login"                 |        - smoke
+  assert visible "Welcome"    |      steps:
+  screenshot home             |        - launchApp:
+                               |            appId: com.example.app
+                               |        - tapOn: "Login"
+```
+
+**两种语法映射到同一组步骤**，所以同一个场景在两种语法下是**同一个用例**。
+这不是为了兼容某个第三方工具的语法（那属 ATS-606 的逐条判定），
+而是为了**让「切换导入方式不改变已有 UID」这条要求可被实测**：
+只有一个语法的话，这条性质无人验证。
+
 ### 4.2 映射不了的步骤怎么办（关键规则）
 
 **保留原文 + 标记不支持 + 进入导入报告**，绝不静默丢弃，也绝不"猜"一个近似步骤。
 
+**已实现**。一个不支持的步骤带着四样东西进报告：
+
+| 字段 | 含义 |
+|---|---|
+| `raw` | **原文**（作者写的那一行，含引号与拼写） |
+| `line` | 声明所在的行号 |
+| `reason` | 判定原因（封闭词表：`unknown-command` / `missing-argument` / `unsupported-qualifier`） |
+| `reasonText` | 原因的人话说明 |
+| `suggestion` | 建议的替代步骤种类（知道时给出） |
+
 导入报告至少给出：Flow 路径、行号、原始步骤文本、判定原因、建议的替代。
+
+**不静默丢弃**是**可测的**，不是一个说法：UT-MOB-231 直接断言
+「声明的步骤数 = 已映射 + 已报告」。一个被悄悄丢掉的步骤会让这个等式不成立。
+
+同类规则还有两条：
+
+* **模型外的参数**：步骤能映射、但它带的参数不在统一模型里时，参数**保留**
+  并产生一条**告警**（报告的 `warnings`），不丢弃。
+* **缺必需参数的步骤**：`tapOn` 没有目标就无法执行，因此该步骤被判为
+  **不支持**（`missing-argument`）并进报告，而不是产出一个运行期才炸的步骤。
 
 这与本仓库既有的「受控子集」原则一致（见 ATS-314 的 AST 受控步骤子集）：
 **能反写的才反写，不能反写的原位保留。**
@@ -270,6 +352,52 @@ idle ──────────▶ created ──────────▶
 移动端用例进入 ATS-201 的稳定 UID 规范：文件+行号为 basis，标题为 key。
 切换导入方式（不同 Flow 语法解析器）不得改变已有 UID——这与 ATS-202 的
 「切换索引不改变已有 UID」是同一条约束，验收时复用同一组反例。
+
+**已实现**，阶梯与 ATS-201 相同：
+
+| # | 条件 | `uidSource` | `uidBasis` |
+|---|---|---|---|
+| 1 | 标题含 `@TC-<token>` | `explicit` | `explicit` |
+| 2 | 注册表按**步骤指纹**记得这个用例 | `registry` | `body-key` |
+| 3 | 标题键在本次导入内唯一 | `derived` | `position-title` |
+| 4 | 步骤指纹唯一 | `derived-body` | `body-key` |
+| 5 | 都无法判定 | `provisional` | —（报告歧义） |
+
+移动端用例的**执行体**是它的**步骤序列**（种类 + 参数 + 断言的指纹）。
+两个用例标题相同、步骤不同 ⇒ 两个不同的用例；标题相同、步骤相同 ⇒ 歧义，
+给临时 UID 并报告候选，**不静默合并**。
+
+派生 UID 的 basis 是**位置**（文件 + 行号）加标题键做区分，
+**不是标题**、更**不是语法**：这正是「切换导入方式不改变已有 UID」的实现方式。
+改标题后由注册表按步骤指纹认回原 UID（`uidSource=registry`，实测于
+UT-MOB-242 与 IT-ATS602-API-006）。
+
+### 4.4 Flow 的位置与信任
+
+**已实现**。Flow 文件在**约定目录**下被发现（`flows/`、`mobile/`、`tests/flows/`、
+`tests/mobile/`）——仓库里可能有几百个 YAML（CI 配置、k8s 清单），它们都不是 Flow。
+
+* Flow 文件是**不可信输入**：解析器只**读文本**，**不执行任何内容**。
+  仓库内**没有引入 YAML 运行库依赖**（`package.json` 无依赖，锁文件为空）——
+  解析器是平台自带的**受限 YAML 子集读取器**：块映射、块序列、标量、
+  行内集合都读；锚点、别名、标签**不读**，用到它们的 Flow 报**错误**而不是
+  读一半。
+* 项目根之外的 Flow 路径被**拒绝**（`flow-outside-project`），报告为错误。
+* 读不出的 Flow、读不动的 Flow 都**报告**，不抛异常、不静默返回空。
+
+### 4.5 导入报告
+
+**已实现**。报告是**数据**（`buildImportReport`），文本形式由
+`formatImportReport` 渲染，随用例目录一起由 API 提供
+（`GET /api/projects/<id>/tests` 的 `mobile.imports`）。报告给出：
+
+| 字段 | 含义 |
+|---|---|
+| `cases` / `mappedSteps` | 产出的用例数与已映射步骤数 |
+| `unsupportedSteps` / `unsupportedByReason` | 不支持步骤数与按原因的分布 |
+| `unsupportedSteps_detail` | 每一个不支持步骤的原文、行号、原因、建议 |
+| `warnings` / `warnings_detail` | 模型外参数的告警 |
+| `errors` / `errors_detail` | 读取错误
 
 ---
 
@@ -371,7 +499,7 @@ Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）�
 | WBS | 任务 | 依赖 | 验证方式 | 交付形态 |
 |---|---|---|---|---|
 | ATS-601 | 移动端执行目标抽象与设备/模拟器会话模型 | - | 审查 + UT | 契约层设计 + 契约测试 |
-| ATS-602 | 跨引擎用例模型与移动端 Flow 导入映射 | ATS-601 | UT + IT | 映射器 + 导入报告 |
+| ATS-602 | 跨引擎用例模型与移动端 Flow 导入映射 | ATS-601 | UT + IT | 映射器 + 导入报告（**已交付**） |
 | ATS-603 | Android 模拟器 Runner 原型与真实设备冒烟 | ATS-602 | UT + IT | **真实模拟器实测** |
 | ATS-604 | 移动端证据归档与统一结果模型 | ATS-603 | UT + IT | 证据适配层 |
 | ATS-605 | 移动端能力矩阵与环境依赖声明 | ATS-603 | 审查 | 矩阵 + 未验证声明 |
@@ -389,7 +517,13 @@ Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）�
   安全边界，已由 `server/adapters/mobile-target.mjs` 与 `server/adapters/mobile.mjs` 实现，
   并经 UT-MOB-001..094 共 99 例实测通过（证据 `docs/evidence/ATS-601/`）。
   **这是假目标 + 假会话上的契约测试**，验证的是「规则按设计工作」，**不是**真实设备行为。
-- **未验证（真实移动端执行面）**：§4~§8 的全部内容仍是设计判断，**未在本仓库做过任何
+- **已验证（ATS-602 的用例模型与导入映射层）**：§4 的 Flow 解析、语义映射、
+  不支持步骤的保留与标记、导入报告、UID 规则（位置为基线、改标题经注册表认回）
+  已由 `server/discovery/mobile-flow.mjs`、`server/discovery/mobile-import.mjs`、
+  `server/discovery/mobile-flow-import.mjs` 实现，并经 UT-MOB-200..262 共 51 例 +
+  IT-ATS602-API-001..008 共 8 例实测（证据 `docs/evidence/ATS-602/`）。
+  **这是文本夹具上的映射测试**，验证的是「映射按设计工作」，**不是**设备行为。
+- **未验证（真实移动端执行面）**：§5~§8 的全部内容仍是设计判断，**未在本仓库做过任何
   移动端实测**。没有真实设备、没有真实模拟器、没有 ADB 调用、没有移动端证据。
 - Maestro 的产品结构与能力来自 2026-11-06 的官方文档调査（`docs/15-REFERENCES-LICENSES.md`
   登记引用）；调査结论本身不是对本平台的实测。
@@ -404,6 +538,17 @@ Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）�
   - 目标与会话是**内存中的数据**，本任务**不引入持久化**；会话的存储与恢复随 ATS-603 一并落地。
   - 移动端适配器当前**没有任何可用能力**，它存在的意义是把「移动端执行」这件事的
     **入口与拒绝路径**定下来，让 ATS-603 有地方可长，而不是一个平行的 Playwright 专用实现。
+- 已知边界（ATS-602 用例模型与导入映射层自身）：
+  - **Flow 的解析器是受限子集**：块映射、块序列、标量、行内集合都读；
+    **锚点、别名、标签、复杂键不读**，用到它们的 Flow 报错误而不是读一半。
+  - **两种自带语法的拼写表是平台自己的读法**，不是对任何第三方工具的兼容性承诺；
+    第三方语法的逐条判定属 ATS-606（§8）。
+  - **Flow 文件只从约定目录被发现**（`flows/`、`mobile/`、`tests/flows/`、
+    `tests/mobile/`）；不在这些目录里的 Flow 不会被发现（可以被显式导入）。
+  - **步骤的语义表是封闭的**：映射器在装载时校验自己产出的每个 step kind 都在
+    ATS-601 的词表里；越界的编辑会直接报错，而不是产出没有能力要求的步骤。
+  - **导入是契约层操作**：它不需要设备、SDK 或驱动，因此 ATS-602 的实测
+    **不能**被读成移动端执行的实测。
 
 ---
 
@@ -416,3 +561,16 @@ Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）�
 - `docs/19-REMOTE-RUNNER-PROTOCOL.md`（ATS-501 的远程信任边界与租约语义）
 - `docs/13-ROADMAP.md` §2 的 P1 双引擎阶段
 - `docs/15-REFERENCES-LICENSES.md`（Maestro 官方文档引用）
+
+## 13. ATS-602 的交付物
+
+| 文件 | 作用 |
+|---|---|
+| `server/discovery/mobile-flow.mjs` | Flow 解析器：两种语法的读取器，产出语义文档（场景、步骤、参数、断言、行号、原文） |
+| `server/discovery/mobile-import.mjs` | 语义映射器：语义表、参数规范化、不支持步骤的保留与标记、UID 阶梯、导入报告 |
+| `server/discovery/mobile-flow-import.mjs` | 文件级入口：约定目录的发现、路径校验、单文件与全项目导入 |
+| `server/paths.mjs` | `sha` 与 `isSubpath` 的新家（拆出以断开 ATS-602 引入的循环依赖） |
+| `tests/mobile-import.test.mjs` | UT-MOB-200..262（51 例）：解析、映射、不支持步骤的保留、UID 稳定性、目录集成 |
+| `tests/mobile-import-it.test.mjs` | IT-ATS602-API-001..008（8 例）：真实 HTTP 下的目录、导入报告、UID 跨重启稳定 |
+| `tools/ats602-probes/probe-mobile-import.mjs` | 契约探针：把映射规则并排展示给人读 |
+| `tools/update_wbs_ats602.py` | WBS 行的同步脚本（只写 ATS-602 行） |

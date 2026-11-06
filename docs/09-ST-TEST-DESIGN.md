@@ -1,6 +1,6 @@
 # ATS-ST-001 システムテスト設計書
 
-> 设计总数：26；已执行通过：3；待执行/未实现：23。**PENDING 不是测试通过**。
+> 设计总数：30；已执行通过：7；待执行/未实现：23。**PENDING 不是测试通过**。
 
 系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。
 
@@ -34,6 +34,10 @@
 |ST-024|NFR-011|运行维护|错误信息可用于故障定位|停掉 server、损坏 state、缺 browser|明确错误而非模拟成功|录屏与日志|PENDING|
 |ST-025|NFR-010|单实例|同一数据目录只允许一个 Bridge|真实 Bridge：A 服务时启动 B；两个 Bridge 同时启动|B 退出码 1 并报持有者；同时启动恰一个服务|node tools/ats207-probes/st-ats207.mjs|PASS|
 |ST-026|NFR-010|恢复|崩溃后损坏文件的处理|零长度 state.json；损坏的 metadata.db|前者拒绝启动且文件不变；后者隔离并由 state.json 重建，历史完整|node tools/ats207-probes/st-ats207.mjs|PASS|
+|ST-027|FR-016|功能|质量概览：失败/重试/取消分开计数|真实 Bridge + 真实 Playwright：一次真实失败运行、一次真实重试后通过、一次真实停止|失败计入失败桶、重试用例计入 flaky 桶、停止的运行计入 cancelled 且不计入失败与通过率|node tools/ats216-probes/st-ats216.mjs|PASS|
+|ST-028|FR-016|功能|质量概览：指标与原始结果可核对|同一批真实运行的 summary 与用例列表|逐项对账全部一致；对账结论由模块与探针独立复算两次|node tools/ats216-probes/st-ats216.mjs|PASS|
+|ST-029|FR-016|功能|两个界面共用同一份质量指标实现|便携 UI 与 Next 工作台|两者都 import 同一模块；Bridge 以 JavaScript MIME 提供该模块|node tools/ats216-probes/st-ats216.mjs|PASS|
+|ST-030|FR-016|可靠性|质量指标的实现被破坏时测试变红|对模块做 7 个变异（取消算失败、flaky 算通过、对账恒真、聚类常量、丢重试计数、留 ANSI 码、忽略 attempt 数）|每个变异都被 UT 或 ST 抓住，无一漏网|node tools/ats216-probes/mutation-check.mjs|PASS|
 
 ## 进入与退出条件
 
