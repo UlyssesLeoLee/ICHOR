@@ -251,10 +251,17 @@ print("  after : const root=()=>'%s';" % absolute)
 PY
 MUT_B_APPLIED=$?
 echo "" >> "$LOG"
+MUTATIONS_FAILED=0
 if [ "$MUT_B_APPLIED" -ne 0 ]; then
   echo "MUTATION B DID NOT APPLY -- the probe result below is meaningless" >> "$LOG"
-  exit 1
-fi
+  MUTATIONS_FAILED=1
+  # The source was not modified, so the export on disk is still the clean
+  # one. Rebuild it, so the mutations that follow start from a known state.
+  rm -rf apps/studio/out apps/studio/.next
+  NODE_OPTIONS=--max-old-space-size=6144 npm --prefix apps/studio run build >> "$LOG" 2>&1
+  echo "CLEAN_REBUILD_EXIT=$?" >> "$LOG"
+  echo "" >> "$LOG"
+else
 
 rm -rf apps/studio/out apps/studio/.next
 {
@@ -294,6 +301,8 @@ NODE_OPTIONS=--max-old-space-size=6144 npm --prefix apps/studio run build >> "$L
 echo "CLEAN_REBUILD_EXIT=$?" >> "$LOG"
 echo "" >> "$LOG"
 
+fi
+
 # --- Mutation B2: a baked base PLUS an unrelated port comparison ---------
 # This is the counter-example that bounds what the static heuristic proves.
 # The base is baked AND the bundle carries a `location.port` comparison, so
@@ -321,7 +330,7 @@ echo "" >> "$LOG"
 } >> "$LOG"
 
 python - <<'PY2' >> "$LOG" 2>&1
-import io
+import io, re
 p = 'apps/studio/lib/api.ts'
 s = io.open(p, encoding='utf-8').read()
 lines = s.split('\n')
@@ -369,8 +378,14 @@ MUT_B2_APPLIED=$?
 echo "" >> "$LOG"
 if [ "$MUT_B2_APPLIED" -ne 0 ]; then
   echo "MUTATION B2 DID NOT APPLY -- the probe results below are meaningless" >> "$LOG"
-  exit 1
-fi
+  MUTATIONS_FAILED=1
+  # The source was not modified, so the export on disk is still the clean
+  # one. Rebuild it, so the mutations that follow start from a known state.
+  rm -rf apps/studio/out apps/studio/.next
+  NODE_OPTIONS=--max-old-space-size=6144 npm --prefix apps/studio run build >> "$LOG" 2>&1
+  echo "CLEAN_REBUILD_EXIT=$?" >> "$LOG"
+  echo "" >> "$LOG"
+else
 
 rm -rf apps/studio/out apps/studio/.next
 {
@@ -402,6 +417,8 @@ rm -rf apps/studio/out apps/studio/.next
 NODE_OPTIONS=--max-old-space-size=6144 npm --prefix apps/studio run build >> "$LOG" 2>&1
 echo "CLEAN_REBUILD_EXIT=$?" >> "$LOG"
 echo "" >> "$LOG"
+
+fi
 
 # =========================================================================
 # Mutation C: the Playwright engine is not installed.
@@ -444,16 +461,25 @@ echo "--- the fixture dependencies were restored ---" >> "$LOG"
   echo "MUTATION A': the same route handler, WITH force-static"
   echo "A'         -> the export tree assertion turns RED (found: api/session)"
   echo "MUTATION B: the API base is a build-time constant"
-  echo "B          -> the static heuristic turns RED"
+  echo "B          -> the static heuristic turns RED, the EXECUTED one too"
   echo "MUTATION B2: a baked base PLUS an unrelated location.port comparison"
   echo "B2         -> the static heuristic stays GREEN (its bound); the"
   echo "              EXECUTED discriminator turns RED"
   echo "MUTATION C: the Playwright engine is not installed"
   echo ""
   echo "--- the exit codes and results recorded above ---"
-  grep -nE "^(PROBE_EXIT=|BUILD_EXIT=|CLEAN_REBUILD_EXIT=|RESULT:)" "$LOG" | grep -v "^.*RESULT:.*checks passed\.$" | head -40
+  grep -nE "^(PROBE_EXIT=|UI_PROBE_EXIT=|BUILD_EXIT=|CLEAN_REBUILD_EXIT=|RESULT:)" "$LOG" | grep -v "^.*RESULT:.*checks passed\.$" | head -40
 } >> "$LOG.tmp"
 cat "$LOG.tmp" >> "$LOG"
 rm -f "$LOG.tmp"
 
 echo "mutation evidence written to $LOG"
+
+# A mutation that could not be applied makes the whole log untrustworthy:
+# the reader would see a green probe and could not tell it apart from a
+# green probe under a mutation that DID apply. The script therefore exits
+# non-zero in that case, and the collector records that exit code.
+if [ "${MUTATIONS_FAILED:-0}" -ne 0 ]; then
+  echo "at least one mutation did not apply -- the evidence is NOT trustworthy"
+  exit 1
+fi

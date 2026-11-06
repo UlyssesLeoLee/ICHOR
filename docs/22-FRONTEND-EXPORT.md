@@ -57,7 +57,7 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 
    ```
    FAIL  the export contains no server-side API route output  --  found: api/session
-   RESULT: FAILED -- 25/26 checks passed.
+   RESULT: FAILED -- 24/25 checks passed.
    ```
 
    而变异 A（未声明 `force-static`）是**构建期就失败**、导出根本没生成——它证明的是「构建被拒绝」，**没有**执行到这段遍历逻辑。两者证明的是**不同的东西**，不能互相顶替。

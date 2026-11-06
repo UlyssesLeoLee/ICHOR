@@ -1,20 +1,20 @@
 === ATS-103 evidence: ATS-101 hardcoded default-port audit ===
-date      : 2026-11-05T16:32:43Z (UTC)
-commit    : 7c04b8a0cf8b8aa2b6e63a137224502156ada949
+date      : 2026-11-06T10:29:39Z (UTC)
+commit    : 227065a87ecb93697ed918079277e3fe91f500d0
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats101-probes/scenario-d-port-audit.mjs
 
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-ba66e523ee7b\worktree
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
   apps/studio/app/page.tsx:81  <footer className="bottom-bar"><span><span className="online"/> LOCAL RUNNER · 127.0.0.1:4577</span><span>Git ...
-  apps/studio/lib/api.ts:7  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
+  apps/studio/lib/api.ts:14  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
   apps/studio/public/fallback.html:3  </style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</spa...
-  server/index.mjs:16  const PORT=Number(process.env.ATS_PORT||4577);
-  server/index.mjs:101  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
+  server/index.mjs:30  const PORT=Number(process.env.ATS_PORT||4577);
+  server/index.mjs:489  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
   src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
 total = 6
 
@@ -22,12 +22,12 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:2141  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:2207  "input": "Host=evil.example:4577",
-  tests/test-cases.json:2856  "input": "同 LAN 他机尝试访问 4577",
-  tools/generate_test_docs.py:172  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
-  tools/generate_test_docs.py:178  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
-  tools/generate_test_docs.py:224  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
+  tests/test-cases.json:4088  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:4154  "input": "Host=evil.example:4577",
+  tests/test-cases.json:5419  "input": "同 LAN 他机尝试访问 4577",
+  tools/generate_test_docs.py:290  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
+  tools/generate_test_docs.py:296  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
+  tools/generate_test_docs.py:382  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
   test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)
 total = 10
 
@@ -36,27 +36,29 @@ total = 10
   docs/08-IT-TEST-DESIGN.md:30  |IT-UI-001|FR-020|正常|Next UI 与 Bridge CORS|localhost:3000 + 4577|页面 API 可正常请求|需 npm 依赖|PENDING|
   docs/08-IT-TEST-DESIGN.md:36  |IT-API-004|NFR-002|安全|错误 Host 拒绝|Host=evil.example:4577|403 INVALID_HOST|可自动化|PENDING|
   docs/09-ST-TEST-DESIGN.md:24  |ST-014|NFR-002|安全|远程主机访问拒绝|同 LAN 他机尝试访问 4577|连接拒绝或无法访问 API|网络抓包|PENDING|
-  docs/11-SECURITY-RISK.md:38  | session token 同机可请求；固定 4577 端口 | 其他同机进程干扰 | HIGH | IPC/Unix domain socket/named pipe、随机端口、OS 身份验证 ...
+  docs/11-SECURITY-RISK.md:43  | session token 同机可请求；固定 4577 端口 | 其他同机进程干扰 | HIGH | IPC/Unix domain socket/named pipe、随机端口、OS 身份验证 ...
   docs/12-DEPLOY-OPERATIONS.md:9  便携模式（已通过本地 HTTP IT）：`npm start`，访问 `http://127.0.0.1:4577/fallback.html`；首次无任何项目可点击添加。Windows PowerS...
   docs/12-DEPLOY-OPERATIONS.md:21  | 服务存活 | `GET /api/health` | 检查 4577 端口冲突与 Node 版本 |
-  docs/12-DEPLOY-OPERATIONS.md:34  - `ATS_PORT`：默认 4577（Next UI 的 API BASE 当前写死 4577，变更端口需同步调整 UI 配置；非动态端口发布模式）
+  docs/12-DEPLOY-OPERATIONS.md:36  - `ATS_PORT`：默认 4577（Next UI 的 API BASE 当前写死 4577，变更端口需同步调整 UI 配置；非动态端口发布模式）
   docs/16-BASELINE-ADR.md:98  Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-ATS-Token`；`/api/session` 由 Origin allowlist...
   docs/16-BASELINE-ADR.md:122  1. **默认端口 4577 在发布源码中被硬编码在 6 处**（不含文档与测试数据）。改端口须同步全部，否则 UI 与 CSP 会指向错误端口：
-  docs/16-BASELINE-ADR.md:126  | 1 | `server/index.mjs:16` | 默认值 `process.env.ATS_PORT\|\|4577` |
+  docs/16-BASELINE-ADR.md:126  | 1 | `server/index.mjs:30` | 默认值 `process.env.ATS_PORT\|\|4577` |
   docs/16-BASELINE-ADR.md:129  | 4 | `apps/studio/app/page.tsx:81` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
   docs/16-BASELINE-ADR.md:130  | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
   docs/16-BASELINE-ADR.md:145  2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
-  docs/16-BASELINE-ADR.md:356  - `src-tauri/src/lib.rs` 以 `Command::new("node")` 拉起 `../server/index.mjs` 并设 `ATS_PORT=4577`；**要求 P...
+  docs/16-BASELINE-ADR.md:357  - `src-tauri/src/lib.rs` 以 `Command::new("node")` 拉起 `../server/index.mjs` 并设 `ATS_PORT=4577`；**要求 P...
   docs/22-FRONTEND-EXPORT.md:22  | Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（**12927 字节**），带 CSP（`connect-src` 含 `http://127.0.0.1...
-  docs/22-FRONTEND-EXPORT.md:56  1. 页面由 Bridge 自身在 `127.0.0.1:4577` 提供（`server/index.mjs` 的 `staticFile()` 把 `apps/studio/out` 当静态根目录...
-  docs/22-FRONTEND-EXPORT.md:57  2. `apps/studio/lib/api.ts` 的 `root()` 在运行时决定 API 基址：**端口是 4577 时用同源空串**（即 `/api/...`），否则用绝对地址 `http...
-  docs/22-FRONTEND-EXPORT.md:69  变异 B 把 `lib/api.ts` 的 `root()` 改成构建期写死的常量 `()=>'http://127.0.0.1:4577'`，重新构建后**这两条同时变红**，探针退出码 1（`do...
-  docs/22-FRONTEND-EXPORT.md:73  **「任何静态文件服务器都能提供这份导出」是不成立的**（第一轮复核 C5(a) 的反例已推翻该说法）。实测：用 `python -m http.server 8931` 提供 `out/`，而 Br...
-  docs/22-FRONTEND-EXPORT.md:75  **准确的说法是**：这份导出可以被**任意静态服务器**提供，但**只有当页面的 Origin 落在 Bridge 的白名单里**时，它对 Bridge 的 API 调用才会被接受。当前白名单是 `...
-  docs/22-FRONTEND-EXPORT.md:79  **Bridge 在非默认端口时，导出页的 API 调用是不可用的**——导出页的基址解析与 Bridge 的 CSP 都指向默认端口 4577（`docs/16-BASELINE-ADR.md` §...
-  docs/22-FRONTEND-EXPORT.md:135  PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:457...
-  docs/22-FRONTEND-EXPORT.md:163  PASS  the exported page loads in a real browser  --  HTTP 200, http://127.0.0.1:4577/
-  docs/22-FRONTEND-EXPORT.md:174  **白名单跨源**（把导出页放在 `127.0.0.1:3000`，Bridge 在 4577）：
+  docs/22-FRONTEND-EXPORT.md:67  1. 页面由 Bridge 自身在 `127.0.0.1:4577` 提供（`server/index.mjs` 的 `staticFile()` 把 `apps/studio/out` 当静态根目录...
+  docs/22-FRONTEND-EXPORT.md:68  2. `apps/studio/lib/api.ts` 的 `root()` 在运行时决定 API 基址：**端口是 4577 时用同源空串**（即 `/api/...`），否则用绝对地址 `http...
+  docs/22-FRONTEND-EXPORT.md:88  PASS  the page's API requests go to the host its own location implies  --  page location host: local...
+  docs/22-FRONTEND-EXPORT.md:104  **「任何静态文件服务器都能提供这份导出」是不成立的**（第一轮复核 C5(a) 的反例已推翻该说法）。实测：用 `python -m http.server 8931` 提供 `out/`，而 Br...
+  docs/22-FRONTEND-EXPORT.md:106  **准确的说法是**：这份导出可以被**任意静态服务器**提供，但**只有当页面的 Origin 落在 Bridge 的白名单里**时，它对 Bridge 的 API 调用才会被接受。当前白名单是 `...
+  docs/22-FRONTEND-EXPORT.md:110  **Bridge 在非默认端口时，导出页的 API 调用是不可用的**——导出页的基址解析与 Bridge 的 CSP 都指向默认端口 4577（`docs/16-BASELINE-ADR.md` §...
+  docs/22-FRONTEND-EXPORT.md:164  PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:457...
+  docs/22-FRONTEND-EXPORT.md:192  PASS  the exported page loads in a real browser  --  HTTP 200, http://localhost:4577/
+  docs/22-FRONTEND-EXPORT.md:194  PASS  the page's API requests go to the host its own location implies  --  page location host: local...
+  docs/22-FRONTEND-EXPORT.md:204  **白名单跨源**（把导出页放在 `127.0.0.1:3000`，Bridge 在 4577）：
+  docs/22-FRONTEND-EXPORT.md:224  | **B2** 基址写死**且** bundle 里留一个**无关的** `location.port` 比较 | 可执行判别（静态启发式**抓不到**它） | 静态启发式**仍然绿**（25/25...
   README.md:9  3. 浏览器打开 <http://127.0.0.1:4577/fallback.html>。这是**已测试的零依赖便携 UI**。
   README.md:24  完成构建后，打开 <http://127.0.0.1:4577/>，将使用正式 Next.js 工作台（Monaco 编辑器 + 流程投影）。开发模式：开一个终端运行 `npm start`，另一个运...
   README.md:30  先执行 `npm --prefix apps/studio install`；在本机安装 `rustup` 和 Tauri CLI，然后在项目根目录运行 `npx tauri dev`（或通过 npm...
@@ -64,7 +66,7 @@ total = 10
   tools/ats101-probes/README.md:140  端口 `4577`），因此 `tools/ats101-probes/` 下的端口字面量属于**文档提及**，
   tools/ats101-probes/scenario-d-port-audit.mjs:4  *   The hardcoded default port 4577 must be listed COMPLETELY in
   tools/ats101-probes/scenario-d-port-audit.mjs:19  const PORT = '4577';
-total = 32
+total = 34
 
 --- distinct RUNTIME files ---
   apps/studio/app/page.tsx
@@ -80,8 +82,8 @@ total = 32
   docs/09-ST-TEST-DESIGN.md (1)
   docs/11-SECURITY-RISK.md (1)
   docs/12-DEPLOY-OPERATIONS.md (4)
-  docs/22-FRONTEND-EXPORT.md (13)
-files = 7, mentions = 26
+  docs/22-FRONTEND-EXPORT.md (18)
+files = 7, mentions = 31
 
 --- files listed in 16 §3.1 (port list) ---
   README.md
@@ -108,7 +110,7 @@ runtime occurrences in source   : 6
 distinct runtime files          : 5
 non-runtime data files          : 5
 doc-mention files (excl. 16)    : 7
-doc mentions (excl. 16)         : 26
+doc mentions (excl. 16)         : 31
 runtime files missing from §3.1 : (none)
 non-runtime missing from §3.1   : (none)
 runtime positions missing       : (none)
@@ -116,8 +118,8 @@ listed but not found at runtime : (none)
 count claimed in 16 §3.1        : 6
 actual runtime occurrence count : 6
 count matches source            : true
-doc files/mentions claimed      : 7 / 26
-doc files/mentions actual       : 7 / 26
+doc files/mentions claimed      : 7 / 31
+doc files/mentions actual       : 7 / 31
 doc mention count matches       : true
 
 RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
