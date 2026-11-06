@@ -409,6 +409,57 @@ test('UT-ATS204-016: the two attempts of a matrix case carry the SAME TestDefini
 /* The old lookup still works                                          */
 /* ------------------------------------------------------------------ */
 
+test('UT-ATS204-018: a renamed case is bound by its body even though the position does not match', () => {
+  // The case was renamed: the report names the NEW file, the registry
+  // remembers the OLD one. The position does not match at all, so there
+  // is no contradiction -- and the body, the signal that survives a
+  // rename, binds the case.
+  const entries = [{
+    uid: 'tc_1_d_aaaaaaaaaaaaaaaa', bodyKey: 'k1', file: 'tests/old.spec.ts', title: 'old title', line: 3,
+    aliases: [],
+  }];
+  const hit = bindReported({
+    entries, file: 'tests/new.spec.ts', title: 'new title', line: 9,
+    bodyKey: 'k1', bodyCounts: new Map([['k1', 1]]),
+  });
+  assert.equal(hit.uid, 'tc_1_d_aaaaaaaaaaaaaaaa', 'the body binds the renamed case');
+  assert.equal(hit.basis, 'body-key');
+});
+
+test('UT-ATS204-019: a positional hit whose body CONTRADICTS it does not bind, and says so', () => {
+  // The stale-line shape of `docs/18-UID-SPEC.md` §7.1: the same file,
+  // the same line, the same title -- but the body of the case that is
+  // there NOW is not the body the registry remembers. The position is
+  // not an identity, so it does not bind, and the reader is told that
+  // the two disagree.
+  const entries = [{
+    uid: 'tc_1_d_aaaaaaaaaaaaaaaa', bodyKey: 'k1', file: 'tests/a.spec.ts', title: 'works', line: 3,
+    aliases: [],
+  }];
+  const hit = bindReported({
+    entries, file: 'tests/a.spec.ts', title: 'works', line: 3,
+    bodyKey: 'k9', bodyCounts: new Map([['k9', 1]]),
+  });
+  assert.equal(hit.uid, null, 'the case stays unbound');
+  assert.equal(hit.basis, 'file-line-body-mismatch');
+  assert.ok(hit.ambiguity, 'the mismatch is reported');
+  assert.equal(hit.ambiguity.reason, AMBIGUITY.BODY);
+});
+
+test('UT-ATS204-020: a positional hit whose body AGREES binds, and reports nothing', () => {
+  const entries = [{
+    uid: 'tc_1_d_aaaaaaaaaaaaaaaa', bodyKey: 'k1', file: 'tests/a.spec.ts', title: 'works', line: 3,
+    aliases: [],
+  }];
+  const hit = bindReported({
+    entries, file: 'tests/a.spec.ts', title: 'works', line: 3,
+    bodyKey: 'k1', bodyCounts: new Map([['k1', 1]]),
+  });
+  assert.equal(hit.uid, 'tc_1_d_aaaaaaaaaaaaaaaa');
+  assert.equal(hit.basis, 'file-line');
+  assert.equal(hit.ambiguity, undefined, 'nothing is reported when the two agree');
+});
+
 test('UT-ATS204-017: the old lookup keeps its documented behaviour', () => {
   const p = makeProject();
   try {

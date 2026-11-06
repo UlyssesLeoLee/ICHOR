@@ -229,6 +229,18 @@ export function bindReported({
   const bodySharedInRun = Boolean(bodyKey) && bodyCounts
     ? (bodyCounts.get(bodyKey) ?? 0) > 1
     : false;
+  /**
+   * The mismatch between the position and the body, when there is one.
+   * It is REPORTED, but it does not stop the walk: the body signal below
+   * is the one that survives a rename.
+   */
+  let positionMismatch = null;
+  /**
+   * A position that CONTRADICTS the body disables the WHOLE position
+   * family -- `file-line`, `file-scope-title`, `file-title` and the bare
+   * `title`. They all name the case by where it is, and the body has just
+   * said that the case that is there now is a different one.
+   */
 
   /*
    * 2. the file, the describe path and the title: the CLI's own identity.
@@ -236,7 +248,7 @@ export function bindReported({
    * Like the line, the position is not an identity: it binds only when
    * the body agrees with it, or when there is no body to disagree with.
    */
-  if (scopeKey && !bodySharedInRun) {
+  if (scopeKey && !bodySharedInRun && !positionMismatch) {
     const sameFileScopeTitle = sameFile.filter((e) => e.title === title && scopeOf(e) === scopeKey);
     const uids = distinctUids(sameFileScopeTitle);
     if (uids.length === 1) return { uid: uids[0], basis: 'file-scope-title', candidates: 1 };
@@ -279,11 +291,14 @@ export function bindReported({
       if (sameTitleAtLine.length && !agrees.length) {
         // The positional hit contradicts the body: the case at that line
         // is a DIFFERENT case than the one the registry remembers there.
-        // The body decides below -- and the position is not used.
-        const contradicted = distinctUids(sameTitleAtLine);
-        return {
-          uid: null, basis: 'file-line-body-mismatch', candidates: contradicted.length,
-          ambiguity: { reason: AMBIGUITY.BODY, candidates: contradicted },
+        //
+        // The walk CONTINUES: the body is the signal that survives a
+        // rename, so a renamed case is exactly the case whose position
+        // disagrees with its body. The mismatch is recorded and reported
+        // as the ambiguity, but it does not stop the body from deciding.
+        positionMismatch = {
+          reason: AMBIGUITY.BODY,
+          candidates: distinctUids(sameTitleAtLine),
         };
       }
     }
@@ -295,7 +310,7 @@ export function bindReported({
      * file and the title would then bind BOTH of the shared cases to the
      * same uid. The body signal below reports the sharing instead.
      */
-    if (fileTitleUids.length === 1 && !bodySharedInRun) {
+    if (fileTitleUids.length === 1 && !bodySharedInRun && !positionMismatch) {
       return { uid: fileTitleUids[0], basis: 'file-title', candidates: 1 };
     }
   } else {
@@ -347,7 +362,12 @@ export function bindReported({
     const uids = distinctUids(byBody);
     const sharedInRun = bodyCounts ? (bodyCounts.get(bodyKey) ?? 0) : 1;
     if (uids.length === 1 && sharedInRun === 1) {
-      return { uid: uids[0], basis: 'body-key', candidates: 1 };
+      return {
+        uid: uids[0],
+        basis: 'body-key',
+        candidates: 1,
+        ...(positionMismatch ? { ambiguity: positionMismatch } : {}),
+      };
     }
     if (uids.length > 1) {
       return {
@@ -359,6 +379,15 @@ export function bindReported({
       return {
         uid: null, basis: 'body-key-shared', candidates: sharedInRun,
         ambiguity: { reason: AMBIGUITY.BODY_SHARED, candidates: [] },
+      };
+    }
+    // The body identifies nothing on its own. The position that
+    // contradicted it is reported here: the case stays unbound, and the
+    // reader learns that the position and the body disagree.
+    if (positionMismatch) {
+      return {
+        uid: null, basis: 'file-line-body-mismatch', candidates: positionMismatch.candidates.length,
+        ambiguity: positionMismatch,
       };
     }
   }
@@ -382,7 +411,7 @@ export function bindReported({
    * and only when the body does not tell several cases of this run apart.
    */
   const titleUids = distinctUids(sameTitle);
-  if (titleUids.length === 1 && !bodySharedInRun) {
+  if (titleUids.length === 1 && !bodySharedInRun && !positionMismatch) {
     return { uid: titleUids[0], basis: 'title', candidates: 1 };
   }
   if (titleUids.length > 1) {

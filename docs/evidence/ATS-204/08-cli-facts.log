@@ -1,0 +1,67 @@
+=== command ===
+node tools/ats204-probes/cli-facts.mjs
+=== output ===
+--- installing the real @playwright/test ---
+--- 1. the list report ---
+  the report lists 10 spec rows
+  file=facts.spec.ts line=4 title="plain case" id=e2d071df40628f62d9aa-22a33c5b2ba004a151fd suites=["facts.spec.ts"]
+      project=alpha expectedStatus=passed
+  file=facts.spec.ts line=7 title="adds 1 items" id=e2d071df40628f62d9aa-147b87f72dfa008c3622 suites=["facts.spec.ts"]
+      project=alpha expectedStatus=passed
+  file=facts.spec.ts line=7 title="adds 2 items" id=e2d071df40628f62d9aa-18c04b053c6698dad4d7 suites=["facts.spec.ts"]
+      project=alpha expectedStatus=passed
+  file=facts.spec.ts line=4 title="plain case" id=e2d071df40628f62d9aa-13260e8b00170836d823 suites=["facts.spec.ts"]
+      project=beta expectedStatus=passed
+  file=facts.spec.ts line=7 title="adds 1 items" id=e2d071df40628f62d9aa-4ebcba14d63d6bcbdf5a suites=["facts.spec.ts"]
+      project=beta expectedStatus=passed
+  file=facts.spec.ts line=7 title="adds 2 items" id=e2d071df40628f62d9aa-1c1036c48724e217892b suites=["facts.spec.ts"]
+      project=beta expectedStatus=passed
+  file=facts.spec.ts line=11 title="same title" id=e2d071df40628f62d9aa-d43565e547a1d68cdc83 suites=["facts.spec.ts","outer"]
+      project=alpha expectedStatus=passed
+  file=facts.spec.ts line=11 title="same title" id=e2d071df40628f62d9aa-6f2f344af38bb022f436 suites=["facts.spec.ts","outer"]
+      project=beta expectedStatus=passed
+  file=facts.spec.ts line=15 title="same title" id=e2d071df40628f62d9aa-96cabce8f875bd810f16 suites=["facts.spec.ts","inner"]
+      project=alpha expectedStatus=passed
+  file=facts.spec.ts line=15 title="same title" id=e2d071df40628f62d9aa-e8de0d7d4696e81e10bc suites=["facts.spec.ts","inner"]
+      project=beta expectedStatus=passed
+--- 2. a loop-generated case: the rendered titles, their order and their line ---
+  FAIL  two renders are reported  (expected 2, got 4)
+  FAIL  both renders sit on the line of the test call  (expected [7,7], got [7,7,7,7])
+  FAIL  the renders keep the order of the declaration  (expected ["adds 1 items","adds 2 items"], got ["adds 1 items","adds 2 items","adds 1 items","adds 2 items"])
+  FAIL  the renders carry different spec ids  (expected 2, got 4)
+--- 3. the project matrix ---
+  FAIL  the plain case is one spec row  (expected 1, got 2)
+  FAIL  the spec row carries one test per project  (expected ["alpha","beta"], got ["alpha"])
+  PASS  the spec id is the same for both projects of the row
+--- 4. the same title under two describes ---
+  FAIL  two spec rows share the title  (expected 2, got 4)
+  PASS  they sit on different lines
+  FAIL  the describe path differs  (expected ["outer","inner"], got ["facts.spec.ts > outer","facts.spec.ts > outer","facts.spec.ts > inner","facts.spec.ts > inner"])
+--- 5. the run report ---
+  the run exited with 0
+  the run report lists 10 spec rows
+  file=facts.spec.ts line=4 title="plain case" id=e2d071df40628f62d9aa-22a33c5b2ba004a151fd
+      project=alpha status=expected results=1
+  file=facts.spec.ts line=7 title="adds 1 items" id=e2d071df40628f62d9aa-147b87f72dfa008c3622
+      project=alpha status=expected results=1
+  file=facts.spec.ts line=7 title="adds 2 items" id=e2d071df40628f62d9aa-18c04b053c6698dad4d7
+      project=alpha status=expected results=1
+  file=facts.spec.ts line=4 title="plain case" id=e2d071df40628f62d9aa-13260e8b00170836d823
+      project=beta status=expected results=1
+  file=facts.spec.ts line=7 title="adds 1 items" id=e2d071df40628f62d9aa-4ebcba14d63d6bcbdf5a
+      project=beta status=expected results=1
+  file=facts.spec.ts line=7 title="adds 2 items" id=e2d071df40628f62d9aa-1c1036c48724e217892b
+      project=beta status=expected results=1
+  file=facts.spec.ts line=11 title="same title" id=e2d071df40628f62d9aa-d43565e547a1d68cdc83
+      project=alpha status=expected results=1
+  file=facts.spec.ts line=11 title="same title" id=e2d071df40628f62d9aa-6f2f344af38bb022f436
+      project=beta status=expected results=1
+  file=facts.spec.ts line=15 title="same title" id=e2d071df40628f62d9aa-96cabce8f875bd810f16
+      project=alpha status=expected results=1
+  file=facts.spec.ts line=15 title="same title" id=e2d071df40628f62d9aa-e8de0d7d4696e81e10bc
+      project=beta status=expected results=1
+  FAIL  the run report carries one spec row per render  (expected 2, got 4)
+  PASS  the run report carries the spec id
+  FAIL  the run report carries the project name per test  (expected ["alpha","beta"], got ["alpha"])
+SUMMARY: 10 fact(s) differ from what the mapper assumes
+=== exit code: 1 ===

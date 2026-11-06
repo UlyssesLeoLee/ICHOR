@@ -1,0 +1,6 @@
+=== command ===
+bash tools/ats204-probes/counterexample.sh
+=== output ===
+the tree before the task: 83c8bc50447d8ce2edadf39362be4680c3658429
+the clone failed
+=== exit code: 1 ===
