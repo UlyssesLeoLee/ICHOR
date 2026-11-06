@@ -1,39 +1,39 @@
 === the environment profile unit suite ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fe294af464db/worktree
-commit    : 6243475
-branch    : agent/m2/seikoist-170
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fbfa95f55f8a/worktree
+commit    : e5aadb2
+branch    : agent/m2/seikoist-170-fbfa95f55f8a
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ UT-ENV-001: the profile id is derived from the project and the name (1.4845ms)
-✔ UT-ENV-002: the profile id does not collide across a name boundary (0.1911ms)
-✔ UT-ENV-003: a variable name must be an upper-case word (0.2066ms)
-✔ UT-ENV-010: a name that is not on the whitelist is refused with a reason (0.2347ms)
-✔ UT-ENV-011: the normaliser REFUSES a name that is not whitelisted -- it does not drop it silently (0.207ms)
-✔ UT-ENV-012: a credential-shaped name is refused even when the whitelist permits it (0.1452ms)
-✔ UT-ENV-013: the credential check is case-insensitive (0.0954ms)
-✔ UT-ENV-014: a whitelist entry may be a name or a single trailing star (0.0924ms)
-✔ UT-ENV-015: a whitelist cannot authorise a credential-shaped name (0.9493ms)
-✔ UT-ENV-016: the whitelist of a project reports where it came from (0.2574ms)
-✔ UT-ENV-020: a reserved name is refused even when the whitelist permits it (0.1526ms)
-✔ UT-ENV-021: the reserved names cover the loader hijack and the engine output (0.1069ms)
-✔ UT-ENV-030: the runner environment does NOT carry the host environment (0.1807ms)
-✔ UT-ENV-031: the runner environment carries ONLY the base keys and the profile (0.09ms)
-✔ UT-ENV-032: the runner environment is sealed even without a profile (0.0797ms)
-✔ UT-ENV-033: the adapter-owned variables are applied LAST (0.0704ms)
-✔ UT-ENV-034: the platform keys survive a profile that tries to override them (0.1031ms)
-✔ UT-ENV-040: a profile is validated against the whitelist before it is built (0.1752ms)
-✔ UT-ENV-041: a profile without a name or with an unknown tier is refused (0.1352ms)
-✔ UT-ENV-042: building a profile that is invalid throws with the problems attached (0.3132ms)
-✔ UT-ENV-043: the run records the NAMES of the variables, never the values (0.0997ms)
-✔ UT-ENV-050: the store of a state without the field is empty, and the state stays loadable (0.1421ms)
-✔ UT-ENV-051: a profile is created, found and removed (1.957ms)
-✔ UT-ENV-052: replacing a profile keeps its identifier (0.2624ms)
-✔ UT-ENV-053: a profile of one project is not visible to another (0.0998ms)
-✔ UT-ENV-054: the configured whitelist wins over the built-in default (0.1934ms)
-✔ UT-ENV-055: a whitelist that authorises a credential is refused (0.1024ms)
-✔ UT-ENV-056: the public view of a profile carries the names, never the values (0.1089ms)
-✔ UT-ENV-057: the capability probe does not hand the host environment to the project CLI (85.4112ms)
+✔ UT-ENV-001: the profile id is derived from the project and the name (1.0258ms)
+✔ UT-ENV-002: the profile id does not collide across a name boundary (0.1006ms)
+✔ UT-ENV-003: a variable name must be an upper-case word (0.1344ms)
+✔ UT-ENV-010: a name that is not on the whitelist is refused with a reason (0.1942ms)
+✔ UT-ENV-011: the normaliser REFUSES a name that is not whitelisted -- it does not drop it silently (0.1915ms)
+✔ UT-ENV-012: a credential-shaped name is refused even when the whitelist permits it (0.125ms)
+✔ UT-ENV-013: the credential check is case-insensitive (0.0777ms)
+✔ UT-ENV-014: a whitelist entry may be a name or a single trailing star (0.0756ms)
+✔ UT-ENV-015: a whitelist cannot authorise a credential-shaped name (0.7346ms)
+✔ UT-ENV-016: the whitelist of a project reports where it came from (0.1687ms)
+✔ UT-ENV-020: a reserved name is refused even when the whitelist permits it (0.1212ms)
+✔ UT-ENV-021: the reserved names cover the loader hijack and the engine output (0.0874ms)
+✔ UT-ENV-030: the runner environment does NOT carry the host environment (0.1319ms)
+✔ UT-ENV-031: the runner environment carries ONLY the base keys and the profile (0.0841ms)
+✔ UT-ENV-032: the runner environment is sealed even without a profile (0.0749ms)
+✔ UT-ENV-033: the adapter-owned variables are applied LAST (0.0648ms)
+✔ UT-ENV-034: the platform keys survive a profile that tries to override them (0.1138ms)
+✔ UT-ENV-040: a profile is validated against the whitelist before it is built (0.1884ms)
+✔ UT-ENV-041: a profile without a name or with an unknown tier is refused (0.1417ms)
+✔ UT-ENV-042: building a profile that is invalid throws with the problems attached (0.32ms)
+✔ UT-ENV-043: the run records the NAMES of the variables, never the values (0.0684ms)
+✔ UT-ENV-050: the store of a state without the field is empty, and the state stays loadable (0.1ms)
+✔ UT-ENV-051: a profile is created, found and removed (2.1349ms)
+✔ UT-ENV-052: replacing a profile keeps its identifier (0.1808ms)
+✔ UT-ENV-053: a profile of one project is not visible to another (0.0973ms)
+✔ UT-ENV-054: the configured whitelist wins over the built-in default (0.2025ms)
+✔ UT-ENV-055: a whitelist that authorises a credential is refused (0.0999ms)
+✔ UT-ENV-056: the public view of a profile carries the names, never the values (0.093ms)
+✔ UT-ENV-057: the capability probe does not hand the host environment to the project CLI (65.6794ms)
 ℹ tests 29
 ℹ suites 0
 ℹ pass 29
@@ -41,6 +41,6 @@ python    : Python 3.11.16
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 221.5025
+ℹ duration_ms 167.4611
 
 exit code : 0
