@@ -5379,6 +5379,61 @@
     "level": "UT"
   },
   {
+    "id": "UT-MOB-090",
+    "req": "FR-031",
+    "category": "安全",
+    "title": "设备层不把目标未声明的能力报成已证明",
+    "input": "目标只声明 screen.capture，会话声称七项",
+    "expected": "未声明的能力 supported=false、无证据、理由点名",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-091",
+    "req": "FR-031",
+    "category": "安全",
+    "title": "设备层与解析路径对同一会话结论一致",
+    "input": "同一条超声明会话走两条路径",
+    "expected": "解析路径拒绝，设备层报不支持且无证据",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-092",
+    "req": "FR-031",
+    "category": "安全",
+    "title": "设备层按调用方给出的目标判定",
+    "input": "上下文目标与会话所属目标不同",
+    "expected": "该目标下不证明任何能力",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-093",
+    "req": "FR-031",
+    "category": "正常",
+    "title": "目标声明了但会话没证明的能力仍报不支持",
+    "input": "目标声明两项，会话只证明一项",
+    "expected": "已证明的那项支持，另一项理由为未证明",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-094",
+    "req": "FR-031",
+    "category": "异常",
+    "title": "没有目标时设备层报不支持而不是抛错",
+    "input": "适配器 target=null 且带会话",
+    "expected": "每条能力 supported=false、无证据、带理由",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
     "id": "IT-API-SETUP",
     "req": "NFR-011",
     "category": "正常",

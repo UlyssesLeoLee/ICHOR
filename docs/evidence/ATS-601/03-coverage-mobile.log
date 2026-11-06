@@ -1,12 +1,12 @@
 === ATS-601 evidence: line and branch coverage of the mobile contract ===
-tree : 2c08c471407f0ed878b97b0da7d3b46d75d9d219
-date : 2026-11-06T18:44:44Z
+tree : e906ae08450fa594ff04e52b788c8dcdef95b3c4
+date : 2026-11-06T20:44:11Z
 
-ℹ tests 94
-ℹ pass 94
+ℹ tests 99
+ℹ pass 99
 ℹ fail 0
 ℹ start of coverage report
-ℹ   mobile-target.mjs   | 100.00 |    92.65 |  100.00 | 
+ℹ   mobile-target.mjs   | 100.00 |    93.10 |  100.00 | 
 ℹ   mobile.mjs          | 100.00 |   100.00 |  100.00 | 
-ℹ all files             |  59.48 |    67.04 |   22.73 | 
+ℹ all files             |  57.36 |    68.55 |   22.74 | 
 ℹ end of coverage report

@@ -17,8 +17,21 @@
 # usage: bash tools/ats209-probes/collect-evidence.sh [tree]
 set -uo pipefail
 
+# The tree to measure. The path is resolved to an ABSOLUTE one first: the
+# script `cd`s around, and a relative path would then resolve against the
+# wrong directory.
+#
+# `pwd -W` gives the Windows form of the current directory (the native
+# programs on this platform need it); the plain `pwd` is the fallback for a
+# shell that does not have it.
 TREE="${1:-.}"
-TREE="$(cd "$TREE" && pwd -W 2>/dev/null || cd "$TREE" && pwd)"
+if [ -d "$TREE" ]; then
+  TREE="$(cd "$TREE" && pwd)"
+fi
+case "$TREE" in
+  [A-Za-z]:*) NATIVE_TREE="$TREE" ;;
+  *) NATIVE_TREE="$(cd "$TREE" && pwd -W 2>/dev/null || echo "$TREE")" ;;
+esac
 cd "$TREE" || exit 1
 
 OUT="docs/evidence/ATS-209"
@@ -32,37 +45,54 @@ hdr() {
 }
 
 hdr "the tree under test"
-echo "tree    : $TREE"
+echo "tree    : $NATIVE_TREE"
 echo "commit  : $(git rev-parse HEAD)"
 echo "branch  : $(git branch --show-current)"
 echo "node    : $(node --version)"
 echo "python  : $(python --version 2>&1)"
 
-# --- 1. the ATS-209 unit and integration suites ---------------------------
-hdr "the ATS-209 unit suite"
-node --test tests/evidence.test.mjs 2>&1 | tail -12
+# Every step writes its own log into $OUT, so the evidence of the delivery
+# is IN the repository and can be read without re-running anything.
+run_step() { # run_step <log name> <label> <command...>
+  local name="$1"; shift
+  local label="$1"; shift
+  hdr "$label"
+  {
+    echo "=== $label ==="
+    echo "tree   : $NATIVE_TREE"
+    echo "commit : $(git rev-parse HEAD)"
+    echo
+    "$@" 2>&1
+    echo
+    echo "exit code : $?"
+  } | tee "$OUT/$name"
+  return 0
+}
 
-hdr "the ATS-209 integration suite"
-node --test tests/evidence-it.test.mjs 2>&1 | tail -14
+run_step 01-node-test-evidence-ut.log "the ATS-209 unit suite" \
+  node --test tests/evidence.test.mjs
 
-# --- 2. the probe: the two acceptance criteria, measured ------------------
-hdr "the ATS-209 probe"
-node tools/ats209-probes/probe-evidence.mjs 2>&1
-echo "probe exit code : $?"
+run_step 02-node-test-evidence-it.log "the ATS-209 integration suite" \
+  node --test tests/evidence-it.test.mjs
 
-# --- 3. the gates ----------------------------------------------------------
-hdr "the ATS-101 port audit"
-node tools/ats101-probes/scenario-d-port-audit.mjs 2>&1 | tail -14
+run_step 03-probe-evidence.log "the ATS-209 probe" \
+  node tools/ats209-probes/probe-evidence.mjs
 
-hdr "the ADR citation check"
-python tools/check_adr_citations.py 2>&1 | tail -6
+run_step 04-port-audit.log "the ATS-101 port audit" \
+  node tools/ats101-probes/scenario-d-port-audit.mjs
 
-hdr "the python gates under tools/"
-python -m pytest tools/ -q 2>&1 | tail -4
+run_step 05-adr-citations.log "the ADR citation check" \
+  python tools/check_adr_citations.py
 
-# --- 4. the full regression ------------------------------------------------
-hdr "the full node test suite"
-npm test 2>&1 | tail -10
+run_step 06-python-gates.log "the python gates under tools/" \
+  python -m pytest tools/ -q
+
+run_step 07-node-test-full.log "the full node test suite" \
+  npm test
+
+run_step 08-coverage.log "the line coverage of the ATS-209 modules" \
+  node --test --experimental-test-coverage tests/evidence.test.mjs tests/evidence-it.test.mjs
 
 hdr "done"
 echo "the evidence of this run is in $OUT/"
+ls -la "$OUT"

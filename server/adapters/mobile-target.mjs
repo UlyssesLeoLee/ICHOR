@@ -445,6 +445,42 @@ export function sessionUsability(session) {
   return { usable: false, reason: SESSION_UNUSABLE_REASON[session.state] };
 }
 
+/**
+ * The capabilities a session may PROVE for a target.
+ *
+ * A session proves a capability when the session claims it AND the target
+ * declared it. The INTERSECTION is the only thing that may be reported as
+ * proved: a claim the target never made was never proven, so it enters
+ * neither the negotiation nor the device-layer evidence.
+ *
+ * `resolveSession` refuses a session that claims more than its target
+ * declared, and the device layer reports exactly this intersection. Both
+ * read this function, so the two paths cannot give opposite answers about
+ * one session.
+ *
+ * Returns `{provable, undeclared, targetMismatch}`:
+ *   * `provable`       -- the capabilities that may be reported as proved;
+ *   * `undeclared`     -- the capabilities the session claims that the
+ *                         target never declared;
+ *   * `targetMismatch` -- the session belongs to another target, so it
+ *                         proves nothing for this one.
+ */
+export function provableCapabilities(target, session) {
+  if (!session) return { provable: [], undeclared: [], targetMismatch: false };
+  const claimed = Array.isArray(session.capabilities) ? session.capabilities : [];
+  if (!target) return { provable: [], undeclared: [...claimed], targetMismatch: false };
+  if (session.targetId !== target.targetId) {
+    // A session that belongs to another target proves nothing here.
+    return { provable: [], undeclared: [...claimed], targetMismatch: true };
+  }
+  const declared = new Set(target.capabilities);
+  return {
+    provable: claimed.filter((c) => declared.has(c)),
+    undeclared: claimed.filter((c) => !declared.has(c)),
+    targetMismatch: false,
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* Capability negotiation                                              */
 /* ------------------------------------------------------------------ */
@@ -668,7 +704,7 @@ export function resolveSession(target, session, { now = new Date() } = {}) {
       { reason: 'lease-expired', sessionId: session.sessionId, targetId: target.targetId },
     );
   }
-  const undeclared = session.capabilities.filter((c) => !target.capabilities.includes(c));
+  const { provable, undeclared } = provableCapabilities(target, session);
   if (undeclared.length) {
     // The session proves MORE than its target declared. That claim was
     // never proven, so it does not enter the negotiation.
@@ -682,6 +718,7 @@ export function resolveSession(target, session, { now = new Date() } = {}) {
         targetId: target.targetId,
         undeclared,
         declared: [...target.capabilities],
+        provable: [...provable],
       },
     );
   }
