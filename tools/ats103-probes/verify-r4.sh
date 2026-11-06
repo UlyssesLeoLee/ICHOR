@@ -53,6 +53,22 @@ echo "STEP_EXIT=$CI_RC"
 if [ "$CI_RC" -ne 0 ]; then
   FAILED=1
 fi
+# The probes drive a real Playwright run, which needs the example project's
+# own dependencies. Without them the run ends in
+# PLAYWRIGHT_NOT_INSTALLED and the probe reports a failure that says nothing
+# about the export.
+if [ -d examples/sample-playwright ]; then
+  npm --prefix examples/sample-playwright ci --no-audit --no-fund > /dev/null 2>&1
+  EX_RC=$?
+  if [ "$EX_RC" -ne 0 ]; then
+    npm --prefix examples/sample-playwright install --no-audit --no-fund > /dev/null 2>&1
+    EX_RC=$?
+  fi
+  echo "STEP_EXIT=$EX_RC"
+  if [ "$EX_RC" -ne 0 ]; then
+    FAILED=1
+  fi
+fi
 rm -rf apps/studio/out apps/studio/.next
 npm --prefix apps/studio run build > /dev/null 2>&1
 BUILD_RC=$?
