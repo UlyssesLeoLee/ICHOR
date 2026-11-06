@@ -197,6 +197,45 @@ describe 路径**不参与标题键**（ATS-201 §3.2 的既定取舍：同名�
 改标题之后 UID 是否保住，取决于**执行体是否改过**——这是 ATS-201 §3.2 的既定取舍，
 本设计不改变它。
 
+#### 4.5.1 升级会有一次性的静态 UID 变化（必须知道）
+
+上面的三条修法改的是**扫描器读标题的方式**，所以**已经存在的静态 UID 会变一次**。
+这不是回归，是纠正：旧 UID 是从**读错的标题**推出来的。
+
+| 受影响的用例 | 旧 UID 的来源 | 升级后 |
+|---|---|---|
+| 标题含**转义引号**（`test('user\'s profile')`） | 扫描器把标题截成 `user\`，UID 从这个错误标题派生；因为标题读不到，**该用例也没有执行体** | UID 从正确标题 `user's profile` 派生，**并且从此有执行体**，改标题后能保住 UID |
+| 标题**超过 180 字符** | 扫描器截断到 180 字符，但**执行体读得到** | UID **不变**：注册表按执行体指纹认回同一个用例 |
+| **多行** `test(` 调用 | 扫描器报的是标题所在行，与 CLI 的调用行不同 | UID **不变**：同上，按执行体认回 |
+
+**影响范围**：只有「标题含转义引号」这一类会真的换 UID。实测（`r2-upgrade` 探针，
+第 1 轮的树 `cc68331` → 本轮的树，同一份注册表）：
+
+```
+[escaped quote]       FAIL -- 静态 UID tc_1_d_0133d73c628805e2 (title "user\\")
+                          -> 升级后 tc_1_d_2d805d451ded5ad8 (derived, title "user's profile")
+[title > 180 chars]   OK  -- tc_1_d_03a9ee2a8d37e5d3 == tc_1_d_03a9ee2a8d37e5d3 (registry)
+[multi-line call]     OK  -- tc_1_d_44d54cca5562f627 == tc_1_d_44d54cca5562f627 (registry)
+```
+
+复现命令（两个参数是**两棵树**）：
+
+```
+node tools/ats202-probes/r2/r2-upgrade.mjs <第1轮的树> <本轮的树> <scratch>
+```
+
+注：第 1 轮返工之后的树（`d488299`）**已经**带扫描器修正，所以拿它当「旧树」跑
+这个探针是 3/3 OK。探针要证明的是**从修正之前**升级上来的那一次变化，所以旧树必须
+取 `cc68331`。
+
+**为什么不做迁移**：旧 UID 来自**被读错的标题**，而且那类用例**没有执行体**——
+它们在旧扫描器下无法按执行体认回，所以除了「重新派生」没有别的办法得到正确的 UID。
+迁移脚本（`tools/migrate_state.py`）不为它们保留条目：保留一个由错误标题推出的 UID，
+等于把错误**固化**下来。
+
+**要保住一个用例的身份，就用显式标注**：在标题里写 `@TC-xxx`，UID 由标注决定，
+扫描器怎么读标题都不影响它。这是本规范一贯的做法（ATS-201 §3.2）。
+
 ## 5. 与 CLI 发现结果一致
 
 「一致」是**被测量的**，不是被断言的。`discoverTests` 的响应带 `consistency`：
@@ -216,6 +255,9 @@ describe 路径**不参与标题键**（ATS-201 §3.2 的既定取舍：同名�
 
 ### 5.1 比较键依赖 describe 路径，describe 路径必须读对
 
+> **本节的结论在第 2 轮复核后已改写。** 下面是**当时**的结论与它被推翻的原因；
+> **现行**的比较键见 §5.2。
+
 比较键是 `文件 > describe 路径 > 标题`，而静态侧的 describe 路径是**从源码词法读出来的**。
 因此这条路径读错，比较就会出现**假差异**：两个索引明明看到同一组用例，报告却说
 「1 个用例仅静态索引可见」。
@@ -231,9 +273,74 @@ describe 路径**不参与标题键**（ATS-201 §3.2 的既定取舍：同名�
 花括号都不算。两条修法都有回归用例（`tests/discovery-regressions.test.mjs` 的
 CE-A/CE-B，以及针对真实 CLI 的 IT-ATS202-012/013）。
 
-**修复后的保证**：CLI 枚举到的用例**永远不会**出现在 `onlyStatic` 里——
-`onlyStatic` 现在只可能装两类东西：CLI 根本没枚举到的文件（`testDir` 之外、
-不匹配 `testMatch`），以及 CLI 加载失败的文件。
+**当时的保证**：CLI 枚举到的用例**永远不会**出现在 `onlyStatic` 里。
+
+#### 5.1.1 这条保证不成立（第 2 轮复核的反证）
+
+第 2 轮复核用真实 CLI 把上面那条保证**证伪**了：S1/S2/S3 三个场景里，CLI 枚举到的用例
+**确实**进了 `onlyStatic`：
+
+| 场景 | 源码 | CLI 报的 describe 路径 | 旧比较键的结果 |
+|---|---|---|---|
+| S1 | `test.describe(suite, () => {...})`（标题在变量里） | `checkout` | `onlyStatic` 装进了 `pays` |
+| S2 | ``test.describe(`area ${area}`, () => {...})`` | `area cart` | `onlyStatic` 装进了 `adds` |
+| S3 | `test.describe('tagged', { tag: '@smoke' }, () => {...})` | `tagged` | `onlyStatic` 装进了 `inside tagged` |
+
+根因不是词法读取器的某一个 bug，而是**这条保证本身的措辞过于绝对**：词法读取器
+**不可能**知道一个在运行时才构成的 `describe` 标题。S1/S2 的标题是**变量**或**模板
+字面量**，源码里根本没有那个字面量；S3 的 details 对象在回调体之前就开了一个花括号。
+
+「把 `describePathAt` 修得更聪明」解决不了 S1/S2——那不是读得准不准的问题，是**信息
+不在源码里**。所以第 2 轮改的是**比较键**，不是读取器（§5.2）。
+
+### 5.2 现行比较键：位置 + 标题（不含 describe 路径）
+
+比较**实际匹配**用的键是 `matchKey`：
+
+```
+matchKey(case) = `${case.file} #${case.line} ${case.title}`
+```
+
+即**文件 + `test(` 调用的行号 + 叶子标题**。理由：
+
+| 组成 | 为什么是它 |
+|---|---|
+| **行号** | CLI 报的是 `test(` **调用**的行；扫描器现在也报**调用**的行（第 1 轮 CE-I 修的）。两边落在**同一位置**。 |
+| **标题** | 叶子标题两边都读得到（CLI 报的字面量，扫描器按字面量读并解码转义）。 |
+| **不含 describe 路径** | describe 路径是**词法读出来的**，而 CLI 报的是**运行时**的真实路径。两者在 S1/S2/S3 上必然不同，把它放进比较键就必然产生假差异。 |
+
+`caseKey`（`文件 > describe 路径 > 标题`）**保留**，但只作**可读键**——`onlyStatic` /
+`onlyAuthoritative` 这两个列表用它来显示，用户看到的是人能读的路径，不是行号。
+
+#### 保证（收窄后的，逐条写明）
+
+1. **CLI 枚举到的用例不会出现在 `onlyStatic` 里。**
+   这条保证现在**是结构性的**，不是词法的：CLI 枚举到的用例把自己的 `matchKey` 贡献
+   给权威集合，它的键就在这个集合里，因此它不可能落进 `onlyStatic`。
+   （第一轮写成「因为 describe 路径读得准所以不会」——那句话太绝对，见 §5.1.1。）
+2. **`onlyStatic` 现在只装三类东西**：
+   - CLI 根本没枚举到的文件（`testDir` 之外、不匹配 `testMatch`、CLI 加载失败）；
+   - 动态用例的**模板**（扫描器读成 `dynamic ${n}`，CLI 报的是渲染后的 `dynamic alpha`）；
+   - 同一个位置上**标题读得不一样**的用例（极少；CE-C 修好之后基本不再发生）。
+3. **`onlyAuthoritative` 装的是 CLI 才知道的用例**：动态/参数化用例，以及
+   **表达式体回调**里的用例（扫描器无法知道 `describe('x', () => test(...))` 的块在哪里
+   结束，所以它读不到这个 describe 路径）。
+
+#### 回归用例
+
+`tools/ats202-probes/r2/r2-scope.mjs`（真实 CLI，5 个场景）与
+`tests/discovery-regressions.test.mjs` 的 CE-A/CE-B。S1/S2/S3 现在都是 OK：
+
+```
+[S1 describe title held in a variable]  OK -- agrees=true onlyStatic=[] onlyAuthoritative=[]
+[S2 describe title as a template literal] OK -- agrees=true onlyStatic=[] onlyAuthoritative=[]
+[S3 describe with a details object (tag)] OK -- agrees=true onlyStatic=[] onlyAuthoritative=[]
+[S4 describe with an expression-bodied callback] OK -- agrees=false onlyStatic=[] onlyAuthoritative=["tests/s.spec.ts expr inside expr"]
+[S5 describe.configure before plain cases] OK -- agrees=true onlyStatic=[] onlyAuthoritative=[]
+```
+
+S4 的 `onlyAuthoritative` 非空是**正确的**：那个用例在表达式体回调里，词法读取器
+读不到它属于哪个 describe 块，所以它只出现在权威索引里。
 
 ## 6. API 面
 
@@ -298,6 +405,7 @@ CE-A/CE-B，以及针对真实 CLI 的 IT-ATS202-012/013）。
 | IT | `IT-ATS202-012` … `IT-ATS202-017`（`tests/discovery-it.test.mjs`） | 第 1 轮复核的反例对**真实 CLI** 再验一遍 |
 | IT | `IT-ATS202-API-001` … `IT-ATS202-API-007`（`tests/discovery-api.test.mjs`） | 真实 HTTP：信任端点、模式切换、非法信任值被拒、强制请求被拒、信任跨重启保留、撤销后回退 |
 | IT | `IT-ATS202-API-008` … `IT-ATS202-API-009`（`tests/discovery-api.test.mjs`） | 可信项目显式要静态索引的结果码；**列举期间 Bridge 仍然应答** |
+| UT | `ATS202-ASYNC-001` … `ATS202-ASYNC-015`（`tests/discovery-async.test.mjs`） | **Bridge 真正走的异步列举路径**：成功、超时（子进程被杀）、CLI 崩溃、坏 JSON、报告带错误、无 CLI、无 root、两个变体答案一致、事件循环不被占住 |
 | 实测 | `tools/ats202-probes/list-ground-truth.mjs` | 真实 CLI 的 33 项契约断言（§2.3 与 §2.4 的每一行） |
 | 反例 | `docs/evidence/ATS-202/09-review-round1-probe.log` | 第 1 轮复核的 10 个反例探针，在返工后的树上跑，10/10 OK |
 
@@ -342,3 +450,29 @@ CE-A/CE-B，以及针对真实 CLI 的 IT-ATS202-012/013）。
   §4.5：两个索引必须读到**同一个标题**、**同一个位置**。
 - 「一致性的度量」——第一版的 `onlyStatic` 会装进两个索引都看到的用例。现在
   `onlyStatic` 只装 CLI 根本没枚举到的用例（§5.1）。
+
+## 10. 第 2 轮复核的返工
+
+第 2 轮复核确认第 1 轮的第 2–7 项已经落地，但指出**第 1 项没有完全达成**，
+并在返工改动的行上找出 4 个新问题（N1–N4）。
+
+| 编号 | 问题 | 根因 | 修法 | 回归用例 |
+|---|---|---|---|---|
+| N1 | 异步化之后**注册表条目丢失**：慢项目 A 列举期间，项目 B 写入的注册表条目被 A 整体写回的快照抹掉（B 的条目 2 → 0） | `server/index.mjs` 把 `store.uidRegistry` **整体**交给 `discoverTestsAsync`，`await` 数秒后再整体写回——写回的是 **await 之前的快照** | 只把**本项目**那一格合并进**当前的** `store.uidRegistry`，其它项目的格子保持原样 | `r2-race` 探针（真实 HTTP） |
+| N2 | **生产路径没有测试**：Bridge 真正走的 `listTestsAsync` / `spawnAsync` / `discoverTestsAsync` 一行都没被直接测过，`playwright-list.mjs` 的覆盖率掉到 85.60% | 第 1 轮的 IT 全测的是**同步**变体 | 新增 `tests/discovery-async.test.mjs`：用**假 Playwright CLI** 直接驱动异步路径，覆盖成功、超时（子进程被杀）、CLI 崩溃、坏 JSON、报告带错误、无 CLI、无 root、两个变体答案一致、事件循环不被占住 | `ATS202-ASYNC-001` … `015` |
+| N3 | `docs/23` §5.1 的保证「CLI 枚举到的用例永远不会出现在 `onlyStatic` 里」**不成立** | 保证的措辞过于绝对：词法读取器**不可能**知道运行时才构成的 describe 标题（S1 变量、S2 模板字面量），S3 的 details 对象还会提前开一个花括号 | 比较**实际匹配**的键改为 `matchKey`（文件 + **调用行** + 叶子标题），describe 路径只留作**可读键**；保证改写成结构性的（§5.2） | `r2-scope` 探针（真实 CLI，5 场景）、CE-A/CE-B |
+| N4 | 扫描器修正会让**含转义引号**的用例在升级时**一次性换静态 UID** | 旧扫描器把标题截成 `user\`，UID 从这个错误标题派生；那类用例**也没有执行体** | **只需写明**：影响范围、为什么不做迁移、要用 `@TC-xxx` 固定 UID（§4.5.1） | `r2-upgrade` 探针 |
+
+N1/N3 的修法都**先于**本轮开工就已经落在 `agent/m3/seikoist-163` 上（合并前的
+`282b0d1`）；本轮补上了 N2 的测试、N4 的文档，以及 N1/N3 的**回归用例**。
+
+### 10.1 第 2 轮之后**仍然不声称**的话
+
+- **不声称**「切换索引不改变已有 UID」是无条件的。成立条件见 §4.5，
+  **并且**升级时会有一次性的静态 UID 变化，见 §4.5.1。
+- **不声称**「CLI 枚举到的用例永远不会出现在 `onlyStatic` 里」是**词法**保证。
+  它现在是**结构性的**保证（§5.2 第 1 条），并且 `onlyStatic` 装的**三类**东西
+  已逐条写明。
+- **不声称**「列举期间 Bridge 一定不响应」。现在的实现是**异步**列举
+  （§6.2），实测列举期间 `/api/health` 的延迟是 17 ms；但这依赖
+  `spawn` + `await` 的实现，不是接口契约。

@@ -1,0 +1,3 @@
+[ASYNC-TIMEOUT-OUTCOME] OK -- outcome=PLAYWRIGHT_LIST_TIMEOUT reason="the listing did not finish within 1500ms" took=1519ms
+[ASYNC-TIMEOUT-KILLED] OK -- config-finished marker absent: the child was killed
+[SYNC-TIMEOUT-OUTCOME (reference)] OK -- outcome=PLAYWRIGHT_LIST_TIMEOUT

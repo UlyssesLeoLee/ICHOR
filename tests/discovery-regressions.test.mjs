@@ -27,7 +27,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { scanTestCases, deriveTestUid, normalizeTitleKey, bodyKeyOf, resolveIdentities } from '../server/uid.mjs';
-import { describePathAt, compareDiscoveries, staticCasesWithScope } from '../server/discovery/index.mjs';
+import { describePathAt, compareDiscoveries, staticCasesWithScope, caseKey, readBodies } from '../server/discovery/index.mjs';
 import { resolveAuthoritativeIdentities } from '../server/discovery/authoritative.mjs';
 import { TRUST, withTrust } from '../server/discovery/trust.mjs';
 import { discoverTests } from '../server/core.mjs';
@@ -78,14 +78,39 @@ test('CE-A: the consistency of the two indexes agrees on a closed describe', () 
   ].join('\n') });
   try {
     const statics = staticCasesWithScope(p.root, ['tests/a.spec.ts']);
+    // The CLI numbers the `test(` CALL, so the authoritative side carries
+    // the same line the scanner reports. The comparison matches on the
+    // POSITION (see `matchKey`), not on the describe path.
     const authoritative = [
-      { file: 'tests/a.spec.ts', describePath: ['group'], title: 'inside' },
-      { file: 'tests/a.spec.ts', describePath: [], title: 'after' }
+      { file: 'tests/a.spec.ts', describePath: ['group'], title: 'inside', line: 3 },
+      { file: 'tests/a.spec.ts', describePath: [], title: 'after', line: 5 }
     ];
     const c = compareDiscoveries(authoritative, statics);
     assert.equal(c.agrees, true, JSON.stringify(c));
     assert.deepEqual(c.onlyStatic, []);
     assert.deepEqual(c.onlyAuthoritative, []);
+  } finally {
+    fs.rmSync(p.root, { recursive: true, force: true });
+  }
+});
+
+test('CE-A: the case after the closed block carries NO describe path', () => {
+  // The readable key shows the describe path, so a case that is OUTSIDE the
+  // block must not carry the block's title -- otherwise the report says
+  // `group > after` while the CLI says `after`.
+  const p = fixture({ 'tests/a.spec.ts': [
+    "import { test } from '@playwright/test';",
+    "test.describe('group', () => {",
+    "  test('inside', async () => {});",
+    "});",
+    "test('after', async () => {});",
+    ''
+  ].join('\n') });
+  try {
+    const statics = staticCasesWithScope(p.root, ['tests/a.spec.ts']);
+    const after = statics.find((s) => s.title === 'after');
+    assert.ok(after, 'the case after the block is found');
+    assert.deepEqual(after.describePath, [], 'the closed block is not on its path');
   } finally {
     fs.rmSync(p.root, { recursive: true, force: true });
   }
@@ -129,13 +154,32 @@ test('CE-B: the consistency of the two indexes agrees on modified describes', ()
   try {
     const statics = staticCasesWithScope(p.root, ['tests/b.spec.ts']);
     const authoritative = [
-      { file: 'tests/b.spec.ts', describePath: ['serial group'], title: 's1' },
-      { file: 'tests/b.spec.ts', describePath: ['skipped group'], title: 'k1' }
+      { file: 'tests/b.spec.ts', describePath: ['serial group'], title: 's1', line: 3 },
+      { file: 'tests/b.spec.ts', describePath: ['skipped group'], title: 'k1', line: 6 }
     ];
     const c = compareDiscoveries(authoritative, statics);
     assert.equal(c.agrees, true, JSON.stringify(c));
     assert.deepEqual(c.onlyStatic, []);
     assert.deepEqual(c.onlyAuthoritative, []);
+  } finally {
+    fs.rmSync(p.root, { recursive: true, force: true });
+  }
+});
+
+test('CE-B: the describe MODIFIERS are part of the readable key', () => {
+  // The readable key (`caseKey`) shows the describe path, and a modified
+  // describe is a describe block as far as the CLI is concerned.
+  const p = fixture({ 'tests/b.spec.ts': [
+    "import { test } from '@playwright/test';",
+    "test.describe.serial('serial group', () => {",
+    "  test('s1', async () => {});",
+    "});",
+    ''
+  ].join('\n') });
+  try {
+    const statics = staticCasesWithScope(p.root, ['tests/b.spec.ts']);
+    assert.deepEqual(statics[0].describePath, ['serial group']);
+    assert.equal(caseKey(statics[0]), 'tests/b.spec.ts serial group s1');
   } finally {
     fs.rmSync(p.root, { recursive: true, force: true });
   }
@@ -154,6 +198,153 @@ test('CE-A: a brace inside a string does not close the describe block', () => {
   ].join('\n');
   assert.deepEqual(describePathAt(content, 3), ['group']);
   assert.deepEqual(describePathAt(content, 5), []);
+});
+
+/* ------------------------------------------------------------------ */
+/* N3: the describe block whose callback is not a plain arrow           */
+/* ------------------------------------------------------------------ */
+
+test('N3: a describe with a DETAILS object opens its scope at the CALLBACK body', () => {
+  // `describe('tagged', { tag: '@smoke' }, () => {...})` -- the details
+  // object opens a brace of its own, and it closes again right away. If
+  // the scope were tied to that brace, the block would be closed
+  // immediately and the case inside it would fall out of the path.
+  const content = [
+    "import { test } from '@playwright/test';",
+    "test.describe('tagged', { tag: '@smoke' }, () => {",
+    "  test('inside tagged', async () => {});",
+    "});",
+    "test('after tagged', async () => {});",
+    ''
+  ].join('\n');
+  assert.deepEqual(describePathAt(content, 3), ['tagged'], 'the case inside the block');
+  assert.deepEqual(describePathAt(content, 5), [], 'the case after the block');
+});
+
+test('N3: a describe whose callback takes an ARGUMENT still opens its scope', () => {
+  // `describe('group', (args) => {...})` -- the arrow is followed by a
+  // parameter list, so the body brace is not the next character.
+  const content = [
+    "import { test } from '@playwright/test';",
+    "test.describe('group', (fixture) => {",
+    "  test('inside', async () => {});",
+    "});",
+    "test('after', async () => {});",
+    ''
+  ].join('\n');
+  assert.deepEqual(describePathAt(content, 3), ['group']);
+  assert.deepEqual(describePathAt(content, 5), []);
+});
+
+test('N3: a describe whose callback is a FUNCTION EXPRESSION opens no scope', () => {
+  // A lexical reader cannot tell where a function expression's block ends,
+  // and a WRONG scope is worse than none: it would be a false difference
+  // in the consistency report.
+  const content = [
+    "import { test } from '@playwright/test';",
+    "test.describe('group', function () {",
+    "  test('inside', async () => {});",
+    "});",
+    ''
+  ].join('\n');
+  assert.deepEqual(describePathAt(content, 3), [], 'no scope is opened');
+});
+
+test('N3: a describe with a details object and an argument list opens its scope', () => {
+  // Both at once: the details object AND a parameter list.
+  const content = [
+    "import { test } from '@playwright/test';",
+    "test.describe('tagged', { tag: '@smoke' }, (fixture) => {",
+    "  test('inside tagged', async () => {});",
+    "});",
+    ''
+  ].join('\n');
+  assert.deepEqual(describePathAt(content, 3), ['tagged']);
+});
+
+test('N3: the describe scope survives a NESTED describe', () => {
+  // The inner block closes first; the outer one must survive it.
+  const content = [
+    "import { test } from '@playwright/test';",
+    "test.describe('outer', () => {",
+    "  test.describe('inner', () => {",
+    "    test('deep', async () => {});",
+    "  });",
+    "  test('shallow', async () => {});",
+    "});",
+    "test('after', async () => {});",
+    ''
+  ].join('\n');
+  assert.deepEqual(describePathAt(content, 4), ['outer', 'inner']);
+  assert.deepEqual(describePathAt(content, 6), ['outer']);
+  assert.deepEqual(describePathAt(content, 8), []);
+});
+
+test('N3: a describe with a COMMENT between the title and the callback opens its scope', () => {
+  // The reader skips the comment, so the arrow is still found.
+  const content = [
+    "import { test } from '@playwright/test';",
+    "test.describe('group', /* the callback */ () => {",
+    "  test('inside', async () => {});",
+    "});",
+    ''
+  ].join('\n');
+  assert.deepEqual(describePathAt(content, 3), ['group']);
+});
+
+test('N3: a describe whose title is a TEMPLATE LITERAL opens a scope with the RAW title', () => {
+  // The reader can see the template literal, but it cannot RENDER it: the
+  // CLI reports `area cart`, the reader reports `area ${area}`. The scope
+  // is still opened -- the case IS inside the block -- but the path differs
+  // from the CLI's, which is exactly why the comparison matches on the
+  // POSITION and not on the describe path (see docs/23 §5.2).
+  const content = [
+    "import { test } from '@playwright/test';",
+    "const area = 'cart';",
+    "test.describe(`area ${area}`, () => {",
+    "  test('adds', async () => {});",
+    "});",
+    "test('after', async () => {});",
+    ''
+  ].join('\n');
+  assert.deepEqual(describePathAt(content, 4), ['area ${area}'], 'the raw title, not the rendered one');
+  assert.deepEqual(describePathAt(content, 6), [], 'the case after the block');
+});
+
+test('N3: a describe whose title is a VARIABLE opens no scope', () => {
+  // The title lives in a variable, so there is no literal to read at all.
+  // No scope is opened -- a lexical reader cannot invent the title.
+  const content = [
+    "import { test } from '@playwright/test';",
+    "const suite = 'checkout';",
+    "test.describe(suite, () => {",
+    "  test('pays', async () => {});",
+    "});",
+    "test('after', async () => {});",
+    ''
+  ].join('\n');
+  assert.deepEqual(describePathAt(content, 4), [], 'no scope is opened');
+  assert.deepEqual(describePathAt(content, 6), []);
+});
+
+/* ------------------------------------------------------------------ */
+/* the files that cannot be read                                       */
+/* ------------------------------------------------------------------ */
+
+test('N3: a file that cannot be read is skipped, not fatal', () => {
+  // The static index is handed a list of files; one of them may be gone by
+  // the time it is read (a branch switch). The index must not fall over.
+  const p = fixture({ 'tests/ok.spec.ts': "import { test } from '@playwright/test';\ntest('ok', async () => {});\n" });
+  try {
+    const statics = staticCasesWithScope(p.root, ['tests/ok.spec.ts', 'tests/gone.spec.ts']);
+    assert.equal(statics.length, 1);
+    assert.equal(statics[0].title, 'ok');
+    const bodies = readBodies(p.root, ['tests/ok.spec.ts', 'tests/gone.spec.ts']);
+    assert.equal(bodies.size, 1);
+    assert.ok(bodies.has('tests/ok.spec.ts 2'));
+  } finally {
+    fs.rmSync(p.root, { recursive: true, force: true });
+  }
 });
 
 /* ------------------------------------------------------------------ */
