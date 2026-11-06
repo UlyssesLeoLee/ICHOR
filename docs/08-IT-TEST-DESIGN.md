@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：117；已执行通过：103；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：127；已执行通过：113；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -125,6 +125,16 @@
 |IT-SQL-005|NFR-010|回归|加入镜像后 Bridge 仍正常提供 API|GET /api/projects|200 且项目列表完整|node --test|PASS|
 |IT-SQL-006|NFR-010|异常|持锁超时后镜像恢复|另一进程持写锁超过镜像的 busy_timeout|锁释放后 Bridge 继续镜像，verify 退出码 0|node --test|PASS|
 |IT-SQL-CLEANUP|NFR-005|清理|元数据层 IT 子进程与夹清理|结束 IT suite|子进程退出，临时目录删除|node --test|PASS|
+|IT-LOCK-001|NFR-010|单实例|第二个 Bridge 被拒|A 服务中，B 用同一数据目录、不同端口启动|B 退出码 1 并报锁路径与持有者 pid；A 仍服务；锁文件不变|node --test|PASS|
+|IT-LOCK-002|NFR-010|并发|两个 Bridge 同时启动|同一新数据目录，重复 3 轮|每轮恰一个服务，另一个退出码 1|node --test|PASS|
+|IT-LOCK-003|NFR-008|恢复|强杀后接管且运行为 interrupted|运行中的 Bridge 被强杀|下一个 Bridge 接管陈旧锁；run=interrupted，复演一致|node --test|PASS|
+|IT-LOCK-004|NFR-010|正常|ATS_LOCK_WAIT_MS 等待取锁|A 持锁时启动 B（等待 20 秒），随后强杀 A|B 等待期间不服务，A 退出后 B 启动并持锁|node --test|PASS|
+|IT-LOCK-005|NFR-010|安全|锁被他人占用的 Bridge 停止|运行中把锁改写成他人的记录|Bridge 退出码 1，报 lost the data directory lock，不删他人的锁|node --test|PASS|
+|IT-LOCK-006|NFR-010|恢复|锁文件被删后重新取锁|运行中删除 bridge.lock|锁文件重现并记本 Bridge 的 pid，Bridge 仍服务|node --test|PASS|
+|IT-DATA-001|NFR-010|异常|损坏的状态文件拒绝启动|非 JSON / 零长度的 state.json|退出码 1，报 STATE_CORRUPT 与恢复步骤；文件不变；锁已释放|node --test|PASS|
+|IT-DATA-002|NFR-010|可靠性|写入中强杀不留残缺状态|循环保存的进程被强杀 12 次|每次 state.json 都是完整的一代；之后 Bridge 启动清理临时文件且镜像一致|node --test|PASS|
+|IT-WAL-001|NFR-010|恢复|事务中强杀后 WAL 只恢复已提交的行|50 行已提交在 WAL，另 50 行未提交时强杀|integrity_check=ok，已提交的 50 行在、未提交的不在|node --test|PASS|
+|IT-WAL-002|NFR-010|恢复|Bridge 隔离并重建损坏的镜像|metadata.db 为乱码|报 quarantined，保留损坏副本，重建的镜像与 state.json 一致|node --test|PASS|
 
 ## 进入与退出条件
 

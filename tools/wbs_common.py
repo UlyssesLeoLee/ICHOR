@@ -38,7 +38,8 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-205】', '【ATS-206】',
-           '【ATS-208】', '【ATS-212】', '【ATS-301】', '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】')
+           '【ATS-207】', '【ATS-208】', '【ATS-212】', '【ATS-301】', '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】',
+           '【ATS-601】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -106,6 +107,12 @@ NARRATIVE_FRAGMENTS = {
         'D6': '状态数据迁移 CLI 已实现（ATS-206：安全导入、备份与回滚；数量一致）',
         'D7': '迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；'
               '详见 docs/24-STATE-MIGRATION.md',
+    },
+    '【ATS-207】': {
+        'D6': '数据目录单实例锁与崩溃恢复已实现（ATS-207：原子抢锁、持有者校验、'
+              'state.json 落盘同步、损坏镜像隔离重建）',
+        'D7': '断电只以强杀进程模拟，未做真实掉电；桌面壳不显示占用提示；'
+              '详见 docs/06-DATA-DESIGN.md §5.7',
     },
     '【ATS-208】': {
         'D6': '执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，'
