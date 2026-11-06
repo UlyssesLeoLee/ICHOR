@@ -1,7 +1,7 @@
 === the retried case: counted once, every attempt kept ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
-commit    : 6dc311d
-branch    : agent/m3/seikoist-169-e6d7459e54e1
+repo root : /d/d/ats208-landing
+commit    : 981e2c7
+branch    : 
 node      : v24.19.0
 python    : Python 3.11.16
 
@@ -11,7 +11,7 @@ summary           : {"total":1,"passed":0,"failed":0,"flaky":1,"executions":2}
 summary.cases     : [{"title":"flaky case","file":"tests/flaky.spec.ts","status":"flaky","outcome":"flaky","duration":20,"error":"first attempt failed","attemptsCount":2,"attempts":[{"status":"failed","expectedStatus":null,"outcome":"unknown","retry":0,"duration":11,"error":"first attempt failed"},{"status":"passed","expectedStatus":null,"outcome":"unknown","retry":1,"duration":9,"error":""}]}]
 attempts          : [
   {
-    "uid": "att_1_c1cd366a6b85801b320e1e82",
+    "uid": "att_1_fa864280ee639a2fe27ac713",
     "retry": 0,
     "status": "failed",
     "caseStatus": "flaky",
@@ -19,7 +19,7 @@ attempts          : [
     "error": "first attempt failed"
   },
   {
-    "uid": "att_1_0f127d278268222608e22c3d",
+    "uid": "att_1_d3cb64a04df26656b2234549",
     "retry": 1,
     "status": "passed",
     "caseStatus": "flaky",
@@ -36,7 +36,7 @@ raw cases         : [{"title":"flaky case","file":"tests/flaky.spec.ts","line":1
 events            : [
   {
     "seq": 1,
-    "at": "2026-11-06T11:28:03.472Z",
+    "at": "2026-11-06T12:47:22.894Z",
     "type": "run.queued",
     "data": {
       "file": "tests/flaky.spec.ts",
@@ -45,16 +45,16 @@ events            : [
   },
   {
     "seq": 2,
-    "at": "2026-11-06T11:28:03.585Z",
+    "at": "2026-11-06T12:47:22.982Z",
     "type": "run.started",
     "data": {
-      "pid": 12424,
+      "pid": 19160,
       "runner": "playwright"
     }
   },
   {
     "seq": 3,
-    "at": "2026-11-06T11:28:03.669Z",
+    "at": "2026-11-06T12:47:23.089Z",
     "type": "run.finished",
     "data": {
       "status": "passed",

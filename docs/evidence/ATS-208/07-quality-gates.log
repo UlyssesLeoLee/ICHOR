@@ -1,12 +1,12 @@
 === the ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
-commit    : 6dc311d
-branch    : agent/m3/seikoist-169-e6d7459e54e1
+repo root : /d/d/ats208-landing
+commit    : 981e2c7
+branch    : 
 node      : v24.19.0
 python    : Python 3.11.16
 
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
+repo root : /d/d/ats208-landing
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 node      : v24.19.0
@@ -118,7 +118,7 @@ RESULT: OK
 
 --- 3. the hardcoded default port list in 16 §3.1 matches the source ---
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-e6d7459e54e1\worktree
+repo root : D:\d\ats208-landing
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
