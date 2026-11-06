@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,discoverTests,discoverTestsAsync,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath,verifyBridgeLock,lockWaitFromEnv,lockVerifyIntervalFromEnv,removeStateTempFiles,recoverMetadataMirror } from './core.mjs';
+import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,discoverTests,discoverTestsAsync,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath,verifyBridgeLock,lockWaitFromEnv,lockVerifyIntervalFromEnv,removeStateTempFiles,recoverMetadataMirror,dataDir } from './core.mjs';
 import { projectUidFor, projectUidOf, runUidFor, attemptUidFor, nextRunSeq, UID_SCHEME_VERSION } from './uid.mjs';
 // ATS-208: the unified execution model. The event vocabulary, the state
 // machine and the replay live in `server/execution/model.mjs`; the bridge
@@ -24,6 +24,23 @@ import {
   envStoreOf, profilesOfProject, findProfile, whitelistForProject,
   upsertProfile, removeProfile, setWhitelist, publicProfile, projectKeyOf,
 } from './env/store.mjs';
+// ATS-209: the evidence manifest, the content-addressed store and the
+// retention cleaner. The manifest is written when a run ends, the
+// verification answers whether the archived evidence still matches it, and
+// the retention policy decides which evidence may be cleaned -- and the
+// cleaner never touches the run records.
+import {
+  DEFAULT_RETENTION_DAYS, buildManifest, verifyEvidence,
+} from './evidence/manifest.mjs';
+import {
+  planRetention,
+} from './evidence/retention.mjs';
+import {
+  deduplicationReport, evidenceIndexOf, indexRunEvidence,
+} from './evidence/dedup.mjs';
+import {
+  linkToBlob, storeBlob, storeBytes, storeDirOf,
+} from './evidence/store.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const ROOT=path.resolve(HERE,'..');
@@ -389,8 +406,13 @@ function collectRunResults(run){
  // needed to reconcile the two spellings.
  const proj=store.projects.find(p=>p.id===run.projectId||p.uid===run.projectId||p.uid===run.projectUid);
  run.attempts=attemptsForRun({...run,projectRoot:proj?.root??null},rawSummary??run.summary,store.uidRegistry);
- run.artifacts=filesInRun(run.id).filter(x=>!['events.jsonl','stdout.log'].includes(x.file));
-}
+ // ATS-209: the artifacts are the EVIDENCE of the run. The event log and
+ // the raw output are the run's RECORD, and the manifest is the record OF
+ // the evidence -- so neither of them is an artifact. Keeping the three
+ // apart is what lets the cleaner remove the evidence while the record
+ // and the manifest survive.
+ run.artifacts=filesInRun(run.id).filter(x=>!['events.jsonl','stdout.log','manifest.json'].includes(x.file));
+ }
 function finishRun(run,code,signal){
  if(run.status!=='running'&&run.status!=='cancelling')return;
  const cancelled=run.status==='cancelling';
@@ -402,15 +424,51 @@ function finishRun(run,code,signal){
  run.status=terminalStatus;run.exitCode=code;run.finishedAt=now();
  const folder=runDir(run.id);
  collectRunResults(run);
- const manifest={version:1,runId:run.id,projectUid:run.projectUid||null,projectId:run.projectId,sourceCommit:run.gitCommit,runner:run.runner||'playwright',status:run.status,createdAt:run.startedAt,finishedAt:run.finishedAt,artifacts:run.artifacts,attempts:run.attempts};
+ // ATS-209: the MANIFEST is the archive's own record of what it holds.
+ //
+ // It is built from the run record and the folder's CONTENTS, so the same
+ // run and the same files always produce the same manifest -- which is
+ // what makes it verifiable. The v0.1 manifest was a literal with
+ // `version:1` and no evidence section: it listed the artifacts, but it
+ // did not say WHICH RUN the digests belonged to, and it carried no
+ // digest of the evidence set as a whole.
+ const manifest=buildManifest(run,folder);
  // ATS-212: the manifest names the environment profile the run ran under
  // and the NAMES of the variables it carried -- never their values. The
  // manifest is archived with the evidence, so a value does not travel with
  // it; the names say WHICH configuration was in effect.
  if(run.envUid)manifest.env={uid:run.envUid,name:run.envName||null,tier:run.envTier||null,variables:run.envVariables||[]};
  fs.writeFileSync(path.join(folder,'manifest.json'),JSON.stringify(manifest,null,2));
-  jobs.delete(run.id);saveState(store);
+ // ATS-209: the DEDUPLICATION index. The evidence of this run is recorded
+ // in the index, so the second run that produces the same bytes is
+ // recognised as a duplicate of the first.
+ const index=evidenceIndexOf(store);
+ indexRunEvidence(index,run,run.artifacts);
+ // ATS-209: the CONTENT-ADDRESSED STORE. The bytes of every evidence file
+ // are stored once, under their own digest, and the run's file becomes a
+ // hard link to the stored copy. The file is replaced ATOMICALLY (the link
+ // is created under a temporary name and renamed over the target), so a
+ // reader never sees a half-installed file.
+ //
+ // A file that cannot be stored or linked (a different volume, a file
+ // system without links, a file above the size limit) is left alone: the
+ // evidence is still archived and still verifiable, it is simply not
+ // deduplicated. The reason is recorded on the run rather than swallowed.
+ const storeDir=storeDirOf(dataDir());
+ const dedup={stored:0,linked:0,refused:[]};
+ for(const artifact of run.artifacts??[]){
+  const full=path.join(folder,artifact.file);
+  const stored=storeBlob(storeDir,full,artifact.sha256);
+  if(!stored.stored){if(stored.reason)dedup.refused.push({file:artifact.file,reason:stored.reason});continue;}
+  dedup.stored+=1;
+  const linked=linkToBlob(full,stored.path);
+  if(linked.linked)dedup.linked+=1;
+  else dedup.refused.push({file:artifact.file,reason:linked.reason});
  }
+ if(dedup.refused.length)run.dedupRefused=dedup.refused;
+ run.evidence=manifest.evidence;
+ jobs.delete(run.id);saveState(store);
+}
  function startRun(project,run,adapter,envProfile,envVariables){
    const folder=runDir(run.id);fs.mkdirSync(folder,{recursive:true});
    // ATS-208: the events are written BEFORE the status changes, so each
@@ -837,6 +895,60 @@ const server=http.createServer(async(req,res)=>{
    const file=u.searchParams.get('file'),actual=artifactPath(r.id,file);const type=mime[path.extname(actual)]||'application/octet-stream';
    res.writeHead(200,{'Content-Type':type,'Content-Disposition':`attachment; filename="${path.basename(actual).replace(/[^a-zA-Z0-9._-]/g,'_')}"`,'X-Content-Type-Options':'nosniff'});return fs.createReadStream(actual).pipe(res);
   }
+  // ATS-209: the VERIFICATION of the archived evidence.
+  //
+  // The answer recomputes the digest of every file the manifest lists and
+  // reports what does not match. It is a READ: nothing is written, nothing
+  // is repaired, and the answer is the honest one -- a file that was
+  // changed after the run was archived is reported as changed, with the
+  // digest it should have and the digest it has.
+  if(action==='evidence'&&req.method==='GET'){
+   const result=verifyEvidence(runDir(r.id));
+   return respond(res,200,{
+    runId:r.id,
+    verified:result.verified,
+    ok:result.ok,
+    checked:result.checked,
+    missing:result.missing,
+    changed:result.changed,
+    extra:result.extra,
+    reason:result.reason,
+    evidence:r.evidence??null,
+    manifestVersion:result.manifest?.version??null,
+   });
+  }
+  // ATS-209: the MANIFEST of a run, as it was written.
+  if(action==='manifest'&&req.method==='GET'){
+   const result=verifyEvidence(runDir(r.id));
+   if(!result.manifest)return err(res,404,'MANIFEST_NOT_FOUND',{reason:result.reason});
+   return respond(res,200,{runId:r.id,manifest:result.manifest});
+  }
+ }
+ // ATS-209: the RETENTION policy of the whole data directory.
+ //
+ // The plan is a READ: it says which runs are expired, how much space
+ // their evidence takes, and how much of it is stored twice. Nothing is
+ // removed by it.
+ if(p==='/api/evidence/retention'&&req.method==='GET'){
+  const days=u.searchParams.get('days');
+  const period=days===null?DEFAULT_RETENTION_DAYS:Number(days);
+  if(!Number.isFinite(period)||period<0)return err(res,400,'INVALID_RETENTION_PERIOD');
+  const plan=planRetention(store.runs,(run)=>runDir(run.id),{days:period});
+  return respond(res,200,{
+   days:period,
+   expired:plan.expired,
+   expiredCount:plan.expiredCount,
+   expiredBytes:plan.expiredBytes,
+   keptBytes:plan.keptBytes,
+   sharedBytes:plan.sharedBytes,
+   storeBytes:storeBytes(storeDirOf(dataDir())),
+  });
+ }
+ // ATS-209: the DEDUPLICATION report. It says which evidence content is
+ // stored more than once and how many bytes that wastes.
+ if(p==='/api/evidence/dedup'&&req.method==='GET'){
+  const report=deduplicationReport(evidenceIndexOf(store));
+  return respond(res,200,{...report,storeBytes:storeBytes(storeDirOf(dataDir()))});
  }
  if(p==='/api/diagnostics'&&req.method==='GET')return respond(res,200,{runtime:process.version,server:'Node.js bridge',platform:process.platform,pid:process.pid,environment:'local',limitations:['Local trusted repositories only','No process/container sandbox','No account/RBAC','AI provider not connected','WDIO adapter planned'],agentContract:{version:AGENT_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The agent contract is defined and enforced; no model provider is wired, so no agent request can reach a model.',writePolicy:'Agents produce diffs only; applying a diff, updating expected results and committing are platform-side operations performed after review.'},pluginContract:{version:PLUGIN_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The plugin contract, the permission list and the SDK operation surface are defined and enforced; no plugin host, loader or sandbox exists, so no plugin can be loaded or run.',grantPolicy:'A manifest declares permissions; the host grants them. The effective set is the declared set intersected with the host policy tier.',auditPolicy:'Every SDK call produces an audit event in the host sink, including the denied ones. The plugin cannot suppress it.',evidencePolicy:'The SHA-256 of an evidence reference is computed by the host resolver, never supplied by the plugin.'}});
  if(p==='/api/agent/contract'&&req.method==='GET')return respond(res,200,describeAgentContract());

@@ -1,0 +1,47 @@
+=== the ADR citation check ===
+tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-31f16410737a/worktree
+commit : 7381cbef1a88a2c3394ae1f3dac13dcfaf56fb87
+
+--- citations enumerated from the ADR ---
+  apps/studio/app/page.tsx         81
+  apps/studio/lib/api.ts           14
+  apps/studio/public/fallback.html 3
+  server/core.mjs                  1101, 762
+  server/index.mjs                 241, 47, 507-537, 521, 539, 550, 739, 979, 996, 997
+  src-tauri/Cargo.toml             11
+  src-tauri/src/lib.rs             19
+  start.ps1                        8-9
+  start.sh                         4
+  tools/generate_test_docs.py      329,335,431
+  tools/update_wbs_ats103.py       110,114
+
+ok   src-tauri/Cargo.toml:11
+ok   start.sh:4
+ok   start.ps1:8
+ok   start.ps1:9
+ok   tools/generate_test_docs.py:329
+ok   tools/generate_test_docs.py:335
+ok   tools/generate_test_docs.py:431
+ok   tools/update_wbs_ats103.py:110
+ok   tools/update_wbs_ats103.py:114
+ok   server/index.mjs:47
+ok   server/index.mjs:241
+ok   server/index.mjs:507
+ok   server/index.mjs:521
+ok   server/index.mjs:539
+ok   server/index.mjs:550
+ok   server/index.mjs:739
+ok   server/index.mjs:979
+ok   server/index.mjs:996
+ok   server/index.mjs:997
+ok   server/core.mjs:762
+ok   server/core.mjs:1101
+ok   server/index.mjs:507-537 (cancelRun extent)
+ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
+ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)
+ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
+ok   src-tauri/src/lib.rs:19 (the ATS_PORT environment default -- covered by the ATS-101 port audit)
+
+RESULT: OK
+
+exit code : 0
