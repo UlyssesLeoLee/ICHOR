@@ -2,7 +2,7 @@
 
 Source: `server/adapters/playwright-cli.mjs`
 
-Source-SHA256: `4167a216b046544f876b87c7a0fad111ce3a685618e5bf3a62256b493354d93a`
+Source-SHA256: `626c98c3a9915b68db0224c3d9808f552b20bfe51f7b99b89cdb0d9558652d9f`
 
 ## Responsibility
 

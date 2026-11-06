@@ -2,7 +2,7 @@
 
 Source: `tools/update_wbs_ats106.py`
 
-Source-SHA256: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+Source-SHA256: `d7eacb036b411ea4dabfc3886bdc3ad7ba8a5a0300032ba8f4b3dfadb7597486`
 
 ## Test Strategy
 

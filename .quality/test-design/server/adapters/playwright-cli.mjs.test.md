@@ -2,7 +2,7 @@
 
 Source: `server/adapters/playwright-cli.mjs`
 
-Source-SHA256: `4167a216b046544f876b87c7a0fad111ce3a685618e5bf3a62256b493354d93a`
+Source-SHA256: `626c98c3a9915b68db0224c3d9808f552b20bfe51f7b99b89cdb0d9558652d9f`
 
 ## Test Strategy
 
@@ -29,3 +29,5 @@ The 500-character limit is inclusive; `.` is allowed; Windows separators are nor
 ## Regression Scope
 
 ATS-301 option selection (`tests/adapters.test.mjs`, `tests/adapters-it.test.mjs`, `tests/adapters-engines.test.mjs`) and the ATS-101 B-01 regression (no `--screenshot`/`--video`).
+
+UT-ARG-008 pins the reason `the option <name> is not allowed` for `--config`, `-c`, `--project`, `--grep`, so the explicit option guard is tested even though the positional filter check would also refuse those tokens (mutation M2 of `tools/ats106-probes/mutation-tests.mjs`). M1 removes the leading `-` filter check.

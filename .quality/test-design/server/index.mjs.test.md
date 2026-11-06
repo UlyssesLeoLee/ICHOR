@@ -2,7 +2,7 @@
 
 Source: `server/index.mjs`
 
-Source-SHA256: `c8055b7bb9773c45f7cca6c9f0dfc6f3f8fbb02eab9eb236d7cd2147ed074f10`
+Source-SHA256: `3625e0b4ef2ba2834c50831d3517424f398865f18982d6822049ff50d3dbaf1a`
 
 ## Test Strategy
 
@@ -28,3 +28,5 @@ A preflight failure never leaves the project locked: the run is terminal (`error
 ## Regression Scope
 
 Whole `npm test` suite (run lifecycle, cancel, recovery, env profiles, adapter negotiation).
+
+Negative controls (`tools/ats106-probes/mutation-tests.mjs`): M5 removes the whitelist, M6 the preflight gate, M7 the route filter check; `tests/preflight-it.test.mjs` must fail for each.

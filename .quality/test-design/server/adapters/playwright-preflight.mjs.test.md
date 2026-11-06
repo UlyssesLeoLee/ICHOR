@@ -2,7 +2,7 @@
 
 Source: `server/adapters/playwright-preflight.mjs`
 
-Source-SHA256: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+Source-SHA256: `10167d971e2dd11d5e45fa521140fdd006e4a3d3fc60456225fbfed1a7a6eeaf`
 
 ## Test Strategy
 
@@ -26,6 +26,7 @@ Source-SHA256: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 | UT-PF-012 | darwin with a `revisionOverrides` entry for the host platform | the `<name>_<platform>_special-<rev>` folder is required | `tests/preflight.test.mjs` |
 | UT-PF-013 | `parseVersion` / `compareVersions` on `1.64.1`, `v1.2.3`, `1.2.3-beta.1`, `1.2`, `x` | `[1,64,1]`, `[1,2,3]`, `[1,2,3]`, `null`, `null`; ordering correct | `tests/preflight.test.mjs` |
 | UT-PF-014 | Several blocking problems at once (old version and a missing dependency) | both errors reported, in check order | `tests/preflight.test.mjs` |
+| UT-PF-015 | `playwright` package whose `exports` does not expose `package.json` | the dependency counts as present (`ok=true`) | `tests/preflight.test.mjs` |
 | CT-PF-001 | Real `@playwright/test` installation (`ATS_REAL_PLAYWRIGHT_PROJECT`, or `examples/sample-playwright` with `node_modules`) | `ok=true`, version read from the real package, default browsers found in the real registry; skipped with a reason when no real install exists | `tests/preflight-real.test.mjs` |
 
 ## Boundary & Failure Cases
@@ -35,3 +36,5 @@ Lower bound inclusive, upper bound exclusive; an unparseable version is a warnin
 ## Regression Scope
 
 The preflight runs on every Playwright run, so every existing run test (`tests/runner.test.mjs`, `tests/api.test.mjs`, `tests/execution-model-it.test.mjs`, the adapters/discovery/env suites) must keep passing with their test-double CLIs (no `package.json`, no `playwright-core`): those produce warnings only.
+
+`tests/preflight-real.test.mjs` CT-ARG-001 additionally runs the real CLI through `createPlaywrightAdapter().start()` on an offline two-spec project that borrows the real `node_modules` through a junction: exit 0, only `ok.spec.ts` in the report. Negative controls: `tools/ats106-probes/mutation-tests.mjs` removes the upper version bound (M3) and the dependency resolution (M4) on a temporary copy; `tests/preflight.test.mjs` must fail for each.
