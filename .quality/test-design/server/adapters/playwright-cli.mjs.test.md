@@ -2,7 +2,7 @@
 
 Source: `server/adapters/playwright-cli.mjs`
 
-Source-SHA256: `626c98c3a9915b68db0224c3d9808f552b20bfe51f7b99b89cdb0d9558652d9f`
+Source-SHA256: `4e080dbc226493cc776825a115f2ec19f07e52539c6b1cd0575745dc8443844f`
 
 ## Test Strategy
 
