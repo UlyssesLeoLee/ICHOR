@@ -152,12 +152,6 @@ header 08-adr-citations.log "ADR citation check" \
 python tools/check_adr_citations.py >> "$OUT/08-adr-citations.log" 2>&1
 echo "ADR_EXIT=$?" >> "$OUT/08-adr-citations.log"
 
-# --- 7. the repository build gate -----------------------------------------
-header 09-ci-build-gate.log "the repository 8-step build gate" \
-  "node tools/ci_build_gate.mjs"
-node tools/ci_build_gate.mjs >> "$OUT/09-ci-build-gate.log" 2>&1
-echo "GATE_EXIT=$?" >> "$OUT/09-ci-build-gate.log"
-
 # --- 8. the repository regression -----------------------------------------
 # `npm test` runs the test files in parallel. 14 of them boot a Bridge, and
 # booting 14 servers at once is slow: measured on this machine the boot takes
@@ -251,6 +245,16 @@ header 04-wbs-updater-regression.log \
   bash tools/ats501-probes/check-wbs-updaters.sh 2>&1
   echo "EXIT=$?"
 } >> "$OUT/04-wbs-updater-regression.log" 2>&1
+
+# --- 9. the repository build gate -----------------------------------------
+# The gate runs `npm test` itself, so it must NOT run while anything else is
+# running tests: two suites at once starve each other and a load-sensitive
+# latency assertion (IT-ATS202-API-009) goes red. The gate is the LAST step
+# of the collection for that reason.
+header 09-ci-build-gate.log "the repository 8-step build gate" \
+  "node tools/ci_build_gate.mjs"
+node tools/ci_build_gate.mjs >> "$OUT/09-ci-build-gate.log" 2>&1
+echo "GATE_EXIT=$?" >> "$OUT/09-ci-build-gate.log"
 
 # --- 10. the WBS row update (LAST: the regression above restores the sheet) --
 python tools/update_wbs_ats103.py --status 待审核 > /dev/null
