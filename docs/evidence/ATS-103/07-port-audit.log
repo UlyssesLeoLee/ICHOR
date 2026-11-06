@@ -1,6 +1,6 @@
 === ATS-103 evidence: ATS-101 hardcoded default-port audit ===
-date      : 2026-11-06T21:20:23Z (UTC)
-commit    : 9dd8a9326994b7f9ec1b52bb475d2cefa575a8ba
+date      : 2026-11-06T21:44:59Z (UTC)
+commit    : f955c23bbe7025a5fe35f1b5145f892e11c21b72
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats101-probes/scenario-d-port-audit.mjs
@@ -22,12 +22,12 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:5650  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:5716  "input": "Host=evil.example:4577",
-  tests/test-cases.json:7091  "input": "同 LAN 他机尝试访问 4577",
-  tools/generate_test_docs.py:329  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
-  tools/generate_test_docs.py:335  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
-  tools/generate_test_docs.py:431  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
+  tests/test-cases.json:5859  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:5925  "input": "Host=evil.example:4577",
+  tests/test-cases.json:7311  "input": "同 LAN 他机尝试访问 4577",
+  tools/generate_test_docs.py:348  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
+  tools/generate_test_docs.py:354  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
+  tools/generate_test_docs.py:451  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
   test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)
 total = 10
 

@@ -1,6 +1,6 @@
 === ATS-103 evidence: Next.js 16 static export build ===
-date      : 2026-11-06T21:20:23Z (UTC)
-commit    : 9dd8a9326994b7f9ec1b52bb475d2cefa575a8ba
+date      : 2026-11-06T21:44:59Z (UTC)
+commit    : f955c23bbe7025a5fe35f1b5145f892e11c21b72
 node      : v22.23.4
 npm       : 10.9.9
 command   : npm --prefix apps/studio ci --no-audit --no-fund && npm --prefix apps/studio run build
@@ -8,7 +8,7 @@ command   : npm --prefix apps/studio ci --no-audit --no-fund && npm --prefix app
 --- npm ci (apps/studio) ---
 attempt 1
 
-added 57 packages in 33s
+added 57 packages in 44s
 NPM_CI_EXIT=0
 
 --- next build ---
@@ -17,15 +17,15 @@ NPM_CI_EXIT=0
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 38ms
+✓ Running next.config.mjs took 67ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1716ms
+✓ Compiled successfully in 2.6s
   Running TypeScript ...
-  Finished TypeScript in 2.4s ...
+  Finished TypeScript in 3.3s ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 910ms
+✓ Generating static pages using 4 workers (3/3) in 1217ms
   Finalizing page optimization ...
 
 Route (app)
@@ -38,12 +38,11 @@ Route (app)
 BUILD_EXIT=0
 
 --- artefact ---
--rw-r--r-- 1 seiko 197610  7697 11月  7 06:21 apps/studio/out/404.html
--rw-r--r-- 1 seiko 197610 12927 11月  7 06:21 apps/studio/out/index.html
+-rw-r--r-- 1 seiko 197610  7697 11月  7 06:46 apps/studio/out/404.html
+-rw-r--r-- 1 seiko 197610 12927 11月  7 06:46 apps/studio/out/index.html
 
 --- git status of the two tracked files next build rewrites ---
 (the two lines above are empty: the rewrite is idempotent)
 
 --- git status of the whole worktree after the build ---
  M docs/evidence/ATS-103/02-next-static-export-build.log
- M docs/evidence/ATS-103/03-npm-test-regression.log

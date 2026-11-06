@@ -1,6 +1,6 @@
 === ATS-103 evidence: ADR citation check ===
-date      : 2026-11-06T21:20:23Z (UTC)
-commit    : 9dd8a9326994b7f9ec1b52bb475d2cefa575a8ba
+date      : 2026-11-06T21:44:59Z (UTC)
+commit    : f955c23bbe7025a5fe35f1b5145f892e11c21b72
 node      : v22.23.4
 npm       : 10.9.9
 command   : python tools/check_adr_citations.py
@@ -10,30 +10,30 @@ command   : python tools/check_adr_citations.py
   apps/studio/lib/api.ts           14
   apps/studio/public/fallback.html 3
   server/core.mjs                  1101, 762
-  server/index.mjs                 1001, 1002, 241, 47, 507-537, 521, 539, 550, 744, 984
+  server/index.mjs                 241, 47, 507-537, 521, 539, 550, 743, 980, 997, 998
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
   start.sh                         4
-  tools/generate_test_docs.py      329,335,431
+  tools/generate_test_docs.py      348,354,451
 
 ok   src-tauri/Cargo.toml:11
 ok   start.sh:4
 ok   start.ps1:8
 ok   start.ps1:9
-ok   tools/generate_test_docs.py:329
-ok   tools/generate_test_docs.py:335
-ok   tools/generate_test_docs.py:431
+ok   tools/generate_test_docs.py:348
+ok   tools/generate_test_docs.py:354
+ok   tools/generate_test_docs.py:451
 ok   server/index.mjs:47
 ok   server/index.mjs:241
 ok   server/index.mjs:507
 ok   server/index.mjs:521
 ok   server/index.mjs:539
 ok   server/index.mjs:550
-ok   server/index.mjs:744
-ok   server/index.mjs:984
-ok   server/index.mjs:1001
-ok   server/index.mjs:1002
+ok   server/index.mjs:743
+ok   server/index.mjs:980
+ok   server/index.mjs:997
+ok   server/index.mjs:998
 ok   server/core.mjs:762
 ok   server/core.mjs:1101
 ok   server/index.mjs:507-537 (cancelRun extent)
