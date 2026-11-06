@@ -256,10 +256,13 @@ test('UT-WDA-010: the generated WDIO config points the reporter at the run outpu
   assert.match(text, /specs: \[/);
 });
 
-test('UT-REG-001: the registry knows both runners', () => {
+test('UT-REG-001: the registry knows every runner', () => {
   const kinds = listRunners().map((r) => r.kind);
-  assert.deepEqual(kinds, ['playwright', 'wdio']);
+  // ATS-601 added the mobile runner: it is a THIRD adapter in the SAME
+  // registry, not a parallel one.
+  assert.deepEqual(kinds, ['playwright', 'wdio', 'mobile']);
   assert.equal(getAdapter('playwright').kind, 'playwright');
+  assert.equal(getAdapter('mobile').kind, 'mobile');
 });
 
 test('UT-REG-002: getAdapter rejects an unknown runner', () => {
@@ -273,7 +276,7 @@ test('UT-REG-002: getAdapter rejects an unknown runner', () => {
 
 test('UT-REG-003: the capability matrix reports every runner for a project', () => {
   const matrix = capabilityMatrix(pwProject);
-  assert.equal(matrix.length, 2);
+  assert.equal(matrix.length, 3);
   for (const entry of matrix) {
     assert.ok(Array.isArray(entry.capabilities));
     assert.ok(entry.capabilities.length > 0);
@@ -296,7 +299,10 @@ test('UT-REG-005: selectAdapter explains why every runner was rejected', () => {
     assert.fail('should have thrown');
   } catch (e) {
     assert.equal(e.code, 'NO_RUNNER_SUPPORTS_REQUEST');
-    assert.equal(e.details.rejected.length, 2);
+    // Every runner that was tried is reported, including the mobile one:
+    // a caller that cannot satisfy the request must be able to see that
+    // the mobile runner was considered and why it was not chosen.
+    assert.equal(e.details.rejected.length, 3);
     for (const r of e.details.rejected) {
       assert.ok(r.missing.length > 0);
       assert.ok(r.missing[0].reason.length > 0);
