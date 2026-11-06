@@ -1,17 +1,17 @@
 === the ATS-209 integration suite ===
 tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-31f16410737a/worktree
-commit : 6f704744741eabe51f33ccc00daceab914e17d86
+commit : 7381cbef1a88a2c3394ae1f3dac13dcfaf56fb87
 
-✔ IT-EVD-101: the bridge starts against an isolated data directory (432.1573ms)
-✔ IT-EVD-102: a finished run writes a manifest that names the run and its digests (270.6786ms)
-✔ IT-EVD-103: the verification reports an intact evidence set as verified (15.7216ms)
-✔ IT-EVD-104: a file that is tampered with after the run is reported as changed (15.2505ms)
-✔ IT-EVD-105: the manifest of a run is readable through the API (14.922ms)
-✔ IT-EVD-106: the retention plan and the deduplication report are available (30.3783ms)
-✔ IT-EVD-107: the cleaner refuses to run while the Bridge holds the directory (259.2636ms)
-✔ IT-EVD-108: the cleaning removes the evidence and keeps the run metadata (165.8842ms)
-✔ IT-EVD-109: the verification after the cleaning reports the missing evidence (79.4995ms)
-✔ IT-EVD-110: the temporary directory is removed (6.2561ms)
+✔ IT-EVD-101: the bridge starts against an isolated data directory (442.3429ms)
+✔ IT-EVD-102: a finished run writes a manifest that names the run and its digests (334.3823ms)
+✔ IT-EVD-103: the verification reports an intact evidence set as verified (3.5206ms)
+✔ IT-EVD-104: a file that is tampered with after the run is reported as changed (3.3805ms)
+✔ IT-EVD-105: the manifest of a run is readable through the API (2.6386ms)
+✔ IT-EVD-106: the retention plan and the deduplication report are available (23.7086ms)
+✔ IT-EVD-107: the cleaner refuses to run while the Bridge holds the directory (292.4518ms)
+✔ IT-EVD-108: the cleaning removes the evidence and keeps the run metadata (177.7405ms)
+✔ IT-EVD-109: the verification after the cleaning reports the missing evidence (82.774ms)
+✔ IT-EVD-110: the temporary directory is removed (7.3738ms)
 ℹ tests 10
 ℹ suites 0
 ℹ pass 10
@@ -19,6 +19,6 @@ commit : 6f704744741eabe51f33ccc00daceab914e17d86
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1389.32
+ℹ duration_ms 1477.8732
 
 exit code : 0
