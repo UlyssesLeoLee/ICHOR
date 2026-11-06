@@ -1,7 +1,7 @@
 === the ATS-212 row of docs/WBS.xlsx ===
-repo root : /d/ICHOR
-commit    : b00c3ca
-branch    : dev
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-f1e5e0e59271/worktree
+commit    : f50a774
+branch    : agent/m2/seikoist-170-f1e5e0e59271
 node      : v24.19.0
 python    : Python 3.11.16
 
@@ -9,11 +9,11 @@ C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-overview: 已完成=1 完成率=0.1696606786427146 剩余人日=416.0
-updated D:\ICHOR\docs\WBS.xlsx
+overview: 已完成=2 完成率=0.18762475049900196 剩余人日=407.0
+updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-f1e5e0e59271\worktree\docs\WBS.xlsx
 IDEMPOTENT: row ATS-212 unchanged
-overview: 已完成=1 完成率=0.1696606786427146 剩余人日=416.0
-updated D:\ICHOR\docs\WBS.xlsx
+overview: 已完成=2 完成率=0.18762475049900196 剩余人日=407.0
+updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-f1e5e0e59271\worktree\docs\WBS.xlsx
 IDEMPOTENT: a second run leaves row ATS-212 byte-identical
 verify: ATS-212 row 33 状态=待审核 完成率=1 剩余人日=0 marker×1
 verify: openpyxl loads the workbook in the normal and the data_only mode
