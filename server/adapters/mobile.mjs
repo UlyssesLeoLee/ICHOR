@@ -39,7 +39,9 @@ import {
   MOBILE_CAPABILITIES,
   MOBILE_REJECTION,
   MobileTargetError,
+  assertRegisteredSession,
   resolveSession,
+  sessionUsability,
 } from './mobile-target.mjs';
 
 /** The reason every engine capability carries: there is no driver yet. */
@@ -87,12 +89,19 @@ export function createMobileAdapter(opts = {}) {
     /**
      * The DEVICE layer (ATS-601). The capabilities come from the SESSION,
      * never from the target's declaration: a declaration is not a proof.
+     *
+     * A session that cannot be USED -- it is not attached, another run
+     * holds it, or it broke -- proves nothing at all. Such a session
+     * reports every capability as UNSUPPORTED with the reason, and never
+     * carries the "proved" evidence: a failed session that still claims
+     * to have proved `ui.hierarchy` would be a false piece of evidence.
      */
     device: {
       contractVersion: DEVICE_CONTRACT_VERSION,
       capabilities(context = {}) {
         const s = context.session ?? session;
-        const available = new Set(s && s.capabilities ? s.capabilities : []);
+        const usability = sessionUsability(s);
+        const available = usability.usable ? new Set(s.capabilities) : new Set();
         return MOBILE_CAPABILITIES.map((name) => (
           available.has(name)
             ? deviceCapability(name, true, {
@@ -100,8 +109,10 @@ export function createMobileAdapter(opts = {}) {
               detail: { sessionId: s.sessionId, targetId: s.targetId },
             })
             : deviceCapability(name, false, {
-              reason: `the session ${s ? s.sessionId : '(none)'} did not prove ${name}`,
-              detail: { sessionId: s ? s.sessionId : null },
+              reason: usability.usable
+                ? `the session ${s.sessionId} did not prove ${name}`
+                : `the session ${s ? s.sessionId : '(none)'} is not usable (${usability.reason})`,
+              detail: { sessionId: s ? s.sessionId : null, sessionState: s ? s.state : null },
             })
         ));
       },
@@ -136,25 +147,23 @@ export function createMobileAdapter(opts = {}) {
      * Resolve the session this adapter would run on.
      *
      * It applies the hard rules in order: the target must exist, the
-     * session must belong to it, the session must not be failed, the
-     * lease must not have expired, and the session must be one the user
-     * registered.
+     * session must belong to it, the session must be acquirable (a device
+     * that is connected and free), the lease must not have expired, the
+     * session must not claim more than its target declared, and the
+     * session must be one the user registered.
+     *
+     * The registration rule is the ONE rule of `assertRegisteredSession`
+     * -- there is no second implementation of it. An empty list, a
+     * missing list and a list that is not a list are all the same thing:
+     * no session was registered, so no session may be used.
      */
     resolveDevice({ now = new Date() } = {}) {
-      const t = target ?? opts.target ?? null;
-      const s = session ?? opts.session ?? null;
-      const registered = registeredSessionIds ?? opts.registeredSessionIds ?? [];
+      const t = target;
+      const s = session;
+      const registered = registeredSessionIds;
       const resolved = resolveSession(t, s, { now });
-      if (registered.length) {
-        // Only the sessions the user registered may be used.
-        if (!registered.includes(resolved.sessionId)) {
-          throw new MobileTargetError(
-            'MOBILE_SESSION_NOT_REGISTERED',
-            `session ${resolved.sessionId} is not registered by the user; the platform may not use it`,
-            { sessionId: resolved.sessionId, registered: [...registered] },
-          );
-        }
-      }
+      // Only the sessions the user registered may be used.
+      assertRegisteredSession(registered, resolved);
       return { target: t, session: resolved };
     },
 

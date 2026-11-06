@@ -143,6 +143,7 @@ test('UT-MOB-061: the device layer of the mobile adapter follows the SESSION', (
   const partial = defineSession({
     sessionId: 'ses_3',
     targetId: 'tgt_emulator_1',
+    state: SESSION_STATE.CREATED,
     capabilities: ['app.launch', 'ui.tap'],
   });
   const adapter = createMobileAdapter({ target, session: partial });
@@ -256,4 +257,156 @@ test('UT-MOB-070: the device contract is additive -- the existing adapters keep 
   assert.ok(names.includes('discover'));
   assert.ok(names.includes('trace'));
   assert.equal(names.includes('ui.tap'), false, 'a device capability leaked into the engine vocabulary');
+});
+
+/* ------------------------------------------------------------------ */
+/* The registration rule and the unusable session                      */
+/* ------------------------------------------------------------------ */
+
+test('UT-MOB-080: resolveDevice refuses a session when nothing was registered', () => {
+  // The registration rule is `assertRegisteredSession`, and an empty list
+  // means "the user registered nothing": no session may be used.
+  for (const [label, opts] of [
+    ['the list is omitted', { target, session }],
+    ['the list is empty', { target, session, registeredSessionIds: [] }],
+    ['the list is null', { target, session, registeredSessionIds: null }],
+    ['the list is a string', { target, session, registeredSessionIds: 'ses_1' }],
+  ]) {
+    assert.throws(() => createMobileAdapter(opts).resolveDevice(), (e) => {
+      assert.equal(e.code, 'MOBILE_SESSION_NOT_REGISTERED', label);
+      return true;
+    }, label);
+  }
+});
+
+test('UT-MOB-081: a registered session that is connected and free still resolves', () => {
+  // The control for UT-MOB-080: the rule refuses the UNREGISTERED
+  // session, not every session.
+  const adapter = createMobileAdapter({ target, session, registeredSessionIds: ['ses_1'] });
+  const r = adapter.resolveDevice();
+  assert.equal(r.session.sessionId, 'ses_1');
+  assert.equal(r.target.targetId, 'tgt_emulator_1');
+});
+
+test('UT-MOB-082: resolveDevice refuses a session that is not connected or is occupied', () => {
+  // The adapter path applies the same hard rules as `resolveSession`.
+  for (const [state, reason] of [
+    [SESSION_STATE.IDLE, 'device-not-connected'],
+    [SESSION_STATE.RUNNING, 'device-occupied'],
+  ]) {
+    const s = defineSession({
+      sessionId: 'ses_1',
+      targetId: 'tgt_emulator_1',
+      state,
+      capabilities: MOBILE_CAPABILITIES,
+    });
+    assert.throws(
+      () => createMobileAdapter({ target, session: s, registeredSessionIds: ['ses_1'] }).resolveDevice(),
+      (e) => {
+        assert.equal(e.code, MOBILE_REJECTION.TARGET_UNAVAILABLE);
+        assert.equal(e.details.reason, reason);
+        return true;
+      },
+      state,
+    );
+  }
+});
+
+test('UT-MOB-083: an unusable session proves nothing in the device layer', () => {
+  // A failed session proves NOTHING: reporting a capability as supported
+  // would carry the false evidence "the session ses_failed proved
+  // ui.hierarchy". Every capability is unsupported, with the reason.
+  const failed = defineSession({
+    sessionId: 'ses_failed',
+    targetId: 'tgt_emulator_1',
+    state: SESSION_STATE.FAILED,
+    error: 'adb: device offline',
+    capabilities: MOBILE_CAPABILITIES,
+  });
+  const adapter = createMobileAdapter({ target, session: failed });
+  const entries = adapter.device.capabilities({ session: failed });
+  for (const e of entries) {
+    assert.equal(e.supported, false, `${e.name} claims to be proved by a failed session`);
+    assert.equal(e.evidence, '', `${e.name} carries evidence it never had`);
+    assert.match(e.reason, /not usable/);
+    assert.match(e.reason, /failed/);
+  }
+  // And the same holds for a session that is not connected or occupied.
+  for (const state of [SESSION_STATE.IDLE, SESSION_STATE.RUNNING]) {
+    const s = defineSession({
+      sessionId: 'ses_x',
+      targetId: 'tgt_emulator_1',
+      state,
+      capabilities: MOBILE_CAPABILITIES,
+    });
+    for (const e of createMobileAdapter({ target, session: s }).device.capabilities({ session: s })) {
+      assert.equal(e.supported, false, `${e.name} claims to be proved by a ${state} session`);
+      assert.equal(e.evidence, '');
+    }
+  }
+});
+
+test('UT-MOB-084: negotiateWithDevice reports no device capability for a failed session', () => {
+  const failed = defineSession({
+    sessionId: 'ses_failed',
+    targetId: 'tgt_emulator_1',
+    state: SESSION_STATE.FAILED,
+    error: 'adb: device offline',
+    capabilities: MOBILE_CAPABILITIES,
+  });
+  const adapter = createMobileAdapter({ target, session: failed });
+  const negotiation = negotiateWithDevice(
+    adapter,
+    project,
+    { session: failed, requested: ['ui.hierarchy'] },
+    [],
+  );
+  assert.equal(negotiation.device.supported, false);
+  const missing = negotiation.device.missing.find((m) => m.name === 'ui.hierarchy');
+  assert.ok(missing, 'the missing device capability is not reported');
+  assert.equal(missing.evidence, '');
+});
+
+test('UT-MOB-085: the device layer of a session with no session at all is unsupported', () => {
+  const adapter = createMobileAdapter();
+  for (const e of adapter.device.capabilities({})) {
+    assert.equal(e.supported, false, `${e.name} claims to be proved without a session`);
+    assert.match(e.reason, /not usable/);
+  }
+});
+
+test('UT-MOB-086: the adapter describes itself with and without a target', () => {
+  // `describe()` reports the target kind and the session id when the
+  // adapter carries them, and null when it carries neither.
+  const withTarget = createMobileAdapter({ target, session }).describe();
+  assert.equal(withTarget.targetKind, target.kind);
+  assert.equal(withTarget.sessionId, 'ses_1');
+  const bare = createMobileAdapter().describe();
+  assert.equal(bare.targetKind, null);
+  assert.equal(bare.sessionId, null);
+});
+
+test('UT-MOB-087: the device layer follows the session it is given', () => {
+  // The context session wins over the adapter's own session: the caller
+  // asks about a specific device.
+  const own = defineSession({
+    sessionId: 'ses_own',
+    targetId: 'tgt_emulator_1',
+    state: SESSION_STATE.CREATED,
+    capabilities: ['app.launch'],
+  });
+  const asked = defineSession({
+    sessionId: 'ses_asked',
+    targetId: 'tgt_emulator_1',
+    state: SESSION_STATE.CREATED,
+    capabilities: ['ui.tap'],
+  });
+  const adapter = createMobileAdapter({ target, session: own });
+  const entries = adapter.device.capabilities({ session: asked });
+  const byName = new Map(entries.map((e) => [e.name, e]));
+  assert.equal(byName.get('ui.tap').supported, true, 'the asked session did not decide');
+  assert.equal(byName.get('app.launch').supported, false, 'the own session decided');
+  // Without a context session the adapter falls back to its own.
+  const fallback = adapter.device.capabilities({});
+  assert.equal(new Map(fallback.map((e) => [e.name, e])).get('app.launch').supported, true);
 });
