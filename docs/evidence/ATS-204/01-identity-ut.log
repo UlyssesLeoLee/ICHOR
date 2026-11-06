@@ -1,29 +1,32 @@
 === command ===
 node --test tests/identity.test.mjs
 === output ===
-✔ UT-ATS204-001: the UID survives a rename, and the old spelling is recorded as an alias (9.8544ms)
-✔ UT-ATS204-002: the UID survives a rename AND a retitle (5.8487ms)
-✔ UT-ATS204-003: an attempt of a renamed+retitled case is bound to the original UID (6.8043ms)
-✔ UT-ATS204-004: an attempt of a case whose file was renamed is bound to the original UID (5.5616ms)
-✔ UT-ATS204-005: a case that took over the old file name does NOT get the old UID (5.4428ms)
-✔ UT-ATS204-006: a body that two cases of the same run share identifies neither (0.1566ms)
-✔ UT-ATS204-007: an ambiguous title in the project binds nothing (0.1892ms)
-✔ UT-ATS204-008: a case that shares its title with another in the SAME file is bound by the body (0.1307ms)
-✔ UT-ATS204-009: the alias is used only when the body is unavailable (0.1238ms)
-✔ UT-ATS204-010: an explicit annotation always wins over the position (0.1688ms)
-✔ UT-ATS204-011: a duplicated explicit annotation binds neither case (0.0993ms)
-✔ UT-ATS204-012: a dynamic case keeps its UID when the template is re-worded (4.9413ms)
-✔ UT-ATS204-013: a template that GAINS a render reports the shift instead of guessing (3.6066ms)
-✔ UT-ATS204-014: the anchor names the position and the ordinal of a case (0.3559ms)
-✔ UT-ATS204-015: the two rows the CLI writes for one case in two projects are ONE case (0.5968ms)
-✔ UT-ATS204-016: the two attempts of a matrix case carry the SAME TestDefinition UID (3.8231ms)
-✔ UT-ATS204-017: the old lookup keeps its documented behaviour (3.7427ms)
-ℹ tests 17
+✔ UT-ATS204-001: the UID survives a rename, and the old spelling is recorded as an alias (9.4757ms)
+✔ UT-ATS204-002: the UID survives a rename AND a retitle (5.7223ms)
+✔ UT-ATS204-003: an attempt of a renamed+retitled case is bound to the original UID (6.4238ms)
+✔ UT-ATS204-004: an attempt of a case whose file was renamed is bound to the original UID (5.3979ms)
+✔ UT-ATS204-005: a case that took over the old file name does NOT get the old UID (6.0171ms)
+✔ UT-ATS204-006: a body that two cases of the same run share identifies neither (0.1932ms)
+✔ UT-ATS204-007: an ambiguous title in the project binds nothing (0.1928ms)
+✔ UT-ATS204-008: a case that shares its title with another in the SAME file is bound by the body (0.1099ms)
+✔ UT-ATS204-009: the alias is used only when the body is unavailable (0.1185ms)
+✔ UT-ATS204-010: an explicit annotation always wins over the position (0.1555ms)
+✔ UT-ATS204-011: a duplicated explicit annotation binds neither case (0.6808ms)
+✔ UT-ATS204-012: a dynamic case keeps its UID when the template is re-worded (4.3055ms)
+✔ UT-ATS204-013: a template that GAINS a render reports the shift instead of guessing (3.2561ms)
+✔ UT-ATS204-014: the anchor names the position and the ordinal of a case (0.2334ms)
+✔ UT-ATS204-015: the two rows the CLI writes for one case in two projects are ONE case (0.625ms)
+✔ UT-ATS204-016: the two attempts of a matrix case carry the SAME TestDefinition UID (3.2143ms)
+✔ UT-ATS204-018: a renamed case is bound by its body even though the position does not match (0.1047ms)
+✔ UT-ATS204-019: a positional hit whose body CONTRADICTS it does not bind, and says so (0.1113ms)
+✔ UT-ATS204-020: a positional hit whose body AGREES binds, and reports nothing (0.0536ms)
+✔ UT-ATS204-017: the old lookup keeps its documented behaviour (3.3469ms)
+ℹ tests 20
 ℹ suites 0
-ℹ pass 17
+ℹ pass 20
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 157.0942
+ℹ duration_ms 162.1006
 === exit code: 0 ===

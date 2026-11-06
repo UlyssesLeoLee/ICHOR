@@ -1,11 +1,17 @@
 === command ===
 bash -c git log --oneline -5; echo; git status --short
 === output ===
+b280cdb fix(ATS-204): 位置与执行体矛盾时，整个位置信号族都不得绑定
 b7afbf0 docs(ATS-204): 身份映射器设计书、WBS 行与证据脚本
 69ffcba feat(ATS-204): 身份映射器的运行级上下文与位置信号的边界
 9eb69bc feat(ATS-204): 锚点——动态用例在模板改写后保住 UID
 a74f10d feat(ATS-204): 身份映射器——按信号强度绑定运行结果与用例
-83c8bc5 chore(agent): baseline — the task worktree started here
 
-?? docs/evidence/ATS-204/
+ M docs/evidence/ATS-204/00-tree.log
+ M docs/evidence/ATS-204/01-identity-ut.log
+ M docs/evidence/ATS-204/02-uid-discovery-ut.log
+ M docs/evidence/ATS-204/03-execution-model-ut.log
+ M docs/evidence/ATS-204/04-node-test-full.log
+ M docs/evidence/ATS-204/08-cli-facts.log
+ M tools/ats204-probes/counterexample.sh
 === exit code: 0 ===

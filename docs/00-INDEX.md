@@ -42,6 +42,7 @@
 | tools/ats101-probes/ | 再現スクリプト | ATS-101 全部阻断项与约束清单的仓库内可重跑复现脚本（见 `docs/evidence/ATS-101/`） |
 | tools/ats201-probes/ | 再現スクリプト | ATS-201 稳定 UID 规范的可重跑验证脚本，含真实 Playwright 报告契约测试（见 `docs/evidence/ATS-201/`） |
 | tools/ats202-probes/ | 再現スクリプト | ATS-202 权威发现的真实 Playwright `--list` 契约测量（33 项断言，含「`--list` 会执行项目代码」这条安全事实，见 `docs/evidence/ATS-202/`） |
+| tools/ats204-probes/ | 再現スクリプト | ATS-204 身份映射器的可重跑验证脚本：真实 Playwright CLI 的事实测量（每个 project 一行 spec）、改动前的缺口、锚点、矩阵的两种报告形状，以及在改动前的树上的反例回归（见 `docs/evidence/ATS-204/`） |
 | tools/ats401-probes/ | 再現スクリプト | ATS-401 权限边界的仓库内可重跑复现脚本（权限边界探针 + 第 1 次复核反例回归探针，含负控，见 `docs/evidence/ATS-401/`） |
 | tools/ats501-probes/ | 検証スクリプト | ATS-501 远程协议契约的机读校验、负向夹具与 WBS 更新脚本的共存回归（见 `docs/evidence/ATS-501/`） |
 | tools/ats103-probes/ | 検証スクリプト | ATS-103 静态导出 → Bridge → 会话/项目/运行 全链的可重跑验证脚本（见 `docs/evidence/ATS-103/`） |

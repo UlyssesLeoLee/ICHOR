@@ -189,17 +189,41 @@ spec 按位置区分，同一位置的两行就是同一个逻辑用例在两个
 
 | 类别 | 用例 | 覆盖内容 |
 |---|---|---|
-| UT | `UT-ATS204-001` … `UT-ATS204-017`（`tests/identity.test.mjs`） | 改名保 UID、改名 + 改标题保 UID、运行侧绑定、旧证据不误关联、执行体共享不绑定、标题歧义不绑定、同文件同名靠指纹区分、别名只在指纹不可得时使用、显式标注优先、重复显式标注不绑定、锚点保住动态用例 UID、渲染数变化报位移、锚点的位置与次序、矩阵是一个用例、矩阵的两个 attempt 共享 UID |
+| UT | `UT-ATS204-001` … `UT-ATS204-020`（`tests/identity.test.mjs`） | 改名保 UID、改名 + 改标题保 UID、运行侧绑定、旧证据不误关联、执行体共享不绑定、标题歧义不绑定、同文件同名靠指纹区分、别名只在指纹不可得时使用、显式标注优先、重复显式标注不绑定、锚点保住动态用例 UID、渲染数变化报位移、锚点的位置与次序、矩阵是一个用例、矩阵的两个 attempt 共享 UID、改名用例靠执行体绑定、位置与执行体矛盾则不绑定、位置与执行体一致则绑定、既有查找行为不变 |
 | 实测 | `tools/ats204-probes/cli-facts.mjs` | 真实 CLI 的事实：每个 project 一行 spec、渲染标题与行号、describe 路径、spec id |
 | 实测 | `tools/ats204-probes/probe-gaps.mjs` | 改动前的缺口：改名 + 改标题的 attempt 是 `unbound` |
 | 实测 | `tools/ats204-probes/probe-anchor.mjs` | 锚点：模板改文案后 UID 不变；渲染数变化时报位移 |
 | 实测 | `tools/ats204-probes/probe-matrix.mjs` | 矩阵：两种报告形状给同一个答案 |
+| 反例 | `tools/ats204-probes/counterexample.sh` | 同一批用例在改动前的树（`83c8bc5`）上跑，**4 项失败** |
 
-执行：`npm test`（Node ≥ 22）。
+执行：`npm test`（Node ≥ 22）。全量 892 例：**881 通过 / 0 失败 / 11 跳过**
+（跳过的 11 项是仓库既有项：示例工程缺 fixture 依赖，与本任务无关）。
 
 **反例回归的可证伪性**：`tests/identity.test.mjs` 在改动前的树（`83c8bc5`）
 上实测有 **4 项失败**（UT-ATS204-003 / 012 / 013 / 015）——断言确实能抓住
-缺陷，不是恒真断言。
+缺陷，不是恒真断言。复现：`bash tools/ats204-probes/counterexample.sh`。
+
+### 8.1 证据索引
+
+`docs/evidence/ATS-204/` 下的每一份日志都由
+`tools/ats204-probes/collect-evidence.sh` 在当前的树上实际执行并原样捕获，
+因此该脚本就是证据的复现脚本。
+
+| 日志 | 内容 |
+|---|---|
+| `00-tree.log` | 采证据时的树（commit 与工作区状态） |
+| `01-identity-ut.log` | 身份映射器的 20 项 UT |
+| `02-uid-discovery-ut.log` | UID 与发现的既有 UT（未回归） |
+| `03-execution-model-ut.log` | 执行模型的既有 UT（矩阵的回归） |
+| `04-node-test-full.log` | 全量 892 例 |
+| `05-probe-gaps.log` | 本任务修好的缺口（改名 + 改标题的 attempt 由 unbound 变为按 body-key 绑定） |
+| `06-probe-anchor.log` | 锚点：模板改文案后 UID 不变；渲染数变化时报位移 |
+| `07-probe-matrix.log` | 矩阵：两种报告形状给同一个答案 |
+| `08-cli-facts.log` | 真实 CLI 的事实（真实 `@playwright/test` 1.64.1） |
+| `09-adr-citations.log` | ADR 引用门禁 |
+| `10-port-audit.log` | ATS-101 端口审计 |
+| `11-wbs-row.log` | WBS 行的定点更新与幂等性 |
+| `12-counterexample.log` | 同一批用例在改动前的树上的结果（4 项失败） |
 
 ## 9. 与既有设计的关系
 

@@ -185,18 +185,26 @@ export function bindReported({
   /* 1. the explicit annotation: the author wrote the uid down. */
   const explicit = extractExplicitUid(title);
   if (explicit) {
-    const owners = usable.filter((e) => e.uid === explicit);
-    // The token belongs to the case that carries it -- and to ONE case.
-    // Two cases of the SAME RUN carrying it means neither of them owns
-    // it: only the author can say which case it belongs to.
+    /*
+     * The token belongs to the case that carries it -- and to ONE case.
+     *
+     * The AUTHOR's statement decides, not the registry: the registry is
+     * the memory of the past cases, and a case the registry has not seen
+     * yet (a NEW case, the first time it is discovered) still owns the
+     * token it carries. So the token binds when ONE case of this run
+     * carries it.
+     *
+     * Two cases of the SAME RUN carrying it means NEITHER of them owns
+     * it: only the author can say which case it belongs to.
+     */
     const claimants = explicitCounts ? (explicitCounts.get(explicit) ?? 0) : 0;
-    if (owners.length === 1 && claimants <= 1) {
+    if (claimants <= 1) {
       return { uid: explicit, basis: 'explicit', candidates: 1 };
     }
     return {
       uid: null,
       basis: 'explicit-ambiguous',
-      candidates: Math.max(owners.length, claimants),
+      candidates: claimants,
       ambiguity: { reason: 'duplicate-explicit-uid', explicitUid: explicit },
     };
   }

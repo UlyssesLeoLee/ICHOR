@@ -1,7 +1,6 @@
 === command ===
 node tools/ats204-probes/cli-facts.mjs
 === output ===
---- installing the real @playwright/test ---
 --- 1. the list report ---
   the report lists 10 spec rows
   file=facts.spec.ts line=4 title="plain case" id=e2d071df40628f62d9aa-22a33c5b2ba004a151fd suites=["facts.spec.ts"]

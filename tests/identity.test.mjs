@@ -460,6 +460,21 @@ test('UT-ATS204-020: a positional hit whose body AGREES binds, and reports nothi
   assert.equal(hit.ambiguity, undefined, 'nothing is reported when the two agree');
 });
 
+test('UT-ATS204-021: a NEW case with an explicit token binds to it, registry or not', () => {
+  // The registry is the MEMORY of the past cases; the token is the
+  // AUTHOR's own statement about the case that carries it. A case the
+  // registry has not seen yet still owns the token it carries.
+  const hit = bindReported({
+    entries: [],
+    file: 'tests/a.spec.ts',
+    title: 'works @TC-001',
+    line: 3,
+    explicitCounts: new Map([['tc-001', 1]]),
+  });
+  assert.equal(hit.uid, 'tc-001', 'the token binds');
+  assert.equal(hit.basis, 'explicit');
+});
+
 test('UT-ATS204-017: the old lookup keeps its documented behaviour', () => {
   const p = makeProject();
   try {

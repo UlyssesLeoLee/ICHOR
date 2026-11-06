@@ -16,13 +16,23 @@ set -u
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT" || exit 1
 
+# The native `git` does NOT translate MSYS paths, so the repository has to
+# be named in the Windows form (`pwd -W`).
+NATIVE_ROOT="$(cd "$ROOT" && pwd -W)"
+
 BASE_COMMIT="83c8bc50447d8ce2edadf39362be4680c3658429"
-WORK="$(mktemp -d)"
+# The scratch directory has to be in the Windows form too: the native `git`
+# creates the clone there, and the shell cannot `cd` into an MSYS path that
+# does not exist on the Windows side.
+WORK="$(mktemp -d 2>/dev/null || mktemp -d -t ats204)"
+WORK="$(cd "$WORK" && pwd -W)"
+rm -rf "$WORK"
+mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
 echo "the tree before the task: $BASE_COMMIT"
-git clone --no-hardlinks --quiet "$ROOT" "$WORK/tree" 2>/dev/null || {
-  echo "the clone failed"
+git clone --no-hardlinks --quiet "$NATIVE_ROOT" "$WORK/tree" || {
+  echo "the clone of $NATIVE_ROOT failed"
   exit 1
 }
 cd "$WORK/tree" || exit 1
