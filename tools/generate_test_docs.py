@@ -10,6 +10,15 @@ UT=[
 ('UT-CORE-004','FR-001','异常','缺失 package.json','提供上级临时目录','抛 PROJECT_PACKAGE_JSON_REQUIRED','node --test','PASS'),
 ('UT-RUN-001','FR-009','异常','项目没有 Playwright CLI','node_modules 无 CLI','不自动安装，抛 PLAYWRIGHT_NOT_INSTALLED','node --test','PASS'),
 ('UT-RPT-001','FR-016','正常','报告摘要计数','JSON 含 expected/unexpected/skipped','总数3,通过1,失败1,跳过1','node --test','PASS'),
+('UT-QUAL-001','FR-016','正常','运行状态分组','passed/failed/cancelled/error/interrupted/queued/running/cancelling','verdict / inconclusive / inFlight 三组，未知状态归 inconclusive','node --test','PASS'),
+('UT-QUAL-002','FR-016','正常','取消的运行不算失败也不算通过','一次取消 + 一次失败','取消计入 cancelled；其用例归 inconclusive；通过率的分母不含取消','node --test','PASS'),
+('UT-QUAL-003','FR-016','正常','重试后通过的用例单列','一次 failed + 一次 passed 的 attempt','用例计入 flaky 而非 passed/failed；初次尝试的 failed 仍可见','node --test','PASS'),
+('UT-QUAL-004','FR-016','边界','未知状态不猜测','用例状态与运行状态各一个未知值','用例归 unknown、运行归 inconclusive，均不折成通过或失败','node --test','PASS'),
+('UT-QUAL-005','FR-016','正常','指标与 Bridge 报告的计数器对账','summary 与用例列表一致的运行','逐项一致，对账结论为一致','node --test','PASS'),
+('UT-QUAL-006','FR-016','异常','summary 与用例列表不一致时报告差异','summary 声称 1 通过 0 失败，列表里是一个失败用例','对账结论为不一致，且逐项指出差异','node --test','PASS'),
+('UT-QUAL-007','FR-016','正常','失败聚类按归一化后的签名','同一断言的两个实例（id/数字不同）','归一化后相同，聚为一类；不同错误类型不共享签名','node --test','PASS'),
+('UT-QUAL-008','FR-016','边界','ANSI 颜色码不改变签名','带色与不带色的同一错误','签名相同，且不含转义字符','node --test','PASS'),
+('UT-QUAL-009','FR-016','正常','跨运行维度识别不稳定用例','一个运行失败、另一个运行通过的同一用例','判为不稳定并单列；同名不同文件视为不同用例','node --test','PASS'),
 ('UT-CORE-005','NFR-005','清理','临时夹清理','准备好独立测试 fixture','测试后的临时夹可删除','node --test','PASS'),
 ('UT-CORE-006','FR-003','边界','忽略 node_modules 中测试','仓库含 node_modules/test.spec.ts','不出现在测试清单','设计用例，待自动化','PENDING'),
 ('UT-CORE-007','FR-004','边界','嵌套深度上限','超过 14 层的测试路径','安全终止扫描，不陷入递归','设计用例，待自动化','PENDING'),
@@ -511,6 +520,14 @@ IT+=[
 ('IT-CP-011','NFR-002','安全','控制面响应不含本地路径与本地 Token','逐条扫描本套件收集的全部控制面响应','不含本地数据目录、本地项目路径、示例仓库路径、家目录、本地 token','node --test','PASS'),
 ('IT-CP-012','FR-001','回归','本地 Bridge 仍按路径登记项目且控制面看不到','本地 POST /api/projects 示例仓库后查控制面列表','本地 201；控制面列表不含该项目','node --test','PASS'),
 ('IT-CP-013','NFR-002','安全','控制面拒绝与本地 Bridge 共用端口','ATS_CP_PORT 等于 ATS_PORT 启动控制面','退出码 2，stderr 点名 ATS_CP_PORT','node --test','PASS'),
+('IT-ATS602-API-001','FR-032','正常','移动端用例出现在 API 提供的目录里','真实 Bridge + 含 Flow 的夹具项目','目录里 web 用例与 4 个移动端用例都在，移动端用例是 TestDefinition','node --test','PASS'),
+('IT-ATS602-API-002','FR-032','正常','移动端用例带着步骤与引擎','读取目录里的某个移动端用例','带 engine、appId、tags 与步骤，断言是统一模型的断言','node --test','PASS'),
+('IT-ATS602-API-003','FR-032','安全','导入报告随目录一起提供','读取目录的 mobile 段','每个 Flow 一个报告，不支持步骤带原文与行号与原因','node --test','PASS'),
+('IT-ATS602-API-004','FR-032','正常','告警写明有步骤不受支持','读取目录的 warning','告警写明导入的用例数与不受支持的步骤数','node --test','PASS'),
+('IT-ATS602-API-005','FR-032','正常','两种语法产出同一种用例','同一项目里一个 YAML Flow 与一个线性 Flow','两者步骤种类相同且字段形状相同','node --test','PASS'),
+('IT-ATS602-API-006','FR-032','正常','移动端用例的 UID 跨 Bridge 重启稳定','重启 Bridge 后重新读取目录','移动端用例的 uid 集合与重启前一致','node --test','PASS'),
+('IT-ATS602-API-007','FR-032','安全','移动端用例的 UID 与 web 用例不冲突','读取整个目录','没有两个用例共用一个 uid','node --test','PASS'),
+('IT-ATS602-API-008','FR-032','正常','没有 Flow 的项目没有移动端用例','登记一个只有 web 用例的项目','移动端用例数为 0','node --test','PASS'),
 ('IT-CP-CLEANUP','NFR-005','清理','控制面 IT 子进程与夹清理','结束 IT suite','两个子进程退出，临时目录删除','node --test','PASS'),
 # --- ATS-205: the bridge writes the metadata mirror at runtime ---
 ('IT-SQL-001','NFR-010','正常','Bridge 启动并创建元数据数据库','隔离 ATS_DATA_DIR 启动 server/index.mjs','数据目录出现 metadata.db','node --test','PASS'),
@@ -618,6 +635,10 @@ ST+=[
 # --- ATS-207: system test with real Bridge processes and a real Playwright run ---
 ('ST-025','NFR-010','单实例','同一数据目录只允许一个 Bridge','真实 Bridge：A 服务时启动 B；两个 Bridge 同时启动','B 退出码 1 并报持有者；同时启动恰一个服务','node tools/ats207-probes/st-ats207.mjs','PASS'),
 ('ST-026','NFR-010','恢复','崩溃后损坏文件的处理','零长度 state.json；损坏的 metadata.db','前者拒绝启动且文件不变；后者隔离并由 state.json 重建，历史完整','node tools/ats207-probes/st-ats207.mjs','PASS'),
+('ST-027','FR-016','功能','质量概览：失败/重试/取消分开计数','真实 Bridge + 真实 Playwright：一次真实失败运行、一次真实重试后通过、一次真实停止','失败计入失败桶、重试用例计入 flaky 桶、停止的运行计入 cancelled 且不计入失败与通过率','node tools/ats216-probes/st-ats216.mjs','PASS'),
+('ST-028','FR-016','功能','质量概览：指标与原始结果可核对','同一批真实运行的 summary 与用例列表','逐项对账全部一致；对账结论由模块与探针独立复算两次','node tools/ats216-probes/st-ats216.mjs','PASS'),
+('ST-029','FR-016','功能','两个界面共用同一份质量指标实现','便携 UI 与 Next 工作台','两者都 import 同一模块；Bridge 以 JavaScript MIME 提供该模块','node tools/ats216-probes/st-ats216.mjs','PASS'),
+('ST-030','FR-016','可靠性','质量指标的实现被破坏时测试变红','对模块做 7 个变异（取消算失败、flaky 算通过、对账恒真、聚类常量、丢重试计数、留 ANSI 码、忽略 attempt 数）','每个变异都被 UT 或 ST 抓住，无一漏网','node tools/ats216-probes/mutation-check.mjs','PASS'),
 ]
 
 # --- ATS-601: the mobile target and session contract ---
@@ -726,6 +747,47 @@ UT+=[
 ('UT-MOB-092','FR-031','安全','设备层按调用方给出的目标判定','上下文目标与会话所属目标不同','该目标下不证明任何能力','node --test','PASS'),
 ('UT-MOB-093','FR-031','正常','目标声明了但会话没证明的能力仍报不支持','目标声明两项，会话只证明一项','已证明的那项支持，另一项理由为未证明','node --test','PASS'),
 ('UT-MOB-094','FR-031','异常','没有目标时设备层报不支持而不是抛错','适配器 target=null 且带会话','每条能力 supported=false、无证据、带理由','node --test','PASS'),
+('UT-MOB-200','FR-032','正常','Flow 的语法由扩展名决定','.yaml/.yml 为 YAML 声明，.flow 为线性声明','两种语法各自识别，其他扩展名不是 Flow','node --test','PASS'),
+('UT-MOB-201','FR-032','正常','YAML Flow 被读成场景与步骤','含 appId 与两个场景的 YAML 声明','读出 2 个场景、标签与每一步的命令与参数','node --test','PASS'),
+('UT-MOB-202','FR-032','正常','线性 Flow 被读成同一形状','含 app 与两个场景的线性声明','读出与 YAML 同形的场景与步骤','node --test','PASS'),
+('UT-MOB-203','FR-032','正常','两种语法产出同一组语义','同一场景分别用两种语法书写','步骤种类序列相同','node --test','PASS'),
+('UT-MOB-204','FR-032','正常','步骤的行号是它声明的那一行','步骤前有空行与注释','行号指向步骤所在行，不是外层键所在行','node --test','PASS'),
+('UT-MOB-205','FR-032','异常','没有场景的 Flow 被报告','只有 appId 的声明','零个场景且产生读取错误','node --test','PASS'),
+('UT-MOB-206','FR-032','异常','缩进坏掉的 Flow 被报告','同一列表里第二步缩进更深','产生带行号的读取错误','node --test','PASS'),
+('UT-MOB-207','FR-032','安全','锚点不被读成半个文档','使用 &anchor 的声明','报错误而不是读一半','node --test','PASS'),
+('UT-MOB-208','FR-032','正常','注释不进入声明','行尾带 # 注释','注释被剥离，声明内容不受影响','node --test','PASS'),
+('UT-MOB-209','FR-032','正常','步骤选项不被读成命令','步骤只带 label 键','命令是真正的步骤键，不是 label','node --test','PASS'),
+('UT-MOB-210','FR-032','安全','映射出的步骤种类都在 ATS-601 词表内','遍历语义表的全部种类','每个种类都在 ATS-601 的六类词表内','node --test','PASS'),
+('UT-MOB-211','FR-032','正常','命令的拼写不影响判定','launchApp/launch/launch_app/LAUNCHAPP','都判定为同一语义；无关命令判不出','node --test','PASS'),
+('UT-MOB-212','FR-032','安全','报告保留作者的原文','不支持的命令 NotACommand','raw 是作者写的那一行，command 是原拼写','node --test','PASS'),
+('UT-MOB-220','FR-032','正常','Flow 映射到统一用例模型','含两个场景的声明','产出 2 个用例，各带稳定 uid、文件与行号','node --test','PASS'),
+('UT-MOB-221','FR-032','正常','场景成用例、步骤成步骤','一个含四步的场景','用例带标题与标签，步骤按顺序映射','node --test','PASS'),
+('UT-MOB-222','FR-032','正常','步骤的断言进统一模型','assertVisible 步骤','断言是 {visible: 目标}','node --test','PASS'),
+('UT-MOB-223','FR-032','正常','两种语法映射到相同的步骤','同一场景的两种写法','种类、参数与断言完全相同','node --test','PASS'),
+('UT-MOB-224','FR-032','正常','未写 app 的启动步骤继承文件的 app','文件声明 appId，步骤只写 launchApp','步骤拿到该 app，场景也记录该 app','node --test','PASS'),
+('UT-MOB-225','FR-032','边界','没有名字的场景得到确定的标题','场景无 name','标题由位置派生，两次导入相同','node --test','PASS'),
+('UT-MOB-230','FR-032','安全','映射不了的步骤被保留而不是丢弃','场景含一个未知命令','步骤不在用例里，但进不支持清单，带原文与行号与原因','node --test','PASS'),
+('UT-MOB-231','FR-032','安全','静默丢弃的步骤会让测试失败','场景含三个步骤，其中两个不支持','声明数 = 已映射 + 已报告，无一步消失','node --test','PASS'),
+('UT-MOB-232','FR-032','异常','缺必需参数的步骤被报告','tapOn 没有任何参数','该步骤进不支持清单，原因点名缺 text','node --test','PASS'),
+('UT-MOB-233','FR-032','异常','没有命令的步骤被报告','步骤只带选项键','该步骤进不支持清单并带原文','node --test','PASS'),
+('UT-MOB-234','FR-032','安全','模型外的参数被保留并告警','步骤带一个未知参数','参数保留在步骤里并产生一条告警','node --test','PASS'),
+('UT-MOB-235','FR-032','正常','导入报告列出每个不支持步骤','一个不支持的步骤','报告给出原文、行号与原因','node --test','PASS'),
+('UT-MOB-240','FR-032','正常','切换导入方式不改变已有 UID','同一份声明导入两次','两次得到同一个 uid','node --test','PASS'),
+('UT-MOB-241','FR-032','正常','同一场景在两种语法下步骤指纹相同','同一场景的两种写法','步骤指纹相同，因此可被同一个注册表认回','node --test','PASS'),
+('UT-MOB-242','FR-032','正常','改标题后用例保住 UID','先导入再改标题重导入','uid 不变且 uidSource=registry','node --test','PASS'),
+('UT-MOB-243','FR-032','正常','显式 @TC- 标注优先于一切派生键','标题含 @TC-601','uid 是该标注，来源 explicit','node --test','PASS'),
+('UT-MOB-244','FR-032','边界','同名同步骤的两个用例被判为歧义','两个同名同步骤的场景','两个都是临时 uid 并报告歧义','node --test','PASS'),
+('UT-MOB-245','FR-032','边界','同名不同步骤的两个用例各保其 uid','两个同名但步骤不同的场景','两个 uid 不同且都稳定','node --test','PASS'),
+('UT-MOB-246','FR-032','边界','没有项目 UID 时不编造稳定标识','不带项目 UID 导入','uid 是临时的且 uidStable=false','node --test','PASS'),
+('UT-MOB-250','FR-032','正常','Flow 在约定目录下被发现','项目里有 flows/ 与 mobile/ 下的 Flow 与一个无关 YAML','只发现约定目录下的 Flow','node --test','PASS'),
+('UT-MOB-251','FR-032','正常','不是 Flow 的文件不被读取','flows/ 下放一个 .txt','该文件不进发现结果','node --test','PASS'),
+('UT-MOB-252','FR-032','安全','项目之外的 Flow 被拒绝','传入 ../outside.yaml','报 flow-outside-project 且零个用例','node --test','PASS'),
+('UT-MOB-253','FR-032','异常','读不出的 Flow 被报告而不是抛错','导入一个不存在的文件','报 flow-unreadable','node --test','PASS'),
+('UT-MOB-254','FR-032','异常','读不动的文档不产出用例也不抛异常','缩进坏掉的 Flow','该文档零个用例、错误被报告、ok=false','node --test','PASS'),
+('UT-MOB-255','FR-032','正常','导入报告给出文件名与计数','导入一个 Flow 文件','报告给出文件名、用例数与已映射步骤数','node --test','PASS'),
+('UT-MOB-260','FR-032','正常','移动端用例进入统一目录','项目里有一个 Flow 与一个 web 用例','目录里两种用例都在，移动端用例是 TestDefinition','node --test','PASS'),
+('UT-MOB-261','FR-032','正常','没有 Flow 的项目没有移动端用例','项目里只有 web 用例','移动端用例数为 0 且目录不含移动端字样','node --test','PASS'),
+('UT-MOB-262','FR-032','安全','不支持的步骤计入目录的告警','Flow 里有一个不支持的步骤','告警写明 1 个移动端步骤不受支持','node --test','PASS'),
 ]
 
 def emit(file,title,purpose,cases):
@@ -738,7 +800,7 @@ emit('08-IT-TEST-DESIGN.md','ATS-IT-001 結合テスト設計書','结合测试�
 emit('09-ST-TEST-DESIGN.md','ATS-ST-001 システムテスト設計書','系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。',ST)
 # ensure precise traceability coverage for all FR
 rtm=[]
-manual={'FR-001':'B01/UC-01','FR-002':'B01','FR-003':'B02','FR-004':'B02','FR-005':'UI-002','FR-006':'B03/UI-004','FR-007':'B03','FR-008':'B06/UI-003','FR-009':'B04','FR-010':'B04','FR-011':'B04','FR-012':'B05','FR-013':'B05/UI-005','FR-014':'B05','FR-015':'B05','FR-016':'B05','FR-017':'B07/UI-007','FR-018':'B05','FR-019':'B03','FR-020':'B06','FR-021':'P1 AST/CLI','FR-022':'P1 AST','FR-023':'P1 WDIO','FR-024':'P1 Agent','FR-025':'P1 Agent','FR-026':'P1 Graph','FR-027':'P1 Secret','FR-028':'P2 Remote','FR-029':'P2 Explore','FR-030':'P2 RBAC'}
+manual={'FR-001':'B01/UC-01','FR-002':'B01','FR-003':'B02','FR-004':'B02','FR-005':'UI-002','FR-006':'B03/UI-004','FR-007':'B03','FR-008':'B06/UI-003','FR-009':'B04','FR-010':'B04','FR-011':'B04','FR-012':'B05','FR-013':'B05/UI-005','FR-014':'B05','FR-015':'B05','FR-016':'B05/UI-011','FR-017':'B07/UI-007','FR-018':'B05','FR-019':'B03','FR-020':'B06','FR-021':'P1 AST/CLI','FR-022':'P1 AST','FR-023':'P1 WDIO','FR-024':'P1 Agent','FR-025':'P1 Agent','FR-026':'P1 Graph','FR-027':'P1 Secret','FR-028':'P2 Remote','FR-029':'P2 Explore','FR-030':'P2 RBAC'}
 for i in range(1,31):
  fid=f'FR-{i:03d}';cases=[x[0] for x in UT+IT+ST if x[1]==fid]
  # FR-021 is IMPLEMENTED as of ATS-202 (v0.2.0): the authoritative discovery
@@ -748,10 +810,25 @@ for i in range(1,31):
  # FR-027 is IMPLEMENTED as of ATS-212 (v0.2.0): the environment
  # profiles, the whitelist and the sealed runner environment are delivered,
  # with a measured boundary between the runner and the host environment.
+ # ATS-601/ATS-602 moved FR-031 (the target/session contract) and FR-032
+ # (the case model and the Flow import) from DESIGNED to PARTIAL: their
+ # CONTRACT layers are implemented and measured, while the real device
+ # execution is not. PARTIAL is not IMPLEMENTED -- the ST rows of those
+ # requirements are still PENDING.
  implemented=i<=20 or i in (21,27)
  rtm.append((fid,manual.get(fid,'P1/P2'),'、'.join(cases) or 'TBD', '部分实现' if fid in ['FR-004','FR-008','FR-014','FR-020'] else 'IMPLEMENTED' if implemented else 'DESIGNED'))
+for i in range(31,36):
+ fid=f'FR-{i:03d}';cases=[x[0] for x in UT+IT+ST if x[1]==fid]
+ # The mobile requirements (S6): the contract layers are implemented, the
+ # real device execution is not. PARTIAL says exactly that.
+ rtm.append((fid,'S6 移动端执行面','、'.join(cases) or 'TBD','PARTIAL' if i in (31,32) else 'DESIGNED / P1'))
 for i in range(1,13):
  fid=f'NFR-{i:03d}';cases=[x[0] for x in UT+IT+ST if x[1]==fid];rtm.append((fid,'NFR / SEC / OPS','、'.join(cases) or 'TBD','PARTIAL' if i in [1,2,4,7,10,11] else 'DESIGNED / P1' if i in [6,12] else 'IMPLEMENTED'))
+# ATS-602 also owns NFR-013 (the honesty of the environment declaration):
+# the requirement itself is ATS-605's, but the mobile layer it covers is
+# declared here.
+cases=[x[0] for x in UT+IT+ST if x[1]=='NFR-013']
+rtm.append(('NFR-013','S6 移动端执行面','、'.join(cases) or 'TBD','DESIGNED / P1'))
 lines=['# ATS-RTM-001 要件－設計－テスト追跡マトリクス','','> 关系依据 `02-REQUIREMENTS.md` → `03/04/05/06` 设计 → `07/08/09` UT/IT/ST。标为 IMPLEMENTED 代表代码能力，**不代表关联的 ST 已通过**。','','| 要件 ID | 设计定位 | UT / IT / ST 关联 | 代码或设计状态 |','|---|---|---|---|']
 lines+=['| '+' | '.join(r)+' |' for r in rtm]
 lines+=['','## 检查规则','','- 每一条 P0 Requirement 至少应有 1 条可执行测试；当前部分条目只具备设计而不具备已执行实机证据。','- 需求内容发生变化时，被关联测试需要标记 `review-required`；此检查由 P1 实现。','- 关联必须采用稳定 Requirement UID、TestCase UID，而不是测试标题或文件路径；样例 traceability 当前属于演示形式。','']

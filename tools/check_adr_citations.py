@@ -132,9 +132,9 @@ EXPECTED = {
         9: "Start-Process 'http://127.0.0.1:",
     },
     'tools/generate_test_docs.py': {
-            348: "'localhost:3000 + ",
-            354: "'Host=evil.example:",
-            451: '同 LAN 他机尝试访问 ',
+            357: "'localhost:3000 + ",
+            363: "'Host=evil.example:",
+            460: '同 LAN 他机尝试访问 ',
         },
         # The ATS-103 WBS updater used to mention the port inside a NOTE
         # TEXT (the value never took effect), and the ADR cited that line.
@@ -173,7 +173,7 @@ PORT_AUDITED = {
     # RUNTIME port hardcodings: the audit validates each of these positions
     # against the source.
     'apps/studio/lib/api.ts': {14: 'the API base URL'},
-    'apps/studio/app/page.tsx': {81: 'the workbench footer text'},
+    'apps/studio/app/page.tsx': {116: 'the workbench footer text'},
     'apps/studio/public/fallback.html': {3: 'the portable UI footer text'},
     'src-tauri/src/lib.rs': {19: 'the ATS_PORT environment default'},
 }
