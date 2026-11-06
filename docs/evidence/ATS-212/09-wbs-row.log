@@ -1,6 +1,6 @@
 === the ATS-212 row of docs/WBS.xlsx ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fbfa95f55f8a/worktree
-commit    : 5bf6d21
+commit    : 4bf2d20
 branch    : agent/m2/seikoist-170-fbfa95f55f8a
 node      : v24.19.0
 python    : Python 3.11.16
@@ -11,7 +11,7 @@ C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl
   warn(msg)
 overview: 已完成=1 完成率=0.14970059880239517 剩余人日=426.0
 updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-fbfa95f55f8a\worktree\docs\WBS.xlsx
-IDEMPOTENT: row ATS-212 unchanged
+CHANGED (first run applied the update)
 overview: 已完成=1 完成率=0.14970059880239517 剩余人日=426.0
 updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-fbfa95f55f8a\worktree\docs\WBS.xlsx
 IDEMPOTENT: a second run leaves row ATS-212 byte-identical
