@@ -1,12 +1,12 @@
 === the ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-b0b41f101946/worktree
-commit    : 46ff55a
-branch    : agent/m2/seikoist-170-b0b41f101946
+repo root : /tmp/multica-task-2307562344/ats212-work/merge-dev
+commit    : 6f8897d
+branch    : 
 node      : v24.19.0
 python    : Python 3.11.16
 
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-b0b41f101946/worktree
+repo root : /tmp/multica-task-2307562344/ats212-work/merge-dev
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 node      : v24.19.0
@@ -23,6 +23,7 @@ PASS 【ATS-102】 is idempotent
 PASS 【ATS-103】 is idempotent
 PASS 【ATS-201】 is idempotent
 PASS 【ATS-202】 is idempotent
+PASS 【ATS-204】 is idempotent
 PASS 【ATS-205】 is idempotent
 PASS 【ATS-206】 is idempotent
 PASS 【ATS-207】 is idempotent
@@ -45,6 +46,8 @@ PASS update_wbs_ats201.py declares exactly one marker
 PASS 【ATS-201】 (from update_wbs_ats201.py) is registered in MARKERS
 PASS update_wbs_ats202.py declares exactly one marker
 PASS 【ATS-202】 (from update_wbs_ats202.py) is registered in MARKERS
+PASS update_wbs_ats204.py declares exactly one marker
+PASS 【ATS-204】 (from update_wbs_ats204.py) is registered in MARKERS
 PASS update_wbs_ats205.py declares exactly one marker
 PASS 【ATS-205】 (from update_wbs_ats205.py) is registered in MARKERS
 PASS update_wbs_ats206.py declares exactly one marker
@@ -77,7 +80,7 @@ all checks passed
   apps/studio/app/page.tsx         81
   apps/studio/lib/api.ts           14
   apps/studio/public/fallback.html 3
-  server/core.mjs                  1093, 762
+  server/core.mjs                  1101, 762
   server/index.mjs                 224, 30, 449-479, 463, 481, 492, 681, 867, 884, 885
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
@@ -106,7 +109,7 @@ ok   server/index.mjs:867
 ok   server/index.mjs:884
 ok   server/index.mjs:885
 ok   server/core.mjs:762
-ok   server/core.mjs:1093
+ok   server/core.mjs:1101
 ok   server/index.mjs:449-479 (cancelRun extent)
 ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)
@@ -118,7 +121,7 @@ RESULT: OK
 
 --- 3. the hardcoded default port list in 16 §3.1 matches the source ---
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-b0b41f101946\worktree
+repo root : C:\Users\seiko\AppData\Local\Temp\multica-task-2307562344\ats212-work\merge-dev
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
@@ -134,9 +137,9 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:4913  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:4979  "input": "Host=evil.example:4577",
-  tests/test-cases.json:6244  "input": "同 LAN 他机尝试访问 4577",
+  tests/test-cases.json:5166  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:5232  "input": "Host=evil.example:4577",
+  tests/test-cases.json:6497  "input": "同 LAN 他机尝试访问 4577",
   tools/generate_test_docs.py:290  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
   tools/generate_test_docs.py:296  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
   tools/generate_test_docs.py:382  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),

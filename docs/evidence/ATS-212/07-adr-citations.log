@@ -1,7 +1,7 @@
 === the ADR citation check ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-b0b41f101946/worktree
-commit    : 46ff55a
-branch    : agent/m2/seikoist-170-b0b41f101946
+repo root : /tmp/multica-task-2307562344/ats212-work/merge-dev
+commit    : 6f8897d
+branch    : 
 node      : v24.19.0
 python    : Python 3.11.16
 
@@ -9,7 +9,7 @@ python    : Python 3.11.16
   apps/studio/app/page.tsx         81
   apps/studio/lib/api.ts           14
   apps/studio/public/fallback.html 3
-  server/core.mjs                  1093, 762
+  server/core.mjs                  1101, 762
   server/index.mjs                 224, 30, 449-479, 463, 481, 492, 681, 867, 884, 885
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
@@ -38,7 +38,7 @@ ok   server/index.mjs:867
 ok   server/index.mjs:884
 ok   server/index.mjs:885
 ok   server/core.mjs:762
-ok   server/core.mjs:1093
+ok   server/core.mjs:1101
 ok   server/index.mjs:449-479 (cancelRun extent)
 ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)

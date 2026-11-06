@@ -1,7 +1,7 @@
 === the whitelist filters the runner environment, not only the write ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-b0b41f101946/worktree
-commit    : 46ff55a
-branch    : agent/m2/seikoist-170-b0b41f101946
+repo root : /tmp/multica-task-2307562344/ats212-work/merge-dev
+commit    : 6f8897d
+branch    : 
 node      : v24.19.0
 python    : Python 3.11.16
 
