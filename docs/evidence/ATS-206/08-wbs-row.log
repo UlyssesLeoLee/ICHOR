@@ -1,6 +1,6 @@
 === the ATS-206 row of docs/WBS.xlsx ===
 repo root : /d/tmp/ats206-merge
-commit    : 708b021
+commit    : fd98143
 branch    : ats206-merge
 node      : v24.19.0
 python    : Python 3.11.16

@@ -1,6 +1,6 @@
 === the WBS updater interaction regression (13 updaters) ===
 repo root : /d/tmp/ats206-merge
-commit    : 708b021
+commit    : fd98143
 branch    : ats206-merge
 node      : v24.19.0
 python    : Python 3.11.16

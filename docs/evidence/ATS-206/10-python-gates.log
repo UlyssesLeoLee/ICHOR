@@ -1,6 +1,6 @@
 === the python gates under tools/ ===
 repo root : /d/tmp/ats206-merge
-commit    : 708b021
+commit    : fd98143
 branch    : ats206-merge
 node      : v24.19.0
 python    : Python 3.11.16
@@ -16,7 +16,7 @@ tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
     warn(msg)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-42 passed, 2 warnings in 1.58s
+42 passed, 2 warnings in 1.51s
 
 exit code : 0
 
