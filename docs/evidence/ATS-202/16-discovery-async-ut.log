@@ -1,0 +1,27 @@
+=== command ===
+node --test tests/discovery-async.test.mjs
+=== output ===
+✔ ATS202-ASYNC-001: the async listing reports the cases of the project (204.6589ms)
+✔ ATS202-ASYNC-002: the async and the sync listing give the SAME answer (188.9058ms)
+✔ ATS202-ASYNC-003: a listing that does not finish in time is a TIMEOUT (1230.4921ms)
+✔ ATS202-ASYNC-004: the CLI that dies before it writes a report is a FAILURE (103.2769ms)
+✔ ATS202-ASYNC-005: a report that is not valid JSON is a FAILURE (94.1728ms)
+✔ ATS202-ASYNC-006: a report that carries errors is a FAILURE, not an empty index (100.161ms)
+✔ ATS202-ASYNC-007: a project with NO local Playwright CLI is reported, not installed (7.3592ms)
+✔ ATS202-ASYNC-008: a project with NO root is reported (0.1635ms)
+✔ ATS202-ASYNC-009: the default timeout is the documented one (0.1168ms)
+✔ ATS202-ASYNC-010: the async discovery of a TRUSTED project is authoritative (96.1933ms)
+✔ ATS202-ASYNC-011: the async discovery of an UNTRUSTED project never runs --list (7.7631ms)
+✔ ATS202-ASYNC-012: a TRUSTED project that asks for the static index is not told it is untrusted (7.6684ms)
+✔ ATS202-ASYNC-013: a listing that FAILS falls back to the static index and says why (97.3796ms)
+✔ ATS202-ASYNC-014: the async discovery and the sync discovery agree (266.1647ms)
+✔ ATS202-ASYNC-015: the async listing does not block the event loop (116.9835ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2639.7897
+=== exit code: 0 ===
