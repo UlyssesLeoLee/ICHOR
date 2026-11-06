@@ -15,6 +15,9 @@ import { AGENT_CONTRACT_VERSION,describeAgentContract,validateAgentRequest } fro
 import { PLUGIN_CONTRACT_VERSION,describePluginContract,validatePluginManifest,resolvePluginPermissions } from './plugins/contract.mjs';
 import { capabilityMatrix,getAdapter,listRunners,selectAdapter,selectAdapterOrThrow , negotiationFailure} from './adapters/registry.mjs';
 import { AdapterError } from './adapters/contract.mjs';
+// ATS-106: the run preflight and the test filter check (docs/26-RUNNER-PREFLIGHT.md).
+import { preflightPlaywright } from './adapters/playwright-preflight.mjs';
+import { assertSafeTestFilter } from './adapters/playwright-cli.mjs';
 // ATS-212: the environment profiles. A profile is a named, project-scoped
 // set of environment variables; the run carries the profile it ran under
 // and the runner receives the SEALED environment (the profile's variables
@@ -30,6 +33,8 @@ const ROOT=path.resolve(HERE,'..');
 const PORT=Number(process.env.ATS_PORT||4577);
 const TOKEN=crypto.randomBytes(24).toString('hex');
 const jobs=new Map();
+// ATS-106: the only fields a run request may carry.
+const RUN_REQUEST_FIELDS=new Set(['file','capabilities','runner','env']);
 // The data directory is locked for the whole lifetime of the Bridge. The
 // migration script (tools/migrate_uids.mjs) rewrites the state file AND
 // renames the run folders; a Bridge that is running at that moment would
@@ -354,6 +359,20 @@ function finishRun(run,code,signal){
    // With no profile the environment is still SEALED: the base keys and
    // nothing else. The host's variables do not reach the runner either way.
    const sealedEnv=buildRunnerEnv(envProfile??{variables:{}});
+   // ATS-106: the preflight of a Playwright run (docs/26-RUNNER-PREFLIGHT.md).
+   // It reads the project's installation from the file system -- with the
+   // SEALED environment, so the browser registry it checks is the one the
+   // child will use -- and a blocking problem ends the run in `error` with a
+   // deterministic code and a fix hint. The engine is never spawned then.
+   if(run.runner==='playwright'){
+    const preflight=preflightPlaywright(project.root,{env:sealedEnv});
+    run.preflight=preflight;
+    if(!preflight.ok){
+     const first=preflight.errors[0];
+     writeEvent(run,EVENT_TYPE.ERROR,{error:first.code,hint:first.hint,preflight});
+     run.status=RUN_STATUS.ERROR;run.error=first.code;run.errorHint=first.hint;run.finishedAt=now();saveState(store);return;
+    }
+   }
    try{handle=adapter.start({project,run,file:run.file,outputDir:folder,env:sealedEnv});}
   catch(e){
    writeEvent(run,EVENT_TYPE.ERROR,{error:e.message});
@@ -563,7 +582,13 @@ const server=http.createServer(async(req,res)=>{
   if(action==='source'&&req.method==='PUT'){const b=await body(req);return respond(res,200,writeSource(project,b.file,b.content,b.baseHash));}
   if(action==='run'&&req.method==='POST'){
    if(store.runs.some(x=>x.projectId===project.id&&['running','queued','cancelling'].includes(x.status)))throw new Error('PROJECT_ALREADY_RUNNING');
-   const b=await body(req),file=b.file||null;if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');if(file)readSource(project,file);
+   const b=await body(req),file=b.file||null;
+   // ATS-106: the run request carries only these fields. Anything else --
+   // `config`, `project`, `grep`, `args` -- is REFUSED, not ignored: a caller
+   // that sent `config` must not believe it took effect.
+   const rejected=Object.keys(b&&typeof b==='object'&&!Array.isArray(b)?b:{}).filter(k=>!RUN_REQUEST_FIELDS.has(k));
+   if(rejected.length)return err(res,400,'RUN_PARAMETER_NOT_ALLOWED',{rejected});
+   if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');if(file){readSource(project,file);assertSafeTestFilter(file);}
    // Pick the runner by capability negotiation, not by a hardcoded name. A
    // caller may pin one with `runner`; otherwise the first runner that
    // supports the required operations wins.
