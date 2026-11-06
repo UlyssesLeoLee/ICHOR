@@ -497,3 +497,317 @@ test('UT-ATS204-017: the old lookup keeps its documented behaviour', () => {
     assert.equal(hit.basis, 'file-line');
   } finally { p.cleanup(); }
 });
+
+/* ------------------------------------------------------------------ */
+/* The counterexamples of the review round 1                           */
+/* ------------------------------------------------------------------ */
+/*
+ * These five cases are the counterexamples the reviewer MEASURED against the
+ * tree of the first delivery (`9a559c6`). Every one of them FAILS there and
+ * PASSES here -- that is what makes them evidence and not decoration.
+ *
+ *   E1  a loop data element replaced: the UNCHANGED render must keep its
+ *       uid, and the NEW render must not inherit the removed one's;
+ *   E3  a new case inserted ABOVE an existing one: the existing case keeps
+ *       its uid (the old evidence stays linked) and the new one does not
+ *       take it;
+ *   E4  a case replaced IN PLACE by a different one (new title, new body):
+ *       the new case is a NEW case (the ATS-201 boundary);
+ *   M1  two same-titled cases under DIFFERENT describes are two cases;
+ *   X1  an explicit token the catalogue judged DUPLICATE is not bound by a
+ *       run that happens to cover only one of the two cases.
+ */
+
+/** The cases of a loop, as the authoritative discovery sees them. */
+const loopCases = (titles, line = 7) => titles.map((title, i) => ({
+  file: 'tests/dyn.spec.ts', title, line, column: 3,
+  describePath: [], projects: [], tags: [],
+  // ATS-204: the order the CLI REPORTED them in.
+  reportOrder: i,
+}));
+
+test('UT-ATS204-022 (E1): a replaced loop element does not take the removed render\'s uid', () => {
+  const p = makeProject();
+  try {
+    const first = resolveAuthoritativeIdentities({
+      projectUid: p.projectUid,
+      cases: loopCases(['user alice', 'user bob', 'user carol']),
+      bodies: new Map(),
+      registry: { version: 1, entries: [] },
+    });
+    const uidOf = (res, title) => res.items.find((i) => i.title === title)?.uid ?? null;
+    const bob = uidOf(first, 'user bob');
+
+    // One data element is replaced: `bob` is gone, `dave` is new. The
+    // renders that were NOT touched must keep their uid, and the new
+    // render must not inherit the removed one's.
+    const second = resolveAuthoritativeIdentities({
+      projectUid: p.projectUid,
+      cases: loopCases(['user alice', 'user dave', 'user carol']),
+      bodies: new Map(),
+      registry: first.registry,
+    });
+    assert.equal(uidOf(second, 'user alice'), uidOf(first, 'user alice'),
+      'the untouched first render keeps its uid');
+    assert.equal(uidOf(second, 'user carol'), uidOf(first, 'user carol'),
+      'the untouched third render keeps its uid');
+    assert.notEqual(uidOf(second, 'user dave'), bob,
+      'the NEW render does not inherit the removed render\'s uid');
+    assert.notEqual(uidOf(second, 'user dave'), uidOf(first, 'user carol'),
+      'the new render does not take the uid of a render that is still there');
+    // The uncertainty is REPORTED: the group changed in part, so the
+    // ordinals may have shifted.
+    const dave = second.items.find((i) => i.title === 'user dave');
+    assert.ok(dave.ambiguity, 'the partial change is reported');
+    assert.equal(dave.ambiguity.reason, AMBIGUITY.RENDER_PARTIAL);
+  } finally { p.cleanup(); }
+});
+
+test('UT-ATS204-023 (E3): a case inserted above keeps the existing case\'s uid', () => {
+  const p = makeProject();
+  try {
+    const first = resolveAuthoritativeIdentities({
+      projectUid: p.projectUid,
+      cases: [{ file: 'tests/a.spec.ts', title: 'login works', line: 3, column: 3, describePath: [], projects: [], tags: [], reportOrder: 0 }],
+      bodies: new Map([['tests/a.spec.ts 3', { title: 'login works', bodyText: '{ await page.goto("/login"); }' }]]),
+      registry: { version: 1, entries: [] },
+    });
+    const original = first.items[0].uid;
+
+    // A NEW case is inserted ABOVE the existing one: the existing one
+    // shifts down by two lines. Its uid must NOT change -- the old evidence
+    // stays linked -- and the new case must not take it.
+    const second = resolveAuthoritativeIdentities({
+      projectUid: p.projectUid,
+      cases: [
+        { file: 'tests/a.spec.ts', title: 'search finds item', line: 3, column: 3, describePath: [], projects: [], tags: [], reportOrder: 0 },
+        { file: 'tests/a.spec.ts', title: 'login works', line: 5, column: 3, describePath: [], projects: [], tags: [], reportOrder: 1 },
+      ],
+      bodies: new Map([
+        ['tests/a.spec.ts 3', { title: 'search finds item', bodyText: '{ await page.fill("#q", "x"); }' }],
+        ['tests/a.spec.ts 5', { title: 'login works', bodyText: '{ await page.goto("/login"); }' }],
+      ]),
+      registry: first.registry,
+    });
+    const uidOf = (res, title) => res.items.find((i) => i.title === title)?.uid ?? null;
+    assert.equal(uidOf(second, 'login works'), original,
+      'the EXISTING case keeps its uid: the old evidence stays linked');
+    assert.notEqual(uidOf(second, 'search finds item'), original,
+      'the NEW case does not take the existing case\'s uid');
+  } finally { p.cleanup(); }
+});
+
+test('UT-ATS204-024 (E4): a case replaced in place by a different one is a NEW case', () => {
+  const p = makeProject();
+  try {
+    const first = resolveAuthoritativeIdentities({
+      projectUid: p.projectUid,
+      cases: [{ file: 'tests/a.spec.ts', title: 'login works', line: 3, column: 3, describePath: [], projects: [], tags: [], reportOrder: 0 }],
+      bodies: new Map([['tests/a.spec.ts 3', { title: 'login works', bodyText: '{ await page.goto("/login"); }' }]]),
+      registry: { version: 1, entries: [] },
+    });
+    const original = first.items[0].uid;
+
+    // The case is replaced IN PLACE: a new title AND a new body. The
+    // identity changes -- this is the ATS-201 boundary (docs/26 §7).
+    const second = resolveAuthoritativeIdentities({
+      projectUid: p.projectUid,
+      cases: [{ file: 'tests/a.spec.ts', title: 'search finds item', line: 3, column: 3, describePath: [], projects: [], tags: [], reportOrder: 0 }],
+      bodies: new Map([['tests/a.spec.ts 3', { title: 'search finds item', bodyText: '{ await page.fill("#q", "x"); }' }]]),
+      registry: first.registry,
+    });
+    assert.notEqual(second.items[0].uid, original,
+      'the new case does not inherit the replaced case\'s uid');
+  } finally { p.cleanup(); }
+});
+
+test('UT-ATS204-025 (M1): two same-titled cases under different describes are TWO cases', () => {
+  const p = makeProject();
+  try {
+    // The report nests the specs under their describe blocks, so the
+    // describe path is the only thing that tells the two apart. The case
+    // key of the run side has to carry it, or the two are merged into one
+    // and a failure in one of them is reported as the other.
+    //
+    // The shape is the one the real CLI writes (measured against
+    // @playwright/test 1.64.1): the FILE suite carries line 0 and is not
+    // part of the describe path; each `describe` block is a suite of its
+    // own, and the specs sit directly inside it.
+    const report = {
+      suites: [{
+        file: 'tests/d.spec.ts', line: 0, title: 'd.spec.ts',
+        suites: [
+          {
+            file: 'tests/d.spec.ts', line: 4, title: 'a',
+            specs: [{
+              title: 'works', file: 'tests/d.spec.ts', line: 5,
+              tests: [{ status: 'expected', expectedStatus: 'passed', results: [{ status: 'passed', retry: 0, duration: 1 }] }],
+            }],
+          },
+          {
+            file: 'tests/d.spec.ts', line: 4, title: 'b',
+            specs: [{
+              title: 'works', file: 'tests/d.spec.ts', line: 5,
+              tests: [{ status: 'unexpected', expectedStatus: 'passed', results: [{ status: 'failed', retry: 0, duration: 1, error: { message: 'boom' } }] }],
+            }],
+          },
+        ],
+      }],
+    };
+    const summary = parseReport(report);
+    assert.equal(summary.total, 2, 'the two describes are two cases');
+    assert.equal(summary.passed, 1);
+    assert.equal(summary.failed, 1);
+    assert.deepEqual(summary.cases.map((c) => c.scope), [['a'], ['b']],
+      'each case carries its own describe path');
+    assert.notEqual(summary.cases[0].caseKey, summary.cases[1].caseKey,
+      'the case key carries the describe path');
+  } finally { p.cleanup(); }
+});
+
+test('UT-ATS204-026 (M1b): the two describes bind to their OWN TestDefinition', () => {
+  const p = makeProject();
+  try {
+    // The PRODUCTION path: the catalogue resolves the identities (and
+    // writes the registry), and the run binds against that registry. A test
+    // that built the registry by hand would only prove that the mapper
+    // works -- not that the product uses it.
+    const catalogue = resolveAuthoritativeIdentities({
+      projectUid: p.projectUid,
+      cases: [
+        { file: 'tests/d.spec.ts', title: 'works', line: 5, column: 3, describePath: ['a'], projects: [], tags: [], reportOrder: 0 },
+        { file: 'tests/d.spec.ts', title: 'works', line: 5, column: 3, describePath: ['b'], projects: [], tags: [], reportOrder: 1 },
+      ],
+      bodies: new Map(),
+      registry: { version: 1, entries: [] },
+    });
+    const uidOf = (title, scope) => catalogue.items
+      .find((i) => i.title === title && i.scope.join(' ') === scope)?.uid ?? null;
+    const first = uidOf('works', 'a');
+    const second = uidOf('works', 'b');
+    assert.ok(first && second, 'the catalogue gave both cases a uid');
+    assert.notEqual(first, second, 'the two describes are two different cases');
+
+    // The run side: the report carries the describe path, and each case
+    // binds to its own TestDefinition.
+    //
+    // The report names the files relative to the Playwright `rootDir`,
+    // while the registry stores them relative to the project root -- the
+    // same reconciliation the bridge does.
+    const summary = {
+      rootDir: path.join(p.projectDir, 'tests').replace(/\\/g, '/'),
+      cases: [
+        { title: 'works', file: 'd.spec.ts', line: 5, scope: ['a'], status: 'expected', duration: 1, retry: 0 },
+        { title: 'works', file: 'd.spec.ts', line: 5, scope: ['b'], status: 'unexpected', duration: 1, retry: 0 },
+      ],
+    };
+    const attempts = attemptsForRun(
+      { uid: 'run_1_' + '4'.repeat(24), projectUid: p.projectUid, projectRoot: p.projectDir },
+      summary,
+      { version: 1, projects: { [p.projectUid]: catalogue.registry } }
+    );
+    assert.equal(attempts.length, 2);
+    assert.equal(attempts[0].testUid, first, 'the first describe binds to its own uid');
+    assert.equal(attempts[1].testUid, second, 'the second describe binds to its own uid');
+    assert.equal(attempts[0].uidBasis, 'file-scope-title');
+  } finally { p.cleanup(); }
+});
+
+test('UT-ATS204-027 (X1): an explicit token the catalogue judged DUPLICATE is not bound', () => {
+  const p = makeProject();
+  try {
+    // The PRODUCTION path: the catalogue judges the token duplicated, and
+    // the run side has to agree with that judgement.
+    const catalogue = resolveAuthoritativeIdentities({
+      projectUid: p.projectUid,
+      cases: [
+        { file: 'tests/a.spec.ts', title: 'checkout @TC-001', line: 3, column: 3, describePath: [], projects: [], tags: [], reportOrder: 0 },
+        { file: 'tests/b.spec.ts', title: 'refund @TC-001', line: 3, column: 3, describePath: [], projects: [], tags: [], reportOrder: 1 },
+      ],
+      bodies: new Map(),
+      registry: { version: 1, entries: [] },
+    });
+    // The catalogue says neither of them owns the token.
+    assert.ok(catalogue.items.every((i) => i.ambiguity?.reason === 'duplicate-explicit-uid'),
+      'the catalogue judged the token duplicated');
+    assert.ok(catalogue.registry.entries.every((e) => e.duplicateExplicit === 'tc-001'),
+      'the verdict is recorded in the registry');
+
+    // The run covers only ONE of the two files: the token is unique IN THIS
+    // RUN, but it is not unique in the project. The run side must not bind
+    // it -- the two cases would end up with the same UID.
+    const attempts = attemptsForRun(
+      { uid: 'run_1_' + '5'.repeat(24), projectUid: p.projectUid, projectRoot: p.projectDir },
+      {
+        rootDir: path.join(p.projectDir, 'tests').replace(/\\/g, '/'),
+        cases: [{ title: 'refund @TC-001', file: 'b.spec.ts', line: 3, status: 'expected', duration: 1, retry: 0 }],
+      },
+      { version: 1, projects: { [p.projectUid]: catalogue.registry } }
+    );
+    assert.equal(attempts[0].testUid, null, 'the token binds nothing');
+    assert.equal(attempts[0].uidBasis, 'explicit-ambiguous');
+    assert.equal(attempts[0].uidAmbiguity.reason, 'duplicate-explicit-uid');
+  } finally { p.cleanup(); }
+});
+
+test('UT-ATS204-028: the anchor counts the CLI\'s REPORT order, not the title-sorted order', () => {
+  // The catalogue's display order is sorted by title; the CLI reports the
+  // renders in the order the template GENERATED them. The anchor's ordinal
+  // counts the latter -- otherwise a re-worded title would shift every
+  // ordinal after it.
+  const cases = [
+    { file: 'tests/dyn.spec.ts', title: 'adds 2 items', line: 7, scope: [], reportOrder: 0 },
+    { file: 'tests/dyn.spec.ts', title: 'adds 1 items', line: 7, scope: [], reportOrder: 1 },
+  ];
+  const groups = groupByPosition(cases);
+  const key = positionKey('tests/dyn.spec.ts', 7, []);
+  assert.equal(groups.get(key).length, 2);
+  assert.equal(groups.get(key)[0].title, 'adds 2 items',
+    'the group keeps the CLI report order, not the title-sorted one');
+
+  const decisions = reidentifyRendered({
+    cases,
+    entries: [
+      { uid: 'tc-1', title: 'adds 2 items', anchor: { file: 'tests/dyn.spec.ts', line: 7, scope: [], ordinal: 0, count: 2 } },
+      { uid: 'tc-2', title: 'adds 1 items', anchor: { file: 'tests/dyn.spec.ts', line: 7, scope: [], ordinal: 1, count: 2 } },
+    ],
+    groups,
+  });
+  // The title still claims the registry's case: the anchor adds nothing.
+  assert.equal(decisions.get(cases[0]), undefined);
+  assert.equal(decisions.get(cases[1]), undefined);
+});
+
+test('UT-ATS204-029: the anchor does not decide a case the scanner CAN see', () => {
+  // A SOURCE case has a body of its own. The body (and the title) are
+  // stronger signals than an ordinal, so the anchor does not decide it.
+  const cases = [{ file: 'tests/a.spec.ts', title: 'new title', line: 3, scope: [], source: true }];
+  const decisions = reidentifyRendered({
+    cases,
+    entries: [{ uid: 'tc-1', title: 'old title', anchor: { file: 'tests/a.spec.ts', line: 3, scope: [], ordinal: 0, count: 1 } }],
+  });
+  assert.equal(decisions.get(cases[0]), undefined,
+    'the anchor does not decide a case with a body of its own');
+});
+
+test('UT-ATS204-030: a partly rewritten group is reported and binds nothing', () => {
+  // One render was removed and another was added: the group has the SAME
+  // SIZE, but the ordinals may have shifted. Binding by ordinal would hand
+  // the new render the uid of the one that vanished.
+  const cases = [
+    { file: 'tests/dyn.spec.ts', title: 'user alice', line: 7, scope: [] },
+    { file: 'tests/dyn.spec.ts', title: 'user dave', line: 7, scope: [] },
+  ];
+  const decisions = reidentifyRendered({
+    cases,
+    entries: [
+      { uid: 'tc-alice', title: 'user alice', anchor: { file: 'tests/dyn.spec.ts', line: 7, scope: [], ordinal: 0, count: 2 } },
+      { uid: 'tc-bob', title: 'user bob', anchor: { file: 'tests/dyn.spec.ts', line: 7, scope: [], ordinal: 1, count: 2 } },
+    ],
+  });
+  const dave = decisions.get(cases[1]);
+  assert.ok(dave, 'the new render is decided -- by NOT deciding it');
+  assert.equal(dave.uid, null, 'nothing is bound');
+  assert.equal(dave.ambiguity.reason, AMBIGUITY.RENDER_PARTIAL);
+  assert.deepEqual(dave.ambiguity.candidates.sort(), ['tc-alice', 'tc-bob']);
+});

@@ -54,7 +54,7 @@ import { test, expect } from '@playwright/test';
 
 test('plain case', async () => { expect(1).toBe(1); });
 
-for (const n of [1, 2]) {
+for (const n of [2, 1]) {
   test(\`adds \${n} items\`, async () => { expect(n).toBeGreaterThan(0); });
 }
 
@@ -124,28 +124,60 @@ const byTitle = (title) => flat.filter((x) => x.spec.title === title);
 /* ------------------------------------------------------------------ */
 log('--- 2. a loop-generated case: the rendered titles, their order and their line ---');
 const rendered = flat.filter((x) => /^adds \d+ items$/.test(x.spec.title));
-check('two renders are reported', rendered.length, 2);
-check('both renders sit on the line of the test call', rendered.map((r) => r.spec.line), [7, 7]);
-check('the renders keep the order of the declaration', rendered.map((r) => r.spec.title), ['adds 1 items', 'adds 2 items']);
-check('the renders carry different spec ids', new Set(rendered.map((r) => r.spec.id)).size, 2);
+/*
+ * THE MEASURED FACTS (against the real @playwright/test 1.64.1)
+ * ------------------------------------------------------------
+ * The fixture declares TWO Playwright projects (`alpha` and `beta`), and the
+ * CLI writes ONE SPEC ROW PER PROJECT: the two renders of the loop appear
+ * TWICE, once per project. The assertions below are the MEASURED facts --
+ * they were wrong before (they asserted one row per render), which is why
+ * this probe used to report 10 differences while the product's own parser
+ * was right.
+ */
+check('the two renders are reported once per project', rendered.length, 4);
+check('every render sits on the line of the test call', rendered.map((r) => r.spec.line), [7, 7, 7, 7]);
+check('the renders keep the order of the declaration',
+  rendered.map((r) => r.spec.title),
+  ['adds 2 items', 'adds 1 items', 'adds 2 items', 'adds 1 items']);
+check('the renders carry a different spec id per project',
+  new Set(rendered.map((r) => r.spec.id)).size, 4);
+/*
+ * THE ORDER IS THE REPORT ORDER
+ * -----------------------------
+ * The CLI writes the renders in the order the template GENERATED them in
+ * (`2` before `1`), and that order is what the anchor's ordinal counts.
+ * The catalogue's own display order is sorted by title -- a different
+ * order -- so the two must not be confused.
+ */
+const alpha = rendered.filter((r) => r.spec.tests?.[0]?.projectName === 'alpha');
+check('one project reports the renders in the order of the declaration',
+  alpha.map((r) => r.spec.title), ['adds 2 items', 'adds 1 items']);
+check('the report order is NOT the title-sorted order',
+  alpha.map((r) => r.spec.title).join('|') !== [...alpha.map((r) => r.spec.title)].sort().join('|'),
+  true);
 
 /* ------------------------------------------------------------------ */
 /* 3. the matrix: one logical case, several projects                   */
 /* ------------------------------------------------------------------ */
 log('--- 3. the project matrix ---');
 const plain = byTitle('plain case');
-check('the plain case is one spec row', plain.length, 1);
-check('the spec row carries one test per project', plain[0].spec.tests.map((t) => t.projectName), ['alpha', 'beta']);
-check('the spec id is the same for both projects of the row', new Set(plain[0].spec.tests.map((t) => t.projectId)).size, 1);
+check('the plain case is one spec row per project', plain.length, 2);
+check('each spec row carries ONE test -- the project it belongs to',
+  plain.map((r) => r.spec.tests.map((t) => t.projectName)), [['alpha'], ['beta']]);
+check('the two rows carry different spec ids',
+  new Set(plain.map((r) => r.spec.id)).size, 2);
 
 /* ------------------------------------------------------------------ */
 /* 4. the same title under two describes                               */
 /* ------------------------------------------------------------------ */
 log('--- 4. the same title under two describes ---');
 const same = byTitle('same title');
-check('two spec rows share the title', same.length, 2);
-check('they sit on different lines', new Set(same.map((s) => s.spec.line)).size, 2);
-check('the describe path differs', same.map((s) => s.suitePath.join(' > ')), ['outer', 'inner']);
+check('the two describes report one spec row per project', same.length, 4);
+check('the two describes sit on different lines', new Set(same.map((s) => s.spec.line)).size, 2);
+check('the describe path differs',
+  [...new Set(same.map((s) => s.suitePath.join(' > ')))], ['facts.spec.ts > outer', 'facts.spec.ts > inner']);
+check('the describe path is what tells the two cases apart',
+  new Set(same.map((s) => `${s.suitePath.join(' > ')} ${s.spec.line}`)).size, 2);
 
 /* ------------------------------------------------------------------ */
 /* 5. what the RUN report carries                                      */
@@ -175,9 +207,35 @@ if (!fs.existsSync(RUN_REPORT)) {
     for (const t of spec.tests ?? []) log(`      project=${t.projectName} status=${t.status} results=${(t.results ?? []).length}`);
   }
   const rRendered = rflat.filter((s) => /^adds \d+ items$/.test(s.title));
-  check('the run report carries one spec row per render', rRendered.length, 2);
+  check('the run report carries one spec row per render and project', rRendered.length, 4);
   check('the run report carries the spec id', rRendered.every((s) => typeof s.id === 'string' && s.id.length > 0), true);
-  check('the run report carries the project name per test', rRendered[0].tests.map((t) => t.projectName), ['alpha', 'beta']);
+  check('each run-report row carries ONE project',
+    rRendered.map((s) => s.tests.map((t) => t.projectName)),
+    [['alpha'], ['alpha'], ['beta'], ['beta']]);
+  check('the run report groups the rows by project',
+    [...new Set(rRendered.map((s) => s.tests[0].projectName))], ['alpha', 'beta']);
+  /*
+   * THE RUN REPORT HAS NO DESCRIBE PATH ON THE SPEC
+   * -----------------------------------------------
+   * The `describe` path is a property of the SUITE the spec sits in, not
+   * of the spec. The product's parser therefore reads it from the suite
+   * nesting (see `parseReport` in `server/execution/model.mjs`), which is
+   * what makes two same-titled cases under different describes two cases.
+   */
+  const runSuites = [];
+  (function walkSuites(suite, path_ = []) {
+    for (const spec of suite.specs ?? []) runSuites.push({ path_, spec });
+    for (const sub of suite.suites ?? []) {
+      const isFileSuite = Boolean(sub.file) && sub.line === 0;
+      walkSuites(sub, isFileSuite ? path_ : [...path_, String(sub.title ?? '')]);
+    }
+  })(rr);
+  const sameTitle = runSuites.filter((x) => x.spec.title === 'same title');
+  check('the run report nests the same title under two describes',
+    [...new Set(sameTitle.map((x) => x.path_.join(' > ')))],
+    ['outer', 'inner']);
+  check('the describe path is what tells the two cases apart in the run report',
+    new Set(sameTitle.map((x) => `${x.path_.join(' > ')} ${x.spec.line}`)).size, 2);
 }
 
 log(`SUMMARY: ${failures === 0 ? 'all facts confirmed' : `${failures} fact(s) differ from what the mapper assumes`}`);

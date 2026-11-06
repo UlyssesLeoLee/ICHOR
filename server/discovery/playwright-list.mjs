@@ -151,6 +151,18 @@ export function parseListReport(report, { projectRoot = null } = {}) {
   const byKey = new Map();
   const files = new Set();
   const skipped = [];
+  /**
+   * ATS-204: the order the CLI REPORTED the cases in.
+   *
+   * It is the order the template GENERATED its renders in, and it is what
+   * the anchor's ordinal counts. The catalogue's own display order is
+   * sorted by title (see the sort below), and a re-worded title changes
+   * its rank -- so the ordinal must not be taken from the sorted order.
+   *
+   * The counter runs over the spec rows of the report, which is the order
+   * the CLI wrote them in.
+   */
+  let reportOrder = 0;
 
   const addSpec = (spec, describePath, suiteFile) => {
     const rawFile = spec.file ?? suiteFile ?? '';
@@ -179,6 +191,8 @@ export function parseListReport(report, { projectRoot = null } = {}) {
         ok: spec.ok !== false,
         tags: Array.isArray(spec.tags) ? spec.tags : [],
         projects: [],
+        // ATS-204: the order the CLI reported this case in.
+        reportOrder: reportOrder++,
       };
       byKey.set(key, entry);
     }
