@@ -1,13 +1,13 @@
 === ATS-103 evidence: mutation evidence ===
-date      : 2026-11-06T22:28:41Z (UTC)
-commit    : f6fb8b6dcc612b7f1dd3e62894b73c452910b4c3
+date      : 2026-11-06T22:48:45Z (UTC)
+commit    : 3f277800a0c531de443c8c897e88deca2f343cd6
 node      : v22.23.4
 npm       : 10.9.9
 command   : bash tools/ats103-probes/mutation-evidence.sh
 
 === ATS-103 evidence: mutation evidence ===
-date      : 2026-11-06T22:30:12Z (UTC)
-commit    : f6fb8b6dcc612b7f1dd3e62894b73c452910b4c3
+date      : 2026-11-06T22:50:28Z (UTC)
+commit    : 3f277800a0c531de443c8c897e88deca2f343cd6
 node      : v22.23.4
 npm       : 10.9.9
 
@@ -41,12 +41,12 @@ export function GET() { return Response.json({ proxiedByNext: true }); }
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 37ms
+✓ Running next.config.mjs took 29ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1318ms
+✓ Compiled successfully in 1393ms
   Running TypeScript ...
-  Finished TypeScript in 1784ms ...
+  Finished TypeScript in 2.1s ...
   Collecting page data using 5 workers ...
 Error: export const dynamic = "force-static"/export const revalidate not configured on route "/api/session" with "output: export". See more info here: https://nextjs.org/docs/advanced-features/static-html-export
     at Object.<anonymous> (C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\.next\server\app\api\session\route.js:5:3)
@@ -149,18 +149,18 @@ export function GET() { return Response.json({ proxiedByNext: true }); }
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 26ms
+✓ Running next.config.mjs took 30ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1245ms
+✓ Compiled successfully in 1345ms
   Running TypeScript ...
-  Finished TypeScript in 1748ms ...
+  Finished TypeScript in 1925ms ...
   Collecting page data using 5 workers ...
   Generating static pages using 5 workers (0/4) ...
   Generating static pages using 5 workers (1/4) 
   Generating static pages using 5 workers (2/4) 
   Generating static pages using 5 workers (3/4) 
-✓ Generating static pages using 5 workers (4/4) in 635ms
+✓ Generating static pages using 5 workers (4/4) in 636ms
   Finalizing page optimization ...
 
 Route (app)
@@ -175,22 +175,22 @@ BUILD_EXIT=0
 
 --- the export tree after the build ---
 total 5
-drwxr-xr-x 1 seiko 197610  0 11月  7 07:30 .
-drwxr-xr-x 1 seiko 197610  0 11月  7 07:30 ..
--rw-r--r-- 1 seiko 197610 22 11月  7 07:30 session
+drwxr-xr-x 1 seiko 197610  0 11月  7 07:50 .
+drwxr-xr-x 1 seiko 197610  0 11月  7 07:50 ..
+-rw-r--r-- 1 seiko 197610 22 11月  7 07:50 session
 
 --- the probe against the mutated export ---
 PASS  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
-PASS  export contains index.html  --  12927 bytes
+PASS  export contains index.html  --  13679 bytes
 PASS  export contains 404.html
 PASS  export contains _next/static assets
 FAIL  the export contains no server-side API route output  --  found: api/session
-PASS  every asset referenced by index.html exists on disk (8 assets)
+PASS  every asset referenced by index.html exists on disk (9 assets)
 PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
 PASS  bridge boots and answers /api/health
-PASS  bridge serves the exported index.html at /  --  HTTP 200, 12927 bytes
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 13679 bytes
 PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
-PASS  the bridge serves the exported chunk /_next/static/chunks/07b7sibd0i2jd.js  --  HTTP 200
+PASS  the bridge serves the exported chunk /_next/static/chunks/04p_vbrqf_cr7.js  --  HTTP 200
 PASS  GET /api/session returns a token
 PASS  a foreign Origin is rejected (403)  --  HTTP 403
 PASS  an unauthenticated API call is rejected (401)  --  HTTP 401
@@ -208,22 +208,22 @@ PASS  the collected artefacts include report.json  --  1 report.json entries
   status    : failed
   error     : (none)
   reportWarn: (none)
-  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-v2p6J5\runs\run_1_4c09ba8638f313d9249a2d8a\results --trace on --workers 1
+  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-hr00TD\runs\run_1_1dd3e0547174dbf2c5779ce0\results --trace on --workers 1
   log tail  : 
-    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-v2p6J5\runs\run_1_4c09ba8638f313d9249a2d8a\results\home-导航入口正常-REQ-002\error-context.md
+    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-hr00TD\runs\run_1_1dd3e0547174dbf2c5779ce0\results\home-导航入口正常-REQ-002\error-context.md
 
     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
-    D:\hermes-multica\home\cache\scratch\tmp\ats103-v2p6J5\runs\run_1_4c09ba8638f313d9249a2d8a\results\home-导航入口正常-REQ-002\trace.zip
+    D:\hermes-multica\home\cache\scratch\tmp\ats103-hr00TD\runs\run_1_1dd3e0547174dbf2c5779ce0\results\home-导航入口正常-REQ-002\trace.zip
     Usage:
 
-        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-v2p6J5\runs\run_1_4c09ba8638f313d9249a2d8a\results\home-导航入口正常-REQ-002\trace.zip
+        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-hr00TD\runs\run_1_1dd3e0547174dbf2c5779ce0\results\home-导航入口正常-REQ-002\trace.zip
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
 
   1 failed
     tests\home.spec.ts:22:1 › 导航入口正常 @REQ-002 ──────────────────────────────────────────────────────
-  1 passed (6.0s)
+  1 passed (6.1s)
 
 --- end run detail ---
 
@@ -239,15 +239,15 @@ PROBE_EXIT=1
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 26ms
+✓ Running next.config.mjs took 45ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1202ms
+✓ Compiled successfully in 5.7s
   Running TypeScript ...
-  Finished TypeScript in 1601ms ...
+  Finished TypeScript in 8.0s ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 571ms
+✓ Generating static pages using 4 workers (3/3) in 1438ms
   Finalizing page optimization ...
 
 Route (app)
@@ -276,15 +276,15 @@ Claim under test:
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 25ms
+✓ Running next.config.mjs took 44ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1269ms
+✓ Compiled successfully in 2.5s
   Running TypeScript ...
-  Finished TypeScript in 1739ms ...
+  Finished TypeScript in 3.9s ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 635ms
+✓ Generating static pages using 4 workers (3/3) in 864ms
   Finalizing page optimization ...
 
 Route (app)
@@ -299,16 +299,16 @@ BUILD_EXIT=0
 --- the HTTP probe against the mutated export ---
 (the static heuristic must turn RED here: no location.port comparison)
 PASS  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
-PASS  export contains index.html  --  12927 bytes
+PASS  export contains index.html  --  13679 bytes
 PASS  export contains 404.html
 PASS  export contains _next/static assets
-PASS  the export contains no server-side API route output  --  25 exported entries, none of them a server route
-PASS  every asset referenced by index.html exists on disk (8 assets)
+PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
+PASS  every asset referenced by index.html exists on disk (9 assets)
 FAIL  the shipped bundle carries a comparison of the page location port  --  reads location.port: false, compares it: false, references /api/session: true
 PASS  bridge boots and answers /api/health
-PASS  bridge serves the exported index.html at /  --  HTTP 200, 12927 bytes
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 13679 bytes
 PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
-PASS  the bridge serves the exported chunk /_next/static/chunks/0cz1d0mv5g_q7.js  --  HTTP 200
+PASS  the bridge serves the exported chunk /_next/static/chunks/0-x_zj0ch3xht.js  --  HTTP 200
 PASS  GET /api/session returns a token
 PASS  a foreign Origin is rejected (403)  --  HTTP 403
 PASS  an unauthenticated API call is rejected (401)  --  HTTP 401
@@ -326,22 +326,22 @@ PASS  the collected artefacts include report.json  --  1 report.json entries
   status    : failed
   error     : (none)
   reportWarn: (none)
-  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-DiudAJ\runs\run_1_4c09ba8638f313d9249a2d8a\results --trace on --workers 1
+  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-mYhhlX\runs\run_1_1dd3e0547174dbf2c5779ce0\results --trace on --workers 1
   log tail  : 
-    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-DiudAJ\runs\run_1_4c09ba8638f313d9249a2d8a\results\home-导航入口正常-REQ-002\error-context.md
+    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-mYhhlX\runs\run_1_1dd3e0547174dbf2c5779ce0\results\home-导航入口正常-REQ-002\error-context.md
 
     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
-    D:\hermes-multica\home\cache\scratch\tmp\ats103-DiudAJ\runs\run_1_4c09ba8638f313d9249a2d8a\results\home-导航入口正常-REQ-002\trace.zip
+    D:\hermes-multica\home\cache\scratch\tmp\ats103-mYhhlX\runs\run_1_1dd3e0547174dbf2c5779ce0\results\home-导航入口正常-REQ-002\trace.zip
     Usage:
 
-        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-DiudAJ\runs\run_1_4c09ba8638f313d9249a2d8a\results\home-导航入口正常-REQ-002\trace.zip
+        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-mYhhlX\runs\run_1_1dd3e0547174dbf2c5779ce0\results\home-导航入口正常-REQ-002\trace.zip
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
 
   1 failed
     tests\home.spec.ts:22:1 › 导航入口正常 @REQ-002 ──────────────────────────────────────────────────────
-  1 passed (5.9s)
+  1 passed (6.9s)
 
 --- end run detail ---
 
@@ -371,31 +371,31 @@ PASS  the page produced no console error and no failed request  --  console erro
   POST /api/projects -> 201
   GET /api/projects -> 200
   GET /api/runs -> 200
+  GET /api/projects -> 200
   GET /api/runs -> 200
   GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/tests -> 200
   GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/lineage -> 200
-  GET /api/projects -> 200
   GET /api/runs -> 200
   POST /api/projects/proj_1_58fa8e223638d85e8cf3368a/run -> 202
   GET /api/runs -> 200
   GET /api/projects -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
 --- end ---
 --- bridge stderr ---
-  (node:18884) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+  (node:30256) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 --- end ---
 PASS  the probe executed every registered check  --  8/8 checks executed
@@ -411,15 +411,15 @@ UI_PROBE_EXIT=1
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 26ms
+✓ Running next.config.mjs took 29ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1117ms
+✓ Compiled successfully in 1318ms
   Running TypeScript ...
-  Finished TypeScript in 1597ms ...
+  Finished TypeScript in 2.0s ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 541ms
+✓ Generating static pages using 4 workers (3/3) in 636ms
   Finalizing page optimization ...
 
 Route (app)
@@ -459,15 +459,15 @@ base sends them to localhost.
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 26ms
+✓ Running next.config.mjs took 28ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1195ms
+✓ Compiled successfully in 1385ms
   Running TypeScript ...
-  Finished TypeScript in 1827ms ...
+  Finished TypeScript in 2.2s ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 564ms
+✓ Generating static pages using 4 workers (3/3) in 634ms
   Finalizing page optimization ...
 
 Route (app)
@@ -482,16 +482,16 @@ BUILD_EXIT=0
 --- the HTTP probe against the mutated export ---
 (the static heuristic is expected to stay GREEN here -- that is the bound)
 PASS  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
-PASS  export contains index.html  --  12927 bytes
+PASS  export contains index.html  --  13679 bytes
 PASS  export contains 404.html
 PASS  export contains _next/static assets
-PASS  the export contains no server-side API route output  --  25 exported entries, none of them a server route
-PASS  every asset referenced by index.html exists on disk (8 assets)
+PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
+PASS  every asset referenced by index.html exists on disk (9 assets)
 PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
 PASS  bridge boots and answers /api/health
-PASS  bridge serves the exported index.html at /  --  HTTP 200, 12927 bytes
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 13679 bytes
 PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
-PASS  the bridge serves the exported chunk /_next/static/chunks/0cz1d0mv5g_q7.js  --  HTTP 200
+PASS  the bridge serves the exported chunk /_next/static/chunks/04p_vbrqf_cr7.js  --  HTTP 200
 PASS  GET /api/session returns a token
 PASS  a foreign Origin is rejected (403)  --  HTTP 403
 PASS  an unauthenticated API call is rejected (401)  --  HTTP 401
@@ -509,22 +509,22 @@ PASS  the collected artefacts include report.json  --  1 report.json entries
   status    : failed
   error     : (none)
   reportWarn: (none)
-  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-YkWW9U\runs\run_1_4c09ba8638f313d9249a2d8a\results --trace on --workers 1
+  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-8xMHNi\runs\run_1_1dd3e0547174dbf2c5779ce0\results --trace on --workers 1
   log tail  : 
-    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-YkWW9U\runs\run_1_4c09ba8638f313d9249a2d8a\results\home-导航入口正常-REQ-002\error-context.md
+    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-8xMHNi\runs\run_1_1dd3e0547174dbf2c5779ce0\results\home-导航入口正常-REQ-002\error-context.md
 
     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
-    D:\hermes-multica\home\cache\scratch\tmp\ats103-YkWW9U\runs\run_1_4c09ba8638f313d9249a2d8a\results\home-导航入口正常-REQ-002\trace.zip
+    D:\hermes-multica\home\cache\scratch\tmp\ats103-8xMHNi\runs\run_1_1dd3e0547174dbf2c5779ce0\results\home-导航入口正常-REQ-002\trace.zip
     Usage:
 
-        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-YkWW9U\runs\run_1_4c09ba8638f313d9249a2d8a\results\home-导航入口正常-REQ-002\trace.zip
+        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-8xMHNi\runs\run_1_1dd3e0547174dbf2c5779ce0\results\home-导航入口正常-REQ-002\trace.zip
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
 
   1 failed
     tests\home.spec.ts:22:1 › 导航入口正常 @REQ-002 ──────────────────────────────────────────────────────
-  1 passed (6.0s)
+  1 passed (6.1s)
 
 --- end run detail ---
 
@@ -553,31 +553,31 @@ PASS  the page produced no console error and no failed request  --  console erro
   POST /api/projects -> 201
   GET /api/projects -> 200
   GET /api/runs -> 200
+  GET /api/projects -> 200
   GET /api/runs -> 200
   GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/tests -> 200
   GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/lineage -> 200
-  GET /api/projects -> 200
   GET /api/runs -> 200
   POST /api/projects/proj_1_58fa8e223638d85e8cf3368a/run -> 202
   GET /api/runs -> 200
+  GET /api/runs -> 200
   GET /api/projects -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
-  GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
 --- end ---
 --- bridge stderr ---
-  (node:28180) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+  (node:11524) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 --- end ---
 PASS  the probe executed every registered check  --  8/8 checks executed
@@ -592,15 +592,15 @@ UI_PROBE_EXIT=1
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 25ms
+✓ Running next.config.mjs took 30ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1209ms
+✓ Compiled successfully in 1281ms
   Running TypeScript ...
-  Finished TypeScript in 1789ms ...
+  Finished TypeScript in 1972ms ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 587ms
+✓ Generating static pages using 4 workers (3/3) in 636ms
   Finalizing page optimization ...
 
 Route (app)
@@ -625,16 +625,16 @@ Claim under test:
 
 --- mutation: examples/sample-playwright/node_modules is moved away ---
 PASS  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
-PASS  export contains index.html  --  12927 bytes
+PASS  export contains index.html  --  13679 bytes
 PASS  export contains 404.html
 PASS  export contains _next/static assets
-PASS  the export contains no server-side API route output  --  25 exported entries, none of them a server route
-PASS  every asset referenced by index.html exists on disk (8 assets)
+PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
+PASS  every asset referenced by index.html exists on disk (9 assets)
 PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
 PASS  bridge boots and answers /api/health
-PASS  bridge serves the exported index.html at /  --  HTTP 200, 12927 bytes
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 13679 bytes
 PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
-PASS  the bridge serves the exported chunk /_next/static/chunks/07b7sibd0i2jd.js  --  HTTP 200
+PASS  the bridge serves the exported chunk /_next/static/chunks/04p_vbrqf_cr7.js  --  HTTP 200
 PASS  GET /api/session returns a token
 PASS  a foreign Origin is rejected (403)  --  HTTP 403
 PASS  an unauthenticated API call is rejected (401)  --  HTTP 401

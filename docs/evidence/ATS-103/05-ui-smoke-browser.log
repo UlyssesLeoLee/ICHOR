@@ -1,6 +1,6 @@
 === ATS-103 evidence: ST: a real browser drives the exported UI ===
-date      : 2026-11-06T22:28:41Z (UTC)
-commit    : f6fb8b6dcc612b7f1dd3e62894b73c452910b4c3
+date      : 2026-11-06T22:48:45Z (UTC)
+commit    : 3f277800a0c531de443c8c897e88deca2f343cd6
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats103-probes/ui-smoke.mjs
@@ -31,22 +31,22 @@ PASS  the page produced no console error and no failed request  --  console erro
   GET /api/runs -> 200
   GET /api/projects -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_4c09ba8638f313d9249a2d8a -> 200
+  GET /api/runs/run_1_1dd3e0547174dbf2c5779ce0 -> 200
 --- end ---
 --- bridge stderr ---
-  (node:27540) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+  (node:6932) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 --- end ---
 PASS  the probe executed every registered check  --  8/8 checks executed
