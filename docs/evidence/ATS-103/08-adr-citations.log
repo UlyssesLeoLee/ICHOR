@@ -1,6 +1,6 @@
 === ATS-103 evidence: ADR citation check ===
-date      : 2026-11-06T21:15:11Z (UTC)
-commit    : a7dbe94053b2c3fabff98568ea57216a79dd0941
+date      : 2026-11-06T21:20:23Z (UTC)
+commit    : 9dd8a9326994b7f9ec1b52bb475d2cefa575a8ba
 node      : v22.23.4
 npm       : 10.9.9
 command   : python tools/check_adr_citations.py
