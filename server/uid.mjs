@@ -789,6 +789,7 @@ function mergeRegistry(reg, candidates, scope = null) {
       existing.uidSource = c.uidSource;
       existing.line = c.line;
       existing.bodyKey = c.bodyKey;
+      existing.duplicateExplicit = c.duplicateExplicit ?? null;
       continue;
     }
     const entry = {
@@ -799,7 +800,18 @@ function mergeRegistry(reg, candidates, scope = null) {
       file: c.file,
       title: c.title,
       line: c.line,
-      aliases: []
+      aliases: [],
+      // ATS-204: the verdict of the catalogue on the explicit token this
+      // case carries. The static index judges the token duplicated in the
+      // project (two cases wrote down the same `@TC-xxx`), and the RUN side
+      // has to agree with that judgement: a run that covers only one of the
+      // two files would otherwise bind the token to one of them, and the two
+      // cases would end up with the same UID.
+      //
+      // The verdict is written on the ENTRY, because the entry is what the
+      // run side reads. The candidate alone does not reach it -- the run
+      // side never sees the candidates, it sees the registry.
+      duplicateExplicit: c.duplicateExplicit ?? null,
     };
     entries.push(entry);
     if (!byBody.has(c.bodyKey)) byBody.set(c.bodyKey, []);
