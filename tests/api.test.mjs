@@ -16,7 +16,19 @@ const noDeps=fs.mkdtempSync(path.join(os.tmpdir(),'ats-nodeps-'));
 fs.writeFileSync(path.join(noDeps,'package.json'),'{}');
 fs.writeFileSync(path.join(noDeps,'playwright.config.ts'),'export default {}');
 let cp,token,projectId,noDepsId;
-async function ready(){for(let i=0;i<80;i++){try{const r=await fetch(`http://127.0.0.1:${port}/api/health`);if(r.ok)return;}catch{}await new Promise(r=>setTimeout(r,50));}throw Error('server did not boot');}
+// The ready() window below is 400 attempts, not the 70-100 it used to be.
+// `npm test` runs the test files in PARALLEL, and 14 of them each boot a
+// Bridge. Booting 14 servers at once is slow: measured on this machine the
+// boot takes 1289 / 5637 / 8582 ms (min / median / max), while the old
+// windows only allowed 4000 ms (80 x 50ms) or 2450 ms (70 x 35ms). So the
+// slow ones gave up with "server did not boot" -- non-deterministically, on a
+// DIFFERENT subset each run.
+//
+// It was never a port collision: 14 concurrent servers were measured and
+// their ports were all distinct. 400 attempts x 50ms = 20s and x 35ms = 14s,
+// which covers the measured worst case with room to spare, and a test that
+// genuinely cannot start still fails instead of hanging forever.
+async function ready(){for(let i=0;i<400;i++){try{const r=await fetch(`http://127.0.0.1:${port}/api/health`);if(r.ok)return;}catch{}await new Promise(r=>setTimeout(r,50));}throw Error('server did not boot');}
 async function api(endpoint,method='GET',payload,auth=true){const r=await fetch(`http://127.0.0.1:${port}`+endpoint,{method,headers:auth?{'X-ATS-Token':token,'Content-Type':'application/json'}:{},body:payload?JSON.stringify(payload):undefined});return [r.status,await r.json()];}
 test('IT-API-SETUP: start server',async()=>{cp=spawn(process.execPath,['server/index.mjs'],{cwd:root,env:{...process.env,ATS_PORT:String(port),ATS_DATA_DIR:data},stdio:'ignore'});await ready();const r=await api('/api/session');token=r[1].token;assert.ok(token);});
 test('IT-SEC-001: rejects unauthenticated API',async()=>{const r=await api('/api/projects','GET',undefined,false);assert.equal(r[0],401);});

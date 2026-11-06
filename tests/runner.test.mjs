@@ -16,7 +16,19 @@ else {
 `);
 fs.writeFileSync(path.join(project,'tests','slow.spec.ts'),"test('simulated slow',()=>{});");
 let cp,token,id;
-async function ready(){for(let i=0;i<70;i++){try{if((await fetch(`http://127.0.0.1:${port}/api/health`)).ok)return}catch{}await new Promise(r=>setTimeout(r,35));}throw Error('bridge unreachable');}
+// The ready() window below is 400 attempts, not the 70-100 it used to be.
+// `npm test` runs the test files in PARALLEL, and 14 of them each boot a
+// Bridge. Booting 14 servers at once is slow: measured on this machine the
+// boot takes 1289 / 5637 / 8582 ms (min / median / max), while the old
+// windows only allowed 4000 ms (80 x 50ms) or 2450 ms (70 x 35ms). So the
+// slow ones gave up with "server did not boot" -- non-deterministically, on a
+// DIFFERENT subset each run.
+//
+// It was never a port collision: 14 concurrent servers were measured and
+// their ports were all distinct. 400 attempts x 50ms = 20s and x 35ms = 14s,
+// which covers the measured worst case with room to spare, and a test that
+// genuinely cannot start still fails instead of hanging forever.
+async function ready(){for(let i=0;i<400;i++){try{if((await fetch(`http://127.0.0.1:${port}/api/health`)).ok)return}catch{}await new Promise(r=>setTimeout(r,35));}throw Error('bridge unreachable');}
 async function req(endpoint,method='GET',body){const r=await fetch(`http://127.0.0.1:${port}${endpoint}`,{method,headers:token?{'X-ATS-Token':token,'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});return [r.status,await r.json()];}
 async function waitRun(id,status){for(let i=0;i<100;i++){let r=(await req('/api/runs/'+id))[1].run;if(r.status===status)return r;if(['error','failed','cancelled'].includes(r.status)&&r.status!==status)throw Error(`unexpected ${r.status}: ${r.error}`);await new Promise(r=>setTimeout(r,35));}throw Error('run timeout');}
 test('IT-RUN-MOCK-SETUP: isolated fake CLI adapter',async()=>{cp=spawn(process.execPath,['server/index.mjs'],{cwd:root,env:{...process.env,ATS_PORT:String(port),ATS_DATA_DIR:data},stdio:'ignore'});await ready();token=(await req('/api/session'))[1].token;id=(await req('/api/projects','POST',{path:project}))[1].project.id;assert.ok(id);});

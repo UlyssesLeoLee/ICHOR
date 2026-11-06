@@ -23,8 +23,20 @@ const data = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-plg-api-'));
 const port = 33000 + Math.floor(Math.random() * 6000);
 let cp, token;
 
+// The ready() window below is 400 attempts, not the 70-100 it used to be.
+// `npm test` runs the test files in PARALLEL, and 14 of them each boot a
+// Bridge. Booting 14 servers at once is slow: measured on this machine the
+// boot takes 1289 / 5637 / 8582 ms (min / median / max), while the old
+// windows only allowed 4000 ms (80 x 50ms) or 2450 ms (70 x 35ms). So the
+// slow ones gave up with "server did not boot" -- non-deterministically, on a
+// DIFFERENT subset each run.
+//
+// It was never a port collision: 14 concurrent servers were measured and
+// their ports were all distinct. 400 attempts x 50ms = 20s and x 35ms = 14s,
+// which covers the measured worst case with room to spare, and a test that
+// genuinely cannot start still fails instead of hanging forever.
 async function ready() {
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 400; i++) {
     try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return; } catch { /* retry */ }
     await new Promise((r) => setTimeout(r, 50));
   }
