@@ -1,18 +1,14 @@
 === ATS-601 evidence: the environment declaration ===
-tree : 4ff5c36866f17704a930c1d60d8e55aab4e01e86
-date : 2026-11-06T15:08:22Z
-
---- ATS-601 的验证方式（审查 + UT）---
-本项是契约层交付：设计 + 契约测试，用假目标与假会话。
-按本任务书「本项是契约层——不需要真实设备」，本项**不依赖**真实设备。
+tree : 2c08c471407f0ed878b97b0da7d3b46d75d9d219
+date : 2026-11-06T18:44:44Z
 
 --- 本机的移动端环境（记录事实，不作通过/未通过声明）---
-adb          /c/Users/seiko/AppData/Local/Android/Sdk/platform-tools/adb
-emulator     (not found)
-sdkmanager   (not found)
-avdmanager   (not found)
-xcrun        (not found)
-idevice_id   (not found)
+adb          C:\Users\seiko\AppData\Local\Android\Sdk\platform-tools\adb.exe
+emulator     INFO: Could not find files for the given pattern(s).
+sdkmanager   INFO: Could not find files for the given pattern(s).
+avdmanager   INFO: Could not find files for the given pattern(s).
+xcrun        INFO: Could not find files for the given pattern(s).
+idevice_id   INFO: Could not find files for the given pattern(s).
 
 ANDROID_HOME : C:\Users\seiko\AppData\Local\Android\Sdk
 

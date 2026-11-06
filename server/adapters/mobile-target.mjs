@@ -21,18 +21,26 @@
  * is PROVEN, not declared.
  *
  * THE HARD RULES (docs/25-MOBILE-APP-TESTING.md §3.2)
- * ---------------------------------------------------
- *  1. A missing target, an unconnected device or an unsatisfied capability
- *     is an EXPLICIT REJECTION -- `REMOTE_TARGET_UNAVAILABLE` /
- *     `REMOTE_CAPABILITY_MISSING`. There is NO silent degradation to another
- *     execution mode. A caller that asked for a device never silently gets
- *     a browser.
- *  2. Capability negotiation happens BEFORE the run, and produces the gap
- *     list for THIS execution. A step whose capability is missing is not
- *     attempted at all -- it is reported.
- *  3. `tapOn` needs `ui.hierarchy`. Without the view hierarchy the element
- *     cannot be located, and a coordinate-only blind tap is not a
- *     substitute: the step is UNAVAILABLE, not degraded.
+  * ---------------------------------------------------
+  *  1. A missing target, an unconnected device, an occupied device or an
+  *     unsatisfied capability is an EXPLICIT REJECTION --
+  *     `REMOTE_TARGET_UNAVAILABLE` / `REMOTE_CAPABILITY_MISSING`. There is NO
+  *     silent degradation to another execution mode. A caller that asked for
+  *     a device never silently gets a browser.
+  *  2. A session is only handed out when a run may ACQUIRE it. The state
+  *     machine is the only thing that knows what may be acquired: `created`
+  *     can move to `running` and nothing else can. A session that is not
+  *     attached (`idle`), a session another run holds (`running`) and a
+  *     session that broke (`failed`) are all refused.
+  *  3. A session may not prove MORE than its target declared. A capability
+  *     the target never declared is a claim that was never proven, and it
+  *     does not enter the negotiation.
+  *  4. Capability negotiation happens BEFORE the run, and produces the gap
+  *     list for THIS execution. A step whose capability is missing is not
+  *     attempted at all -- it is reported.
+  *  5. `tapOn` needs `ui.hierarchy`. Without the view hierarchy the element
+  *     cannot be located, and a coordinate-only blind tap is not a
+  *     substitute: the step is UNAVAILABLE, not degraded.
  *
  * WHY THE REJECTION CODES ARE `REMOTE_`-NAMESPACED
  * -------------------------------------------------
@@ -199,6 +207,24 @@ export const SESSION_TRANSITIONS = Object.freeze({
 
 /** The states a session never leaves by itself. */
 export const TERMINAL_SESSION_STATES = Object.freeze(new Set([SESSION_STATE.FAILED]));
+
+/**
+ * Why a session in a given state may not be used.
+ *
+ * A session is usable when the state machine lets a run acquire it, and
+ * the state machine lets exactly one state be acquired: `created`. Every
+ * other state has a reason of its own, and a refusal that does not say
+ * WHY is not actionable.
+ *
+ * A state added to `SESSION_STATES` must be added here as well: a session
+ * in a state this table does not know is refused, and the reason must
+ * name it.
+ */
+export const SESSION_UNUSABLE_REASON = Object.freeze({
+  [SESSION_STATE.IDLE]: 'device-not-connected',
+  [SESSION_STATE.RUNNING]: 'device-occupied',
+  [SESSION_STATE.FAILED]: 'session-failed',
+});
 
 /* ------------------------------------------------------------------ */
 /* The rejection codes                                                  */
@@ -400,6 +426,25 @@ export function isLeaseExpired(session, now = new Date()) {
   return expiry <= now.getTime();
 }
 
+/**
+ * Whether a session may be USED right now, and why not when it may not.
+ *
+ * This is the answer to "can this device do anything at all?". It is the
+ * same rule `resolveSession` applies, exposed as DATA so that the device
+ * layer can report an unusable session as unsupported instead of
+ * claiming that the session proved a capability it never proved.
+ *
+ * Returns `{usable, reason}`:
+ *   * `usable` -- the session is in a state a run may acquire;
+ *   * `reason` -- why it is not, in words ('device-not-connected',
+ *     'device-occupied', 'session-failed', 'no-session').
+ */
+export function sessionUsability(session) {
+  if (!session) return { usable: false, reason: 'no-session' };
+  if (canTransition(session.state, SESSION_STATE.RUNNING)) return { usable: true, reason: '' };
+  return { usable: false, reason: SESSION_UNUSABLE_REASON[session.state] };
+}
+
 /* ------------------------------------------------------------------ */
 /* Capability negotiation                                              */
 /* ------------------------------------------------------------------ */
@@ -535,22 +580,46 @@ export function requireMobileCapabilities(session, stepKinds = []) {
 /**
  * Resolve the session that a run would use, or REJECT.
  *
- * This is where the "no silent degradation" rule is enforced. The three
- * rejection reasons are:
+ * This is where the "no silent degradation" rule is enforced. The rejection
+ * reasons are:
  *
  *   * the target does not exist        -> REMOTE_TARGET_UNAVAILABLE
  *   * no session is attached to it     -> REMOTE_TARGET_UNAVAILABLE
- *   * the device is not connected /
- *     the lease has expired            -> REMOTE_TARGET_UNAVAILABLE
+ *   * the session belongs to another
+ *     target                            -> REMOTE_TARGET_UNAVAILABLE
  *   * the session is `failed`          -> REMOTE_TARGET_UNAVAILABLE
+ *   * the device is not connected      -> REMOTE_TARGET_UNAVAILABLE
+ *     (the session is `idle`)
+ *   * the device is already occupied
+ *     (the session is `running`)        -> REMOTE_TARGET_UNAVAILABLE
+ *   * the lease has expired            -> REMOTE_TARGET_UNAVAILABLE
  *
  * A caller that wanted a device NEVER gets another execution mode here:
  * the function either returns a usable session or throws.
  *
+ * ONLY AN ACQUIRABLE SESSION IS RETURNED. A run acquires a session by
+ * moving it into `running`, so the session handed out must be one the
+ * state machine allows to move there. `canTransition` is that rule, read
+ * from the ONE place that knows it:
+ *
+ *   * `idle`    -- no session is attached to the target: the device is not
+ *                  connected. The caller has to create the session first
+ *                  (`idle -> created`); an `idle` session is never
+ *                  handed out as if a device were there.
+ *   * `created` -- the device is reachable and free: this is the one
+ *                  state a run may acquire.
+ *   * `running` -- another run holds it: handing it out would let two
+ *                  runs occupy one device at the same time.
+ *   * `failed`  -- the session broke.
+ *
+ * The lease rule is NOT switchable: an expired farm lease is refused
+ * whatever the caller passes. A caller that may turn the rule off could
+ * hold a farm device past its lease, so the option does not exist.
+ *
  * `now` is injectable so that the lease expiry is testable without a
  * clock.
  */
-export function resolveSession(target, session, { now = new Date(), requireConnected = true } = {}) {
+export function resolveSession(target, session, { now = new Date() } = {}) {
   if (!target) {
     throw new MobileTargetError(
       MOBILE_REJECTION.TARGET_UNAVAILABLE,
@@ -572,18 +641,48 @@ export function resolveSession(target, session, { now = new Date(), requireConne
       { reason: 'session-target-mismatch', targetId: target.targetId, sessionId: session.sessionId },
     );
   }
-  if (session.state === SESSION_STATE.FAILED) {
+  if (!canTransition(session.state, SESSION_STATE.RUNNING)) {
+    // The state machine is the authority on what may be acquired: a
+    // session that cannot move to `running` is never handed out. The
+    // reason names the state, so the refusal is actionable:
+    // `device-not-connected` (no session is attached to the target),
+    // `device-occupied` (another run holds it) or `session-failed`.
+    const reason = SESSION_UNUSABLE_REASON[session.state];
     throw new MobileTargetError(
       MOBILE_REJECTION.TARGET_UNAVAILABLE,
-      `session ${session.sessionId} is in the failed state: ${session.error || 'unknown error'}`,
-      { reason: 'session-failed', sessionId: session.sessionId, error: session.error },
+      `session ${session.sessionId} is not usable (${reason})`
+      + (session.error ? `: ${session.error}` : ''),
+      {
+        reason,
+        sessionId: session.sessionId,
+        targetId: target.targetId,
+        state: session.state,
+        error: session.error,
+      },
     );
   }
-  if (requireConnected && TARGET_KIND_POLICY[target.kind].leaseRequired && isLeaseExpired(session, now)) {
+  if (TARGET_KIND_POLICY[target.kind].leaseRequired && isLeaseExpired(session, now)) {
     throw new MobileTargetError(
       MOBILE_REJECTION.TARGET_UNAVAILABLE,
       `the lease of session ${session.sessionId} has expired; a farm device must be reclaimed`,
       { reason: 'lease-expired', sessionId: session.sessionId, targetId: target.targetId },
+    );
+  }
+  const undeclared = session.capabilities.filter((c) => !target.capabilities.includes(c));
+  if (undeclared.length) {
+    // The session proves MORE than its target declared. That claim was
+    // never proven, so it does not enter the negotiation.
+    throw new MobileTargetError(
+      MOBILE_REJECTION.CAPABILITY_MISSING,
+      `session ${session.sessionId} claims capabilities its target ${target.targetId} `
+      + `never declared: ${undeclared.join(', ')}`,
+      {
+        reason: 'session-capability-undeclared',
+        sessionId: session.sessionId,
+        targetId: target.targetId,
+        undeclared,
+        declared: [...target.capabilities],
+      },
     );
   }
   return session;
@@ -645,14 +744,22 @@ export function assertRegisteredAppPackage(registeredPackages, packageName) {
  *
  * The trust verdict comes from the caller (`trustOf` in
  * `server/discovery/trust.mjs`), so this contract does not have to know
- * how trust is stored.
+ * how trust is stored. `trustOf` returns a RECORD -- `{trust, reason, at}`
+ * -- and that record is what this function accepts. A bare `'trusted'`
+ * string is accepted as well, so a caller that already knows the verdict
+ * does not have to fabricate a record; what is NOT accepted is anything
+ * else, and an unknown shape is refused rather than guessed at.
  */
 export function assertTrustedProject(trust) {
-  if (trust !== 'trusted') {
+  const verdict = typeof trust === 'string' ? trust : (trust && typeof trust === 'object' ? trust.trust : null);
+  if (verdict !== 'trusted') {
     throw new MobileTargetError(
       'MOBILE_PROJECT_UNTRUSTED',
       'the project has not been vouched for; an untrusted project may not execute a mobile flow',
-      { trust },
+      {
+        trust: verdict ?? null,
+        reason: (trust && typeof trust === 'object' && trust.reason) || null,
+      },
     );
   }
   return true;

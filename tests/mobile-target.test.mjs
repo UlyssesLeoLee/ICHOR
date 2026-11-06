@@ -53,6 +53,7 @@ import {
   transitionSession,
 } from '../server/adapters/mobile-target.mjs';
 import { REMOTE_CODES } from '../server/control-plane/errors.mjs';
+import { TRUST, trustOf, withTrust } from '../server/discovery/trust.mjs';
 
 const NOW = new Date('2026-11-06T00:00:00.000Z');
 const FUTURE = '2026-11-06T01:00:00.000Z';
@@ -607,4 +608,156 @@ test('UT-MOB-052: the contract has no device driver -- it only decides', () => {
 test('UT-MOB-053: the rejection codes are the ones the design document names', () => {
   assert.equal(MOBILE_REJECTION.TARGET_UNAVAILABLE, 'REMOTE_TARGET_UNAVAILABLE');
   assert.equal(MOBILE_REJECTION.CAPABILITY_MISSING, 'REMOTE_CAPABILITY_MISSING');
+});
+
+/* ------------------------------------------------------------------ */
+/* Only an acquirable session is handed out                            */
+/* ------------------------------------------------------------------ */
+
+test('UT-MOB-071: a session that is not attached is refused -- the device is not connected', () => {
+  // `idle` means "no session is attached to the target": there is no device
+  // there. Handing it out would be a silent degradation, so it is refused.
+  const s = session({ state: SESSION_STATE.IDLE });
+  assert.throws(() => resolveSession(target(), s, { now: NOW }), (e) => {
+    assert.equal(e.code, MOBILE_REJECTION.TARGET_UNAVAILABLE);
+    assert.equal(e.details.reason, 'device-not-connected');
+    return true;
+  });
+});
+
+test('UT-MOB-072: a session another run holds is refused -- the device is occupied', () => {
+  const s = session({ state: SESSION_STATE.RUNNING });
+  assert.throws(() => resolveSession(target(), s, { now: NOW }), (e) => {
+    assert.equal(e.code, MOBILE_REJECTION.TARGET_UNAVAILABLE);
+    assert.equal(e.details.reason, 'device-occupied');
+    return true;
+  });
+});
+
+test('UT-MOB-073: only a session the state machine may acquire is handed out', () => {
+  // The state machine is the authority: `created` may move to `running`,
+  // and no other state may. The three kinds of target are all covered.
+  for (const kind of TARGET_KINDS) {
+    const t = target({ targetId: `tgt_${kind}`, kind });
+    for (const state of SESSION_STATES) {
+      const s = session({ targetId: `tgt_${kind}`, state, leaseExpiresAt: FUTURE });
+      const acquirable = canTransition(state, SESSION_STATE.RUNNING);
+      if (acquirable) {
+        assert.equal(
+          resolveSession(t, s, { now: NOW }).sessionId,
+          s.sessionId,
+          `${kind}/${state} should be handed out`,
+        );
+      } else {
+        assert.throws(() => resolveSession(t, s, { now: NOW }), (e) => {
+          assert.equal(e.code, MOBILE_REJECTION.TARGET_UNAVAILABLE, `${kind}/${state}`);
+          return true;
+        }, `${kind}/${state} should be refused`);
+      }
+    }
+  }
+});
+
+test('UT-MOB-074: the lease rule cannot be switched off by an option', () => {
+  // A caller that may turn the lease rule off could hold a farm device past
+  // its lease, so the option does not exist: an unknown option is ignored
+  // and the expired lease is still refused.
+  const t = target({ targetId: 'tgt_farm_1', kind: TARGET_KIND.REMOTE_FARM });
+  const expired = session({ targetId: 'tgt_farm_1', leaseExpiresAt: PAST });
+  assert.throws(() => resolveSession(t, expired, { now: NOW, requireConnected: false }), (e) => {
+    assert.equal(e.code, MOBILE_REJECTION.TARGET_UNAVAILABLE);
+    assert.equal(e.details.reason, 'lease-expired');
+    return true;
+  });
+});
+
+test('UT-MOB-075: a session may not prove more than its target declared', () => {
+  // The target declares one capability; the session claims all seven. The
+  // extra claims were never proven, so they do not enter the negotiation.
+  const narrow = target({ targetId: 'tgt_narrow', capabilities: ['screen.capture'] });
+  const wide = session({ targetId: 'tgt_narrow', capabilities: ALL_CAPS });
+  assert.throws(() => resolveSession(narrow, wide, { now: NOW }), (e) => {
+    assert.equal(e.code, MOBILE_REJECTION.CAPABILITY_MISSING);
+    assert.equal(e.details.reason, 'session-capability-undeclared');
+    assert.ok(e.details.undeclared.includes('ui.tap'));
+    assert.ok(!e.details.undeclared.includes('screen.capture'));
+    return true;
+  });
+});
+
+test('UT-MOB-076: a session within its target is handed out', () => {
+  // The control for UT-MOB-075: a session that proves exactly what the
+  // target declared is fine.
+  const narrow = target({ targetId: 'tgt_narrow', capabilities: ['screen.capture'] });
+  const s = session({ targetId: 'tgt_narrow', capabilities: ['screen.capture'] });
+  assert.equal(resolveSession(narrow, s, { now: NOW }).sessionId, s.sessionId);
+});
+
+test('UT-MOB-077: the usability of a session is data, and it names the reason', async () => {
+  // The helper is read through the module namespace so that this case
+  // reports its own failure on a tree that does not have it yet, instead
+  // of breaking the whole file at import time.
+  const { sessionUsability } = await import('../server/adapters/mobile-target.mjs');
+  assert.deepEqual(sessionUsability(session({ state: SESSION_STATE.CREATED })),
+    { usable: true, reason: '' });
+  assert.equal(sessionUsability(session({ state: SESSION_STATE.IDLE })).usable, false);
+  assert.equal(sessionUsability(session({ state: SESSION_STATE.IDLE })).reason, 'device-not-connected');
+  assert.equal(sessionUsability(session({ state: SESSION_STATE.RUNNING })).usable, false);
+  assert.equal(sessionUsability(session({ state: SESSION_STATE.RUNNING })).reason, 'device-occupied');
+  assert.equal(sessionUsability(session({ state: SESSION_STATE.FAILED })).usable, false);
+  assert.equal(sessionUsability(session({ state: SESSION_STATE.FAILED })).reason, 'session-failed');
+  assert.equal(sessionUsability(null).usable, false);
+  assert.equal(sessionUsability(null).reason, 'no-session');
+});
+
+test('UT-MOB-078: the trust verdict of trustOf() is accepted as a record', () => {
+  // The real gate: `trustOf` returns `{trust, reason, at}`, and a TRUSTED
+  // project must pass while a revoked or never-vouched one is refused.
+  const project = { uid: 'prj_ut', root: process.cwd() };
+  const trusted = trustOf(withTrust({}, project, { trust: TRUST.TRUSTED }), project);
+  assert.equal(trusted.trust, TRUST.TRUSTED);
+  assert.equal(assertTrustedProject(trusted), true);
+  for (const [label, state] of [
+    ['revoked', withTrust({}, project, { trust: TRUST.UNTRUSTED, reason: 'by hand' })],
+    ['never vouched', {}],
+  ]) {
+    const verdict = trustOf(state, project);
+    assert.equal(verdict.trust, TRUST.UNTRUSTED, label);
+    assert.throws(() => assertTrustedProject(verdict), (e) => {
+      assert.equal(e.code, 'MOBILE_PROJECT_UNTRUSTED');
+      return true;
+    }, label);
+  }
+});
+
+test('UT-MOB-079: a trust verdict that is not the string "trusted" is refused', () => {
+  // An unknown shape is refused rather than guessed at.
+  for (const bad of [undefined, null, {}, 'untrusted', 42, { trust: 'maybe' }]) {
+    assert.throws(() => assertTrustedProject(bad), (e) => {
+      assert.equal(e.code, 'MOBILE_PROJECT_UNTRUSTED');
+      return true;
+    }, JSON.stringify(bad));
+  }
+});
+
+test('UT-MOB-088: a state the transition table does not know has no transition', () => {
+  // `canTransition` reads the table and nothing else: a state that is not
+  // in the table has NO allowed move, so it can never be acquired.
+  assert.equal(canTransition('sleeping', SESSION_STATE.RUNNING), false);
+  assert.equal(canTransition('sleeping', SESSION_STATE.CREATED), false);
+  assert.equal(canTransition(undefined, SESSION_STATE.RUNNING), false);
+});
+
+test('UT-MOB-089: a session carries its error and its lease expiry when it has them', () => {
+  const broken = session({
+    state: SESSION_STATE.FAILED,
+    error: 'adb: device offline',
+    leaseExpiresAt: '2026-11-06T01:00:00.000Z',
+  });
+  assert.equal(broken.error, 'adb: device offline');
+  assert.equal(broken.leaseExpiresAt, '2026-11-06T01:00:00.000Z');
+  // And a session without them carries null, not undefined.
+  const plain = session();
+  assert.equal(plain.error, null);
+  assert.equal(plain.leaseExpiresAt, null);
 });

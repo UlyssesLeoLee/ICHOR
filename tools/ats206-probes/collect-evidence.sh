@@ -106,27 +106,52 @@ run 09-wbs-updaters.log "the WBS updater interaction regression (13 updaters)" \
   bash tools/ats501-probes/check-wbs-updaters.sh
 
 # --- 10: the python gates ----------------------------------------------------
-run 10-python-gates.log "the python gates under tools/" \
-  python -m pytest tools/ -q
+# The NOTE below is only added when a gate actually failed: the marker-ordering
+# assertion it talks about was fixed on dev, so on the current tree the gates
+# are green and the note would be a lie.
+python -m pytest tools/ -q > "$EV/10-python-gates.log" 2>&1
+PY_GATES_EXIT=$?
 {
   echo
-  echo "=== NOTE ==="
-  echo "test_tc002_ats506_marker_and_narrative fails on this tree, and it is"
-  echo "PRE-EXISTING: it fails identically on the base commit $BASE_SHA"
-  echo "(git archive $BASE_SHA -> pytest tools/test_wbs_common_helpers.py -q -> 1 failed, 6 passed)."
-  echo "It is an ATS-506/ATS-512 marker-ordering assertion over"
-  echo "tools/wbs_common.py MARKERS, unrelated to the ATS-206 migration, and"
-  echo "NOT introduced by this branch."
-} >> "$EV/10-python-gates.log"
+  echo "=== the python gates under tools/ ==="
+  echo "repo root : $(pwd)"
+  echo "commit    : $(git rev-parse --short HEAD)"
+  echo "branch    : $(git branch --show-current)"
+  echo "node      : $(node --version)"
+  echo "python    : $(python --version 2>&1)"
+  echo
+  cat "$EV/10-python-gates.log"
+  echo
+  echo "exit code : $PY_GATES_EXIT"
+} > "$EV/10-python-gates.log.tmp"
+mv "$EV/10-python-gates.log.tmp" "$EV/10-python-gates.log"
+if [ "$PY_GATES_EXIT" -ne 0 ]; then
+  {
+    echo
+    echo "=== NOTE ==="
+    echo "A python gate failed on this tree. Compare it with the base commit"
+    echo "$BASE_SHA before blaming this branch:"
+    echo "(git archive $BASE_SHA -> pytest tools/ -q)."
+  } >> "$EV/10-python-gates.log"
+fi
+echo "wrote $EV/10-python-gates.log"
 
-# --- 11: the round-3 review probe ---------------------------------------------
-# The four counterexamples of the round-3 rework (CE7, CE8, CE9, CE10),
-# against the tree that is delivered.
-run 11-review-round3-probe.log "the round-3 review probe (CE7 / CE8 / CE9 / CE10)" \
-  node tools/ats206-probes/ce206r3.mjs . "${TMPDIR:-/tmp}/ats206-r3-scratch"
+# --- 11: the recovery / stale-lock counterexample probe ------------------------
+# The recovery counterexamples (the recovery that must refuse, the recovery
+# whose rename fails, the stale lock that a real kill leaves behind), against
+# the tree that is delivered.
+run 11-recovery-refusal-probe.log "the recovery / stale-lock counterexample probe" \
+  node tools/ats206-probes/recovery-refusal-probe.mjs . "${TMPDIR:-/tmp}/ats206-recovery-scratch"
 
-# --- 12: the ADR citation check ----------------------------------------------
-run 12-adr-citations.log "the ADR citation check" \
+# --- 12: the refusal-branch / stale-lock probe --------------------------------
+# The two recovery branches that refuse (a rename that throws, a journal that
+# claims "state" over an unmigrated state file) and the stale lock that a
+# REAL kill leaves behind.
+run 12-stale-lock-probe.log "the refusal-branch / stale-lock probe" \
+  node tools/ats206-probes/stale-lock-probe.mjs . "${TMPDIR:-/tmp}/ats206-stale-lock-scratch"
+
+# --- 13: the ADR citation check ----------------------------------------------
+run 13-adr-citations.log "the ADR citation check" \
   python tools/check_adr_citations.py
 
 echo "done"

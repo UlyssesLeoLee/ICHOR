@@ -496,6 +496,10 @@ UT+=[
 ('ATS-206-UT-039g','NFR-010','正常','--state 直接指向状态文件','用 --state 指定状态文件','plan 成功并称数量保持','node --test','PASS'),
 ('ATS-206-UT-039h','NFR-010','正常','默认数据目录来自 ATS_DATA_DIR','设置 ATS_DATA_DIR 后跑 plan','plan 成功并称数量保持','node --test','PASS'),
 ('ATS-206-UT-060','NFR-010','正常','迁移夹具用完即清理','测试跑完之后','临时目录被删除','node --test','PASS'),
+('ATS-206-UT-119','NFR-010','异常','process.exit 退出的迁移不留锁','迁移在改名运行目录时 process.exit(137)','锁文件不存在，且没有 .stale- 残留','node --test','PASS'),
+('ATS-206-UT-120','NFR-010','异常','恢复时改名失败则拒绝并保留日志','恢复期改名抛 EBUSY','退出码非 0、不报 UNDONE、日志保留；随后 rollback 逐字节还原 v0.1 且目录全部改回旧名','node --test','PASS'),
+('ATS-206-UT-121','NFR-010','异常','日志记着 state 但状态文件未迁移则拒绝','日志 steps=[state]，状态文件是 v0.1','退出码非 0、日志保留、状态文件逐字节未变','node --test','PASS'),
+('ATS-206-UT-122','NFR-010','恢复','SIGKILL 留下的陈旧锁由下一次运行接管','迁移被 SIGKILL 杀掉','锁文件留在盘上；下一次运行接管它，恢复的每一次数据写入都在新锁下；无 .stale- 残留','node --test','PASS'),
 ]
 
 # ATS-207 cases (tests/instance-lock.test.mjs, tests/instance-lock-it.test.mjs,
@@ -629,6 +633,25 @@ UT+=[
 ('UT-MOB-068','FR-031','安全','移动端 Runner 不会被静默选为网页项目的执行器','在拒绝列表里找 mobile','mobile 出现在被拒列表中','node --test','PASS'),
 ('UT-MOB-069','FR-031','安全','移动端适配器源码自身没有驱动','静态检查适配器源码','不 import 子进程/网络模块，也不 spawn','node --test','PASS'),
 ('UT-MOB-070','FR-031','正常','设备契约是增量的，既有能力词表不变','查 playwright 的能力名','不含 ui.tap 等设备能力','node --test','PASS'),
+('UT-MOB-071','FR-031','异常','未挂接的会话被拒绝：设备未连接','会话处于 idle 态','报 REMOTE_TARGET_UNAVAILABLE，reason=device-not-connected','node --test','PASS'),
+('UT-MOB-072','FR-031','异常','被别的运行占用的会话被拒绝','会话处于 running 态','报 REMOTE_TARGET_UNAVAILABLE，reason=device-occupied','node --test','PASS'),
+('UT-MOB-073','FR-031','正常','只有状态机允许获取的会话才被交出','遍历三种 kind 与四个状态','仅 created 可获取，其余全部拒绝','node --test','PASS'),
+('UT-MOB-074','FR-031','安全','租约规则不能被选项关掉','传入 requireConnected=false','过期租约仍报 reason=lease-expired','node --test','PASS'),
+('UT-MOB-075','FR-031','异常','会话不得声称目标未声明的能力','目标只声明 screen.capture，会话声称七项','报 REMOTE_CAPABILITY_MISSING，reason=session-capability-undeclared','node --test','PASS'),
+('UT-MOB-076','FR-031','正常','会话能力在目标声明之内时正常交出','目标与会话都只有 screen.capture','返回该会话','node --test','PASS'),
+('UT-MOB-077','FR-031','正常','会话可用性是数据并带原因','查 sessionUsability','四个状态各自返回 usable 与 reason','node --test','PASS'),
+('UT-MOB-078','FR-031','安全','可信判定接受 trustOf() 的判定记录','用真实的 withTrust / trustOf 串联','可信项目通过，被撤销与未登记的被拒','node --test','PASS'),
+('UT-MOB-079','FR-031','异常','非 trusted 的判定形状一律被拒','传 undefined/null/对象/数字/错误字符串','均报 MOBILE_PROJECT_UNTRUSTED','node --test','PASS'),
+('UT-MOB-080','FR-031','安全','未登记会话时 resolveDevice 拒绝','登记列表省略/为空/null/非列表','均报 MOBILE_SESSION_NOT_REGISTERED','node --test','PASS'),
+('UT-MOB-081','FR-031','正常','已登记且可用的会话仍然解析成功','登记列表含该会话','返回目标与会话','node --test','PASS'),
+('UT-MOB-082','FR-031','异常','resolveDevice 拒绝未连接或被占用的会话','会话处于 idle / running 态','报 REMOTE_TARGET_UNAVAILABLE，reason 各自点名','node --test','PASS'),
+('UT-MOB-083','FR-031','安全','不可用的会话在设备层不证明任何能力','failed / idle / running 会话','每条能力 supported=false 且无证据','node --test','PASS'),
+('UT-MOB-084','FR-031','安全','失败会话的设备层协商不报支持','对 failed 会话协商 ui.hierarchy','device.supported=false 且 missing 无证据','node --test','PASS'),
+('UT-MOB-085','FR-031','异常','没有会话时设备层全部报不支持','适配器不带会话','每条能力 supported=false 且带理由','node --test','PASS'),
+('UT-MOB-086','FR-031','正常','适配器自述在有目标与无目标时都成立','查 describe()','有目标时给 kind 与 sessionId，无目标时为 null','node --test','PASS'),
+('UT-MOB-087','FR-031','正常','设备层跟随调用方给出的会话','上下文会话与适配器自带会话不同','以上下文会话为准','node --test','PASS'),
+('UT-MOB-088','FR-031','异常','迁移表里没有的状态没有可用迁移','查 canTransition','未知状态到任何状态均为假','node --test','PASS'),
+('UT-MOB-089','FR-031','正常','会话携带错误原因与租约到期时间','构造带 error 与 leaseExpiresAt 的会话','两者如实携带，缺省时为 null','node --test','PASS'),
 ]
 
 def emit(file,title,purpose,cases):

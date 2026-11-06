@@ -32,6 +32,10 @@ import {
   UID_SCHEME_VERSION, projectUidFor, runUidFor, isProjectUid, isRunUid,
   isLegacyProjectUid, isLegacyRunUid, emptyRegistry, assignRunSeqs,
 } from '../uid.mjs';
+// ATS-212: the environment profile identifier is derived from the project
+// and the name, so re-keying a profile re-derives its identifier with the
+// SAME rule the runtime uses.
+import { envUidFor } from '../env/profiles.mjs';
 
 /** The version of the migration format this module writes. */
 export const MIGRATION_FORMAT_VERSION = 1;
@@ -201,6 +205,59 @@ export function planMigration(state) {
     version: registry.version ?? UID_SCHEME_VERSION,
     projects: rekeyProjectMap(registryProjects, legacyToUid),
   };
+
+  // --- the environment profiles (ATS-212) ---------------------------------
+  //
+  // The profiles and the whitelists are keyed by the project identifier, so
+  // they have to be re-keyed for exactly the same reason the trust map and
+  // the registry are: a map that keeps the OLD key is not lost, it is
+  // UNREACHABLE. The bridge looks a project's profiles up under its NEW
+  // UID, finds an empty bucket, and the project silently falls back to the
+  // built-in default whitelist -- the profile it had is simply gone.
+  //
+  // The profile identifier is DERIVED from the project and the name, so
+  // re-keying the owner re-derives the identifier as well. The runs that
+  // referred to the old identifier are rewritten in the same pass, so a
+  // run still points at the profile it ran under.
+  if (state.envProfiles && typeof state.envProfiles === 'object') {
+    const store = state.envProfiles;
+    const profiles = Array.isArray(store.profiles) ? store.profiles : [];
+    const envUidByOld = new Map();
+    const nextProfiles = [];
+    for (const p of profiles) {
+      const oldOwner = p?.projectUid;
+      const newOwner = legacyToUid.get(oldOwner) ?? oldOwner;
+      const oldUid = p?.uid ?? p?.id ?? null;
+      // The identifier is re-derived from the NEW owner, so that it stays
+      // recomputable: `envUidFor(projectUid, name)` is the only rule.
+      const newUid = newOwner && p?.name ? envUidFor(newOwner, p.name) : oldUid;
+      if (oldOwner && newOwner && oldOwner !== newOwner) {
+        changes.push({ kind: 'env-profile-owner', from: oldOwner, to: newOwner, profile: p?.name ?? null });
+      }
+      if (oldUid && newUid && oldUid !== newUid) {
+        envUidByOld.set(oldUid, newUid);
+        changes.push({ kind: 'env-profile', from: oldUid, to: newUid, projectUid: newOwner });
+      }
+      nextProfiles.push({ ...p, projectUid: newOwner, uid: newUid, id: newUid });
+    }
+    const whitelists = rekeyProjectMap(store.whitelists, legacyToUid);
+    for (const key of Object.keys(store.whitelists ?? {})) {
+      const target = legacyToUid.get(key);
+      if (target) changes.push({ kind: 'env-whitelist', from: key, to: target });
+    }
+    nextState.envProfiles = {
+      ...store,
+      profiles: nextProfiles,
+      whitelists,
+    };
+    // The runs that named a profile are rewritten together with it.
+    if (envUidByOld.size) {
+      for (const r of nextState.runs) {
+        const mapped = envUidByOld.get(r.envUid);
+        if (mapped) r.envUid = mapped;
+      }
+    }
+  }
 
   // --- the trust map --------------------------------------------------------
   // The trust decision is keyed by the project UID for the same reason. A

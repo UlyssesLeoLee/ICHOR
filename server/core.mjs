@@ -1025,6 +1025,10 @@ function authoritativeCatalog(project, registry, trust, decision, listed) {
     file: t.file, title: t.title, line: t.line,
     describePath: t.scope,
     specIds: t.specIds,
+    // ATS-204: the anchor of the case. It is what a case that has no body
+    // of its own is remembered BY: the position it was reported at plus
+    // its ordinal there.
+    anchor: t.anchor ?? null,
     source: 'authoritative', level: 'ST',
     ...(t.ambiguity ? { ambiguity: t.ambiguity } : {})
   }));
@@ -1033,10 +1037,14 @@ function authoritativeCatalog(project, registry, trust, decision, listed) {
   const ambiguous = tests.filter(t => !t.uidStable).length;
   const duplicatedExplicit = tests.filter(t => t.ambiguity?.reason === 'duplicate-explicit-uid').length;
   const outside = (listed.skipped && listed.skipped.length) || 0;
+  // ATS-204: the cases whose anchor could not decide them -- a template
+  // that gained or lost a render, so the ordinals may have moved.
+  const shifted = tests.filter(t => t.ambiguity?.reason === 'render-shift-possible').length;
 
   let warning = `权威索引来自 playwright test --list（CLI ${listed.version || '?'}）：动态与参数化用例已包含在内。`;
   if (ambiguous) warning += ` ${ambiguous} 个用例的 UID 为临时值（标题与 describe 路径都无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
   if (duplicatedExplicit) warning += ` ${duplicatedExplicit} 个用例标注了同一个 @TC-xxx，这些用例都没有绑定到该 UID，需要人工消歧。`;
+  if (shifted) warning += ` ${shifted} 个用例的模板渲染数发生了变化（${[...new Set(tests.filter(t => t.ambiguity?.reason === 'render-shift-possible').map(t => t.ambiguity.previousCount + '→' + t.ambiguity.currentCount))].join('、')}），锚点次序可能已经位移，这些用例的 UID 由本次发现派生，需要人工复核。`;
   if (outside) warning += ` ${outside} 个用例位于项目根目录之外，已被排除。`;
   if (!consistency.agrees) warning += ` 与静态索引的差异：${consistency.onlyAuthoritative.length} 个用例仅权威索引可见，${consistency.onlyStatic.length} 个用例仅静态索引可见。`;
 

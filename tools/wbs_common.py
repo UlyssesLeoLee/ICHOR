@@ -41,9 +41,9 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-205】', '【ATS-206】',
-           '【ATS-207】', '【ATS-208】', '【ATS-212】', '【ATS-301】', '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】',
-           '【ATS-601】')
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-204】', '【ATS-205】',
+           '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-212】', '【ATS-301】', '【ATS-401】', '【ATS-501】',
+           '【ATS-506】', '【ATS-512】', '【ATS-601】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -101,6 +101,12 @@ NARRATIVE_FRAGMENTS = {
         'D6': '权威发现已实现（ATS-202：playwright test --list；未可信仓库回退静态索引）',
         'D7': '权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；'
               '详见 docs/23-AUTHORITATIVE-DISCOVERY.md',
+    },
+    '【ATS-204】': {
+        'D6': '身份映射器已实现（ATS-204：改名/改标题后的 UID 重识别、动态用例的锚点、'
+              '歧义不误关联）',
+        'D7': '跨机器的用例身份不在本任务范围（Project UID 依赖绝对路径）；'
+              '详见 docs/26-IDENTITY-MAPPER.md',
     },
     '【ATS-205】': {
         'D6': 'SQLite 元数据层已实现（ATS-205：WAL、版本迁移与事务；state.json 的镜像）',

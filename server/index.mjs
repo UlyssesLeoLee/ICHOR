@@ -19,10 +19,10 @@ import { AdapterError } from './adapters/contract.mjs';
 // set of environment variables; the run carries the profile it ran under
 // and the runner receives the SEALED environment (the profile's variables
 // plus the platform base keys -- never the host's own environment).
-import { ENVIRONMENTS, buildRunnerEnv, envVarNames } from './env/profiles.mjs';
+import { ENVIRONMENTS, buildRunnerEnv, envVarNames, filterProfileVariables } from './env/profiles.mjs';
 import {
   envStoreOf, profilesOfProject, findProfile, whitelistForProject,
-  upsertProfile, removeProfile, setWhitelist, publicProfile,
+  upsertProfile, removeProfile, setWhitelist, publicProfile, projectKeyOf,
 } from './env/store.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
@@ -411,7 +411,7 @@ function finishRun(run,code,signal){
  fs.writeFileSync(path.join(folder,'manifest.json'),JSON.stringify(manifest,null,2));
   jobs.delete(run.id);saveState(store);
  }
- function startRun(project,run,adapter,envProfile){
+ function startRun(project,run,adapter,envProfile,envVariables){
    const folder=runDir(run.id);fs.mkdirSync(folder,{recursive:true});
    // ATS-208: the events are written BEFORE the status changes, so each
    // event records the status the run is leaving and the stream replays.
@@ -427,7 +427,10 @@ function finishRun(run,code,signal){
    //
    // With no profile the environment is still SEALED: the base keys and
    // nothing else. The host's variables do not reach the runner either way.
-   const sealedEnv=buildRunnerEnv(envProfile??{variables:{}});
+   //
+   // The variables are the ones the CURRENT WHITELIST permits (the caller
+   // filtered them); the profile itself may still carry more.
+   const sealedEnv=buildRunnerEnv({variables:envVariables??envProfile?.variables??{}});
    try{handle=adapter.start({project,run,file:run.file,outputDir:folder,env:sealedEnv});}
   catch(e){
    writeEvent(run,EVENT_TYPE.ERROR,{error:e.message});
@@ -491,7 +494,11 @@ function staticFile(req,res,pathname){
 const server=http.createServer(async(req,res)=>{
  const bad=checkedRequest(req);if(bad)return err(res,403,bad);
  const origin=req.headers.origin;if(origin&&ORIGINS.has(origin)){
- res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Access-Control-Allow-Methods','GET, POST, PUT, OPTIONS');res.setHeader('Access-Control-Allow-Headers','Content-Type, X-ATS-Token');res.setHeader('Vary','Origin');}
+ // ATS-212: `DELETE` is one of the methods the environment routes use
+ // (`DELETE /api/projects/<id>/env`), so it has to be in the allowed
+ // methods -- a cross-origin client (the Tauri shell, the Next dev server)
+ // could not delete a profile without it.
+ res.setHeader('Access-Control-Allow-Methods','GET, POST, PUT, DELETE, OPTIONS');res.setHeader('Access-Control-Allow-Headers','Content-Type, X-ATS-Token');res.setHeader('Vary','Origin');}
  if(req.method==='OPTIONS'){res.writeHead(204);return res.end();}
  const u=new URL(req.url,`http://127.0.0.1:${PORT}`),p=u.pathname;
  if(p==='/api/health')return respond(res,200,{ok:true,version:'0.1.0',mode:'local',node:process.version});
@@ -596,7 +603,7 @@ const server=http.createServer(async(req,res)=>{
   // cannot leak through an API that already shipped.
   if(action==='env'&&req.method==='GET'){
    const store_=envStoreOf(store);
-   const profiles=profilesOfProject(store_,project.uid||project.id).map(publicProfile);
+   const profiles=profilesOfProject(store_,projectKeyOf(project)).map(publicProfile);
    const whitelist=whitelistForProject(store_,project);
    return respond(res,200,{
     profiles,
@@ -718,16 +725,42 @@ const server=http.createServer(async(req,res)=>{
    // against the staging base URL must not quietly run against the default.
    const envStore_=envStoreOf(store);
    let envProfile=null;
+   // ATS-212: the profile is looked up under the SAME key the write, the
+   // list and the delete path use (`projectKeyOf`). Before the round-2 fix
+   // the write path keyed a profile by `project.uid ?? project.id` while
+   // the run path keyed it by `projectUidOf(project)` -- two different
+   // identifiers for a project that had not been migrated yet, so a profile
+   // the API listed could not be used by a run.
+   const envProjectKey=projectKeyOf(project);
    if(b.env!==undefined&&b.env!==null&&b.env!==''){
-    envProfile=findProfile(envStore_,projectUid,b.env);
+    envProfile=findProfile(envStore_,envProjectKey,b.env);
     if(!envProfile)return err(res,404,'ENV_PROFILE_NOT_FOUND',{ref:String(b.env)});
    }
+   // ATS-212: THE WHITELIST CONSTRAINS THE RUN, NOT ONLY THE WRITE.
+   //
+   // A profile is written against the whitelist that was in force at that
+   // moment; the whitelist can be tightened afterwards. A run that happens
+   // later must then NOT carry the variables that were removed -- otherwise
+   // the whitelist is only a write-time check and the variable still
+   // reaches the code under test, which is exactly the boundary the
+   // whitelist exists to draw.
+   //
+   // The variables the CURRENT whitelist no longer permits are FILTERED OUT
+   // of the runner environment and REPORTED on the run record, so a reader
+   // can see that the profile carried them and that they did not reach the
+   // runner. A filter (rather than a refusal) is what keeps a tightened
+   // whitelist from turning every existing profile into a dead profile: the
+   // run still happens, with exactly the variables that are still allowed.
+   const envWhitelist=whitelistForProject(envStore_,project);
+   const envFiltered=envProfile?filterProfileVariables(envProfile,envWhitelist.names):{variables:{},refused:[]};
    // The names of the variables the run carried -- NEVER their values. The
    // run record is archived, mirrored into SQLite and shipped as evidence;
    // a value may be sensitive, a name is what a reader of the run needs.
-   const envVarNameList=envProfile?envVarNames(envProfile):[];
-   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null};
-   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter,envProfile);return respond(res,202,{run});
+   // The names are the ones that ACTUALLY reached the runner, so the record
+   // does not claim a variable the whitelist took away.
+   const envVarNameList=envFiltered.variables?Object.keys(envFiltered.variables).sort():[];
+   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null,...(envFiltered.refused.length?{envRefused:envFiltered.refused}:{})};
+   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter,envProfile,envFiltered.variables);return respond(res,202,{run});
   }
   if(action==='lineage'&&req.method==='GET'){
    const dir=path.join(project.root,'.aitest');let requirements=[],links=[];

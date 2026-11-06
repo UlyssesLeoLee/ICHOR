@@ -393,11 +393,11 @@ S4 的 `onlyAuthoritative` 非空是**正确的**：那个用例在表达式体�
 
 | 边界 | 归属 |
 |---|---|
-| 文件/标题变化时的 UID 重识别与歧义提示的完整策略 | ATS-204 |
+| 文件/标题变化时的 UID 重识别与歧义提示的完整策略 | **ATS-204 已实现**（见 `docs/26-IDENTITY-MAPPER.md`） |
 | 动态/参数化/项目矩阵的索引回归数据集 | ATS-203 |
-| `test.each` 参数化用例的**标题模板**与渲染标题的对应关系（当前以渲染标题为准） | ATS-204 |
-| 用例的 `describe` 路径参与 UID（当前只作兜底） | ATS-204 |
-| 多项目矩阵下「一个逻辑用例」的跨 project 身份（当前一个用例携带每个 project 的 spec id，但 UID 按逻辑用例唯一） | ATS-204 |
+| `test.each` 参数化用例的**标题模板**与渲染标题的对应关系（当前以渲染标题为准） | 真实 Playwright 1.64.1 没有 `test.each`（实测），参数化在 Playwright 里是循环；标题模板的对应关系属其它引擎 |
+| 用例的 `describe` 路径参与 UID（当前只作兜底） | **ATS-204 已实现**（锚点含 describe 路径，见 `docs/26-IDENTITY-MAPPER.md` §4.1） |
+| 多项目矩阵下「一个逻辑用例」的跨 project 身份（当前一个用例携带每个 project 的 spec id，但 UID 按逻辑用例唯一） | **ATS-204 已实现**（矩阵是一个用例，见 `docs/26-IDENTITY-MAPPER.md` §5） |
 | 非 Playwright 引擎的权威发现（WDIO） | ATS-302 |
 | 沙箱化执行（当前 `--list` 在宿主上执行仓库代码） | ATS-415 |
 | 列举结果的**缓存**（每次打开目录都会重新列举一次） | ATS-203 |
