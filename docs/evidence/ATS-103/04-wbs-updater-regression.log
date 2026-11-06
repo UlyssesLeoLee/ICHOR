@@ -1,6 +1,6 @@
 === ATS-103 evidence: WBS updater coexistence regression (all tools/update_wbs_*.py) ===
-date      : 2026-11-06T22:48:45Z (UTC)
-commit    : 3f277800a0c531de443c8c897e88deca2f343cd6
+date      : 2026-11-06T23:22:08Z (UTC)
+commit    : 548a6431133f0b65a358cdd735d436d6aa9cdf8c
 node      : v22.23.4
 npm       : 10.9.9
 command   : python tools/test_wbs_common.py && bash tools/ats501-probes/check-wbs-updaters.sh
@@ -263,8 +263,8 @@ C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet
   PASS  running the 22 updaters twice changes nothing
 
 --- 4. the derived 总览 totals match the sheet ---
-  derived: completed=1 rate=0.187624750499002 remaining=407
-  cached : completed=1 rate=0.187624750499002 (delta 5.551e-17, tolerance 5.0e-16) remaining=407
+  derived: completed=2 rate=0.187624750499002 remaining=407
+  cached : completed=2 rate=0.187624750499002 (delta 5.551e-17, tolerance 5.0e-16) remaining=407
   PASS  the cached 总览 values equal the values derived from 开发WBS
 
 --- 5. the marked notes of every task survive ---
@@ -304,7 +304,7 @@ C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet
   warn(msg)
 C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-  baseline markers: {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
+  baseline markers: {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-216】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
   current markers : {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-216】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
   PASS  every marked note of the baseline is still in the sheet
 
