@@ -1,6 +1,6 @@
 === ATS-601 evidence: the python gates ===
-tree : 3966b6d6a79b29b413970adab6d7c33937748b4f
-date : 2026-11-06T14:37:33Z
+tree : 4ff5c36866f17704a930c1d60d8e55aab4e01e86
+date : 2026-11-06T15:06:38Z
 
 --- pytest (WBS helpers, updaters, test-doc generator) ---
 .....................................                                    [100%]
@@ -14,7 +14,7 @@ tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
     warn(msg)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-37 passed, 2 warnings in 62.32s (0:01:02)
+37 passed, 2 warnings in 8.73s
 
 --- the WBS shared-cell regression ---
 PASS ATS-401 note carrying its own marker is not doubled
