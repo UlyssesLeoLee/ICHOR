@@ -724,18 +724,18 @@ const server=http.createServer(async(req,res)=>{
    // silent fallback to "no profile": a run that was supposed to run
    // against the staging base URL must not quietly run against the default.
    const envStore_=envStoreOf(store);
-      let envProfile=null;
-      // ATS-212: the profile is looked up under the SAME key the write, the
-      // list and the delete path use (`projectKeyOf`). Before the round-2 fix
-      // the write path keyed a profile by `project.uid ?? project.id` while
-      // the run path keyed it by `projectUidOf(project)` -- two different
-      // identifiers for a project that had not been migrated yet, so a profile
-      // the API listed could not be used by a run.
-      const envProjectKey=projectKeyOf(project);
-      if(b.env!==undefined&&b.env!==null&&b.env!==''){
-       envProfile=findProfile(envStore_,envProjectKey,b.env);
-       if(!envProfile)return err(res,404,'ENV_PROFILE_NOT_FOUND',{ref:String(b.env)});
-      }
+   let envProfile=null;
+   // ATS-212: the profile is looked up under the SAME key the write, the
+   // list and the delete path use (`projectKeyOf`). Before the round-2 fix
+   // the write path keyed a profile by `project.uid ?? project.id` while
+   // the run path keyed it by `projectUidOf(project)` -- two different
+   // identifiers for a project that had not been migrated yet, so a profile
+   // the API listed could not be used by a run.
+   const envProjectKey=projectKeyOf(project);
+   if(b.env!==undefined&&b.env!==null&&b.env!==''){
+    envProfile=findProfile(envStore_,envProjectKey,b.env);
+    if(!envProfile)return err(res,404,'ENV_PROFILE_NOT_FOUND',{ref:String(b.env)});
+   }
    // ATS-212: THE WHITELIST CONSTRAINS THE RUN, NOT ONLY THE WRITE.
    //
    // A profile is written against the whitelist that was in force at that
