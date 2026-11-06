@@ -1,0 +1,27 @@
+# ATS-207 evidence: IT-LOCK / IT-DATA / IT-WAL (real Bridge processes)
+# collected : 2026-11-06T10:01:27Z
+# HEAD      : c7c3d2f946e414e37de5ac3e0eb137943c3a48fb
+# tree      : 06c2ac3f1820b6643b4b45ff90327df085319938
+# node      : v24.19.0
+# command   : node --test tests/instance-lock-it.test.mjs
+
+✔ IT-LOCK-001: a second Bridge on the same data directory is refused while the first serves (3548.0494ms)
+✔ IT-LOCK-002: of two Bridges started at the same instant exactly one serves (7202.2643ms)
+✔ IT-LOCK-003: after a hard kill the next Bridge takes over the lock and the run is interrupted (3344.1539ms)
+✔ IT-LOCK-004: with ATS_LOCK_WAIT_MS a starting Bridge waits for the lock instead of failing (3178.8515ms)
+✔ IT-LOCK-005: a Bridge whose lock was taken over stops and leaves the new lock alone (1380.4605ms)
+✔ IT-LOCK-006: a lock file deleted under a running Bridge is taken again (1376.2209ms)
+✔ IT-DATA-001: a Bridge refuses a damaged state file and leaves it untouched (1455.3969ms)
+✔ IT-DATA-002: kills during saves never leave a torn state file (10402.8755ms)
+✔ IT-WAL-001: after a kill inside a transaction the WAL yields exactly the committed rows (452.8438ms)
+✔ IT-WAL-002: a Bridge moves a damaged mirror aside and rebuilds it from the state file (1235.5794ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 50948.2396
+
+# exit code: 0

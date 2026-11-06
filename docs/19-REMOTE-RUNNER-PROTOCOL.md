@@ -259,6 +259,7 @@ signature = base64url(Ed25519_sign(privateKey, utf8(canonical)))
 | `REMOTE_ENROLLMENT_TOKEN_INVALID` | 401 | enrollment token 过期、已使用、用途不符或未知 | 否 | 入网凭据无效 | ATS-503 |
 | `REMOTE_PROTOCOL_MISMATCH` | 409 | 协议 major 不一致，或节点 minor 低于 `minMinor` | 否 | 协议版本不兼容 | ATS-503 |
 | `REMOTE_CAPABILITY_MISSING` | 409 | 缺少必需能力，或作业所需能力不在已协商集合内 | 否 | 节点能力不满足作业要求 | ATS-301/503 |
+| `REMOTE_TARGET_UNAVAILABLE` | 409 | 执行目标不存在、未连接、租约过期或会话处于 failed 态 | 否 | 执行目标不可用（不存在、未连接、租约过期或会话失败） | ATS-601 |
 | `REMOTE_TENANT_MISMATCH` | 403 | 请求租户与会话租户不一致，或节点绑定租户不一致 | 否 | 租户上下文不匹配 | ATS-508 |
 | `REMOTE_TENANT_REQUIRED` | 403 | 缺少租户上下文 | 否 | 缺少租户上下文 | ATS-508 |
 | `REMOTE_ROLE_FORBIDDEN` | 403 | 角色无权执行该操作 | 否 | 权限不足 | ATS-508 |
@@ -502,6 +503,7 @@ signature = base64url(Ed25519_sign(privateKey, utf8(canonical)))
       { "code": "REMOTE_ENROLLMENT_TOKEN_INVALID", "http": 401, "retryable": false },
       { "code": "REMOTE_PROTOCOL_MISMATCH", "http": 409, "retryable": false },
       { "code": "REMOTE_CAPABILITY_MISSING", "http": 409, "retryable": false },
+      { "code": "REMOTE_TARGET_UNAVAILABLE", "http": 409, "retryable": false },
       { "code": "REMOTE_TENANT_MISMATCH", "http": 403, "retryable": false },
       { "code": "REMOTE_TENANT_REQUIRED", "http": 403, "retryable": false },
       { "code": "REMOTE_ROLE_FORBIDDEN", "http": 403, "retryable": false },

@@ -244,9 +244,14 @@ setInterval(()=>{}, 1000);
   const env = { ...process.env, ATS_PORT: String(crashPort), ATS_DATA_DIR: crashData };
   const start = () => spawn(process.execPath, ['server/index.mjs'], { cwd: root, env, stdio: 'ignore' });
   const up = async () => {
-    for (let i = 0; i < 100; i++) {
+    // The window is deliberately generous: the bridge is a child process
+    // that has to start, read its state and recover its runs before it
+    // answers. Under load (the full suite runs hundreds of cases) 3.5s was
+    // not always enough, and the case then failed with "the bridge did not
+    // come back up" -- a HARNESS flake that says nothing about the product.
+    for (let i = 0; i < 400; i++) {
       try { if ((await fetch(`http://127.0.0.1:${crashPort}/api/health`)).ok) return true; } catch { /* not up */ }
-      await new Promise((r) => setTimeout(r, 35));
+      await new Promise((r) => setTimeout(r, 50));
     }
     return false;
   };
@@ -339,9 +344,14 @@ setInterval(()=>{}, 1000);
   const env = { ...process.env, ATS_PORT: String(crashPort), ATS_DATA_DIR: crashData };
   const start = () => spawn(process.execPath, ['server/index.mjs'], { cwd: root, env, stdio: 'ignore' });
   const up = async () => {
-    for (let i = 0; i < 100; i++) {
+    // The window is deliberately generous: the bridge is a child process
+    // that has to start, read its state and recover its runs before it
+    // answers. Under load (the full suite runs hundreds of cases) 3.5s was
+    // not always enough, and the case then failed with "the bridge did not
+    // come back up" -- a HARNESS flake that says nothing about the product.
+    for (let i = 0; i < 400; i++) {
       try { if ((await fetch(`http://127.0.0.1:${crashPort}/api/health`)).ok) return true; } catch { /* not up */ }
-      await new Promise((r) => setTimeout(r, 35));
+      await new Promise((r) => setTimeout(r, 50));
     }
     return false;
   };
@@ -437,9 +447,12 @@ async function withBridge(dataDir, body) {
   const env = { ...process.env, ATS_PORT: String(port), ATS_DATA_DIR: dataDir };
   const start = () => spawn(process.execPath, ['server/index.mjs'], { cwd: root, env, stdio: 'ignore' });
   const up = async () => {
-    for (let i = 0; i < 100; i++) {
+    // A generous window, for the same reason as the crash helpers above:
+    // a restart that takes longer than the window is a HARNESS flake, not
+    // a product defect.
+    for (let i = 0; i < 400; i++) {
       try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return true; } catch { /* not up */ }
-      await new Promise((r) => setTimeout(r, 35));
+      await new Promise((r) => setTimeout(r, 50));
     }
     return false;
   };
@@ -568,19 +581,30 @@ function rewindToCancelling(data, runId) {
 }
 
 /**
- * The defect B2 is about.
+ * A run whose folder is gone must not keep the Bridge from starting.
  *
- * The run folder was deleted (by the user, by a cleaner, or by a failed
- * migration). The old recovery read `events.jsonl` unconditionally and
- * threw `ENOENT`, so the bridge died on start -- and one damaged run kept
- * the WHOLE installation from starting.
+ * The run folder is deleted (by the user, by a cleaner, or by a failed
+ * migration), so the durable log of that run is unreachable. The recovery
+ * path treats that as DAMAGE, not as a fatal error: the problem is
+ * recorded, the run still recovers into a terminal status, and the Bridge
+ * starts.
+ *
+ * THE ORDER OF THE TWO STEPS MATTERS.
+ *
+ * The folder is deleted AFTER the bridge has stopped. If the folder were
+ * deleted while the bridge were still alive, the bridge would write the
+ * next event into the missing folder, RECREATE it (the writer creates the
+ * parent directory), and the recovery would find a healthy log -- the
+ * defect would never be exercised. That is why this case stops the
+ * bridge first: it has to reproduce the state a crash leaves behind, and
+ * the crash means nobody is left to recreate the folder.
  */
 test('IT-EXE-008: the bridge starts even when the run folder is gone', async () => {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-exe-missing-'));
   const data = path.join(work, 'data');
   try {
     const project = makeHangingProject(work);
-    await withBridge(data, async ({ call, token, restart }) => {
+    await withBridge(data, async ({ call, token, kill, restart }) => {
       const projectId = (await call('/api/projects', 'POST', { path: project }, token))[1].project.id;
       const [, started] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/slow.spec.ts' }, token);
       const runId = started.run.id;
@@ -588,7 +612,9 @@ test('IT-EXE-008: the bridge starts even when the run folder is gone', async () 
         if ((await call(`/api/runs/${runId}`, 'GET', null, token))[1].run.status === 'running') break;
         await new Promise((r) => setTimeout(r, 35));
       }
-      // The run folder disappears.
+      // The bridge stops FIRST: the folder is gone and nobody is left to
+      // recreate it.
+      await kill();
       fs.rmSync(path.join(data, 'runs', runId), { recursive: true, force: true });
 
       const token2 = await restart();
@@ -607,7 +633,7 @@ test('IT-EXE-008: the bridge starts even when the run folder is gone', async () 
 });
 
 /**
- * The defect B5 is about.
+ * A log whose tail line is torn.
  *
  * A crash in the middle of an append leaves the last line of
  * `events.jsonl` torn. The old reader let the JSON error escape, so
@@ -651,7 +677,7 @@ test('IT-EXE-009: a torn event log stays readable', async () => {
 });
 
 /**
- * The defect B3 is about.
+ * A stream that violates the state machine.
  *
  * The bridge died between the `run.finished` event and the state write --
  * the `finishRun` collect window. The log already said the run FINISHED;
@@ -707,7 +733,7 @@ test('IT-EXE-010: no event is appended after a terminal event', async () => {
 });
 
 /**
- * The defect B4 is about.
+ * A run that was `cancelling` when the Bridge died.
  *
  * The bridge died while the run was `cancelling` -- after `POST /stop` and
  * before the engine's exit was processed. The old recovery only handled
@@ -774,7 +800,7 @@ test('IT-EXE-011: a run that was cancelling when the bridge died is recovered', 
 });
 
 /**
- * The defect B1 is about, at the bridge level.
+ * The expected failure of a `test.fail()` case, at the bridge level.
  *
  * A case that declares `test.fail()` and fails is what Playwright calls an
  * `expected` outcome: the engine exits 0 and its `stats` count the case as
@@ -831,6 +857,57 @@ fs.writeFileSync(out, JSON.stringify({
       assert.equal(run.attempts[0].status, 'failed');
       assert.equal(run.attempts[0].expectedStatus, 'failed');
       assert.equal(run.attempts[0].outcome, 'expected');
+    });
+  } finally {
+    removeTemp(work);
+  }
+});
+
+/**
+ * The lost and the reused sequence numbers, at the API level.
+ *
+ * The replay endpoint reports the holes of the sequence and the numbers
+ * that are used more than once. A log whose FIRST events were lost is not
+ * an intact log, and a stream that holds two events with the same number
+ * does not describe a run -- the metadata layer's primary key
+ * `(run_uid, seq)` refuses such a pair.
+ */
+test('IT-EXE-013: the replay reports the lost and the reused sequence numbers', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-exe-seq-'));
+  const data = path.join(work, 'data');
+  try {
+    const project = makeHangingProject(work);
+    await withBridge(data, async ({ call, token, kill, restart }) => {
+      const projectId = (await call('/api/projects', 'POST', { path: project }, token))[1].project.id;
+      const [, started] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/slow.spec.ts' }, token);
+      const runId = started.run.id;
+      for (let i = 0; i < 100; i++) {
+        if ((await call(`/api/runs/${runId}`, 'GET', null, token))[1].run.status === 'running') break;
+        await new Promise((r) => setTimeout(r, 35));
+      }
+      await kill();
+
+      // The durable log is damaged in two ways at once: the first event is
+      // LOST, and one number is used TWICE.
+      const log = path.join(data, 'runs', runId, 'events.jsonl');
+      const lines = fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+      assert.ok(lines.length >= 2, `the log holds ${lines.length} events`);
+      // Drop the first event: the hole is at the BEGINNING of the stream.
+      const kept = lines.slice(1);
+      // Reuse the number of the first kept event for a second one.
+      const duplicated = { ...kept[0], type: 'run.cancelling', data: {} };
+      fs.writeFileSync(log, [...kept, duplicated].map((e) => JSON.stringify(e)).join('\n') + '\n');
+
+      const token2 = await restart();
+      const [status, replay] = await call(`/api/runs/${runId}/replay`, 'GET', null, token2);
+      assert.equal(status, 200, JSON.stringify(replay));
+      // The hole at the beginning is reported: the sequence starts at 1.
+      assert.ok(replay.gaps.includes(1), JSON.stringify(replay.gaps));
+      // The reused number is reported.
+      assert.ok(replay.duplicates.length >= 1, JSON.stringify(replay.duplicates));
+      // A stream that reuses a number does not describe a run.
+      assert.equal(replay.valid, false, JSON.stringify(replay.violations));
+      assert.equal(replay.agrees, false, JSON.stringify(replay));
     });
   } finally {
     removeTemp(work);

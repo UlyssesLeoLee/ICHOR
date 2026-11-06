@@ -22,7 +22,7 @@ UT=[
 ('UT-SEC-002','NFR-003','安全','symlink 越界源码','tests/test.spec.ts 指向仓库外','禁止打开与保存','设计用例，待自动化','PENDING'),
 ('UT-SEC-003','FR-015','安全','恶意附件文件路径','file=../../etc/passwd','拒绝下载','设计用例，待自动化','PENDING'),
 ('UT-EVT-001','FR-018','正常','事件序列递增','queued→running→finished','序列号单调 +1，无覆写','设计用例，待自动化','PENDING'),
-('UT-DATA-001','NFR-010','异常','状态文件格式损坏','state.json 非 JSON','服务拒绝启动，提示备份恢复','设计用例，待自动化','PENDING'),
+('UT-DATA-001','NFR-010','异常','状态文件格式损坏','state.json 非 JSON（含零长度）、null、schema 2','报 STATE_CORRUPT / UNSUPPORTED_DATABASE，服务拒绝启动并提示备份恢复，文件不被改写','node --test','PASS'),
 ('UT-GIT-001','FR-002','正常','非 Git 仓库','存在 package 和 playwright config，无 .git','branch detached/none,不阻断添加','设计用例，待自动化','PENDING'),
 ('UT-GIT-002','FR-002','正常','dirty 状态变化','修改一份被追踪的 spec.ts','Git status dirty=true','设计用例，待自动化','PENDING'),
 ('UT-UI-001','FR-020','交互','流程视图复杂代码保护','测试脚本存在条件循环/helper','不修改源文件，不显示可反向编辑能力','待前端测试','PENDING'),
@@ -382,7 +382,7 @@ ST=[
 ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
 ('ST-015','NFR-003','安全','路径穿越测试','请求 api Source/Artifact 越界','不能读取外部私密文件','HTTP log','PENDING'),
 ('ST-016','NFR-004','完整性','证据哈希一致','完整 Run 导出证据文件','sha256 与 manifest 对应','本机 sha256sum','PENDING'),
-('ST-017','NFR-008','恢复','强制终止后重启','运行过程中强行停止 bridge','Run=interrupted，已完成历史不丢','日志+state','PENDING'),
+('ST-017','NFR-008','恢复','强制终止后重启','运行过程中强行停止 bridge','Run=interrupted，已完成历史不丢','node tools/ats207-probes/st-ats207.mjs（真实 Chromium，强杀整棵进程树）','PASS'),
 ('ST-018','FR-017','功能','需求关系界面','导入附带 .aitest 的示例项目','显示 REQ-001/2 与用例映射','截图','PENDING'),
 ('ST-019','NFR-006','性能','大仓库用例索引性能','500 tests / 100 files / SSD','目标 3 秒内（项目目标，待确认）','计时 log','PENDING'),
 ('ST-020','NFR-007','兼容性','三 OS 便携 UI','Windows/macOS/Linux Node 22+','可启动并导入本地工程','测试记录','PENDING'),
@@ -498,6 +498,134 @@ UT+=[
 ('ATS-206-UT-060','NFR-010','正常','迁移夹具用完即清理','测试跑完之后','临时目录被删除','node --test','PASS'),
 ]
 
+# ATS-207 cases (tests/instance-lock.test.mjs, tests/instance-lock-it.test.mjs,
+# tools/ats207-probes/st-ats207.mjs). Appended after every other block, so the
+# lines cited by position (docs/16-BASELINE-ADR.md, tools/check_adr_citations.py)
+# do not move.
+UT+=[
+# --- ATS-207: the data directory lock and the durable state persistence ---
+('UT-LOCK-001','NFR-010','正常','取锁发布完整记录并可自校验与释放','新数据目录','记录含 pid/启动时间/token；verify 为 held；释放后文件消失，不留临时文件','node --test','PASS'),
+('UT-LOCK-002','NFR-010','异常','活持有者的锁不被覆盖','本进程持锁时再次取锁','报 BRIDGE_ALREADY_RUNNING（reason=held），锁文件逐字节不变','node --test','PASS'),
+('UT-LOCK-003','NFR-010','边界','等待取锁超时','子进程持锁，waitMs=400','≥400ms 后报 BRIDGE_ALREADY_RUNNING，waitedMs≥400','node --test','PASS'),
+('UT-LOCK-004','NFR-010','正常','持有者释放后等待者取得锁','子进程 500ms 后释放，waitMs=15000','取锁成功，记录为本进程','node --test','PASS'),
+('UT-LOCK-005','NFR-008','恢复','陈旧锁被接管','死 pid 的锁；pid 被复用的锁','均被接管，不留 .stale- 文件','node --test','PASS'),
+('UT-LOCK-006','NFR-010','异常','无可校验身份的活 pid 锁按占用处理','活 pid 无启动时间；非 JSON 锁文件','前者报 BRIDGE_ALREADY_RUNNING；后者被接管','node --test','PASS'),
+('UT-LOCK-007','NFR-010','并发','6 个进程同时抢一把新锁','屏障同时放行 6 个子进程','恰 1 个取得锁、5 个报占用，锁文件记赢家','node --test','PASS'),
+('UT-LOCK-008','NFR-010','并发','6 个进程同时接管一把陈旧锁','预置死 pid 的锁','恰 1 个取得锁，不留 .stale- 文件','node --test','PASS'),
+('UT-LOCK-009','NFR-010','并发','接管时误移的新锁被放回','锁文件已不是判定为陈旧的字节','返回 false，新锁逐字节放回','node --test','PASS'),
+('UT-LOCK-010','NFR-010','并发','放回时不覆盖期间发布的更新锁','放回前已有人发布新锁','保留更新的锁，返回 false','node --test','PASS'),
+('UT-LOCK-011','NFR-010','兼容','无硬链接的文件系统退化为独占创建','linkSync 报 EPERM / ENOTSUP','取锁成功，第二次取锁被拒','node --test','PASS'),
+('UT-LOCK-012','NFR-010','边界','反复变化的锁有尝试上限','锁每次都消失 / 瞬时错误 / 硬错误','报 reason=contended；瞬时错误限次重试；硬错误直接抛出','node --test','PASS'),
+('UT-LOCK-013','NFR-010','安全','释放与校验不认领他人的锁','他人 token / 死 pid / 被替换 / 乱码 / 被删除','release 为 false 且不删除；verify 报 taken-over / unreadable / absent','node --test','PASS'),
+('UT-LOCK-014','NFR-010','边界','环境变量与取锁选项校验','ATS_LOCK_WAIT_MS / ATS_LOCK_VERIFY_MS 与 waitMs 的非法值','非法值取默认值，不等待','node --test','PASS'),
+('UT-LOCK-015','NFR-010','异常','createDir:false 不重建缺失的数据目录','数据目录已不存在','报 ENOENT，目录未被创建','node --test','PASS'),
+('UT-DATA-002','NFR-010','可靠性','改名前先 fsync 临时文件','记录 fsync 与 rename 的调用顺序','fsync 在改名之前；临时文件名带 pid；不留临时文件','node --test','PASS'),
+('UT-DATA-003','NFR-010','异常','写入失败时旧状态不变','改名瞬时 EPERM 两次 / 持续 EBUSY / ENOSPC / fsync 失败','瞬时冲突重试后成功；其余抛错，旧文件逐字节不变，不留临时文件','node --test','PASS'),
+('UT-DATA-004','NFR-010','清理','清理中断保存留下的临时文件','state.json.tmp、state.json.<pid>.tmp、state.json.bak','只删两个临时文件，状态与备份不变','node --test','PASS'),
+('UT-DATA-005','NFR-010','兼容','目录同步在不支持的平台上不抛错','win32 / 不存在的目录','返回 false，不抛错','node --test','PASS'),
+('UT-WAL-001','NFR-010','正常','健全的镜像通过检查','无镜像；saveState 写出的镜像','absent；ok 且文件不变','node --test','PASS'),
+('UT-WAL-002','NFR-010','恢复','非数据库的镜像被隔离并重建','metadata.db 被写成乱码','quarantined；不留旧 -wal/-shm；下一次保存重建且 verifyMirror 通过','node --test','PASS'),
+('UT-WAL-003','NFR-010','恢复','页面损坏的镜像被隔离','覆写一个 b-tree 页','quick_check 报错，quarantined','node --test','PASS'),
+('UT-WAL-004','NFR-010','异常','只有损坏才会移动镜像','更新的 schema / 路径是目录 / 改名失败','ok / unchecked 且不移动 / quarantine-failed','node --test','PASS'),
+]
+IT+=[
+# --- ATS-207: single instance, lock contention and crash recovery (real Bridge processes) ---
+('IT-LOCK-001','NFR-010','单实例','第二个 Bridge 被拒','A 服务中，B 用同一数据目录、不同端口启动','B 退出码 1 并报锁路径与持有者 pid；A 仍服务；锁文件不变','node --test','PASS'),
+('IT-LOCK-002','NFR-010','并发','两个 Bridge 同时启动','同一新数据目录，重复 3 轮','每轮恰一个服务，另一个退出码 1','node --test','PASS'),
+('IT-LOCK-003','NFR-008','恢复','强杀后接管且运行为 interrupted','运行中的 Bridge 被强杀','下一个 Bridge 接管陈旧锁；run=interrupted，复演一致','node --test','PASS'),
+('IT-LOCK-004','NFR-010','正常','ATS_LOCK_WAIT_MS 等待取锁','A 持锁时启动 B（等待 20 秒），随后强杀 A','B 等待期间不服务，A 退出后 B 启动并持锁','node --test','PASS'),
+('IT-LOCK-005','NFR-010','安全','锁被他人占用的 Bridge 停止','运行中把锁改写成他人的记录','Bridge 退出码 1，报 lost the data directory lock，不删他人的锁','node --test','PASS'),
+('IT-LOCK-006','NFR-010','恢复','锁文件被删后重新取锁','运行中删除 bridge.lock','锁文件重现并记本 Bridge 的 pid，Bridge 仍服务','node --test','PASS'),
+('IT-DATA-001','NFR-010','异常','损坏的状态文件拒绝启动','非 JSON / 零长度的 state.json','退出码 1，报 STATE_CORRUPT 与恢复步骤；文件不变；锁已释放','node --test','PASS'),
+('IT-DATA-002','NFR-010','可靠性','写入中强杀不留残缺状态','循环保存的进程被强杀 12 次','每次 state.json 都是完整的一代；之后 Bridge 启动清理临时文件且镜像一致','node --test','PASS'),
+('IT-WAL-001','NFR-010','恢复','事务中强杀后 WAL 只恢复已提交的行','50 行已提交在 WAL，另 50 行未提交时强杀','integrity_check=ok，已提交的 50 行在、未提交的不在','node --test','PASS'),
+('IT-WAL-002','NFR-010','恢复','Bridge 隔离并重建损坏的镜像','metadata.db 为乱码','报 quarantined，保留损坏副本，重建的镜像与 state.json 一致','node --test','PASS'),
+]
+ST+=[
+# --- ATS-207: system test with real Bridge processes and a real Playwright run ---
+('ST-025','NFR-010','单实例','同一数据目录只允许一个 Bridge','真实 Bridge：A 服务时启动 B；两个 Bridge 同时启动','B 退出码 1 并报持有者；同时启动恰一个服务','node tools/ats207-probes/st-ats207.mjs','PASS'),
+('ST-026','NFR-010','恢复','崩溃后损坏文件的处理','零长度 state.json；损坏的 metadata.db','前者拒绝启动且文件不变；后者隔离并由 state.json 重建，历史完整','node tools/ats207-probes/st-ats207.mjs','PASS'),
+]
+
+# --- ATS-601: the mobile target and session contract ---
+# Appended after every other block, so the lines cited by position
+# (docs/16-BASELINE-ADR.md, tools/check_adr_citations.py) do not move.
+# The cases are the CONTRACT layer: they run against fake targets and
+# fake sessions. Nothing here needs a real device -- the real device
+# cases are ATS-603.
+UT+=[
+('UT-MOB-001','FR-031','正常','目标 kind 词表恰为三个设计值','枚举 TARGET_KINDS','local-emulator / local-device / remote-farm','node --test','PASS'),
+('UT-MOB-002','FR-031','正常','会话状态词表恰为四个设计态','枚举 SESSION_STATES','idle / created / running / failed','node --test','PASS'),
+('UT-MOB-003','FR-031','正常','能力词表恰为七个设计能力','枚举 MOBILE_CAPABILITIES','app.install / app.launch / ui.tap / ui.hierarchy / screen.capture / screen.record / log.read','node --test','PASS'),
+('UT-MOB-004','FR-031','正常','每个步骤类型都声明了所需能力','遍历 MOBILE_STEP_KINDS','launchApp / tapOn / assertVisible / takeScreenshot / recordScreen / readLogs 均在词表内','node --test','PASS'),
+('UT-MOB-005','FR-031','正常','真机只被借用，不被接管','查 TARGET_KIND_POLICY[local-device]','platformOwnsLifecycle=false 且 platformMayInstall=false','node --test','PASS'),
+('UT-MOB-006','FR-031','正常','农场设备是租约式的，模拟器由平台创建','查三种 kind 的策略','remote-farm.leaseRequired=true；local-emulator.platformOwnsLifecycle=true','node --test','PASS'),
+('UT-MOB-007','FR-031','正常','目标保留形状且不可变','构造目标并去重能力','能力去重排序，target 冻结','node --test','PASS'),
+('UT-MOB-008','FR-031','异常','未知目标 kind 被拒','kind=cloud-phone','报 MOBILE_TARGET_INVALID','node --test','PASS'),
+('UT-MOB-009','FR-031','异常','词表外的能力被拒','capabilities 含 ui.teleport','报 MOBILE_TARGET_INVALID 并点名该能力','node --test','PASS'),
+('UT-MOB-010','FR-031','异常','什么都做不了的目标被拒','capabilities 为空','报 MOBILE_TARGET_INVALID','node --test','PASS'),
+('UT-MOB-011','FR-031','异常','缺 id 或缺 platform 的目标被拒','分别置空 targetId / platform','均报 MOBILE_TARGET_INVALID','node --test','PASS'),
+('UT-MOB-012','FR-031','正常','会话携带身份、状态与能力集','构造会话','sessionId / targetId / state / capabilities 齐备','node --test','PASS'),
+('UT-MOB-013','FR-031','异常','未知会话状态被拒','state=sleeping','报 MOBILE_SESSION_INVALID','node --test','PASS'),
+('UT-MOB-014','FR-031','异常','会话的词表外能力被拒','capabilities 含 screen.mirror','报 MOBILE_SESSION_INVALID','node --test','PASS'),
+('UT-MOB-015','FR-031','正常','状态机允许 idle→created→running→idle','逐条查询 canTransition','三条边均为真','node --test','PASS'),
+('UT-MOB-016','FR-031','异常','异常路径从 created 与 running 进 failed','逐条查询 canTransition','两条边均为真','node --test','PASS'),
+('UT-MOB-017','FR-031','异常','会话不得跳过 created，failed 只能回 idle','查询非法边','idle→running / idle→failed / running→created / failed→running 均为假','node --test','PASS'),
+('UT-MOB-018','FR-031','正常','合法迁移保留会话身份','idle→created','状态与身份、能力集均保留','node --test','PASS'),
+('UT-MOB-019','FR-031','异常','非法迁移抛错而不是静默移动','idle→running','报 MOBILE_SESSION_TRANSITION_INVALID 并列出允许的下一状态','node --test','PASS'),
+('UT-MOB-020','FR-031','异常','failed 态记录失败原因','running→failed 带错误串','error 字段记录原因','node --test','PASS'),
+('UT-MOB-021','FR-031','正常','迁移表覆盖每个状态','遍历 SESSION_STATES','每个状态都有迁移表且目标态在词表内','node --test','PASS'),
+('UT-MOB-022','FR-031','异常','目标不存在时明确拒绝而非降级','resolveSession(null, 会话)','报 REMOTE_TARGET_UNAVAILABLE，reason=target-not-found','node --test','PASS'),
+('UT-MOB-023','FR-031','异常','目标没有会话时明确拒绝','resolveSession(目标, null)','报 REMOTE_TARGET_UNAVAILABLE，reason=session-not-found','node --test','PASS'),
+('UT-MOB-024','FR-031','异常','会话属于别的目标时明确拒绝','会话的 targetId 不匹配','报 REMOTE_TARGET_UNAVAILABLE，reason=session-target-mismatch','node --test','PASS'),
+('UT-MOB-025','FR-031','异常','failed 会话被拒绝','会话处于 failed 态','报 REMOTE_TARGET_UNAVAILABLE，reason=session-failed 并带错误原因','node --test','PASS'),
+('UT-MOB-026','FR-031','异常','农场租约过期时明确拒绝','租约到期时间在过去','报 REMOTE_TARGET_UNAVAILABLE，reason=lease-expired','node --test','PASS'),
+('UT-MOB-027','FR-031','正常','有效的农场租约被接受','租约到期时间在未来','返回该会话','node --test','PASS'),
+('UT-MOB-028','FR-031','边界','没有租约到期时间的农场会话视为已过期','leaseExpiresAt=null','isLeaseExpired 为真且解析被拒','node --test','PASS'),
+('UT-MOB-029','FR-031','正常','过期的农场会话被回收','租约过期且处于 running','回收后状态为 idle','node --test','PASS'),
+('UT-MOB-030','FR-031','正常','未过期的农场会话不被回收','租约未过期且处于 running','状态保持 running','node --test','PASS'),
+('UT-MOB-031','FR-031','正常','本地真机没有租约因而不回收','local-device 且租约时间在过去','状态不变','node --test','PASS'),
+('UT-MOB-032','FR-031','正常','两个拒绝码都在唯一的拒绝码表里','查 REMOTE_CODES','REMOTE_TARGET_UNAVAILABLE 与 REMOTE_CAPABILITY_MISSING 均已登记','node --test','PASS'),
+('UT-MOB-033','FR-031','正常','launchApp 需要 app.install 或 app.launch','分别只给一个能力','两者之一即可满足；都没有则缺口为这两个','node --test','PASS'),
+('UT-MOB-034','FR-031','正常','tapOn 需要 ui.tap 与 ui.hierarchy','只给 ui.tap','不满足，缺口为 ui.hierarchy','node --test','PASS'),
+('UT-MOB-035','FR-031','安全','缺 ui.hierarchy 时 tapOn 被拒并说明不能盲点','只给 ui.tap','理由点名 ui.hierarchy 与 blind tap','node --test','PASS'),
+('UT-MOB-036','FR-031','正常','其余步骤类型各自对应其能力','遍历 assertVisible / takeScreenshot / recordScreen / readLogs','各自能力满足才通过','node --test','PASS'),
+('UT-MOB-037','FR-031','异常','未知步骤类型是编程错误而非缺口','kind=swipe','报 MOBILE_STEP_UNKNOWN','node --test','PASS'),
+('UT-MOB-038','FR-031','正常','协商产出本次执行的能力缺口清单','会话缺 ui.hierarchy 且步骤含 tapOn','unavailableSteps 含 tapOn，gap 缺口为 ui.hierarchy','node --test','PASS'),
+('UT-MOB-039','FR-031','正常','步骤全部可满足时协商干净通过','全部步骤类型 + 全能力','supported=true 且缺口为空','node --test','PASS'),
+('UT-MOB-040','FR-031','安全','缺口按会话而非按目标计算','目标声明全能力但会话只证明 app.launch','仍报出 ui.tap 与 ui.hierarchy 缺口','node --test','PASS'),
+('UT-MOB-041','FR-031','异常','能力不足时抛 REMOTE_CAPABILITY_MISSING 并带缺口','requireMobileCapabilities 缺能力','错误码为 REMOTE_CAPABILITY_MISSING 且 details.gaps 非空','node --test','PASS'),
+('UT-MOB-042','FR-031','正常','能力齐全时协商返回结果','requireMobileCapabilities 全能力','supported=true','node --test','PASS'),
+('UT-MOB-043','FR-031','安全','只允许启动项目登记过的 App 包名','登记 com.example.app，请求别的包','报 MOBILE_APP_PACKAGE_NOT_REGISTERED','node --test','PASS'),
+('UT-MOB-044','FR-031','异常','空包名被拒','packageName 为空串','报 MOBILE_APP_PACKAGE_INVALID','node --test','PASS'),
+('UT-MOB-045','FR-031','安全','未可信项目不得执行移动端 Flow','trust=untrusted','报 MOBILE_PROJECT_UNTRUSTED','node --test','PASS'),
+('UT-MOB-046','FR-031','安全','只允许使用用户显式登记的会话','登记列表不含该会话','报 MOBILE_SESSION_NOT_REGISTERED','node --test','PASS'),
+('UT-MOB-047','FR-031','安全','未登记的会话即使目标正确也被拒','登记列表为空','报 MOBILE_SESSION_NOT_REGISTERED','node --test','PASS'),
+('UT-MOB-048','FR-031','安全','证据在根目录内解析且摘要由宿主计算','在证据根内放一个文件','返回相对路径、大小与 SHA-256，摘要等于内容摘要','node --test','PASS'),
+('UT-MOB-049','FR-031','安全','越出证据根的路径被拒','relative=../escape.png','报 MOBILE_EVIDENCE_PATH_FORBIDDEN','node --test','PASS'),
+('UT-MOB-050','FR-031','异常','缺失的证据文件被报告而不是按空摘要处理','读取不存在的文件','报 MOBILE_EVIDENCE_NOT_FOUND','node --test','PASS'),
+('UT-MOB-051','FR-031','异常','空证据路径被拒','relative 为空串','报 MOBILE_EVIDENCE_PATH_INVALID','node --test','PASS'),
+('UT-MOB-052','FR-031','安全','契约层自身没有任何设备驱动','静态检查契约源码','不 import 子进程/网络模块，也不 spawn','node --test','PASS'),
+('UT-MOB-053','FR-031','正常','拒绝码就是设计书点名的两个','查 MOBILE_REJECTION','REMOTE_TARGET_UNAVAILABLE 与 REMOTE_CAPABILITY_MISSING','node --test','PASS'),
+('UT-MOB-054','FR-031','正常','移动端 Runner 在同一个注册表里','查 listRunners','注册表同时含 playwright / wdio / mobile','node --test','PASS'),
+('UT-MOB-055','FR-031','正常','移动端适配器通过同一套 assertAdapter','注册移动端适配器','契约版本与四个操作齐备','node --test','PASS'),
+('UT-MOB-056','FR-031','正常','device 段是可选的，既有适配器不受影响','对 playwright 做设备层协商','deviceContractVersion 为 null 且无设备缺口','node --test','PASS'),
+('UT-MOB-057','FR-031','正常','带 device 段的适配器声明设备契约版本','查移动端适配器','device.contractVersion=1','node --test','PASS'),
+('UT-MOB-058','FR-031','正常','设备能力不支持时要理由、支持时要有证据','构造 deviceCapability','缺理由或缺证据分别报对应码','node --test','PASS'),
+('UT-MOB-059','FR-031','异常','未知的设备能力被报告而不是抛错','对空列表协商 ui.tap','missing[0].kind=unknown 且带理由','node --test','PASS'),
+('UT-MOB-060','FR-031','正常','引擎缺口与设备缺口分开报告','同时协商两层','两层 missing 分开，合计数一致','node --test','PASS'),
+('UT-MOB-061','FR-031','安全','设备层跟随会话而非目标','会话只证明两个能力','已证明的支持、未证明的带理由','node --test','PASS'),
+('UT-MOB-062','FR-031','异常','移动端适配器拒绝启动而不是改跑别的','调用 start/stop/collect/discover','均报 REMOTE_TARGET_UNAVAILABLE，reason=no-driver','node --test','PASS'),
+('UT-MOB-063','FR-031','诚实','移动端适配器的引擎能力全部带理由地不支持','查 capabilities','每条 supported=false 且 reason 非空','node --test','PASS'),
+('UT-MOB-064','FR-031','诚实','移动端适配器自称契约而非驱动','查 describe()','designStatus=CONTRACT_ONLY 且注明 ATS-603','node --test','PASS'),
+('UT-MOB-065','FR-031','正常','resolveDevice 执行全部硬规则','登记正确的会话','返回目标与会话','node --test','PASS'),
+('UT-MOB-066','FR-031','安全','resolveDevice 拒绝用户未登记的会话','登记列表不含该会话','报 MOBILE_SESSION_NOT_REGISTERED','node --test','PASS'),
+('UT-MOB-067','FR-031','异常','resolveDevice 拒绝缺失的目标','target=null','报 REMOTE_TARGET_UNAVAILABLE','node --test','PASS'),
+('UT-MOB-068','FR-031','安全','移动端 Runner 不会被静默选为网页项目的执行器','在拒绝列表里找 mobile','mobile 出现在被拒列表中','node --test','PASS'),
+('UT-MOB-069','FR-031','安全','移动端适配器源码自身没有驱动','静态检查适配器源码','不 import 子进程/网络模块，也不 spawn','node --test','PASS'),
+('UT-MOB-070','FR-031','正常','设备契约是增量的，既有能力词表不变','查 playwright 的能力名','不含 ui.tap 等设备能力','node --test','PASS'),
+]
+
 def emit(file,title,purpose,cases):
  lines=[f'# {title}','',f'> 设计总数：{len(cases)}；已执行通过：{sum(r[-1]=="PASS" for r in cases)}；待执行/未实现：{sum(r[-1]!="PASS" for r in cases)}。**PENDING 不是测试通过**。','',purpose,'','## 测试设计清单','', '| ID | 关联要件 | 类别 | 测试内容 | 测试数据 / 前提 | 预期结果 | 证据/方法 | 状态 |','|---|---|---|---|---|---|---|---|']
  for t in cases: lines.append('|'+'|'.join(x.replace('|','/').replace('\n',' ') for x in t)+'|')
@@ -505,7 +633,7 @@ def emit(file,title,purpose,cases):
  (DOC/file).write_text('\n'.join(lines),encoding='utf8')
 emit('07-UT-TEST-DESIGN.md','ATS-UT-001 単体テスト設計書','单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。',UT)
 emit('08-IT-TEST-DESIGN.md','ATS-IT-001 結合テスト設計書','结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。',IT)
-emit('09-ST-TEST-DESIGN.md','ATS-ST-001 システムテスト設計書','系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，当前全部为待实机执行。UT/IT 自动化通过**不等同于** ST 验收。',ST)
+emit('09-ST-TEST-DESIGN.md','ATS-ST-001 システムテスト設計書','系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。',ST)
 # ensure precise traceability coverage for all FR
 rtm=[]
 manual={'FR-001':'B01/UC-01','FR-002':'B01','FR-003':'B02','FR-004':'B02','FR-005':'UI-002','FR-006':'B03/UI-004','FR-007':'B03','FR-008':'B06/UI-003','FR-009':'B04','FR-010':'B04','FR-011':'B04','FR-012':'B05','FR-013':'B05/UI-005','FR-014':'B05','FR-015':'B05','FR-016':'B05','FR-017':'B07/UI-007','FR-018':'B05','FR-019':'B03','FR-020':'B06','FR-021':'P1 AST/CLI','FR-022':'P1 AST','FR-023':'P1 WDIO','FR-024':'P1 Agent','FR-025':'P1 Agent','FR-026':'P1 Graph','FR-027':'P1 Secret','FR-028':'P2 Remote','FR-029':'P2 Explore','FR-030':'P2 RBAC'}

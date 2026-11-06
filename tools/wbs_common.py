@@ -13,7 +13,11 @@ about to write. The derivation is:
     B9  = IFERROR(1 - SUM(开发WBS!P6:P94) / SUM(开发WBS!K6:K94), 0)
     B10 = SUM(开发WBS!P6:P94)
 
-The row range (6..94) mirrors the formulas stored in the workbook.
+The row range (6..94) mirrors the formulas stored in the workbook. It is
+NOT a constant: the sheet grew when ATS-601 appended the mobile rows, and
+the formulas in the workbook were grown with it. `totals()` therefore
+derives the last row from the SHEET (`last_data_row`), so the cached value
+always agrees with the formula that produced it.
 """
 import re
 import struct
@@ -38,7 +42,8 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-205】', '【ATS-206】',
-           '【ATS-208】', '【ATS-212】', '【ATS-301】', '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】')
+           '【ATS-207】', '【ATS-208】', '【ATS-212】', '【ATS-301】', '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】',
+           '【ATS-601】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -105,6 +110,12 @@ NARRATIVE_FRAGMENTS = {
         'D7': '迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；'
               '详见 docs/24-STATE-MIGRATION.md',
     },
+    '【ATS-207】': {
+        'D6': '数据目录单实例锁与崩溃恢复已实现（ATS-207：原子抢锁、持有者校验、'
+              'state.json 落盘同步、损坏镜像隔离重建）',
+        'D7': '断电只以强杀进程模拟，未做真实掉电；桌面壳不显示占用提示；'
+              '详见 docs/06-DATA-DESIGN.md §5.7',
+    },
     '【ATS-208】': {
         'D6': '执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，'
               '事件可按 run+sequence 复演）',
@@ -132,8 +143,14 @@ NARRATIVE_FRAGMENTS = {
             'D6': '插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）',
             'D7': '插件宿主与沙箱未实现（ATS-512 只交付契约层）；'
                   '详见 docs/21-PLUGIN-CONTRACT.md',
-        },
-    }
+            },
+        '【ATS-601】': {
+            'D6': '移动端目标与会话契约已实现（ATS-601：三类目标、会话状态机、能力协商与拒绝规则；'
+                  '无真实设备）',
+            'D7': '移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；'
+                  '详见 docs/25-MOBILE-APP-TESTING.md',
+            },
+        }
 
 
 def _text(value):
@@ -486,12 +503,36 @@ def sheet_cells(parts, sheet_name):
     return rows
 
 
+def last_data_row(rows):
+    """The last row of the 开发WBS sheet that carries a task.
+
+    The sheet GREW: ATS-601 appended the mobile rows, so the range that the
+    总览 formulas cover (6..N) is not a constant any more -- it is written
+    into the workbook by whoever grew the sheet, and the derivations have to
+    follow it. A derivation that kept the old constant would silently drop
+    the appended rows from the totals, and the cached 总览 value would
+    disagree with the formula that produced it.
+    """
+    last = FIRST_ROW - 1
+    for rid, cells in rows.items():
+        if rid < FIRST_ROW:
+            continue
+        if (cells.get('A') or '').startswith('ATS-'):
+            last = max(last, rid)
+    return last
+
+
 def totals(parts=None):
     """Return the 总览 figures derived from the 开发WBS sheet.
 
     Returns a dict with `completed` (count of 已完成), `sum_estimate`
     (SUM of K), `sum_remaining` (SUM of P) and `completion_rate`
     (1 - SUM(P)/SUM(K), 0 when there is nothing to divide).
+
+    THE ROW RANGE FOLLOWS THE SHEET, not a hardcoded constant: the sheet
+    grew when ATS-601 appended the mobile rows, and the 总览 formulas in
+    the workbook were grown with it. A derivation over the old constant
+    would leave the cached 总览 value disagreeing with its own formula.
     """
     if parts is None:
         parts = read_parts()
@@ -499,7 +540,7 @@ def totals(parts=None):
     completed = 0
     sum_estimate = 0.0
     sum_remaining = 0.0
-    for rid in range(FIRST_ROW, LAST_ROW + 1):
+    for rid in range(FIRST_ROW, last_data_row(rows) + 1):
         cells = rows.get(rid)
         if not cells:
             continue

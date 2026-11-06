@@ -57,7 +57,7 @@ erDiagram
 ## 4. 一致性规则
 
 - `Run.id` 是稳定 UID `run_1_<24 hex>`，由「项目 UID + commit + 目标文件 + 项目内执行序号」派生，不是随机 UUID：同一组输入总是得到同一个 ID，可从记录字段重算。序号记录在 run 记录上并由持久计数器兜底，因此序号永不复用，每次重新执行得到新的 ID。旧格式 `run_<uuid>` 仍可读，迁移脚本负责改写（`docs/18-UID-SPEC.md` §5）。
-- 本地 state 原子 `state.json.tmp → rename`；JSONL append-only。跨进程写入和断电一致性在 P1 SQLite WAL 改造后强化。
+- 本地 state 持久写入：`state.json.<pid>.tmp` → fsync → rename（改名是提交点）；JSONL append-only。同一数据目录同一时刻只有一个 Bridge 或迁移进程写入（`bridge.lock`），损坏的状态文件拒绝启动而不是被空状态覆盖，见 §5.7。
 - 附件只允许相对 Run 路径；下载时 realpath 校验，禁止软连接越界。
 - 归档 Manifest 包含 sha256；当前未签名，攻击者拥有本地文件写权限可同时修改文件和 manifest，因此不应宣称 WORM 或防篡改等级。
 - Evidence 可能含 PII/Secret；生产版需要保留期、视觉脱敏、可审计删除和加密。
@@ -134,7 +134,7 @@ CREATE TABLE env_whitelists(project_uid TEXT PRIMARY KEY, names TEXT NOT NULL,
 
 - `journal_mode=WAL`：读者不阻塞写者，写者不阻塞读者。
 - `busy_timeout`（默认 5000ms，可配置）：撞上写锁的写入者**等待**而不是立刻失败，两个并发写入者会串行化而不是丢掉其中一份。
-- `synchronous=NORMAL`（WAL 下）：已提交的事务不会因为断电丢失。
+- `synchronous=NORMAL`（WAL 下）：断电不会损坏数据库；WAL 不在每次提交时 fsync，断电可能让最后几次已提交的写入回滚，镜像在下一次启动保存时由 `state.json` 补齐（§5.7）。
 - 事务用 `BEGIN IMMEDIATE` / `COMMIT`，抛错时 `ROLLBACK`；Bridge 的整份状态在**一个事务**内写入，读者看不到写了一半的状态。
 - **镜像是可恢复的**：只有 `SQLITE_NOT_AVAILABLE`（本 Node 构建根本没有 `node:sqlite`）才让镜像在进程内永久停用；其余任何失败（锁冲突、磁盘满、杀软占用）都只是让**这一次**写入失败，**下一次 `saveState` 会重试**。因为镜像是整表替换，一次成功就等于全量追平，镜像会自愈。
 - **镜像的阻塞上限是 1 秒**：镜像是同步跑在 Bridge 事件循环上的，它用**更短**的 `busy_timeout`（`MIRROR_BUSY_TIMEOUT_MS = 1000`，而不是层的默认 5000ms），否则一次锁冲突会把事件循环堵住 5 秒——实测 `GET /api/health` 等待 5274ms。超时后本次写入放弃，下次保存重试。**因此单次 `saveState` 最多阻塞事件循环 1 秒**。
@@ -165,10 +165,10 @@ Case 的状态是它**所有 attempt 的聚合**，规则是确定的（不是�
 「先失败后通过」的用例是 **flaky 而不是 passed**：它需要过一次重试，只看 `passed` 的读者不会知道这一点。
 
 **但计数用的是引擎的判定（OUTCOME），不是 attempt 的原始状态。**
-这是第 1 轮复核实测到的缺陷 B1：只看原始状态会把 `test.fail()` 的**预期失败**
-算成 `failed` 用例，而 Playwright 自己的判定是 `expected`、引擎退出码是 0——
-summary 与退出码自相矛盾。实测症状：一个 Playwright 判定为 `passed` 的 run，
-summary 报 `failed: 1`。
+只看原始状态会把 `test.fail()` 的**预期失败**算成 `failed` 用例，而
+Playwright 自己的判定是 `expected`、引擎退出码是 0——summary 与退出码
+自相矛盾。实测症状：一个 Playwright 判定为 `passed` 的 run，summary 报
+`failed: 1`。
 
 因此模型多了一个词表：
 
@@ -202,7 +202,7 @@ summary 报 `failed: 1`。
 - Case 报告的错误是它**第一次失败**的 attempt 的错误——读者要看的失败是最先发生的那次。
 - 同一 case 的各 attempt 绑定到**同一个** TestDefinition UID（逐条绑定会让一个 flaky 用例的两个 attempt 落到两个 UID 上，历史就没法读了）。
 - Case 跨多个 project 时，**引擎各 project 的判定**决定 Case 的状态：「在 project b 里失败」是 `failed`，「第一次失败、重试通过」是 `flaky`——两者的 attempt 分布看起来一样（有的失败有的通过），只有判定能区分。
-- WDIO 的重试：实测 @wdio/reporter 10.1.0 每次尝试推一条**同名条目**，所以同一 suite 里**连续同名**的条目是同一个用例的多次 attempt，合并为一个 case；非同名的同标题用例仍是两个 case。
+- WDIO 的重试：实测 @wdio/reporter 10.1.0 每次尝试推一条**同名条目**，所以同一 suite 里**连续同名**的条目是同一个用例的多次 attempt，合并为一个 case；非同名的同标题用例仍是两个 case。**分组在第一个通过的条目处结束**：WDIO 的重试用例在第一次通过时就停，所以跟在一条通过条目之后的同名条目是**另一个**用例——把它们合并会藏掉一次真实的失败。剩下的歧义（报告里的 `[failed, passed]` 无法与「失败后重试通过」区分）是**写明的边界**。
 
 #### 5.4.3 「事件可按 run+sequence 复演」
 
@@ -216,12 +216,20 @@ summary 报 `failed: 1`。
 
 ATS-208 补上了缺失的 `run.interrupted` 事件：Bridge 崩溃时它写下这个事件，run 因此可复演为 `interrupted`。
 
-**复演同时校验状态机**（第 1 轮复核的缺陷 B3）：`replayEvents` 按
-`RUN_TRANSITIONS` 逐条检查事件流，答案带 `valid` 与 `violations`。一条违反
-状态机的流（例如终态事件之后又追加了 `run.interrupted`）描述的是一个从未
-存在过的 run，因此**不得**报 `agrees: true`。
+**复演同时校验状态机**：`replayEvents` 按 `RUN_TRANSITIONS` 逐条检查事件流，
+答案带 `valid` 与 `violations`。一条违反状态机的流（例如终态事件之后又追加了
+`run.interrupted`）描述的是一个从未存在过的 run，因此**不得**报 `agrees: true`。
 
-**恢复以持久日志为准**（缺陷 B2 / B3 / B4 / B5）：
+**复演同时校验序号**：一个 run 的序号是 1..N，序号从 1 起算。
+
+- **丢失的序号**（`gaps`）：开头缺号同样是缺口——只丢了开头几个事件的日志不是
+  完好的日志。
+- **重复的序号**（`duplicates`）：两个事件带同一个序号。元数据层的主键
+  `(run_uid, seq)` 会拒绝这样的一对，因此这样的流**不描述**一个 run：
+  `valid` 为 false。
+- **没有序号的事件**（`unsequenced`）：序号不是一个正整数的事件无法放进流里。
+
+**恢复以持久日志为准**：
 
 - 日志里已有终态事件时，采用该终态，**不追加任何事件**（终态事件之后追加
   事件会让事件流违反状态机）；
@@ -295,3 +303,62 @@ CREATE INDEX idx_attempt_run_status ON test_attempts(run_uid,status);
 向这份目标 schema 迁移时，遵循上面 §5.2 的策略：**只向前、只做增量、降级显式**。
 
 注意：目标 DDL 把 `projects` 的主键从 `id` 换成 `uid`，并给 `root` 加了 `UNIQUE` 约束。SQLite 无法用 `ALTER TABLE` 改主键或加唯一约束，这两处只能**重建表**（建新表 → 拷数据 → 删旧表 → 改名）。重建表会丢掉旧表上的索引，因此这类步骤**不是纯增量**的：它必须在一个步骤里完成重建与数据搬迁，并声明为显式的、可能需要停机的迁移步骤，而不是伪装成"只做增量"。
+
+### 5.7 单实例与崩溃恢复（ATS-207，v0.2.0 已实现）
+
+**数据目录单实例。** 同一个 `ATS_DATA_DIR` 同一时刻只有一个进程持有 `bridge.lock`：Bridge 持有它的整个生命周期，`tools/migrate_state.mjs` 与 `tools/migrate_uids.mjs` 持有整个迁移过程。
+
+- **抢锁是原子的。**
+  - 完整的锁记录 `{pid, startedAt, processStartedAt, token}` 先写入本进程私有的临时文件，再用硬链接发布为 `bridge.lock`。
+  - 名字已存在时链接失败（`EEXIST`），所以同一时刻抢锁的多个进程恰有一个成功，锁文件也不会处于空的或半写的状态。
+  - 没有硬链接的文件系统退化为独占创建（`wx`）。
+- **陈旧锁可被接管。** 陈旧锁指持有者已死，或 pid 已被复用。
+  - 接管时先把锁文件改名到只有本进程使用的名字，再比对字节。
+  - 字节与判定为陈旧时的内容一致才删除。
+  - 不一致说明期间有活进程发布了新锁：用不覆盖的方式放回，后来者视为锁已被占用。
+  - 因此接管从不删除活持有者的锁。
+- **占用时明确拒绝。**
+  - 持锁者活着时，后来者得到 `BRIDGE_ALREADY_RUNNING`，附持有者的 pid 与启动时间，以及 `reason`：`held` 表示被占用；`contended` 表示锁在反复变化，重试 50 次后放弃。
+  - Bridge 以退出码 1 拒绝启动，stderr 先给出检查步骤，再给出恢复步骤。
+  - `ATS_LOCK_WAIT_MS` 让启动中的 Bridge 等待锁空出。默认 0，即立即拒绝。
+  - 迁移 CLI 在 Bridge 运行时以退出码 3 拒绝（ATS-206）。
+- **持有者可校验。**
+  - 锁记录带每次取锁时随机生成的 `token`。
+  - Bridge 每隔 `ATS_LOCK_VERIFY_MS`（默认 5000 ms，下限 50 ms）确认锁文件里仍是自己的 token：锁文件被删就重新取锁；被别的进程占用就停止（退出码 1），两个 Bridge 绝不共用一个数据目录。
+  - 释放时只删除带自己 token 的锁。不带 token 的旧格式记录，按 pid 判定。
+
+**state.json 持久写入。**
+
+- 写入顺序：`state.json.<pid>.tmp` → `fsync` → 改名覆盖 `state.json` → 同步目录（仅 POSIX）。
+- 改名是提交点，提交前数据已经落盘。写入方无论在哪一刻崩溃或断电，`state.json` 都是上一份或新一份完整内容。
+- 临时文件按进程命名，两个写入方不会写进同一个临时文件。
+- Windows 上改名遇到瞬时共享冲突（杀毒软件、索引服务）时，至多尝试 5 次。失败时删除临时文件，旧文件保持不变。
+- 没有被改名的临时文件不是已提交的状态。持锁的 Bridge 启动时删除这类文件（`state.json.tmp`、`state.json.<pid>.tmp`），其它文件（如迁移备份 `state.json.bak`）不动。
+
+**状态文件损坏时拒绝启动。**
+
+- `state.json` 存在但不是 JSON（包括零长度文件）时，报 `STATE_CORRUPT`。
+- 是 JSON 但不是 schema 1 状态时，报 `UNSUPPORTED_DATABASE`。
+- 两种情况下 Bridge 都以退出码 1 拒绝启动，并给出恢复步骤：保留损坏文件副本，恢复最后一份完好的副本（存在时即迁移备份 `state.json.bak`）。
+- 拒绝时不改写该文件，也不动临时文件和镜像。以空状态启动会在第一次保存时抹掉全部项目与运行历史。
+
+**SQLite 镜像的 WAL 恢复。**
+
+- Bridge 启动时先打开镜像。打开本身就是 SQLite 的崩溃恢复：WAL 中已提交的帧被应用，未提交的事务被丢弃。随后执行 `PRAGMA quick_check`。
+- 镜像损坏（`quick_check` 报错，或打开时报 `SQLITE_CORRUPT` / `SQLITE_NOTADB`）时，`metadata.db` 连同仍然存在的 `-wal`、`-shm` 一起改名为 `metadata.db.corrupt-<时间戳>`。旧 WAL 因此不会被回放进新库。启动时的第一次保存从 `state.json` 重建镜像，损坏的副本保留以便检查。
+- 其它无法检查的情况（schema 更新、被其它进程占用、路径不是文件）不移动文件，只在 stderr 报告。
+- 镜像是派生数据，状态文件从不由镜像自动重建。
+
+**运行中的 run 不会被判为已完成。** 崩溃后的 run 恢复由 §5.4（ATS-208）以事件日志驱动：日志中没有终态事件、仍停在 queued/running/cancelling 的 run，写入 `run.interrupted` 并进入 `interrupted`。ATS-207 的系统测试在真实 Chromium 运行进行中强杀整棵进程树并重启，验证了这一行为，同时验证了此前已完成的 run 结果完整保留。
+
+**验证与边界。**
+
+- 测试：
+  - UT：`tests/instance-lock.test.mjs`（UT-LOCK-001..015、UT-DATA-001..005、UT-WAL-001..004）。
+  - IT：`tests/instance-lock-it.test.mjs`（IT-LOCK-001..006、IT-DATA-001..002、IT-WAL-001..002）。
+  - ST：`tools/ats207-probes/st-ats207.mjs`（ST-017、ST-025、ST-026）。
+  - 竞态探针：`tools/ats207-probes/race-probe.mjs`。
+- 断电用强杀进程模拟。强杀不会丢弃操作系统的页缓存，所以「改名前已 fsync」由 UT-DATA-002 直接断言调用顺序，而不是从强杀测试推出。真实掉电没有做过。
+- `synchronous=NORMAL` 下 WAL 不在每次提交时 fsync。断电可能让镜像丢失最后几次已提交的写入，但不会损坏数据库；下一次启动时的保存会从 `state.json` 补齐。
+- 桌面壳（`src-tauri/src/lib.rs`）丢弃 Bridge 的 stderr，也没有接入单实例插件。第二个桌面窗口启动的 Bridge 会被本机制拒绝，但桌面界面不显示「已占用」提示。这条桌面路径未实测（本机没有 Rust/Tauri 工具链）。
+- 以上保证只在锁文件位于本地文件系统时成立。网络文件系统上的硬链接语义与进程存活判定不在验证范围内。

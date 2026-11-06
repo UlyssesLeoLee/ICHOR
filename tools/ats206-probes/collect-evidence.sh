@@ -119,8 +119,14 @@ run 10-python-gates.log "the python gates under tools/" \
   echo "NOT introduced by this branch."
 } >> "$EV/10-python-gates.log"
 
-# --- 11: the ADR citation check ----------------------------------------------
-run 11-adr-citations.log "the ADR citation check" \
+# --- 11: the round-3 review probe ---------------------------------------------
+# The four counterexamples of the round-3 rework (CE7, CE8, CE9, CE10),
+# against the tree that is delivered.
+run 11-review-round3-probe.log "the round-3 review probe (CE7 / CE8 / CE9 / CE10)" \
+  node tools/ats206-probes/ce206r3.mjs . "${TMPDIR:-/tmp}/ats206-r3-scratch"
+
+# --- 12: the ADR citation check ----------------------------------------------
+run 12-adr-citations.log "the ADR citation check" \
   python tools/check_adr_citations.py
 
 echo "done"
