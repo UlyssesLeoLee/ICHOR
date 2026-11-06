@@ -105,14 +105,15 @@ function probe(lockDir, call) {
       try { return JSON.parse(fs.readFileSync(lock, 'utf8')).pid === process.pid; }
       catch { return false; }
     };
-    // The lock mechanism's own writes are not the engine's writes: the
-    // publication of the lock happens before the lock is held, and taking
-    // over a stale lock is the mechanism's business.
-    const isLockInternal = (p) => String(p).includes('bridge.lock');
+    // EVERY rename, copy and delete is counted -- including the lock's
+    // own. The lock is published before it is held, so an engine that
+    // leaves a stale lock behind (a killed migration does) makes the next
+    // run take it over, and the takeover writes the lock file before the
+    // new lock is published.
     for (const fn of ['renameSync', 'copyFileSync', 'rmSync']) {
       const orig = fs[fn];
       fs[fn] = (a, ...rest) => {
-        if (!isLockInternal(a) && !String(a).endsWith('.tmp')
+        if (!String(a).endsWith('.tmp')
             && !String(a).includes('migration-')) seen.push(held());
         return orig(a, ...rest);
       };
