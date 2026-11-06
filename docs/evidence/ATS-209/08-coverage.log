@@ -1,0 +1,103 @@
+=== the line coverage of the ATS-209 modules ===
+tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-31f16410737a/worktree
+commit : 6f704744741eabe51f33ccc00daceab914e17d86
+
+✔ IT-EVD-101: the bridge starts against an isolated data directory (466.0151ms)
+✔ IT-EVD-102: a finished run writes a manifest that names the run and its digests (369.1014ms)
+✔ IT-EVD-103: the verification reports an intact evidence set as verified (4.6535ms)
+✔ IT-EVD-104: a file that is tampered with after the run is reported as changed (10.0083ms)
+✔ IT-EVD-105: the manifest of a run is readable through the API (2.9246ms)
+✔ IT-EVD-106: the retention plan and the deduplication report are available (11.9994ms)
+✔ IT-EVD-107: the cleaner refuses to run while the Bridge holds the directory (326.3248ms)
+✔ IT-EVD-108: the cleaning removes the evidence and keeps the run metadata (208.2021ms)
+✔ IT-EVD-109: the verification after the cleaning reports the missing evidence (96.4423ms)
+✔ IT-EVD-110: the temporary directory is removed (8.8451ms)
+✔ UT-EVD-001: the manifest names the run it belongs to and carries the digests (5.3049ms)
+✔ UT-EVD-002: the manifest does not list itself, the event log or the raw output (2.9828ms)
+✔ UT-EVD-003: the manifest is a function of the run and the folder (2.3654ms)
+✔ UT-EVD-004: the evidence set digest does not depend on the order of the entries (0.8382ms)
+✔ UT-EVD-005: the evidence entries are sorted by their relative path (2.2558ms)
+✔ UT-EVD-006: a symbolic link is not evidence (3.6867ms)
+✔ UT-EVD-007: the digest of a file is the digest of its bytes (1.7524ms)
+✔ UT-EVD-008: a manifest that cannot be read is reported, not treated as empty (3.0479ms)
+✔ UT-EVD-009: an intact evidence set verifies (4.1556ms)
+✔ UT-EVD-010: a file that was changed after the archive is reported as changed (3.537ms)
+✔ UT-EVD-011: a file that was deleted is reported as missing (3.9032ms)
+✔ UT-EVD-012: a file that was added after the archive is reported as extra (2.2639ms)
+✔ UT-EVD-013: a folder without a manifest cannot be verified (0.9162ms)
+✔ UT-EVD-014: only a terminal run is eligible for the cleaning (0.1025ms)
+✔ UT-EVD-015: a run in flight is never expired (0.1987ms)
+✔ UT-EVD-016: the expired runs are the terminal ones past the period (0.1271ms)
+✔ UT-EVD-017: a retention period that is not a number is refused (0.3584ms)
+✔ UT-EVD-018: the cleaning removes the evidence and keeps the run record (5.4468ms)
+✔ UT-EVD-019: the cleaning does not touch the run record itself (2.4012ms)
+✔ UT-EVD-020: the cleaning refuses to run while a Bridge holds the directory (1.0286ms)
+✔ UT-EVD-021: a dry run reports what would be removed and removes nothing (1.3253ms)
+✔ UT-EVD-022: the cleaning writes a journal of what it removed (3.9847ms)
+✔ UT-EVD-023: a damaged journal line is reported, not dropped (1.0553ms)
+✔ UT-EVD-024: the retention plan says which runs are expired and how much space they take (3.2451ms)
+✔ UT-EVD-025: the plan touches nothing (1.5688ms)
+✔ UT-EVD-026: the deduplication index records the second copy as a duplicate (0.3311ms)
+✔ UT-EVD-027: the index of a state without one is the empty index (0.12ms)
+✔ UT-EVD-028: a re-scan of a run supersedes what the index said about it (0.093ms)
+✔ UT-EVD-029: the deduplication report names the content that is stored twice (0.2163ms)
+✔ UT-EVD-030: the key of an evidence copy is derived, not random (0.0474ms)
+✔ UT-EVD-031: the shared bytes are counted once per duplicate (2.077ms)
+✔ UT-EVD-032: the blob is stored under its own digest (4.1374ms)
+✔ UT-EVD-033: the same content is stored ONCE (4.4161ms)
+✔ UT-EVD-034: a blob whose copy does not match the digest is not stored (2.5191ms)
+✔ UT-EVD-035: a file that is too large is not stored (0.6002ms)
+✔ UT-EVD-036: the run file becomes a hard link to the stored copy (5.4397ms)
+✔ UT-EVD-037: removing the run copy keeps the stored copy (5.0484ms)
+✔ UT-EVD-038: a blob that a run still refers to is not pruned (5.6792ms)
+✔ UT-EVD-039: a blob that no run refers to any more is pruned (5.086ms)
+✔ UT-EVD-040: the blob path is derived from the digest (0.1795ms)
+ℹ tests 50
+ℹ suites 0
+ℹ pass 50
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1630.7376
+ℹ start of coverage report
+ℹ -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ file                     | line % | branch % | funcs % | uncovered lines
+ℹ -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ server                   |        |          |         | 
+ℹ  adapters                |        |          |         | 
+ℹ   contract.mjs           |  60.81 |   100.00 |    0.00 | 77-81 95-111 159-176 187-205 214-225 240-254 261-272 287-308 315-321 325-327 334-335 347-354 368-376 395-406 417-422 442-445 453-458 465-472
+ℹ   playwright-cli.mjs     |  66.00 |   100.00 |    0.00 | 37-47 56-64 78-85 89-90 94-95 99-100
+ℹ  core.mjs                |  55.77 |    30.00 |    9.62 | 73-75 78-84 101-114 132-143 162-182 200-209 228-231 296-317 343-372 423 438-440 467-468 472-474 477-482 490-491 562-583 586-597 619-636 638-645 664-713 724-736 748-758 760-766 768-770 773-780 783-787 789-797 799-832 854-863 877-912 960-967 977-984 990-1072 1074-1077 1091-1093 1102-1109 1112-1117 1119-1122
+ℹ  discovery               |        |          |         | 
+ℹ   authoritative.mjs      |  25.55 |   100.00 |    0.00 | 93-113 123-161 174-187 202-497
+ℹ   index.mjs              |  46.04 |   100.00 |    0.00 | 97-109 143-206 228-272 275-279 287-306 314-323 326-348 351-362 365-369 379-392 404-417
+ℹ   playwright-list.mjs    |  39.24 |   100.00 |    0.00 | 87-90 112-123 144-225 259-273 276-289 313-326 349-406 412-451 457-553
+ℹ   trust.mjs              |  69.63 |   100.00 |    0.00 | 58-61 65-69 80-88 97-108 117-123 132-135
+ℹ  env                     |        |          |         | 
+ℹ   profiles.mjs           |  62.73 |   100.00 |    0.00 | 195-196 210-212 216-218 242-304 325-340 364-415 426-427 444-468 480-499
+ℹ   whitelist.mjs          |  65.38 |   100.00 |    0.00 | 95-97 108-119 130-135 145-166 180-208
+ℹ  evidence                |        |          |         | 
+ℹ   dedup.mjs              |  99.14 |    32.56 |   80.00 | 231-232
+ℹ   manifest.mjs           |  98.14 |    64.12 |  100.00 | 235-241 292-293 499-500
+ℹ   retention.mjs          |  97.55 |    67.57 |  100.00 | 112-114 181-182
+ℹ   store.mjs              |  96.83 |    58.82 |  100.00 | 115-116 133-135 160-162
+ℹ  execution               |        |          |         | 
+ℹ   model.mjs              |  52.46 |   100.00 |    0.00 | 90-91 173-188 224-235 245-252 299-308 361-370 385-389 427-510 540-586 630-722 732-743 762-781 796-806 829-945 1017-1020 1034-1051 1097-1164 1175-1177 1206-1225 1243-1300
+ℹ  identity.mjs            |  37.48 |   100.00 |    0.00 | 127-134 144-155 178-433 453-460 471-482 508-563
+ℹ  sqlite                  |        |          |         | 
+ℹ   db.mjs                 |  46.06 |   100.00 |    0.00 | 47-59 63-64 78-112 116-117 124-132 137-148 164-182 195-204 228-255 277-317
+ℹ   schema.mjs             |  98.63 |   100.00 |    0.00 | 286-287 291-292
+ℹ   store.mjs              |  25.13 |   100.00 |    0.00 | 56-247 256-296 302-308 314-320 331-344 348-349 359-378
+ℹ  uid.mjs                 |  40.64 |   100.00 |    0.00 | 68-73 77-78 87-90 98-100 109-115 119-120 124-126 130-131 135-137 157-163 165-168 170-177 180-188 191-214 217-229 231-234 237-258 268-275 295-299 302-311 320-334 352-362 372-375 382-419 429-454 473-480 489-490 522-554 578-745 760-809 840-856 863-877 885-886 903-916 925-927 940-942 983-1059 1081-1111 1120-1122
+ℹ tests                    |        |          |         | 
+ℹ  helpers                 |        |          |         | 
+ℹ   free-port.mjs          | 100.00 |    83.33 |   80.00 | 
+ℹ tools                    |        |          |         | 
+ℹ  evidence_retention.mjs  |  76.53 |    29.41 |   80.00 | 90 92-95 99-103 117-120 129-144 163-165 177-179 188-189 194-196 213-216 223-224 233 243-245 250-251 258-260 264-267 270-272 280-282 285-287
+ℹ -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ all files                |  56.81 |    54.67 |   23.61 | 
+ℹ -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ end of coverage report
+
+exit code : 0
