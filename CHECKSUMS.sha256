@@ -68,7 +68,7 @@ e42e821a664c6de7e0b6744897f1fc3a4fab51d01c5ebefce0de0d831d325a06  docs/19-REMOTE
 f5475cc08d25a908e74b17e2e04bf3b8bd19c2ab03ca6ec56dd436c61dda2cbc  docs/20-PARALLEL-ORCHESTRATION.md
 e8299b7904c8920595b93d5c41810c5815941d2ad68dfd30643450258dc72c41  docs/21-CONTROL-PLANE-API.md
 fd14d5bf02142faff0dffd739a9c050acd080e8ad5e8e7635f552def50e9ce29  docs/21-PLUGIN-CONTRACT.md
-6dae1187d36b74c2b8cd7c62af8ade0cf16c7906cede46fe80196ac20bc4fb5a  docs/22-FRONTEND-EXPORT.md
+e7adff77f182945811c4325fdbbca66bacd8ed06cfe9abfeb505b71759ce047e  docs/22-FRONTEND-EXPORT.md
 2f24d4f75c92c29a01d1d1cc653550ab2e09eff233417aad743e654df54e5647  docs/23-AUTHORITATIVE-DISCOVERY.md
 d6ef1f959b3cc525dcf828f997c398c912acf18da57894067ed1b1d6a0961670  docs/24-EXECUTION-MODEL.md
 0f4fa82e4ae4acca3a6ad9bd510ab2d507d9afa169b101604e8bb9539750a4f3  docs/24-STATE-MIGRATION.md
@@ -106,8 +106,8 @@ a0088ec5fdf4390a66e454410f8024f78ad2f3725d71891030545d1a1978c6ea  docs/evidence/
 c3fc073c90f4a6a83c4a26c3608b8b529f1fb58cc06b5a0fa5fc49da6dc192d4  docs/evidence/ATS-103/07-port-audit.log
 c822310d7a50746f7523261872b884131ad333b717a67a7736b32c08c3a11b04  docs/evidence/ATS-103/08-adr-citations.log
 8e1dff6e8a010aec5254ec45b1d43184f98cae8a4e9a51d6d21d4ad89c52b82e  docs/evidence/ATS-103/09-ci-build-gate.log
-5b5f7fe27b6dc98627da36a10c5c2ced3a320f01b329172581a2ad3c0891386b  docs/evidence/ATS-103/10-r4-clone-verification-crlf.log
-e90642efe3ff16c16e31e8711ea8bb3f2d27cc628547fce89f3ee6c286156782  docs/evidence/ATS-103/10-r4-clone-verification-lf.log
+1a93395a16b75dfcd18a79c46d9c22c93e21dd03d58fe8a7e425ad460d7543be  docs/evidence/ATS-103/10-r4-clone-verification-crlf.log
+373730586472addb46c0aacc6b624aa06450ed6321a8bcb82bed3584b2894845  docs/evidence/ATS-103/10-r4-clone-verification-lf.log
 525c080704c2c804cd517e05cd7f67aa66fa6a948b58a2e3ad7fc590cf145d23  docs/evidence/ATS-201/08-node-test-full.log
 cc7691ce3eda905a7cafcd26f2780cec8f81c29390499fe9c1c533298456edee  docs/evidence/ATS-201/09-line-coverage.log
 2d0a5cdb52b37a24fd0959424235e46971ed55087bb0214bbbe7c2828e5a12ca  docs/evidence/ATS-201/10-review-regressions.log
