@@ -185,10 +185,13 @@ Playwright 自己的判定是 `expected`、引擎退出码是 0——summary 与
 - Case 的 outcome 由它各 project 的 outcome 聚合：某个 project `unexpected`
   → `unexpected`；某个 project `flaky` → `flaky`；全部 `skipped` → `skipped`；
   否则 `expected`。
+- **`expected` 是对列表里每一个 outcome 的断言**：列表里只要有一个 `unknown`，
+  聚合结果就是 `unknown` 而不是 `expected`——那个「什么都没说」的 outcome 不能
+  算作「符合声明」的证据。
 - Case 的**状态**在 outcome 已知时由 outcome 决定：`expected` 且全部 attempt
   失败 → `passed`（预期失败是成功）；`unexpected` 且全部 attempt 通过 →
   `failed`（意外通过是缺陷）。outcome 为 `flaky` 时不覆盖状态——状态聚合
-  本来就知道重试有没有救回来。
+  本来就知道重试有没有救回来；outcome 为 `unknown` 时同样不覆盖状态。
 - **Attempt 仍然保留自己的原始 `status` 和自己的错误**：预期失败的那一次
   执行确实失败了，这个事实不能因为它「符合预期」而消失。
 
@@ -202,7 +205,7 @@ Playwright 自己的判定是 `expected`、引擎退出码是 0——summary 与
 - Case 报告的错误是它**第一次失败**的 attempt 的错误——读者要看的失败是最先发生的那次。
 - 同一 case 的各 attempt 绑定到**同一个** TestDefinition UID（逐条绑定会让一个 flaky 用例的两个 attempt 落到两个 UID 上，历史就没法读了）。
 - Case 跨多个 project 时，**引擎各 project 的判定**决定 Case 的状态：「在 project b 里失败」是 `failed`，「第一次失败、重试通过」是 `flaky`——两者的 attempt 分布看起来一样（有的失败有的通过），只有判定能区分。
-- WDIO 的重试：实测 @wdio/reporter 10.1.0 每次尝试推一条**同名条目**，所以同一 suite 里**连续同名**的条目是同一个用例的多次 attempt，合并为一个 case；非同名的同标题用例仍是两个 case。**分组在第一个通过的条目处结束**：WDIO 的重试用例在第一次通过时就停，所以跟在一条通过条目之后的同名条目是**另一个**用例——把它们合并会藏掉一次真实的失败。剩下的歧义（报告里的 `[failed, passed]` 无法与「失败后重试通过」区分）是**写明的边界**。
+- WDIO 的重试：实测 @wdio/reporter 10.1.0 每次尝试推一条**同名条目**，所以同一 suite 里**连续同名**的条目是同一个用例的多次 attempt，合并为一个 case；非同名的同标题用例仍是两个 case。**分组在第一个通过的条目处结束**：WDIO 的重试用例在第一次通过时就停，所以跟在一条通过条目之后的同名条目是**另一个**用例——把它们合并会藏掉一次真实的失败。**被跳过的条目同样结束分组**：被跳过的用例也不会被重试，跟在一条跳过条目之后的同名条目也是**另一个**用例。剩下的歧义（报告里的 `[failed, passed]` 无法与「失败后重试通过」区分）是**写明的边界**。
 
 #### 5.4.3 「事件可按 run+sequence 复演」
 

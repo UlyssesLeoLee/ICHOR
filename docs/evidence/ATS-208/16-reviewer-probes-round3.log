@@ -1,0 +1,80 @@
+##### pw-semantics #####
+Playwright stats      : {"expected":4,"unexpected":3,"flaky":2,"skipped":1}
+ATS-208 summary (tip) : {"passed":4,"failed":3,"flaky":2,"skipped":1,"total":10,"executions":15}
+attempts              : 15 unique uids: 15 
+attempts of the project-b case (retry:status): ["0:passed","0:failed","1:failed"] -- project name recorded on attempt: false
+
+RESULT: 0 of 10 cases disagree with Playwright's verdict
+
+##### wdio-check #####
+{"total":1,"flaky":1,"failed":0,"passed":0,"executions":2,"cases":["same case:flaky:2"]}
+OK   merged into one case
+
+##### startup-robustness #####
+   tip : up {"replayHttp":200,"eventsHttp":200,"runStatus":"interrupted","replayedStatus":"interrupted"}
+   events.jsonl after the tip boot:
+     {"seq":1,"at":"2026-11-06T14:21:04.906Z","type":"run.queued","data":{"file":"tests/slow.spec.ts","runner":"playwright"}}
+     {"seq":2,"at":"2026-11-06T14:21:05.003Z","type":"run.started","data":{"pid":2656,"runner":"playwright"}}
+     {"seq":3,"at":"2026-11-06T00:00:00.000Z","ty
+     {"seq":3,"at":"2026-11-06T14:21:14.251Z","type":"run.interrupted","data":{"reason":"Server restarted while run was active"}}
+     
+ok   S2 the run stays readable after a torn tail (replay 200)  -- {"replayHttp":200,"eventsHttp":200,"runStatus":"interrupted","replayedStatus":"interrupted"}
+== S3: the Bridge died after appending run.finished, before saveState (the finishRun collect window) ==
+   finished normally as passed
+   after restart: run.status passed replay {"replayedStatus":"passed","agrees":true,"events":["1:run.queued","2:run.started","3:run.finished(passed)"]}
+ok   S3 no event is appended after a terminal event (the log already says the run finished)  -- ["1:run.queued","2:run.started","3:run.finished(passed)"]
+
+RESULT: 0 failed check(s)
+##### bridge-e2e #####
+file:///D:/hermes-multica/home/cache/scratch/ats208-v/probes-r1/bridge-e2e.mjs:41
+  if (ps >= 300) throw new Error('register failed ' + JSON.stringify(pj));
+                       ^
+
+Error: register failed {"error":"ENOENT: no such file or directory, lstat 'D:\\hermes-multica\\home\\cache\\scratch\\ats208-v\\tree-tip\\fixtures'"}
+    at file:///D:/hermes-multica/home/cache/scratch/ats208-v/probes-r1/bridge-e2e.mjs:41:24
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+Node.js v24.19.0
+##### bridge-e2e #####
+   attempts [{"retry":0,"status":"failed","caseStatus":"flaky","testUid":"tc_1_d_04e57301b124f509","error":"Error: first attempt failed\n\n\u001b[2mexpect("},{"retry":1,"status":"passed","caseStatus":"flaky","testUid":"tc_1_d_04e57301b124f509","error":""}]
+ok   E1 case counted once (total=1, flaky=1, executions=2)
+ok   E1 first attempt kept as failed with its error
+ok   E1 both attempts carry the same NON-NULL testUid  -- testUid=tc_1_d_04e57301b124f509 basis=file-line
+   replay {"status":"passed","replayedStatus":"passed","agrees":true,"sequence":[1,2,3],"gaps":[],"types":["run.queued","run.started","run.finished"]}
+ok   E1 replay agrees and sequence is 1..N
+== E2: a file whose only case is an expected failure (test.fail) ==
+   run.status passed exitCode 0 summary {"passed":1,"failed":0,"skipped":0,"flaky":0,"total":1,"executions":1}
+   attempts [{"retry":0,"status":"failed","caseStatus":"passed"}]
+ok   E2 summary agrees with the run outcome (passed run -> 0 failed cases)  -- run=passed but summary.failed=0, case=passed
+ok   SQLite events rows == events.jsonl for tests/retry.spec.ts  -- 3 rows / 3 logged
+ok   SQLite events rows == events.jsonl for tests/xfail.spec.ts  -- 3 rows / 3 logged
+== E3: the Bridge dies after POST /stop, before the engine exit is processed ==
+   stop -> {"status":"cancelling"}
+   state.json after the crash: status cancelling events ["1:run.queued","2:run.started","3:run.cancelling"]
+   after restart: run.status interrupted replay {"replayedStatus":"interrupted","terminal":true,"types":["run.queued","run.started","run.cancelling","run.interrupted"]}
+ok   E3 a run that was cancelling when the Bridge died is recovered as interrupted  -- status=interrupted, replayed=interrupted, terminal=true
+   POST /stop on the recovered run -> 500 {"error":"RUN_NOT_ACTIVE"}
+
+RESULT: 0 failed check(s)
+##### wdio-dup #####
+ok   a retried test: fail, then pass: [failed,passed] -> total=1 failed=0 flaky=1 passed=0 cases=["flakyx2"]  (expected total=1 failed=0)
+ok   two distinct same-titled tests, both pass (a pass is never retried): [passed,passed] -> total=2 failed=0 flaky=0 passed=2 cases=["passedx1","passedx1"]  (expected total=2 failed=0)
+ok   two distinct same-titled tests: pass, then fail (a pass is never retried): [passed,failed] -> total=2 failed=1 flaky=0 passed=1 cases=["passedx1","failedx1"]  (expected total=2 failed=1)
+ok   forEach-style: pass, fail, pass (data-driven, same title): [passed,failed,passed] -> total=2 failed=0 flaky=1 passed=1 cases=["passedx1","flakyx2"]  (expected total=2 failed=0)
+
+RESULT: 0 failed check(s)
+
+##### verdict-unknown #####
+ok   "failed, no case status": attempts=[failed] -> case.status=failed outcome=unknown
+ok   "failed, unknown case status": attempts=[failed] -> case.status=failed outcome=unknown
+aggregateVerdicts(['unknown']) = null
+summary {"passed":0,"failed":2,"total":2}
+
+RESULT: 0 failed check(s)
+
+##### replay-contract #####
+ok   leading hole (events 1..2 lost): sequence=[3] gaps=[1,2] valid=true violations=0 status=interrupted
+ok   duplicate sequence number: sequence=[1,2,2] gaps=[] valid=false violations=0 status=passed
+
+RESULT: 0 failed check(s)
+
