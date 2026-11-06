@@ -110,5 +110,70 @@ run 10-port-audit.log node tools/ats101-probes/scenario-d-port-audit.mjs
 echo '--- 11. the ADR citation check (the gate the review found broken) ---'
 run 11-adr-citations.log python tools/check_adr_citations.py
 
+# --- 12-16: the round-2 review findings ---------------------------------------
+#
+# The round-2 reviewer brought four probes of its own. They are kept in the
+# repository so that the findings stay reproducible: they drive the product's
+# own discoverTests() (or the real Bridge) against the REAL Playwright CLI and
+# print EXPECTED vs ACTUAL per counterexample.
+#
+# The probes need a node_modules that holds @playwright/test 1.64.1. The
+# sample project of this repository has one; when it is absent the probes are
+# SKIPPED and say so -- never reported as a pass.
+#
+# The PROBE FIXTURE is a directory that holds a node_modules with
+# @playwright/test. It defaults to the sample project and can be pointed
+# elsewhere with ATS202_PW_NODE_MODULES.
+PW_NM2="${ATS202_PW_NODE_MODULES:-$ROOT/examples/sample-playwright/node_modules}"
+case "$PW_NM2" in
+  /*) PW_NM2="$(cd "$PW_NM2" 2>/dev/null && pwd -W 2>/dev/null || echo "$PW_NM2")" ;;
+esac
+R2="$ROOT/tools/ats202-probes/r2"
+SCRATCH="${ATS202_SCRATCH:-$(mktemp -d)}"
+
+if [ -d "$PW_NM2/@playwright/test" ]; then
+  echo '--- 12. N1: an awaited listing must not erase another project''s registry entries ---'
+  run 12-r2-race.log node "$R2/r2-race.mjs" "$ROOT" "$PW_NM2" "$SCRATCH"
+
+  echo '--- 13. N3: a case the CLI enumerates never lands in onlyStatic ---'
+  run 13-r2-scope.log node "$R2/r2-scope.mjs" "$ROOT" "$PW_NM2" "$SCRATCH"
+
+  echo '--- 14. the async listing path: the timeout kills the child ---'
+  run 14-r2-async.log node "$R2/r2-async.mjs" "$ROOT" "$PW_NM2" "$SCRATCH"
+
+  echo '--- 15. N4: the scanner fix moves the UID of an escaped-quote title once ---'
+  # The OLD tree is the one BEFORE the scanner fix (cc68331). It is exported
+  # with `git archive`, so the comparison runs on a clean LF tree.
+  OLD_TREE="${ATS202_OLD_TREE:-$SCRATCH/ats202-round0-tree}"
+  rm -rf "$OLD_TREE"; mkdir -p "$OLD_TREE"
+  if git -C "$ROOT" archive cc68331 2>/dev/null | tar -x -C "$OLD_TREE"; then
+    run 15-r2-upgrade.log node "$R2/r2-upgrade.mjs" "$OLD_TREE" "$ROOT" "$SCRATCH"
+  else
+    {
+      echo "=== command ==="
+      echo "node $R2/r2-upgrade.mjs <old-tree> <new-tree> <scratch>"
+      echo "=== output ==="
+      echo "SKIPPED: the commit cc68331 is not in this clone."
+      echo "=== exit code: 2 ==="
+    } > "$OUT/15-r2-upgrade.log"
+    echo "  wrote $OUT/15-r2-upgrade.log (skipped)"
+  fi
+else
+  for name in 12-r2-race 13-r2-scope 14-r2-async 15-r2-upgrade; do
+    {
+      echo "=== command ==="
+      echo "node tools/ats202-probes/r2/<probe>.mjs <tree> <node_modules> <scratch>"
+      echo "=== output ==="
+      echo "SKIPPED: $PW_NM2/@playwright/test is not installed;"
+      echo "the probes need the real Playwright CLI to enumerate the cases."
+      echo "=== exit code: 2 ==="
+    } > "$OUT/$name.log"
+    echo "  wrote $OUT/$name.log (skipped)"
+  done
+fi
+
+echo '--- 16. the ASYNC listing path has its own tests (N2) ---'
+run 16-discovery-async-ut.log node --test tests/discovery-async.test.mjs
+
 echo ''
 echo 'evidence written to docs/evidence/ATS-202/'
