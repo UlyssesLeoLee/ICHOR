@@ -54,6 +54,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { PLAYWRIGHT_CLI_CANDIDATES } from '../adapters/playwright-cli.mjs';
+import { BASE_ENV_KEYS } from '../env/profiles.mjs';
 import { readPackageVersion, resolveProjectBinary } from '../adapters/contract.mjs';
 
 /** The outcome of a listing. Every value is a stable, machine-readable code. */
@@ -224,7 +225,44 @@ export function parseListReport(report, { projectRoot = null } = {}) {
  * The child is spawned WITHOUT a shell, with the project's root as the
  * working directory -- the same trust boundary the run path has.
  */
-export function listTests(project, { timeoutMs = DEFAULT_LIST_TIMEOUT_MS } = {}) {
+/**
+ * The environment of the LISTING child process (ATS-212).
+ *
+ * WHY IT IS SEALED
+ * ----------------
+ * The listing runs the PROJECT'S OWN CODE: it loads the config (executing
+ * its top level) and it evaluates the test files. So the listing is the
+ * same trust boundary as the run -- the code under test -- and the host
+ * environment must not reach it.
+ *
+ * Before ATS-212 the listing inherited `{...process.env, ...}`, so an
+ * operator's cloud credentials and CI tokens reached the project's config
+ * and test files. A config that logs its environment -- or a test that
+ * prints one into a report -- would then put them into the listing output
+ * that the Bridge keeps.
+ *
+ * The environment is the same shape the run path uses: the platform base
+ * keys plus the listing's own output variables, and nothing else. There is
+ * no profile here: a listing DISCOVERS the tests, it does not run them
+ * against an environment, so it gets no profile variables.
+ */
+function listingEnv(reportFile, captureEnv) {
+  const env = {};
+  for (const key of BASE_ENV_KEYS) {
+    const value = process.env[key];
+    if (value !== undefined && value !== null) env[key] = String(value);
+  }
+  env.PLAYWRIGHT_JSON_OUTPUT_FILE = reportFile;
+  env.CI = '1';
+  env.FORCE_COLOR = '0';
+  // The child records the environment it was handed here, so a caller (a
+  // test) can assert on what the listing RECEIVED rather than on what the
+  // function that builds the environment intended.
+  if (captureEnv) env.ATS_ENV_CAPTURE = captureEnv;
+  return env;
+}
+
+export function listTests(project, { timeoutMs = DEFAULT_LIST_TIMEOUT_MS, captureEnv = null } = {}) {
   const prep = prepareListing(project, timeoutMs);
   if (prep.error) return prep.error;
   const r = spawnSync(process.execPath, [prep.cli, 'test', '--list', '--reporter=json'], {
@@ -234,12 +272,7 @@ export function listTests(project, { timeoutMs = DEFAULT_LIST_TIMEOUT_MS } = {})
     windowsHide: true,
     shell: false,
     maxBuffer: 64 * 1024 * 1024,
-    env: {
-      ...process.env,
-      PLAYWRIGHT_JSON_OUTPUT_FILE: prep.reportFile,
-      CI: '1',
-      FORCE_COLOR: '0',
-    },
+    env: listingEnv(prep.reportFile, captureEnv),
   });
   prep.durationMs = Date.now() - prep.started;
   return finishListing(prep, r);
@@ -266,7 +299,7 @@ export function listTests(project, { timeoutMs = DEFAULT_LIST_TIMEOUT_MS } = {})
  * The two variants build the SAME answer: the parsing, the failure modes
  * and the report normalisation are shared, so the two cannot drift apart.
  */
-export async function listTestsAsync(project, { timeoutMs = DEFAULT_LIST_TIMEOUT_MS } = {}) {
+export async function listTestsAsync(project, { timeoutMs = DEFAULT_LIST_TIMEOUT_MS, captureEnv = null } = {}) {
   const prep = prepareListing(project, timeoutMs);
   if (prep.error) return prep.error;
   const r = await spawnAsync(process.execPath, [prep.cli, 'test', '--list', '--reporter=json'], {
@@ -276,12 +309,7 @@ export async function listTestsAsync(project, { timeoutMs = DEFAULT_LIST_TIMEOUT
     windowsHide: true,
     shell: false,
     maxBuffer: 64 * 1024 * 1024,
-    env: {
-      ...process.env,
-      PLAYWRIGHT_JSON_OUTPUT_FILE: prep.reportFile,
-      CI: '1',
-      FORCE_COLOR: '0',
-    },
+    env: listingEnv(prep.reportFile, captureEnv),
   });
   prep.durationMs = Date.now() - prep.started;
   return finishListing(prep, r);

@@ -16,6 +16,16 @@ mkdir -p "$EV"
 export PYTHONUTF8=1
 export PYTHONIOENCODING=utf-8
 
+# The coverage step needs a WRITABLE temp directory: node writes its
+# coverage file into the temp dir, and a full or unwritable system temp
+# makes the coverage report fail ("coverage file is empty") even though
+# every test passed. The scratch dir is used when it exists.
+if [ -n "${ATS208_SCRATCH:-}" ] && [ -d "${ATS208_SCRATCH:-}" ]; then
+  export TMPDIR="$ATS208_SCRATCH"
+  export TEMP="$ATS208_SCRATCH"
+  export TMP="$ATS208_SCRATCH"
+fi
+
 run() { # run <logfile> <label> <command...>
   local out="$1" label="$2"; shift 2
   {
@@ -70,12 +80,14 @@ run 09-python-gates.log "the python gates under tools/" \
 {
   echo
   echo "=== NOTE ==="
-  echo "test_tc002_ats506_marker_and_narrative fails on this tree, and it is"
-  echo "PRE-EXISTING: it fails identically on the base commit acfd7fc"
-  echo "(git archive acfd7fc -> pytest tools/ -q -> 1 failed, 28 passed)."
-  echo "It asserts that MARKERS[-1] is 【ATS-506】, but 【ATS-512】 was appended"
-  echo "to MARKERS by a later delivery (ATS-512) without updating the"
-  echo "assertion. It is unrelated to the ATS-208 execution model."
+  echo "The ATS-506 marker assertion (test_tc002_ats506_marker_and_narrative)"
+  echo "FAILED on the first delivery of ATS-208: it asserted that MARKERS[-1]"
+  echo "is 【ATS-506】, but 【ATS-512】 had been appended to MARKERS by a later"
+  echo "delivery without updating the assertion. It failed identically on the"
+  echo "base commit, so it was NOT caused by ATS-208."
+  echo
+  echo "It is FIXED in the tree this delivery was merged into (the ATS-512"
+  echo "delivery updated the assertion), so the suite above is green."
 } >> "$EV/09-python-gates.log"
 
 # --- 10: the coverage of the model -------------------------------------------
@@ -85,9 +97,115 @@ run 09-python-gates.log "the python gates under tools/" \
   echo "commit    : $(git rev-parse --short HEAD)"
   echo
   node --test --experimental-test-coverage \
-    --test-coverage-include='server/execution/**' \
-    tests/execution-model.test.mjs tests/execution-model-it.test.mjs 2>&1
+    --test-coverage-include='server/**' \
+    tests/*.test.mjs 2>&1
 } > "$EV/10-coverage.log"
 echo "wrote $EV/10-coverage.log"
+
+# --- 11: the reviewer's probes ----------------------------------------------
+# The first review round rejected the delivery with eight mandatory items and
+# shipped four probes with it. This log is the EVIDENCE that those probes
+# pass on the delivered tree: it is the same probes, run the same way.
+#
+# The probes are INPUT (they arrive as an issue attachment), not a
+# deliverable, so they are NOT checked into the repository. The script looks
+# for them in the places they can be:
+#
+#   $ATS208_REVIEW_PROBES   -- a directory with the four probe scripts
+#   .work/r1/probes/probes   -- the default location of the downloaded
+#                              attachment
+#
+# When neither exists the step says so instead of pretending it ran.
+{
+  echo "=== the probes of the first review round ==="
+  echo "repo root : $(pwd)"
+  echo "commit    : $(git rev-parse --short HEAD)"
+  echo "node      : $(node --version)"
+  echo
+  PROBES="${ATS208_REVIEW_PROBES:-}"
+  if [ -z "$PROBES" ]; then
+    for candidate in .work/r1/probes/probes "$HOME/Downloads/ats208-r1-probes/probes"; do
+      if [ -d "$candidate" ]; then PROBES="$candidate"; break; fi
+    done
+  fi
+  if [ -z "$PROBES" ] || [ ! -d "$PROBES" ]; then
+    echo "NOT RUN: the reviewer's probe scripts are not available in this tree."
+    echo "They arrive as an issue attachment (ats208-r1-probes.zip) and are INPUT,"
+    echo "not a deliverable, so they are not checked in."
+    echo "Point ATS208_REVIEW_PROBES at the unpacked directory and re-run to"
+    echo "collect this log."
+  else
+    echo "probes    : $PROBES"
+    echo
+    SCRATCH="${TMPDIR:-/tmp}/ats208-review-probes"
+    rm -rf "$SCRATCH"; mkdir -p "$SCRATCH"
+    # `pwd` in an MSYS shell prints a POSIX path ("/d/ICHOR"), which node
+    # cannot resolve as a module path ("D:\d\ICHOR\..."). The tree and the
+    # scratch are therefore converted to NATIVE paths first.
+    TREE_NATIVE="$(cd "$(pwd)" && pwd -W 2>/dev/null || pwd)"
+    SCRATCH_NATIVE="$(cd "$SCRATCH" && pwd -W 2>/dev/null || pwd)"
+    echo "tree      : $TREE_NATIVE"
+    echo
+    echo "--- pw-semantics: does the model agree with Playwright's own verdict? ---"
+    node "$PROBES/pw-semantics.mjs" "$TREE_NATIVE" "${ATS208_PW_REPORT:-$SCRATCH_NATIVE/pw-report.json}" 2>&1
+    echo "exit code : $?"
+    echo
+    echo "--- startup-robustness: does the Bridge start when the log is damaged? ---"
+    node "$PROBES/startup-robustness.mjs" "$TREE_NATIVE" "$SCRATCH_NATIVE/sr" 2>&1
+    echo "exit code : $?"
+    echo
+    echo "--- wdio-check: does the WDIO side merge a re-executed case? ---"
+    node "$PROBES/wdio-check.mjs" "$TREE_NATIVE" 2>&1
+    echo "exit code : $?"
+    echo
+    echo "--- bridge-e2e: the Bridge end to end with a real Playwright ---"
+    node "$PROBES/bridge-e2e.mjs" "$TREE_NATIVE" "${ATS208_PWPROJ2:-$SCRATCH_NATIVE/pwproj2}" "$SCRATCH_NATIVE/e2e" 2>&1
+    echo "exit code : $?"
+  fi
+} > "$EV/11-reviewer-probes.log"
+echo "wrote $EV/11-reviewer-probes.log"
+
+# --- 12: the mutation evidence ----------------------------------------------
+# The review asked for the new cases to be RED on the previous delivery
+# (8c9dd79): a case that is green on both trees proves nothing.
+#
+# This log runs the NEW test files against the OLD tree. The old tree is
+# extracted with `git archive`, so the run is hermetic: it does not touch
+# the working tree and it does not need the old branch to be checked out.
+{
+  echo "=== the new cases on the PREVIOUS delivery (8c9dd79) ==="
+  echo "repo root : $(pwd)"
+  echo "commit    : $(git rev-parse --short HEAD)"
+  echo
+  OLD="${ATS208_OLD_TIP:-8c9dd79}"
+  SCRATCH="${TMPDIR:-/tmp}/ats208-mutation"
+  rm -rf "$SCRATCH"; mkdir -p "$SCRATCH/tree"
+  # The archive is extracted with PYTHON, not with `tar -x -C`: the Windows
+  # tar refuses a "D:/..." path ("Cannot connect to D: resolve failed") and
+  # the git fallback needs a git dir that is not where the script expects.
+  # Python's tarfile is portable and needs no path rewriting.
+  if git archive --format=tar "$OLD" > "$SCRATCH/old.tar" 2>/dev/null \
+     && python -c "
+import sys, tarfile
+with tarfile.open(sys.argv[1]) as t:
+    t.extractall(sys.argv[2])
+" "$SCRATCH/old.tar" "$SCRATCH/tree" 2>/dev/null; then
+    # The NEW test files are copied onto the OLD tree: the cases are the
+    # ones of this delivery, the code is the one of the previous delivery.
+    if [ -d "$SCRATCH/tree/tests" ]; then
+      cp tests/execution-model.test.mjs tests/execution-model-it.test.mjs "$SCRATCH/tree/tests/"
+      echo "old tree  : $OLD (extracted from git archive)"
+      echo "test files: the NEW ones of this delivery"
+      echo
+      ( cd "$SCRATCH/tree" && node --test tests/execution-model.test.mjs tests/execution-model-it.test.mjs 2>&1 )
+      echo "exit code : $? (non-zero is EXPECTED: the cases must be red on the old tree)"
+    else
+      echo "NOT RUN: the archive of $OLD could not be extracted."
+    fi
+  else
+    echo "NOT RUN: the commit $OLD is not in this repository."
+  fi
+} > "$EV/12-mutation-evidence.log"
+echo "wrote $EV/12-mutation-evidence.log"
 
 echo "done"

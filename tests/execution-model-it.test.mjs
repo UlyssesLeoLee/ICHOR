@@ -419,3 +419,420 @@ test('IT-EXE-CLEANUP: stop and cleanup', () => {
   if (cp) cp.kill();
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+/* ------------------------------------------------------------------ */
+/* The damaged log (B2, B5)                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The helpers of the crash cases below.
+ *
+ * Each case runs the bridge as a REAL process against a REAL data
+ * directory, kills it, damages the data and starts it again. The point is
+ * that the bridge must COME BACK UP: a single damaged run used to keep the
+ * whole installation from starting.
+ */
+async function withBridge(dataDir, body) {
+  const port = await freePort();
+  const env = { ...process.env, ATS_PORT: String(port), ATS_DATA_DIR: dataDir };
+  const start = () => spawn(process.execPath, ['server/index.mjs'], { cwd: root, env, stdio: 'ignore' });
+  const up = async () => {
+    for (let i = 0; i < 100; i++) {
+      try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return true; } catch { /* not up */ }
+      await new Promise((r) => setTimeout(r, 35));
+    }
+    return false;
+  };
+  const call = async (endpoint, method = 'GET', payload, tok) => {
+    // A bridge that is being killed answers with a RESET connection, not
+    // with an HTTP status. The caller may be racing the crash on purpose
+    // (the `cancelling` case), so a dead bridge is a normal answer here:
+    // it is reported as `[0, null]` instead of throwing.
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}${endpoint}`, {
+        method,
+        headers: tok ? { 'X-ATS-Token': tok, 'Content-Type': 'application/json' } : {},
+        body: payload ? JSON.stringify(payload) : undefined,
+      });
+      return [r.status, await r.json()];
+    } catch (e) {
+      return [0, { error: String(e?.message ?? e) }];
+    }
+  };
+  let bridge = start();
+  /**
+   * Kills the bridge (and, on Windows, its whole process tree).
+   *
+   * `taskkill /T /F` is used because a plain `kill('SIGKILL')` on Windows
+   * terminates only the bridge process and leaves the orphaned engine
+   * behind -- and the orphaned engine would keep the port and the run
+   * folder busy.
+   */
+  const kill = async () => {
+    if (bridge.exitCode !== null) return;
+    if (process.platform === 'win32') {
+      await new Promise((r) => spawn('taskkill', ['/PID', String(bridge.pid), '/T', '/F'], { windowsHide: true }).on('close', r));
+    } else {
+      bridge.kill('SIGKILL');
+    }
+    await new Promise((r) => setTimeout(r, 300));
+  };
+  try {
+    assert.ok(await up(), 'the bridge did not come up');
+    const token = (await call('/api/session'))[1].token;
+    await body({ call, token, up, kill, restart: async () => {
+      await kill();
+      bridge = start();
+      assert.ok(await up(), 'the bridge did not come back up');
+      return (await call('/api/session'))[1].token;
+    } });
+  } finally {
+    bridge.kill();
+  }
+}
+/**
+ * Removes a temporary directory, tolerating a file handle that is still
+ * open.
+ *
+ * On Windows a directory that a process still holds open cannot be
+ * removed, and the removal fails with EPERM. The bridge is killed by the
+ * test, but its handle may not be released the instant the process is
+ * gone. The directory is a TEMPORARY fixture: failing the test because it
+ * could not be deleted would report a defect that is not one.
+ */
+function removeTemp(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  } catch {
+    // The fixture is left behind; the OS reclaims it with the temp dir.
+  }
+}
+
+/**
+ * A project whose engine never returns: the run stays in flight. */
+function makeHangingProject(dir) {
+  const project = path.join(dir, 'proj');
+  fs.mkdirSync(path.join(project, 'node_modules', '@playwright', 'test'), { recursive: true });
+  fs.mkdirSync(path.join(project, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(project, 'package.json'), '{}');
+  fs.writeFileSync(path.join(project, 'playwright.config.ts'), 'export default {}');
+  fs.writeFileSync(path.join(project, 'tests', 'slow.spec.ts'), "test('slow case', ()=>{});\n");
+  fs.writeFileSync(
+    path.join(project, 'node_modules', '@playwright', 'test', 'cli.js'),
+    `
+const fs=require('fs'),path=require('path');
+const output=process.argv[process.argv.indexOf('--output')+1];
+fs.mkdirSync(output,{recursive:true});
+setInterval(()=>{}, 1000);
+`
+  );
+  return project;
+}
+
+/**
+ * Rewinds the persisted state so that it holds EXACTLY what a crash in the
+ * middle of a cancellation leaves behind.
+ *
+ * The `close` event of the engine completes a cancelled run as `cancelled`.
+ * A crash that lands before that event is processed leaves the run in
+ * `cancelling` -- with the `run.cancelling` event in its durable log and
+ * without a terminal event.
+ *
+ * The state is rewound to that shape, so the case tests the RECOVERY of
+ * that state and not a race with the operating system.
+ */
+function rewindToCancelling(data, runId) {
+  const stateFile = path.join(data, 'state.json');
+  const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+  const run = state.runs.find((r) => r.id === runId);
+  assert.ok(run, 'the run is not in the state');
+  run.status = 'cancelling';
+  run.finishedAt = null;
+  run.exitCode = null;
+  // The terminal event (if the engine's close was processed before the
+  // rewind) is removed: the crash happened BEFORE it.
+  run.events = (run.events ?? []).filter((e) => e.type !== 'run.finished');
+  run.eventSeq = run.events.length ? run.events[run.events.length - 1].seq : 0;
+  fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+
+  // The durable log is rewound the same way: it is the record, and the
+  // recovery reads it.
+  const logFile = path.join(data, 'runs', runId, 'events.jsonl');
+  if (fs.existsSync(logFile)) {
+    const lines = fs.readFileSync(logFile, 'utf8')
+      .split('\n').filter(Boolean)
+      .map((l) => JSON.parse(l))
+      .filter((e) => e.type !== 'run.finished');
+    fs.writeFileSync(logFile, lines.map((e) => JSON.stringify(e)).join('\n') + '\n');
+  }
+}
+
+/**
+ * The defect B2 is about.
+ *
+ * The run folder was deleted (by the user, by a cleaner, or by a failed
+ * migration). The old recovery read `events.jsonl` unconditionally and
+ * threw `ENOENT`, so the bridge died on start -- and one damaged run kept
+ * the WHOLE installation from starting.
+ */
+test('IT-EXE-008: the bridge starts even when the run folder is gone', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-exe-missing-'));
+  const data = path.join(work, 'data');
+  try {
+    const project = makeHangingProject(work);
+    await withBridge(data, async ({ call, token, restart }) => {
+      const projectId = (await call('/api/projects', 'POST', { path: project }, token))[1].project.id;
+      const [, started] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/slow.spec.ts' }, token);
+      const runId = started.run.id;
+      for (let i = 0; i < 100; i++) {
+        if ((await call(`/api/runs/${runId}`, 'GET', null, token))[1].run.status === 'running') break;
+        await new Promise((r) => setTimeout(r, 35));
+      }
+      // The run folder disappears.
+      fs.rmSync(path.join(data, 'runs', runId), { recursive: true, force: true });
+
+      const token2 = await restart();
+      // The bridge came back up (the restart asserts it) and the run is
+      // recovered into a terminal state -- it does not hold the project
+      // lock for ever.
+      const run = (await call(`/api/runs/${runId}`, 'GET', null, token2))[1].run;
+      assert.equal(run.status, 'interrupted', JSON.stringify(run.status));
+      // And the API answers: the run is readable even without its log.
+      const [status] = await call(`/api/runs/${runId}/replay`, 'GET', null, token2);
+      assert.equal(status, 200);
+    });
+  } finally {
+    removeTemp(work);
+  }
+});
+
+/**
+ * The defect B5 is about.
+ *
+ * A crash in the middle of an append leaves the last line of
+ * `events.jsonl` torn. The old reader let the JSON error escape, so
+ * `/events` and `/replay` answered 500 for the rest of the run's life.
+ */
+test('IT-EXE-009: a torn event log stays readable', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-exe-torn-'));
+  const data = path.join(work, 'data');
+  try {
+    const project = makeHangingProject(work);
+    await withBridge(data, async ({ call, token, restart }) => {
+      const projectId = (await call('/api/projects', 'POST', { path: project }, token))[1].project.id;
+      const [, started] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/slow.spec.ts' }, token);
+      const runId = started.run.id;
+      for (let i = 0; i < 100; i++) {
+        if ((await call(`/api/runs/${runId}`, 'GET', null, token))[1].run.status === 'running') break;
+        await new Promise((r) => setTimeout(r, 35));
+      }
+      // The log is torn: a fragment of JSON without a newline.
+      const log = path.join(data, 'runs', runId, 'events.jsonl');
+      fs.appendFileSync(log, '{"seq":3,"at":"2026-11-06T00:00:00.000Z","ty');
+
+      const token2 = await restart();
+      // Both endpoints answer 200 -- a torn byte must not make the run
+      // unreadable.
+      const [eventsStatus, events] = await call(`/api/runs/${runId}/events`, 'GET', null, token2);
+      assert.equal(eventsStatus, 200, JSON.stringify(events));
+      // The readable events are still there.
+      assert.ok(events.events.length >= 2, JSON.stringify(events.events));
+      // And the damage is REPORTED.
+      assert.ok(events.unreadable.length >= 1, JSON.stringify(events));
+      const [replayStatus, replay] = await call(`/api/runs/${runId}/replay`, 'GET', null, token2);
+      assert.equal(replayStatus, 200, JSON.stringify(replay));
+      assert.ok(replay.unreadable.length >= 1, JSON.stringify(replay));
+      // The run is still recovered into a terminal state.
+      assert.equal((await call(`/api/runs/${runId}`, 'GET', null, token2))[1].run.status, 'interrupted');
+    });
+  } finally {
+    removeTemp(work);
+  }
+});
+
+/**
+ * The defect B3 is about.
+ *
+ * The bridge died between the `run.finished` event and the state write --
+ * the `finishRun` collect window. The log already said the run FINISHED;
+ * the state file still said `running`. The old recovery appended
+ * `run.interrupted` anyway, so the stream became
+ * `[queued, started, finished(passed), interrupted]` -- a run that never
+ * existed -- and `/replay` reported it as `agrees: true`.
+ */
+test('IT-EXE-010: no event is appended after a terminal event', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-exe-window2-'));
+  const data = path.join(work, 'data');
+  try {
+    const project = makeHangingProject(work);
+    await withBridge(data, async ({ call, token, restart }) => {
+      const projectId = (await call('/api/projects', 'POST', { path: project }, token))[1].project.id;
+      const [, started] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/slow.spec.ts' }, token);
+      const runId = started.run.id;
+      for (let i = 0; i < 100; i++) {
+        if ((await call(`/api/runs/${runId}`, 'GET', null, token))[1].run.status === 'running') break;
+        await new Promise((r) => setTimeout(r, 35));
+      }
+      // The crash window: the log holds a terminal event, the state does
+      // not know about it yet.
+      const log = path.join(data, 'runs', runId, 'events.jsonl');
+      fs.appendFileSync(log, JSON.stringify({
+        seq: 3, at: new Date().toISOString(), type: 'run.finished', data: { status: 'passed', code: 0 },
+      }) + '\n');
+      const stateFile = path.join(data, 'state.json');
+      const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+      const run = state.runs.find((r) => r.id === runId);
+      run.status = 'running';
+      run.finishedAt = null;
+      run.events = run.events.filter((e) => e.type !== 'run.finished');
+      run.eventSeq = run.events.length;
+      fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+
+      const token2 = await restart();
+      const recovered = (await call(`/api/runs/${runId}`, 'GET', null, token2))[1].run;
+      // The log wins: the run is `passed`, not `interrupted`.
+      assert.equal(recovered.status, 'passed', JSON.stringify(recovered.status));
+      const [, replay] = await call(`/api/runs/${runId}/replay`, 'GET', null, token2);
+      // The stream is VALID: no event was appended after the terminal one.
+      assert.equal(replay.valid, true, JSON.stringify(replay.violations));
+      assert.deepEqual(replay.violations, []);
+      assert.equal(replay.agrees, true, JSON.stringify(replay));
+      // And the terminal event is still the LAST one.
+      const types = replay.events.map((e) => e.type);
+      assert.deepEqual(types, ['run.queued', 'run.started', 'run.finished'], JSON.stringify(types));
+    });
+  } finally {
+    removeTemp(work);
+  }
+});
+
+/**
+ * The defect B4 is about.
+ *
+ * The bridge died while the run was `cancelling` -- after `POST /stop` and
+ * before the engine's exit was processed. The old recovery only handled
+ * `queued` and `running`, so the run stayed in `cancelling` for ever: it
+ * never reached a terminal state, it held the project's run lock, and
+ * `POST /stop` could not release it (there was no job any more, so the
+ * answer was `RUN_NOT_ACTIVE`).
+ *
+ * THE STATE IS CRAFTED, NOT RACED FOR.
+ *
+ * Doing this "for real" -- POST /stop and then kill the bridge -- is a RACE:
+ * `cancelRun()` kills the engine, and the engine's `close` event completes
+ * the run as `cancelled` before the crash lands. The window between the
+ * stop's answer and the kill is milliseconds wide, and the test would fail
+ * or pass by luck (measured: it passed on 3 of 8 runs).
+ *
+ * The state is therefore written directly: a run in `cancelling`, with the
+ * `run.cancelling` event in its log, and no live engine. That is EXACTLY
+ * the state the crash leaves behind, and it is the state the recovery has
+ * to handle. The same approach is used by the review's own probe C3.
+ */
+test('IT-EXE-011: a run that was cancelling when the bridge died is recovered', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-exe-cancel-'));
+  const data = path.join(work, 'data');
+  try {
+    const project = makeHangingProject(work);
+    await withBridge(data, async ({ call, token, kill, restart }) => {
+      const projectId = (await call('/api/projects', 'POST', { path: project }, token))[1].project.id;
+      const [, started] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/slow.spec.ts' }, token);
+      const runId = started.run.id;
+      for (let i = 0; i < 100; i++) {
+        if ((await call(`/api/runs/${runId}`, 'GET', null, token))[1].run.status === 'running') break;
+        await new Promise((r) => setTimeout(r, 35));
+      }
+      // The run is stopped: the state says `cancelling`.
+      const [stopStatus, stopAnswer] = await call(`/api/runs/${runId}/stop`, 'POST', {}, token);
+      assert.equal(stopStatus, 200, JSON.stringify(stopAnswer));
+      assert.equal(stopAnswer.status, 'cancelling', JSON.stringify(stopAnswer));
+
+      // The crash: the engine's `close` event is never processed, so the
+      // state keeps the `cancelling` status and the log keeps the
+      // `run.cancelling` event.
+      await kill();
+      rewindToCancelling(data, runId);
+
+      // The recovery: the bridge comes back up and the run must reach a
+      // TERMINAL state.
+      const token2 = await restart();
+      const recovered = (await call(`/api/runs/${runId}`, 'GET', null, token2))[1].run;
+      assert.equal(recovered.status, 'interrupted', JSON.stringify(recovered.status));
+      const [, replay] = await call(`/api/runs/${runId}/replay`, 'GET', null, token2);
+      assert.equal(replay.replayedStatus, 'interrupted', JSON.stringify(replay));
+      assert.equal(replay.terminal, true, JSON.stringify(replay));
+      assert.equal(replay.valid, true, JSON.stringify(replay.violations));
+      // And the project is free again: a new run can be started. Before
+      // the fix the run stayed in `cancelling`, held the lock for ever and
+      // the answer was 409 PROJECT_ALREADY_RUNNING.
+      const [runStatus, runAnswer] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/slow.spec.ts' }, token2);
+      assert.ok(runStatus < 300, JSON.stringify(runAnswer));
+    });
+  } finally {
+    removeTemp(work);
+  }
+});
+
+/**
+ * The defect B1 is about, at the bridge level.
+ *
+ * A case that declares `test.fail()` and fails is what Playwright calls an
+ * `expected` outcome: the engine exits 0 and its `stats` count the case as
+ * expected. The old summary called it a `failed` case, so the summary
+ * contradicted the exit code of the very same run.
+ */
+test('IT-EXE-012: the summary of a run agrees with the exit code of the engine', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-exe-xfail-'));
+  const data = path.join(work, 'data');
+  const project = path.join(work, 'proj');
+  try {
+    fs.mkdirSync(path.join(project, 'node_modules', '@playwright', 'test'), { recursive: true });
+    fs.mkdirSync(path.join(project, 'tests'), { recursive: true });
+    fs.writeFileSync(path.join(project, 'package.json'), '{}');
+    fs.writeFileSync(path.join(project, 'playwright.config.ts'), 'export default {}');
+    fs.writeFileSync(path.join(project, 'tests', 'xfail.spec.ts'), "test('expected failure', ()=>{});\n");
+    // The CLI double models the report of a case that declares
+    // `test.fail()`: the engine says `expected`, the expected status is
+    // `failed`, and the result failed.
+    fs.writeFileSync(
+      path.join(project, 'node_modules', '@playwright', 'test', 'cli.js'),
+      `
+const fs=require('fs'),path=require('path');
+const out=process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;
+const output=process.argv[process.argv.indexOf('--output')+1];
+fs.mkdirSync(output,{recursive:true});
+fs.writeFileSync(out, JSON.stringify({
+  config:{rootDir:process.cwd().split(path.sep).join('/')},
+  suites:[{file:'tests/xfail.spec.ts',specs:[{title:'expected failure',file:'tests/xfail.spec.ts',line:1,tests:[{
+    status:'expected',
+    expectedStatus:'failed',
+    results:[{status:'failed',duration:5,retry:0,error:{message:'the expected failure'}}]
+  }]}]}]
+}));
+`
+    );
+    await withBridge(data, async ({ call, token }) => {
+      const projectId = (await call('/api/projects', 'POST', { path: project }, token))[1].project.id;
+      const [, started] = await call(`/api/projects/${projectId}/run`, 'POST', { file: 'tests/xfail.spec.ts' }, token);
+      let run = null;
+      for (let i = 0; i < 150; i++) {
+        run = (await call(`/api/runs/${started.run.id}`, 'GET', null, token))[1].run;
+        if (['passed', 'failed', 'error'].includes(run.status)) break;
+        await new Promise((r) => setTimeout(r, 35));
+      }
+      // The case is PASSED: the failure was the declared outcome.
+      assert.equal(run.summary.total, 1, JSON.stringify(run.summary));
+      assert.equal(run.summary.passed, 1, JSON.stringify(run.summary));
+      assert.equal(run.summary.failed, 0, JSON.stringify(run.summary));
+      assert.equal(run.summary.cases[0].status, 'passed', JSON.stringify(run.summary.cases[0]));
+      assert.equal(run.summary.cases[0].outcome, 'expected');
+      // The attempt itself still records that it failed: the fact is not
+      // lost, it is only not counted as a failure of the run.
+      assert.equal(run.attempts[0].status, 'failed');
+      assert.equal(run.attempts[0].expectedStatus, 'failed');
+      assert.equal(run.attempts[0].outcome, 'expected');
+    });
+  } finally {
+    removeTemp(work);
+  }
+});

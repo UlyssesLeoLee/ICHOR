@@ -256,8 +256,20 @@ export function createPlaywrightAdapter() {
     /**
      * Start a run.
      * Returns a handle the runtime can stream logs from and stop.
+     *
+     * ATS-212: the environment of the child is SEALED. The adapter does not
+     * pass the host environment on -- it passes the environment the runtime
+     * prepared (the project's environment profile, plus the platform
+     * variables the child needs) and adds the engine's own output
+     * variables, which say where the report goes.
+     *
+     * The host environment is NOT spread in. Before ATS-212 the adapter
+     * used `{...process.env, ...}`, so everything the operator had in their
+     * shell -- their cloud credentials, their CI tokens -- reached the code
+     * under test, and the code under test could print it into a report that
+     * is archived as evidence.
      */
-    start({ project, run, file, outputDir }) {
+    start({ project, run, file, outputDir, env: runEnv }) {
       const probe = probeCli(project.root);
       if (!probe) throw new Error('PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT');
       if (file) sourcePath(project, file); // rejects anything outside the project
@@ -272,8 +284,12 @@ export function createPlaywrightAdapter() {
         outputDir,
         testFile: file || null,
       });
+      // The sealed environment: the runtime's environment (the profile's
+      // variables plus the platform base keys) and the engine's own output
+      // variables on top. `buildRunnerEnv` is what decides what the base
+      // keys are; the adapter only adds what the ENGINE owns.
       const env = {
-        ...process.env,
+        ...(runEnv ?? {}),
         PLAYWRIGHT_JSON_OUTPUT_FILE: playwrightReportFile(outputDir),
         PLAYWRIGHT_HTML_OUTPUT_DIR: playwrightHtmlDir(outputDir),
         PLAYWRIGHT_HTML_OPEN: 'never',
@@ -336,11 +352,19 @@ export function createPlaywrightAdapter() {
                 title: c.title,
                 file: c.file,
                 status: c.status,
+                // The OUTCOME of the case: what the ENGINE concluded about
+                // it (`expected` / `unexpected` / `flaky` / `skipped`).
+                // It is what makes the counters agree with the engine's own
+                // `stats` -- a case that declares `test.fail()` and fails
+                // is an `expected` outcome, not a failed case.
+                outcome: c.outcome,
                 duration: c.duration,
                 error: c.error,
                 attemptsCount: c.attemptsCount,
                 attempts: c.attempts.map((a) => ({
                   status: a.status,
+                  expectedStatus: a.expectedStatus ?? null,
+                  outcome: a.outcome,
                   retry: a.retry,
                   duration: a.duration,
                   error: a.error,

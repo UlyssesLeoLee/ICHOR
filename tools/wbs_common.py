@@ -38,7 +38,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-205】', '【ATS-206】',
-           '【ATS-208】', '【ATS-301】', '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】')
+           '【ATS-208】', '【ATS-212】', '【ATS-301】', '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -110,6 +110,12 @@ NARRATIVE_FRAGMENTS = {
               '事件可按 run+sequence 复演）',
         'D7': '执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；'
               '详见 docs/06-DATA-DESIGN.md §5.4',
+    },
+    '【ATS-212】': {
+        'D6': '项目级环境档案与 runner 环境封口已实现（ATS-212：档案按项目命名空间；'
+              '只有白名单内的变量可传递；runner 不继承宿主环境）',
+        'D7': '凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；'
+              '详见 docs/04-DETAILED-DESIGN.md §5A',
     },
     '【ATS-501】': {
             'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',
