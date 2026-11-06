@@ -1,6 +1,6 @@
 === the ATS-301 gate: WBS helper + ADR citations + port audit ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fbfa95f55f8a/worktree
-commit    : 660d7b8
+commit    : 5bf6d21
 branch    : agent/m2/seikoist-170-fbfa95f55f8a
 node      : v24.19.0
 python    : Python 3.11.16
