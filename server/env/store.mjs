@@ -40,9 +40,45 @@
  */
 import { buildProfile } from './profiles.mjs';
 import { DEFAULT_ENV_WHITELIST, validateWhitelist } from './whitelist.mjs';
+import { projectUidOf } from '../uid.mjs';
 
 /** The version of the store format. */
 export const ENV_STORE_VERSION = 1;
+
+/**
+ * THE PROJECT KEY of a project.
+ *
+ * Every profile and every whitelist is filed under ONE key, and it is the
+ * key the RUN path uses as well. Before ATS-212 round 2 the write path
+ * keyed a profile by `project.uid ?? project.id` and the run path keyed it
+ * by `projectUidOf(project)`. For a project record that had not been
+ * migrated yet -- one whose `id` is still the old `proj_<uuid>` and which
+ * carries no `uid` -- the two keys differed, so a profile the API listed
+ * could not be used by a run.
+ *
+ * The rule is now: the `uid` the project record carries when it has one,
+ * and the recomputed UID otherwise. For every project the bridge really
+ * stores, the `uid` IS `projectUidOf(project)` -- the registration route
+ * and the state migration both write `uid = projectUidFor(root)`, and the
+ * migration gives the project exactly that value as its new `id`. So the
+ * key is the project's canonical identifier either way, and it does not
+ * CHANGE across the migration: a legacy project record is keyed by the UID
+ * recomputed from its root, which is exactly the UID the migration gives
+ * it. The profiles of an unmigrated installation therefore stay reachable.
+ *
+ * The migration still re-keys the profiles that an OLDER build filed under
+ * the legacy identifier -- those are the ones the migration has to move.
+ *
+ * The key is also STABLE across the state migration: the profiles of an
+ * unmigrated installation stay reachable after the migration -- the
+ * migration re-keys the profiles that an OLDER build filed under the
+ * legacy identifier, and leaves the ones that are already under the
+ * canonical key where they are.
+ */
+export function projectKeyOf(project) {
+  if (!project) return null;
+  return project.uid ?? projectUidOf(project);
+}
 
 /**
  * The empty store: no profiles, no configured whitelist.
@@ -97,11 +133,20 @@ export function findProfile(store, projectUid, ref) {
  * the built-in default. The source is reported so a reader can tell the
  * two apart -- "this project runs with the built-in names" and "this
  * project runs with exactly these six names" are different facts.
+ *
+ * AN EMPTY CONFIGURED LIST IS AN EMPTY LIST, NOT "NOT CONFIGURED". The
+ * stored whitelist is consulted by KEY, not by length: before ATS-212
+ * round 2 the code asked `configured.length` and an empty array therefore
+ * meant "not configured", so a caller who wrote `names: []` to lock a
+ * project down got the built-in default list instead -- the request
+ * silently WIDENED the whitelist. A whitelist is an allow list, so an
+ * empty one allows nothing; that is the honest reading, and it is the one
+ * the API reports back.
  */
 export function whitelistForProject(store, project) {
-  const key = project?.uid ?? project?.id;
+  const key = projectKeyOf(project);
   const configured = store?.whitelists?.[key];
-  if (Array.isArray(configured) && configured.length) {
+  if (Array.isArray(configured)) {
     return { names: configured.map((n) => String(n).toUpperCase()), source: 'custom' };
   }
   const fromProject = project?.envWhitelist;
@@ -125,7 +170,7 @@ export function whitelistForProject(store, project) {
 export function upsertProfile(store, project, input, { now = null } = {}) {
   const whitelist = whitelistForProject(store, project);
   const built = buildProfile(input, {
-    projectUid: project.uid ?? project.id,
+    projectUid: projectKeyOf(project),
     whitelist: whitelist.names,
     now,
   });
@@ -164,7 +209,7 @@ export function upsertProfile(store, project, input, { now = null } = {}) {
  * @returns {boolean} whether a profile was removed
  */
 export function removeProfile(store, project, ref) {
-  const found = findProfile(store, project.uid ?? project.id, ref);
+  const found = findProfile(store, projectKeyOf(project), ref);
   if (!found) return false;
   store.profiles = (store.profiles ?? []).filter((p) => p.uid !== found.uid && p.id !== found.id);
   return true;
@@ -175,6 +220,12 @@ export function removeProfile(store, project, ref) {
  *
  * The list is validated: a credential-shaped name cannot be authorised
  * into a profile, so it cannot be on the whitelist either.
+ *
+ * AN EMPTY LIST IS STORED AS AN EMPTY LIST. It is not treated as "no
+ * whitelist configured": a caller that writes `names: []` is asking for a
+ * project that may carry NO environment variable at all, and answering that
+ * with the built-in default list would widen the boundary instead of
+ * narrowing it.
  */
 export function setWhitelist(store, project, input) {
   const { names, problems } = validateWhitelist(input);
@@ -185,7 +236,7 @@ export function setWhitelist(store, project, input) {
     throw e;
   }
   store.whitelists = store.whitelists ?? {};
-  store.whitelists[project.uid ?? project.id] = names;
+  store.whitelists[projectKeyOf(project)] = names;
   return names;
 }
 

@@ -233,6 +233,18 @@ P1 变更流程：AST parse → calculate supported subset → generate JSON pat
 
 档案存放在 Bridge 状态里的 `state.envProfiles`，而不是单独一份文件：状态已经是真相源，原子写入、SQLite 镜像与导入导出往返都能覆盖它，另起一份旁路文件只会多一处会与状态分叉的地方。
 
+**档案与白名单一律按 `projectKeyOf(project)` 取键**（即 `project.uid ?? projectUidOf(project)`）。 写入、列举、删除与**运行**四条路径用的是同一个键，也就是 UID 注册表、信任表与运行记录已经在用的那个。
+
+早期实现的写入路径用 `project.uid ?? project.id`，而运行路径用 `projectUidOf(project)`。对一个**还没迁移**的项目记录（`id` 还是旧的 `proj_<uuid>`、没有 `uid`），这两个键**不相等**：API 能列出档案，运行却找不到它，`POST /run {env:"staging"}` 返回 `404 ENV_PROFILE_NOT_FOUND`。现在两条路径都走 `projectKeyOf`。
+
+这个键在状态迁移前后**不变**：旧项目记录按其根目录重算出的 UID 正是迁移后新 `id` 的值，所以未迁移安装的档案迁移之后仍然找得到。
+
+（`projectKeyOf` 而不是直接用 `projectUidOf`，是为了认下**注册路由已经写好的** `uid` 字段——项目被注册时 `uid` 就已经是 `projectUidOf(project)`，两者相等；这里只是不要求调用方保证这一点。）
+
+**迁移会同步改写档案与白名单的键。** `planMigration` 改写 `envProfiles.profiles[].projectUid` 和 `envProfiles.whitelists` 的键——理由与信任表、UID 注册表完全一样：保留旧键的表不是丢了，是**够不着**了，桥接在新 UID 下查到的会是一个空桶，项目于是静默退回 14 个名字的默认白名单。
+
+档案的 `uid` 由「项目 + 名称」派生，所以换键就意味着**重新派生**，同时也改写 `runs[].envUid`——否则运行会指向一个已经不存在的档案。重新派生之后 `uid` 仍然是**可重算**的（`envUidFor(projectUid, name)` 是唯一的规则）。
+
 ### 5A.2 白名单：拒绝，而不是丢弃
 
 变量名不在白名单上时，它**不入档案**，并连同**理由**一起报回调用方。静默丢弃会让调用方以为变量已生效——那是一个只会在生产里出现的 bug。
@@ -240,6 +252,12 @@ P1 变更流程：AST parse → calculate supported subset → generate JSON pat
 白名单条目只能是名称或**结尾单星号**（`FEATURE_*`）。通用 glob 不支持；裸 `*` 被拒——一个把范围写错的条目不该把白名单撑大到全体。
 
 白名单按项目配置；未配置时用内置默认。配置的清单**替换**默认，不是叠加。
+
+**空白名单就是空白名单。** 配置 `names: []` 表示这个项目**一个环境变量都不许带**，不是「没配置」。白名单是允许清单，允许清单为空就是什么都不允许。
+
+早期实现用 `configured.length` 判断「是否配置」，于是空数组被当成「未配置」，调用方写下 `names: []` 意图锁死，实际拿到的却是 14 个名字的默认清单——**请求被静默放宽**。现在配置项按**是否存在**判断，不按长度。
+
+要恢复默认，请显式调用「恢复默认白名单」这一操作，不要靠提交空数组。
 
 ### 5A.3 凭据不进档案
 
@@ -251,6 +269,12 @@ P1 变更流程：AST parse → calculate supported subset → generate JSON pat
 
 保留名（`LD_PRELOAD` / `DYLD_INSERT_LIBRARIES` / `NODE_OPTIONS` / `PLAYWRIGHT_JSON_OUTPUT_FILE` 等）即使被白名单放行也拒绝。
 
+**保留名是确切名单，不是家族规则。** 被拒绝的是清单上写下的那几个具体名字——`PLAYWRIGHT_JSON_OUTPUT_FILE`、`PLAYWRIGHT_HTML_OUTPUT_DIR`、`PLAYWRIGHT_HTML_OPEN`、`PLAYWRIGHT_BROWSERS_PATH`、`PWDEBUG`、`HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` / `NO_PROXY`、`NODE_TLS_REJECT_UNAUTHORIZED` / `NODE_EXTRA_CA_CERTS` / `SSL_CERT_FILE`，以及平台结构键 `PATH` / `PATHEXT` / `SYSTEMROOT` / `WINDIR` / `COMSPEC`。**不是**所有 `PLAYWRIGHT_*` 或所有 `*_PROXY` 都被拒：档案可以命名 `PLAYWRIGHT_HTML_REPORT` 这类别的引擎变量。
+
+这些别的引擎变量**挪不动证据**——适配器自有的输出变量是在构造环境时**最后**生效的，档案写什么都赢不了。那是**顺序**的性质，不是名单的性质。
+
+保留名的比较**不区分大小写**：环境块里 `PATH` 与 `Path` 是同一个键，所以 `windir` 与 `WINDIR` 也是同一个键。早期实现只在最后重新应用**精确拼写**的结构键，于是档案写下 `WINDIR` 时，Windows 上按字典序去重的环境块让 `WINDIR` 排在平台的 `windir` 之前，**档案的值胜出**——「档案改不掉平台关键键」在 Windows 上不成立。现在构造环境时先把结构键的**所有大小写变体**删掉，再按宿主自己的拼写重新应用一次。
+
 **本任务不实现凭据存储。** 独立安全凭据存储是 FR-027 的另一半，不在 ATS-212 的范围内；这里做的是把凭据**挡在档案之外**，并说清它该去哪里。
 
 ### 5A.4 封口的 runner 环境
@@ -258,14 +282,24 @@ P1 变更流程：AST parse → calculate supported subset → generate JSON pat
 runner 子进程的环境是**封口**的：
 
 ```text
-runner 环境 = 平台基础键 + 经白名单筛选的档案变量
+runner 环境 = 平台基础键 + 经**当前**白名单筛选的档案变量
 ```
 
 宿主 `process.env` **一律不继承**。改造前适配器用的是 `{...process.env, ...}`，操作者在 shell 里的云凭据与 CI token 会一路进到被测代码，再被写进归档为证据的报告。
 
 - 没有档案时环境同样封口（平台基础键仍在，子进程照样跑得起来）
-- 平台关键键（`PATH` / `SystemRoot` / `ComSpec` 等）在构造环境时**无条件最后覆盖**，档案改不掉它
+- 平台关键键（`PATH` / `SystemRoot` / `ComSpec` 等）在构造环境时**无条件最后覆盖**，档案改不掉它（见 §5A.3 的不区分大小写规则）
 - 适配器自有的输出变量（报告写到哪里）也最后生效——引擎的契约是报告写在适配器指定的地方
+
+**白名单约束的是运行，不只是写入。** 档案是按**写它那一刻**的白名单校验的，而白名单之后可以收紧。收紧之后发生的运行**不得**再带上被移除的变量——否则白名单只是个写入时的检查，变量照样进到被测代码里，而那正是白名单要划的边界。
+
+采用的是**过滤**，不是拒绝运行：被移除的变量从 runner 环境里去掉，运行**照常发生**，带上当前白名单仍然允许的那些变量。运行记录上会列出**被过滤掉的名字与理由**（`envRefused`），运行记录里的 `envVariables` 只列**真正到达了 runner** 的那些名字。
+
+之所以选过滤而不是拒绝运行：白名单收紧不应该让既有档案全部变成死档案——运行该发生，只是带着仍然被允许的变量。
+
+**Windows 运行时会自己补几个键。** 一个只带 `{PATH, SystemRoot}` 启动的子进程，Windows 运行时（libuv）会补上 `HOMEDRIVE` / `HOMEPATH` / `LOGONSERVER` / `SYSTEMDRIVE` / `USERDOMAIN` / `USERNAME` / `WINDIR`。它们不是密钥，但「封口集合 = 基础键 + 档案」在 Windows 上不是字面成立，文档写明这一点。
+
+**环境封口不等于凭据隔离。** 子进程以**同一用户身份**运行，并且带着 `HOME` / `USERPROFILE`，所以 `~/.aws/credentials`、`~/.npmrc` 照样读得到。「宿主 secret 不到达被测代码」这句话只成立于**环境变量层面**。
 
 ### 5A.5 不进 Git
 
