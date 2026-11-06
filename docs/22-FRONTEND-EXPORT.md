@@ -321,6 +321,26 @@ $ python tools/check_adr_citations.py
 
 完整日志：`docs/evidence/ATS-103/07-port-audit.log` 与 `08-adr-citations.log`。
 
+### 3.9 在**克隆出来的**交付分支上复跑
+
+上面的各项都是在工作区跑的。门禁与校验脚本面对的是**已提交**的文件，所以它们在**两份克隆**里各跑一遍：一份按 Windows 默认检出（CRLF），一份用 `git -c core.autocrlf=false clone` 检出（LF）。两份克隆都指向**同一个提交**。
+
+```
+$ bash tools/ats103-probes/verify-r4.sh <clone-dir> <label>
+```
+
+两份克隆的结论**逐项相同**：
+
+| 项 | CRLF clone | LF clone |
+|---|---|---|
+| `verify_checksums.py` | **OK**（484 条，0 处失配） | **OK**（484 条，0 处失配） |
+| ATS-101 端口审计 | **OK** | **OK** |
+| `check_adr_citations.py` | **OK** | **OK** |
+| `check-wbs-updaters.sh` | **OK**（18 个更新器） | **OK**（18 个更新器） |
+| `npm test` | **0 失败** | **0 失败** |
+
+完整日志：`docs/evidence/ATS-103/10-r4-clone-verification-crlf.log` 与 `10-r4-clone-verification-lf.log`（两份日志的头部记着各自的 commit 与 `core.autocrlf` 取值）。
+
 ## 4. 本次交付发现的两个真实缺陷（不属于 ATS-103 的修复范围）
 
 ### 4.1 引擎进程异常死亡 → run 标成 `failed` 却没有任何 summary
@@ -388,6 +408,9 @@ GET /_not-found/   -> 404  同上
 | `docs/evidence/ATS-103/07-port-audit.log` | 新增 | ATS-101 端口审计的输出（`RESULT: OK`） |
 | `docs/evidence/ATS-103/08-adr-citations.log` | 新增 | ADR 引用校验的输出 |
 | `docs/evidence/ATS-103/09-ci-build-gate.log` | 新增 | 构建门禁的输出（末尾 `RESULT: OK -- every build-gate step passed.`） |
+| `docs/evidence/ATS-103/10-r4-clone-verification-crlf.log` | 新增 | 在**CRLF 克隆**里复跑 R4 要求的各项（校验和、端口审计、ADR 引用、WBS 更新器、`npm test`）的输出 |
+| `docs/evidence/ATS-103/10-r4-clone-verification-lf.log` | 新增 | 同一组检查在 **LF 克隆**（`core.autocrlf=false`）里的输出 |
+| `tools/ats103-probes/verify-r4.sh` | 新增 | 在克隆出来的交付分支上复跑上述各项的脚本 |
 | `tools/update_wbs_ats103.py` | 修改 | 本任务的 WBS 行更新脚本（与 ATS-101/102/301/401/501 同构，标记 `【ATS-103】`）：备注同步为本轮的真实结论 |
 | `tools/wbs_common.py` | 修改 | 共享工作簿的标记登记与叙述片段：新增 `【ATS-103】` |
 | `docs/22-FRONTEND-EXPORT.md` | 新增 | 本文件 |
