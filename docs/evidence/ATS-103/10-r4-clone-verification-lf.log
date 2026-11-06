@@ -1,6 +1,6 @@
 === lf ===
 clone      : D:/hermes-multica/home/cache/scratch/tmp/r4clone-lf
-commit     : 50f7c8afc469cdfeda67923890931588e4b33527
+commit     : 3a31b932d896802412aaee43c44fbbeff14314f8
 branch     : agent/m2/seikoist-148-0d254fa57bf5
 autocrlf   : false
 
@@ -9,7 +9,7 @@ v22.23.4
 10.9.9
 
 --- 1. verify_checksums.py ---
-manifest entries : 585
+manifest entries : 590
 digest mismatches: 0
 tracked-not-listed: 0 []
 listed-not-tracked: 0 []
@@ -62,8 +62,8 @@ RESULT: OK -- 8/8 checks passed.
 STEP_EXIT=0
 
 --- 8. npm test ---
-# tests 989
-# pass 984
+# tests 1007
+# pass 1002
 # fail 0
 # skipped 5
 STEP_EXIT=0
