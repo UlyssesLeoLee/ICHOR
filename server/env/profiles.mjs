@@ -132,8 +132,7 @@ export const BASE_ENV_KEYS = Object.freeze([
  *
  * THE LIST IS EXACT, NOT A FAMILY RULE. It names the specific variables
  * that are refused. It does NOT refuse every `PLAYWRIGHT_*` or every
- * `*_PROXY` name -- the comment used to claim that, which was not what the
- * code did. The two claims are now different things:
+ * `*_PROXY` name. The two facts are different things:
  *
  *   * the variables in the list below are REFUSED at write time;
  *   * the OTHER engine variables a profile may name (e.g.
@@ -314,21 +313,42 @@ export function normaliseVariables(variables, { whitelist = null, reserved = RES
  * code under test, which is exactly the boundary the whitelist exists to
  * draw.
  *
+ * THE RESERVED NAMES CONSTRAIN THE RUN AS WELL. The reserved list is
+ * enforced when a profile is written, but a profile that was stored by an
+ * EARLIER build can carry a name that has since become reserved -- the
+ * reserved list grows, and the stored profiles do not. A name that is
+ * reserved now is therefore refused here too, so that a name the platform
+ * or the engine must own never reaches the runner just because it was
+ * written a while ago. The comparison is case-insensitive, like the
+ * environment block itself.
+ *
  * The refused names are REPORTED, not silently dropped: the caller says
  * which variables of the profile did not reach the runner and why.
  *
  * @param {object} profile the environment profile
  * @param {string[]} whitelist the whitelist that is in force NOW
+ * @param {object} [options]
+ * @param {string[]} [options.reserved] the reserved names (defaults to the module's list)
  * @returns {{variables:object, refused:Array<{name:string,reason:string}>}}
  */
-export function filterProfileVariables(profile, whitelist) {
+export function filterProfileVariables(profile, whitelist, { reserved = RESERVED_ENV_NAMES } = {}) {
   const out = {};
   const refused = [];
   const source = profile?.variables ?? {};
-  if (!Array.isArray(whitelist)) {
-    return { variables: { ...source }, refused };
-  }
+  const reservedSet = new Set(reserved.map((n) => String(n).toUpperCase()));
   for (const [name, value] of Object.entries(source)) {
+    const upper = String(name).toUpperCase();
+    if (reservedSet.has(upper)) {
+      refused.push({
+        name,
+        reason: 'the name is reserved by the platform or the engine and cannot be set by a profile',
+      });
+      continue;
+    }
+    if (!Array.isArray(whitelist)) {
+      out[name] = value;
+      continue;
+    }
     const check = checkEnvName(name, whitelist);
     if (!check.allowed) {
       refused.push({ name, reason: check.reason });

@@ -478,16 +478,16 @@ function finishRun(run,code,signal){
    // ATS-212: the SEALED environment of the child process.
    //
    // It is the profile's own variables plus the platform base keys -- NOT
-   // the host's environment. Before ATS-212 the runner was spawned with
-   // `{...process.env, ...}`, so everything the operator had in their shell
-   // (their cloud credentials, their CI tokens) reached the code under test
-   // and could be printed into a report that is archived as evidence.
+   // the host's environment. Nothing the operator had in their shell (their
+   // cloud credentials, their CI tokens) reaches the code under test and
+   // can be printed into a report that is archived as evidence.
    //
    // With no profile the environment is still SEALED: the base keys and
    // nothing else. The host's variables do not reach the runner either way.
    //
-   // The variables are the ones the CURRENT WHITELIST permits (the caller
-   // filtered them); the profile itself may still carry more.
+   // The variables are the ones the CURRENT WHITELIST permits and the
+   // CURRENT reserved list allows (the caller filtered them); the profile
+   // itself may still carry more.
    const sealedEnv=buildRunnerEnv({variables:envVariables??envProfile?.variables??{}});
    try{handle=adapter.start({project,run,file:run.file,outputDir:folder,env:sealedEnv});}
   catch(e){
@@ -604,8 +604,7 @@ const server=http.createServer(async(req,res)=>{
    // and the moment the answer is built, OTHER requests may have written
    // their own cells into `store.uidRegistry`. Writing the whole snapshot
    // back would therefore ERASE them: a slow listing of project A that
-   // finished after project B had been discovered would drop B's entries
-   // (measured by the round-2 reviewer: B's entries went from 2 to 0).
+   // finished after project B had been discovered would drop B's entries.
    //
    // So only the cell of THIS project is merged into the CURRENT registry,
    // and the cells of the other projects are kept as they are now.
@@ -784,11 +783,8 @@ const server=http.createServer(async(req,res)=>{
    const envStore_=envStoreOf(store);
    let envProfile=null;
    // ATS-212: the profile is looked up under the SAME key the write, the
-   // list and the delete path use (`projectKeyOf`). Before the round-2 fix
-   // the write path keyed a profile by `project.uid ?? project.id` while
-   // the run path keyed it by `projectUidOf(project)` -- two different
-   // identifiers for a project that had not been migrated yet, so a profile
-   // the API listed could not be used by a run.
+   // list and the delete path use (`projectKeyOf`), so a profile the API
+   // lists can always be used by a run.
    const envProjectKey=projectKeyOf(project);
    if(b.env!==undefined&&b.env!==null&&b.env!==''){
     envProfile=findProfile(envStore_,envProjectKey,b.env);

@@ -1,12 +1,12 @@
 /**
- * ATS-212 review round 2: the SQLite mirror must stay EXACT after the state
- * migration re-keys the environment profiles.
+ * ATS-212: the SQLite mirror must stay EXACT after the state migration
+ * re-keys the environment profiles.
  *
- * The review required this explicitly: "after the migration `verifyMirror`
- * must still be OK". The migration rewrites `envProfiles.profiles[].projectUid`
- * and `envProfiles.whitelists`, and the mirror compares the state against the
+ * The migration rewrites `envProfiles.profiles[].projectUid` and
+ * `envProfiles.whitelists`, and the mirror compares the state against the
  * database field by field -- so a profile that was re-keyed but not
- * re-mirrored would be reported as a problem.
+ * re-mirrored would be reported as a problem. The requirement is that
+ * "after the migration `verifyMirror` must still be OK".
  *
  * This is a script, not a test: it needs a real database file and a real
  * migration, and it is collected as the evidence of that requirement.
