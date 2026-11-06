@@ -344,7 +344,7 @@ Bridge 可以在读锁与写之间启动。这把锁是在**引擎函数内部**
 | ATS-206 用例 `tests/migrate-state.test.mjs` | 92 项通过（39 主体 + 33 反例段 + 9 恢复路径反例 + 3 拒绝分支反例 + 其余） |
 | ATS-201 存量用例 | 31 项通过（无回归） |
 | 全量 `node --test` | 875 项：864 通过 / 0 失败 / 11 跳过 |
-| 覆盖率 | `apply.mjs` 94.45%、`state-migration.mjs` 99.06%、`migrate_state.mjs` 96.58%、`migrate_uids.mjs` 94.33%（四个文件均 > 90%） |
+| 覆盖率 | `apply.mjs` 94.81%、`state-migration.mjs` 99.06%、`migrate_state.mjs` 96.58%、`migrate_uids.mjs` 94.33%（四个文件均 > 90%） |
 | 审核反例探针 `ce206.mjs` | 8/8 反例均不成立（`0 counterexample(s) hold`） |
 | 审核反例探针 `ce206r2.mjs` | 4/4 反例均不成立（`0 counterexample(s) hold`） |
 | 审核反例探针 `ce206k.mjs`（真实 SIGKILL） | 3/3 反例均不成立（`0 counterexample(s) hold`） |
