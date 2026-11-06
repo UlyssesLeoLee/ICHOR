@@ -1,6 +1,6 @@
 === ATS-601 evidence: line and branch coverage of the mobile contract ===
-tree : 0cd7dd20e3536eb618e5c58c598ab016cdb98adb
-date : 2026-11-06T18:29:12Z
+tree : 2c08c471407f0ed878b97b0da7d3b46d75d9d219
+date : 2026-11-06T18:44:44Z
 
 ℹ tests 94
 ℹ pass 94

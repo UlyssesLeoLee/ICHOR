@@ -1,6 +1,6 @@
 === ATS-601 evidence: the ATS-301 gate (WBS shared-cell regression + ADR citations + port audit) ===
-tree : 0cd7dd20e3536eb618e5c58c598ab016cdb98adb
-date : 2026-11-06T18:29:12Z
+tree : 2c08c471407f0ed878b97b0da7d3b46d75d9d219
+date : 2026-11-06T18:44:44Z
 
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
 repo root : /d/ICHOR

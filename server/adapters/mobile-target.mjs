@@ -436,8 +436,8 @@ export function isLeaseExpired(session, now = new Date()) {
  *
  * Returns `{usable, reason}`:
  *   * `usable` -- the session is in a state a run may acquire;
- *   * `reason` -- why it is not, in words ('not-connected',
- *     'occupied-by-another-run', 'failed', 'no-session').
+ *   * `reason` -- why it is not, in words ('device-not-connected',
+ *     'device-occupied', 'session-failed', 'no-session').
  */
 export function sessionUsability(session) {
   if (!session) return { usable: false, reason: 'no-session' };
