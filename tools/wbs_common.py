@@ -13,7 +13,11 @@ about to write. The derivation is:
     B9  = IFERROR(1 - SUM(开发WBS!P6:P94) / SUM(开发WBS!K6:K94), 0)
     B10 = SUM(开发WBS!P6:P94)
 
-The row range (6..94) mirrors the formulas stored in the workbook.
+The row range (6..94) mirrors the formulas stored in the workbook. It is
+NOT a constant: the sheet grew when ATS-601 appended the mobile rows, and
+the formulas in the workbook were grown with it. `totals()` therefore
+derives the last row from the SHEET (`last_data_row`), so the cached value
+always agrees with the formula that produced it.
 """
 import re
 import struct
@@ -495,12 +499,36 @@ def sheet_cells(parts, sheet_name):
     return rows
 
 
+def last_data_row(rows):
+    """The last row of the 开发WBS sheet that carries a task.
+
+    The sheet GREW: ATS-601 appended the mobile rows, so the range that the
+    总览 formulas cover (6..N) is not a constant any more -- it is written
+    into the workbook by whoever grew the sheet, and the derivations have to
+    follow it. A derivation that kept the old constant would silently drop
+    the appended rows from the totals, and the cached 总览 value would
+    disagree with the formula that produced it.
+    """
+    last = FIRST_ROW - 1
+    for rid, cells in rows.items():
+        if rid < FIRST_ROW:
+            continue
+        if (cells.get('A') or '').startswith('ATS-'):
+            last = max(last, rid)
+    return last
+
+
 def totals(parts=None):
     """Return the 总览 figures derived from the 开发WBS sheet.
 
     Returns a dict with `completed` (count of 已完成), `sum_estimate`
     (SUM of K), `sum_remaining` (SUM of P) and `completion_rate`
     (1 - SUM(P)/SUM(K), 0 when there is nothing to divide).
+
+    THE ROW RANGE FOLLOWS THE SHEET, not a hardcoded constant: the sheet
+    grew when ATS-601 appended the mobile rows, and the 总览 formulas in
+    the workbook were grown with it. A derivation over the old constant
+    would leave the cached 总览 value disagreeing with its own formula.
     """
     if parts is None:
         parts = read_parts()
@@ -508,7 +536,7 @@ def totals(parts=None):
     completed = 0
     sum_estimate = 0.0
     sum_remaining = 0.0
-    for rid in range(FIRST_ROW, LAST_ROW + 1):
+    for rid in range(FIRST_ROW, last_data_row(rows) + 1):
         cells = rows.get(rid)
         if not cells:
             continue
