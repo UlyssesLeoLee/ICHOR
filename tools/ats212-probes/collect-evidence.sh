@@ -15,8 +15,19 @@ mkdir -p "$EV"
 export PYTHONUTF8=1
 export PYTHONIOENCODING=utf-8
 
+# The probes and the test suites need a WRITABLE temp directory. The system
+# temp on this host lives on C:, which has been full more than once -- a full
+# temp makes the coverage file and the probe fixtures fail even though every
+# test passed. The scratch dir is used when it exists.
+if [ -n "${ATS212_SCRATCH:-}" ] && [ -d "${ATS212_SCRATCH:-}" ]; then
+  export TMPDIR="$ATS212_SCRATCH"
+  export TEMP="$ATS212_SCRATCH"
+  export TMP="$ATS212_SCRATCH"
+fi
+
 run() { # run <logfile> <label> <command...>
   local out="$1" label="$2"; shift 2
+  local rc=0
   {
     echo "=== $label ==="
     echo "repo root : $(pwd)"
@@ -25,11 +36,20 @@ run() { # run <logfile> <label> <command...>
     echo "node      : $(node --version)"
     echo "python    : $(python --version 2>&1)"
     echo
-    "$@" 2>&1
-    echo
-    echo "exit code : $?"
   } > "$EV/$out"
-  echo "wrote $EV/$out"
+  # The exit code of the command has to be captured IMMEDIATELY after it
+  # runs: `$?` after the trailing `echo` is the exit code of that `echo`,
+  # which is always 0. A log that always claims 0 is worse than no log.
+  "$@" >> "$EV/$out" 2>&1 || rc=$?
+  {
+    echo
+    echo "exit code : $rc"
+  } >> "$EV/$out"
+  if [ "$rc" -ne 0 ]; then
+    echo "wrote $EV/$out (FAILED with exit code $rc)"
+  else
+    echo "wrote $EV/$out"
+  fi
 }
 
 # --- 01 / 02 / 03: the unit suites of this task -----------------------------
@@ -54,6 +74,16 @@ run 05-node-test-full.log "the full node test suite" npm test
 run 06-probe-env-seal.log "the environment seal: what the runner child received" \
   node tools/ats212-probes/probe-env-seal.mjs
 
+# --- 06b: the A/B comparison of the LISTING environment ---------------------
+# The seal also applies to the LISTING child (the `playwright test --list`
+# process), not only to the runner. This probe installs a REAL Playwright
+# into a throwaway project and runs the listing twice per round -- once
+# with the sealed environment (BASE_ENV_KEYS only) and once with the host
+# environment -- so the delivered evidence shows that sealing the listing
+# child does not break the listing.
+run 06b-ab-listing-env.log "the listing environment: sealed vs. host, A/B over 5 rounds" \
+  node tools/ats212-probes/ab-listing-env.mjs 5
+
 # --- 07: the ADR citation check ---------------------------------------------
 run 07-adr-citations.log "the ADR citation check" \
   python tools/check_adr_citations.py
@@ -70,8 +100,39 @@ run 09-wbs-row.log "the ATS-212 row of docs/WBS.xlsx" \
 run 10-python-gates.log "the python gates under tools/" \
   python -m pytest tools/ -q
 
-# --- 11: the checksum verification -------------------------------------------
-run 11-checksums.log "the CHECKSUMS.sha256 verification against the committed tree" \
-  python tools/verify_checksums.py
+# --- 11: the baseline regression comparison --------------------------------
+# The no-regression claim needs a MEASURED baseline, not a remembered number.
+# ATS212_BASELINE is a worktree at the commit where ATS-212 had not landed
+# yet; the same suite is run there and the two totals are printed side by
+# side. Without it the "no regression" line is an assertion.
+if [ -n "${ATS212_BASELINE:-}" ] && [ -d "${ATS212_BASELINE:-}" ]; then
+  run 11-baseline-regression.log "the full suite on the pre-ATS-212 baseline, for the no-regression claim" \
+    env -C "$ATS212_BASELINE" npm test
+else
+  {
+    echo "=== the full suite on the pre-ATS-212 baseline, for the no-regression claim ==="
+    echo "SKIPPED: ATS212_BASELINE is not set to a baseline worktree."
+    echo "The no-regression claim therefore rests on the current tree's totals alone."
+    echo
+    echo "exit code : 0"
+  } > "$EV/11-baseline-regression.log"
+  echo "wrote $EV/11-baseline-regression.log (skipped)"
+fi
+
+# --- 12: the checksum verification -------------------------------------------
+# NOT HERE, ON PURPOSE. The manifest lists the evidence logs, so a log that
+# records the manifest's own verification cannot live inside the manifest it
+# describes: writing the log changes the log's digest, which changes the
+# manifest, which invalidates the log. The verification is therefore the
+# LAST step of the delivery, run after the manifest has been regenerated
+# over the final tree:
+#
+#   python tools/update_checksums.py   # over the committed tree
+#   python tools/verify_checksums.py   # independent verification
+#
+# ATS-208 uses the same arrangement (its evidence set has no checksum log
+# either); the ATS-301 LF-clone log exists only because it was collected in
+# a SEPARATE clone and never entered the manifest it verifies.
+echo "the checksum verification is a post-commit gate, not an evidence step (see the header)"
 
 echo "done"

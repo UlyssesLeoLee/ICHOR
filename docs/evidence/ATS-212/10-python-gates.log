@@ -1,11 +1,21 @@
 === the python gates under tools/ ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-f66f8db44ab3/worktree
-commit    : 3081b97
-branch    : agent/m2/seikoist-170
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-fbfa95f55f8a/worktree
+commit    : 4bf2d20
+branch    : agent/m2/seikoist-170-fbfa95f55f8a
 node      : v24.19.0
 python    : Python 3.11.16
 
-.............................                                            [100%]
-29 passed in 0.36s
+..........................................                               [100%]
+============================== warnings summary ===============================
+tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
+  C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+    warn(msg)
+
+tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
+  C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+    warn(msg)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+42 passed, 2 warnings in 6.84s
 
 exit code : 0
