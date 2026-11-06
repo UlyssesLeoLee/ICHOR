@@ -268,13 +268,30 @@ async function main() {
     //
     //    This is checked against the EXECUTED requests, so it cannot be
     //    satisfied by a bundle that merely mentions a port comparison.
+    //
+    //    The host the page's OWN location implies. In the same-origin run
+    //    the page is at `localhost:<port>`, so that is the host a RELATIVE
+    //    base resolves against. The check therefore compares the executed
+    //    request hosts against THAT host.
+    //
+    //    The check is the SAME-ORIGIN discriminator by construction. In the
+    //    cross-origin run the page sits on another origin, where a relative
+    //    base cannot work at all: the product falls back to the absolute
+    //    base there, so its requests go to the absolute base's host and this
+    //    check reports red. That is the product behaving correctly, and the
+    //    detail line below says so explicitly instead of naming a host the
+    //    page was not on.
     const offHost = apiHosts.filter((h) => h !== LOCATION_HOST);
+    const pageLocationHost = new URL(pageUrl).host;
+    const detail = apiHosts.length
+      ? `page location host: ${pageLocationHost}; API request hosts: ${[...new Set(apiHosts)].join(', ')}`
+      : 'the page made no API request to inspect';
     check(
       "the page's API requests go to the host its own location implies",
       apiHosts.length > 0 && offHost.length === 0,
-      apiHosts.length
-        ? `page location host: ${LOCATION_HOST}; API request hosts: ${[...new Set(apiHosts)].join(', ')}`
-        : 'the page made no API request to inspect',
+      PAGE_ORIGIN
+        ? `${detail}; this check is the same-origin discriminator -- the page is on another origin, so the product uses the absolute base (${BAKED_BASE_HOST}) and the request correctly goes there`
+        : detail,
     );
 
     const toast = async () => ((await page.locator('.toast').count()) ? await page.locator('.toast').innerText() : '(no toast)');
