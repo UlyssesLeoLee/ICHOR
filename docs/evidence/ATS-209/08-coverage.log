@@ -1,86 +1,86 @@
 === the line coverage of the ATS-209 modules ===
 tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-099a43b561b5/worktree
-commit : 992af2b3417c0c004d179ff1d9914e9c505bc6ef
+commit : b62f2dbcd9d1f5a0c1d0028d710d3996cc6c1f2e
 
-✔ CLI-EVD-001: the usage is printed when no command is given (130.024ms)
-✔ CLI-EVD-002: --help is printed on request (127.1433ms)
-✔ CLI-EVD-003: an unknown argument is refused (122.0896ms)
-✔ CLI-EVD-004: an unknown command is refused (120.7785ms)
-✔ CLI-EVD-005: a retention period that is not a number is refused (115.3435ms)
-✔ CLI-EVD-006: a data directory with no state is not an error (117.5825ms)
-✔ CLI-EVD-007: a state file that cannot be parsed is reported (117.5925ms)
-✔ CLI-EVD-008: the plan says what is expired and what is kept (114.2447ms)
-✔ CLI-EVD-009: the cleaning refuses to run without --yes (106.9722ms)
-✔ CLI-EVD-010: the cleaning removes the evidence and keeps the run record (106.3436ms)
-✔ CLI-EVD-011: the cleaning removes the stored copies of the cleaned evidence (E8) (107.4494ms)
-✔ CLI-EVD-012: a dry run removes nothing, the store included (E5) (109.3127ms)
-✔ CLI-EVD-013: the verification reports a cleaned run as CLEANED, not as a tamper (E7) (261.0205ms)
-✔ CLI-EVD-014: the verification still reports a real tamper (124.3315ms)
-✔ CLI-EVD-015: the journal says what the cleaning removed (220.1956ms)
-✔ CLI-EVD-016: there is no journal in a data directory that was never cleaned (105.044ms)
-✔ CLI-EVD-017: a damaged journal line is reported (100.9378ms)
-✔ CLI-EVD-018: a run whose id is not a run id is skipped, not followed (E3) (100.4251ms)
-✔ CLI-EVD-019: the verification reports a manifest that points outside the run folder (99.3723ms)
-✔ IT-EVD-101: the bridge starts against an isolated data directory (649.8326ms)
-✔ IT-EVD-102: a finished run writes a manifest that names the run and its digests (444.3531ms)
-✔ IT-EVD-103: the verification reports an intact evidence set as verified (7.6985ms)
-✔ IT-EVD-104: a file that is tampered with after the run is reported as changed (3.6057ms)
-✔ IT-EVD-105: the manifest of a run is readable through the API (11.0949ms)
-✔ IT-EVD-106: the retention plan and the deduplication report are available (19.9296ms)
-✔ IT-EVD-107: the cleaner refuses to run while the Bridge holds the directory (386.3775ms)
-✔ IT-EVD-108: the cleaning removes the evidence and keeps the run metadata (246.6167ms)
-✔ IT-EVD-109: the verification after the cleaning reports the cleaned evidence, not a tamper (139.9595ms)
-✔ IT-EVD-111: a file removed WITHOUT a cleaning record is still a tamper (116.334ms)
-✔ IT-EVD-110: the temporary directory is removed (7.6376ms)
-✔ UT-EVD-001: the manifest names the run it belongs to and carries the digests (6.0173ms)
-✔ UT-EVD-002: the manifest does not list itself, the event log or the raw output (4.728ms)
-✔ UT-EVD-003: the manifest is a function of the run and the folder (2.8843ms)
-✔ UT-EVD-004: the evidence set digest does not depend on the order of the entries (0.2476ms)
-✔ UT-EVD-005: the evidence entries are sorted by their relative path (2.594ms)
-✔ UT-EVD-006: a symbolic link is not evidence (3.9073ms)
-✔ UT-EVD-007: the digest of a file is the digest of its bytes (1.65ms)
-✔ UT-EVD-008: a manifest that cannot be read is reported, not treated as empty (1.807ms)
-✔ UT-EVD-009: an intact evidence set verifies (5.9974ms)
-✔ UT-EVD-010: a file that was changed after the archive is reported as changed (2.5301ms)
-✔ UT-EVD-011: a file that was deleted is reported as missing (4.1952ms)
-✔ UT-EVD-012: a file that was added after the archive is reported as extra (3.7838ms)
-✔ UT-EVD-013: a folder without a manifest cannot be verified (1.3634ms)
-✔ UT-EVD-014: only a terminal run is eligible for the cleaning (0.2462ms)
-✔ UT-EVD-015: a run in flight is never expired (0.3518ms)
-✔ UT-EVD-016: the expired runs are the terminal ones past the period (0.271ms)
-✔ UT-EVD-017: a retention period that is not a number is refused (0.7697ms)
-✔ UT-EVD-018: the cleaning removes the evidence and keeps the run record (11.5393ms)
-✔ UT-EVD-019: the cleaning does not touch the run record itself (4.9919ms)
-✔ UT-EVD-020: the cleaning refuses to run while a Bridge holds the directory (1.2307ms)
-✔ UT-EVD-021: a dry run reports what would be removed and removes nothing (1.6546ms)
-✔ UT-EVD-022: the cleaning writes a journal of what it removed (3.8214ms)
-✔ UT-EVD-023: a damaged journal line is reported, not dropped (0.9518ms)
-✔ UT-EVD-024: the retention plan says which runs are expired and how much space they take (3.5982ms)
-✔ UT-EVD-025: the plan touches nothing (2.7609ms)
-✔ UT-EVD-026: the deduplication index records the second copy as a duplicate (0.5818ms)
-✔ UT-EVD-027: the index of a state without one is the empty index (0.1762ms)
-✔ UT-EVD-028: a re-scan of a run supersedes what the index said about it (0.1488ms)
-✔ UT-EVD-029: the deduplication report names the content that is stored twice (0.4133ms)
-✔ UT-EVD-030: the key of an evidence copy is derived, not random (0.0877ms)
-✔ UT-EVD-031: the shared bytes are counted once per duplicate (3.0983ms)
-✔ UT-EVD-032: the blob is stored under its own digest (6.0379ms)
-✔ UT-EVD-033: the same content is stored ONCE (6.8994ms)
-✔ UT-EVD-034: a blob whose copy does not match the digest is not stored (3.3887ms)
-✔ UT-EVD-035: a file that is too large is not stored (0.7756ms)
-✔ UT-EVD-036: the run file becomes a hard link to the stored copy (6.3417ms)
-✔ UT-EVD-037: removing the run copy keeps the stored copy (5.7701ms)
-✔ UT-EVD-038: a blob that a run still refers to is not pruned (8.4976ms)
-✔ UT-EVD-039: a blob that no run refers to any more is pruned (4.8518ms)
-✔ UT-EVD-040: the blob path is derived from the digest (0.1852ms)
-✔ UT-EVD-041: a blob whose content was tampered with is not reused (E1) (6.3843ms)
-✔ UT-EVD-042: a manifest entry outside the run folder is refused, not followed (E3) (3.1987ms)
-✔ UT-EVD-043: the cleaning refuses to remove a file outside the run folder (E3) (3.7203ms)
-✔ UT-EVD-044: a manifest that hit the entry limit says so and does not verify (E6) (358.4701ms)
-✔ UT-EVD-045: the run record and the manifest describe the same file set (E6) (254.0802ms)
-✔ UT-EVD-046: evidence removed by the retention policy is not reported as a tamper (E7) (6.2327ms)
-✔ UT-EVD-047: a file that vanishes WITHOUT a cleaning record is still a tamper (E7) (5.2468ms)
-✔ UT-EVD-048: the cleaning reports only the files it actually removed (E4) (3.4697ms)
-✔ UT-EVD-049: the deduplication report names the SHARED bytes, not wasted ones (review) (0.2746ms)
+✔ CLI-EVD-001: the usage is printed when no command is given (111.7081ms)
+✔ CLI-EVD-002: --help is printed on request (137.7709ms)
+✔ CLI-EVD-003: an unknown argument is refused (109.4896ms)
+✔ CLI-EVD-004: an unknown command is refused (103.2107ms)
+✔ CLI-EVD-005: a retention period that is not a number is refused (113.4325ms)
+✔ CLI-EVD-006: a data directory with no state is not an error (126.7259ms)
+✔ CLI-EVD-007: a state file that cannot be parsed is reported (127.1736ms)
+✔ CLI-EVD-008: the plan says what is expired and what is kept (107.5307ms)
+✔ CLI-EVD-009: the cleaning refuses to run without --yes (94.9772ms)
+✔ CLI-EVD-010: the cleaning removes the evidence and keeps the run record (101.695ms)
+✔ CLI-EVD-011: the cleaning removes the stored copies of the cleaned evidence (E8) (141.9187ms)
+✔ CLI-EVD-012: a dry run removes nothing, the store included (E5) (101.5996ms)
+✔ CLI-EVD-013: the verification reports a cleaned run as CLEANED, not as a tamper (E7) (250.6688ms)
+✔ CLI-EVD-014: the verification still reports a real tamper (99.6681ms)
+✔ CLI-EVD-015: the journal says what the cleaning removed (194.3968ms)
+✔ CLI-EVD-016: there is no journal in a data directory that was never cleaned (90.761ms)
+✔ CLI-EVD-017: a damaged journal line is reported (95.4597ms)
+✔ CLI-EVD-018: a run whose id is not a run id is skipped, not followed (E3) (101.3418ms)
+✔ CLI-EVD-019: the verification reports a manifest that points outside the run folder (96.0516ms)
+✔ IT-EVD-101: the bridge starts against an isolated data directory (532.3392ms)
+✔ IT-EVD-102: a finished run writes a manifest that names the run and its digests (394.6812ms)
+✔ IT-EVD-103: the verification reports an intact evidence set as verified (15.483ms)
+✔ IT-EVD-104: a file that is tampered with after the run is reported as changed (3.4732ms)
+✔ IT-EVD-105: the manifest of a run is readable through the API (11.2318ms)
+✔ IT-EVD-106: the retention plan and the deduplication report are available (31.5738ms)
+✔ IT-EVD-107: the cleaner refuses to run while the Bridge holds the directory (314.9711ms)
+✔ IT-EVD-108: the cleaning removes the evidence and keeps the run metadata (265.1125ms)
+✔ IT-EVD-109: the verification after the cleaning reports the cleaned evidence, not a tamper (102.2757ms)
+✔ IT-EVD-111: a file removed WITHOUT a cleaning record is still a tamper (101.4463ms)
+✔ IT-EVD-110: the temporary directory is removed (8.3311ms)
+✔ UT-EVD-001: the manifest names the run it belongs to and carries the digests (5.4266ms)
+✔ UT-EVD-002: the manifest does not list itself, the event log or the raw output (3.3984ms)
+✔ UT-EVD-003: the manifest is a function of the run and the folder (2.5139ms)
+✔ UT-EVD-004: the evidence set digest does not depend on the order of the entries (0.21ms)
+✔ UT-EVD-005: the evidence entries are sorted by their relative path (3.8496ms)
+✔ UT-EVD-006: a symbolic link is not evidence (2.0211ms)
+✔ UT-EVD-007: the digest of a file is the digest of its bytes (1.7092ms)
+✔ UT-EVD-008: a manifest that cannot be read is reported, not treated as empty (2.0159ms)
+✔ UT-EVD-009: an intact evidence set verifies (3.7066ms)
+✔ UT-EVD-010: a file that was changed after the archive is reported as changed (2.1921ms)
+✔ UT-EVD-011: a file that was deleted is reported as missing (4.3242ms)
+✔ UT-EVD-012: a file that was added after the archive is reported as extra (2.2069ms)
+✔ UT-EVD-013: a folder without a manifest cannot be verified (0.8277ms)
+✔ UT-EVD-014: only a terminal run is eligible for the cleaning (0.1197ms)
+✔ UT-EVD-015: a run in flight is never expired (0.1851ms)
+✔ UT-EVD-016: the expired runs are the terminal ones past the period (0.1211ms)
+✔ UT-EVD-017: a retention period that is not a number is refused (0.3678ms)
+✔ UT-EVD-018: the cleaning removes the evidence and keeps the run record (5.8984ms)
+✔ UT-EVD-019: the cleaning does not touch the run record itself (3.2785ms)
+✔ UT-EVD-020: the cleaning refuses to run while a Bridge holds the directory (1.286ms)
+✔ UT-EVD-021: a dry run reports what would be removed and removes nothing (1.6207ms)
+✔ UT-EVD-022: the cleaning writes a journal of what it removed (3.6563ms)
+✔ UT-EVD-023: a damaged journal line is reported, not dropped (1.0774ms)
+✔ UT-EVD-024: the retention plan says which runs are expired and how much space they take (2.638ms)
+✔ UT-EVD-025: the plan touches nothing (1.2941ms)
+✔ UT-EVD-026: the deduplication index records the second copy as a duplicate (0.3073ms)
+✔ UT-EVD-027: the index of a state without one is the empty index (0.1037ms)
+✔ UT-EVD-028: a re-scan of a run supersedes what the index said about it (0.0886ms)
+✔ UT-EVD-029: the deduplication report names the content that is stored twice (0.2303ms)
+✔ UT-EVD-030: the key of an evidence copy is derived, not random (0.0541ms)
+✔ UT-EVD-031: the shared bytes are counted once per duplicate (2.0922ms)
+✔ UT-EVD-032: the blob is stored under its own digest (3.806ms)
+✔ UT-EVD-033: the same content is stored ONCE (6.3133ms)
+✔ UT-EVD-034: a blob whose copy does not match the digest is not stored (2.3788ms)
+✔ UT-EVD-035: a file that is too large is not stored (0.5965ms)
+✔ UT-EVD-036: the run file becomes a hard link to the stored copy (5.4606ms)
+✔ UT-EVD-037: removing the run copy keeps the stored copy (4.4537ms)
+✔ UT-EVD-038: a blob that a run still refers to is not pruned (7.3883ms)
+✔ UT-EVD-039: a blob that no run refers to any more is pruned (4.9042ms)
+✔ UT-EVD-040: the blob path is derived from the digest (0.1521ms)
+✔ UT-EVD-041: a blob whose content was tampered with is not reused (E1) (6.289ms)
+✔ UT-EVD-042: a manifest entry outside the run folder is refused, not followed (E3) (2.4159ms)
+✔ UT-EVD-043: the cleaning refuses to remove a file outside the run folder (E3) (3.8076ms)
+✔ UT-EVD-044: a manifest that hit the entry limit says so and does not verify (E6) (223.8767ms)
+✔ UT-EVD-045: the run record and the manifest describe the same file set (E6) (148.4838ms)
+✔ UT-EVD-046: evidence removed by the retention policy is not reported as a tamper (E7) (5.4202ms)
+✔ UT-EVD-047: a file that vanishes WITHOUT a cleaning record is still a tamper (E7) (4.2289ms)
+✔ UT-EVD-048: the cleaning reports only the files it actually removed (E4) (1.9441ms)
+✔ UT-EVD-049: the deduplication report names the SHARED bytes, not wasted ones (review) (0.1451ms)
 ℹ tests 79
 ℹ suites 0
 ℹ pass 79
@@ -88,19 +88,23 @@ commit : 992af2b3417c0c004d179ff1d9914e9c505bc6ef
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 2530.7667
+ℹ duration_ms 2414.1934
 ℹ start of coverage report
-ℹ -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ℹ file                     | line % | branch % | funcs % | uncovered lines
-ℹ -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ℹ server                   |        |          |         | 
 ℹ  adapters                |        |          |         | 
 ℹ   contract.mjs           |  60.81 |   100.00 |    0.00 | 77-81 95-111 159-176 187-205 214-225 240-254 261-272 287-308 315-321 325-327 334-335 347-354 368-376 395-406 417-422 442-445 453-458 465-472
+ℹ   mobile-target.mjs      |  58.51 |   100.00 |    0.00 | 251-255 276-323 339-378 388-390 400-413 423-427 443-446 469-482 497-524 533-543 563-586 598-610 659-726 737-747 761-773 791-803 813-823 835-870
 ℹ   playwright-cli.mjs     |  66.00 |   100.00 |    0.00 | 37-47 56-64 78-85 89-90 94-95 99-100
-ℹ  core.mjs                |  57.14 |    40.00 |   16.98 | 77-79 82-88 105-118 136-147 166-186 204-213 232-235 300-321 347-376 427 442-444 471-472 476-478 481-486 494-495 566-587 590-601 623-640 642-649 668-717 728-740 752-762 764-770 772-774 777-784 787-791 793-801 803-836 858-867 881-916 964-971 981-988 994-1076 1078-1081 1095-1097 1106-1113 1142-1145
+ℹ  core.mjs                |  55.99 |    40.00 |   17.31 | 91-93 96-102 119-132 150-161 180-200 218-227 246-249 314-335 361-390 441 456-458 485-486 490-492 495-500 508-509 580-601 604-615 637-654 656-663 682-731 742-754 766-776 778-784 786-788 791-798 801-805 807-815 835-853 856-921 943-952 966-1001 1049-1056 1066-1073 1079-1161 1163-1166 1180-1182 1191-1198 1227-1230
 ℹ  discovery               |        |          |         | 
 ℹ   authoritative.mjs      |  24.76 |   100.00 |    0.00 | 93-119 129-168 181-194 209-513
 ℹ   index.mjs              |  46.04 |   100.00 |    0.00 | 97-109 143-206 228-272 275-279 287-306 314-323 326-348 351-362 365-369 379-392 404-417
+ℹ   mobile-flow-import.mjs |  55.98 |   100.00 |    0.00 | 77-79 100-129 157-202 212-221 226-246 254-257
+ℹ   mobile-flow.mjs        |  34.95 |   100.00 |    0.00 | 107-111 172-180 194-286 294-300 303-312 315-317 327-353 356-363 366-375 388-412 422-466 469-480 489-497 506-517 539-610 631-651 661-668 673-696 699-705 720-741 756-784 792-800 809-850 859-922 930-971 974-976 985-1001 1004-1010 1013-1031 1034-1050 1053-1064 1072-1089 1092-1096
+ℹ   mobile-import.mjs      |  50.81 |    75.00 |   10.53 | 136-140 156-157 163-164 287-322 336-362 371-373 382-461 471-495 513-529 536-539 570-663 674-676 687-690 708-750 753-756 759-766 788-814 823-862
 ℹ   playwright-list.mjs    |  38.16 |   100.00 |    0.00 | 87-90 112-123 144-239 272-286 289-302 326-339 362-419 425-464 470-566
 ℹ   trust.mjs              |  69.63 |   100.00 |    0.00 | 58-61 65-69 80-88 97-108 117-123 132-135
 ℹ  env                     |        |          |         | 
@@ -108,12 +112,13 @@ commit : 992af2b3417c0c004d179ff1d9914e9c505bc6ef
 ℹ   whitelist.mjs          |  65.38 |   100.00 |    0.00 | 95-97 108-119 130-135 145-166 180-208
 ℹ  evidence                |        |          |         | 
 ℹ   dedup.mjs              |  99.25 |    33.33 |   80.00 | 266-267
-ℹ   manifest.mjs           |  97.38 |    73.37 |  100.00 | 293-294 298-299 345-351 405-406 499-501 570-573 710-711
+ℹ   manifest.mjs           |  97.38 |    73.81 |  100.00 | 293-294 298-299 345-351 405-406 499-501 570-573 710-711
 ℹ   retention.mjs          | 100.00 |    70.27 |  100.00 | 
 ℹ   store.mjs              |  97.26 |    68.00 |  100.00 | 130-131 162-164 200-202
 ℹ  execution               |        |          |         | 
 ℹ   model.mjs              |  51.14 |   100.00 |    0.00 | 90-91 173-188 224-235 245-252 299-308 361-370 396-401 439-529 559-605 649-756 766-777 796-815 830-840 863-1000 1072-1075 1089-1106 1152-1219 1230-1232 1261-1280 1298-1355
 ℹ  identity.mjs            |  37.48 |   100.00 |    0.00 | 152-159 169-180 208-514 541-556 567-578 627-723
+ℹ  paths.mjs               |  94.64 |   100.00 |    0.00 | 54-56
 ℹ  sqlite                  |        |          |         | 
 ℹ   db.mjs                 |  46.06 |   100.00 |    0.00 | 47-59 63-64 78-112 116-117 124-132 137-148 164-182 195-204 228-255 277-317
 ℹ   schema.mjs             |  98.63 |   100.00 |    0.00 | 286-287 291-292
@@ -123,10 +128,10 @@ commit : 992af2b3417c0c004d179ff1d9914e9c505bc6ef
 ℹ  helpers                 |        |          |         | 
 ℹ   free-port.mjs          | 100.00 |    83.33 |   80.00 | 
 ℹ tools                    |        |          |         | 
-ℹ  evidence_retention.mjs  |  95.32 |    52.27 |   90.00 | 99-103 188-190 201-202 250-253 266-267
-ℹ -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-ℹ all files                |  58.32 |    64.60 |   26.44 | 
-ℹ -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ  evidence_retention.mjs  |  95.32 |    51.11 |   90.00 | 99-103 188-190 201-202 250-253 266-267
+ℹ ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ all files                |  55.95 |    65.16 |   21.51 | 
+ℹ ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ℹ end of coverage report
 
 exit code : 0

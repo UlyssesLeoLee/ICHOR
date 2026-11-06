@@ -1,18 +1,18 @@
 === the ATS-209 integration suite ===
 tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-099a43b561b5/worktree
-commit : 992af2b3417c0c004d179ff1d9914e9c505bc6ef
+commit : b62f2dbcd9d1f5a0c1d0028d710d3996cc6c1f2e
 
-✔ IT-EVD-101: the bridge starts against an isolated data directory (442.0056ms)
-✔ IT-EVD-102: a finished run writes a manifest that names the run and its digests (352.1002ms)
-✔ IT-EVD-103: the verification reports an intact evidence set as verified (8.8083ms)
-✔ IT-EVD-104: a file that is tampered with after the run is reported as changed (13.7838ms)
-✔ IT-EVD-105: the manifest of a run is readable through the API (2.9692ms)
-✔ IT-EVD-106: the retention plan and the deduplication report are available (12.132ms)
-✔ IT-EVD-107: the cleaner refuses to run while the Bridge holds the directory (325.6218ms)
-✔ IT-EVD-108: the cleaning removes the evidence and keeps the run metadata (195.4902ms)
-✔ IT-EVD-109: the verification after the cleaning reports the cleaned evidence, not a tamper (85.0288ms)
-✔ IT-EVD-111: a file removed WITHOUT a cleaning record is still a tamper (103.24ms)
-✔ IT-EVD-110: the temporary directory is removed (8.6095ms)
+✔ IT-EVD-101: the bridge starts against an isolated data directory (442.3134ms)
+✔ IT-EVD-102: a finished run writes a manifest that names the run and its digests (358.3571ms)
+✔ IT-EVD-103: the verification reports an intact evidence set as verified (15.0069ms)
+✔ IT-EVD-104: a file that is tampered with after the run is reported as changed (15.7466ms)
+✔ IT-EVD-105: the manifest of a run is readable through the API (15.4153ms)
+✔ IT-EVD-106: the retention plan and the deduplication report are available (30.7254ms)
+✔ IT-EVD-107: the cleaner refuses to run while the Bridge holds the directory (313.6604ms)
+✔ IT-EVD-108: the cleaning removes the evidence and keeps the run metadata (243.8385ms)
+✔ IT-EVD-109: the verification after the cleaning reports the cleaned evidence, not a tamper (105.3841ms)
+✔ IT-EVD-111: a file removed WITHOUT a cleaning record is still a tamper (94.2858ms)
+✔ IT-EVD-110: the temporary directory is removed (7.3945ms)
 ℹ tests 11
 ℹ suites 0
 ℹ pass 11
@@ -20,6 +20,6 @@ commit : 992af2b3417c0c004d179ff1d9914e9c505bc6ef
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1657.44
+ℹ duration_ms 1812.4666
 
 exit code : 0
