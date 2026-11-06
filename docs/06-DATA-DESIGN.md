@@ -62,6 +62,30 @@ erDiagram
 - 归档 Manifest 包含 sha256；当前未签名，攻击者拥有本地文件写权限可同时修改文件和 manifest，因此不应宣称 WORM 或防篡改等级。
 - Evidence 可能含 PII/Secret；生产版需要保留期、视觉脱敏、可审计删除和加密。
 
+**证据清单与保留（ATS-209，v0.2.0 已实现）**：`runs/<run-uid>/manifest.json` 的格式为
+`version 2`，除运行标识与 `artifacts[]`（每条含 `file`、`size`、`sha256`）外还有 `evidence`
+段（`count`、`totalBytes`、`setDigest`）——`setDigest` 是整组证据的摘要，两份证据集合相同的
+运行会得到同一个值。清单**不列出自己**，也不列出 `events.jsonl` 与 `stdout.log`：后者是运行
+的记录，清理器只动证据、保留记录。
+
+摘要按文件**原始字节**计算，不做行尾归一化：忽略行尾差异的摘要检测不到「文件被改写成
+另一种行尾」，而那正是证据文件必须能发现的改动。摘要包含大小，因此同名同摘要但大小不同的
+文件不是同一份证据。
+
+**去重**：证据字节按自己的 SHA-256 存进 `<data-dir>/evidence-store/`（内容寻址，两级扇出），
+run 目录里的文件是指向该副本的**硬链接**——字节在磁盘上只有一份。硬链接的各副本无法各自
+独立改写，这正是篡改检测依赖的性质。跨卷、文件系统不支持链接或超过体积上限时**不链接**，
+证据照常归档、照常可校验，原因记在 run 的 `dedupRefused` 上。
+
+**保留**：只有终态（passed/failed/cancelled/error/interrupted）的 run 才是待清理对象，年龄从
+`finishedAt` 起算，默认保留期 30 天。清理**只删 run 目录里的证据文件**，`events.jsonl`、
+`stdout.log` 与 `manifest.json` 保留，run 记录本身在 `state.json` 里因而完全不被触碰。
+清理是**离线**操作：Bridge 持有数据目录锁时拒绝执行（与迁移同一规则），否则会删掉正在产出
+证据的 run 的目录、而 Bridge 下一次保存会把指向已删文件的状态写回。清理日志
+（`evidence-retention-journal.jsonl`，仅追加）承担「可审计删除」。
+
+完整设计见 `docs/27-EVIDENCE-MANIFEST.md`。
+
 ## 5. SQLite 元数据层（ATS-205，v0.2.0 已实现）
 
 ATS-205 交付了 SQLite 元数据层。**当前实现是 `state.json` 的镜像**，不是第二份事实源：`state.json` 仍然是事实源，SQLite 库里存的是同一份状态的可查询行。
