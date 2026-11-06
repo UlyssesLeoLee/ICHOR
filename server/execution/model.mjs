@@ -251,16 +251,40 @@ export function outcomeOfVerdict(verdict) {
  * passed". The verdicts are what tell them apart, so they are used when the
  * engine provides them.
  *
- * Returns null when no verdict is known -- the caller then falls back to
- * the aggregation of the attempt statuses (which is what an engine that
- * declares no per-project verdict, such as WDIO, needs).
+ * AN UNKNOWN VERDICT NEVER BECOMES `passed`.
+ *
+ * A verdict the model does not know is `unknown`, and `unknown` is not
+ * evidence of a success. The rule above would classify a list of unknown
+ * verdicts as `passed` (it falls through to the last case), which would
+ * turn a case whose execution FAILED into a passed case -- the summary
+ * would then contradict the exit code of the engine, which is exactly the
+ * defect the `outcome` vocabulary was introduced to prevent.
+ *
+ * So an unknown verdict does NOT decide the case: it is dropped from the
+ * decision, and the KNOWN verdicts decide it. A list that holds only
+ * unknown verdicts decides nothing, and the caller falls back to the
+ * aggregation of the attempt statuses -- the honest answer for an engine
+ * that says nothing.
+ *
+ * Dropping the unknown verdict does NOT make the case `passed` on its own:
+ * a case that ran in project a (`expected`) and was skipped in project b
+ * (`skipped`) is `passed`, because the KNOWN verdicts say so. What must
+ * not happen is a case whose only verdict is `unknown` being called
+ * `passed`.
+ *
+ * Returns null when no verdict decides the case -- the caller then falls
+ * back to the aggregation of the attempt statuses (which is what an engine
+ * that declares no per-project verdict, such as WDIO, needs).
  */
 export function aggregateVerdicts(verdicts) {
   const list = (Array.isArray(verdicts) ? verdicts : []).filter((v) => v);
-  if (!list.length) return null;
-  if (list.some((v) => v === CASE_STATUS.FAILED)) return CASE_STATUS.FAILED;
-  if (list.some((v) => v === CASE_STATUS.FLAKY)) return CASE_STATUS.FLAKY;
-  if (list.every((v) => v === CASE_STATUS.SKIPPED)) return CASE_STATUS.SKIPPED;
+  // The verdicts that decide the case: the KNOWN ones. An unknown verdict
+  // is not evidence either way, so it does not vote.
+  const known = list.filter((v) => v !== CASE_STATUS.UNKNOWN);
+  if (!known.length) return null;
+  if (known.some((v) => v === CASE_STATUS.FAILED)) return CASE_STATUS.FAILED;
+  if (known.some((v) => v === CASE_STATUS.FLAKY)) return CASE_STATUS.FLAKY;
+  if (known.every((v) => v === CASE_STATUS.SKIPPED)) return CASE_STATUS.SKIPPED;
   return CASE_STATUS.PASSED;
 }
 
@@ -958,16 +982,32 @@ export function statusOfEvent(event) {
  * violations is NOT a valid description of a run -- so the answer says so
  * instead of agreeing with a contradictory record.
  *
- * The check follows the same rule as the writer: an event is written BEFORE
- * the status changes, so each event names the status the run is LEAVING.
- * The `run.queued` event is the exception: it is written while the run is
- * still `queued`.
+ * THE REPLAY ALSO CHECKS THE SEQUENCE.
+ *
+ * The sequence of a run is 1..N: gap-free and strictly increasing. Two
+ * things can break that, and BOTH are reported:
+ *
+ *   * a LOST number -- a hole in the sequence. The numbers that are missing
+ *     are listed in `gaps`. The holes BETWEEN two events were always
+ *     reported; the hole at the BEGINNING of the stream was not, so a log
+ *     that lost its first events looked intact. The sequence starts at 1,
+ *     so every number below the first one that is present is missing too.
+ *   * a REUSED number -- two events carrying the same number. The
+ *     metadata layer's primary key `(run_uid, seq)` refuses such a pair,
+ *     so a stream that holds one does not describe a run: it is reported
+ *     in `duplicates` and the stream is NOT valid.
+ *
+ * The check follows the same rule as the writer: an event is written
+ * BEFORE the status changes, so each event names the status the run is
+ * LEAVING. The `run.queued` event is the exception: it is written while
+ * the run is still `queued`.
  *
  * @param {object[]} events the events of the run
- * @returns {{status:string|null,terminal:boolean,sequence:number[],gaps:number[],events:object[],valid:boolean,violations:object[]}}
+ * @returns {{status:string|null,terminal:boolean,sequence:number[],gaps:number[],duplicates:number[],unsequenced:number[],events:object[],valid:boolean,violations:object[]}}
  *   `status` is null when the events determine no status (an empty stream,
  *   or a stream that ends before the run reached one). `gaps` lists the
- *   sequence numbers that are missing from the stream. `violations` lists
+ *   sequence numbers that are missing from the stream. `duplicates` lists
+ *   the sequence numbers that are used more than once. `violations` lists
  *   the events that the state machine does not allow.
  */
 export function replayEvents(events) {
@@ -1000,9 +1040,29 @@ export function replayEvents(events) {
   }
 
   const sequence = list.map((e) => Number(e.seq) || 0);
+  // The events that carry no usable sequence number. The sequence of a run
+  // starts at 1, so a number that is not a positive integer is not part of
+  // it -- and an event without a number cannot be placed in the stream.
+  const unsequenced = sequence.filter((n) => !Number.isInteger(n) || n < 1);
+  // The numbers the stream actually holds, and how often each is used.
+  const counts = new Map();
+  for (const n of sequence) {
+    if (!Number.isInteger(n) || n < 1) continue;
+    counts.set(n, (counts.get(n) ?? 0) + 1);
+  }
+  // The numbers that are used MORE THAN ONCE. A reused number is a
+  // contradiction: two events claim the same place in the stream.
+  const duplicates = [...counts.entries()]
+    .filter(([, n]) => n > 1)
+    .map(([seq]) => seq)
+    .sort((a, b) => a - b);
+  // The numbers that are MISSING. The sequence starts at 1, so the hole at
+  // the beginning of the stream counts as well: a log that lost its first
+  // events is not an intact log.
   const gaps = [];
-  for (let i = 1; i < sequence.length; i++) {
-    for (let missing = sequence[i - 1] + 1; missing < sequence[i]; missing++) gaps.push(missing);
+  const highest = counts.size ? Math.max(...counts.keys()) : 0;
+  for (let missing = 1; missing <= highest; missing++) {
+    if (!counts.has(missing)) gaps.push(missing);
   }
 
   return {
@@ -1010,9 +1070,12 @@ export function replayEvents(events) {
     terminal: status !== null && isTerminalRunStatus(status),
     sequence,
     gaps,
+    duplicates,
+    unsequenced,
     events: list,
-    // A stream that violates the state machine does not describe a run.
-    valid: violations.length === 0,
+    // A stream that violates the state machine, or that reuses a sequence
+    // number, does not describe a run.
+    valid: violations.length === 0 && duplicates.length === 0,
     violations,
   };
 }

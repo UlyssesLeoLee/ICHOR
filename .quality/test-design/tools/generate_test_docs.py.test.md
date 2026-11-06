@@ -2,7 +2,7 @@
 
 Source: `tools/generate_test_docs.py`
 
-Source-SHA256: `497f058c2e493ae585766b7c30ae8f3792f1e7bbfbe2c4611eff96f2b09a51a7`
+Source-SHA256: `62cc24cdb46aff584558499762123c76420c7b8f0a220db02e9a940d11fc769a`
 
 ## Test Strategy
 
@@ -18,6 +18,7 @@ pytest in `tools/test_generate_test_docs.py`. The script is executed in-process 
 | TC-004 | Every `UT-CP-NNN` / `IT-CP-*` ID in the catalog vs the test titles in `tests/control-plane.test.mjs` / `tests/control-plane-it.test.mjs` | each catalog ID appears as a test title prefix and vice versa | `tools/test_generate_test_docs.py` |
 | TC-005 | FR-028 row of the recorded `tests/rtm.json` | lists the UT-CP/IT-CP cases; status `DESIGNED` | `tools/test_generate_test_docs.py` |
 | TC-006 | Run the generator twice with the recorder | identical outputs | `tools/test_generate_test_docs.py` |
+| TC-007 | Every `UT-LOCK-*` / `UT-DATA-00[1-5]` / `UT-WAL-*` / `IT-LOCK-*` / `IT-DATA-*` / `IT-WAL-*` ID in the catalog vs the test titles in `tests/instance-lock.test.mjs` / `tests/instance-lock-it.test.mjs` | each catalog ID appears as a test title prefix and vice versa; every such row is `PASS` with `node --test` evidence | `tools/test_generate_test_docs.py` |
 
 ## Boundary & Failure Cases
 

@@ -27,6 +27,8 @@ import {
   RUN_TRANSITIONS,
   aggregateAttempts,
   aggregateCases,
+  aggregateOutcomes,
+  aggregateVerdicts,
   attemptsForRun,
   isAllowedTransition,
   isTerminalRunStatus,
@@ -39,6 +41,7 @@ import {
   runView,
   statusOfEvent,
 } from '../server/execution/model.mjs';
+import { mergeWdioReports } from '../server/adapters/wdio.mjs';
 import { emptyRegistry } from '../server/uid.mjs';
 
 /* ------------------------------------------------------------------ */
@@ -137,9 +140,8 @@ test('UT-EXE-004: a retried case is ONE case that keeps EVERY attempt', () => {
 });
 
 test('UT-EXE-005: the counters count the CASES, never the executions', () => {
-  // The defect this model fixes: the old adapter flattened the retries into
-  // their own "cases", so a retried case was counted twice and its first
-  // attempt was lost. The measured symptom was
+  // A retried case is ONE case: it is counted once, and its first attempt
+  // is kept. Counting the executions instead would report
   // `total: 2, passed: 0, flaky: 2` for a case with one failure and one
   // success.
   const report = {
@@ -427,7 +429,7 @@ test('UT-EXE-019: an empty report does not crash and reports zero', () => {
 /* ------------------------------------------------------------------ */
 
 /**
- * The defect B1 is about.
+ * The EXPECTED FAILURE of a `test.fail()` case.
  *
  * A case that declares `test.fail()` and then fails is what the engine
  * calls an `expected` outcome. The old model only looked at the RAW
@@ -622,7 +624,7 @@ test('UT-EXE-023B: the per-project verdicts decide the case, not the attempt mix
 /* ------------------------------------------------------------------ */
 
 /**
- * The defect B3 is about.
+ * A stream that violates the state machine.
  *
  * The old `/replay` endpoint folded the events and took the status of the
  * LAST event that implies one. It never checked the state machine, so a
@@ -677,7 +679,7 @@ test('UT-EXE-025: a stream that obeys the state machine is valid', () => {
 /* ------------------------------------------------------------------ */
 
 /**
- * The defect B5 is about.
+ * A log whose tail line is torn.
  *
  * A crash in the middle of an append leaves the last line of
  * `events.jsonl` torn: a fragment of JSON that does not parse. The old
@@ -756,11 +758,20 @@ test('UT-EXE-028: the state diagram of the design document agrees with the code'
   const mermaid = section.split('```mermaid')[1].split('```')[0];
   assert.ok(mermaid, 'the state diagram is missing');
 
-  // The edges the diagram draws.
+  // The edges the diagram draws. The label of an edge may carry the marker
+  // 「状态机允许、当前代码不产生」, which says that the edge is ALLOWED by
+  // the state machine but that no code path produces it today.
   const drawn = new Set();
-  for (const line of mermaid.split('\n')) {
-    const m = line.match(/^\s*([a-z_]+)\s*-->\s*([a-z_*]+)\s*:/);
-    if (m && m[1] !== '[*]' && m[2] !== '[*]') drawn.add(`${m[1]}->${m[2]}`);
+  const markedUnreachable = new Set();
+  // The file may carry CRLF line endings, so the lines are split on any
+  // carriage return or line feed and not on the line feed alone: a stray
+  // carriage return would end the line before the pattern's anchor.
+  for (const line of mermaid.split(/[\r\n]+/)) {
+    const m = line.match(/^\s*([a-z_]+)\s*-->\s*([a-z_*]+)\s*:(.*)$/);
+    if (!m || m[1] === '[*]' || m[2] === '[*]') continue;
+    const edge = `${m[1]}->${m[2]}`;
+    drawn.add(edge);
+    if (m[3].includes('状态机允许、当前代码不产生')) markedUnreachable.add(edge);
   }
   assert.ok(drawn.size >= 8, `the state diagram has only ${drawn.size} edges`);
 
@@ -786,9 +797,17 @@ test('UT-EXE-028: the state diagram of the design document agrees with the code'
     }
   }
 
-  // The allowed migrations that no code path produces: the state machine
-  // is permissive, but the diagram shows what actually happens.
-  const UNREACHABLE = new Set([
+  // The allowed migrations that NO code path produces, split by what the
+  // diagram does with them.
+  //
+  //   * NOT_ON_THE_DIAGRAM -- the diagram leaves them out entirely;
+  //   * DRAWN_BUT_UNREACHABLE -- the diagram draws them AND marks them
+  //     「状态机允许、当前代码不产生」, so a reader knows they are allowed
+  //     but never happen.
+  //
+  // The state machine is permissive (it only refuses what it can disprove),
+  // so it allows a few migrations the code never takes.
+  const NOT_ON_THE_DIAGRAM = new Set([
     // `run.queued` is written while the run is still `queued`.
     'queued->queued',
     // A spawn error goes through `finishRun(run, 127)` -> `failed`.
@@ -796,12 +815,204 @@ test('UT-EXE-028: the state diagram of the design document agrees with the code'
     'running->cancelled',
     'cancelling->passed',
   ]);
+  const DRAWN_BUT_UNREACHABLE = new Set([
+    // `cancelRun()` writes `run.interrupted`, not `run.cancelling`, when
+    // there is no live job -- so the engine was never stopped.
+    'queued->cancelling',
+    // `finishRun()` gives a `cancelling` run `cancelled`, never `failed`.
+    'cancelling->failed',
+    // `run.error` is only written while the run is still `queued`.
+    'cancelling->error',
+  ]);
 
   // Rule 1: the diagram may not invent a migration.
   const invented = [...drawn].filter((e) => !allowed.has(e));
   assert.deepEqual(invented, [], `the diagram invents a migration: ${invented.join(', ')}`);
 
   // Rule 2: every migration the code can take is on the diagram.
-  const missing = [...allowed].filter((e) => !drawn.has(e) && !UNREACHABLE.has(e));
+  const missing = [...allowed].filter((e) => !drawn.has(e) && !NOT_ON_THE_DIAGRAM.has(e));
   assert.deepEqual(missing, [], `the diagram lacks a migration: ${missing.join(', ')}`);
+
+  // Rule 3: an edge the diagram marks as 「状态机允许、当前代码不产生」 is
+  // one no code path produces, and EVERY edge no code path produces is
+  // marked. An unmarked unreachable edge reads as a regular path, and a
+  // marked reachable edge is a wrong claim.
+  assert.deepEqual(
+    [...markedUnreachable].sort(),
+    [...DRAWN_BUT_UNREACHABLE].sort(),
+    `the marking of the unreachable edges does not match: the diagram marks ${[...markedUnreachable].sort().join(', ')} but the edges no code path produces are ${[...DRAWN_BUT_UNREACHABLE].sort().join(', ')}`
+  );
+  // Every marked edge must be ALLOWED by the state machine: the marker
+  // says "the state machine allows it", so it has to be allowed.
+  for (const edge of markedUnreachable) {
+    assert.ok(allowed.has(edge), `the diagram marks ${edge} as allowed, but the state machine does not allow it`);
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* Three properties the model holds                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The WDIO merge must not hide a failure.
+ *
+ * The adapter merges the CONSECUTIVE entries of a suite that share their
+ * name into one case with several attempts. A retried WDIO test stops at
+ * its FIRST PASS, so an entry that FOLLOWS a passed entry of the same name
+ * cannot be its retry -- it is a DIFFERENT test that happens to share the
+ * title.
+ *
+ * So the group ENDS with the first passed entry. Merging across that
+ * boundary would hide the failure: a suite with two same-titled tests, the
+ * second one failing, would become ONE flaky case with `failed: 0`, and
+ * the failing test would disappear from the summary.
+ */
+test('UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry', () => {
+  const wdio = (states) => mergeWdioReports([{
+    report: {
+      specs: ['file:///p/test/specs/a.e2e.js'],
+      suites: [{
+        name: 's',
+        tests: states.map((s) => ({
+          name: 'renders',
+          state: s,
+          duration: 1,
+          error: s === 'failed' ? { message: 'boom' } : undefined,
+        })),
+      }],
+    },
+  }]);
+
+  // A retried test: it failed and the retry passed. ONE case, flaky.
+  const retried = wdio(['failed', 'passed']);
+  assert.equal(retried.total, 1, JSON.stringify(retried.cases));
+  assert.equal(retried.failed, 0);
+  assert.equal(retried.flaky, 1);
+  assert.equal(retried.executions, 2);
+
+  // TWO DISTINCT tests that share the title and both pass. A pass is
+  // never retried, so the second entry is a different test: TWO cases.
+  const bothPassed = wdio(['passed', 'passed']);
+  assert.equal(bothPassed.total, 2, JSON.stringify(bothPassed.cases));
+  assert.equal(bothPassed.failed, 0);
+  assert.equal(bothPassed.passed, 2);
+
+  // TWO DISTINCT tests that share the title, the SECOND one failing. This
+  // is the case that used to be hidden: it must be a failure.
+  const passThenFail = wdio(['passed', 'failed']);
+  assert.equal(passThenFail.total, 2, JSON.stringify(passThenFail.cases));
+  assert.equal(passThenFail.failed, 1, JSON.stringify(passThenFail.cases));
+  assert.equal(passThenFail.flaky, 0, JSON.stringify(passThenFail.cases));
+  // The failing case keeps its own error.
+  assert.equal(passThenFail.cases[1].status, CASE_STATUS.FAILED);
+  assert.match(passThenFail.cases[1].error, /boom/);
+
+  // A data-driven loop with the same title: passed, failed, passed. The
+  // first entry ends its group, so the second and third are one group.
+  const dataDriven = wdio(['passed', 'failed', 'passed']);
+  assert.equal(dataDriven.total, 2, JSON.stringify(dataDriven.cases));
+  assert.equal(dataDriven.failed, 0, JSON.stringify(dataDriven.cases));
+  assert.equal(dataDriven.flaky, 1, JSON.stringify(dataDriven.cases));
+});
+
+/**
+ * An UNKNOWN verdict is not `passed`.
+ *
+ * The aggregation of the per-project verdicts decides nothing when it does
+ * not fully understand the list: an unknown verdict does not vote, and the
+ * KNOWN verdicts decide the case. So a Playwright entry whose case level
+ * status is missing (or is a value the model does not know) falls back to
+ * the aggregation of the attempt statuses -- which says `failed` for a
+ * FAILED execution. The summary then agrees with the exit code of the
+ * engine instead of contradicting it.
+ */
+test('UT-EXE-030: an unknown verdict never becomes `passed`', () => {
+  // The aggregation itself decides nothing when every verdict is unknown.
+  assert.equal(aggregateVerdicts(['unknown']), null);
+  assert.equal(aggregateVerdicts([CASE_STATUS.UNKNOWN, CASE_STATUS.UNKNOWN]), null);
+  // A KNOWN verdict still decides the case.
+  assert.equal(aggregateVerdicts([CASE_STATUS.PASSED]), CASE_STATUS.PASSED);
+  assert.equal(aggregateVerdicts([CASE_STATUS.FAILED]), CASE_STATUS.FAILED);
+  assert.equal(aggregateVerdicts([CASE_STATUS.FLAKY]), CASE_STATUS.FLAKY);
+  assert.equal(aggregateVerdicts([CASE_STATUS.SKIPPED]), CASE_STATUS.SKIPPED);
+  // A failure beats an unknown.
+  assert.equal(aggregateVerdicts([CASE_STATUS.UNKNOWN, CASE_STATUS.FAILED]), CASE_STATUS.FAILED);
+
+  // The whole model: a Playwright entry whose case level status is
+  // missing, and one whose case level status is a value the model does not
+  // know. BOTH hold a FAILED result.
+  const report = {
+    suites: [{
+      file: 'a.spec.ts',
+      specs: [
+        { title: 'failed, no case status', line: 1, tests: [{ projectName: 'a', results: [{ status: 'failed', retry: 0, error: { message: 'boom' } }] }] },
+        { title: 'failed, unknown case status', line: 5, tests: [{ projectName: 'a', status: 'bogus', results: [{ status: 'failed', retry: 0, error: { message: 'boom' } }] }] },
+      ],
+    }],
+  };
+  const summary = parseReport(report);
+  // Neither case is a passed case: the fallback is the aggregation of the
+  // attempt statuses, which says `failed`.
+  for (const c of summary.cases) {
+    assert.equal(c.status, CASE_STATUS.FAILED, JSON.stringify(c));
+    assert.notEqual(c.status, CASE_STATUS.PASSED, JSON.stringify(c));
+  }
+  assert.equal(summary.failed, 2, JSON.stringify(summary));
+  assert.equal(summary.passed, 0, JSON.stringify(summary));
+  assert.equal(summary.total, 2, JSON.stringify(summary));
+
+  // An outcome that is unknown does not decide a case either.
+  assert.equal(aggregateOutcomes([OUTCOME.UNKNOWN]), OUTCOME.UNKNOWN);
+  assert.equal(aggregateOutcomes([OUTCOME.UNKNOWN, OUTCOME.EXPECTED]), OUTCOME.EXPECTED);
+});
+
+/**
+ * The replay reports a LOST or a REUSED sequence number.
+ *
+ * The sequence of a run is 1..N, and BOTH ways of breaking that are
+ * reported: a number that is MISSING (the hole at the BEGINNING of the
+ * stream counts too -- a log that lost its first events is not an intact
+ * log) and a number that is USED TWICE (the metadata layer's primary key
+ * `(run_uid, seq)` refuses such a pair, so such a stream does not describe
+ * a run and is not valid).
+ */
+test('UT-EXE-031: the replay reports the lost and the reused sequence numbers', () => {
+  const ev = (seq, type, data) => ({ seq, at: 't', type, data: data ?? {} });
+
+  // The hole at the BEGINNING: only the event 3 survived.
+  const leading = replayEvents([ev(3, EVENT_TYPE.INTERRUPTED)]);
+  assert.deepEqual(leading.gaps, [1, 2], JSON.stringify(leading));
+  assert.deepEqual(leading.duplicates, []);
+  assert.equal(leading.status, RUN_STATUS.INTERRUPTED);
+
+  // A hole in the middle is still reported.
+  const middle = replayEvents([
+    ev(1, EVENT_TYPE.QUEUED),
+    ev(4, EVENT_TYPE.FINISHED, { status: RUN_STATUS.PASSED }),
+  ]);
+  assert.deepEqual(middle.gaps, [2, 3], JSON.stringify(middle));
+
+  // A REUSED number: two events claim the same place in the stream.
+  const reused = replayEvents([
+    ev(1, EVENT_TYPE.QUEUED),
+    ev(2, EVENT_TYPE.STARTED),
+    ev(2, EVENT_TYPE.FINISHED, { status: RUN_STATUS.PASSED }),
+  ]);
+  assert.deepEqual(reused.duplicates, [2], JSON.stringify(reused));
+  // Such a stream does not describe a run.
+  assert.equal(reused.valid, false, JSON.stringify(reused.violations));
+
+  // An intact stream has neither holes nor reused numbers.
+  const intact = replayEvents([
+    ev(1, EVENT_TYPE.QUEUED),
+    ev(2, EVENT_TYPE.STARTED),
+    ev(3, EVENT_TYPE.INTERRUPTED),
+  ]);
+  assert.deepEqual(intact.gaps, []);
+  assert.deepEqual(intact.duplicates, []);
+  assert.equal(intact.valid, true);
+
+  // An event without a usable sequence number is reported as such.
+  const unsequenced = replayEvents([ev(0, EVENT_TYPE.QUEUED), ev(1, EVENT_TYPE.STARTED)]);
+  assert.deepEqual(unsequenced.unsequenced, [0], JSON.stringify(unsequenced));
 });

@@ -1,0 +1,9 @@
+=== command ===
+node D:/ICHOR/tools/ats202-probes/r2/r2-race.mjs D:/ICHOR D:/pime-uat/node_modules D:/hermes-multica/home/cache/scratch/ats202-evidence4
+=== output ===
+B GET /tests -> 200 static; A GET /tests -> 200 authoritative
+registry entries of B right after B's discovery : 2
+registry entries of B after A's listing finished: 2   (A has 2)
+EXPECTED: A's listing must not erase the registry entries B wrote while A was being listed
+VERDICT: OK
+=== exit code: 0 ===

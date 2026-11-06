@@ -213,10 +213,10 @@
     "req": "NFR-010",
     "category": "异常",
     "title": "状态文件格式损坏",
-    "input": "state.json 非 JSON",
-    "expected": "服务拒绝启动，提示备份恢复",
-    "evidence": "设计用例，待自动化",
-    "status": "PENDING",
+    "input": "state.json 非 JSON（含零长度）、null、schema 2",
+    "expected": "报 STATE_CORRUPT / UNSUPPORTED_DATABASE，服务拒绝启动并提示备份恢复，文件不被改写",
+    "evidence": "node --test",
+    "status": "PASS",
     "level": "UT"
   },
   {
@@ -3619,6 +3619,259 @@
     "level": "UT"
   },
   {
+    "id": "UT-LOCK-001",
+    "req": "NFR-010",
+    "category": "正常",
+    "title": "取锁发布完整记录并可自校验与释放",
+    "input": "新数据目录",
+    "expected": "记录含 pid/启动时间/token；verify 为 held；释放后文件消失，不留临时文件",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-002",
+    "req": "NFR-010",
+    "category": "异常",
+    "title": "活持有者的锁不被覆盖",
+    "input": "本进程持锁时再次取锁",
+    "expected": "报 BRIDGE_ALREADY_RUNNING（reason=held），锁文件逐字节不变",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-003",
+    "req": "NFR-010",
+    "category": "边界",
+    "title": "等待取锁超时",
+    "input": "子进程持锁，waitMs=400",
+    "expected": "≥400ms 后报 BRIDGE_ALREADY_RUNNING，waitedMs≥400",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-004",
+    "req": "NFR-010",
+    "category": "正常",
+    "title": "持有者释放后等待者取得锁",
+    "input": "子进程 500ms 后释放，waitMs=15000",
+    "expected": "取锁成功，记录为本进程",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-005",
+    "req": "NFR-008",
+    "category": "恢复",
+    "title": "陈旧锁被接管",
+    "input": "死 pid 的锁；pid 被复用的锁",
+    "expected": "均被接管，不留 .stale- 文件",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-006",
+    "req": "NFR-010",
+    "category": "异常",
+    "title": "无可校验身份的活 pid 锁按占用处理",
+    "input": "活 pid 无启动时间；非 JSON 锁文件",
+    "expected": "前者报 BRIDGE_ALREADY_RUNNING；后者被接管",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-007",
+    "req": "NFR-010",
+    "category": "并发",
+    "title": "6 个进程同时抢一把新锁",
+    "input": "屏障同时放行 6 个子进程",
+    "expected": "恰 1 个取得锁、5 个报占用，锁文件记赢家",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-008",
+    "req": "NFR-010",
+    "category": "并发",
+    "title": "6 个进程同时接管一把陈旧锁",
+    "input": "预置死 pid 的锁",
+    "expected": "恰 1 个取得锁，不留 .stale- 文件",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-009",
+    "req": "NFR-010",
+    "category": "并发",
+    "title": "接管时误移的新锁被放回",
+    "input": "锁文件已不是判定为陈旧的字节",
+    "expected": "返回 false，新锁逐字节放回",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-010",
+    "req": "NFR-010",
+    "category": "并发",
+    "title": "放回时不覆盖期间发布的更新锁",
+    "input": "放回前已有人发布新锁",
+    "expected": "保留更新的锁，返回 false",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-011",
+    "req": "NFR-010",
+    "category": "兼容",
+    "title": "无硬链接的文件系统退化为独占创建",
+    "input": "linkSync 报 EPERM / ENOTSUP",
+    "expected": "取锁成功，第二次取锁被拒",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-012",
+    "req": "NFR-010",
+    "category": "边界",
+    "title": "反复变化的锁有尝试上限",
+    "input": "锁每次都消失 / 瞬时错误 / 硬错误",
+    "expected": "报 reason=contended；瞬时错误限次重试；硬错误直接抛出",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-013",
+    "req": "NFR-010",
+    "category": "安全",
+    "title": "释放与校验不认领他人的锁",
+    "input": "他人 token / 死 pid / 被替换 / 乱码 / 被删除",
+    "expected": "release 为 false 且不删除；verify 报 taken-over / unreadable / absent",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-014",
+    "req": "NFR-010",
+    "category": "边界",
+    "title": "环境变量与取锁选项校验",
+    "input": "ATS_LOCK_WAIT_MS / ATS_LOCK_VERIFY_MS 与 waitMs 的非法值",
+    "expected": "非法值取默认值，不等待",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-LOCK-015",
+    "req": "NFR-010",
+    "category": "异常",
+    "title": "createDir:false 不重建缺失的数据目录",
+    "input": "数据目录已不存在",
+    "expected": "报 ENOENT，目录未被创建",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-DATA-002",
+    "req": "NFR-010",
+    "category": "可靠性",
+    "title": "改名前先 fsync 临时文件",
+    "input": "记录 fsync 与 rename 的调用顺序",
+    "expected": "fsync 在改名之前；临时文件名带 pid；不留临时文件",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-DATA-003",
+    "req": "NFR-010",
+    "category": "异常",
+    "title": "写入失败时旧状态不变",
+    "input": "改名瞬时 EPERM 两次 / 持续 EBUSY / ENOSPC / fsync 失败",
+    "expected": "瞬时冲突重试后成功；其余抛错，旧文件逐字节不变，不留临时文件",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-DATA-004",
+    "req": "NFR-010",
+    "category": "清理",
+    "title": "清理中断保存留下的临时文件",
+    "input": "state.json.tmp、state.json.<pid>.tmp、state.json.bak",
+    "expected": "只删两个临时文件，状态与备份不变",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-DATA-005",
+    "req": "NFR-010",
+    "category": "兼容",
+    "title": "目录同步在不支持的平台上不抛错",
+    "input": "win32 / 不存在的目录",
+    "expected": "返回 false，不抛错",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-WAL-001",
+    "req": "NFR-010",
+    "category": "正常",
+    "title": "健全的镜像通过检查",
+    "input": "无镜像；saveState 写出的镜像",
+    "expected": "absent；ok 且文件不变",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-WAL-002",
+    "req": "NFR-010",
+    "category": "恢复",
+    "title": "非数据库的镜像被隔离并重建",
+    "input": "metadata.db 被写成乱码",
+    "expected": "quarantined；不留旧 -wal/-shm；下一次保存重建且 verifyMirror 通过",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-WAL-003",
+    "req": "NFR-010",
+    "category": "恢复",
+    "title": "页面损坏的镜像被隔离",
+    "input": "覆写一个 b-tree 页",
+    "expected": "quick_check 报错，quarantined",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-WAL-004",
+    "req": "NFR-010",
+    "category": "异常",
+    "title": "只有损坏才会移动镜像",
+    "input": "更新的 schema / 路径是目录 / 改名失败",
+    "expected": "ok / unchecked 且不移动 / quarantine-failed",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
     "id": "IT-API-SETUP",
     "req": "NFR-011",
     "category": "正常",
@@ -4906,6 +5159,116 @@
     "level": "IT"
   },
   {
+    "id": "IT-LOCK-001",
+    "req": "NFR-010",
+    "category": "单实例",
+    "title": "第二个 Bridge 被拒",
+    "input": "A 服务中，B 用同一数据目录、不同端口启动",
+    "expected": "B 退出码 1 并报锁路径与持有者 pid；A 仍服务；锁文件不变",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-LOCK-002",
+    "req": "NFR-010",
+    "category": "并发",
+    "title": "两个 Bridge 同时启动",
+    "input": "同一新数据目录，重复 3 轮",
+    "expected": "每轮恰一个服务，另一个退出码 1",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-LOCK-003",
+    "req": "NFR-008",
+    "category": "恢复",
+    "title": "强杀后接管且运行为 interrupted",
+    "input": "运行中的 Bridge 被强杀",
+    "expected": "下一个 Bridge 接管陈旧锁；run=interrupted，复演一致",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-LOCK-004",
+    "req": "NFR-010",
+    "category": "正常",
+    "title": "ATS_LOCK_WAIT_MS 等待取锁",
+    "input": "A 持锁时启动 B（等待 20 秒），随后强杀 A",
+    "expected": "B 等待期间不服务，A 退出后 B 启动并持锁",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-LOCK-005",
+    "req": "NFR-010",
+    "category": "安全",
+    "title": "锁被他人占用的 Bridge 停止",
+    "input": "运行中把锁改写成他人的记录",
+    "expected": "Bridge 退出码 1，报 lost the data directory lock，不删他人的锁",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-LOCK-006",
+    "req": "NFR-010",
+    "category": "恢复",
+    "title": "锁文件被删后重新取锁",
+    "input": "运行中删除 bridge.lock",
+    "expected": "锁文件重现并记本 Bridge 的 pid，Bridge 仍服务",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-DATA-001",
+    "req": "NFR-010",
+    "category": "异常",
+    "title": "损坏的状态文件拒绝启动",
+    "input": "非 JSON / 零长度的 state.json",
+    "expected": "退出码 1，报 STATE_CORRUPT 与恢复步骤；文件不变；锁已释放",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-DATA-002",
+    "req": "NFR-010",
+    "category": "可靠性",
+    "title": "写入中强杀不留残缺状态",
+    "input": "循环保存的进程被强杀 12 次",
+    "expected": "每次 state.json 都是完整的一代；之后 Bridge 启动清理临时文件且镜像一致",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-WAL-001",
+    "req": "NFR-010",
+    "category": "恢复",
+    "title": "事务中强杀后 WAL 只恢复已提交的行",
+    "input": "50 行已提交在 WAL，另 50 行未提交时强杀",
+    "expected": "integrity_check=ok，已提交的 50 行在、未提交的不在",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-WAL-002",
+    "req": "NFR-010",
+    "category": "恢复",
+    "title": "Bridge 隔离并重建损坏的镜像",
+    "input": "metadata.db 为乱码",
+    "expected": "报 quarantined，保留损坏副本，重建的镜像与 state.json 一致",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
     "id": "ST-001",
     "req": "FR-001",
     "category": "功能",
@@ -5088,8 +5451,8 @@
     "title": "强制终止后重启",
     "input": "运行过程中强行停止 bridge",
     "expected": "Run=interrupted，已完成历史不丢",
-    "evidence": "日志+state",
-    "status": "PENDING",
+    "evidence": "node tools/ats207-probes/st-ats207.mjs（真实 Chromium，强杀整棵进程树）",
+    "status": "PASS",
     "level": "ST"
   },
   {
@@ -5167,6 +5530,28 @@
     "expected": "明确错误而非模拟成功",
     "evidence": "录屏与日志",
     "status": "PENDING",
+    "level": "ST"
+  },
+  {
+    "id": "ST-025",
+    "req": "NFR-010",
+    "category": "单实例",
+    "title": "同一数据目录只允许一个 Bridge",
+    "input": "真实 Bridge：A 服务时启动 B；两个 Bridge 同时启动",
+    "expected": "B 退出码 1 并报持有者；同时启动恰一个服务",
+    "evidence": "node tools/ats207-probes/st-ats207.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-026",
+    "req": "NFR-010",
+    "category": "恢复",
+    "title": "崩溃后损坏文件的处理",
+    "input": "零长度 state.json；损坏的 metadata.db",
+    "expected": "前者拒绝启动且文件不变；后者隔离并由 state.json 重建，历史完整",
+    "evidence": "node tools/ats207-probes/st-ats207.mjs",
+    "status": "PASS",
     "level": "ST"
   }
 ]
