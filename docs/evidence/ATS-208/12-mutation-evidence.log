@@ -1,24 +1,24 @@
 === the new cases on the FIRST delivery (8c9dd79) ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-e6d7459e54e1/worktree
-commit    : 41a30a5
+repo root : /d/ICHOR
+commit    : 328cdc1
 
 old tree  : 8c9dd79 (extracted from git archive)
 test files: the NEW ones of this delivery
 
-✔ IT-EXE-001: the bridge starts (651.7373ms)
-✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (437.6704ms)
-✔ IT-EXE-003: the events of a run replay into its status, gap-free (7.3664ms)
-✔ IT-EXE-004: the events are in the state file AND in the metadata database (3.3391ms)
-✔ IT-EXE-005: the durable log and the state file carry the same events (0.4037ms)
-✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (2208.5767ms)
-✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (2107.2289ms)
-✔ IT-EXE-CLEANUP: stop and cleanup (10.0243ms)
-✖ IT-EXE-008: the bridge starts even when the run folder is gone (26790.41ms)
-✖ IT-EXE-009: a torn event log stays readable (2372.9098ms)
-✖ IT-EXE-010: no event is appended after a terminal event (2283.5118ms)
-✖ IT-EXE-011: a run that was cancelling when the bridge died is recovered (2343.0449ms)
-✖ IT-EXE-012: the summary of a run agrees with the exit code of the engine (1103.4606ms)
-✖ IT-EXE-013: the replay reports the lost and the reused sequence numbers (2236.0453ms)
+✔ IT-EXE-001: the bridge starts (643.144ms)
+✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (440.2173ms)
+✔ IT-EXE-003: the events of a run replay into its status, gap-free (10.1479ms)
+✔ IT-EXE-004: the events are in the state file AND in the metadata database (3.4809ms)
+✔ IT-EXE-005: the durable log and the state file carry the same events (0.5197ms)
+✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (1982.3559ms)
+✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (2082.0639ms)
+✔ IT-EXE-CLEANUP: stop and cleanup (10.2152ms)
+✖ IT-EXE-008: the bridge starts even when the run folder is gone (26709.6796ms)
+✖ IT-EXE-009: a torn event log stays readable (2332.1097ms)
+✖ IT-EXE-010: no event is appended after a terminal event (2645.2728ms)
+✖ IT-EXE-011: a run that was cancelling when the bridge died is recovered (2850.0134ms)
+✖ IT-EXE-012: the summary of a run agrees with the exit code of the engine (1456.5455ms)
+✖ IT-EXE-013: the replay reports the lost and the reused sequence numbers (2409.1557ms)
 file:///D:/ats208-work/tmp/ats208-mutation-8c9dd79/tree/tests/execution-model.test.mjs:24
   OUTCOME,
   ^^^^^^^
@@ -29,7 +29,7 @@ SyntaxError: The requested module '../server/execution/model.mjs' does not provi
     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
 
 Node.js v24.19.0
-✖ tests\execution-model.test.mjs (93.3371ms)
+✖ tests\execution-model.test.mjs (88.3742ms)
 ℹ tests 15
 ℹ suites 0
 ℹ pass 8
@@ -37,16 +37,14 @@ Node.js v24.19.0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 42690.7456
+ℹ duration_ms 43722.3977
 
 ✖ failing tests:
 
 test at tests\execution-model-it.test.mjs:602:1
-✖ IT-EXE-008: the bridge starts even when the run folder is gone (26790.41ms)
+✖ IT-EXE-008: the bridge starts even when the run folder is gone (26709.6796ms)
   AssertionError [ERR_ASSERTION]: the bridge did not come back up
       at restart (file:///D:/ats208-work/tmp/ats208-mutation-8c9dd79/tree/tests/execution-model-it.test.mjs:499:14)
-      at runNextTicks (node:internal/process/task_queues:65:5)
-      at process.processTimers (node:internal/timers:568:9)
       at async file:///D:/ats208-work/tmp/ats208-mutation-8c9dd79/tree/tests/execution-model-it.test.mjs:620:22
       at async withBridge (file:///D:/ats208-work/tmp/ats208-mutation-8c9dd79/tree/tests/execution-model-it.test.mjs:496:5)
       at async TestContext.<anonymous> (file:///D:/ats208-work/tmp/ats208-mutation-8c9dd79/tree/tests/execution-model-it.test.mjs:607:5)
@@ -61,7 +59,7 @@ test at tests\execution-model-it.test.mjs:602:1
   }
 
 test at tests\execution-model-it.test.mjs:642:1
-✖ IT-EXE-009: a torn event log stays readable (2372.9098ms)
+✖ IT-EXE-009: a torn event log stays readable (2332.1097ms)
   AssertionError [ERR_ASSERTION]: {"error":"Expected ':' after property name in JSON at position 46 (line 1 column 47)"}
   
   500 !== 200
@@ -81,7 +79,7 @@ test at tests\execution-model-it.test.mjs:642:1
   }
 
 test at tests\execution-model-it.test.mjs:689:1
-✖ IT-EXE-010: no event is appended after a terminal event (2283.5118ms)
+✖ IT-EXE-010: no event is appended after a terminal event (2645.2728ms)
   AssertionError [ERR_ASSERTION]: "interrupted"
   + actual - expected
   
@@ -103,7 +101,7 @@ test at tests\execution-model-it.test.mjs:689:1
   }
 
 test at tests\execution-model-it.test.mjs:758:1
-✖ IT-EXE-011: a run that was cancelling when the bridge died is recovered (2343.0449ms)
+✖ IT-EXE-011: a run that was cancelling when the bridge died is recovered (2850.0134ms)
   AssertionError [ERR_ASSERTION]: "cancelling"
   + actual - expected
   
@@ -125,7 +123,7 @@ test at tests\execution-model-it.test.mjs:758:1
   }
 
 test at tests\execution-model-it.test.mjs:810:1
-✖ IT-EXE-012: the summary of a run agrees with the exit code of the engine (1103.4606ms)
+✖ IT-EXE-012: the summary of a run agrees with the exit code of the engine (1456.5455ms)
   AssertionError [ERR_ASSERTION]: {"passed":0,"failed":1,"skipped":0,"flaky":0,"total":1,"executions":1,"cases":[{"title":"expected failure","file":"tests/xfail.spec.ts","status":"failed","duration":5,"error":"the expected failure","attemptsCount":1,"attempts":[{"status":"failed","retry":0,"duration":5,"error":"the expected failure"}]}]}
   
   0 !== 1
@@ -145,7 +143,7 @@ test at tests\execution-model-it.test.mjs:810:1
   }
 
 test at tests\execution-model-it.test.mjs:875:1
-✖ IT-EXE-013: the replay reports the lost and the reused sequence numbers (2236.0453ms)
+✖ IT-EXE-013: the replay reports the lost and the reused sequence numbers (2409.1557ms)
   AssertionError [ERR_ASSERTION]: []
       at file:///D:/ats208-work/tmp/ats208-mutation-8c9dd79/tree/tests/execution-model-it.test.mjs:905:14
       at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
@@ -162,6 +160,6 @@ test at tests\execution-model-it.test.mjs:875:1
   }
 
 test at tests\execution-model.test.mjs:1:1
-✖ tests\execution-model.test.mjs (93.3371ms)
+✖ tests\execution-model.test.mjs (88.3742ms)
   'test failed'
 exit code : 1 (non-zero is EXPECTED: the cases must be red on the old tree)
