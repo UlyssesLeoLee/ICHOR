@@ -31,7 +31,7 @@ file. A citation of a different line of an audited file is therefore NOT
 covered and has to carry a needle here.
 
 The NON-runtime port citations (`start.sh:4`, `start.ps1:8-9`,
-`tools/generate_test_docs.py:120,126,157`) are checked by this script: the
+`tools/generate_test_docs.py:348,354,451`) are checked by this script: the
 port audit only asserts that those FILES are listed, not that the listed
 positions are the port-bearing ones.
 
@@ -132,9 +132,9 @@ EXPECTED = {
         9: "Start-Process 'http://127.0.0.1:",
     },
     'tools/generate_test_docs.py': {
-            329: "'localhost:3000 + ",
-            335: "'Host=evil.example:",
-            431: '同 LAN 他机尝试访问 ',
+            348: "'localhost:3000 + ",
+            354: "'Host=evil.example:",
+            451: '同 LAN 他机尝试访问 ',
         },
         # The ATS-103 WBS updater mentions the port inside a NOTE TEXT (the
             # value never takes effect). The ADR cites it, so this script checks it.
