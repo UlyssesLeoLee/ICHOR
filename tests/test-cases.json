@@ -3993,12 +3993,34 @@
     "level": "UT"
   },
   {
+    "id": "UT-MOB-011b",
+    "req": "FR-031",
+    "category": "异常",
+    "title": "能力集不是列表时被拒",
+    "input": "capabilities 传字符串",
+    "expected": "报 MOBILE_TARGET_INVALID",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
     "id": "UT-MOB-012",
     "req": "FR-031",
     "category": "正常",
     "title": "会话携带身份、状态与能力集",
     "input": "构造会话",
     "expected": "sessionId / targetId / state / capabilities 齐备",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-012b",
+    "req": "FR-031",
+    "category": "异常",
+    "title": "会话缺 id、缺目标或能力集不是列表时被拒",
+    "input": "分别置空 sessionId / targetId、capabilities 传字符串",
+    "expected": "均报 MOBILE_SESSION_INVALID",
     "evidence": "node --test",
     "status": "PASS",
     "level": "UT"
@@ -4208,6 +4230,17 @@
     "title": "本地真机没有租约因而不回收",
     "input": "local-device 且租约时间在过去",
     "expected": "状态不变",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-031b",
+    "req": "FR-031",
+    "category": "正常",
+    "title": "failed 的农场会话也能被回收",
+    "input": "failed 态且租约过期",
+    "expected": "回收为 idle 且不再带错误",
     "evidence": "node --test",
     "status": "PASS",
     "level": "UT"
@@ -4428,6 +4461,28 @@
     "title": "空证据路径被拒",
     "input": "relative 为空串",
     "expected": "报 MOBILE_EVIDENCE_PATH_INVALID",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-051b",
+    "req": "FR-031",
+    "category": "安全",
+    "title": "证据路径是目录时被拒",
+    "input": "relative 指向子目录",
+    "expected": "报 MOBILE_EVIDENCE_PATH_FORBIDDEN",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-051c",
+    "req": "FR-031",
+    "category": "安全",
+    "title": "指向证据根之外的证据软链被拒",
+    "input": "根内软链指向根外文件",
+    "expected": "报 MOBILE_EVIDENCE_PATH_FORBIDDEN",
     "evidence": "node --test",
     "status": "PASS",
     "level": "UT"
