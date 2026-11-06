@@ -1,51 +1,86 @@
 === command ===
 bash tools/ats204-probes/counterexample.sh
 === output ===
-the tree before the task: 83c8bc50447d8ce2edadf39362be4680c3658429
-checked out: 83c8bc5 chore(agent): baseline — the task worktree started here
+the tree before the task: 9a559c6f2eaf6232cfad403237c5ce0322e8825f
+checked out: 9a559c6 chore(ATS-204): 重新生成 CHECKSUMS.sha256（覆盖最终交付树）
 
 === node --test tests/identity.test.mjs ===
-✔ UT-ATS204-001: the UID survives a rename, and the old spelling is recorded as an alias (7.9448ms)
-✔ UT-ATS204-002: the UID survives a rename AND a retitle (4.3494ms)
-✖ UT-ATS204-003: an attempt of a renamed+retitled case is bound to the original UID (5.3914ms)
-✔ UT-ATS204-004: an attempt of a case whose file was renamed is bound to the original UID (4.6397ms)
-✔ UT-ATS204-005: a case that took over the old file name does NOT get the old UID (3.9092ms)
-✔ UT-ATS204-006: a body that two cases of the same run share identifies neither (0.3985ms)
-✔ UT-ATS204-007: an ambiguous title in the project binds nothing (0.1793ms)
-✔ UT-ATS204-008: a case that shares its title with another in the SAME file is bound by the body (0.1082ms)
-✔ UT-ATS204-009: the alias is used only when the body is unavailable (0.1354ms)
-✔ UT-ATS204-010: an explicit annotation always wins over the position (0.1325ms)
-✔ UT-ATS204-011: a duplicated explicit annotation binds neither case (0.0937ms)
-✖ UT-ATS204-012: a dynamic case keeps its UID when the template is re-worded (5.7695ms)
-✖ UT-ATS204-013: a template that GAINS a render reports the shift instead of guessing (4.1499ms)
-✔ UT-ATS204-014: the anchor names the position and the ordinal of a case (0.3131ms)
-✖ UT-ATS204-015: the two rows the CLI writes for one case in two projects are ONE case (0.7287ms)
-✔ UT-ATS204-016: the two attempts of a matrix case carry the SAME TestDefinition UID (2.8758ms)
-✔ UT-ATS204-018: a renamed case is bound by its body even though the position does not match (0.1463ms)
-✔ UT-ATS204-019: a positional hit whose body CONTRADICTS it does not bind, and says so (0.1371ms)
-✔ UT-ATS204-020: a positional hit whose body AGREES binds, and reports nothing (0.0702ms)
-✔ UT-ATS204-021: a NEW case with an explicit token binds to it, registry or not (0.0692ms)
-✔ UT-ATS204-017: the old lookup keeps its documented behaviour (2.3215ms)
-ℹ tests 21
+✔ UT-ATS204-001: the UID survives a rename, and the old spelling is recorded as an alias (10.5961ms)
+✔ UT-ATS204-002: the UID survives a rename AND a retitle (6.006ms)
+✔ UT-ATS204-003: an attempt of a renamed+retitled case is bound to the original UID (7.8865ms)
+✔ UT-ATS204-004: an attempt of a case whose file was renamed is bound to the original UID (7.1464ms)
+✔ UT-ATS204-005: a case that took over the old file name does NOT get the old UID (6.8432ms)
+✔ UT-ATS204-006: a body that two cases of the same run share identifies neither (0.3951ms)
+✔ UT-ATS204-007: an ambiguous title in the project binds nothing (0.2654ms)
+✔ UT-ATS204-008: a case that shares its title with another in the SAME file is bound by the body (0.1535ms)
+✔ UT-ATS204-009: the alias is used only when the body is unavailable (0.2139ms)
+✔ UT-ATS204-010: an explicit annotation always wins over the position (0.2205ms)
+✔ UT-ATS204-011: a duplicated explicit annotation binds neither case (0.1719ms)
+✔ UT-ATS204-012: a dynamic case keeps its UID when the template is re-worded (4.5475ms)
+✔ UT-ATS204-013: a template that GAINS a render reports the shift instead of guessing (5.103ms)
+✔ UT-ATS204-014: the anchor names the position and the ordinal of a case (0.5039ms)
+✔ UT-ATS204-015: the two rows the CLI writes for one case in two projects are ONE case (0.7317ms)
+✔ UT-ATS204-016: the two attempts of a matrix case carry the SAME TestDefinition UID (6.6075ms)
+✔ UT-ATS204-018: a renamed case is bound by its body even though the position does not match (0.2997ms)
+✔ UT-ATS204-019: a positional hit whose body CONTRADICTS it does not bind, and says so (0.2062ms)
+✔ UT-ATS204-020: a positional hit whose body AGREES binds, and reports nothing (0.1388ms)
+✔ UT-ATS204-021: a NEW case with an explicit token binds to it, registry or not (0.1129ms)
+✔ UT-ATS204-017: the old lookup keeps its documented behaviour (6.3751ms)
+✖ UT-ATS204-022 (E1): a replaced loop element does not take the removed render's uid (6.8298ms)
+✖ UT-ATS204-023 (E3): a case inserted above keeps the existing case's uid (5.1418ms)
+✖ UT-ATS204-024 (E4): a case replaced in place by a different one is a NEW case (3.4391ms)
+✖ UT-ATS204-025 (M1): two same-titled cases under different describes are TWO cases (5.9294ms)
+✔ UT-ATS204-026 (M1b): the two describes bind to their OWN TestDefinition (4.8714ms)
+✖ UT-ATS204-027 (X1): an explicit token the catalogue judged DUPLICATE is not bound (4.4518ms)
+✔ UT-ATS204-028: the anchor counts the CLI's REPORT order, not the title-sorted order (0.2345ms)
+✔ UT-ATS204-029: the anchor does not decide a case the scanner CAN see (0.0916ms)
+✔ UT-ATS204-030: a partly rewritten group is reported and binds nothing (0.1642ms)
+✔ UT-ATS204-031: two anchors at the same ordinal are reported, not resolved (0.1513ms)
+✔ UT-ATS204-032: a group that grew reports the shift (0.8647ms)
+✔ UT-ATS204-033: the anchor of a case names its position and its ordinal (0.1981ms)
+✔ UT-ATS204-034: two entries that share the file, the line and the title stay unbound (0.2533ms)
+✔ UT-ATS204-034B: the file-line signal reports when it cannot pick one (0.2192ms)
+✔ UT-ATS204-035: two entries under the same describe path and title are ambiguous (0.2003ms)
+✔ UT-ATS204-036: the scope signal needs the body to AGREE (0.2661ms)
+ℹ tests 37
 ℹ suites 0
-ℹ pass 17
-ℹ fail 4
+ℹ pass 32
+ℹ fail 5
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 142.7449
+ℹ duration_ms 245.2482
 
 ✖ failing tests:
 
-test at tests\identity.test.mjs:98:1
-✖ UT-ATS204-003: an attempt of a renamed+retitled case is bound to the original UID (5.3914ms)
-  AssertionError [ERR_ASSERTION]: the attempt is bound to the original uid
+test at tests\identity.test.mjs:529:1
+✖ UT-ATS204-022 (E1): a replaced loop element does not take the removed render's uid (6.8298ms)
+  AssertionError [ERR_ASSERTION]: the NEW render does not inherit the removed render's uid
+      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-2853918372/tmp.OzRGkE9VTo/tree/tests/identity.test.mjs:554:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'tc_1_d_7ea0aca74691b949',
+    expected: 'tc_1_d_7ea0aca74691b949',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\identity.test.mjs:566:1
+✖ UT-ATS204-023 (E3): a case inserted above keeps the existing case's uid (5.1418ms)
+  AssertionError [ERR_ASSERTION]: the EXISTING case keeps its uid: the old evidence stays linked
   + actual - expected
   
-  + null
-  - 'tc_1_d_f978b9708e1a1f79'
+  + 'tc_1_d_11e024d6adae40d1'
+  - 'tc_1_d_3c78983687f10ef7'
+            ^
   
-      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-1262047543/tmp.K1qDfdRRk6/tree/tests/identity.test.mjs:123:12)
+      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-2853918372/tmp.OzRGkE9VTo/tree/tests/identity.test.mjs:593:12)
       at Test.runInAsyncScope (node:async_hooks:227:14)
       at Test.run (node:internal/test_runner/test:1382:25)
       at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
@@ -54,16 +89,55 @@ test at tests\identity.test.mjs:98:1
       at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
     generatedMessage: false,
     code: 'ERR_ASSERTION',
-    actual: null,
-    expected: 'tc_1_d_f978b9708e1a1f79',
+    actual: 'tc_1_d_11e024d6adae40d1',
+    expected: 'tc_1_d_3c78983687f10ef7',
     operator: 'strictEqual',
     diff: 'simple'
   }
 
-test at tests\identity.test.mjs:287:1
-✖ UT-ATS204-012: a dynamic case keeps its UID when the template is re-worded (5.7695ms)
-  AssertionError [ERR_ASSERTION]: the registry carries the anchor of every case
-      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-1262047543/tmp.K1qDfdRRk6/tree/tests/identity.test.mjs:295:12)
+test at tests\identity.test.mjs:600:1
+✖ UT-ATS204-024 (E4): a case replaced in place by a different one is a NEW case (3.4391ms)
+  AssertionError [ERR_ASSERTION]: the new case does not inherit the replaced case's uid
+      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-2853918372/tmp.OzRGkE9VTo/tree/tests/identity.test.mjs:619:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'tc_1_d_220e328994d3ebd5',
+    expected: 'tc_1_d_220e328994d3ebd5',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\identity.test.mjs:624:1
+✖ UT-ATS204-025 (M1): two same-titled cases under different describes are TWO cases (5.9294ms)
+  AssertionError [ERR_ASSERTION]: the two describes are two cases
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-2853918372/tmp.OzRGkE9VTo/tree/tests/identity.test.mjs:658:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\identity.test.mjs:716:1
+✖ UT-ATS204-027 (X1): an explicit token the catalogue judged DUPLICATE is not bound (4.4518ms)
+  AssertionError [ERR_ASSERTION]: the verdict is recorded in the registry
+      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-2853918372/tmp.OzRGkE9VTo/tree/tests/identity.test.mjs:733:12)
       at Test.runInAsyncScope (node:async_hooks:227:14)
       at Test.run (node:internal/test_runner/test:1382:25)
       at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
@@ -75,45 +149,6 @@ test at tests\identity.test.mjs:287:1
     actual: false,
     expected: true,
     operator: '==',
-    diff: 'simple'
-  }
-
-test at tests\identity.test.mjs:308:1
-✖ UT-ATS204-013: a template that GAINS a render reports the shift instead of guessing (4.1499ms)
-  AssertionError [ERR_ASSERTION]: the shift is reported
-      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-1262047543/tmp.K1qDfdRRk6/tree/tests/identity.test.mjs:320:12)
-      at Test.runInAsyncScope (node:async_hooks:227:14)
-      at Test.run (node:internal/test_runner/test:1382:25)
-      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
-      at Test.postRun (node:internal/test_runner/test:1522:19)
-      at Test.run (node:internal/test_runner/test:1447:12)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
-    generatedMessage: false,
-    code: 'ERR_ASSERTION',
-    actual: false,
-    expected: true,
-    operator: '==',
-    diff: 'simple'
-  }
-
-test at tests\identity.test.mjs:346:1
-✖ UT-ATS204-015: the two rows the CLI writes for one case in two projects are ONE case (0.7287ms)
-  AssertionError [ERR_ASSERTION]: the two rows are ONE logical case
-  
-  2 !== 1
-  
-      at TestContext.<anonymous> (file:///C:/Users/seiko/AppData/Local/Temp/multica-task-1262047543/tmp.K1qDfdRRk6/tree/tests/identity.test.mjs:368:10)
-      at Test.runInAsyncScope (node:async_hooks:227:14)
-      at Test.run (node:internal/test_runner/test:1382:25)
-      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
-      at Test.postRun (node:internal/test_runner/test:1522:19)
-      at Test.run (node:internal/test_runner/test:1447:12)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
-    generatedMessage: false,
-    code: 'ERR_ASSERTION',
-    actual: 2,
-    expected: 1,
-    operator: 'strictEqual',
     diff: 'simple'
   }
 === exit code: 1 ===

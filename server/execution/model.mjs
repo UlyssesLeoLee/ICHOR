@@ -374,18 +374,30 @@ export function mapEngineStatus(status) {
 /* ------------------------------------------------------------------ */
 
 /**
- * The identity of a case: the three facts a report gives that name it.
+ * The identity of a case: the facts a report gives that name it.
  *
- * The identity is deliberately made of the FILE, the TITLE and the LINE --
- * the same three facts `findTestUid` uses to bind a reported case to a
- * registry entry. Two executions with the same identity are two tries of the
- * SAME case; executions with different identities are different cases.
+ * The identity is made of the FILE, the DESCRIBE PATH, the TITLE and the
+ * LINE -- the same facts `parseListReport` uses to merge the rows the CLI
+ * writes for one logical case.
+ *
+ * WHY THE DESCRIBE PATH IS PART OF IT
+ * ----------------------------------
+ * Two cases that share a file, a title and a line but sit under DIFFERENT
+ * `describe` blocks are TWO cases: `describe('a') { test('works') }` and
+ * `describe('b') { test('works') }` are two different cases that the CLI
+ * itself tells apart. The identity of a case has to agree with the CLI's own
+ * notion of a case, or the run side and the discovery side describe the same
+ * test differently -- which is how two cases end up merged into one.
+ *
+ * The path is written with spaces around it so that the key stays readable
+ * and stays unambiguous for the titles that contain spaces themselves.
  */
 export function caseIdentity(execution) {
   const file = execution?.file ?? '';
   const title = execution?.title ?? '';
   const line = execution?.line ?? null;
-  return `${file} ${title} ${line}`;
+  const scope = Array.isArray(execution?.scope) ? execution.scope.join(' ') : '';
+  return `${file} ${scope} ${title} ${line}`;
 }
 
 /**
@@ -438,6 +450,11 @@ export function aggregateCases(executions) {
         file: raw.file ?? '',
         line: raw.line ?? null,
         column: raw.column ?? null,
+        // ATS-204: the describe path of the case. The report carries it
+        // (the CLI nests the specs under their describe blocks), and the
+        // run side needs it: it is the signal that tells two same-titled
+        // cases of DIFFERENT describes apart.
+        scope: Array.isArray(raw.scope) ? [...raw.scope] : [],
         attempts: [],
       });
     }
@@ -468,6 +485,8 @@ export function aggregateCases(executions) {
       file: group.file,
       line: group.line,
       column: group.column,
+      // The describe path of the case. ATS-204: the run side binds by it.
+      scope: group.scope,
       // The key the case is grouped by: the parser of the report decides
       // it, and it is kept so that a caller can attach the engine's own
       // per-project verdicts to the case afterwards.
@@ -644,22 +663,31 @@ export function parseReport(report) {
    *  that project (`expected` / `unexpected` / `flaky` / `skipped`). */
   const verdicts = new Map();
 
-  function walk(s) {
+  function walk(s, describePath = []) {
     for (const x of s.specs || []) {
       const file = x.file || s.file || '';
       const line = x.line ?? null;
       const column = x.column ?? null;
-      // The identity of the SPEC: its file, its title and its line. The
-      // ordinal keeps two same-titled specs apart when the report carries no
-      // line for them.
+      // The identity of the SPEC: its file, its DESCRIBE PATH, its title and
+      // its line. The describe path is part of the identity because the CLI
+      // treats two same-titled cases under different describes as two
+      // cases -- `parseListReport` merges the rows on exactly these four
+      // facts, and the run side has to agree with it. Without the path, the
+      // two rows of `describe('a') { test('works') }` and
+      // `describe('b') { test('works') }` become ONE case, and a failure in
+      // one of them is reported as the other.
+      //
+      // The ordinal keeps two same-titled specs apart when the report
+      // carries no line for them.
       //
       // ATS-204: the ordinal is taken ONLY for the specs without a line.
       // A spec WITH a line is keyed by its position alone, so the two rows
       // the CLI writes for one case in two projects are ONE case -- which
       // is what the counters and the per-project verdicts are about.
+      const scope = describePath.filter((p) => typeof p === 'string' && p.length > 0);
       const caseKey = Number.isInteger(line)
-        ? `${file} ${x.title ?? ''} ${line}`
-        : `${file} ${x.title ?? ''} #${specOrdinal++}`;
+        ? `${file} ${scope.join(' ')} ${x.title ?? ''} ${line}`
+        : `${file} ${scope.join(' ')} ${x.title ?? ''} #${specOrdinal++}`;
       for (const t of x.tests || []) {
         const caseStatus = t.status || 'unknown';
         // What the case DECLARED it wanted: `passed` by default, `failed`
@@ -675,14 +703,14 @@ export function parseReport(report) {
           // A case with no execution: it was skipped or it never ran. It
           // still exists, and it is still counted ONCE.
           executions.push({
-            title: x.title, file, line, column, caseKey,
+            title: x.title, file, line, column, caseKey, scope,
             status: caseStatus, expectedStatus, retry: 0, duration: 0, error: '',
           });
           continue;
         }
         results.forEach((r, index) => {
           executions.push({
-            title: x.title, file, line, column, caseKey,
+            title: x.title, file, line, column, caseKey, scope,
             // The RESULT level status of this execution. When the result
             // carries no status, the case level status is the best the
             // report says.
@@ -698,10 +726,16 @@ export function parseReport(report) {
         });
       }
     }
-    for (const sub of s.suites || []) walk(sub);
+    for (const sub of s.suites || []) {
+      // The FILE suite is the one whose line is 0: its title is the file
+      // name and it is not part of the describe path.
+      const isFileSuite = Boolean(sub.file) && sub.line === 0;
+      const nextPath = isFileSuite ? describePath : [...describePath, String(sub.title ?? '')];
+      walk(sub, nextPath);
+    }
   }
 
-  for (const suite of report?.suites || []) walk(suite);
+  for (const suite of report?.suites || []) walk(suite, []);
   const aggregated = aggregateCases(executions);
   // The engine's per-project verdicts decide the case level status and
   // outcome when the engine provides them. They are what tell "the case
@@ -852,6 +886,25 @@ export function attemptsForRun(run, summary, registry) {
     bodyCounts.set(key, (bodyCounts.get(key) ?? 0) + 1);
   }
   /*
+   * How many of the CASES OF THIS RUN share a body fingerprint AND sit
+   * under the same describe path.
+   *
+   * Two cases under DIFFERENT describes may well share the body -- the
+   * template they share is one body -- and the describe path is what tells
+   * them apart. So the "shared body" guard is counted per scope: the
+   * signal that uses the describe path is not blocked by a body that is
+   * only shared ACROSS describes.
+   */
+  const bodyScopeCounts = new Map();
+  for (const c of summary.cases) {
+    const file = normalizeTestPath(c.file, { rootDir, projectRoot });
+    const key = reportedBodyKey(projectRoot, file, c, bodyCache);
+    if (!key) continue;
+    const scopeKey = (Array.isArray(c.scope) ? c.scope : []).join(' ');
+    const scoped = `${key} ${scopeKey}`;
+    bodyScopeCounts.set(scoped, (bodyScopeCounts.get(scoped) ?? 0) + 1);
+  }
+  /*
    * How many cases of THIS RUN carry an explicit token.
    *
    * The token belongs to the case that carries it -- and to ONE case. Two
@@ -886,14 +939,16 @@ export function attemptsForRun(run, summary, registry) {
     // what makes a rename AND a retitle survive: the registry remembers the
     // fingerprint of the body, and the body does not change when the file is
     // renamed or the title is rewritten.
+    const bodyKey = reportedBodyKey(projectRoot, file, c, bodyCache);
     const found = bindReported({
       entries,
       file,
       title: c.title,
       line: c.line,
       scope: c.scope ?? null,
-      bodyKey: reportedBodyKey(projectRoot, file, c, bodyCache),
+      bodyKey,
       bodyCounts,
+      bodyScopeCounts,
       explicitCounts,
     });
     const key = `${file} ${c.title} ${c.line}`;
@@ -909,17 +964,17 @@ export function attemptsForRun(run, summary, registry) {
           occurrence: index
         }),
         runUid: run.uid || run.id,
-                testUid: found.uid,
-                uidBasis: found.basis,
-                // ATS-204: when the mapper could not decide, it says WHY and it
-                // lists the candidates. The attempt stays unbound, and the reason
-                // is on the record -- an unbound attempt that says nothing is
-                // indistinguishable from a case that is not in the catalogue.
-                ...(found.ambiguity ? { uidAmbiguity: found.ambiguity } : {}),
-                file,
-                title: c.title,
-                line: c.line,
-                retry: attempt.retry || 0,
+        testUid: found.uid,
+        uidBasis: found.basis,
+        // ATS-204: when the mapper could not decide, it says WHY and it
+        // lists the candidates. The attempt stays unbound, and the reason
+        // is on the record -- an unbound attempt that says nothing is
+        // indistinguishable from a case that is not in the catalogue.
+        ...(found.ambiguity ? { uidAmbiguity: found.ambiguity } : {}),
+        file,
+        title: c.title,
+        line: c.line,
+        retry: attempt.retry || 0,
         // An Attempt is one EXECUTION, so it records the result level status.
         // The case level status would describe the case as a whole and
         // would report "flaky" for the failed retry as well.
