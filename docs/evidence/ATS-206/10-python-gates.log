@@ -1,6 +1,6 @@
 === the python gates under tools/ ===
 repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-9a04603a3725/worktree
-commit    : d5219cb
+commit    : 541c1f6
 branch    : agent/m2/seikoist-167
 node      : v24.19.0
 python    : Python 3.11.16
@@ -8,22 +8,10 @@ python    : Python 3.11.16
 ..........................................                               [100%]
 ============================== warnings summary ===============================
 tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
-  C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
-    warn(msg)
 
 tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
-  C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
-    warn(msg)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-42 passed, 2 warnings in 1.43s
+42 passed, 2 warnings in 6.67s
 
 exit code : 0
-
-=== NOTE ===
-test_tc002_ats506_marker_and_narrative fails on this tree, and it is
-PRE-EXISTING: it fails identically on the base commit 3a9d1e302556bd4bdca34764e575a6a33b3c1d2a
-(git archive 3a9d1e302556bd4bdca34764e575a6a33b3c1d2a -> pytest tools/test_wbs_common_helpers.py -q -> 1 failed, 6 passed).
-It is an ATS-506/ATS-512 marker-ordering assertion over
-tools/wbs_common.py MARKERS, unrelated to the ATS-206 migration, and
-NOT introduced by this branch.
