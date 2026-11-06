@@ -15,8 +15,19 @@ mkdir -p "$EV"
 export PYTHONUTF8=1
 export PYTHONIOENCODING=utf-8
 
+# The probes and the test suites need a WRITABLE temp directory. The system
+# temp on this host lives on C:, which has been full more than once -- a full
+# temp makes the coverage file and the probe fixtures fail even though every
+# test passed. The scratch dir is used when it exists.
+if [ -n "${ATS212_SCRATCH:-}" ] && [ -d "${ATS212_SCRATCH:-}" ]; then
+  export TMPDIR="$ATS212_SCRATCH"
+  export TEMP="$ATS212_SCRATCH"
+  export TMP="$ATS212_SCRATCH"
+fi
+
 run() { # run <logfile> <label> <command...>
   local out="$1" label="$2"; shift 2
+  local rc=0
   {
     echo "=== $label ==="
     echo "repo root : $(pwd)"
@@ -25,11 +36,20 @@ run() { # run <logfile> <label> <command...>
     echo "node      : $(node --version)"
     echo "python    : $(python --version 2>&1)"
     echo
-    "$@" 2>&1
-    echo
-    echo "exit code : $?"
   } > "$EV/$out"
-  echo "wrote $EV/$out"
+  # The exit code of the command has to be captured IMMEDIATELY after it
+  # runs: `$?` after the trailing `echo` is the exit code of that `echo`,
+  # which is always 0. A log that always claims 0 is worse than no log.
+  "$@" >> "$EV/$out" 2>&1 || rc=$?
+  {
+    echo
+    echo "exit code : $rc"
+  } >> "$EV/$out"
+  if [ "$rc" -ne 0 ]; then
+    echo "wrote $EV/$out (FAILED with exit code $rc)"
+  else
+    echo "wrote $EV/$out"
+  fi
 }
 
 # --- 01 / 02 / 03: the unit suites of this task -----------------------------
@@ -53,6 +73,16 @@ run 05-node-test-full.log "the full node test suite" npm test
 # the run record and the manifest.
 run 06-probe-env-seal.log "the environment seal: what the runner child received" \
   node tools/ats212-probes/probe-env-seal.mjs
+
+# --- 06b: the A/B comparison of the LISTING environment ---------------------
+# The seal also applies to the LISTING child (the `playwright test --list`
+# process), not only to the runner. This probe installs a REAL Playwright
+# into a throwaway project and runs the listing twice per round -- once
+# with the sealed environment (BASE_ENV_KEYS only) and once with the host
+# environment -- so the delivered evidence shows that sealing the listing
+# child does not break the listing.
+run 06b-ab-listing-env.log "the listing environment: sealed vs. host, A/B over 5 rounds" \
+  node tools/ats212-probes/ab-listing-env.mjs 5
 
 # --- 07: the ADR citation check ---------------------------------------------
 run 07-adr-citations.log "the ADR citation check" \
