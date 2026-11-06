@@ -183,6 +183,6 @@ WBS 的完成定义是一句话：
 | `tools/check_adr_citations.py` | 修改 | 同上（被审计位置表） |
 | `docs/WBS.xlsx` | 修改 | 「开发WBS」ATS-216 行的状态/完成率/剩余人日 + 风险说明；「总览」缓存值与 D6/D7 叙述 |
 | `docs/00-INDEX.md` | 修改 | 收录本文件与 ATS-216 证据目录 |
-| `docs/27-QUALITY-OVERVIEW.md` | 新增 | 本文件 |
+| `docs/28-QUALITY-OVERVIEW.md` | 新增 | 本文件 |
 | `docs/evidence/ATS-216/` | 新增 | 证据日志 |
 | `CHECKSUMS.sha256` | 修改 | 随新增/修改的受控文件重新生成 |

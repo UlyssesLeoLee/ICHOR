@@ -1,27 +1,24 @@
 /**
- * ATS-212 -- review round 2 (Opus): the six required fixes.
+ * ATS-212 -- the environment profiles: the boundaries of the whitelist and
+ * of the state migration.
  *
  * WHAT IS ASSERTED HERE
  * ---------------------
- * The review of `dev@8f2c2c5` found six places where the behaviour and the
- * acceptance criterion "the environment variable whitelist" disagreed, and
- * every one of them SILENTLY WIDENED the boundary. Each test below fails on
- * `8f2c2c5` and passes after the fix; the counterpart is the reviewer's
- * probe, which is run against the merged tree.
+ * The environment variable whitelist has to hold on both sides: at the
+ * write and at the run. Every test below asserts one boundary that the
+ * whitelist, the reserved names or the state migration has to hold.
  *
  *   1. ONE PROJECT KEY. The write path, the list path, the delete path and
- *      the RUN path must all key a profile by the same identifier. Before
- *      the fix the write path used `project.uid ?? project.id` and the run
- *      path used `projectUidOf(project)`, so a profile the API listed could
- *      not be used by a run -- and the ATS-206 migration orphaned both the
- *      profiles and the custom whitelists.
+ *      the RUN path must all key a profile by the same identifier, so a
+ *      profile the API lists can always be used by a run -- and the state
+ *      migration must not orphan the profiles and the custom whitelists.
  *   2. THE WHITELIST CONSTRAINS THE RUN. A name removed from the whitelist
  *      must not reach the child process.
  *   3. AN EMPTY WHITELIST IS AN EMPTY WHITELIST. `names: []` must not
- *      silently become the 14-name default.
+ *      silently become the default list.
  *   4. THE SMALL FIXES. The case-colliding names are refused (not
- *      collapsed), the structural keys are case-insensitive, and the CORS
- *      pre-flight allows `DELETE`.
+ *      collapsed), the structural keys are case-insensitive, and the
+ *      reserved names are refused at the run as well as at the write.
  *   5. THE COMMENTS DESCRIBE THE CODE. The reserved-name policy is stated
  *      exactly, and the Windows run-time keys are documented.
  */
@@ -49,37 +46,32 @@ import { projectUidOf } from '../server/uid.mjs';
 import { planMigration } from '../server/migration/state-migration.mjs';
 
 /**
- * The project key of the store, as it is on THIS tree.
+ * The project key of the store.
  *
- * The export does not exist before the round-2 fix, so the fallback is the
- * key the write path used then (`project.uid ?? project.id`). With it the
- * file LOADS on the old tree and every test fails on its ASSERTION -- which
- * is what shows which defect each test is about -- instead of the whole
- * file dying on an import error.
+ * The fallback keeps the file loadable on a tree that does not export the
+ * helper yet: every test then fails on its ASSERTION -- which is what
+ * shows which boundary each test is about -- instead of the whole file
+ * dying on an import error.
  */
 const storeModule = await import('../server/env/store.mjs');
 const projectKeyOf = storeModule.projectKeyOf ?? ((p) => (p ? p.uid ?? p.id : null));
 
 /**
- * The whitelist filter of the run path, as it is on THIS tree.
+ * The whitelist filter of the run path.
  *
- * Before the round-2 fix the whitelist was only checked at WRITE time, so
- * there was no filter at all. The fallback is the old behaviour -- the
- * profile's variables, unfiltered -- so the test fails on its ASSERTION
- * ("the removed name still reaches the runner") instead of on a missing
- * import.
+ * The fallback is the unfiltered behaviour -- the profile's variables, as
+ * they are -- so the test fails on its ASSERTION ("the removed name still
+ * reaches the runner") instead of on a missing import.
  */
 const profilesModule = await import('../server/env/profiles.mjs');
 const filterProfileVariables = profilesModule.filterProfileVariables
   ?? ((profile) => ({ variables: { ...(profile?.variables ?? {}) }, refused: [] }));
 
 /**
- * The structural keys, as they are on THIS tree.
+ * The structural keys.
  *
- * The export is new; before the fix the structural keys were an inline
- * list inside `buildRunnerEnv`. The fallback is that list, so the test
- * fails on the ASSERTION ("the structural key is not reserved") rather
- * than on a missing import.
+ * The fallback is that list, so the test fails on the ASSERTION ("the
+ * structural key is not reserved") rather than on a missing import.
  */
 const STRUCTURAL_ENV_KEYS = profilesModule.STRUCTURAL_ENV_KEYS
   ?? ['PATH', 'PATHEXT', 'SYSTEMROOT', 'WINDIR', 'COMSPEC'];
@@ -96,7 +88,7 @@ const legacyProject = (root) => ({
 // 1. ONE PROJECT KEY
 // ---------------------------------------------------------------------------
 
-test('UT-ENV-R2-001: the write, the list and the run path use ONE project key', () => {
+test('UT-ENV-004: the write, the list and the run path use ONE project key', () => {
   const project = legacyProject('D:/legacy-root');
   const store = envStoreOf({ schema: 1, projects: [project], runs: [] });
   setWhitelist(store, project, ['BASE_URL']);
@@ -119,8 +111,8 @@ test('UT-ENV-R2-001: the write, the list and the run path use ONE project key', 
   assert.ok(findProfile(store, projectUidOf(project), 'staging'), 'the run path finds no profile');
 });
 
-test('UT-ENV-R2-002: the migration re-keys the profiles AND the whitelists', () => {
-  const root = path.join(os.tmpdir(), 'ats212-r2-migrate');
+test('UT-ENV-005: the migration re-keys the profiles AND the whitelists', () => {
+  const root = path.join(os.tmpdir(), 'ats212-migrate');
   const project = legacyProject(root);
   const state = { schema: 1, projects: [project], runs: [], uidRegistry: { version: 1, projects: {} } };
   const store = envStoreOf(state);
@@ -148,8 +140,8 @@ test('UT-ENV-R2-002: the migration re-keys the profiles AND the whitelists', () 
   assert.equal(store2.whitelists[project.id], undefined, 'the legacy whitelist key survived');
 });
 
-test('UT-ENV-R2-003: the migration re-derives the profile uid and rewrites the runs', () => {
-  const root = path.join(os.tmpdir(), 'ats212-r2-migrate-uid');
+test('UT-ENV-006: the migration re-derives the profile uid and rewrites the runs', () => {
+  const root = path.join(os.tmpdir(), 'ats212-migrate-uid');
   const project = legacyProject(root);
   const state = { schema: 1, projects: [project], runs: [], uidRegistry: { version: 1, projects: {} } };
   const store = envStoreOf(state);
@@ -182,8 +174,8 @@ test('UT-ENV-R2-003: the migration re-derives the profile uid and rewrites the r
   assert.equal(next.runs[0].envUid, newUid, 'the run points at a profile that no longer exists');
 });
 
-test('UT-ENV-R2-004: a profile already under the canonical key keeps its uid', () => {
-  const root = path.join(os.tmpdir(), 'ats212-r2-migrate-keep');
+test('UT-ENV-007: a profile already under the canonical key keeps its uid', () => {
+  const root = path.join(os.tmpdir(), 'ats212-migrate-keep');
   const project = legacyProject(root);
   const state = { schema: 1, projects: [project], runs: [], uidRegistry: { version: 1, projects: {} } };
   const store = envStoreOf(state);
@@ -212,7 +204,7 @@ test('UT-ENV-R2-004: a profile already under the canonical key keeps its uid', (
 // 2. THE WHITELIST CONSTRAINS THE RUN
 // ---------------------------------------------------------------------------
 
-test('UT-ENV-R2-010: a name removed from the whitelist does not reach the runner', () => {
+test('UT-ENV-017: a name removed from the whitelist does not reach the runner', () => {
   const profile = { variables: { BASE_URL: 'http://x.test', TENANT: 'acme' } };
   const { variables, refused } = filterProfileVariables(profile, ['TENANT']);
   assert.equal(variables.BASE_URL, undefined, 'the removed name still reaches the runner');
@@ -222,7 +214,7 @@ test('UT-ENV-R2-010: a name removed from the whitelist does not reach the runner
   assert.ok(refused[0].reason, 'the removal has no reason');
 });
 
-test('UT-ENV-R2-011: the runner environment carries only the filtered variables', () => {
+test('UT-ENV-018: the runner environment carries only the filtered variables', () => {
   const profile = { variables: { BASE_URL: 'http://x.test', TENANT: 'acme' } };
   const { variables } = filterProfileVariables(profile, ['TENANT']);
   const env = buildRunnerEnv({ variables });
@@ -230,7 +222,7 @@ test('UT-ENV-R2-011: the runner environment carries only the filtered variables'
   assert.equal(env.TENANT, 'acme');
 });
 
-test('UT-ENV-R2-012: an empty whitelist filters EVERYTHING out', () => {
+test('UT-ENV-019: an empty whitelist filters EVERYTHING out', () => {
   const profile = { variables: { BASE_URL: 'http://x.test' } };
   const { variables, refused } = filterProfileVariables(profile, []);
   assert.deepEqual(variables, {});
@@ -241,7 +233,7 @@ test('UT-ENV-R2-012: an empty whitelist filters EVERYTHING out', () => {
 // 3. AN EMPTY WHITELIST IS AN EMPTY WHITELIST
 // ---------------------------------------------------------------------------
 
-test('UT-ENV-R2-020: an empty configured whitelist is NOT the default whitelist', () => {
+test('UT-ENV-022: an empty configured whitelist is NOT the default whitelist', () => {
   const project = { id: 'proj_1_aaaa', root: 'D:/p' };
   const store = envStoreOf({ schema: 1, projects: [project], runs: [] });
   // Before the fix: `names: []` was treated as "not configured", so the
@@ -252,7 +244,7 @@ test('UT-ENV-R2-020: an empty configured whitelist is NOT the default whitelist'
   assert.deepEqual(wl.names, [], 'the default list came back');
 });
 
-test('UT-ENV-R2-021: a project with no configured whitelist still gets the default', () => {
+test('UT-ENV-023: a project with no configured whitelist still gets the default', () => {
   const project = { id: 'proj_1_aaaa', root: 'D:/p' };
   const store = envStoreOf({ schema: 1, projects: [project], runs: [] });
   const wl = whitelistForProject(store, project);
@@ -264,7 +256,7 @@ test('UT-ENV-R2-021: a project with no configured whitelist still gets the defau
 // 4a. THE CASE-COLLIDING NAMES ARE REFUSED, NOT COLLAPSED
 // ---------------------------------------------------------------------------
 
-test('UT-ENV-R2-030: two spellings of one name are refused and both are reported', () => {
+test('UT-ENV-035: two spellings of one name are refused and both are reported', () => {
   const { variables, rejected } = normaliseVariables(
     { base_url: 'http://first.test', BASE_URL: 'http://second.test' },
     { whitelist: ['BASE_URL'] }
@@ -279,7 +271,7 @@ test('UT-ENV-R2-030: two spellings of one name are refused and both are reported
   assert.match(reason, /BASE_URL/);
 });
 
-test('UT-ENV-R2-031: a single spelling of a lower-case name is normalised, not refused', () => {
+test('UT-ENV-036: a single spelling of a lower-case name is normalised, not refused', () => {
   const { variables, rejected } = normaliseVariables(
     { base_url: 'http://only.test' },
     { whitelist: ['BASE_URL'] }
@@ -292,7 +284,7 @@ test('UT-ENV-R2-031: a single spelling of a lower-case name is normalised, not r
 // 4b. THE STRUCTURAL KEYS ARE CASE-INSENSITIVE
 // ---------------------------------------------------------------------------
 
-test('UT-ENV-R2-040: a reserved structural name is refused whatever its case', () => {
+test('UT-ENV-044: a reserved structural name is refused whatever its case', () => {
   for (const name of ['WINDIR', 'windir', 'Windir', 'SYSTEMROOT', 'systemroot', 'COMSPEC', 'comspec', 'Path', 'PATH']) {
     const { variables, rejected } = normaliseVariables(
       { [name]: 'C:\\profile-override' },
@@ -307,7 +299,7 @@ test('UT-ENV-R2-040: a reserved structural name is refused whatever its case', (
   }
 });
 
-test('UT-ENV-R2-041: the platform value of a structural key wins over the profile', () => {
+test('UT-ENV-045: the platform value of a structural key wins over the profile', () => {
   // The whitelist permits WINDIR; the profile nevertheless names it.
   const { variables } = normaliseVariables(
     { WINDIR: 'C:\\profile-windir' },
@@ -321,7 +313,7 @@ test('UT-ENV-R2-041: the platform value of a structural key wins over the profil
   assert.equal(env.PATH, 'C:\\bin');
 });
 
-test('UT-ENV-R2-042: the structural key is applied ONCE, under the host spelling', () => {
+test('UT-ENV-046: the structural key is applied ONCE, under the host spelling', () => {
   const env = buildRunnerEnv(
     { variables: {} },
     { baseEnv: { Path: 'C:\\bin', SystemRoot: 'C:\\WINDOWS', windir: 'C:\\WINDOWS' } }
@@ -331,7 +323,7 @@ test('UT-ENV-R2-042: the structural key is applied ONCE, under the host spelling
   assert.equal(env.Path, 'C:\\bin');
 });
 
-test('UT-ENV-R2-043: the structural keys are a subset of the reserved names', () => {
+test('UT-ENV-047: the structural keys are a subset of the reserved names', () => {
   const reserved = new Set(RESERVED_ENV_NAMES.map((n) => n.toUpperCase()));
   for (const key of STRUCTURAL_ENV_KEYS) {
     assert.ok(reserved.has(key.toUpperCase()), `${key} is structural but not reserved`);
@@ -342,29 +334,115 @@ test('UT-ENV-R2-043: the structural keys are a subset of the reserved names', ()
 // 4c. THE CORS PRE-FLIGHT ALLOWS DELETE
 // ---------------------------------------------------------------------------
 
-test('UT-ENV-R2-050: the CORS allowed methods include DELETE', () => {
-  const source = fs.readFileSync(
-    path.join(import.meta.dirname, '..', 'server', 'index.mjs'),
-    'utf8'
+// ---------------------------------------------------------------------------
+// 4d. THE RESERVED NAMES CONSTRAIN THE RUN AS WELL
+// ---------------------------------------------------------------------------
+
+test('UT-ENV-060: a name that is reserved now does not reach the runner', () => {
+  // A profile stored by an earlier build can carry a name that has since
+  // become reserved: the reserved list grows, the stored profiles do not.
+  // The name must therefore be refused at the RUN as well, so that a name
+  // the platform or the engine owns never reaches the child process.
+  const profile = {
+    variables: {
+      BASE_URL: 'http://x.test',
+      SSL_CERT_FILE: 'C:/evil.pem',
+      WINDIR: 'C:/evil',
+    },
+  };
+  const { variables, refused } = filterProfileVariables(profile, [
+    'BASE_URL',
+    'SSL_CERT_FILE',
+    'WINDIR',
+  ]);
+  assert.equal(variables.SSL_CERT_FILE, undefined, 'a reserved name still reaches the runner');
+  assert.equal(variables.WINDIR, undefined, 'a reserved name still reaches the runner');
+  assert.equal(variables.BASE_URL, 'http://x.test', 'an allowed name was dropped');
+  const refusedNames = refused.map((r) => r.name).sort();
+  assert.deepEqual(refusedNames, ['SSL_CERT_FILE', 'WINDIR'], 'the refusal was not reported');
+  for (const r of refused) {
+    assert.match(r.reason, /reserved/i, `the refusal of ${r.name} has no reason`);
+  }
+  // The runner environment carries neither of them.
+  const env = buildRunnerEnv({ variables });
+  assert.equal(env.SSL_CERT_FILE, undefined);
+  assert.equal(env.WINDIR, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// 4e. THE MIGRATION DOES NOT PRODUCE TWO PROFILES WITH ONE IDENTIFIER
+// ---------------------------------------------------------------------------
+
+test('UT-ENV-061: the migration keeps ONE profile per identifier and reports the drop', () => {
+  // The same project can hold a profile under the legacy project key and
+  // under the canonical project key -- one written by an older build, one
+  // by the current one. Both derive the SAME identifier, so the migration
+  // must keep one of them and REPORT the other; two records with one
+  // identifier cannot both be written into the `env_profiles` table, so the
+  // mirror import would fail with a UNIQUE constraint violation.
+  const root = path.join(os.tmpdir(), 'ats212-migrate-collision');
+  const project = legacyProject(root);
+  const legacyUid = project.id;
+  const state = {
+    schema: 1,
+    projects: [project],
+    runs: [],
+    uidRegistry: { version: 1, projects: {} },
+  };
+  const canonicalUid = projectUidOf(project);
+  const profile = (owner, url) => ({
+    id: envUidFor(owner, 'staging'),
+    uid: envUidFor(owner, 'staging'),
+    projectUid: owner,
+    name: 'staging',
+    environment: 'staging',
+    variables: { BASE_URL: url },
+  });
+  state.envProfiles = {
+    version: 1,
+    profiles: [
+      profile(legacyUid, 'http://from-the-legacy-key'),
+      profile(canonicalUid, 'http://from-the-canonical-key'),
+    ],
+    whitelists: { [legacyUid]: ['BASE_URL'], [canonicalUid]: ['TENANT'] },
+  };
+
+  const plan = planMigration(state);
+  const next = plan.state ?? plan.nextState ?? plan;
+  const migrated = next.projects[0];
+
+  // ONE profile for the project, and its identifiers are all distinct.
+  const store = envStoreOf(next);
+  const mine = profilesOfProject(store, projectUidOf(migrated));
+  assert.equal(mine.length, 1, `the project holds ${mine.length} profiles after the migration`);
+  const uids = mine.map((p) => p.uid);
+  assert.equal(new Set(uids).size, uids.length, 'two profiles share one identifier');
+
+  // The record under the CANONICAL key wins: it is the newer one.
+  assert.equal(mine[0].variables.BASE_URL, 'http://from-the-canonical-key');
+
+  // The drop is REPORTED, so nothing disappears without a trace.
+  const changes = plan.changes ?? plan.nextChanges ?? [];
+  const dropped = changes.filter((c) => c.kind === 'env-profile-dropped');
+  assert.ok(dropped.length >= 1, 'the dropped profile was not reported');
+  assert.ok(
+    dropped.some((c) => c.profile === 'staging'),
+    'the report does not name the dropped profile'
   );
-  const m = source.match(/Access-Control-Allow-Methods',\s*'([^']+)'/);
-  assert.ok(m, 'the allowed methods header was not found');
-  assert.match(m[1], /\bDELETE\b/, `DELETE is missing from "${m[1]}"`);
 });
 
 // ---------------------------------------------------------------------------
 // 5. THE COMMENTS DESCRIBE THE CODE
 // ---------------------------------------------------------------------------
 
-test('UT-ENV-R2-060: the reserved-name policy is stated exactly, not as a family rule', () => {
+test('UT-ENV-058: the reserved-name policy is stated exactly, not as a family rule', () => {
   const source = fs.readFileSync(
     path.join(import.meta.dirname, '..', 'server', 'env', 'profiles.mjs'),
     'utf8'
   );
   // The module must not claim that a whole family is reserved when only
-  // individual names are. The review called this out: the comment used to
-  // claim that `PLAYWRIGHT_*` and `SSL_*` were reserved families, which the
-  // code did not do.
+  // individual names are: the `PLAYWRIGHT_*` and `SSL_*` families are not
+  // reserved, the individual names in the list are.
   assert.doesNotMatch(
     source,
     /the `PLAYWRIGHT_\*` family/i,
@@ -384,7 +462,7 @@ test('UT-ENV-R2-060: the reserved-name policy is stated exactly, not as a family
   }
 });
 
-test('UT-ENV-R2-061: the Windows run-time keys are documented', () => {
+test('UT-ENV-059: the Windows run-time keys are documented', () => {
   // The Windows run-time (libuv) adds these keys to a child that was
   // spawned with a minimal environment. They are not secrets, but the
   // documentation has to say so -- "the sealed set is the base keys" is

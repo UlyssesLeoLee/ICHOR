@@ -1,7 +1,7 @@
 === the whitelist filters the runner environment, not only the write ===
-repo root : /tmp/multica-task-2307562344/ats212-work/merge-dev
-commit    : 6f8897d
-branch    : 
+repo root : /d/ICHOR
+commit    : b00c3ca
+branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 

@@ -1,15 +1,15 @@
 === the environment profile adapter suite ===
-repo root : /tmp/multica-task-2307562344/ats212-work/merge-dev
-commit    : 6f8897d
-branch    : 
+repo root : /d/ICHOR
+commit    : b00c3ca
+branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ IT-ENV-ADP-001: the child receives the profile variables and NOT the host environment (139.0078ms)
-✔ IT-ENV-ADP-002: the adapter output variables win over the profile (140.1967ms)
-✔ IT-ENV-ADP-003: a run WITHOUT a profile is still sealed (149.7196ms)
-✔ IT-ENV-ADP-004: the report still lands where the adapter asked for it (136.3707ms)
-✔ IT-ENV-ADP-005: the LISTING child does not receive the host environment (88.8523ms)
+✔ IT-ENV-ADP-001: the child receives the profile variables and NOT the host environment (159.2156ms)
+✔ IT-ENV-ADP-002: the adapter output variables win over the profile (151.9654ms)
+✔ IT-ENV-ADP-003: a run WITHOUT a profile is still sealed (168.1753ms)
+✔ IT-ENV-ADP-004: the report still lands where the adapter asked for it (149.6812ms)
+✔ IT-ENV-ADP-005: the LISTING child does not receive the host environment (113.9334ms)
 ℹ tests 5
 ℹ suites 0
 ℹ pass 5
@@ -17,6 +17,6 @@ python    : Python 3.11.16
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 750.9687
+ℹ duration_ms 838.8466
 
 exit code : 0

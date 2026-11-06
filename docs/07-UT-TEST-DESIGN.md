@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：464；已执行通过：448；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：522；已执行通过：506；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -267,6 +267,25 @@
 |UT-ENV-054|FR-027|安全|配置的白名单优先于内置默认|项目配置白名单 ONLY_THIS|source=custom；默认中的 BASE_URL 被拒绝|node --test|PASS|
 |UT-ENV-055|FR-027|安全|授权凭据的白名单被拒绝|设置白名单 API_TOKEN|抛错 code=INVALID_ENV_WHITELIST|node --test|PASS|
 |UT-ENV-056|FR-027|安全|档案的公开视图只含变量名|含 BASE_URL 与 TENANT 的档案|variables 为名称数组，且序列化后不含值|node --test|PASS|
+|UT-ENV-004|FR-027|正常|写入、列举、删除与运行按同一个项目键取档案|一个未迁移的项目记录|四个路径取到的键相同，API 列出的档案能被运行取到|node --test|PASS|
+|UT-ENV-005|FR-027|正常|状态迁移同步改写档案与白名单的键|旧键下的档案与自定义白名单|迁移后档案与白名单都在新键下，自定义白名单未退回默认|node --test|PASS|
+|UT-ENV-006|FR-027|正常|状态迁移重新派生档案标识并改写运行记录|旧键下的档案与引用它的运行|标识按新键重新派生且可重算，运行仍指向该档案|node --test|PASS|
+|UT-ENV-007|FR-027|正常|已在规范键下的档案不被迁移改名|当前写入路径产生的档案|标识不变，归属改写为规范键，仍能按名取到|node --test|PASS|
+|UT-ENV-017|FR-027|安全|白名单移除的名字不进入子进程|白名单收窄为 TENANT|BASE_URL 不在环境里且被报告，理由非空|node --test|PASS|
+|UT-ENV-018|FR-027|安全|runner 环境只带筛选后的档案变量|白名单收窄为 TENANT|环境里只有 TENANT 与平台基础键|node --test|PASS|
+|UT-ENV-019|FR-027|安全|空白名单过滤掉全部变量|白名单为空|环境变量集合为空，过滤理由已报告|node --test|PASS|
+|UT-ENV-022|FR-027|安全|空白名单不是默认名单|配置 names 为空|source=custom，名称列表为空|node --test|PASS|
+|UT-ENV-023|FR-027|正常|未配置白名单的项目仍得到默认名单|状态里没有该项目的白名单键|source=default 且名称列表非空|node --test|PASS|
+|UT-ENV-035|FR-027|安全|同一名字的两种大小写写法整体拒绝|同时提交 base_url 与 BASE_URL|两个值都不入档案，两种写法都被报告|node --test|PASS|
+|UT-ENV-036|FR-027|正常|单个小写写法被规范化而不是被拒绝|只提交 base_url|规范化为 BASE_URL，无拒绝项|node --test|PASS|
+|UT-ENV-044|FR-027|安全|保留的结构键无论大小写都被拒绝|WINDIR/SYSTEMROOT/COMSPEC/PATH 的各种写法|每个都被拒绝并进入 rejected|node --test|PASS|
+|UT-ENV-045|FR-027|安全|平台关键键的值胜过档案|档案声明 WINDIR，基础环境有 windir|档案拼写被剥除，平台值按宿主拼写保留|node --test|PASS|
+|UT-ENV-046|FR-027|安全|结构键只出现一次且用宿主拼写|基础环境含 Path/SystemRoot/windir|环境块里该键只有一个拼写|node --test|PASS|
+|UT-ENV-047|FR-027|安全|结构键是保留名的子集|结构键列表与保留名列表|每个结构键都在保留名列表内|node --test|PASS|
+|UT-ENV-058|FR-027|安全|保留名策略按名单逐条陈述|模块注释与保留名列表|注释不声称家族被保留；名单里的每个名字都被拒绝|node --test|PASS|
+|UT-ENV-059|FR-027|安全|Windows 运行时补入的键在文档里写明|设计书与安全风险表的正文|HOMEDRIVE/LOGONSERVER/SYSTEMDRIVE/USERDOMAIN 都被写明|node --test|PASS|
+|UT-ENV-060|FR-027|安全|今天被保留的名字不进入子进程|存量档案含 SSL_CERT_FILE 与 WINDIR，白名单放行|两个都被拒绝并报告，runner 环境里没有它们|node --test|PASS|
+|UT-ENV-061|FR-027|安全|迁移不为同一标识留下两条档案|旧键与规范键下各有一个同名档案|迁移后只剩一条，保留规范键那条，丢弃被报出|node --test|PASS|
 |UT-SQL-ENV-001|FR-027|正常|schema 认识环境相关表|schema version 4|存在 env_profiles 与 env_whitelists；runs 含 env_uid|node --test|PASS|
 |UT-SQL-ENV-002|FR-027|完整性|档案与白名单完整往返|含档案与白名单的 state|读回的档案、白名单、run 的 envUid 与写入一致|node --test|PASS|
 |UT-SQL-ENV-003|FR-027|安全|索引列只存变量名不存值|一个含两个变量的档案|索引列是名称数组且不含值；doc 列保留完整记录|node --test|PASS|
@@ -278,6 +297,45 @@
 |UT-SQL-ENV-009|FR-027|回归|没有环境字段的旧状态镜像正常|state 无 envProfiles|verifyMirror 通过，读回为空档案与空白名单|node --test|PASS|
 |UT-SQL-ENV-010|FR-027|回归|含档案时导入仍幂等|连续导入同一 state 两次|两次读回结果相同，verifyMirror 通过|node --test|PASS|
 |UT-SQL-ENV-011|FR-027|完整性|迁移回滚清除环境表与列|手工执行第 4 步的 down|表与 env_uid 列都不存在|node --test|PASS|
+|UT-EVD-001|FR-015|正常|清单说明它属于哪一次运行|一个已结束的 run 与它的文件夹|清单带 runId、projectUid、sourceCommit 与每条证据的 sha256|node --test|PASS|
+|UT-EVD-002|FR-015|正常|清单不列出自己与运行记录|文件夹含 events.jsonl、stdout.log 与 manifest.json|清单只列证据文件|node --test|PASS|
+|UT-EVD-003|FR-015|正常|清单是运行与文件夹的函数|同一运行与同一文件夹建两次清单|两次清单完全相同|node --test|PASS|
+|UT-EVD-004|FR-015|完整性|整组证据的摘要与条目顺序无关|同样两条证据换顺序|setDigest 相同；大小不同则不同|node --test|PASS|
+|UT-EVD-005|FR-015|正常|证据条目按相对路径排序|文件夹含 z.txt、a.txt、m/n.txt|条目顺序为 a.txt、m/n.txt、z.txt|node --test|PASS|
+|UT-EVD-006|NFR-003|安全|符号链接不是证据|文件夹内一个指向外部的链接|该链接不进证据集|node --test|PASS|
+|UT-EVD-007|FR-015|完整性|摘要按原始字节计算|内容为 hello 的文件|摘要等于 sha256(hello)|node --test|PASS|
+|UT-EVD-008|FR-015|异常|清单读不出来时报错而不是当作空|无清单或清单不是 JSON|报告原因，不返回空证据集|node --test|PASS|
+|UT-EVD-009|FR-015|正常|完好的证据集校验通过|按清单归档且未改动|verified=true，missing 与 changed 均为空|node --test|PASS|
+|UT-EVD-010|FR-015|完整性|归档后被改动的文件被检出|改写归档后的 report.json|verified=false；changed 指出该文件与两个摘要|node --test|PASS|
+|UT-EVD-011|FR-015|完整性|归档后被删除的文件被报为缺失|删除清单列出的一个文件|missing 列出该文件；changed 为空|node --test|PASS|
+|UT-EVD-012|FR-015|边界|归档后追加的文件被报为 extra|加一个清单未列的文件|extra 列出该文件；已归档文件仍算完好|node --test|PASS|
+|UT-EVD-013|FR-015|异常|没有清单的目录无法校验|只有证据没有清单|ok=false 且给出原因|node --test|PASS|
+|UT-EVD-014|NFR-004|正常|只有终态的 run 才是清理对象|状态取遍 8 个运行状态|终态五个为真；在飞三个为假|node --test|PASS|
+|UT-EVD-015|NFR-004|安全|在飞的 run 永不被清理|running/queued/cancelling 且很旧|到期列表为空|node --test|PASS|
+|UT-EVD-016|NFR-004|正常|到期的是超过期限的终态 run|一个 31 天前结束、一个昨天结束|只有前者到期|node --test|PASS|
+|UT-EVD-017|NFR-004|异常|非法的保留期被拒绝|负数或非数字的期限|抛 INVALID_RETENTION_PERIOD|node --test|PASS|
+|UT-EVD-018|NFR-004|正常|清理删证据但保留运行记录|含证据、事件日志与原始输出的目录|证据消失；事件日志、原始输出与清单仍在|node --test|PASS|
+|UT-EVD-019|NFR-004|完整性|清理不碰 run 记录本身|带 status/summary/attempts/events 的 run 记录|清理后逐字段不变|node --test|PASS|
+|UT-EVD-020|NFR-004|安全|Bridge 持锁时拒绝清理|lockHeld=true|ok=false 且证据仍在|node --test|PASS|
+|UT-EVD-021|NFR-004|正常|演练只报告不删除|dryRun=true|报告将删的文件；文件仍在|node --test|PASS|
+|UT-EVD-022|NFR-004|完整性|清理写审计日志|带日志路径的清理|日志有一条记录，含 runId 与删除的文件|node --test|PASS|
+|UT-EVD-023|NFR-004|异常|损坏的日志行被报出而不是丢弃|日志中混一行非 JSON|unreadable 报出该行号|node --test|PASS|
+|UT-EVD-024|NFR-004|正常|保留期计划给出到期与空间|两个 run，一个到期一个未到期|expiredCount=1；字节数分别计入|node --test|PASS|
+|UT-EVD-025|NFR-004|正常|计划不改动任何文件|调用计划|证据文件仍在|node --test|PASS|
+|UT-EVD-026|NFR-004|完整性|第二份相同证据被记为重复|两个 run 同一份内容|copies=2，第二份是重复项|node --test|PASS|
+|UT-EVD-027|NFR-004|回归|没有索引字段的旧状态得到空索引|state 无 evidenceIndex|索引为空且字段被补上|node --test|PASS|
+|UT-EVD-028|NFR-004|完整性|重新扫描一个 run 覆盖旧记录|先登记 a.txt 再登记 b.txt|旧条目消失，新条目存在|node --test|PASS|
+|UT-EVD-029|NFR-004|完整性|去重报告指出被存了多份的内容|两份同样的 100 字节证据|duplicated=1，浪费 100 字节|node --test|PASS|
+|UT-EVD-030|NFR-004|正常|证据副本的键是派生的|runId 与 file|键为 runId:file|node --test|PASS|
+|UT-EVD-031|NFR-004|完整性|共享字节按重复份数计|两个 run 各一份 10 字节|共享 10 字节|node --test|PASS|
+|UT-EVD-032|NFR-004|完整性|副本按自己的摘要存放|一个证据文件|副本路径以摘要命名且内容相同|node --test|PASS|
+|UT-EVD-033|NFR-004|完整性|相同内容只存一份|两个内容相同的文件|store 只占一份的字节数|node --test|PASS|
+|UT-EVD-034|NFR-004|异常|与摘要不符的副本不被存放|摘要与文件内容不符|不存放且给出原因|node --test|PASS|
+|UT-EVD-036|NFR-004|完整性|run 文件成为副本的硬链接|存放后链接到 run 文件|两者是同一 inode，链接数为 2|node --test|PASS|
+|UT-EVD-037|NFR-004|完整性|删掉 run 副本后副本仍在|删除 run 侧链接|store 中的副本仍在且内容不变|node --test|PASS|
+|UT-EVD-038|NFR-004|安全|仍被引用的副本不被回收|run 仍持有链接|回收列表为空，副本仍在|node --test|PASS|
+|UT-EVD-039|NFR-004|正常|无人引用的副本被回收|删掉 run 侧链接后回收|回收一个副本并报出释放的字节|node --test|PASS|
+|UT-EVD-040|NFR-004|正常|副本路径由摘要派生|一个 SHA-256 摘要|路径末段是摘要；非法摘要无路径|node --test|PASS|
 |UT-CP-001|FR-028|安全|本地路径形态判定矩阵|盘符、UNC、POSIX、file:、家目录、环境变量、路径穿越、仓库地址各形态|逐一返回对应规则名|node --test|PASS|
 |UT-CP-002|FR-028|边界|非路径值不误判|https 地址、prj UID、40 位 SHA、相对片段、ns:name、非字符串|均返回 null|node --test|PASS|
 |UT-CP-003|FR-028|安全|百分号编码的路径同等拒绝|C%3A%5Crepo、%2Fhome%2Fa、损坏编码|前两者命中规则；损坏编码按原文判定不抛错|node --test|PASS|

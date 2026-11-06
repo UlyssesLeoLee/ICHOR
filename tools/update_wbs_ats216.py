@@ -91,7 +91,7 @@ NOTE = (
     '（Next 工作台按端口解析 API 基址，apps/studio/lib/api.ts 硬编码 4577 是 ATS-101 已登记的约束，浏览器检查的 Bridge 因此跑在默认端口上；便携 UI 无此约束）；'
     '聚类的分组粒度只到「错误文本归一化后的签名」，不做根因判断，也不做失败传播分析；'
     '指标只覆盖本机 Bridge 的运行历史，不含远程 Runner（属 ATS-502/ATS-503）；'
-    '模块与事件复演的完整说明见 docs/27-QUALITY-OVERVIEW.md。'
+    '模块与事件复演的完整说明见 docs/28-QUALITY-OVERVIEW.md。'
 )
 
 

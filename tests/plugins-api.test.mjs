@@ -23,9 +23,28 @@ const data = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-plg-api-'));
 const port = 33000 + Math.floor(Math.random() * 6000);
 let cp, token;
 
+// The ready() window below is 400 attempts, not the 70-100 it used to be.
+// `npm test` runs the test files in PARALLEL, and 14 of them each boot a
+// Bridge. Booting 14 servers at once is slow: measured on this machine the
+// boot takes 1289 / 5637 / 8582 ms (min / median / max), while the old
+// windows only allowed 4000 ms (80 x 50ms) or 2450 ms (70 x 35ms). So the
+// slow ones gave up with "server did not boot" -- non-deterministically, on a
+// DIFFERENT subset each run.
+//
+// It was never a port collision: 14 concurrent servers were measured and
+// their ports were all distinct. 400 attempts x 50ms = 20s and x 35ms = 14s,
+// which covers the measured worst case with room to spare, and a test that
+// genuinely cannot start still fails instead of hanging forever.
 async function ready() {
-  for (let i = 0; i < 80; i++) {
-    try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return; } catch { /* retry */ }
+  // The health probe is BOUNDED. An unbounded fetch turns ONE request that
+  // never comes back into a stall of the whole boot window, and the boot wait
+  // then reports "the bridge did not come up" for a bridge that IS listening
+  // and merely busy. Measured: a hung probe made the wait 31 s long (the 20 s
+  // window plus an ~11 s request that never came back). The timeout is far
+  // below the window, so a slow-but-alive bridge is still found, and a hung
+  // request is retried instead of consuming the wait.
+  for (let i = 0; i < 400; i++) {
+    try { if ((await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2000) })).ok) return; } catch { /* retry */ }
     await new Promise((r) => setTimeout(r, 50));
   }
   throw new Error('server did not boot');

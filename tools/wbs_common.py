@@ -42,7 +42,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-204】', '【ATS-205】',
-           '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-212】', '【ATS-216】', '【ATS-301】', '【ATS-401】',
+           '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-216】', '【ATS-301】', '【ATS-401】',
            '【ATS-501】', '【ATS-506】', '【ATS-512】', '【ATS-601】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
@@ -86,9 +86,11 @@ NARRATIVE_FRAGMENTS = {
         'D7': 'CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md',
     },
     '【ATS-103】': {
-        'D6': 'Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过（ATS-103）',
+        'D6': 'Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过，'
+              '真实 headless Chromium 驱动导出页 7/7 通过（ATS-103）',
         'D7': '静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；'
-              '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112，'
+              '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112；'
+              'Bridge 静态路由只覆盖 /，目录索引与 404 未实现；'
               '详见 docs/22-FRONTEND-EXPORT.md',
     },
     '【ATS-401】': {
@@ -134,13 +136,20 @@ NARRATIVE_FRAGMENTS = {
         'D7': '凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；'
               '详见 docs/04-DETAILED-DESIGN.md §5A',
     },
+    '【ATS-209】': {
+        'D6': '证据清单与保留策略已实现（ATS-209：清单带所属运行与整组摘要、'
+              '内容寻址去重、到期清理只删证据不删 Run 元数据）',
+        'D7': '证据清单未签名（不得宣称 WORM 或防篡改等级），'
+              '清理掉证据后清单与文件夹不再一致（校验会如实报 missing）；'
+              '详见 docs/27-EVIDENCE-MANIFEST.md',
+    },
     '【ATS-216】': {
         'D6': '质量概览模块已实现（ATS-216：失败聚类/Flaky 基础指标，非 AI；'
               '失败/重试/取消分开计数，指标与原始结果可核对）',
         'D7': '质量概览已在真实 Chromium 里实测渲染（两个界面都打开质量概览页、指标与对账表都渲染、'
               '两界面数字一致、无 console 错误），但人工可用性（无障碍/键盘/加载态）未评测，属 ATS-111；'
               '聚类只到「错误文本归一化后的签名」，不做根因判断；'
-              '详见 docs/27-QUALITY-OVERVIEW.md',
+              '详见 docs/28-QUALITY-OVERVIEW.md',
     },
     '【ATS-501】': {
             'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',

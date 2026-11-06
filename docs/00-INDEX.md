@@ -27,11 +27,12 @@
 | 22-FRONTEND-EXPORT.md | 前端交付・検証 | ATS-103：Next.js 16 静态导出构建、Bridge 静态提供与 API 契约实测、实测证据与未验证项 |
 | 17-AGENT-CONTRACT.md | Agent 契約 | Agent 契约 v1：作用域、预算、输入出处、角色能力、提案与评审状态机、权限边界与实测证据 |
 | 18-UID-SPEC.md | 稳定 UID 规范 | Project/TestDefinition/Run/Attempt 的标识符规则、迁移脚本与已知边界 |
-| 27-QUALITY-OVERVIEW.md | 质量概览设计书 | ATS-216：失败聚类/Flaky 基础指标（非 AI）；失败/重试/取消的分组、指标与原始结果的对账、确定性聚类与跨运行不稳定用例、两个界面共用一份实现、变异测试的可证伪性证据与已知边界 |
+| 28-QUALITY-OVERVIEW.md | 质量概览设计书 | ATS-216：失败聚类/Flaky 基础指标（非 AI）；失败/重试/取消的分组、指标与原始结果的对账、确定性聚类与跨运行不稳定用例、两个界面共用一份实现、变异测试的可证伪性证据与已知边界 |
 | 24-EXECUTION-MODEL.md | 执行模型设计书 | ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试、事件可按 run+sequence 复演；修复前的实测缺陷与修复后的对照、状态机与复演的接口面、实测证据与已知边界 |
 | 23-AUTHORITATIVE-DISCOVERY.md | 权威发现设计书 | ATS-202：`playwright test --list` 权威索引、信任闸门（未可信仓库不可调用 `--list`）、身份阶梯、CLI 一致性的度量、实测证据与已知边界 |
 | 24-STATE-MIGRATION.md | 状态迁移设计书 | ATS-206：v0.1 状态的安全导入迁移 CLI、计数一致性口径、备份与自动回滚、迁移内核的两条规则与已知边界 |
-| 26-IDENTITY-MAPPER.md | 身份映射器设计书 | ATS-204：文件/标题变化时的 UID 重识别与歧义提示；运行侧按信号强度绑定的阶梯、整次运行才算得清的三件事、动态用例的锚点（位置 + 次次序）、项目矩阵是一个用例、实测证据与已知边界 |
+| 26-IDENTITY-MAPPER.md | 身份映射器设计书 | ATS-204：文件/标题变化时的 UID 重识别与歧义提示；运行侧按信号强度绑定的阶梯、整次运行才算得清的四件事、动态用例的锚点（位置 + 次序；次序 = CLI 的报告次序）、锚点不得覆盖已有身份的三条规则、项目矩阵是一个用例（caseKey 带 describe 路径）、实测证据与已知边界 |
+| 27-EVIDENCE-MANIFEST.md | 证据清单设计书 | ATS-209：Evidence Manifest、SHA-256、内容寻址去重与保留期清理；清单带所属运行与整组摘要、篡改可检出并指名文件、到期只删证据不删 Run 元数据、清理离线执行与审计日志、已知边界 |
 | 18-RUNNER-ADAPTER-CONTRACT.md | Runner/Reporter 适配器契约 | ATS-301：适配器契约 v1、能力协商与拒绝规则 |
 | 19-REMOTE-RUNNER-PROTOCOL.md | 远程协议・威胁模型 | S5 远程执行面的信任边界、认证、版本握手、租户隔离、拒绝规则（ADR-015~023，全部 DESIGNED） |
 | 20-PARALLEL-ORCHESTRATION.md | 并行编排 | 多任务并行执行的编排约束 |
@@ -43,10 +44,10 @@
 | tools/ats101-probes/ | 再現スクリプト | ATS-101 全部阻断项与约束清单的仓库内可重跑复现脚本（见 `docs/evidence/ATS-101/`） |
 | tools/ats201-probes/ | 再現スクリプト | ATS-201 稳定 UID 规范的可重跑验证脚本，含真实 Playwright 报告契约测试（见 `docs/evidence/ATS-201/`） |
 | tools/ats202-probes/ | 再現スクリプト | ATS-202 权威发现的真实 Playwright `--list` 契约测量（33 项断言，含「`--list` 会执行项目代码」这条安全事实，见 `docs/evidence/ATS-202/`） |
-| tools/ats204-probes/ | 再現スクリプト | ATS-204 身份映射器的可重跑验证脚本：真实 Playwright CLI 的事实测量（每个 project 一行 spec）、改动前的缺口、锚点、矩阵的两种报告形状，以及在改动前的树上的反例回归（见 `docs/evidence/ATS-204/`） |
+| tools/ats204-probes/ | 再現スクリプト | ATS-204 身份映射器的可重跑验证脚本：真实 Playwright CLI 的事实测量（每个 project 一行 spec、报告次序 ≠ 排序名次）、改动前的缺口、锚点、矩阵的两种报告形状、复核第 1 轮的反例探针（review-r1/），以及在第一次交付的树上的反例回归（见 `docs/evidence/ATS-204/`） |
 | tools/ats401-probes/ | 再現スクリプト | ATS-401 权限边界的仓库内可重跑复现脚本（权限边界探针 + 第 1 次复核反例回归探针，含负控，见 `docs/evidence/ATS-401/`） |
 | tools/ats501-probes/ | 検証スクリプト | ATS-501 远程协议契约的机读校验、负向夹具与 WBS 更新脚本的共存回归（见 `docs/evidence/ATS-501/`） |
-| tools/ats103-probes/ | 検証スクリプト | ATS-103 静态导出 → Bridge → 会话/项目/运行 全链的可重跑验证脚本（见 `docs/evidence/ATS-103/`） |
+| tools/ats103-probes/ | 検証スクリプト | ATS-103 静态导出 → Bridge → 会话/项目/运行 全链的可重跑验证脚本：25 项 HTTP/运行时检查 + 真实 headless Chromium 的 8 项 UI 驱动检查 + 五变异证据（见 `docs/evidence/ATS-103/`） |
 | tools/ats506-probes/ | 検証スクリプト | ATS-506 控制面边界的负向夹具（8 个守护变异必须被对应用例捕获）与证据收集脚本（见 `docs/evidence/ATS-506/`） |
 | tools/ats512-probes/ | 検証スクリプト | ATS-512 插件权限边界的仓库内可重跑探针（超权拒绝、审计不可抑制、证据不可伪造，含负控，见 `docs/evidence/ATS-512/`） |
 | tools/ats216-probes/ | 検証スクリプト | ATS-216 质量概览的可重跑探针（真实 Bridge + 真实 Playwright 的系统测试、变异检查、证据收集脚本，见 `docs/evidence/ATS-216/`） |
