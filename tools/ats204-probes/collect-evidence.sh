@@ -97,7 +97,27 @@ else
 fi
 
 echo '--- 15. the coverage of the four files of this task ---'
-run 15-coverage.log bash -c "node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout tests/*.test.mjs 2>&1 | grep -E 'identity.mjs|model.mjs|authoritative.mjs|core.mjs|all files'"
+run 15-coverage.log bash -c "node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout tests/*.test.mjs 2>&1 | grep -E 'identity.mjs|model.mjs|authoritative.mjs|core.mjs|uid.mjs|all files'"
+
+echo '--- 16. the review round 2: the new-problem end-to-end counterexamples ---'
+# The probe the reviewer attached for round 2 (tools/ats204-probes/review-r2/).
+# It runs against the CURRENT tree: every blocking check must pass.
+PW_NODE_MODULES_R2="${ATS204_PW_NODE_MODULES:-$ROOT/examples/sample-playwright/node_modules}"
+if [ -d "$PW_NODE_MODULES_R2/@playwright/test" ]; then
+  run 16-review-r2-e2e.log node tools/ats204-probes/review-r2/r2-e2e.mjs . "$PW_NODE_MODULES_R2" "${TMPDIR:-/tmp}/ats204-review-r2"
+else
+  {
+    echo "=== SKIPPED ==="
+    echo "no real @playwright/test at: $PW_NODE_MODULES_R2"
+    echo "run 'npm install' in examples/sample-playwright to enable this probe"
+  } > "$OUT/16-review-r2-e2e.log" 2>&1
+  echo "  wrote $OUT/16-review-r2-e2e.log (skipped: no real @playwright/test)"
+fi
+
+echo '--- 17. the counterexample of the round 2: the new assertions on the rejected tree ---'
+# The three assertions of the round-2 fix, run against the tree the round-2
+# review rejected (43bb07e). They must FAIL there.
+run 17-counterexample-r2.log bash tools/ats204-probes/counterexample-r2.sh
 
 echo
 echo "evidence collected into $OUT"

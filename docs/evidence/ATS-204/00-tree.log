@@ -1,11 +1,11 @@
 === command ===
 bash -c git log --oneline -5; echo; git status --short
 === output ===
-5ddfd68 chore(ATS-204): 在合并 dev 之后重新生成 CHECKSUMS.sha256
-1d46d21 merge(dev): 把 dev（ATS-209 的交付）并入本任务分支
-ba76821 test(ATS-204): 补齐第 1 轮复核的回归用例与证据日志
-2b56806 chore(ATS-204): 重新生成 CHECKSUMS.sha256
-3b92c63 docs(ATS-204): 第 1 轮复核的 7 项修改记入设计书与 WBS 行
+5aaf6b7 Merge branch 'dev' of D:/ICHOR into agent/m3/seikoist-166
+c370e84 chore(ATS-204): 在合并 dev 之后的交付树上重新生成 CHECKSUMS.sha256
+9a5aeab docs(ATS-204): 索引与设计书同步第 2 轮的修改，证据改到合并 dev 后的树上
+70a39e4 merge(ATS-103): 第 3 轮返工交付（R1-R4 修正 + 证据 + 一处 CORS 修复）
+9e599b1 merge(dev): 合入最新 dev（ATS-212 最终树）
 
  M docs/evidence/ATS-204/00-tree.log
 === exit code: 0 ===
