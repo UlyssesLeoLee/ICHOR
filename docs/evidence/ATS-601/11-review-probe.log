@@ -1,0 +1,33 @@
+=== ATS-601 evidence: the review probe (review-r1.mjs) against the delivered tree ===
+tree : 0cd7dd20e3536eb618e5c58c598ab016cdb98adb
+date : 2026-11-06T18:33:27Z
+
+PASS  R1  resolveSession never hands out a idle local-device session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  adapter.resolveDevice never hands out a idle local-device session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  resolveSession never hands out a running local-device session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  adapter.resolveDevice never hands out a running local-device session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  resolveSession never hands out a idle local-emulator session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  adapter.resolveDevice never hands out a idle local-emulator session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  resolveSession never hands out a running local-emulator session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  adapter.resolveDevice never hands out a running local-emulator session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  resolveSession never hands out a idle remote-farm session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  adapter.resolveDevice never hands out a idle remote-farm session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  resolveSession never hands out a running remote-farm session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  adapter.resolveDevice never hands out a running remote-farm session  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R1  an expired farm lease is refused even with { requireConnected: false }  -- code=REMOTE_TARGET_UNAVAILABLE
+PASS  R2  adapter.resolveDevice refuses an unregistered session (registeredSessionIds omitted)  -- code=MOBILE_SESSION_NOT_REGISTERED
+PASS  R2  adapter.resolveDevice refuses an unregistered session (registeredSessionIds = [])  -- code=MOBILE_SESSION_NOT_REGISTERED
+PASS  R2  adapter.resolveDevice refuses an unregistered session (registeredSessionIds = null)  -- code=MOBILE_SESSION_NOT_REGISTERED
+PASS  R2  adapter.resolveDevice refuses an unregistered session (registeredSessionIds = "ses_unreg_x" (string))  -- code=MOBILE_SESSION_NOT_REGISTERED
+PASS  C2  control: a registered created session still resolves  -- returned state=created
+PASS  R3  a session claiming capabilities its target never declared cannot negotiate tapOn  -- code=REMOTE_CAPABILITY_MISSING
+PASS  C3  control: a session within its target still negotiates takeScreenshot
+PASS  R4  assertTrustedProject accepts the trustOf() verdict of a TRUSTED project
+PASS  C4  control: assertTrustedProject refuses the trustOf() verdict of a revoked project
+PASS  C4  control: assertTrustedProject refuses the trustOf() verdict of a never vouched project
+PASS  R5  negotiateWithDevice does not report ui.hierarchy as proved by a FAILED session
+NOTE  A1  ses_1 registered for another target is not usable on tgt_farm  -- accepted (sessionId-only registration)
+NOTE  A2  leaseExpiresAt="12345" is not a live lease  -- Date.parse -> +012344-12-31T15:00:00.000Z
+NOTE  A2  leaseExpiresAt="99999" is not a live lease  -- Date.parse -> +099998-12-31T15:00:00.000Z
+
+RESULT: 0 failed (required + control lines only; A* lines are advisory)
