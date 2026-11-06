@@ -23,5 +23,5 @@ PASS ST-216-4c the per-run checks are anchored to the bridge-reported counters -
 PASS ST-216-6a the same defect behind different ids clusters together -- AssertionError: expected <n> to be <n> -- id <uuid>
 PASS ST-216-6b a different defect does NOT share the signature -- TimeoutError: page.waitForTimeout exceeded
 PASS ST-216-6c the real failures are clustered exactly as the raw error texts say -- raw groups=[["Error: expect(locator).toHaveText(expected) failed",1]] module groups=[["Error: expect(locator).toHaveText(expected) failed",1]]
-scratch: C:\tmp\multica-task-3945425265\ats216-ev2\st216-Ea3aJf
+scratch: C:\tmp\multica-task-3945425265\ats216-ev3\st216-NGN8Hj
 RESULT: 25/25

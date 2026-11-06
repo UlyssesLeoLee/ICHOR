@@ -5,12 +5,12 @@ PASS BC-1 the portable UI has no page error on load
 PASS BC-2a the portable UI shows the quality tab -- 1 button(s)
 PASS BC-2b the portable UI renders the quality metrics -- 4 metric card(s)
 PASS BC-2c the portable UI shows the failed case count -- 通过 / 1 / 用例级 · 不含重试 / 失败 / 1 / 用例级 · 可核对原始结果 / 重试后通过 / 0 / 0 次重试 / 0 个用例 / 已取消/中断 / 0 / 运行级 · 不计入失败
-PASS BC-3 the portable UI reports the reconciliation -- 核对项	期望	实得	结论 / run run_1_382f603364a5ccd34b99905f: summary.passed matches the case list	1	1	一致 / run run_1_382f603364a5ccd34b99905f: summary.failed matches the case list	1	1	一致 / run run_1_382f603364a5ccd34b99905f: summary.flaky matches the case list	0	0	一致
+PASS BC-3 the portable UI reports the reconciliation -- 核对项	期望	实得	结论 / run run_1_a93abfc0c681d4f6245a68f2: summary.passed matches the case list	1	1	一致 / run run_1_a93abfc0c681d4f6245a68f2: summary.failed matches the case list	1	1	一致 / run run_1_a93abfc0c681d4f6245a68f2: summary.flaky matches the case list	0	0	一致
 PASS BC-6a the portable UI has no console error
 PASS BC-6b the Next workbench has no page error on load
 PASS BC-4a the Next workbench shows the quality tab -- 1 button(s)
 PASS BC-4b the Next workbench renders the quality metrics -- 4 card(s)
 PASS BC-5a the Next workbench shows the failed case count
 PASS BC-6c the Next workbench has no console error
-scratch: C:\tmp\multica-task-3945425265\ats216-ev2\bc216-t41tO8
+scratch: C:\tmp\multica-task-3945425265\ats216-ev3\bc216-bEgn1E
 RESULT: 14/14
