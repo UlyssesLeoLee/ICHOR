@@ -132,20 +132,16 @@ EXPECTED = {
         9: "Start-Process 'http://127.0.0.1:",
     },
     'tools/generate_test_docs.py': {
-            348: "'localhost:3000 + ",
-            354: "'Host=evil.example:",
-            451: '同 LAN 他机尝试访问 ',
+            357: "'localhost:3000 + ",
+            363: "'Host=evil.example:",
+            460: '同 LAN 他机尝试访问 ',
         },
-        # The ATS-103 WBS updater mentions the port inside a NOTE TEXT (the
-            # value never takes effect). The ADR cites it, so this script checks it.
-            #
-            # The needles deliberately do NOT contain the port literal: writing it
-            # here would add a runtime port occurrence to this file, and the ATS-101
-            # port audit would then report this file as a port-hardcoding site.
-            'tools/update_wbs_ats103.py': {
-                110: 'output:export 下的真实形态是导出页到 127.0.0.1:',
-                114: 'staticFile() 以该目录为静态根',
-            },
+        # The ATS-103 WBS updater used to mention the port inside a NOTE
+        # TEXT (the value never took effect), and the ADR cited that line.
+        # ATS-103 rewrote the note so it names the Bridge rather than
+        # spelling out the port -- the note therefore no longer contains a
+        # port literal, it is no longer a non-runtime port mention, and it
+        # no longer needs a citation here.
         }
 
 # ---------------------------------------------------------------------------
@@ -177,7 +173,7 @@ PORT_AUDITED = {
     # RUNTIME port hardcodings: the audit validates each of these positions
     # against the source.
     'apps/studio/lib/api.ts': {14: 'the API base URL'},
-    'apps/studio/app/page.tsx': {81: 'the workbench footer text'},
+    'apps/studio/app/page.tsx': {116: 'the workbench footer text'},
     'apps/studio/public/fallback.html': {3: 'the portable UI footer text'},
     'src-tauri/src/lib.rs': {19: 'the ATS_PORT environment default'},
 }

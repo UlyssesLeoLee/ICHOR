@@ -269,7 +269,8 @@ setInterval(()=>{
 },lockVerifyIntervalFromEnv(process.env.ATS_LOCK_VERIFY_MS)).unref();
 
 const ORIGINS=new Set([`http://localhost:${PORT}`,`http://127.0.0.1:${PORT}`,'http://localhost:3000','http://127.0.0.1:3000','tauri://localhost','http://tauri.localhost','https://tauri.localhost']);
-const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.zip':'application/zip','.txt':'text/plain; charset=utf-8','.map':'application/json'};
+// ATS-216: the `.mjs` type is here because the portable UI imports the shared quality module (`apps/studio/public/quality.mjs`) as an ES module; a browser refuses to execute a module served with a non-JavaScript MIME type.
+const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.zip':'application/zip','.txt':'text/plain; charset=utf-8','.map':'application/json'};
 const respond=(res,status,obj)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(obj));};
 const err=(res,status,msg,extra)=>respond(res,status,extra?{error:msg,...extra}:{error:msg});
 /**
@@ -556,7 +557,12 @@ const server=http.createServer(async(req,res)=>{
  // (`DELETE /api/projects/<id>/env`), so it has to be in the allowed
  // methods -- a cross-origin client (the Tauri shell, the Next dev server)
  // could not delete a profile without it.
- res.setHeader('Access-Control-Allow-Methods','GET, POST, PUT, DELETE, OPTIONS');res.setHeader('Access-Control-Allow-Headers','Content-Type, X-ATS-Token');res.setHeader('Vary','Origin');}
+ //
+ // `Access-Control-Allow-Origin` names the requesting origin back to the
+ // browser. Without it the browser blocks EVERY cross-origin response, so a
+ // whitelisted client (the Next dev server on 3000, the Tauri shell) could
+ // not read any API answer even though the origin passed the whitelist.
+ res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Access-Control-Allow-Methods','GET, POST, PUT, DELETE, OPTIONS');res.setHeader('Access-Control-Allow-Headers','Content-Type, X-ATS-Token');res.setHeader('Vary','Origin');}
  if(req.method==='OPTIONS'){res.writeHead(204);return res.end();}
  const u=new URL(req.url,`http://127.0.0.1:${PORT}`),p=u.pathname;
  if(p==='/api/health')return respond(res,200,{ok:true,version:'0.1.0',mode:'local',node:process.version});

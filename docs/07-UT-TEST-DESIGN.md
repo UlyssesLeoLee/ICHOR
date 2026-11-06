@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：554；已执行通过：538；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：563；已执行通过：547；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -15,6 +15,15 @@
 |UT-CORE-004|FR-001|异常|缺失 package.json|提供上级临时目录|抛 PROJECT_PACKAGE_JSON_REQUIRED|node --test|PASS|
 |UT-RUN-001|FR-009|异常|项目没有 Playwright CLI|node_modules 无 CLI|不自动安装，抛 PLAYWRIGHT_NOT_INSTALLED|node --test|PASS|
 |UT-RPT-001|FR-016|正常|报告摘要计数|JSON 含 expected/unexpected/skipped|总数3,通过1,失败1,跳过1|node --test|PASS|
+|UT-QUAL-001|FR-016|正常|运行状态分组|passed/failed/cancelled/error/interrupted/queued/running/cancelling|verdict / inconclusive / inFlight 三组，未知状态归 inconclusive|node --test|PASS|
+|UT-QUAL-002|FR-016|正常|取消的运行不算失败也不算通过|一次取消 + 一次失败|取消计入 cancelled；其用例归 inconclusive；通过率的分母不含取消|node --test|PASS|
+|UT-QUAL-003|FR-016|正常|重试后通过的用例单列|一次 failed + 一次 passed 的 attempt|用例计入 flaky 而非 passed/failed；初次尝试的 failed 仍可见|node --test|PASS|
+|UT-QUAL-004|FR-016|边界|未知状态不猜测|用例状态与运行状态各一个未知值|用例归 unknown、运行归 inconclusive，均不折成通过或失败|node --test|PASS|
+|UT-QUAL-005|FR-016|正常|指标与 Bridge 报告的计数器对账|summary 与用例列表一致的运行|逐项一致，对账结论为一致|node --test|PASS|
+|UT-QUAL-006|FR-016|异常|summary 与用例列表不一致时报告差异|summary 声称 1 通过 0 失败，列表里是一个失败用例|对账结论为不一致，且逐项指出差异|node --test|PASS|
+|UT-QUAL-007|FR-016|正常|失败聚类按归一化后的签名|同一断言的两个实例（id/数字不同）|归一化后相同，聚为一类；不同错误类型不共享签名|node --test|PASS|
+|UT-QUAL-008|FR-016|边界|ANSI 颜色码不改变签名|带色与不带色的同一错误|签名相同，且不含转义字符|node --test|PASS|
+|UT-QUAL-009|FR-016|正常|跨运行维度识别不稳定用例|一个运行失败、另一个运行通过的同一用例|判为不稳定并单列；同名不同文件视为不同用例|node --test|PASS|
 |UT-CORE-005|NFR-005|清理|临时夹清理|准备好独立测试 fixture|测试后的临时夹可删除|node --test|PASS|
 |UT-CORE-006|FR-003|边界|忽略 node_modules 中测试|仓库含 node_modules/test.spec.ts|不出现在测试清单|设计用例，待自动化|PENDING|
 |UT-CORE-007|FR-004|边界|嵌套深度上限|超过 14 层的测试路径|安全终止扫描，不陷入递归|设计用例，待自动化|PENDING|

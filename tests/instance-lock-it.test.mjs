@@ -73,8 +73,15 @@ async function startBridge(dataDir, env = {}) {
   return { cp, port, exited, stderr: () => stderr };
 }
 
+// The health probe is BOUNDED. An unbounded fetch turns ONE request that
+// never comes back into a stall of the whole boot window, and the boot wait
+// then reports "the bridge did not come up" for a bridge that IS listening
+// and merely busy. Measured: a hung probe made the wait 31 s long (the 20 s
+// window plus an ~11 s request that never came back). The timeout is far
+// below the window, so a slow-but-alive bridge is still found, and a hung
+// request is retried instead of consuming the wait.
 async function healthy(port) {
-  try { return (await fetch(`http://127.0.0.1:${port}/api/health`)).ok; } catch { return false; }
+  try { return (await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2000) })).ok; } catch { return false; }
 }
 
 /** Waits until the Bridge answers; false when it exits or the time is up. */
@@ -232,7 +239,18 @@ test('IT-LOCK-006: a lock file deleted under a running Bridge is taken again', a
     }
     assert.ok(back, `the lock was not taken again: ${a.stderr()}`);
     assert.equal(lockOf(data).pid, a.cp.pid);
-    assert.match(a.stderr(), /re-acquired/);
+    // The "re-acquired" line is read from stderr, and stderr is delivered
+    // ASYNCHRONOUSLY: the lock FILE is back a moment before the line that
+    // says so reaches this process. Asserting on the line at the instant
+    // the file was seen is therefore a race -- measured on a busy machine,
+    // the line arrived after the assertion had already run. The line is
+    // waited for, with a bound, so the case checks what it means to check.
+    let reAcquired = false;
+    for (let i = 0; i < 100 && !reAcquired; i++) {
+      reAcquired = /re-acquired/.test(a.stderr());
+      if (!reAcquired) await sleep(50);
+    }
+    assert.ok(reAcquired, `the lock was taken again but not reported: ${a.stderr()}`);
     assert.equal(await healthy(a.port), true);
   } finally { await hardKill(a.cp); }
 });
