@@ -125,7 +125,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    |---|---|---|
    | 1 | `server/index.mjs:47` | 默认值 `process.env.ATS_PORT\|\|4577` |
    | 2 | `server/index.mjs:551` | CSP `connect-src` |
-   | 3 | `apps/studio/lib/api.ts:14` | API Base |
+   | 3 | `apps/studio/lib/api.ts:23` | API Base |
    | 4 | `apps/studio/app/page.tsx:116` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
    | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
    | 6 | `src-tauri/src/lib.rs:19` | `ATS_PORT` 环境变量默认值 |
@@ -159,7 +159,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 | 登记不存在的路径 | **500** + `ENOENT: ... lstat 'D:\definitely'` | 400 | **泄漏宿主绝对路径** | ATS-112 |
 | 下载不存在的附件 | **500** + 泄漏 `ATS_DATA_DIR` 绝对路径 | 404 | **泄漏宿主绝对路径** | ATS-112 |
 
-> **归属说明**：以上 4 项的**根因位置是 `server/index.mjs:998` 的统一错误状态映射**——该处用正则匹配错误消息，未命中即返回 500；`server/index.mjs:999` 随即把 `e.message` 原样回显。因此既造成**归类错误**，也造成**宿主绝对路径泄漏**。其中 `NOT_A_DIRECTORY` 由 `server/core.mjs:762` 抛出，`RUN_NOT_ACTIVE` 由 `server/index.mjs:522` 的 `cancelRun()` 抛出。
+> **归属说明**：以上 4 项的**根因位置是 `server/index.mjs:998` 的统一错误状态映射**——该处用正则匹配错误消息，未命中即返回 500；`server/index.mjs:999` 随即把 `e.message` 原样回显。因此既造成**归类错误**，也造成**宿主绝对路径泄漏**。其中 `NOT_A_DIRECTORY` 由 `server/core.mjs:776` 抛出，`RUN_NOT_ACTIVE` 由 `server/index.mjs:522` 的 `cancelRun()` 抛出。
 > **归属**：全部 4 项均为 **ATS-112**（错误归类与路径泄漏）。仅 `RUN_NOT_ACTIVE` 与 **B-03** 相交——B-03 的自愈路径缺失另在 `server/index.mjs:241`（启动恢复集合遗漏 `cancelling`），二者是**两处不同的缺陷**，不可视为同一处状态机缺口。
 > 本基线的阻断项只有 B-01/B-02/B-03 三项（§4），**不存在编号 B-04**。
 ## 4. 阻断项（3 项）
@@ -169,7 +169,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 
 ### B-01（严重 / P0）Playwright CLI 参数向量含不存在的选项，真实浏览器执行 100% 失败
 
-- **位置**：`server/core.mjs:1101` `safeRunArgs()`
+- **位置**：`server/core.mjs:1186` `safeRunArgs()`
 - **现状**：传入 `--screenshot only-on-failure --video retain-on-failure`。但 `playwright test` CLI **没有** `--screenshot` 与 `--video` 选项（截图/视频是 `playwright.config.ts` 的 `use` 选项，不是 CLI 选项）。实测 `playwright test --help` 输出中无此二者。
 - **复现脚本**：`tools/ats101-probes/scenario-a-b01-cli-args.mjs`（**产品源码未修改**，用真实 `@playwright/test` + 真实 Chromium）
   ```
