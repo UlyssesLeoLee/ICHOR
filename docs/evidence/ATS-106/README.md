@@ -11,12 +11,17 @@
 | `05-python-tools.log` | `tools/test_wbs_common.py` + pytest，带覆盖率 | 通过；`update_wbs_ats106.py` 98%，`wbs_common.py` 97% |
 | `06-wbs-updater-regression.log` | 19 个 WBS 更新脚本共存回归 | RESULT: OK |
 | `07-wbs-state.log` | `docs/WBS.xlsx` 中 ATS-106 行与总览 | 状态 `待审核`，完成率 1，剩余 0 |
-| `08-baseline-regression.log` | 全量套件 `node --test --test-concurrency=2 tests/*.test.mjs`、`node --check`、端口审计、ADR 行号引用、依赖清单 | 784 条：773 通过、0 失败、11 跳过（均不属于本任务）；其余检查均为 OK |
+| `08-baseline-regression.log` | 全量套件 `node --test --test-concurrency=1 tests/*.test.mjs`、`node --check`、端口审计、ADR 行号引用、依赖清单 | 810 条：799 通过、0 失败、11 跳过（均不属于本任务）；其余检查均为 OK |
 | `09-uqh-verify.log` | UQH `verify --base dev` 与各变更文件的行覆盖率 | 见下 |
 
 ## 生成提交
 
-全部日志都在合并后的树上生成：提交 `445953c`，即本任务分支合入 `dev@4878f5b` 之后。全量套件运行时设置了 `ATS_REAL_PLAYWRIGHT_PROJECT`，因此 CT-PF-001 与 CT-ARG-001 也在套件内针对真实安装执行。
+全部日志都在合并后的树上生成，即本任务分支合入 `dev@cea120c` 之后：
+
+- 日志 01–07 生成于 `f15876e`；
+- 日志 08 与 09 生成于 `0f93109`。`0f93109` 与 `f15876e` 之间只有证据脚本多了 `ATS106_TEST_CONCURRENCY` 参数。
+
+全量套件串行执行（`ATS106_TEST_CONCURRENCY=1`）。并行度为 2 时，本机负载下 Bridge 子进程会错过部分测试较短的就绪等待窗口，例如 `tests/runner.test.mjs` 约 2.5 s。失败的文件每次不同，单独重跑都通过。全量套件运行时设置了 `ATS_REAL_PLAYWRIGHT_PROJECT`，因此 CT-PF-001 与 CT-ARG-001 也在套件内针对真实安装执行。
 
 ## 覆盖率
 
@@ -24,10 +29,10 @@
 |---|---:|
 | `server/adapters/playwright-preflight.mjs` | 99.60% |
 | `server/adapters/playwright-cli.mjs` | 94.01% |
-| `server/core.mjs` | 97.56% |
+| `server/core.mjs` | 98.26% |
 | `tools/update_wbs_ats106.py` | 98.46% |
 | `tools/wbs_common.py` | 97.42% |
-| `server/index.mjs` | 33.97% |
+| `server/index.mjs` | 33.18% |
 
 `server/index.mjs` 的大部分代码在 Bridge 子进程中运行，进程内 LCOV 采不到。ATS-106 在该文件中的三处改动（请求体白名单、过滤参数检查、预检门禁）由 IT-PF-001..007 执行，变异 M5–M7 证明删除任一处，IT 都会失败。
 
@@ -36,7 +41,7 @@
 UQH `verify --base dev` 的结论是 BLOCKED，共三项：
 
 - 项目整体行覆盖率 14.90%，且 LCOV 未包含 TSX、Rust 与探针脚本。这两项在本任务之前就存在，涉及的文件都不是 ATS-106 的。
-- `tools/wbs_common.py` 的「design-commit integrity」。分支基线在开发中途从 `dev@72a77da` 移到 `dev@4878f5b`（ATS-207 合入），本分支以合并而非变基同步基线。检查器取 `dev..HEAD` 中第一个设计提交 `ff7c4d5` 的计划，与基于新基线重新封存的计划（设计提交 `eef3f74`）比较；而保留 `ff7c4d5` 的计划又会因基线指纹不符而失败。在不改写历史的前提下，两条规则无法同时满足。该文件的实际改动只有在 `MARKERS` 中登记 `【ATS-106】` 一行。
+- `tools/wbs_common.py` 的「design-commit integrity」。分支基线在开发中途从 `dev@72a77da` 移到 `dev@4878f5b`（ATS-207 合入），之后又移到 `dev@cea120c`（ATS-202 合入），本分支以合并而非变基同步基线。检查器取 `dev..HEAD` 中第一个设计提交 `ff7c4d5` 的计划，与基于新基线重新封存的计划（设计提交 `eef3f74`）比较；而保留 `ff7c4d5` 的计划又会因基线指纹不符而失败。在不改写历史的前提下，两条规则无法同时满足。该文件的实际改动只有在 `MARKERS` 中登记 `【ATS-106】` 一行。
 
 各变更文件的覆盖率检查没有报告问题，测试命令也没有失败。
 

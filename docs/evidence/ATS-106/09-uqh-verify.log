@@ -1,5 +1,5 @@
 === ATS-106 evidence: UQH verify --base dev (coverage gate of .quality/qguard.json) ===
-commit      : f5a56353e589431bd56781e5ce91254c94222f1e
+commit      : 0f9310996014f78fcb1e2777e7acd9f38565f9d1
 command     : python ~/.uqh-global/global_dispatcher.py verify --base dev
 
 QGuard BLOCKED (3 issue(s)):
@@ -11,10 +11,7 @@ QGuard BLOCKED (3 issue(s)):
 the test command did not fail (QGuard lists a failing test command as an issue; none is listed above)
 
 --- per-file line coverage of the changed sources, from .quality/coverage/{node,py}.lcov of the same run ---
-server/adapters/playwright-cli.mjs                      157/167 = 94.01%
-server/adapters/playwright-preflight.mjs                252/253 = 99.60%
-server/core.mjs                                         1119/1147 = 97.56%
-server/index.mjs                                        284/836 = 33.97%
-tools/test_update_wbs_ats106.py                         109/109 = 100.00%
-tools/update_wbs_ats106.py                              64/65 = 98.46%
+server/adapters/playwright-cli.mjs                      90/100 = 90.00%
+server/core.mjs                                         1112/1145 = 97.12%
+server/index.mjs                                        279/811 = 34.40%
 tools/wbs_common.py                                     227/233 = 97.42%

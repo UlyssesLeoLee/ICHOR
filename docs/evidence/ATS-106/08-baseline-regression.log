@@ -1,15 +1,15 @@
 === ATS-106 evidence: baseline regression: npm test / node --check / port audit / ADR citations / dependency manifest ===
-date        : 2026-11-06T10:15:48Z (UTC)
-commit      : 445953cc64a9f5fbc3ff072f5b343515a8fd5844
+date        : 2026-11-06T10:39:33Z (UTC)
+commit      : 0f9310996014f78fcb1e2777e7acd9f38565f9d1
 node        : v24.19.0
 python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
-command     : node --test --test-concurrency=2 tests/*.test.mjs; node --check server/index.mjs; node tools/ats101-probes/scenario-d-port-audit.mjs; python tools/check_adr_citations.py; node tools/gen_dep_manifest.mjs --check
+command     : node --test --test-concurrency=1 tests/*.test.mjs; node --check server/index.mjs; node tools/ats101-probes/scenario-d-port-audit.mjs; python tools/check_adr_citations.py; node tools/gen_dep_manifest.mjs --check
 
---- npm test suite: node --test --test-concurrency=2 tests/*.test.mjs ---
-ℹ tests 784
+--- npm test suite: node --test --test-concurrency=1 tests/*.test.mjs ---
+ℹ tests 810
 ℹ suites 0
-ℹ pass 773
+ℹ pass 799
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 11
