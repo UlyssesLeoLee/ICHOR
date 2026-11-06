@@ -1,0 +1,32 @@
+=== ATS-601 evidence: the three hard rules, side by side ===
+tree : 3966b6d6a79b29b413970adab6d7c33937748b4f
+date : 2026-11-06T14:34:13Z
+
+=== ATS-601 probe: the mobile target/session contract ===
+  (fake targets and fake sessions; no device, no emulator, no ADB)
+
+--- 1. a mobile run is refused explicitly, never run as a browser ---
+  PASS  the mobile runner is registered in the SAME registry
+  PASS  the mobile adapter refuses to start -- code=REMOTE_TARGET_UNAVAILABLE reason=no-driver
+  PASS  the refusal names the reason (no driver yet)
+  PASS  an unsatisfiable request reports EVERY runner it tried, mobile included -- playwright,wdio,mobile
+  PASS  the mobile runner was NOT silently chosen for a web project -- nothing could satisfy the request
+
+--- 2. tapOn without ui.hierarchy is unavailable, not a blind tap ---
+  PASS  the negotiation reports the gap list of THIS execution -- gaps=tapOn,assertVisible
+  PASS  tapOn is in the unavailable list
+  PASS  the tapOn gap names ui.hierarchy -- missing=ui.hierarchy
+  PASS  the tapOn gap says a blind tap is not a substitute
+
+--- 3. an expired farm lease is refused AND reclaimed ---
+  PASS  an expired lease is refused -- reason=lease-expired
+  PASS  the refusal names the lease as the reason
+  PASS  the expired lease is reclaimed back to idle -- state=idle
+
+--- 4. the session answers "which device and what can it do" ---
+  PASS  a usable session resolves
+  PASS  the session carries the proven capability set
+  PASS  a missing target is refused
+
+RESULT: 0 failed -- the mobile contract refuses explicitly, never degrades silently.
+exit=0
