@@ -26,6 +26,10 @@ import { pathToFileURL } from 'node:url';
 
 const TREE = path.resolve(process.argv[2] ?? '.');
 const SCR = path.resolve(process.argv[3] ?? './ce206r3-scratch');
+if (SCR.includes(`${path.sep}docs${path.sep}evidence`)) {
+  console.error('the scratch directory must not live inside docs/evidence: it is not evidence.');
+  process.exit(2);
+}
 const CLI = path.join(TREE, 'tools', 'migrate_state.mjs');
 const UIDS = path.join(TREE, 'tools', 'migrate_uids.mjs');
 const APPLY = pathToFileURL(path.join(TREE, 'server', 'migration', 'apply.mjs')).href;
