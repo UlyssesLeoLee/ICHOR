@@ -57,6 +57,13 @@ export const JOURNAL_SUFFIX = '.migration-journal.json';
 export const MARKER_SUFFIX = '.migration-marker.json';
 
 /**
+ * The suffix of an ARCHIVED backup: a backup that a rollback has already
+ * used. It is kept for the operator, but it is not the backup of the
+ * current state any more.
+ */
+export const ROLLED_BACK_SUFFIX = '.rolled-back';
+
+/**
  * Copies a file to its backup name.
  *
  * @returns {string|null} the path of the backup, or null when there was
@@ -409,6 +416,9 @@ export function applyMigration(dataDir, options = {}) {
     changes: [],
     renamedFolders: [],
     imported: false,
+    backupRefreshed: false,
+    archivedBackup: null,
+    ok: false,
     problems: [],
     undone: [],
     rolledBack: false,
@@ -416,146 +426,161 @@ export function applyMigration(dataDir, options = {}) {
     refused: false,
   };
 
-  // --- the recovery of an interrupted migration --------------------------
-  // A journal on disk means that a previous run was killed half way
-  // through. The migration is finished here, or refused with the recovery
-  // steps -- but never silently reported as a success over a directory
-  // whose evidence is unreachable.
+  // --- the lock -----------------------------------------------------------
+  // The lock is taken BEFORE the first destructive write, and it covers
+  // EVERY write this engine does: the migration itself, the recovery of an
+  // interrupted migration and the import of an already migrated state.
   //
-  // A journal that cannot be PARSED is the worst case: it says nothing
-  // about what the interrupted run did, so the migration cannot know
-  // whether the state file was already written. The migration refuses
-  // rather than guess -- and it keeps the journal, so that the operator
-  // can look at it.
-  const journalFile = path.join(dataDir, JOURNAL_SUFFIX);
-  if (fs.existsSync(journalFile) && !readJournal(dataDir)) {
-    report.problems.push(
-      `JOURNAL_UNREADABLE: the journal ${journalFile} cannot be parsed, so it is not known ` +
-      'whether an earlier migration was interrupted. Look at the journal, remove it once you ' +
-      'have checked the state file, and run "apply" again.'
-    );
-    report.failed = true;
-    report.refused = true;
-    return report;
-  }
-  const pending = readJournal(dataDir);
-  if (pending) {
-    const recovery = recoverInterrupted(dataDir, paths, pending, options);
-    Object.assign(report, recovery.report);
-    if (!recovery.ok) return report;
-    // The recovery FINISHED the migration: the state file already holds the
-    // migrated identifiers and the run folders are back in step with it.
-    // The migration is therefore complete -- and it is NOT migrated again,
-    // because a second migration would replace the v0.1 backup.
-    if (recovery.finished) {
-      report.ok = true;
-      return report;
-    }
-  }
-
-  let raw;
-  try {
-    raw = fs.readFileSync(paths.statePath, 'utf8');
-  } catch (e) {
-    report.problems.push(`STATE_FILE_UNREADABLE: ${e.message}`);
-    report.failed = true;
-    return report;
-  }
-  let state;
-  try {
-    state = JSON.parse(raw);
-  } catch (e) {
-    report.problems.push(`STATE_NOT_JSON: ${e.message}`);
-    report.failed = true;
-    return report;
-  }
-
-  const before = summarizeState(state);
-  const already = isMigrated(state);
-  report.alreadyMigrated = already;
-
-  // --- an already migrated state is never re-migrated --------------------
-  // Re-migrating would overwrite the v0.1 backup with the ALREADY MIGRATED
-  // state, and the rollback would then restore a state that is not the
-  // v0.1 one: the original data would be gone for good.
-  //
-  // The one thing that is still allowed is importing the mirror of an
-  // already migrated state -- that touches neither the state file nor the
-  // backup.
-  if (already) {
-    report.before = before;
-    report.after = before;
-    if (options.dryRun) {
-      report.problems.push('dry run: nothing written');
-      return report;
-    }
-    if (!options.importDatabase) {
-      report.problems.push('ALREADY_MIGRATED: the state file is already migrated; nothing was written');
+  // The lock is taken HERE -- inside the engine -- and not in the CLI: the
+  // CLI only READS the lock, and a read leaves a window between the check
+  // and the write, in which the Bridge can start.
+  let locked = false;
+  if (!options.dryRun) {
+    try {
+      acquireBridgeLock(paths.lockFile);
+      locked = true;
+    } catch (e) {
+      report.problems.push(`BRIDGE_ALREADY_RUNNING: ${e.message}`);
       report.failed = true;
       report.refused = true;
       return report;
     }
-    const imported = importAndVerify(state, paths.dbPath, options);
-    if (!imported.ok) {
-      report.problems.push(...imported.problems);
+  }
+
+  try {
+    // --- the recovery of an interrupted migration --------------------------
+    // A journal on disk means that a previous run was killed half way
+    // through. The migration is finished here, or refused with the recovery
+    // steps -- but never silently reported as a success over a directory
+    // whose evidence is unreachable.
+    //
+    // A journal that cannot be PARSED is the worst case: it says nothing
+    // about what the interrupted run did, so the migration cannot know
+    // whether the state file was already written. The migration refuses
+    // rather than guess -- and it keeps the journal, so that the operator
+    // can look at it.
+    const journalFile = path.join(dataDir, JOURNAL_SUFFIX);
+    if (fs.existsSync(journalFile) && !readJournal(dataDir)) {
+      report.problems.push(
+        `JOURNAL_UNREADABLE: the journal ${journalFile} cannot be parsed, so it is not known ` +
+        'whether an earlier migration was interrupted. Look at the journal, remove it once you ' +
+        'have checked the state file, and run "apply" again.'
+      );
+      report.failed = true;
+      report.refused = true;
+      return report;
+    }
+    const pending = readJournal(dataDir);
+    if (pending) {
+      if (options.dryRun) {
+        report.problems.push(
+          'dry run: an interrupted migration was found; nothing was written'
+        );
+        return report;
+      }
+      // The recovery runs UNDER THE LOCK: it renames run folders, and a
+      // rename under a running Bridge is exactly what the lock is for.
+      const recovery = recoverInterrupted(dataDir, paths, pending, options);
+      Object.assign(report, recovery.report);
+      if (!recovery.ok) return report;
+      // The recovery FINISHED the migration: the state file already holds the
+      // migrated identifiers and the run folders are back in step with it.
+      // The migration is therefore complete -- and it is NOT migrated again,
+      // because a second migration would replace the v0.1 backup.
+      if (recovery.finished) {
+        report.ok = true;
+        return report;
+      }
+    }
+
+    let raw;
+    try {
+      raw = fs.readFileSync(paths.statePath, 'utf8');
+    } catch (e) {
+      report.problems.push(`STATE_FILE_UNREADABLE: ${e.message}`);
       report.failed = true;
       return report;
     }
-    if (fs.existsSync(paths.dbPath)) fs.rmSync(paths.dbPath, { force: true });
-    fs.renameSync(imported.tmp, paths.dbPath);
-    report.imported = true;
-    report.ok = true;
-    return report;
-  }
+    let state;
+    try {
+      state = JSON.parse(raw);
+    } catch (e) {
+      report.problems.push(`STATE_NOT_JSON: ${e.message}`);
+      report.failed = true;
+      return report;
+    }
 
-  let plan;
-  try {
-    plan = planMigration(state);
-  } catch (e) {
-    report.problems.push(e.message);
-    report.failed = true;
-    report.refused = true;
-    return report;
-  }
-  const after = summarizeState(plan.state);
-  report.before = before;
-  report.after = after;
-  report.changes = plan.changes;
-  report.renamedFolders = plan.renamedFolders;
+    const before = summarizeState(state);
+    const already = isMigrated(state);
+    report.alreadyMigrated = already;
 
-  // The counts are checked BEFORE anything is written. A migration that
-  // would change the number of projects or runs is refused, not applied.
-  // The refusal is a REPORT and not an exception: the caller asked for a
-  // migration, and the answer is "not this one".
-  try {
-    assertCountsPreserved(before, after);
-  } catch (e) {
-    report.problems.push(e.message);
-    report.failed = true;
-    report.refused = true;
-    return report;
-  }
+    // --- an already migrated state is never re-migrated --------------------
+    // Re-migrating would overwrite the v0.1 backup with the ALREADY MIGRATED
+    // state, and the rollback would then restore a state that is not the
+    // v0.1 one: the original data would be gone for good.
+    //
+    // The one thing that is still allowed is importing the mirror of an
+    // already migrated state -- that touches neither the state file nor the
+    // backup.
+    if (already) {
+      report.before = before;
+      report.after = before;
+      if (options.dryRun) {
+        report.problems.push('dry run: nothing written');
+        return report;
+      }
+      if (!options.importDatabase) {
+        report.problems.push('ALREADY_MIGRATED: the state file is already migrated; nothing was written');
+        report.failed = true;
+        report.refused = true;
+        return report;
+      }
+      const imported = importAndVerify(state, paths.dbPath, options);
+      if (!imported.ok) {
+        report.problems.push(...imported.problems);
+        report.failed = true;
+        return report;
+      }
+      if (fs.existsSync(paths.dbPath)) fs.rmSync(paths.dbPath, { force: true });
+      fs.renameSync(imported.tmp, paths.dbPath);
+      report.imported = true;
+      report.ok = true;
+      return report;
+    }
 
-  if (options.dryRun) {
-    report.problems.push('dry run: nothing written');
-    return report;
-  }
+    let plan;
+    try {
+      plan = planMigration(state);
+    } catch (e) {
+      report.problems.push(e.message);
+      report.failed = true;
+      report.refused = true;
+      return report;
+    }
+    const after = summarizeState(plan.state);
+    report.before = before;
+    report.after = after;
+    report.changes = plan.changes;
+    report.renamedFolders = plan.renamedFolders;
 
-  // --- the lock -----------------------------------------------------------
-  // The lock is taken for the whole write, so that the Bridge cannot start
-  // in between the folder rename and the state rewrite.
-  let locked = false;
-  try {
-    acquireBridgeLock(paths.lockFile);
-    locked = true;
-  } catch (e) {
-    report.problems.push(`BRIDGE_ALREADY_RUNNING: ${e.message}`);
-    report.failed = true;
-    report.refused = true;
-    return report;
-  }
+    // The counts are checked BEFORE anything is written. A migration that
+    // would change the number of projects or runs is refused, not applied.
+    // The refusal is a REPORT and not an exception: the caller asked for a
+    // migration, and the answer is "not this one".
+    try {
+      assertCountsPreserved(before, after);
+    } catch (e) {
+      report.problems.push(e.message);
+      report.failed = true;
+      report.refused = true;
+      return report;
+    }
 
-  try {
+    if (options.dryRun) {
+      report.problems.push('dry run: nothing written');
+      return report;
+    }
+
     // --- the journal ----------------------------------------------------
     // The journal is written BEFORE the first destructive write, so that a
     // process that is killed leaves a record of what it was doing.
@@ -575,7 +600,28 @@ export function applyMigration(dataDir, options = {}) {
     // `--import-db`, say) would otherwise replace it with the already
     // migrated state, and the rollback would no longer restore v0.1.
     if (fs.existsSync(paths.statePath)) {
-      if (!fs.existsSync(`${paths.statePath}${BACKUP_SUFFIX}`)) {
+      // The backup holds the state as it was BEFORE this migration, and it
+      // is what the rollback restores. A backup that is STALE -- one that
+      // holds a different state than the one being migrated now -- would
+      // make the rollback restore the WRONG state, so a stale backup is
+      // replaced by the current one. A backup that still holds the state
+      // that is being migrated is left alone.
+      const backup = `${paths.statePath}${BACKUP_SUFFIX}`;
+      let stale = false;
+      if (fs.existsSync(backup)) {
+        stale = digestOf(backup) !== digestOf(paths.statePath);
+      }
+      if (stale) {
+        // The backup holds a DIFFERENT state than the one being migrated.
+        // It is archived -- not overwritten and not deleted: it is the only
+        // copy of the state that was migrated before, and the operator may
+        // still want it. A fresh backup of the state that is migrated now
+        // is written in its place.
+        const archived = archiveBackup(backup);
+        if (archived) report.archivedBackup = archived;
+        report.backupRefreshed = true;
+      }
+      if (!fs.existsSync(backup)) {
         backupFile(paths.statePath);
       }
       journal.backups.push(paths.statePath);
@@ -691,21 +737,54 @@ export function recoverInterrupted(dataDir, paths, journal, options = {}) {
     current = null;
   }
 
-  // The state file holds the NEW identifiers (the write happened) but the
-  // folders are still named after the old ones: the migration is finished
-  // by renaming the folders.
-  if (current && isMigrated(current) && journal.steps.includes('state')) {
+  // --- the state file decides, NOT the journal ---------------------------
+  // The journal records what the interrupted run SAID it did. The state
+  // file records what actually happened. The two can disagree: a process
+  // that is killed between the atomic write of the state file and the
+  // `journal.done('state')` call leaves a state file that IS migrated and
+  // a journal that does NOT know it.
+  //
+  // Judging the recovery by the journal alone is therefore wrong: it
+  // reports such a migration as "UNDONE" while the state file holds the
+  // MIGRATED identifiers -- and then it clears the journal, so nothing is
+  // left to tell the operator that the directory is half-migrated.
+  //
+  // The state file is the TRUTH: if it holds the migrated identifiers, the
+  // migration happened, and the recovery either finishes it (the folders
+  // are renamed to what the state file refers to) or refuses and points at
+  // the rollback. It is NEVER reported as undone.
+  if (current && isMigrated(current)) {
     const pending = [];
     for (const r of current.runs ?? []) {
       const legacy = r.legacyId ?? null;
       if (!legacy) continue;
       if (fs.existsSync(path.join(paths.runsDir, r.id))) continue;
-      if (!fs.existsSync(path.join(paths.runsDir, legacy))) continue;
-      pending.push({ from: legacy, to: String(r.id) });
+      if (fs.existsSync(path.join(paths.runsDir, legacy))) {
+        pending.push({ from: legacy, to: String(r.id) });
+      }
     }
     try {
       const renamed = renameRunFolders(paths.runsDir, pending);
       report.renamedFolders = renamed;
+      // A run whose folder is under neither name cannot be reached. The
+      // recovery is therefore NOT a success: the operator has to restore
+      // the pre-migration state with the rollback.
+      const stillMissing = current.runs
+        .filter((r) => !fs.existsSync(path.join(paths.runsDir, r.id)))
+        .map((r) => String(r.id));
+      if (stillMissing.length) {
+        report.problems.push(
+          `an interrupted migration was found and could NOT be finished: the run folder(s) ` +
+          `${stillMissing.join(', ')} exist under neither the old nor the new name. ` +
+          'The state file holds the migrated identifiers. Run "rollback" to restore the ' +
+          'pre-migration state.'
+        );
+        report.failed = true;
+        report.refused = true;
+        // The journal is KEPT: it is the record of the interrupted run, and
+        // the directory is still half-migrated.
+        return { ok: false, report };
+      }
       report.problems.push(
         `an interrupted migration was FINISHED: ${renamed.length} run folder(s) were renamed`
       );
@@ -735,7 +814,8 @@ export function recoverInterrupted(dataDir, paths, journal, options = {}) {
     }
   }
 
-  // The state file was NOT written yet: the migration can simply be undone.
+  // The state file was NOT written (or does not hold the migrated
+  // identifiers): the migration can simply be undone.
   if (!journal.steps.includes('state')) {
     report.undone = undoMigration(journal, paths);
     report.rolledBack = true;
@@ -775,6 +855,45 @@ export function rollbackMigration(dataDir, options = {}) {
   if (!fs.existsSync(backup)) {
     return { restored: false, undone, problems: ['NO_BACKUP_TO_RESTORE'], lost };
   }
+
+  // --- the lock -----------------------------------------------------------
+  // The rollback rewrites the state file, renames the run folders and
+  // restores the database. The lock is taken HERE -- inside the engine --
+  // for the WHOLE write, exactly like the migration takes it: a lock that
+  // is only READ leaves a window in which the Bridge can start and write
+  // its own copy of the state back over the restored one.
+  let locked = false;
+  try {
+    acquireBridgeLock(paths.lockFile);
+    locked = true;
+  } catch (e) {
+    return {
+      restored: false,
+      undone,
+      lost,
+      problems: [`BRIDGE_ALREADY_RUNNING: ${e.message}`],
+    };
+  }
+  try {
+    return rollbackMigrationLocked(dataDir, paths, options, problems, undone, lost, backup);
+  } finally {
+    if (locked) releaseBridgeLock(paths.lockFile);
+  }
+}
+
+/**
+ * The body of the rollback, under the lock.
+ *
+ * @param {string} dataDir the data directory
+ * @param {object} paths the paths of the data directory
+ * @param {object} options the options of the call
+ * @param {string[]} problems the problems collected so far
+ * @param {string[]} undone the undone steps collected so far
+ * @param {string[]} lost the runs that would be lost collected so far
+ * @param {string} backup the path of the backup
+ * @returns {{restored:boolean, undone:string[], problems:string[], lost:string[]}}
+ */
+function rollbackMigrationLocked(dataDir, paths, options, problems, undone, lost, backup) {
 
   // --- the divergence check ----------------------------------------------
   // The rollback restores the state file from the backup. If the state file
@@ -818,6 +937,30 @@ export function rollbackMigration(dataDir, options = {}) {
     appliedIdentityDigest !== currentIdentityDigest
   );
 
+  // --- a rollback that would LOSE a run is refused ------------------------
+  // The question is not "has the state changed since the migration" but
+  // "would this rollback throw a run away". The two are NOT the same: a
+  // migration that was done by another tool leaves no marker at all, and a
+  // run that was recorded afterwards is then lost SILENTLY.
+  //
+  // So the refusal is driven by the runs themselves: as soon as
+  // `runsLostByRollback` names a run, the rollback refuses -- whatever the
+  // marker says and whatever the digests say -- and it NAMES the run. Only
+  // an explicit `--force` performs the rollback anyway.
+  if (lost.length && !options.force) {
+    const detail = `The rollback would DISCARD ${lost.length} run(s) that the backup does not ` +
+      `hold: ${lost.join(', ')}.`;
+    return {
+      restored: false,
+      undone,
+      lost,
+      problems: [
+        `RUNS_WOULD_BE_LOST: ${detail} Re-run with --force to roll back anyway, or remove ` +
+        'the changes yourself first.',
+      ],
+    };
+  }
+
   if (diverged && !options.force) {
     // The rollback would discard what changed since the migration. The runs
     // that would be lost are NAMED, so the operator can see what is at
@@ -857,5 +1000,71 @@ export function rollbackMigration(dataDir, options = {}) {
   const pending = readJournal(dataDir);
   if (pending) pending.clear();
 
+  // --- the backup and the marker are invalidated by the rollback ----------
+  // The backup restored the state as it was BEFORE one particular
+  // migration. Once that migration has been rolled back, the backup is
+  // STALE: it holds a state that is no longer the one the directory went
+  // through. A later `apply` would migrate a different state, and a later
+  // `rollback` would restore THIS stale one -- the run that was recorded in
+  // between would disappear from the state, and its folder would be left
+  // behind under the new name.
+  //
+  // The backup is therefore archived (renamed) when the rollback succeeds:
+  // it is kept for the operator, but it is no longer the backup of the
+  // current state. The marker goes with it -- it describes what that one
+  // migration wrote.
+  const archived = archiveBackup(backup);
+  if (archived) undone.push(`backup archived: ${archived}`);
+  const markerFile = path.join(dataDir, MARKER_SUFFIX);
+  if (fs.existsSync(markerFile)) {
+    fs.rmSync(markerFile, { force: true });
+    undone.push(`marker removed: ${markerFile}`);
+  }
+
   return { restored: problems.length === 0, undone, problems, lost };
+}
+
+/**
+ * Archives a backup file after it has been used by a rollback.
+ *
+ * The file is RENAMED, not deleted: the operator can still look at it, but
+ * it is not the backup of the current state any more -- a later `apply`
+ * writes a fresh one.
+ *
+ * @param {string} backup the path of the backup
+ * @returns {string|null} the path of the archived file, or null
+ */
+export function archiveBackup(backup) {
+  if (!fs.existsSync(backup)) return null;
+  const archived = freeArchiveName(backup);
+  try {
+    fs.renameSync(backup, archived);
+  } catch {
+    // An archive that cannot be written is not a reason to fail a
+    // rollback that has already restored the state -- but the stale
+    // backup is removed, so that it cannot be restored by mistake.
+    try {
+      fs.rmSync(backup, { force: true });
+    } catch { /* nothing more can be done here */ }
+    return null;
+  }
+  return archived;
+}
+
+/**
+ * The name of an archived backup that does not exist yet.
+ *
+ * The archives are never overwritten: every rolled-back backup keeps its
+ * own name, so the operator can look at all of them.
+ *
+ * @param {string} backup the path of the backup
+ * @returns {string} a free archive path
+ */
+export function freeArchiveName(backup) {
+  let candidate = `${backup}${ROLLED_BACK_SUFFIX}`;
+  let n = 1;
+  while (fs.existsSync(candidate)) {
+    candidate = `${backup}${ROLLED_BACK_SUFFIX}.${n++}`;
+  }
+  return candidate;
 }
