@@ -1,6 +1,6 @@
-=== ATS-601 evidence: the three hard rules, side by side ===
-tree : 4ff5c36866f17704a930c1d60d8e55aab4e01e86
-date : 2026-11-06T15:03:10Z
+=== ATS-601 evidence: the contract probe: the hard rules side by side ===
+tree : 0cd7dd20e3536eb618e5c58c598ab016cdb98adb
+date : 2026-11-06T18:29:12Z
 
 === ATS-601 probe: the mobile target/session contract ===
   (fake targets and fake sessions; no device, no emulator, no ADB)
@@ -23,10 +23,28 @@ date : 2026-11-06T15:03:10Z
   PASS  the refusal names the lease as the reason
   PASS  the expired lease is reclaimed back to idle -- state=idle
 
+--- 3b. a device another run holds is refused ---
+  PASS  an occupied device is refused -- reason=device-occupied
+  PASS  the refusal names the occupancy as the reason
+
+--- 3c. a device that is not connected is refused ---
+  PASS  a device that is not connected is refused -- reason=device-not-connected
+  PASS  the refusal names the missing connection as the reason
+
 --- 4. the session answers "which device and what can it do" ---
   PASS  a usable session resolves
   PASS  the session carries the proven capability set
   PASS  a missing target is refused
 
+--- 5. only a session the user registered may be used ---
+  PASS  an unregistered session is refused (no registration list) -- code=MOBILE_SESSION_NOT_REGISTERED
+  PASS  an unregistered session is refused (an empty registration list) -- code=MOBILE_SESSION_NOT_REGISTERED
+  PASS  an unregistered session is refused (a registration list that is not a list) -- code=MOBILE_SESSION_NOT_REGISTERED
+  PASS  a registered session still resolves
+
+--- 6. a session may not claim capabilities its target never declared ---
+  PASS  a session claiming undeclared capabilities is refused -- code=REMOTE_CAPABILITY_MISSING
+  PASS  the refusal names the undeclared capabilities -- undeclared=app.install,app.launch,log.read,screen.record,ui.hierarchy,ui.tap
+
+
 RESULT: 0 failed -- the mobile contract refuses explicitly, never degrades silently.
-exit=0

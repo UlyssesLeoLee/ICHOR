@@ -1,6 +1,6 @@
 === ATS-601 evidence: the ATS-301 gate (WBS shared-cell regression + ADR citations + port audit) ===
-tree : 4ff5c36866f17704a930c1d60d8e55aab4e01e86
-date : 2026-11-06T15:04:07Z
+tree : 0cd7dd20e3536eb618e5c58c598ab016cdb98adb
+date : 2026-11-06T18:29:12Z
 
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
 repo root : /d/ICHOR
@@ -131,9 +131,9 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:4913  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:4979  "input": "Host=evil.example:4577",
-  tests/test-cases.json:6244  "input": "同 LAN 他机尝试访问 4577",
+  tests/test-cases.json:5122  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:5188  "input": "Host=evil.example:4577",
+  tests/test-cases.json:6453  "input": "同 LAN 他机尝试访问 4577",
   tools/generate_test_docs.py:290  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
   tools/generate_test_docs.py:296  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
   tools/generate_test_docs.py:382  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),

@@ -1,26 +1,31 @@
 #!/usr/bin/env node
 /**
- * ATS-601 evidence probe: the three hard rules of the mobile contract, shown
- * as they actually behave.
- *
- * The unit tests (UT-MOB-*) assert the rules one by one. This probe shows
- * the three rules that the whole delivery stands on, side by side, on ONE
- * fake target and ONE fake session:
- *
- *   1. NO SILENT DEGRADATION -- a caller that asked for a mobile run gets
- *      an EXPLICIT rejection, and never a browser run instead. The probe
- *      shows what the registry does with the mobile adapter in it.
- *   2. NO BLIND TAP -- `tapOn` without `ui.hierarchy` is UNAVAILABLE; the
- *      negotiation says why instead of letting a coordinate tap happen.
- *   3. NO STALE LEASE -- an expired farm lease is refused AND reclaimed,
- *      because a lease that is not reclaimed keeps a device hostage.
- *
- * Everything here runs against fake targets and fake sessions. There is NO
- * device, NO emulator and NO ADB in this probe -- that is the point of
- * ATS-601: the contract is testable without hardware.
- *
- * Usage: node tools/ats601-probes/probe-mobile-contract.mjs
- */
+  * ATS-601 evidence probe: the hard rules of the mobile contract, shown
+  * as they actually behave.
+  *
+  * The unit tests (UT-MOB-*) assert the rules one by one. This probe shows
+  * the rules that the whole delivery stands on, side by side, on ONE fake
+  * target and ONE fake session:
+  *
+  *   1. NO SILENT DEGRADATION -- a caller that asked for a mobile run gets
+  *      an EXPLICIT rejection, and never a browser run instead. The probe
+  *      shows what the registry does with the mobile adapter in it.
+  *   2. NO BLIND TAP -- `tapOn` without `ui.hierarchy` is UNAVAILABLE; the
+  *      negotiation says why instead of letting a coordinate tap happen.
+  *   3. NO STALE LEASE -- an expired farm lease is refused AND reclaimed,
+  *      because a lease that is not reclaimed keeps a device hostage.
+  *   4. NO UNUSABLE DEVICE -- a device that is not connected, a device
+  *      another run holds, and a session that claims capabilities its
+  *      target never declared are all refused, with the reason named.
+  *   5. NO UNREGISTERED DEVICE -- only a session the user registered may
+  *      be used; an empty registration list is not a wildcard.
+  *
+  * Everything here runs against fake targets and fake sessions. There is NO
+  * device, NO emulator and NO ADB in this probe -- that is the point of
+  * ATS-601: the contract is testable without hardware.
+  *
+  * Usage: node tools/ats601-probes/probe-mobile-contract.mjs
+  */
 import {
   MOBILE_CAPABILITIES,
   MOBILE_REJECTION,
@@ -32,10 +37,12 @@ import {
   reclaimExpiredSession,
   resolveSession,
 } from '../../server/adapters/mobile-target.mjs';
+import { createMobileAdapter } from '../../server/adapters/mobile.mjs';
 import { getAdapter, listRunners, selectAdapter } from '../../server/adapters/registry.mjs';
 
 const NOW = new Date('2026-11-06T00:00:00.000Z');
 const PAST = '2026-11-05T23:00:00.000Z';
+const FUTURE = '2026-11-06T01:00:00.000Z';
 
 let failures = 0;
 function check(name, ok, detail = '') {
@@ -126,10 +133,12 @@ const farmTarget = defineTarget({
   capabilities: MOBILE_CAPABILITIES,
   declaredBy: 'lease:lease_1',
 });
+// The session is `created`, so the lease is the FIRST rule that bites: an
+// expired lease is refused before the session could ever be acquired.
 const expired = defineSession({
   sessionId: 'ses_farm_1',
   targetId: 'tgt_farm_1',
-  state: SESSION_STATE.RUNNING,
+  state: SESSION_STATE.CREATED,
   capabilities: MOBILE_CAPABILITIES,
   leaseExpiresAt: PAST,
 });
@@ -150,6 +159,50 @@ check('the expired lease is reclaimed back to idle',
   `state=${reclaimed.state}`);
 console.log('');
 
+// --- 3b. an occupied device is refused ---------------------------------------
+console.log('--- 3b. a device another run holds is refused ---');
+const occupied = defineSession({
+  sessionId: 'ses_farm_2',
+  targetId: 'tgt_farm_1',
+  state: SESSION_STATE.RUNNING,
+  capabilities: MOBILE_CAPABILITIES,
+  leaseExpiresAt: FUTURE,
+});
+let occupiedRefusal = null;
+try {
+  resolveSession(farmTarget, occupied, { now: NOW });
+} catch (e) {
+  occupiedRefusal = e;
+}
+check('an occupied device is refused',
+  occupiedRefusal !== null && occupiedRefusal.code === MOBILE_REJECTION.TARGET_UNAVAILABLE,
+  occupiedRefusal ? `reason=${occupiedRefusal.details.reason}` : 'it was accepted');
+check('the refusal names the occupancy as the reason',
+  occupiedRefusal && occupiedRefusal.details.reason === 'device-occupied');
+console.log('');
+
+// --- 3c. a device that is not connected is refused ---------------------------
+console.log('--- 3c. a device that is not connected is refused ---');
+const notConnected = defineSession({
+  sessionId: 'ses_farm_3',
+  targetId: 'tgt_farm_1',
+  state: SESSION_STATE.IDLE,
+  capabilities: MOBILE_CAPABILITIES,
+  leaseExpiresAt: FUTURE,
+});
+let notConnectedRefusal = null;
+try {
+  resolveSession(farmTarget, notConnected, { now: NOW });
+} catch (e) {
+  notConnectedRefusal = e;
+}
+check('a device that is not connected is refused',
+  notConnectedRefusal !== null && notConnectedRefusal.code === MOBILE_REJECTION.TARGET_UNAVAILABLE,
+  notConnectedRefusal ? `reason=${notConnectedRefusal.details.reason}` : 'it was accepted');
+check('the refusal names the missing connection as the reason',
+  notConnectedRefusal && notConnectedRefusal.details.reason === 'device-not-connected');
+console.log('');
+
 // --- the session answers "which device, which steps" -------------------------
 console.log('--- 4. the session answers "which device and what can it do" ---');
 const resolved = resolveSession(target, session, { now: NOW });
@@ -163,6 +216,68 @@ check('a missing target is refused',
       return e.code === MOBILE_REJECTION.TARGET_UNAVAILABLE;
     }
   })());
+
+// --- 5. only a registered session may be used --------------------------------
+console.log('');
+console.log('--- 5. only a session the user registered may be used ---');
+for (const [label, ids] of [
+  ['no registration list', undefined],
+  ['an empty registration list', []],
+  ['a registration list that is not a list', 'ses_1'],
+]) {
+  const adapter = createMobileAdapter(
+    ids === undefined
+      ? { target, session }
+      : { target, session, registeredSessionIds: ids },
+  );
+  let refusal = null;
+  try {
+    adapter.resolveDevice({ now: NOW });
+  } catch (e) {
+    refusal = e;
+  }
+  check(`an unregistered session is refused (${label})`,
+    refusal !== null && refusal.code === 'MOBILE_SESSION_NOT_REGISTERED',
+    refusal ? `code=${refusal.code}` : 'it was accepted');
+}
+const registered = createMobileAdapter({ target, session, registeredSessionIds: ['ses_1'] });
+let registeredOk = false;
+try {
+  registeredOk = registered.resolveDevice({ now: NOW }).session.sessionId === 'ses_1';
+} catch {
+  registeredOk = false;
+}
+check('a registered session still resolves', registeredOk);
+console.log('');
+
+// --- 6. a session may not prove more than its target declared ----------------
+console.log('--- 6. a session may not claim capabilities its target never declared ---');
+const narrowTarget = defineTarget({
+  targetId: 'tgt_narrow',
+  kind: TARGET_KIND.LOCAL_EMULATOR,
+  platform: 'android',
+  capabilities: ['screen.capture'],
+});
+const wideSession = defineSession({
+  sessionId: 'ses_wide',
+  targetId: 'tgt_narrow',
+  state: SESSION_STATE.CREATED,
+  capabilities: MOBILE_CAPABILITIES,
+});
+let capabilityRefusal = null;
+try {
+  resolveSession(narrowTarget, wideSession, { now: NOW });
+} catch (e) {
+  capabilityRefusal = e;
+}
+check('a session claiming undeclared capabilities is refused',
+  capabilityRefusal !== null && capabilityRefusal.code === MOBILE_REJECTION.CAPABILITY_MISSING,
+  capabilityRefusal ? `code=${capabilityRefusal.code}` : 'it was accepted');
+check('the refusal names the undeclared capabilities',
+  capabilityRefusal && (capabilityRefusal.details.undeclared || []).includes('ui.tap'),
+  capabilityRefusal && capabilityRefusal.details.undeclared
+    ? `undeclared=${capabilityRefusal.details.undeclared.join(',')}` : '');
+console.log('');
 
 console.log('');
 if (failures === 0) {

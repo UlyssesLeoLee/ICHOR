@@ -1,5 +1,6 @@
-=== ATS-601 evidence: the remote protocol audit (the ONE rejection code table) ===
-tree : 4ff5c36866f17704a930c1d60d8e55aab4e01e86
+=== ATS-601 evidence: the remote protocol audit (rejection code table) ===
+tree : 0cd7dd20e3536eb618e5c58c598ab016cdb98adb
+date : 2026-11-06T18:29:12Z
 
 === ATS-501 probe: remote protocol contract audit ===
 repo root : D:\ICHOR

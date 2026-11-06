@@ -84,12 +84,11 @@ ATS-301 RunnerAdapter/ReporterAdapter 契约  ←── ATS-601 目标抽象 + A
 
 ## 3. 目标抽象（ATS-601）
 
-> **实现状态（2026-11-06，ATS-601 交付）**：本节的**契约层**已在 `server/adapters/mobile-target.mjs`
-> 与 `server/adapters/mobile.mjs` 实现并经 UT-MOB-001..070（含 5 个补充例）共 75 例实测
-> （契约 + 假目标 + 假会话，
-> **不需要真实设备**）。仓库内**仍无任何真实设备、模拟器、ADB 驱动或移动端证据实现**——
-> 那些分别属 ATS-603（Android Runner）、ATS-604（证据归档）、ATS-606（iOS 边界）。
-> 下面标注 **已实现** 的是契约层；标注 **未实现** 的是真实执行面。
+> **实现状态（ATS-601 交付）**：本节的**契约层**已在 `server/adapters/mobile-target.mjs`
+> 与 `server/adapters/mobile.mjs` 实现，并经 UT-MOB-001..089 共 94 例实测
+> （契约 + 假目标 + 假会话，**不需要真实设备**）。仓库内**仍无任何真实设备、模拟器、
+> ADB 驱动或移动端证据实现**——那些分别属 ATS-603（Android Runner）、ATS-604（证据归档）、
+> ATS-606（iOS 边界）。下面标注 **已实现** 的是契约层；标注 **未实现** 的是真实执行面。
 
 ### 3.1 目标与会话
 
@@ -120,6 +119,9 @@ Session  { sessionId, targetId, state, capabilities[], lastSeenAt, error? }
 （这台设备**已经证明**能做什么）。能力缺口按**会话**算，不按目标算——目标声明了
 `ui.hierarchy` 而会话没有证明时，缺口依然存在。
 
+会话的证明**不得超过**目标的声明：会话声称了目标从未声明的能力时，该声明**未经证明**，
+因此会话在解析阶段即被拒绝（`REMOTE_CAPABILITY_MISSING`），那些能力不进入协商。
+
 ### 3.2 状态机
 
 ```
@@ -133,9 +135,15 @@ idle ──────────▶ created ──────────▶
 
 **硬规则**：
 
-- 目标不存在、设备未连接、能力不满足 ⇒ **明确拒绝**（`REMOTE_TARGET_UNAVAILABLE` /
-  `REMOTE_CAPABILITY_MISSING`），**不得静默降级**成别的执行方式。
+- 目标不存在、设备未连接、设备被占用、能力不满足 ⇒ **明确拒绝**
+  （`REMOTE_TARGET_UNAVAILABLE` / `REMOTE_CAPABILITY_MISSING`），
+  **不得静默降级**成别的执行方式。
 - 会话必须能回答「我现在连的是哪台设备、它支持哪些步骤」。答不上来 ⇒ 拒绝执行。
+- **只有「可被获取」的会话才被交出**：一次运行通过把会话迁入 `running` 来占用设备，
+  因此交出的会话必须是状态机允许迁入 `running` 的那一个（`created`）。
+  未挂接（`idle`）、被别的运行占用（`running`）、已失败（`failed`）的会话**一律拒绝**——
+  交出一个 `running` 会话等于让两次运行同时占用一台设备。
+- 租约规则**不可关闭**：过期租约的农场会话在任何调用方式下都被拒绝。
 - 真机（`local-device`）**不由平台安装 App、不接管设备配对**；平台只负责下发步骤与回收证据。
 
 **契约层已实现**（`server/adapters/mobile-target.mjs`）：
@@ -145,9 +153,17 @@ idle ──────────▶ created ──────────▶
 | 目标不存在 | 拒绝 | `REMOTE_TARGET_UNAVAILABLE`（reason=target-not-found） |
 | 目标没有会话 | 拒绝 | `REMOTE_TARGET_UNAVAILABLE`（reason=session-not-found） |
 | 会话属于别的目标 | 拒绝 | `REMOTE_TARGET_UNAVAILABLE`（reason=session-target-mismatch） |
+| 设备**未连接**（会话处于 `idle`） | 拒绝 | `REMOTE_TARGET_UNAVAILABLE`（reason=device-not-connected） |
+| 设备**被占用**（会话处于 `running`） | 拒绝 | `REMOTE_TARGET_UNAVAILABLE`（reason=device-occupied） |
 | 会话处于 `failed` | 拒绝 | `REMOTE_TARGET_UNAVAILABLE`（reason=session-failed） |
 | 农场租约过期（含**没有到期时间**的会话） | 拒绝 | `REMOTE_TARGET_UNAVAILABLE`（reason=lease-expired） |
+| 会话声称目标未声明的能力 | 拒绝 | `REMOTE_CAPABILITY_MISSING`（reason=session-capability-undeclared） |
 | 能力不满足 | 拒绝 | `REMOTE_CAPABILITY_MISSING`（details.gaps 给出缺口清单） |
+
+拒绝的 `reason` 词表是 `SESSION_UNUSABLE_REASON`：`device-not-connected` /
+`device-occupied` / `session-failed`。设备层用同一份判定（`sessionUsability()`），
+所以**不可用的会话不证明任何能力**——它的每一条设备能力都带理由地报不支持，
+不携带「已证明」的证据。
 
 非法状态迁移（如 `idle → running`）是**编程错误**，抛
 `MOBILE_SESSION_TRANSITION_INVALID` 并列出允许的下一状态，而不是静默移动。
@@ -206,6 +222,13 @@ idle ──────────▶ created ──────────▶
 | Flow 文件 | 同一套可信仓库判定，未可信项目不得执行 | `MOBILE_PROJECT_UNTRUSTED` |
 | 设备选择 | 只允许用户显式登记的会话 | `MOBILE_SESSION_NOT_REGISTERED` |
 | 证据落盘 | 同一套路径校验（越根拒绝）+ 宿主计算的 SHA-256 | `MOBILE_EVIDENCE_PATH_FORBIDDEN` / `MOBILE_EVIDENCE_NOT_FOUND` |
+
+**设备选择的登记列表是白名单，不是通配符**：列表为空、缺省或不是列表，都表示
+「用户没有登记任何会话」，因此**任何**会话都不可用。登记规则只有
+`assertRegisteredSession()` 一份实现，适配器路径直接调用它，不另写一份。
+
+**可信仓库判定接受 `trustOf()` 的判定记录**（`{trust, reason, at}`）：可信项目通过，
+被撤销的和从未登记的被拒。判定记录不是 `"trusted"` 字符串时一律拒绝，不作猜测。
 
 证据摘要**由宿主计算**，不接受调用方自带的摘要——设备产出的截图是**不可信输入**，
 不可信输入没有资格给自己的内容命名摘要。
@@ -356,7 +379,7 @@ Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）�
 
 - **已验证（ATS-601 的契约层）**：§3 的目标/会话模型、状态机迁移、能力协商与拒绝规则、
   安全边界，已由 `server/adapters/mobile-target.mjs` 与 `server/adapters/mobile.mjs` 实现，
-  并经 UT-MOB-001..070（含 5 个补充例）共 75 例实测通过（证据 `docs/evidence/ATS-601/`）。
+  并经 UT-MOB-001..089 共 94 例实测通过（证据 `docs/evidence/ATS-601/`）。
   **这是假目标 + 假会话上的契约测试**，验证的是「规则按设计工作」，**不是**真实设备行为。
 - **未验证（真实移动端执行面）**：§4~§8 的全部内容仍是设计判断，**未在本仓库做过任何
   移动端实测**。没有真实设备、没有真实模拟器、没有 ADB 调用、没有移动端证据。
@@ -367,8 +390,9 @@ Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）�
 - 若本机确实不具备 Android 环境，ATS-603 面临的是「无法实测」而非「实现困难」；
   此时应把该项的验证方式降级并在 WBS 备注里写明，而不是把 PENDING 写成 PASS。
 - 已知边界（ATS-601 契约层自身）：
-  - 会话的**能力集由调用方提供**——契约校验它的一致性并据此计算缺口，
-    但**证明**设备能力的动作（探测层级树、试抓截图）属真实驱动（ATS-603）。
+  - 会话的**能力集由调用方提供**——契约校验会话能力**不超过目标声明**，
+    并据此计算缺口；但**证明**设备能力的动作（探测层级树、试抓截图）属真实驱动（ATS-603）。
+    契约层**不**验证调用方给出的能力集本身是否真实。
   - 目标与会话是**内存中的数据**，本任务**不引入持久化**；会话的存储与恢复随 ATS-603 一并落地。
   - 移动端适配器当前**没有任何可用能力**，它存在的意义是把「移动端执行」这件事的
     **入口与拒绝路径**定下来，让 ATS-603 有地方可长，而不是一个平行的 Playwright 专用实现。

@@ -119,6 +119,8 @@ NOTE = (
     'wdio-dup / verdict-unknown / replay-contract / wdio-skip）全部 RESULT: 0 failed；'
     '全量回归 867 例（867 通过 / 0 失败 / 0 跳过；接入 examples/sample-playwright 与 '
     'examples/sample-wdio 的 node_modules 后，依赖真实引擎的 IT 不再跳过）；'
+    '最终交付树（dev 736d2f2）上重采为 872 例（872 通过 / 0 失败 / 0 跳过，'
+    '872 是别的任务并入后 dev 的用例数，本任务自身的套件为 47 例）；'
     '本任务改动的每个 server 文件行覆盖率均 >90%（server/execution/model.mjs 99.35、'
     'server/adapters/playwright.mjs 99.47、server/adapters/wdio.mjs 97.70、'
     'server/core.mjs 97.82、server/sqlite/import.mjs 95.92；server/index.mjs 以子进程方式运行，'
@@ -139,6 +141,11 @@ NOTE = (
     '前端类型与结果列表已同步到统一模型（apps/studio/lib/api.ts、app/page.tsx，'
     'tsc --noEmit 与 next build 均通过）；'
     '模型与事件复演的完整说明见 docs/06-DATA-DESIGN.md §5.4 与 docs/04-DETAILED-DESIGN.md §3。'
+    '第 4 轮复核只剩 R2 一项（清单未在最后一个 ATS-208 提交之后重算，'
+    'docs/evidence/ATS-208/21-quality-gates-on-dev.log 未被列进清单）：'
+    '已按「先提交内容、再重算清单、最后提交清单」的顺序重算，'
+    '交付树 503 条清单、22 个 ATS-208 证据文件全部列在清单里，'
+    'verify_checksums.py 为 RESULT: OK（digest 失配 0、tracked-not-listed 0）；'
 )
 
 
