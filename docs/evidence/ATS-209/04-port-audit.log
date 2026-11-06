@@ -1,9 +1,9 @@
 === the ATS-101 port audit ===
-tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-31f16410737a/worktree
-commit : 7381cbef1a88a2c3394ae1f3dac13dcfaf56fb87
+tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-099a43b561b5/worktree
+commit : 267479b458d7dba23b57f5fb13f52e8f36640b52
 
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-31f16410737a\worktree
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-099a43b561b5\worktree
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
@@ -11,7 +11,7 @@ port      : 4577
   apps/studio/lib/api.ts:14  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
   apps/studio/public/fallback.html:3  </style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</spa...
   server/index.mjs:47  const PORT=Number(process.env.ATS_PORT||4577);
-  server/index.mjs:550  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
+  server/index.mjs:555  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
   src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
 total = 6
 
@@ -19,12 +19,12 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:5650  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:5716  "input": "Host=evil.example:4577",
-  tests/test-cases.json:7091  "input": "同 LAN 他机尝试访问 4577",
-  tools/generate_test_docs.py:329  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
-  tools/generate_test_docs.py:335  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
-  tools/generate_test_docs.py:431  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
+  tests/test-cases.json:5859  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:5925  "input": "Host=evil.example:4577",
+  tests/test-cases.json:7311  "input": "同 LAN 他机尝试访问 4577",
+  tools/generate_test_docs.py:348  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
+  tools/generate_test_docs.py:354  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
+  tools/generate_test_docs.py:451  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
   tools/update_wbs_ats103.py:110  '「API 代理」在 output:export 下的真实形态是导出页到 127.0.0.1:4577 的跨源直连'
   tools/update_wbs_ats103.py:114  '的 staticFile() 以该目录为静态根），本项的 Tauri 壳可直接加载 http://127.0.0.1:4577；'
   test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)

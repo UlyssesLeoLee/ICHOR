@@ -97,7 +97,7 @@ run_step 08-coverage.log "the line coverage of the ATS-209 modules" \
   node --test --experimental-test-coverage tests/evidence.test.mjs tests/evidence-it.test.mjs tests/evidence-cli.test.mjs
 
 run_step 09-review-probe.log "the round 1 review probe against this tree" \
-  node "$TREE/tools/ats209-probes/ats209-r1-probe.mjs" "$TREE" "$TMPDIR/ats209-r1-probe"
+  node "$NATIVE_TREE/tools/ats209-probes/ats209-r1-probe.mjs" "$NATIVE_TREE" "$TMPDIR/ats209-r1-probe"
 
 hdr "done"
 echo "the evidence of this run is in $OUT/"

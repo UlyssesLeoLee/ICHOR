@@ -1,0 +1,33 @@
+=== the ATS-209 CLI suite ===
+tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-099a43b561b5/worktree
+commit : 267479b458d7dba23b57f5fb13f52e8f36640b52
+
+✔ CLI-EVD-001: the usage is printed when no command is given (89.911ms)
+✔ CLI-EVD-002: --help is printed on request (86.1129ms)
+✔ CLI-EVD-003: an unknown argument is refused (84.2743ms)
+✔ CLI-EVD-004: an unknown command is refused (124.3777ms)
+✔ CLI-EVD-005: a retention period that is not a number is refused (82.5647ms)
+✔ CLI-EVD-006: a data directory with no state is not an error (86.8212ms)
+✔ CLI-EVD-007: a state file that cannot be parsed is reported (82.272ms)
+✔ CLI-EVD-008: the plan says what is expired and what is kept (90.9113ms)
+✔ CLI-EVD-009: the cleaning refuses to run without --yes (120.9253ms)
+✔ CLI-EVD-010: the cleaning removes the evidence and keeps the run record (111.8612ms)
+✔ CLI-EVD-011: the cleaning removes the stored copies of the cleaned evidence (E8) (102.214ms)
+✔ CLI-EVD-012: a dry run removes nothing, the store included (E5) (92.0944ms)
+✔ CLI-EVD-013: the verification reports a cleaned run as CLEANED, not as a tamper (E7) (185.489ms)
+✔ CLI-EVD-014: the verification still reports a real tamper (129.4479ms)
+✔ CLI-EVD-015: the journal says what the cleaning removed (263.6017ms)
+✔ CLI-EVD-016: there is no journal in a data directory that was never cleaned (116.5895ms)
+✔ CLI-EVD-017: a damaged journal line is reported (105.1915ms)
+✔ CLI-EVD-018: a run whose id is not a run id is skipped, not followed (E3) (119.3405ms)
+✔ CLI-EVD-019: the verification reports a manifest that points outside the run folder (137.1928ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2298.3357
+
+exit code : 0
