@@ -1,8 +1,8 @@
 ================================================================================
 ATS-512 evidence log -- the round-1 review's 11 counterexamples no longer reproduce
 ================================================================================
-commit        : c42f522291c2f6c9ced5c75e5f1df789f4e69744
-timestamp     : 2026-11-07T02:03:01Z (UTC)
+commit        : d927ae09ecc0057495d6db02c90d82e8d3332279
+timestamp     : 2026-11-07T02:09:53Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-33c4a0ec36ec/worktree
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -29,7 +29,7 @@ no     CE8 authorize fail-open: constructor=false __proto__=false toString=false
         claimed: unknown operation -> allowed:false
 no     CE9 tier prototype keys: toString -> PLUGIN_MANIFEST_INVALID; constructor(empty) -> PLUGIN_MANIFEST_INVALID; nope -> PLUGIN_MANIFEST_INVALID
         claimed: unknown tier -> PLUGIN_MANIFEST_INVALID
-no     CE10 proposalId collision: two SDK instances -> plgprop_evil_722b466f-bad8-4690-92bc-1a6cc6ba55df, plgprop_evil_69aa0f0f-c823-4545-b23f-595c4e31ba48
+no     CE10 proposalId collision: two SDK instances -> plgprop_evil_b271ccca-ad54-45b8-a9ed-96a3bc83e1b2, plgprop_evil_c36211fd-baf6-4dcc-a84b-cf71f571434a
         claimed: the proposal id is globally unique
 no     CE11 seq != sink count: first call UNCODED(Error: sink down) (read already performed), sink holds seq=[1]
         claimed: the sequence advances only after the sink accepted the event
