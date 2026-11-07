@@ -43,6 +43,30 @@ HTTP/1.1 200
 ```
 
 ```http
+GET /api/runs/:id/workbench
+X-ATS-Token: <local token>
+
+HTTP/1.1 200
+{"run":{"id":"run_1_...","uid":"...","status":"failed","gitCommit":"...","runner":"playwright",
+        "startedAt":"...","finishedAt":"...","engineVersion":"1.65.0"},
+ "artifacts":[{"file":"results/<case>/trace.zip","size":8048,"sha256":"<64 hex>",
+               "modifiedAt":"2026-11-07T03:00:09.393Z"}],
+ "cases":[{"title":"...","file":"home.spec.ts","line":22,"status":"failed","duration":5155,
+           "error":"...","attemptsCount":1,"scope":[],"caseKey":"...",
+           "attachments":[{"name":"trace","contentType":"application/zip",
+                          "file":"results/<case>/trace.zip"}]}],
+ "verification":{"verified":true,"ok":true,"checked":28,"missing":[],"changed":[],
+                 "reason":null}}
+```
+
+这个接口是**只读**的，交出的是**事实**而不是视图：视图由共享模块
+`apps/studio/public/evidence-workbench.mjs` 计算（两个界面都导入它）。
+`artifacts[].sha256` 是 ATS-209 的清单在**归档时**记录的摘要，不是现在重算的摘要；
+`modifiedAt` 是文件自身的修改时间（清单不记录时间）。
+`verification` 是 ATS-209 的校验结果：`verified` 是篡改判定，`ok` 是「清单读得出」，
+两者不是一回事（没有清单 ≠ 清单里什么都没有）。
+
+```http
 GET /api/projects/:id/env
 X-ATS-Token: <local token>
 
