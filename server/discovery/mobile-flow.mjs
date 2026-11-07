@@ -125,6 +125,45 @@ const SCENARIO_STEP_KEYS = ['steps', 'commands', 'actions'];
 /** The keys of a Maestro scenario that hold its name. */
 const SCENARIO_NAME_KEYS = ['name', 'title'];
 
+/**
+ * The keys of a step that carry its ASSERTION, not a command.
+ *
+ * `assert` is both a spelling of the `assertVisible` COMMAND and the key
+ * that carries the assertion of a step, and the two are told apart by
+ * context: a step that names no other command and carries an assertion is
+ * the `assert: {visible: X}` form.
+ */
+const ASSERTION_KEYS = Object.freeze(['assert', 'assertion']);
+
+/**
+ * The keys of the EXPLICIT step form: `command:` plus its `arguments:`.
+ *
+ * They are not command keys, so they must not be mistaken for "the step
+ * names two commands".
+ */
+const EXPLICIT_STEP_KEYS = Object.freeze(['command', 'arguments', 'args']);
+
+/**
+ * The keys of a scenario that are METADATA, not steps.
+ *
+ * A scenario may hold any number of lists; the ones that are neither
+ * metadata nor its step list are content the platform does not map, and
+ * they are REPORTED (never dropped) -- see `unmappedListsOf`.
+ */
+const SCENARIO_META_KEYS = Object.freeze([...SCENARIO_NAME_KEYS, 'tags', 'env']);
+
+/**
+ * The keys that never hold a step list.
+ *
+ * A list under one of them is METADATA: the tags of a scenario, the
+ * environment of a scenario, the scenarios of a file. They are read by
+ * their own rules and they are not content the model fails to map.
+ */
+const NON_STEP_LIST_KEYS = Object.freeze(new Set([
+  ...SCENARIO_META_KEYS,
+  'appId', 'app', 'scenarios',
+]));
+
 /* ------------------------------------------------------------------ */
 /* The public shape                                                    */
 /* ------------------------------------------------------------------ */
@@ -189,6 +228,21 @@ export function parseFlow(text, { syntax = FLOW_SYNTAX.MAESTRO } = {}) {
  * The file is split into DOCUMENTS on the `---` separator, because that is
  * how the declaration separates its header (`appId:`) from its body (the
  * scenarios or the steps). Each document is read by the restricted reader.
+ *
+ * A document is one of three things:
+ *
+ *   * a HEADER   -- a mapping that holds only metadata (`appId`, the title
+ *     of the file, `tags`, `env`). It declares the app the file drives and
+ *     it may title the file's single scenario. It is NOT a case of its
+ *     own: a header that produced a case would give the file a second,
+ *     empty case next to the real one.
+ *   * a SCENARIO -- a mapping that holds a step list, or an entry of the
+ *     `scenarios:` list.
+ *   * a STEP LIST -- a list of steps. The whole file is then one scenario.
+ *
+ * A list that holds no scenario at all is a step list; a list that holds
+ * nothing but scenarios is the scenario list; a list that mixes the two is
+ * an error (the file is one or the other).
  */
 export function parseMaestroFlow(text) {
   const src = String(text ?? '');
@@ -210,27 +264,64 @@ export function parseMaestroFlow(text) {
   }
 
   let appId = null;
+  let headerTitle = null;
   const scenarios = [];
-  let sawScenario = false;
-  let sawBody = false;
+  // The lists the model does not map. They are REPORTED, never dropped.
+  const unmapped = [];
+
+  // Every NODE of every document is read. A document that holds more than
+  // one node is malformed, and the malformation is reported -- but the
+  // nodes are all read, so nothing is lost silently.
+  for (const read of parsed) {
+    if (read.boundary) {
+      errors.push({ line: read.boundary.line, message: read.boundary.message });
+    }
+    for (const node of read.nodes ?? []) {
+      if (isMapping(node)) {
+        if (typeof node.appId === 'string' && node.appId) appId = node.appId;
+        if (!hasStepList(node)) {
+          const name = scenarioNameOf(node);
+          if (name !== null && headerTitle === null) headerTitle = name;
+          unmappedListsOf(node, read, { knownKeys: new Set(['scenarios']), scope: 'header', out: unmapped });
+        }
+      }
+    }
+  }
 
   for (const read of parsed) {
-    const value = read.value;
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      if (typeof value.appId === 'string' && value.appId) appId = value.appId;
-      const name = scenarioNameOf(value);
-      if (name !== null) {
-        // A mapping that names a scenario IS a scenario.
-        sawScenario = true;
-        scenarios.push(scenarioFromMapping(value, name, read, errors));
+    for (const value of read.nodes ?? []) {
+      if (Array.isArray(value)) {
+        const lines = read.seqLinesOf(value) ?? [];
+        const raws = read.seqRawOf(value) ?? [];
+        const items = value.map((item, index) => ({ item, line: lines[index] ?? read.line, raw: raws[index] ?? null }));
+        const scenarioItems = items.filter((it) => isScenarioMapping(it.item));
+        if (scenarioItems.length === 0) {
+          // The list is a list of STEPS: the whole file is one scenario.
+          scenarios.push({
+            title: headerTitle,
+            line: read.line,
+            tags: [],
+            env: {},
+            steps: stepsFromList(items, errors),
+          });
+        } else if (scenarioItems.length === items.length) {
+          for (const it of items) {
+            scenarios.push(scenarioFromMapping(it.item, scenarioNameOf(it.item), read, errors, unmapped));
+          }
+        } else {
+          errors.push({
+            line: read.line,
+            message: 'the list mixes scenarios and steps; a Flow file is either a list of scenarios or a list of steps',
+          });
+        }
         continue;
       }
+      if (!isMapping(value)) continue;
       if (Array.isArray(value.scenarios)) {
-        sawScenario = true;
         const lines = read.seqLinesOf(value.scenarios) ?? [];
         const raws = read.seqRawOf(value.scenarios) ?? [];
         value.scenarios.forEach((item, index) => {
-          if (!item || typeof item !== 'object' || Array.isArray(item)) {
+          if (!isMapping(item)) {
             errors.push({ line: lines[index] ?? read.line, message: 'a scenario entry is not a mapping' });
             return;
           }
@@ -239,50 +330,64 @@ export function parseMaestroFlow(text) {
             errors.push({ line: lines[index] ?? read.line, message: 'a scenario entry has no name' });
             return;
           }
-          scenarios.push(scenarioFromMapping(item, itemName, read, errors));
+          scenarios.push(scenarioFromMapping(item, itemName, read, errors, unmapped));
         });
         continue;
       }
-      // A header mapping that names nothing: it is the app declaration.
-      continue;
-    }
-    if (Array.isArray(value)) {
-      sawBody = true;
-      const lines = read.seqLinesOf(value) ?? [];
-      const raws = read.seqRawOf(value) ?? [];
-      const items = value.map((item, index) => ({ item, line: lines[index] ?? read.line, raw: raws[index] ?? null }));
-      const scenarioItems = items.filter((it) => isScenarioMapping(it.item));
-      if (scenarioItems.length === 0) {
-        // The list is a list of STEPS: the whole file is one scenario.
-        const title = headerTitleOf(parsed) ?? null;
-        scenarios.push({
-          title,
-          line: read.line,
-          tags: [],
-          env: {},
-          steps: stepsFromList(items, errors),
-        });
-      } else if (scenarioItems.length === items.length) {
-        for (const it of items) {
-          scenarios.push(scenarioFromMapping(it.item, scenarioNameOf(it.item), read, errors));
-        }
-      } else {
-        errors.push({
-          line: read.line,
-          message: 'the list mixes scenarios and steps; a Flow file is either a list of scenarios or a list of steps',
-        });
+      if (hasStepList(value)) {
+        // A mapping that holds steps IS a scenario.
+        scenarios.push(scenarioFromMapping(value, scenarioNameOf(value), read, errors, unmapped));
+        continue;
       }
+      // A header: it was read in the first pass.
     }
   }
 
   if (!scenarios.length && !errors.length) {
     errors.push({ line: 0, message: 'the Flow declares no scenario' });
   }
-  if (scenarios.length && !sawScenario && !sawBody) {
-    errors.push({ line: 0, message: 'the Flow declares no scenario' });
-  }
 
-  return { syntax: FLOW_SYNTAX.MAESTRO, appId, scenarios, errors };
+  return { syntax: FLOW_SYNTAX.MAESTRO, appId, scenarios, errors, unmapped };
+}
+
+/** True when the value is a mapping (and not a list). */
+function isMapping(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+/** True when the mapping holds a list of steps. */
+function hasStepList(mapping) {
+  return SCENARIO_STEP_KEYS.some((key) => Array.isArray(mapping[key]));
+}
+
+/**
+ * The lists of a mapping that the unified model does not map.
+ *
+ * A scenario may hold several lists: one is its step list, the others
+ * (`setup`, `onFlowStart`, a second `commands:` list, ...) are content the
+ * platform does not map. Every one of their ITEMS is reported with its
+ * original text -- a step the platform cannot use must not disappear
+ * without a trace.
+ */
+function unmappedListsOf(mapping, read, { knownKeys, scope, out }) {
+  for (const [key, value] of Object.entries(mapping)) {
+    if (!Array.isArray(value)) continue;
+    if (knownKeys.has(key)) continue;
+    // The METADATA lists -- the tags of a scenario, the environment of a
+    // scenario -- are read by their own rules. They are not content the
+    // model fails to map.
+    if (NON_STEP_LIST_KEYS.has(key)) continue;
+    const lines = read?.seqLinesOf?.(value) ?? [];
+    const raws = read?.seqRawOf?.(value) ?? [];
+    value.forEach((item, index) => {
+      out.push({
+        scope,
+        key,
+        line: lines[index] ?? read?.line ?? 0,
+        raw: raws[index] ?? null,
+      });
+    });
+  }
 }
 
 /**
@@ -323,8 +428,13 @@ function isScenarioMapping(value) {
  * is present. The line of the scenario is the line of its NAME key when the
  * reader knows it, so that the position points at the declaration rather
  * than at the file's first line.
+ *
+ * A scenario may hold MORE THAN ONE list. Only the first one is the step
+ * list; the others (`setup:`, a second `commands:`, ...) are content the
+ * unified model does not map, and every one of their items is REPORTED --
+ * a step the platform cannot use must not disappear without a trace.
  */
-function scenarioFromMapping(mapping, title, read, errors) {
+function scenarioFromMapping(mapping, title, read, errors, unmapped = null) {
   // The line of the scenario is the line of its NAME key, so that the
   // position points at the declaration rather than at the file's first line.
   const keyLines = read?.keyLinesOf?.(mapping) ?? null;
@@ -335,18 +445,17 @@ function scenarioFromMapping(mapping, title, read, errors) {
   const env = readEnv(mapping);
 
   let steps = [];
-  for (const key of SCENARIO_STEP_KEYS) {
-    const list = mapping[key];
-    if (list === undefined || list === null) continue;
-    if (!Array.isArray(list)) {
-      errors.push({ line, message: `"${key}" is not a list of steps` });
-      continue;
-    }
+  const stepKey = SCENARIO_STEP_KEYS.find((key) => Array.isArray(mapping[key]));
+  if (stepKey) {
+    const list = mapping[stepKey];
     const lines = read?.seqLinesOf?.(list) ?? [];
     const raws = read?.seqRawOf?.(list) ?? [];
     const items = list.map((item, index) => ({ item, line: lines[index] ?? line, raw: raws[index] ?? null }));
     steps = stepsFromList(items, errors);
-    break;
+  }
+  // The OTHER lists of the scenario are reported.
+  if (unmapped) {
+    unmappedListsOf(mapping, read, { knownKeys: new Set([stepKey].filter(Boolean)), scope: 'scenario', out: unmapped });
   }
 
   return { title, line, tags, env, steps };
@@ -398,7 +507,7 @@ function stepsFromList(items, errors) {
         errors.push({ line, message: 'an empty step' });
         continue;
       }
-      steps.push({ command, args: {}, qualifier: null, assertion: null, line, raw: raw ?? String(item) });
+      steps.push({ command, args: {}, qualifier: null, assertion: null, options: null, line, raw: raw ?? String(item) });
       continue;
     }
     if (Array.isArray(item) || typeof item !== 'object') {
@@ -418,6 +527,12 @@ function stepsFromList(items, errors) {
  *   * `- command: tapOn` with an `arguments:` block (the explicit form);
  *   * `- tapOn: "Login"` (the short form: the first key that is not a step
  *     option names the command).
+ *
+ * A step that names MORE THAN ONE command is reported. The short form
+ * takes the first command key, and the others would be silently lost --
+ * and a step that says two things is a step the platform does not
+ * understand, so it is reported with its original text rather than
+ * half-read.
  */
 function stepFromMapping(mapping, line, rawText, errors) {
   // The ORIGINAL text of the step, when the reader knows it. A step that
@@ -432,23 +547,53 @@ function stepFromMapping(mapping, line, rawText, errors) {
       args,
       qualifier: null,
       assertion: readAssertion(mapping.assert ?? mapping.assertion),
+      options: readStepOptions(mapping),
       line,
       raw,
     };
   }
 
-  for (const [key, value] of Object.entries(mapping)) {
-    if (STEP_OPTION_KEYS.has(key)) continue;
-    const args = readStepArguments(value);
+  // The COMMAND KEYS of the step: the keys that are neither an option, nor
+  // an assertion, nor part of the explicit form.
+  const commandKeys = Object.keys(mapping).filter(
+    (key) => !STEP_OPTION_KEYS.has(key)
+      && !ASSERTION_KEYS.includes(key)
+      && !EXPLICIT_STEP_KEYS.includes(key),
+  );
+
+  if (commandKeys.length > 1) {
+    // The step names two commands. Reading the first one and dropping the
+    // second would LOSE the second silently -- the exact failure the task
+    // forbids. The step is reported as one that names no single command.
+    errors.push({
+      line,
+      message: `the step names more than one command (${commandKeys.join(', ')}); a step must name exactly one`,
+    });
+    return {
+      command: '',
+      args: {},
+      qualifier: null,
+      assertion: readAssertion(mapping.assert ?? mapping.assertion),
+      options: readStepOptions(mapping),
+      line,
+      raw,
+    };
+  }
+
+  if (commandKeys.length === 1) {
+    const key = commandKeys[0];
+    const args = readStepArguments(mapping[key]);
     return {
       command: key,
       args,
       qualifier: null,
       assertion: readAssertion(mapping.assert ?? mapping.assertion),
+      options: readStepOptions(mapping),
       line,
       raw,
     };
   }
+
   // The step carries only OPTIONS and names no command. It is NOT a read
   // error: the file was read fine. It is a step the mapper cannot use, so
   // it is handed on with an empty command -- the mapper reports it as an
@@ -460,9 +605,28 @@ function stepFromMapping(mapping, line, rawText, errors) {
     args: {},
     qualifier: null,
     assertion: readAssertion(mapping.assert ?? mapping.assertion),
+    options: readStepOptions(mapping),
     line,
     raw,
   };
+}
+
+/**
+ * The OPTIONS of a step.
+ *
+ * `optional`, `when`, `timeout` and the rest are not commands: they say
+ * under which conditions the step runs and how long it may take. The
+ * unified mobile case model has no place for them, so they are KEPT (they
+ * are part of what the author declared) and the mapper reports them.
+ */
+function readStepOptions(mapping) {
+  const out = {};
+  for (const [key, value] of Object.entries(mapping)) {
+    if (!STEP_OPTION_KEYS.has(key)) continue;
+    if (value === null || value === undefined) continue;
+    out[key] = typeof value === 'object' ? JSON.stringify(value) : value;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 /** The arguments of a step: a mapping, or a scalar under one name. */
@@ -544,11 +708,23 @@ export function parseLinearFlow(text) {
   const scenarios = [];
   let current = null;
   let inEnv = false;
+  // The indent of the `env:` KEY. The environment block is the lines that
+  // are indented MORE than the key that opened it -- and only those. A
+  // step line that follows the block at the scenario's own indent is a
+  // STEP, not another environment variable.
+  //
+  // This is the fix for the case where a step line happened to look like a
+  // `key: value` line: `tap Settings: General` is a step that taps
+  // "Settings", and without the indent rule it was read as an environment
+  // variable named "tap Settings" -- so the step disappeared from the
+  // import without a trace.
+  let envIndent = -1;
 
   const startScenario = (title, line) => {
     current = { title, line, tags: [], env: {}, steps: [] };
     scenarios.push(current);
     inEnv = false;
+    envIndent = -1;
   };
 
   for (let i = 0; i < lines.length; i++) {
@@ -576,16 +752,26 @@ export function parseLinearFlow(text) {
       continue;
     }
 
+    // The environment block ends as soon as a line is not indented more
+    // than the `env:` key. Everything after that is a step again.
+    if (inEnv && indent <= envIndent) {
+      inEnv = false;
+      envIndent = -1;
+    }
+
     if (indent > 0 && header && header.key === 'tags' && header.rest) {
       current.tags = header.rest.split(',').map((t) => t.trim()).filter(Boolean);
       continue;
     }
     if (indent > 0 && header && header.key === 'env' && !header.rest) {
       inEnv = true;
+      envIndent = indent;
       continue;
     }
-    if (inEnv && indent > 0 && header) {
-      current.env[header.key] = header.rest;
+    if (inEnv && indent > envIndent && header) {
+      // The VALUE of an environment variable is read like any other
+      // scalar: a quoted value keeps its spaces but loses its quotes.
+      current.env[header.key] = stripQuotes(header.rest);
       continue;
     }
     if (indent > 0 && header && (header.key === 'steps' || header.key === 'commands')) {
@@ -597,7 +783,6 @@ export function parseLinearFlow(text) {
       continue;
     }
 
-    inEnv = false;
     const step = stepFromLine(text, lineNo, text, errors);
     if (step) current.steps.push(step);
   }
@@ -606,7 +791,7 @@ export function parseLinearFlow(text) {
     errors.push({ line: 0, message: 'the Flow declares no scenario' });
   }
 
-  return { syntax: FLOW_SYNTAX.LINEAR, appId, scenarios, errors };
+  return { syntax: FLOW_SYNTAX.LINEAR, appId, scenarios, errors, unmapped: [] };
 }
 
 /**
@@ -627,10 +812,17 @@ const LINEAR_QUALIFIERS = Object.freeze({
  * Reads one step out of a line.
  *
  * The line is split into a verb, an optional qualifier and the arguments.
+ *
+ * A step that takes MORE arguments than it has names for is reported: the
+ * extra argument would otherwise overwrite the first one (`tap "First"
+ * "Second"` would tap "Second"), and a step that says two things is a
+ * step the platform does not understand.
  */
 function stepFromLine(text, line, raw, errors) {
   const parts = splitWords(text);
-  if (!parts.length) {
+  // A step that names nothing -- an empty line, or a pair of quotes -- is
+  // not a command. It is reported, not turned into a step called `""`.
+  if (!parts.length || (parts.length === 1 && stripQuotes(parts[0]) === '')) {
     errors.push({ line, message: 'an empty step' });
     return null;
   }
@@ -643,11 +835,26 @@ function stepFromLine(text, line, raw, errors) {
     args = args.slice(1);
   }
   const out = {};
+  const extra = [];
   args.forEach((arg, index) => {
     const value = (arg.startsWith('"') || arg.startsWith("'")) ? stripQuotes(arg) : arg;
-    out[primaryArgOf(verb, qualifier, index)] = value;
+    let name = primaryArgOf(verb, qualifier, index);
+    if (out[name] !== undefined) {
+      // The name is taken: this argument would OVERWRITE the first one.
+      // The extra argument is KEPT under a name of its own -- it is
+      // declared content, and dropping it would lose it without a trace.
+      // The mapper reports it as an argument outside the model.
+      name = `arg${index}`;
+      let suffix = 2;
+      while (out[name] !== undefined) name = `arg${index}_${suffix++}`;
+      extra.push(arg);
+    }
+    out[name] = value;
   });
-  return { command: verb, args: out, qualifier, assertion: null, line, raw };
+  // The extra arguments are reported by the MAPPER, not here: the reader
+  // does not know the model, and an argument outside the model is the
+  // mapper's business.
+  return { command: verb, args: out, qualifier, assertion: null, options: null, line, raw };
 }
 
 /**
@@ -757,7 +964,37 @@ function parseYamlDocument(tokens, firstLine) {
   const positions = new WeakMap();
   const index = { i: 0 };
 
-  const value = readNode(tokens, index, tokens.length ? tokens[0].indent : 0, positions);
+  // THE DOCUMENT IS READ TO THE END.
+  //
+  // A reader that stops at the first structure it understands reads HALF a
+  // document: the rest of it is silently gone, and the case it declared
+  // never appears. That is exactly the failure the task forbids ("不读
+  // 一半"): a Flow that is not fully understood has to be REPORTED, not
+  // half-imported.
+  //
+  // A document normally holds ONE top-level node. A malformed one holds
+  // more: a stray key in the middle of a scenario list, for instance. The
+  // reader reads every node it can, REPORTS the boundary, and keeps the
+  // nodes -- so a malformed file loses nothing silently, and the report
+  // says where the malformation is.
+  const nodes = [];
+  let boundary = null;
+  while (index.i < tokens.length) {
+    const start = index.i;
+    const token = tokens[index.i];
+    if (nodes.length && !boundary) {
+      boundary = {
+        line: token.lineNo,
+        message: `the document holds more than one top-level node: "${token.text}" starts a new one`,
+      };
+    }
+    const node = readNode(tokens, index, token.indent, positions);
+    if (index.i === start) {
+      // No progress: the token cannot start a node at all.
+      throw yamlError(token, `not a mapping entry: ${token.text}`);
+    }
+    nodes.push(node);
+  }
 
   // The positions are looked up BY THE VALUE ITSELF, so that a nested list
   // is addressed by the array the caller holds (`value.scenarios`), not by a
@@ -773,10 +1010,12 @@ function parseYamlDocument(tokens, firstLine) {
   const top = { line: tokens.length ? tokens[0].lineNo : firstLine };
 
   return {
-    value,
+    nodes,
+    boundary,
+    value: nodes.length === 1 ? nodes[0] : (nodes.length ? nodes : null),
     line: top.line,
-    seqLines: seqLinesOf(value),
-    keyLines: keyLinesOf(value),
+    seqLines: seqLinesOf(nodes[0]),
+    keyLines: keyLinesOf(nodes[0]),
     seqLinesOf,
     keyLinesOf,
     seqRawOf,
@@ -819,10 +1058,11 @@ function readMapping(tokens, index, indent, positions) {
     }
     if (isSequenceItem(token.text)) break;
 
-    const { key, rest } = splitKey(token.text);
-    if (key === null) {
+    const entry = splitKey(token.text);
+    if (!entry) {
       throw yamlError(token, `not a mapping entry: ${token.text}`);
     }
+    const { key, rest } = entry;
     if (keyLines[key] !== undefined) {
       throw yamlError(token, `the key "${key}" appears twice in the same mapping`);
     }
@@ -889,8 +1129,8 @@ function readSequence(tokens, index, indent, positions) {
       continue;
     }
 
-    const key = splitKey(content);
-    if (key.key !== null) {
+    const entry = splitKey(content);
+    if (entry) {
       // The item is a mapping that starts on the item's own line. The item's
       // content is re-read as the first line of a mapping at the content's
       // column, so that the continuation lines join it.
@@ -953,9 +1193,9 @@ function readScalar(text, token) {
     const out = {};
     if (!inner) return out;
     for (const part of splitTopLevel(inner)) {
-      const { key, rest } = splitKey(part.trim());
-      if (key === null) throw yamlError(token, `not a mapping entry: ${part.trim()}`);
-      out[key] = readScalar(rest, token);
+      const entry = splitKey(part.trim());
+      if (!entry) throw yamlError(token, `not a mapping entry: ${part.trim()}`);
+      out[entry.key] = readScalar(entry.rest, token);
     }
     return out;
   }
@@ -981,6 +1221,15 @@ function isSequenceItem(text) {
  * The `:` must be followed by a space or end the line, and it must not be
  * inside a quoted scalar. A plain word that contains a colon (`a:b`) is a
  * scalar, not a mapping.
+ *
+ * Returns `null` when the text is NOT a mapping entry. That null is the
+ * whole point of this function: a caller that asks "is this line a
+ * `key: value` line?" must be able to tell the two apart. A caller that
+ * received `{key: null}` instead would read "this line has a key, and the
+ * key is nothing" -- which is TRUTHY, and which once made the linear
+ * reader swallow every step that followed an `env:` block into the
+ * environment (the env block was entered by a `key: value` line, and every
+ * later line was swallowed because the "no key" result was truthy).
  */
 function splitKey(text) {
   const src = String(text ?? '');
@@ -997,7 +1246,7 @@ function splitKey(text) {
       return { key: readScalar(src.slice(0, i).trim(), { lineNo: 0 }), rest: src.slice(i + 1).trim() };
     }
   }
-  return { key: null, rest: null };
+  return null;
 }
 
 /** The offset of the closing quote of a quoted scalar. */

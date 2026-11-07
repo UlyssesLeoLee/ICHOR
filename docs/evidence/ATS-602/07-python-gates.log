@@ -1,6 +1,6 @@
 === ATS-602 evidence: the python gates (WBS helpers, updaters, test-doc generator) ===
-tree : 69b6fdf90b9f13e80ad57ef48d1c7af49a90cb54
-date : 2026-11-06T22:42:19Z
+tree : 50a6e77602e7b03b38aee0497e57822d6a91378c
+date : 2026-11-07T01:28:52Z
 
 ..........................................                               [100%]
 ============================== warnings summary ===============================
@@ -13,4 +13,4 @@ tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
     warn(msg)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-42 passed, 2 warnings in 1.05s
+42 passed, 2 warnings in 1.01s
