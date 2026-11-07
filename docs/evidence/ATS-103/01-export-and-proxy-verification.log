@@ -1,21 +1,21 @@
 === ATS-103 evidence: static export + Bridge API seam verification ===
-date      : 2026-11-06T21:44:59Z (UTC)
-commit    : f955c23bbe7025a5fe35f1b5145f892e11c21b72
+date      : 2026-11-07T00:05:57Z (UTC)
+commit    : e15e37da351945efe0e08a7643feddf8c6f8d9a0
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats103-probes/verify-export-and-proxy.mjs
 
 PASS  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
-PASS  export contains index.html  --  12927 bytes
+PASS  export contains index.html  --  13679 bytes
 PASS  export contains 404.html
 PASS  export contains _next/static assets
-PASS  the export contains no server-side API route output  --  25 exported entries, none of them a server route
-PASS  every asset referenced by index.html exists on disk (8 assets)
+PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
+PASS  every asset referenced by index.html exists on disk (9 assets)
 PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
 PASS  bridge boots and answers /api/health
-PASS  bridge serves the exported index.html at /  --  HTTP 200, 12927 bytes
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 13679 bytes
 PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
-PASS  the bridge serves the exported chunk /_next/static/chunks/07b7sibd0i2jd.js  --  HTTP 200
+PASS  the bridge serves the exported chunk /_next/static/chunks/04p_vbrqf_cr7.js  --  HTTP 200
 PASS  GET /api/session returns a token
 PASS  a foreign Origin is rejected (403)  --  HTTP 403
 PASS  an unauthenticated API call is rejected (401)  --  HTTP 401
@@ -33,22 +33,22 @@ PASS  the collected artefacts include report.json  --  1 report.json entries
   status    : failed
   error     : (none)
   reportWarn: (none)
-  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-t3PfuR\runs\run_1_ac260d1294fc90f9f9e7770d\results --trace on --workers 1
+  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-9jg0V7\runs\run_1_6309f0b4291e8960fef90d4d\results --trace on --workers 1
   log tail  : 
-    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-t3PfuR\runs\run_1_ac260d1294fc90f9f9e7770d\results\home-导航入口正常-REQ-002\error-context.md
+    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-9jg0V7\runs\run_1_6309f0b4291e8960fef90d4d\results\home-导航入口正常-REQ-002\error-context.md
 
     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
-    D:\hermes-multica\home\cache\scratch\tmp\ats103-t3PfuR\runs\run_1_ac260d1294fc90f9f9e7770d\results\home-导航入口正常-REQ-002\trace.zip
+    D:\hermes-multica\home\cache\scratch\tmp\ats103-9jg0V7\runs\run_1_6309f0b4291e8960fef90d4d\results\home-导航入口正常-REQ-002\trace.zip
     Usage:
 
-        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-t3PfuR\runs\run_1_ac260d1294fc90f9f9e7770d\results\home-导航入口正常-REQ-002\trace.zip
+        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-9jg0V7\runs\run_1_6309f0b4291e8960fef90d4d\results\home-导航入口正常-REQ-002\trace.zip
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
 
   1 failed
     tests\home.spec.ts:22:1 › 导航入口正常 @REQ-002 ──────────────────────────────────────────────────────
-  1 passed (6.5s)
+  1 passed (6.0s)
 
 --- end run detail ---
 

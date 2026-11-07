@@ -100,6 +100,13 @@
  *      it the UID of the render that vanished. The mapper then reports
  *      the shift and binds nothing.
  *
+ *   4. It never decides a case that stands where a SOURCE case stood.
+ *      A source case has a body of its own, and the registry remembers it.
+ *      A case with a DIFFERENT title at that position is a different case
+ *      (or the same case whose body was rewritten -- and a rewritten body
+ *      means a new identity, the ATS-201 boundary). The mapper reports the
+ *      difference and binds nothing.
+ *
  * The anchor is used only when the group it names has the SAME SIZE as it
  * had when the anchor was written. When the template gained or lost a
  * render, the ordinals may have shifted, and a shifted ordinal points at
@@ -124,6 +131,9 @@ export const AMBIGUITY = Object.freeze({
   RENDER_PARTIAL: 'render-partially-changed',
   /** Two anchors claim the same ordinal of the same position. */
   RENDER_AMBIGUOUS: 'ambiguous-render-ordinal',
+  /** The anchored entry is a SOURCE case and the case at that position is
+   *  not: the two are different cases, so the anchor does not decide. */
+  RENDER_SOURCE_ENTRY: 'render-source-entry',
   /** Several entries share the file and the title. */
   SAME_TITLE: 'identical-title',
   /** Several entries share the file, the describe path and the title. */
@@ -590,7 +600,7 @@ export function anchorOf(theCase, groups) {
  * -----------------------------------------------
  * The anchor is an ORDINAL: it says "the third render of that position".
  * That is a fact about the position, not about the case, so the anchor may
- * only FILL IN what the stronger signals cannot say. Three rules:
+ * only FILL IN what the stronger signals cannot say. Four rules:
  *
  *   1. A case the static scanner CAN see has a body of its own. Its body
  *      (and its title) are stronger signals than an ordinal, so the anchor
@@ -608,6 +618,13 @@ export function anchorOf(theCase, groups) {
  *      ordinal would then hand the new render the UID of the one that
  *      vanished -- exactly the mis-association this module exists to
  *      prevent. The mapper reports the change and binds NOTHING.
+ *
+ *   4. A case that stands where a SOURCE case stood is a DIFFERENT case.
+ *      A source case has a body of its own, and the registry remembers it.
+ *      A case with a different title at that position is either a new case
+ *      or the old case with a rewritten body -- and a rewritten body means
+ *      a new identity (the ATS-201 boundary, `docs/18-UID-SPEC.md` §3.2).
+ *      The anchor reports the difference and binds NOTHING.
  *
  * The anchor is used only when the group it names has the SAME SIZE as it
  * had when the anchor was written. When the template gained or lost a
@@ -712,6 +729,40 @@ export function reidentifyRendered({ cases = [], entries = [], groups = null } =
     // The title is unchanged: the case is the one the anchor names, and the
     // anchor adds nothing the title did not already say.
     if (entry.title === c.title) continue;
+    /*
+     * Rule 4: the anchored entry is a SOURCE case.
+     *
+     * A source entry is a case the static scanner could see: it has a body
+     * of its own, and the registry remembers that body. The case at that
+     * position NOW has a different title -- so it is either a different
+     * case, or the same case whose body was rewritten.
+     *
+     * When the body was rewritten, the case changed its identity (the ATS-201
+     * boundary: `docs/18-UID-SPEC.md` §3.2). Handing it the UID of the case
+     * that used to sit there would link the OLD evidence to a DIFFERENT
+     * case -- the mis-association this module exists to prevent.
+     *
+     * The anchor may only fill in what the body and the title cannot say, and
+     * a body that changed says the identity changed. So the anchor does not
+     * decide this case: the case is a NEW case, and it gets a new UID.
+     *
+     * The check is on the ENTRY, not on the case: an entry that carries a
+     * body key is a source entry. A dynamic case carries no body key (the
+     * body at that position belongs to the TEMPLATE), so a dynamic case may
+     * still be recognised by the anchor -- that is what the anchor is for.
+     */
+    if (entry.bodyKey) {
+      decisions.set(c, {
+        uid: null,
+        basis: null,
+        ambiguity: {
+          reason: AMBIGUITY.RENDER_SOURCE_ENTRY,
+          candidates: [entry.uid],
+          previousTitle: entry.title,
+        },
+      });
+      continue;
+    }
     decisions.set(c, {
       uid: entry.uid,
       basis: 'position-anchor',

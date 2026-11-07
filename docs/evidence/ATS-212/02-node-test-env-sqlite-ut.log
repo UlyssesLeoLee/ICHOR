@@ -1,21 +1,21 @@
 === the environment profile SQLite suite ===
 repo root : /d/ICHOR
-commit    : b00c3ca
+commit    : bb70d57
 branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ UT-SQL-ENV-001: the schema knows the environment tables (2.3683ms)
-✔ UT-SQL-ENV-002: the profiles and the whitelists survive a round trip (3.3746ms)
-✔ UT-SQL-ENV-003: the indexed column holds the NAMES of the variables, not their values (1.1359ms)
-✔ UT-SQL-ENV-004: the counts include the environment tables (1.0422ms)
-✔ UT-SQL-ENV-005: the mirror REPORTS a profile that is missing from the database (1.6833ms)
-✔ UT-SQL-ENV-006: the mirror REPORTS a tampered profile (1.2794ms)
-✔ UT-SQL-ENV-007: the mirror REPORTS an indexed column that contradicts its own record (1.2227ms)
-✔ UT-SQL-ENV-008: the mirror REPORTS a whitelist that disagrees with the state (1.0856ms)
-✔ UT-SQL-ENV-009: a state without the environment field still mirrors cleanly (1.1021ms)
-✔ UT-SQL-ENV-010: the import is idempotent with the environment profiles (1.6475ms)
-✔ UT-SQL-ENV-011: the migration down removes the environment tables and the column (1.7178ms)
+✔ UT-SQL-ENV-001: the schema knows the environment tables (2.3438ms)
+✔ UT-SQL-ENV-002: the profiles and the whitelists survive a round trip (2.998ms)
+✔ UT-SQL-ENV-003: the indexed column holds the NAMES of the variables, not their values (1.0557ms)
+✔ UT-SQL-ENV-004: the counts include the environment tables (0.9848ms)
+✔ UT-SQL-ENV-005: the mirror REPORTS a profile that is missing from the database (1.5728ms)
+✔ UT-SQL-ENV-006: the mirror REPORTS a tampered profile (1.304ms)
+✔ UT-SQL-ENV-007: the mirror REPORTS an indexed column that contradicts its own record (1.1435ms)
+✔ UT-SQL-ENV-008: the mirror REPORTS a whitelist that disagrees with the state (1.091ms)
+✔ UT-SQL-ENV-009: a state without the environment field still mirrors cleanly (1.0569ms)
+✔ UT-SQL-ENV-010: the import is idempotent with the environment profiles (1.5273ms)
+✔ UT-SQL-ENV-011: the migration down removes the environment tables and the column (1.5793ms)
 ℹ tests 11
 ℹ suites 0
 ℹ pass 11
@@ -23,6 +23,6 @@ python    : Python 3.11.16
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 108.4444
+ℹ duration_ms 100.3412
 
 exit code : 0

@@ -112,6 +112,16 @@ run 08-quality-gates.log "the ATS-301 gate: WBS helper + ADR citations + port au
 run 09-wbs-row.log "the ATS-212 row of docs/WBS.xlsx" \
   python tools/update_wbs_ats212.py
 
+# --- 09b: the row 33 acceptance check ---------------------------------------
+# The WBS note has to describe the DELIVERED behaviour only: a note that
+# narrates the defects that were found and fixed along the way documents an
+# intermediate state that no longer exists. This check asserts that the T
+# cell of row 33 carries no such narrative, that the two regression numbers
+# are unchanged, and that the updater is idempotent.
+run 09b-wbs-row33-check.log \
+  "the ATS-212 row 33: final state only, unchanged numbers, idempotent updater" \
+  python tools/ats212-probes/check-wbs-row33.py
+
 # --- 10: the python gates ----------------------------------------------------
 run 10-python-gates.log "the python gates under tools/" \
   python -m pytest tools/ -q
