@@ -1,33 +1,35 @@
 === the ATS-209 CLI suite ===
-tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-099a43b561b5/worktree
-commit : b62f2dbcd9d1f5a0c1d0028d710d3996cc6c1f2e
+tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-8222c3c90bd2/worktree
+commit : 804559d00ae8f39f2b8b6c1d9558350039602410
 
-✔ CLI-EVD-001: the usage is printed when no command is given (89.6311ms)
-✔ CLI-EVD-002: --help is printed on request (90.1107ms)
-✔ CLI-EVD-003: an unknown argument is refused (88.1674ms)
-✔ CLI-EVD-004: an unknown command is refused (90.0326ms)
-✔ CLI-EVD-005: a retention period that is not a number is refused (87.817ms)
-✔ CLI-EVD-006: a data directory with no state is not an error (97.6348ms)
-✔ CLI-EVD-007: a state file that cannot be parsed is reported (92.5724ms)
-✔ CLI-EVD-008: the plan says what is expired and what is kept (101.3877ms)
-✔ CLI-EVD-009: the cleaning refuses to run without --yes (111.081ms)
-✔ CLI-EVD-010: the cleaning removes the evidence and keeps the run record (108.0796ms)
-✔ CLI-EVD-011: the cleaning removes the stored copies of the cleaned evidence (E8) (99.7036ms)
-✔ CLI-EVD-012: a dry run removes nothing, the store included (E5) (90.3007ms)
-✔ CLI-EVD-013: the verification reports a cleaned run as CLEANED, not as a tamper (E7) (187.9141ms)
-✔ CLI-EVD-014: the verification still reports a real tamper (90.4772ms)
-✔ CLI-EVD-015: the journal says what the cleaning removed (179.34ms)
-✔ CLI-EVD-016: there is no journal in a data directory that was never cleaned (101.8046ms)
-✔ CLI-EVD-017: a damaged journal line is reported (94.6699ms)
-✔ CLI-EVD-018: a run whose id is not a run id is skipped, not followed (E3) (92.6549ms)
-✔ CLI-EVD-019: the verification reports a manifest that points outside the run folder (87.4028ms)
-ℹ tests 19
+✔ CLI-EVD-001: the usage is printed when no command is given (82.2809ms)
+✔ CLI-EVD-002: --help is printed on request (81.0412ms)
+✔ CLI-EVD-003: an unknown argument is refused (80.7734ms)
+✔ CLI-EVD-004: an unknown command is refused (82.4091ms)
+✔ CLI-EVD-005: a retention period that is not a number is refused (79.9573ms)
+✔ CLI-EVD-006: a data directory with no state is not an error (82.4702ms)
+✔ CLI-EVD-007: a state file that cannot be parsed is reported (80.8986ms)
+✔ CLI-EVD-008: the plan says what is expired and what is kept (88.557ms)
+✔ CLI-EVD-009: the cleaning refuses to run without --yes (82.282ms)
+✔ CLI-EVD-010: the cleaning removes the evidence and keeps the run record (88.942ms)
+✔ CLI-EVD-011: the cleaning removes the stored copies of the cleaned evidence (E8) (91.084ms)
+✔ CLI-EVD-012: a dry run removes nothing, the store included (E5) (88.4068ms)
+✔ CLI-EVD-013: the verification reports a cleaned run as CLEANED, not as a tamper (E7) (191.3674ms)
+✔ CLI-EVD-014: the verification still reports a real tamper (89.7961ms)
+✔ CLI-EVD-015: the journal says what the cleaning removed (179.1045ms)
+✔ CLI-EVD-016: there is no journal in a data directory that was never cleaned (81.4444ms)
+✔ CLI-EVD-017: a damaged journal line is reported (88.4567ms)
+✔ CLI-EVD-018: a run whose id is not a run id is skipped, not followed (E3) (89.3154ms)
+✔ CLI-EVD-019: the verification reports a manifest that points outside the run folder (84.8675ms)
+✔ CLI-EVD-020: the cleaning does not follow a junction out of the run folder (J1) (121.8272ms)
+✔ CLI-EVD-021: a second cleaning does not erase the record of the first (M1) (262.8184ms)
+ℹ tests 21
 ℹ suites 0
-ℹ pass 19
+ℹ pass 21
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 2068.8198
+ℹ duration_ms 2280.2935
 
 exit code : 0
