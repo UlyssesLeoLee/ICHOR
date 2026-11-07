@@ -17,11 +17,16 @@ PASS ST-216-2d the cancelled run is NOT in the run pass rate, and the grouping m
 PASS ST-216-3d the flaky case is counted in the flaky bucket, not in passed -- flaky=1 passed=1 failed=1 raw=["flaky","passed","failed"]
 PASS ST-216-3e the retry is counted as a retry -- retried=2/2 retries=2
 PASS ST-216-4a the overview reconciles with the raw results -- module says true, the probe recomputes 0 mismatch(es): []
-PASS ST-216-4b every reconciliation check is a real comparison -- 20 checks
-PASS ST-216-4d a run whose counters disagree with its case list IS reported -- consistent=false failed checks=1
+PASS ST-216-4b every reconciliation check is a real comparison -- 26 checks
+PASS ST-216-4d a run whose counters disagree with its case list IS reported -- consistent=false failed checks=2
 PASS ST-216-4c the per-run checks are anchored to the bridge-reported counters -- 12 per-run checks
 PASS ST-216-6a the same defect behind different ids clusters together -- AssertionError: expected <n> to be <n> -- id <uuid>
 PASS ST-216-6b a different defect does NOT share the signature -- TimeoutError: page.waitForTimeout exceeded
 PASS ST-216-6c the real failures are clustered exactly as the raw error texts say -- raw groups=[["Error: expect(locator).toHaveText(expected) failed",1]] module groups=[["Error: expect(locator).toHaveText(expected) failed",1]]
-scratch: C:\tmp\multica-task-3945425265\ats216-ev3\st216-NGN8Hj
-RESULT: 25/25
+PASS ST-216-7a the cases of a run WITHOUT a verdict do not enter the attempt buckets -- attempts.total=5 raw(verdict)=5 inconclusiveAttempts=0 raw(no verdict)=0
+PASS ST-216-7b the cases of a run WITHOUT a verdict do not enter the retry metrics -- cases.retried=2 raw(verdict)=2 inconclusiveRetried=0
+PASS ST-216-7c the cross-run view only counts the runs that carry a verdict -- tests.total=3 raw(verdict identities)=3 no-verdict runs=1
+PASS ST-216-8a the displayed case counts match the raw case list of the verdict runs -- displayed={"passed":1,"failed":1,"flaky":1,"skipped":0} raw={"passed":1,"failed":1,"flaky":1,"skipped":0}
+PASS ST-216-8b every run is in exactly one run bucket -- bucketSum=3 runs=3
+scratch: C:\tmp\ats216-ev2\st216-RdIUWk
+RESULT: 30/30

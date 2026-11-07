@@ -1,9 +1,9 @@
 === the ATS-209 probe ===
-tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-31f16410737a/worktree
-commit : 7381cbef1a88a2c3394ae1f3dac13dcfaf56fb87
+tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-8222c3c90bd2/worktree
+commit : 7b2a5302d81171df96791ee228ae9b0fd584629d
 
 === ATS-209 probe: the evidence manifest and the retention policy ===
-tree : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-31f16410737a\worktree
+tree : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-8222c3c90bd2\worktree
 
 --- 1. the manifest names the run and carries the digests ---
 ok   the manifest names the run -- runId=run_1_000000000000000000000000
@@ -51,6 +51,16 @@ ok   the two paths are the same inode
 
 --- 7. THE EVIDENCE SET IS WHAT THE MANIFEST DESCRIBES ---
 ok   the collected entries and the manifest agree
+
+--- 8. THE REVIEW ROUND 1 PROPERTIES ---
+ok   a tampered blob is not reused (E1) -- the blob holds "GENUINE"
+ok   an entry outside the run folder is refused (E3) -- rejected=[{"file":"../outside-e3.json","reason":"the entry points outside the run folder"}]
+ok   the cleaning does not reach outside the run folder (E3)
+ok   a manifest that hit the entry limit records it (E6)
+ok   a manifest that does not cover the folder does not verify (E6)
+ok   a cleaned run is not reported as tampered (E7) -- verified=true cleaned=3
+ok   a file that vanishes without a cleaning record is still a tamper (E7)
+ok   the cleaning reports only the files it actually removed (E4) -- removed=[]
 
 RESULT: OK -- 0 failure(s)
 

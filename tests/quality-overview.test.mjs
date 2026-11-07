@@ -38,6 +38,7 @@ import {
   caseBucket,
   classifyFailureKind,
   normalizeErrorSignature,
+  qualityMetricCards,
   runStatusGroup,
   summarizeOverview,
   testKeyOf,
@@ -224,6 +225,74 @@ test('ATS-216-UT-015 an in-flight run is counted apart from the finished ones', 
   assert.equal(o.runs.passRate, 1);
 });
 
+test('ATS-216-UT-016 the cases of a run WITHOUT a verdict do not enter the metrics', () => {
+  // A cancelled run really did execute its cases, but a run the operator
+  // stopped says NOTHING about the quality of the code under test. Its
+  // cases therefore enter neither the attempt buckets, nor the retry
+  // metrics, nor the cross-run view: they are reported apart.
+  const cancelled = run('cancelled', [kase('failed', [
+    { status: 'failed', retry: 0, duration: 1, error: 'Error: boom' },
+    { status: 'failed', retry: 1, duration: 1, error: 'Error: boom' },
+  ], { title: 'T' })], { id: 'rC' });
+  const passed = run('passed', [kase('passed', undefined, { title: 'T' })], { id: 'rP' });
+  const o = buildQualityOverview([cancelled, passed]);
+
+  assert.equal(o.runs.cancelled, 1);
+  assert.equal(o.cases.failed, 0, 'a cancelled run\'s failure is not a failure of the code');
+  assert.equal(o.cases.passed, 1);
+  assert.equal(o.cases.inconclusive, 1, 'the case is reported apart');
+  assert.equal(o.cases.counted, 1, 'only the case of the finished run is counted');
+  // The retry metrics.
+  assert.equal(o.cases.retried, 0, 'the retries of a cancelled run are not retries');
+  assert.equal(o.cases.retries, 0);
+  assert.equal(o.cases.attempts, 1, 'the attempts of a cancelled run are not attempts of the code');
+  assert.equal(o.attempts.total, 1);
+  assert.equal(o.attempts.failed, 0, 'the failed attempt of a cancelled run is not in the bucket');
+  // The attempts of the cancelled run are reported apart.
+  assert.equal(o.cases.inconclusiveAttempts, 2);
+  assert.equal(o.cases.inconclusiveRetried, 1);
+  // The cross-run view.
+  assert.equal(o.tests.total, 1, 'the cancelled run does not add a second observation');
+  const t = o.tests.list.find((x) => x.title === 'T');
+  assert.equal(t.failedRuns, 0, 'the cancelled run contributes no failed run');
+  assert.equal(t.passedRuns, 1);
+  assert.equal(t.flaky, false, 'the case is not flaky: the cancelled run says nothing');
+  assert.equal(o.tests.flaky, 0);
+});
+
+test('ATS-216-UT-016b an IN-FLIGHT run\'s cases do not enter the metrics either', () => {
+  const o = buildQualityOverview([
+    run('running', [kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'e' }])]),
+  ]);
+  assert.equal(o.runs.inFlight, 1);
+  assert.equal(o.cases.failed, 0);
+  assert.equal(o.cases.inconclusive, 1);
+  assert.equal(o.cases.attempts, 0);
+  assert.equal(o.attempts.total, 0);
+  assert.equal(o.tests.total, 0, 'an in-flight run contributes no cross-run observation');
+});
+
+test('ATS-216-UT-016c a run whose status the module does not know is reported, not dropped', () => {
+  // An unknown status is a fact the module does not have. It goes into the
+  // `unknown` bucket -- the bucket that claims nothing -- and the bucket
+  // sum still equals the number of runs.
+  const o = buildQualityOverview([
+    { id: 'rX', uid: 'uX', status: 'timedout', summary: { cases: [] } },
+  ]);
+  assert.equal(o.runs.total, 1);
+  assert.equal(o.runs.unknown, 1, 'the unknown status has its own bucket');
+  assert.equal(o.runs.inconclusive, 1, 'and it counts as inconclusive');
+  assert.equal(o.runs.inFlight, 0);
+  assert.equal(o.runs.verdict, 0);
+  assert.equal(o.runs.refs.unknown.length, 1, 'the run is listed in the unknown bucket');
+  assert.equal(o.runs.refs.unknown[0].id, 'rX');
+  const sum = o.runs.passed + o.runs.failed + o.runs.cancelled + o.runs.error
+    + o.runs.interrupted + o.runs.inFlight + o.runs.unknown;
+  assert.equal(sum, o.runs.total, 'every run is in exactly one bucket');
+  assert.ok(o.reconciliation.checks.some(
+    (c) => c.ok && c.name === 'every run is in exactly one run bucket'));
+});
+
 /* ------------------------------------------------------------------ */
 /* 2. 指标与原始结果可核对                                              */
 /* ------------------------------------------------------------------ */
@@ -386,6 +455,99 @@ test('ATS-216-UT-030 the summary line reports the three distinguished buckets', 
   assert.match(line, /reconciliation OK/);
 });
 
+test('ATS-216-UT-032 the reconciliation checks the DISPLAYED metrics, not the buckets alone', () => {
+  // The reconciliation must compare the numbers the interface SHOWS with
+  // the counters the bridge reported. A module that buckets a case wrongly
+  // would be confirmed by the per-run checks alone.
+  const o = buildQualityOverview([
+    run('failed', [
+      kase('passed'),
+      kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'boom' }]),
+      kase('flaky', [
+        { status: 'failed', retry: 0, duration: 1, error: 'boom' },
+        { status: 'passed', retry: 1, duration: 1, error: '' },
+      ]),
+    ]),
+  ]);
+  const names = o.reconciliation.checks.map((c) => c.name);
+  assert.ok(names.includes('the displayed passed count matches the counters the bridge reported'),
+    'the displayed passed count must be checked against the bridge');
+  assert.ok(names.includes('the displayed failed count matches the counters the bridge reported'));
+  assert.ok(names.includes('the displayed flaky count matches the counters the bridge reported'));
+  assert.ok(names.includes('the displayed attempt count matches the executions the bridge reported'));
+  assert.equal(o.reconciliation.consistent, true,
+    `the checks must pass: ${JSON.stringify(o.reconciliation.checks.filter((c) => !c.ok))}`);
+});
+
+test('ATS-216-UT-032b a DISPLAYED metric that disagrees with the bridge is REPORTED', () => {
+  // The bridge says one case passed; the case list holds a FAILED case.
+  // The per-run check catches it -- and so must the check on the DISPLAYED
+  // number, because that is the number the reader sees.
+  const lying = {
+    id: 'run-lying', uid: 'uid-lying', status: 'failed',
+    summary: {
+      passed: 1, failed: 0, flaky: 0, skipped: 0, unknown: 0,
+      total: 1, executions: 1,
+      cases: [kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'boom' }])],
+    },
+  };
+  const o = buildQualityOverview([lying]);
+  assert.equal(o.reconciliation.consistent, false);
+  const failed = o.reconciliation.checks.filter((c) => !c.ok);
+  assert.ok(failed.some((c) => c.name.includes('the displayed passed count')),
+    'the displayed passed count must be reported as wrong');
+  assert.ok(failed.some((c) => c.name.includes('the displayed failed count')),
+    'the displayed failed count must be reported as wrong');
+});
+
+test('ATS-216-UT-032c every run is in exactly one run bucket', () => {
+  const o = buildQualityOverview([
+    run('passed', [kase('passed')]),
+    run('failed', [kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'e' }])]),
+    run('cancelled', [kase('unknown')]),
+    run('error', [kase('unknown')]),
+    run('interrupted', [kase('unknown')]),
+    run('running', [kase('passed')]),
+  ]);
+  const sum = o.runs.passed + o.runs.failed + o.runs.cancelled + o.runs.error
+    + o.runs.interrupted + o.runs.inFlight + o.runs.unknown;
+  assert.equal(sum, o.runs.total);
+  assert.equal(o.runs.verdict + o.runs.inconclusive + o.runs.inFlight, o.runs.total);
+  assert.ok(o.reconciliation.checks.some(
+    (c) => c.ok && c.name === 'every run is in exactly one run bucket'));
+});
+
+test('ATS-216-UT-033 the metric cards carry the raw items behind every number', () => {
+  const o = buildQualityOverview([
+    run('failed', [
+      kase('passed', undefined, { title: 'P' }),
+      kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'boom' }], { title: 'F' }),
+      kase('flaky', [
+        { status: 'failed', retry: 0, duration: 1, error: 'boom' },
+        { status: 'passed', retry: 1, duration: 1, error: '' },
+      ], { title: 'R' }),
+    ], { id: 'r1' }),
+    run('cancelled', [kase('unknown', undefined, { title: 'X' })], { id: 'r2' }),
+  ]);
+  const cards = qualityMetricCards(o);
+  assert.equal(cards.length, 4);
+  const byKey = Object.fromEntries(cards.map((c) => [c.key, c]));
+  assert.equal(byKey.passed.value, o.cases.passed);
+  assert.equal(byKey.failed.value, o.cases.failed);
+  assert.equal(byKey.flaky.value, o.cases.flaky);
+  assert.equal(byKey.inconclusive.value, 1, 'the cancelled run is the inconclusive card');
+  // Every card carries the items it was counted from.
+  assert.equal(byKey.passed.refs.length, byKey.passed.value);
+  assert.equal(byKey.failed.refs.length, byKey.failed.value);
+  assert.equal(byKey.flaky.refs.length, byKey.flaky.value);
+  assert.equal(byKey.inconclusive.refs.length, byKey.inconclusive.value);
+  assert.equal(byKey.failed.refs[0].title, 'F');
+  assert.equal(byKey.failed.refs[0].runId, 'r1');
+  assert.equal(byKey.inconclusive.refs[0].id, 'r2');
+  // The flaky card counts the retries of the retried cases only.
+  assert.match(byKey.flaky.subtitle, /1 次重试/);
+});
+
 /* ------------------------------------------------------------------ */
 /* 3. the deterministic clustering (失败聚类)                           */
 /* ------------------------------------------------------------------ */
@@ -436,10 +598,29 @@ test('ATS-216-UT-044 the failure kind is derived from the signature, without a m
   assert.equal(classifyFailureKind(normalizeErrorSignature('TimeoutError: exceeded 30000ms')), 'timeout');
   assert.equal(classifyFailureKind(normalizeErrorSignature('AssertionError: expected 1 to be 2')), 'assertion');
   assert.equal(classifyFailureKind(normalizeErrorSignature('net::ERR_CONNECTION_REFUSED')), 'network');
-  assert.equal(classifyFailureKind(normalizeErrorSignature('Error: expect(locator).toBeVisible()')), 'element');
+  // A locator that could not be RESOLVED is an element failure.
+  assert.equal(classifyFailureKind(normalizeErrorSignature('Error: locator resolved to 2 elements')), 'element');
   assert.equal(classifyFailureKind(normalizeErrorSignature('Error: goto failed')), 'navigation');
   assert.equal(classifyFailureKind(normalizeErrorSignature('Error: the run was cancelled')), 'cancelled');
   assert.equal(classifyFailureKind(normalizeErrorSignature('Error: something else entirely')), 'other');
+});
+
+test('ATS-216-UT-044b a WEB-FIRST assertion is an assertion, not a missing element', () => {
+  // The web-first form of Playwright names a locator, but the failure is
+  // the ASSERTION about that locator -- `expect(locator).toHaveText(x)
+  // failed` says the text was not what the test expected. The element
+  // kind is reserved for a locator that could not be resolved at all.
+  assert.equal(
+    classifyFailureKind(normalizeErrorSignature('Error: expect(locator).toHaveText(expected) failed')),
+    'assertion',
+    'the real Playwright web-first failure must be classified as an assertion');
+  assert.equal(
+    classifyFailureKind(normalizeErrorSignature('Error: expect(locator).toBeVisible() failed')),
+    'assertion');
+  // The locator itself was not found: that IS an element failure.
+  assert.equal(
+    classifyFailureKind(normalizeErrorSignature('Error: locator not found: #missing')),
+    'element');
 });
 
 test('ATS-216-UT-045 the clusters are ordered by how many failures they hold', () => {
@@ -540,6 +721,109 @@ test('ATS-216-UT-054 the test key is the file plus the title, unambiguously', ()
   assert.notEqual(testKeyOf('a.spec.ts', 'T'), testKeyOf('a.spec.ts', 'U'));
   // A separator-based key would collide here; the JSON encoding cannot.
   assert.notEqual(testKeyOf('a.spec.ts/b', ''), testKeyOf('a.spec.ts', 'b'));
+});
+
+test('ATS-216-UT-055 two same-titled cases under different describes are TWO tests', () => {
+  // The common Playwright pattern: `describe('a') { test('works') }` and
+  // `describe('b') { test('works') }`. The stored summary carries the
+  // describe path, so the two cases are two tests -- not one test that
+  // "sometimes fails".
+  const o = buildQualityOverview([
+    run('failed', [
+      kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'e' }],
+        { title: 'works', file: 'a.spec.ts', scope: ['a'], line: 5 }),
+    ], { id: 'r1' }),
+    run('failed', [
+      kase('passed', undefined, { title: 'works', file: 'a.spec.ts', scope: ['b'], line: 9 }),
+    ], { id: 'r2' }),
+  ]);
+  assert.equal(o.tests.total, 2, 'the two describes are two tests');
+  assert.equal(o.tests.flaky, 0, 'two different tests are not one flaky test');
+  const first = o.tests.list.find((t) => t.scope.join(' ') === 'a');
+  const second = o.tests.list.find((t) => t.scope.join(' ') === 'b');
+  assert.ok(first && second, 'both tests are listed');
+  assert.equal(first.failedRuns, 1);
+  assert.equal(first.passedRuns, 0);
+  assert.equal(second.failedRuns, 0);
+  assert.equal(second.passedRuns, 1);
+});
+
+test('ATS-216-UT-055b the LINE separates two same-titled cases of one file', () => {
+  const o = buildQualityOverview([
+    run('failed', [
+      kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'e' }],
+        { title: 'works', file: 'a.spec.ts', line: 5 }),
+    ], { id: 'r1' }),
+    run('passed', [
+      kase('passed', undefined, { title: 'works', file: 'a.spec.ts', line: 9 }),
+    ], { id: 'r2' }),
+  ]);
+  assert.equal(o.tests.total, 2, 'the two lines are two tests');
+  assert.equal(o.tests.flaky, 0);
+});
+
+test('ATS-216-UT-055c the CASE KEY separates two cases when the scope is absent', () => {
+  const o = buildQualityOverview([
+    run('failed', [
+      kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'e' }],
+        { title: 'works', file: 'a.spec.ts', caseKey: 'a.spec.ts works #0' }),
+    ], { id: 'r1' }),
+    run('passed', [
+      kase('passed', undefined,
+        { title: 'works', file: 'a.spec.ts', caseKey: 'a.spec.ts works #1' }),
+    ], { id: 'r2' }),
+  ]);
+  assert.equal(o.tests.total, 2, 'the two case keys are two tests');
+  assert.equal(o.tests.flaky, 0);
+});
+
+test('ATS-216-UT-055d a case that ALWAYS fails is not reported as flaky', () => {
+  // The same title, the same file, two runs, both failing. Nothing about
+  // this test changed: it is consistently broken, not unreliable.
+  const o = buildQualityOverview([
+    run('failed', [kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'e' }],
+      { title: 'T', file: 'a.spec.ts', scope: ['x'] })], { id: 'r1' }),
+    run('failed', [kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'e' }],
+      { title: 'T', file: 'a.spec.ts', scope: ['x'] })], { id: 'r2' }),
+  ]);
+  const t = o.tests.list.find((x) => x.title === 'T');
+  assert.equal(t.failedRuns, 2);
+  assert.equal(t.passedRuns, 0);
+  assert.equal(t.flaky, false, 'a test that always fails is not flaky');
+  assert.equal(o.tests.flaky, 0);
+});
+
+test('ATS-216-UT-055e two cases of ONE run that share an identity are REPORTED, not merged', () => {
+  // The stored summary cannot tell the two cases apart. The module says so
+  // instead of merging them silently -- and such a test contributes no
+  // verdict, so it can never be reported as flaky.
+  const o = buildQualityOverview([
+    run('failed', [
+      kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'e' }], { title: 'T' }),
+      kase('passed', undefined, { title: 'T' }),
+    ], { id: 'r1' }),
+    run('passed', [kase('passed', undefined, { title: 'T' })], { id: 'r2' }),
+  ]);
+  const t = o.tests.list.find((x) => x.title === 'T');
+  assert.ok(t, 'the test is listed');
+  assert.equal(t.ambiguous, true, 'the collision is reported on the entry');
+  assert.equal(t.flaky, false, 'an ambiguous test is never flaky');
+  assert.equal(o.tests.flaky, 0);
+  assert.equal(o.tests.ambiguous, 1, 'the overview counts the ambiguous identities');
+});
+
+test('ATS-216-UT-055f the test key of an identity that carries a scope differs', () => {
+  assert.notEqual(
+    testKeyOf('a.spec.ts', 'T', { scope: ['a'], line: 5 }),
+    testKeyOf('a.spec.ts', 'T', { scope: ['b'], line: 5 }));
+  assert.notEqual(
+    testKeyOf('a.spec.ts', 'T', { scope: [], line: 5 }),
+    testKeyOf('a.spec.ts', 'T', { scope: [], line: 9 }));
+  assert.notEqual(
+    testKeyOf('a.spec.ts', 'T', { caseKey: 'k0' }),
+    testKeyOf('a.spec.ts', 'T', { caseKey: 'k1' }));
+  // Without an identity the key falls back to the file and the title.
+  assert.equal(testKeyOf('a.spec.ts', 'T'), JSON.stringify(['a.spec.ts', 'T']));
 });
 
 /* ------------------------------------------------------------------ */

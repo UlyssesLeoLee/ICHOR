@@ -408,11 +408,16 @@ function collectRunResults(run){
  const proj=store.projects.find(p=>p.id===run.projectId||p.uid===run.projectId||p.uid===run.projectUid);
  run.attempts=attemptsForRun({...run,projectRoot:proj?.root??null},rawSummary??run.summary,store.uidRegistry);
  // ATS-209: the artifacts are the EVIDENCE of the run. The event log and
- // the raw output are the run's RECORD, and the manifest is the record OF
- // the evidence -- so neither of them is an artifact. Keeping the three
- // apart is what lets the cleaner remove the evidence while the record
- // and the manifest survive.
- run.artifacts=filesInRun(run.id).filter(x=>!['events.jsonl','stdout.log','manifest.json'].includes(x.file));
+  // the raw output are the run's RECORD, and the manifest is the record OF
+  // the evidence -- so neither of them is an artifact. Keeping the three
+  // apart is what lets the cleaner remove the evidence while the record
+  // and the manifest survive.
+  //
+  // The collector is the SAME one the manifest uses, so the run record and
+  // the manifest describe the same set of files (ATS-209 review round 1,
+  // E6). It already leaves out the run's record, the manifest itself and
+  // the cleaner's own record.
+  run.artifacts=filesInRun(run.id);
  }
 function finishRun(run,code,signal){
  if(run.status!=='running'&&run.status!=='cancelling')return;
@@ -433,7 +438,7 @@ function finishRun(run,code,signal){
  // `version:1` and no evidence section: it listed the artifacts, but it
  // did not say WHICH RUN the digests belonged to, and it carried no
  // digest of the evidence set as a whole.
- const manifest=buildManifest(run,folder);
+ const manifest=buildManifest(run,folder,{artifacts:run.artifacts});
  // ATS-212: the manifest names the environment profile the run ran under
  // and the NAMES of the variables it carried -- never their values. The
  // manifest is archived with the evidence, so a value does not travel with
@@ -900,20 +905,27 @@ const server=http.createServer(async(req,res)=>{
   // changed after the run was archived is reported as changed, with the
   // digest it should have and the digest it has.
   if(action==='evidence'&&req.method==='GET'){
-   const result=verifyEvidence(runDir(r.id));
-   return respond(res,200,{
-    runId:r.id,
-    verified:result.verified,
-    ok:result.ok,
-    checked:result.checked,
-    missing:result.missing,
-    changed:result.changed,
-    extra:result.extra,
-    reason:result.reason,
-    evidence:r.evidence??null,
-    manifestVersion:result.manifest?.version??null,
-   });
-  }
+     const result=verifyEvidence(runDir(r.id));
+     return respond(res,200,{
+      runId:r.id,
+      verified:result.verified,
+      ok:result.ok,
+      checked:result.checked,
+      missing:result.missing,
+      changed:result.changed,
+      extra:result.extra,
+      // ATS-209 review round 1 (E3, E7): the entries the manifest names
+      // outside the run folder are REFUSED, not followed; and the files the
+      // retention policy removed are reported as `cleaned`, so they are not
+      // mistaken for a tamper.
+      rejected:result.rejected,
+      cleaned:result.cleaned,
+      truncated:result.truncated,
+      reason:result.reason,
+      evidence:r.evidence??null,
+      manifestVersion:result.manifest?.version??null,
+     });
+    }
   // ATS-209: the MANIFEST of a run, as it was written.
   if(action==='manifest'&&req.method==='GET'){
    const result=verifyEvidence(runDir(r.id));

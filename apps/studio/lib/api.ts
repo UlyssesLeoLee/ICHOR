@@ -17,7 +17,10 @@ export type Attempt={uid:string,runUid:string,testUid:string|null,uidBasis:strin
 export type CaseAttempt={status:string,retry:number,duration:number,error:string};
 // ATS-208: the case as a whole. Its status is the AGGREGATE of its
 // attempts: a case that failed once and then passed is 'flaky'.
-export type CaseResult={title:string,file:string,status:string,duration:number,error:string,attemptsCount:number,attempts:CaseAttempt[]};
+// ATS-216: the case also carries its IDENTITY -- the describe path, the
+// line and the case key -- so that two same-titled cases of one file are
+// two cases and not one.
+export type CaseResult={title:string,file:string,status:string,duration:number,error:string,attemptsCount:number,scope?:string[],line?:number|null,column?:number|null,caseKey?:string|null,attempts:CaseAttempt[]};
 export type Run={id:string,uid:string,seq:number,projectId:string,projectUid:string,projectName:string,file:string|null,gitCommit:string,status:string,createdAt:string,startedAt:string|null,finishedAt:string|null,log?:string,error?:string,summary?:{passed:number,failed:number,skipped:number,flaky:number,total:number,executions:number,cases:CaseResult[]},artifacts?:{file:string,size:number,sha256:string}[],attempts?:Attempt[]};
 export type Source={file:string,content:string,hash:string};
 const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';

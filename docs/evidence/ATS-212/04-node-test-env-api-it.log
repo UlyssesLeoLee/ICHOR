@@ -1,24 +1,24 @@
 === the environment profile API suite ===
 repo root : /d/ICHOR
-commit    : b00c3ca
+commit    : bb70d57
 branch    : dev
 node      : v24.19.0
 python    : Python 3.11.16
 
-✔ IT-ENV-SETUP: start the bridge (411.9458ms)
-✔ IT-ENV-001: a project is registered (75.1846ms)
-✔ IT-ENV-002: a profile is created and the answer carries the NAMES, not the values (13.3993ms)
-✔ IT-ENV-003: GET /env lists the profiles and the whitelist (6.8173ms)
-✔ IT-ENV-004: a variable that is not on the whitelist is REFUSED with the reason (29.9221ms)
-✔ IT-ENV-005: a credential-shaped name is REFUSED even when the whitelist allows it (31.6026ms)
-✔ IT-ENV-006: a whitelist that authorises a credential is REFUSED (15.2716ms)
-✔ IT-ENV-007: a run names the profile it ran under and the NAMES of its variables (87.7702ms)
-✔ IT-ENV-008: a run that names a profile that does not exist is REFUSED (68.8018ms)
-✔ IT-ENV-009: the profile lives in the data directory and NOT in the project (0.8158ms)
-✔ IT-ENV-010: the profile survives a restart of the bridge (404.2179ms)
-✔ IT-ENV-011: the profile is deleted (61.4801ms)
-✔ IT-ENV-012: the CORS pre-flight allows DELETE on the environment endpoints (15.5121ms)
-✔ IT-ENV-CLEANUP: stop the bridge (3.1018ms)
+✔ IT-ENV-SETUP: start the bridge (354.5787ms)
+✔ IT-ENV-001: a project is registered (65.2116ms)
+✔ IT-ENV-002: a profile is created and the answer carries the NAMES, not the values (10.5278ms)
+✔ IT-ENV-003: GET /env lists the profiles and the whitelist (1.8818ms)
+✔ IT-ENV-004: a variable that is not on the whitelist is REFUSED with the reason (14.7008ms)
+✔ IT-ENV-005: a credential-shaped name is REFUSED even when the whitelist allows it (30.7803ms)
+✔ IT-ENV-006: a whitelist that authorises a credential is REFUSED (17.9973ms)
+✔ IT-ENV-007: a run names the profile it ran under and the NAMES of its variables (112.9305ms)
+✔ IT-ENV-008: a run that names a profile that does not exist is REFUSED (60.581ms)
+✔ IT-ENV-009: the profile lives in the data directory and NOT in the project (0.7644ms)
+✔ IT-ENV-010: the profile survives a restart of the bridge (337.5022ms)
+✔ IT-ENV-011: the profile is deleted (31.5592ms)
+✔ IT-ENV-012: the CORS pre-flight allows DELETE on the environment endpoints (13.9984ms)
+✔ IT-ENV-CLEANUP: stop the bridge (2.6593ms)
 ℹ tests 14
 ℹ suites 0
 ℹ pass 14
@@ -26,6 +26,6 @@ python    : Python 3.11.16
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1337.4898
+ℹ duration_ms 1157.7882
 
 exit code : 0

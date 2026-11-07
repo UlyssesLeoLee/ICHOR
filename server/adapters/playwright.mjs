@@ -351,6 +351,21 @@ export function createPlaywrightAdapter() {
                 title: c.title,
                 file: c.file,
                 status: c.status,
+                // The IDENTITY of the case, as the model computed it: the
+                // describe path, the line and the case key.
+                //
+                // Without them two cases of one file that share a title --
+                // `describe('a') { test('works') }` and
+                // `describe('b') { test('works') }` -- are indistinguishable
+                // in the stored summary, and every view that groups cases
+                // across runs merges them into one. The model already
+                // separates them (`parseReport` keys the case on the
+                // describe path and the line), so the projection carries
+                // the model's own identity rather than re-deriving one.
+                scope: Array.isArray(c.scope) ? [...c.scope] : [],
+                line: c.line ?? null,
+                column: c.column ?? null,
+                caseKey: c.caseKey ?? null,
                 // The OUTCOME of the case: what the ENGINE concluded about
                 // it (`expected` / `unexpected` / `flaky` / `skipped`).
                 // It is what makes the counters agree with the engine's own

@@ -750,6 +750,87 @@ test('UT-ATS204-027 (X1): an explicit token the catalogue judged DUPLICATE is no
   } finally { p.cleanup(); }
 });
 
+test('UT-ATS204-037 (X3): the STATIC catalogue also records the duplicate verdict, so a single-file run does not bind it', () => {
+  // The STATIC index is the DEFAULT one: an untrusted project never runs
+  // `--list`, so its catalogue is the one the run side has to agree with.
+  // The static index judges the token duplicated too -- but the verdict used
+  // to live on the CANDIDATE only, and the run side never sees the
+  // candidates: it sees the REGISTRY. So the verdict was lost on the way,
+  // and a run of one of the two files bound the token to that one case --
+  // the very mis-association the catalogue's verdict forbids.
+  const p = makeProject();
+  try {
+    p.write('tests/a.spec.ts', "import { test } from '@playwright/test';\n\ntest('checkout @TC-001', async () => { const a = 1; });\n");
+    p.write('tests/b.spec.ts', "import { test } from '@playwright/test';\n\ntest('refund @TC-001', async () => { const b = 2; });\n");
+
+    const catalogue = discoverStatic(p.project, emptyRegistry());
+    // The catalogue judges the token duplicated ...
+    assert.equal(catalogue.tests.length, 2);
+    assert.ok(catalogue.tests.every((t) => t.ambiguity?.reason === 'duplicate-explicit-uid'),
+      'the static catalogue judged the token duplicated');
+    // ... and the verdict reaches the REGISTRY, which is what the run side
+    // reads.
+    const entries = catalogue.registry.projects[p.projectUid].entries;
+    assert.equal(entries.length, 2, 'both cases are in the registry');
+    assert.ok(entries.every((e) => e.duplicateExplicit === 'tc-001'),
+      'the verdict is recorded on the registry entries');
+
+    // The run covers only ONE of the two files: the token is unique IN THIS
+    // RUN, but it is not unique in the project. The run side must agree
+    // with the catalogue and bind NOTHING.
+    const attempts = attemptsForRun(
+      { uid: 'run_1_' + '6'.repeat(24), projectUid: p.projectUid, projectRoot: p.projectDir },
+      {
+        rootDir: path.join(p.projectDir, 'tests').replace(/\\/g, '/'),
+        cases: [{ title: 'refund @TC-001', file: 'b.spec.ts', line: 3, status: 'expected', duration: 1, retry: 0 }],
+      },
+      { version: 1, projects: { [p.projectUid]: catalogue.registry.projects[p.projectUid] } }
+    );
+    assert.equal(attempts.length, 1);
+    assert.equal(attempts[0].testUid, null, 'the token binds nothing');
+    assert.equal(attempts[0].uidBasis, 'explicit-ambiguous');
+    assert.equal(attempts[0].uidAmbiguity.reason, 'duplicate-explicit-uid');
+  } finally { p.cleanup(); }
+});
+
+test('UT-ATS204-038 (X2s): the static catalogue forgets the verdict once the duplicate is gone', () => {
+  // The verdict is a statement about the project AS IT IS NOW. When the
+  // second `@TC-001` is removed, the token is unique again -- and a run of
+  // the file that carries it must bind it. A verdict that outlived the
+  // duplicate would lock the token out of the project for good.
+  const p = makeProject();
+  try {
+    p.write('tests/a.spec.ts', "import { test } from '@playwright/test';\n\ntest('checkout @TC-001', async () => { const a = 1; });\n");
+    p.write('tests/b.spec.ts', "import { test } from '@playwright/test';\n\ntest('refund @TC-001', async () => { const b = 2; });\n");
+
+    const first = discoverStatic(p.project, emptyRegistry());
+    assert.ok(first.registry.projects[p.projectUid].entries.every((e) => e.duplicateExplicit === 'tc-001'),
+      'the duplicate is recorded');
+
+    // The duplicate is fixed: b no longer carries the token.
+    p.write('tests/b.spec.ts', "import { test } from '@playwright/test';\n\ntest('refund', async () => { const b = 2; });\n");
+    const second = discoverStatic(p.project, first.registry);
+    const entries = second.registry.projects[p.projectUid].entries;
+    assert.ok(!entries.some((e) => e.duplicateExplicit),
+      'no entry keeps the stale verdict');
+    assert.ok(entries.some((e) => e.uid === 'tc-001'),
+      'the token belongs to the case that carries it');
+
+    // A run of that one file binds the token again.
+    const attempts = attemptsForRun(
+      { uid: 'run_1_' + '7'.repeat(24), projectUid: p.projectUid, projectRoot: p.projectDir },
+      {
+        rootDir: path.join(p.projectDir, 'tests').replace(/\\/g, '/'),
+        cases: [{ title: 'checkout @TC-001', file: 'a.spec.ts', line: 3, status: 'expected', duration: 1, retry: 0 }],
+      },
+      { version: 1, projects: { [p.projectUid]: second.registry } }
+    );
+    assert.equal(attempts.length, 1);
+    assert.equal(attempts[0].testUid, 'tc-001', 'the token binds again');
+    assert.equal(attempts[0].uidBasis, 'explicit');
+  } finally { p.cleanup(); }
+});
+
 test('UT-ATS204-028: the anchor counts the CLI\'s REPORT order, not the title-sorted order', () => {
   // The catalogue's display order is sorted by title; the CLI reports the
   // renders in the order the template GENERATED them. The anchor's ordinal
@@ -828,6 +909,49 @@ test('UT-ATS204-031: two anchors at the same ordinal are reported, not resolved'
   assert.equal(decision.uid, null);
   assert.equal(decision.ambiguity.reason, AMBIGUITY.RENDER_AMBIGUOUS);
   assert.deepEqual(decision.ambiguity.candidates.sort(), ['tc-one', 'tc-two']);
+});
+
+test('UT-ATS204-039 (N4): the anchor does not hand a SOURCE case its uid to a different case at the same position', () => {
+  // A source case has a body of its own, and the registry remembers it. A
+  // case with a DIFFERENT title at that position is a different case -- or
+  // the old case with a rewritten body, and a rewritten body means a new
+  // identity (the ATS-201 boundary). Either way the anchor does not decide
+  // it: the old uid would link the old evidence to a different case.
+  const cases = [{ file: 'tests/a.spec.ts', title: 'search x', line: 3, scope: [] }];
+  const decisions = reidentifyRendered({
+    cases,
+    entries: [{
+      uid: 'tc-source',
+      title: 'login works',
+      bodyKey: 'k1',
+      anchor: { file: 'tests/a.spec.ts', line: 3, scope: [], ordinal: 0, count: 1 },
+    }],
+  });
+  const decision = decisions.get(cases[0]);
+  assert.ok(decision, 'the case is decided -- by NOT deciding it');
+  assert.equal(decision.uid, null, 'the source case keeps its uid');
+  assert.equal(decision.ambiguity.reason, AMBIGUITY.RENDER_SOURCE_ENTRY);
+  assert.deepEqual(decision.ambiguity.candidates, ['tc-source']);
+});
+
+test('UT-ATS204-040 (N4): a DYNAMIC entry may still be recognised by the anchor', () => {
+  // Rule 4 is about the SOURCE entry: a dynamic case carries no body key
+  // (the body at that position belongs to the TEMPLATE), so the anchor may
+  // still recognise it. That is what the anchor is FOR.
+  const cases = [{ file: 'tests/dyn.spec.ts', title: 'user dave', line: 7, scope: [] }];
+  const decisions = reidentifyRendered({
+    cases,
+    entries: [{
+      uid: 'tc-dynamic',
+      title: 'user bob',
+      bodyKey: null,
+      anchor: { file: 'tests/dyn.spec.ts', line: 7, scope: [], ordinal: 0, count: 1 },
+    }],
+  });
+  const decision = decisions.get(cases[0]);
+  assert.ok(decision, 'the render is decided');
+  assert.equal(decision.uid, 'tc-dynamic');
+  assert.equal(decision.basis, 'position-anchor');
 });
 
 test('UT-ATS204-032: a group that grew reports the shift', () => {

@@ -1,0 +1,12 @@
+=== the ATS-209 row of docs/WBS.xlsx ===
+tree   : C:/tmp/multica-task-3923829175/ats209-final
+commit : 513524289384fd83f2957f3777c65c4bca653950
+
+verify: ATS-209 row 30 状态=待审核 完成率=1 剩余人日=0 marker×1
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+verify: openpyxl loads the workbook in the normal and the data_only mode
+
+exit code : 0

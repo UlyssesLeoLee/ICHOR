@@ -28,6 +28,9 @@
  *      produced it (`refs`), and the module itself RECONCILES the numbers it
  *      computed against (a) the raw case/attempt list it walked and (b) the
  *      per-run counters the bridge itself reported (`run.summary`).
+ *      The reconciliation compares the numbers the interface DISPLAYS with
+ *      the numbers the bridge reported -- the two come from different
+ *      places, so a wrong metric is caught instead of being confirmed.
  *      A mismatch is REPORTED, never smoothed away.
  *
  * WHY THE FILE LIVES IN `public/`
@@ -239,9 +242,26 @@ export function normalizeErrorSignature(error) {
  * diagnosis: the diagnosis is the error text itself, which the cluster
  * keeps.
  *
+ * THE ORDER OF THE RULES IS PART OF THE CONTRACT:
+ *
+ *   1. `timeout`    -- the engine ran out of time.
+ *   2. `cancelled`  -- the run was stopped.
+ *   3. `network`    -- the connection failed.
+ *   4. `assertion`  -- the WEB-FIRST ASSERTION form
+ *                      (`expect(locator).toHaveText(x) failed`) and the
+ *                      plain assertion forms (`expect` / `assert`).
+ *                      The web-first form mentions a locator, but it is an
+ *                      ASSERTION ABOUT that locator, not a failure to
+ *                      resolve it -- so it is matched before the element
+ *                      rule below.
+ *   5. `element`    -- the locator itself could not be resolved
+ *                      (not found, strict mode violation, ...).
+ *   6. `navigation` -- the page could not be reached.
+ *   7. `other`      -- nothing above applies.
+ *
  * @param {string} signature
- * @returns {string} one of timeout / cancelled / network / element /
- *   assertion / navigation / other
+ * @returns {string} one of timeout / cancelled / network / assertion /
+ *   element / navigation / other
  */
 export function classifyFailureKind(signature) {
   const s = String(signature ?? '').toLowerCase();
@@ -249,6 +269,10 @@ export function classifyFailureKind(signature) {
   if (/timed?\s*out|timeout/.test(s)) return 'timeout';
   if (/cancel|interrupt/.test(s)) return 'cancelled';
   if (/net::|econn|enotfound|eai_again|socket|dns/.test(s)) return 'network';
+  // The WEB-FIRST ASSERTION of Playwright: `expect(locator).toHaveText(x)
+  // failed`. It names a locator, but the failure is the assertion about
+  // that locator -- so it is an assertion, not a missing element.
+  if (/expect\([^)]*\)\s*\.\s*\w+\s*\(/.test(s)) return 'assertion';
   if (/locator|element|not found|strict mode violation|resolved to/.test(s)) return 'element';
   if (/expect|assert/.test(s)) return 'assertion';
   if (/goto|navigation|url|redirect/.test(s)) return 'navigation';
@@ -282,23 +306,70 @@ function attemptsOfCase(c) {
 }
 
 /**
+ * The identity of a case, as far as the stored summary carries it.
+ *
+ * The model computes the identity of a case (`server/execution/model.mjs`
+ * -> `parseReport` / `aggregateCases`) and the adapters carry it into the
+ * stored summary: the DESCRIBE PATH (`scope`), the LINE and the CASE KEY.
+ *
+ * The identity is what tells two cases apart that share a file and a title
+ * -- `describe('a') { test('works') }` and `describe('b') { test('works') }`
+ * are two cases, and merging them turns a case that always fails into a
+ * case that "sometimes fails".
+ *
+ * @param {object} c the raw case
+ * @returns {{scope:string[],line:number|null,caseKey:string|null}}
+ */
+function identityOfCase(c) {
+  const scope = Array.isArray(c.scope)
+    ? c.scope.filter((s) => typeof s === 'string' && s.length > 0)
+    : [];
+  const line = Number.isInteger(c.line) ? c.line : null;
+  const caseKey = typeof c.caseKey === 'string' && c.caseKey.length ? c.caseKey : null;
+  return { scope, line, caseKey };
+}
+
+/**
  * The identity of a test, for the cross-run flakiness view.
  *
- * Two runs of the same logical case share the file and the title; the
- * title alone is not enough (two files may carry the same title) and the
- * file alone is not enough (one file may carry several cases with the same
- * title).
+ * Two runs of the same logical case share the identity; a case with a
+ * different identity is a DIFFERENT case, however similar its title is.
  *
- * The key is the JSON encoding of the PAIR, not the two values joined by a
+ * The identity is built from the facts that are available, in this order:
+ *
+ *   1. the DESCRIBE PATH and the LINE, when the stored summary carries
+ *      them -- two same-titled cases of one file under different describes
+ *      are two cases;
+ *   2. the CASE KEY, when the stored summary carries one and the describe
+ *      path is not available (the WebdriverIO adapter keys its cases on
+ *      the file, the title and the ordinal of the group inside the suite);
+ *   3. the file and the title alone, when the stored summary carries
+ *      neither -- the identity is then as coarse as the data allows, and a
+ *      collision inside one run is REPORTED instead of being merged
+ *      silently.
+ *
+ * The key is the JSON encoding of the facts, not the values joined by a
  * separator: a separator character could occur inside a title or a path,
  * and a key built that way would collide (`a.spec.ts` + `b` against
  * `a.spec.ts/b` + ``). The JSON encoding cannot collide.
  *
  * @param {string} file
  * @param {string} title
+ * @param {{scope?:string[],line?:number|null,caseKey?:string|null}} [identity]
  * @returns {string}
  */
-export function testKeyOf(file, title) {
+export function testKeyOf(file, title, identity = null) {
+  const scope = Array.isArray(identity?.scope)
+    ? identity.scope.filter((s) => typeof s === 'string' && s.length > 0)
+    : [];
+  const line = Number.isInteger(identity?.line) ? identity.line : null;
+  const caseKey = typeof identity?.caseKey === 'string' && identity.caseKey.length
+    ? identity.caseKey
+    : null;
+  if (scope.length || line !== null) {
+    return JSON.stringify([String(file ?? ''), scope, line, String(title ?? '')]);
+  }
+  if (caseKey) return JSON.stringify([caseKey]);
   return JSON.stringify([String(file ?? ''), String(title ?? '')]);
 }
 
@@ -314,11 +385,15 @@ export function testKeyOf(file, title) {
  * in run 3" is a fact that a bucket count alone cannot express.
  *
  * @typedef {object} QualityCaseRef
+ * @property {'case'} kind
  * @property {string} runId
  * @property {string} runUid
  * @property {string} runStatus
  * @property {string} title
  * @property {string} file
+ * @property {string[]} scope   the describe path of the case
+ * @property {number|null} line
+ * @property {string|null} caseKey
  * @property {string} status    the case-level status
  * @property {number} attemptsCount
  * @property {number} duration
@@ -388,6 +463,7 @@ export function testKeyOf(file, title) {
  * @property {number} error
  * @property {number} interrupted
  * @property {number} inFlight
+ * @property {number} unknown     the runs whose status the module does not know
  * @property {number} verdict      the runs that carry a verdict
  * @property {number} inconclusive the runs that did not finish on their own terms
  * @property {number} passRate
@@ -413,6 +489,8 @@ export function testKeyOf(file, title) {
  * @property {number} flakyRate
  * @property {Object<string,QualityCaseRef[]>} buckets
  * @property {QualityCaseRef[]} inconclusiveRefs
+ * @property {number} inconclusiveAttempts
+ * @property {number} inconclusiveRetried
  */
 
 /**
@@ -426,6 +504,7 @@ export function testKeyOf(file, title) {
  * @property {number} skipped
  * @property {number} unknown
  * @property {number} retries
+ * @property {number} inconclusive the attempts of the runs without a verdict
  */
 
 /**
@@ -460,6 +539,25 @@ export function testKeyOf(file, title) {
  */
 
 /**
+ * One metric card of the quality overview, with the raw items behind it.
+ *
+ * The raw items are split by their kind, so a reader (and a type checker)
+ * does not have to narrow a union to render them:
+ *
+ *   `caseRefs` -- the CASES the number was counted from;
+ *   `runRefs`  -- the RUNS the number was counted from (the run-level card).
+ *
+ * @typedef {object} QualityMetricCard
+ * @property {string} key
+ * @property {string} label
+ * @property {number} value
+ * @property {string} subtitle
+ * @property {QualityCaseRef[]} caseRefs
+ * @property {QualityRunRef[]} runRefs
+ * @property {Array<QualityCaseRef|QualityRunRef>} refs every item of the card
+ */
+
+/**
  * Builds the quality overview of a set of runs.
  *
  * The input is the RAW list of runs as the bridge reports them
@@ -482,10 +580,25 @@ export function buildQualityOverview(runs, options = {}) {
     : all;
 
   /* --- the run level ------------------------------------------------- */
+  /*
+   * The RUN BUCKETS. Every run is in exactly ONE of them, and the sum of
+   * them is the number of runs.
+   *
+   * `unknown` holds the runs whose status this module does not know: a
+   * status it does not know is a fact it does not have, and the bucket
+   * that claims nothing is the safe place for it. It is NOT part of the
+   * `inconclusive` figure the interface shows -- that figure is the DERIVED
+   * count of every run that did not reach a verdict (the cancelled, the
+   * errored, the interrupted ones AND the unknown ones).
+   */
   const runBuckets = {
-    passed: 0, failed: 0, cancelled: 0, error: 0, interrupted: 0, inFlight: 0,
+    passed: 0, failed: 0, cancelled: 0, error: 0, interrupted: 0,
+    inFlight: 0, unknown: 0,
   };
-  const runRefs = { passed: [], failed: [], cancelled: [], error: [], interrupted: [], inFlight: [] };
+  const runRefs = {
+    passed: [], failed: [], cancelled: [], error: [], interrupted: [],
+    inFlight: [], unknown: [],
+  };
 
   /* --- the case level ------------------------------------------------ */
   /** @type {Record<string, QualityCaseRef[]>} */
@@ -518,6 +631,26 @@ export function buildQualityOverview(runs, options = {}) {
   let casesSeen = 0;
   let casesWithoutSummary = 0;
 
+  /*
+   * The attempts and the retried cases of the runs that did NOT reach a
+   * verdict. They are counted SEPARATELY: the attempts of a cancelled run
+   * really happened, but they are not evidence about the quality of the
+   * code under test, so they stay out of the retry metrics.
+   */
+  let inconclusiveAttempts = 0;
+  let inconclusiveRetriedCases = 0;
+
+  /*
+   * The counters the BRIDGE reported, summed over the runs that reached a
+   * verdict. They are the yardstick of the global reconciliation: the
+   * module's own buckets and the bridge's own numbers come from different
+   * places, so a metric that is wrong is caught instead of confirmed.
+   */
+  const reportedByBucket = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
+  const reportedBucketSeen = { passed: false, failed: false, flaky: false, skipped: false };
+  let reportedExecutions = 0;
+  let reportedExecutionsSeen = false;
+
   const addCheck = (name, expected, actual, detail) => {
     checks.push({
       name,
@@ -533,46 +666,46 @@ export function buildQualityOverview(runs, options = {}) {
     const group = runStatusGroup(status);
     /*
      * THE BUCKET IS DERIVED FROM THE GROUP, and there is only ONE mapping
-     * from a run status to a group (`runStatusGroup`).
-     *
-     * An earlier version of this module had TWO: `runStatusGroup()` and an
-     * inline expression that looked the status up in `RUN_STATUS_GROUP`.
-     * They could disagree -- a status the group function called a verdict
-     * while the inline lookup called it inconclusive -- and the counts
-     * followed the inline one while the CASE classification followed the
-     * group one. A cancelled run was then counted as cancelled but its
-     * cases were counted as if the run had reached a verdict.
-     *
-     * One mapping, one answer: the group decides both the run bucket and
-     * whether the cases of the run are counted.
+     * from a run status to a group (`runStatusGroup`). One mapping, one
+     * answer: the group decides both the run bucket and whether the cases
+     * of the run are counted.
      */
     const key = group === 'inFlight' ? 'inFlight'
       : group === 'verdict'
         ? (status === 'passed' ? 'passed' : 'failed')
         // Everything that did not reach a verdict is INCONCLUSIVE: a
-        // cancelled run, a run that could not start and a run the bridge
-        // died in the middle of. None of them is a failure and none of
-        // them is a pass.
+        // cancelled run, a run that could not start, a run the bridge died
+        // in the middle of, and a status this module does not know. None
+        // of them is a failure and none of them is a pass.
         : (status === 'cancelled' ? 'cancelled'
           : status === 'error' ? 'error'
-            : status === 'interrupted' ? 'interrupted' : 'inconclusive');
-    const known = key in runBuckets;
-    const bucket = known ? key : 'inconclusive';
-    if (known) {
-      runBuckets[bucket] += 1;
-      runRefs[bucket].push({
-        id: String(run.id ?? ''),
-        uid: String(run.uid ?? ''),
-        status,
-        seq: Number.isFinite(run.seq) ? run.seq : null,
-        createdAt: run.createdAt ?? null,
-        gitCommit: run.gitCommit ?? null,
-      });
-    }
+            : status === 'interrupted' ? 'interrupted' : 'unknown');
+    const bucket = key in runBuckets ? key : 'unknown';
+    runBuckets[bucket] += 1;
+    runRefs[bucket].push({
+      kind: 'run',
+      id: String(run.id ?? ''),
+      uid: String(run.uid ?? ''),
+      status,
+      seq: Number.isFinite(run.seq) ? run.seq : null,
+      createdAt: run.createdAt ?? null,
+      gitCommit: run.gitCommit ?? null,
+    });
 
     const summary = run.summary && typeof run.summary === 'object' ? run.summary : null;
     const cases = summary && Array.isArray(summary.cases) ? summary.cases : [];
     if (!summary || !cases.length) casesWithoutSummary += 1;
+
+    /*
+     * The cross-run view of THIS run: the identity of every case and the
+     * statuses it was seen with. A key that two cases of the SAME run share
+     * is AMBIGUOUS -- the stored identity is not enough to tell them apart
+     * -- and such a key contributes no verdict, so a case that always fails
+     * is never reported as "sometimes fails".
+     */
+    /** @type {Map<string, {file:string,title:string,statuses:Set<string>,scope:string[],line:number|null}>} */
+    const runTestKeys = new Map();
+    const ambiguousKeys = new Set();
 
     /* --- the cases of this run ---------------------------------------- */
     for (const c of cases) {
@@ -585,14 +718,19 @@ export function buildQualityOverview(runs, options = {}) {
         ? c.attemptsCount
         : attempts.length;
       const retryCount = Math.max(0, attemptsCount - 1);
+      const identity = identityOfCase(c);
 
       /** @type {QualityCaseRef} */
       const ref = {
+        kind: 'case',
         runId: String(run.id ?? ''),
         runUid: String(run.uid ?? ''),
         runStatus: status,
         title: String(c.title ?? ''),
         file: String(c.file ?? ''),
+        scope: identity.scope,
+        line: identity.line,
+        caseKey: identity.caseKey,
         status: caseStatus,
         attemptsCount,
         duration: Number.isFinite(c.duration) ? c.duration : 0,
@@ -600,6 +738,19 @@ export function buildQualityOverview(runs, options = {}) {
         attemptStatuses,
         retryCount,
       };
+
+      /* --- the bucket the case belongs to ------------------------------ */
+      if (group !== 'verdict') {
+        // A case of a run that did not finish on its own terms is reported,
+        // but it is NOT a pass and NOT a failure -- and it does not enter
+        // the attempt buckets, the retry metrics or the cross-run view.
+        // Those metrics are statements about the quality of the code under
+        // test, and a run the operator stopped says nothing about it.
+        inconclusiveCases.push(ref);
+        inconclusiveAttempts += attemptsCount;
+        if (retryCount > 0) inconclusiveRetriedCases += 1;
+        continue;
+      }
 
       totalAttempts += attemptsCount;
       retriedAttempts += retryCount;
@@ -609,34 +760,23 @@ export function buildQualityOverview(runs, options = {}) {
       }
 
       /* --- the test-level view (across runs) --------------------------- */
-      const tkey = testKeyOf(ref.file, ref.title);
-      let test = tests.get(tkey);
-      if (!test) {
-        test = {
-          key: tkey,
+      // The identity of the case is recorded for THIS run; the verdicts are
+      // counted once per run, after the run's cases have all been seen, so
+      // that a key two cases of the same run share can be marked ambiguous
+      // instead of being counted twice.
+      const tkey = testKeyOf(ref.file, ref.title, identity);
+      const seen = runTestKeys.get(tkey);
+      if (seen) {
+        seen.statuses.add(caseStatus);
+        ambiguousKeys.add(tkey);
+      } else {
+        runTestKeys.set(tkey, {
           file: ref.file,
           title: ref.title,
-          runs: 0,
-          statuses: [],
-          failedRuns: 0,
-          flakyRuns: 0,
-          passedRuns: 0,
-          flaky: false,
-        };
-        tests.set(tkey, test);
-      }
-      test.runs += 1;
-      if (!test.statuses.includes(caseStatus)) test.statuses.push(caseStatus);
-      if (caseStatus === CASE_STATUS.FAILED) test.failedRuns += 1;
-      if (caseStatus === CASE_STATUS.FLAKY) test.flakyRuns += 1;
-      if (caseStatus === CASE_STATUS.PASSED) test.passedRuns += 1;
-
-      /* --- the bucket the case belongs to ------------------------------ */
-      if (group !== 'verdict') {
-        // A case of a run that did not finish on its own terms is reported,
-        // but it is NOT a pass and NOT a failure.
-        inconclusiveCases.push(ref);
-        continue;
+          scope: identity.scope,
+          line: identity.line,
+          statuses: new Set([caseStatus]),
+        });
       }
 
       caseBuckets[caseStatus].push(ref);
@@ -663,7 +803,58 @@ export function buildQualityOverview(runs, options = {}) {
       if (ref.file && !cluster.files.includes(ref.file)) cluster.files.push(ref.file);
     }
 
+    /* --- the cross-run view of THIS run -------------------------------- */
+    for (const [tkey, entry] of runTestKeys) {
+      let test = tests.get(tkey);
+      if (!test) {
+        test = {
+          key: tkey,
+          file: entry.file,
+          title: entry.title,
+          scope: entry.scope,
+          line: entry.line,
+          runs: 0,
+          statuses: [],
+          failedRuns: 0,
+          flakyRuns: 0,
+          passedRuns: 0,
+          flaky: false,
+          ambiguous: false,
+        };
+        tests.set(tkey, test);
+      }
+      test.runs += 1;
+      for (const s of entry.statuses) {
+        if (!test.statuses.includes(s)) test.statuses.push(s);
+      }
+      if (ambiguousKeys.has(tkey)) {
+        // Two cases of this run share the identity: the run cannot say
+        // which of them it was, so it contributes no verdict.
+        test.ambiguous = true;
+        continue;
+      }
+      if (entry.statuses.has(CASE_STATUS.FAILED)) test.failedRuns += 1;
+      if (entry.statuses.has(CASE_STATUS.FLAKY)) test.flakyRuns += 1;
+      if (entry.statuses.has(CASE_STATUS.PASSED)) test.passedRuns += 1;
+    }
+
     /* --- the bridge's own counters vs. the cases we walked ------------ */
+    if (group === 'verdict' && summary) {
+      // The counters the bridge reported for this run. They are summed over
+      // the runs that reached a verdict, and the sum is compared with the
+      // numbers the overview DISPLAYS.
+      for (const b of ['passed', 'failed', 'flaky', 'skipped']) {
+        const reported = Number(summary[b]);
+        if (!Number.isFinite(reported)) continue;
+        reportedByBucket[b] += reported;
+        reportedBucketSeen[b] = true;
+      }
+      const reportedExec = Number(summary.executions);
+      if (Number.isFinite(reportedExec)) {
+        reportedExecutions += reportedExec;
+        reportedExecutionsSeen = true;
+      }
+    }
     if (summary && Array.isArray(summary.cases) && summary.cases.length) {
       const walked = { passed: 0, failed: 0, flaky: 0, skipped: 0, unknown: 0 };
       let walkedAttempts = 0;
@@ -730,15 +921,54 @@ export function buildQualityOverview(runs, options = {}) {
       `the raw case list holds ${walkedInBucket} ${s} case(s), the bucket holds ${caseBuckets[s].length}`);
   }
 
+  const runBucketSum = Object.values(runBuckets).reduce((a, b) => a + b, 0);
+  addCheck(
+    'every run is in exactly one run bucket',
+    selected.length, runBucketSum,
+    `${selected.length} run(s), ${runBucketSum} bucketed`);
+
+  /*
+   * THE DISPLAYED METRICS AGAINST THE COUNTERS THE BRIDGE REPORTED.
+   *
+   * The checks above compare the bridge's counters with the bridge's own
+   * case list, and the buckets with the walk of that same list. None of
+   * them compares the number the interface SHOWS with the number the
+   * bridge reported -- so a module that buckets a case wrongly would be
+   * confirmed by all of them. These checks close that gap: the expected
+   * side is what the bridge reported, the actual side is what the
+   * overview displays.
+   */
+  for (const b of ['passed', 'failed', 'flaky', 'skipped']) {
+    if (!reportedBucketSeen[b]) continue;
+    addCheck(
+      `the displayed ${b} count matches the counters the bridge reported`,
+      reportedByBucket[b], caseBuckets[b].length,
+      `the bridge reported ${reportedByBucket[b]} ${b} case(s) over the finished runs, `
+      + `the overview displays ${caseBuckets[b].length}`);
+  }
+  if (reportedExecutionsSeen) {
+    addCheck(
+      'the displayed attempt count matches the executions the bridge reported',
+      reportedExecutions, totalAttempts,
+      `the bridge reported ${reportedExecutions} execution(s) over the finished runs, `
+      + `the overview displays ${totalAttempts} attempt(s)`);
+  }
+
   /* --- the cross-run flakiness ----------------------------------------- */
   const testList = [...tests.values()];
   for (const t of testList) {
     // A test is flaky when it needed a retry in some run, or when it
     // failed in one run and passed in another: both are "it is not
     // reliable", and they are different facts, so both are reported.
-    t.flaky = t.flakyRuns > 0 || (t.failedRuns > 0 && t.passedRuns > 0);
+    //
+    // An AMBIGUOUS test is never flaky: two cases of one run share its
+    // identity, so the run cannot say which of them it was, and calling it
+    // unreliable would be a claim the data does not support.
+    t.flaky = !t.ambiguous
+      && (t.flakyRuns > 0 || (t.failedRuns > 0 && t.passedRuns > 0));
   }
   const flakyTests = testList.filter((t) => t.flaky);
+  const ambiguousTests = testList.filter((t) => t.ambiguous);
 
   /* --- the verdict counts ---------------------------------------------- */
   const verdictCases = bucketSum;
@@ -762,8 +992,11 @@ export function buildQualityOverview(runs, options = {}) {
       // The runs that carry a verdict: the denominator of the run-level
       // pass rate. A cancelled run is NOT in it.
       verdict: runBuckets.passed + runBuckets.failed,
-      // The runs that did not finish on their own terms.
-      inconclusive: runBuckets.cancelled + runBuckets.error + runBuckets.interrupted,
+      // The runs that did not finish on their own terms -- the cancelled,
+      // the errored, the interrupted ones and the ones whose status this
+      // module does not know.
+      inconclusive: runBuckets.cancelled + runBuckets.error
+        + runBuckets.interrupted + runBuckets.unknown,
       passRate: (runBuckets.passed + runBuckets.failed)
         ? runBuckets.passed / (runBuckets.passed + runBuckets.failed)
         : 0,
@@ -784,12 +1017,17 @@ export function buildQualityOverview(runs, options = {}) {
       // The cases of runs that were cancelled / errored / interrupted.
       inconclusive: inconclusiveCases.length,
       // The RETRY metrics: how many cases needed more than one attempt.
+      // Only the cases of the runs that reached a verdict are counted: a
+      // cancelled run's retries are not evidence about the code.
       retried: retriedCases,
       attempts: totalAttempts,
       retries: retriedAttempts,
       flakyRate,
       buckets: caseBuckets,
       inconclusiveRefs: inconclusiveCases,
+      // The attempts of the runs without a verdict, reported apart.
+      inconclusiveAttempts,
+      inconclusiveRetried: inconclusiveRetriedCases,
     },
 
     /* --- the attempt level ------------------------------------------ */
@@ -797,6 +1035,7 @@ export function buildQualityOverview(runs, options = {}) {
       total: totalAttempts,
       ...attemptBuckets,
       retries: retriedAttempts,
+      inconclusive: inconclusiveAttempts,
     },
 
     /* --- the failure clusters (失败聚类) ---------------------------- */
@@ -809,8 +1048,10 @@ export function buildQualityOverview(runs, options = {}) {
     tests: {
       total: testList.length,
       flaky: flakyTests.length,
+      ambiguous: ambiguousTests.length,
       flakyRate: flakyTestRate,
       list: testList.sort((a, b) => (Number(b.flaky) - Number(a.flaky))
+        || Number(b.ambiguous) - Number(a.ambiguous)
         || b.failedRuns - a.failedRuns
         || a.title.localeCompare(b.title)),
     },
@@ -821,6 +1062,76 @@ export function buildQualityOverview(runs, options = {}) {
       checks,
     },
   };
+}
+
+/**
+ * The metric cards of the quality overview, with the raw items behind
+ * every number.
+ *
+ * BOTH interfaces render THESE cards, so the two of them cannot show
+ * different numbers, and every card carries the references a reader needs
+ * to check the number against the raw result: the cases of the bucket (or
+ * the runs of the bucket, for the run-level card).
+ *
+ * @param {QualityOverview} overview
+ * @returns {QualityMetricCard[]}
+ */
+export function qualityMetricCards(overview) {
+  const o = overview || {};
+  const c = o.cases || {};
+  const r = o.runs || {};
+  const buckets = c.buckets || {};
+  const refs = r.refs || {};
+  const flakyRefs = buckets.flaky || [];
+  // The retries of the retried CASES: the count the card shows is the
+  // number of retries those cases needed, not the number of retries of
+  // every case of the run -- a case that finally failed is not a "retry
+  // that passed".
+  const flakyRetries = flakyRefs.reduce((n, x) => n + (Number(x.retryCount) || 0), 0);
+  const inconclusiveRuns = [
+    ...(refs.cancelled || []),
+    ...(refs.error || []),
+    ...(refs.interrupted || []),
+    ...(refs.unknown || []),
+  ];
+  return [
+    {
+      key: 'passed',
+      label: '通过',
+      value: c.passed ?? 0,
+      subtitle: '用例级 · 不含重试',
+      caseRefs: buckets.passed || [],
+      runRefs: [],
+      refs: buckets.passed || [],
+    },
+    {
+      key: 'failed',
+      label: '失败',
+      value: c.failed ?? 0,
+      subtitle: '用例级 · 可核对原始结果',
+      caseRefs: buckets.failed || [],
+      runRefs: [],
+      refs: buckets.failed || [],
+    },
+    {
+      key: 'flaky',
+      label: '重试后通过',
+      value: c.flaky ?? 0,
+      subtitle: `用例级 · ${flakyRetries} 次重试`,
+      caseRefs: flakyRefs,
+      runRefs: [],
+      refs: flakyRefs,
+    },
+    {
+      key: 'inconclusive',
+      label: '未出结论',
+      value: inconclusiveRuns.length,
+      subtitle: '运行级 · 已取消/中断/启动失败 · 不计入失败',
+      caseRefs: [],
+      runRefs: inconclusiveRuns,
+      refs: inconclusiveRuns,
+    },
+  ];
 }
 
 /**

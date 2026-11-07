@@ -1,0 +1,17 @@
+=== the round 2 review probe against this tree ===
+tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-8222c3c90bd2/worktree
+commit : 7b2a5302d81171df96791ee228ae9b0fd584629d
+
+--- J1: manifest entry through a directory junction inside the run folder ---
+ok     J1: exit=0; state.json kept=true; run_1_bbbbbbbbbbbbbbbbbbbbbbbb/events.jsonl (not expired) kept=true; refused lines=2
+--- J2: the run's results/ is a junction to another run ---
+ok     J2: exit=0; run_1_dddddddddddddddddddddddd/events.jsonl kept=true; run_1_dddddddddddddddddddddddd/report.json kept=true
+--- M1: a second cleaning that removes something ---
+info   clean #1 exit=0; verify exit=0; marker={ "at": "2026-11-07T00:52:26.982Z", "removed": [ "html/index.html", "report.json" ] }
+ok     M1: after a second cleaning, the files removed by the first are still explained; clean #2 exit=0; verify exit=0; marker={ "at": "2026-11-07T00:52:27.183Z", "removed": [ "html/index.html", "late-note.txt", "report.json" ] }; verify says: ["runs checked: 1, not matching: 0, cleaned by the retention policy: 1"]
+--- T1: a run folder above the entry limit fails closed ---
+ok     T1: report.json covered=false; manifest truncated=true; after tampering report.json verified=false truncated=true reason="the manifest does not cover the whole evidence folder"
+
+RESULT: OK -- 0 defect(s)
+
+exit code : 0

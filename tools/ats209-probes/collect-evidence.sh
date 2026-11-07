@@ -75,6 +75,9 @@ run_step 01-node-test-evidence-ut.log "the ATS-209 unit suite" \
 run_step 02-node-test-evidence-it.log "the ATS-209 integration suite" \
   node --test tests/evidence-it.test.mjs
 
+run_step 02b-node-test-evidence-cli.log "the ATS-209 CLI suite" \
+  node --test tests/evidence-cli.test.mjs
+
 run_step 03-probe-evidence.log "the ATS-209 probe" \
   node tools/ats209-probes/probe-evidence.mjs
 
@@ -91,7 +94,16 @@ run_step 07-node-test-full.log "the full node test suite" \
   npm test
 
 run_step 08-coverage.log "the line coverage of the ATS-209 modules" \
-  node --test --experimental-test-coverage tests/evidence.test.mjs tests/evidence-it.test.mjs
+  node --test --experimental-test-coverage tests/evidence.test.mjs tests/evidence-it.test.mjs tests/evidence-cli.test.mjs
+
+run_step 09-review-probe.log "the round 1 review probe against this tree" \
+  node "$NATIVE_TREE/tools/ats209-probes/ats209-r1-probe.mjs" "$NATIVE_TREE" "$TMPDIR/ats209-r1-probe"
+
+run_step 10-review-probe-round2.log "the round 2 review probe against this tree" \
+  node "$NATIVE_TREE/tools/ats209-probes/ats209-r2-probe.mjs" "$NATIVE_TREE" "$TMPDIR/ats209-r2-probe"
+
+run_step 11-wbs-row.log "the ATS-209 row of docs/WBS.xlsx" \
+  python tools/update_wbs_ats209.py --verify-only
 
 hdr "done"
 echo "the evidence of this run is in $OUT/"
