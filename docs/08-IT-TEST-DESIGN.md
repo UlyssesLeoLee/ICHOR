@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：166；已执行通过：152；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：169；已执行通过：155；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -156,6 +156,9 @@
 |IT-ATS602-API-006|FR-032|正常|移动端用例的 UID 跨 Bridge 重启稳定|重启 Bridge 后重新读取目录|移动端用例的 uid 集合与重启前一致|node --test|PASS|
 |IT-ATS602-API-007|FR-032|安全|移动端用例的 UID 与 web 用例不冲突|读取整个目录|没有两个用例共用一个 uid|node --test|PASS|
 |IT-ATS602-API-008|FR-032|正常|没有 Flow 的项目没有移动端用例|登记一个只有 web 用例的项目|移动端用例数为 0|node --test|PASS|
+|IT-ATS602-API-009|FR-032|正常|改标题后移动端用例的 UID 不变|经 HTTP 改写 Flow 的场景标题|UID 不变且 uidSource=registry|node --test|PASS|
+|IT-ATS602-API-010|FR-032|安全|重复的 @TC- token 跨引擎由双方都不绑定|web 用例与移动端用例声明同一个 @TC-100|目录里没有重复 UID，双方都标 duplicate-explicit-uid|node --test|PASS|
+|IT-ATS602-API-011|FR-032|正常|可信项目保留移动端用例|把项目标记为可信后重新读目录|discovery=authoritative 且移动端用例与 mobile 段都在|node --test|PASS|
 |IT-CP-CLEANUP|NFR-005|清理|控制面 IT 子进程与夹清理|结束 IT suite|两个子进程退出，临时目录删除|node --test|PASS|
 |IT-SQL-001|NFR-010|正常|Bridge 启动并创建元数据数据库|隔离 ATS_DATA_DIR 启动 server/index.mjs|数据目录出现 metadata.db|node --test|PASS|
 |IT-SQL-002|NFR-010|正常|元数据库携带 schema 版本|读 metadata.db 的 meta 表|schema_version 大于 0|node --test|PASS|

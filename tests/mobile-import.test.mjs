@@ -44,6 +44,12 @@ import {
 import { importFlowFile, importProjectFlows, isFlowFile, IMPORT_ERROR } from '../server/discovery/mobile-flow-import.mjs';
 import { MOBILE_STEP_KINDS } from '../server/adapters/mobile-target.mjs';
 import { discoverStatic } from '../server/core.mjs';
+// The static catalogue is the FALLBACK path of the trusted discovery. It
+// is imported dynamically so that this test file also runs on a tree that
+// does not export it -- the counter-example has to be red on the tree that
+// was delivered first, and a missing export would make the whole file
+// fail to load instead of the ONE test failing.
+const { staticCatalog } = await import('../server/core.mjs');
 import { emptyRegistry } from '../server/uid.mjs';
 
 const PROJECT_UID = 'proj_1_0123456789abcdef01234567';
@@ -364,24 +370,37 @@ test('UT-MOB-235: the report lists every unsupported step with its text', () => 
 /* ------------------------------------------------------------------ */
 
 test('UT-MOB-240: switching the import method does not move an existing UID', () => {
-  // The same declaration, read by two different parsers, is the same case.
-  // The basis is the POSITION, so the UID does not depend on the syntax.
-  const y = importText(MAESTRO_FLOW, FLOW_SYNTAX.MAESTRO);
-  const l = importText(LINEAR_FLOW, FLOW_SYNTAX.LINEAR);
-  // The two fixtures are the same scenarios at DIFFERENT lines, so the
-  // UIDs differ -- that is the position, not the syntax. The property is
-  // measured on ONE file read by two parsers.
-  const samePosition = (text) => importText(text, FLOW_SYNTAX.MAESTRO);
-  const a = samePosition('---\n- name: a\n  steps:\n    - tapOn: "x"\n');
-  const b = samePosition('---\n- name: a\n  steps:\n    - tapOn: "x"\n');
-  assert.equal(a.cases[0].uid, b.cases[0].uid, 'the same declaration yields the same uid');
-  assert.ok(y.cases.length && l.cases.length);
+  // The property: the SAME declaration, read by TWO different import
+  // methods, is the SAME case and gets the SAME uid.
+  //
+  // The basis is the POSITION (file + line), so the uid does not depend on
+  // the syntax. The two fixtures below declare the SAME scenario at the
+  // SAME line, in the two syntaxes -- so the two imports must agree.
+  const yaml = 'appId: com.example.app\n---\n- name: a\n  steps:\n    - tapOn: "x"\n';
+  const linear = 'app: com.example.app\n\nscenario: a\n  tap "x"\n';
+  const y = importFlow(parseFlow(yaml, { syntax: FLOW_SYNTAX.MAESTRO }), {
+    file: 'flows/x.yaml', projectUid: PROJECT_UID,
+  });
+  const l = importFlow(parseFlow(linear, { syntax: FLOW_SYNTAX.LINEAR }), {
+    file: 'flows/x.yaml', projectUid: PROJECT_UID,
+  });
+  // The scenario sits at the SAME line in both declarations -- that is the
+  // position the uid is derived from.
+  assert.equal(y.cases[0].line, l.cases[0].line, 'the scenario sits at the same line');
+  // The title of the scenario is the same, and so is the step.
+  assert.equal(y.cases[0].title, l.cases[0].title);
+  assert.deepEqual(y.cases[0].steps.map((s) => s.kind), l.cases[0].steps.map((s) => s.kind));
+  // The uid is the SAME -- the assertion the title of the test claims.
+  assert.equal(y.cases[0].uid, l.cases[0].uid, 'switching the syntax does not move the uid');
+  // And the body fingerprint agrees, which is what lets the registry find
+  // the case again after a retitle.
+  assert.equal(bodyKeyOfCase(y.cases[0]), bodyKeyOfCase(l.cases[0]));
 });
 
-test('UT-MOB-241: the SAME file read by two syntaxes yields the same uid', () => {
-  // The YAML and the linear text declare the SAME scenario at the SAME
-  // line and with the SAME steps. The uid is derived from the position, so
-  // the two imports agree.
+test('UT-MOB-241: the same file read by two syntaxes yields the same uid', () => {
+  // The YAML and the linear text declare the SAME scenario with the SAME
+  // steps. The steps are identical, so the body fingerprint is identical,
+  // and that is what lets the registry find the case again.
   const yaml = '---\n- name: a\n  steps:\n    - tapOn: "x"\n';
   const linear = 'scenario: a\n  tap "x"\n';
   const y = importFlow(parseFlow(yaml, { syntax: FLOW_SYNTAX.MAESTRO }), {
@@ -391,10 +410,12 @@ test('UT-MOB-241: the SAME file read by two syntaxes yields the same uid', () =>
     file: 'flows/x.yaml', projectUid: PROJECT_UID,
   });
   // The positions differ (the linear file declares the scenario on line 1),
-  // so the uids may differ -- but the STEPS are identical, so the body
-  // fingerprint is identical, and that is what lets the registry find the
-  // case again.
+  // so the uids MAY differ -- the basis is the position. What must agree
+  // is the body fingerprint: the two declarations describe the same case.
   assert.equal(bodyKeyOfCase(y.cases[0]), bodyKeyOfCase(l.cases[0]));
+  assert.equal(y.cases[0].uidSource, 'derived');
+  assert.equal(l.cases[0].uidSource, 'derived');
+  assert.ok(y.cases[0].uidStable && l.cases[0].uidStable);
 });
 
 test('UT-MOB-242: a retitled case keeps its uid through the registry', () => {
@@ -431,6 +452,547 @@ test('UT-MOB-246: without a project the uid is provisional, not invented', () =>
   const imported = importFlow(parseFlow('---\n- name: a\n  steps:\n    - tapOn: "x"\n'), { file: 'flows/x.yaml' });
   assert.equal(imported.cases[0].uidStable, false);
   assert.equal(imported.cases[0].uidSource, 'provisional');
+});
+
+/* ------------------------------------------------------------------ */
+/* The round-2 counter-examples                                       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The round-1 review found fourteen ways in which a Flow could lose
+ * content without a trace: a step that vanished, a scenario that vanished,
+ * a whole file that was never discovered, a case whose uid moved when its
+ * title was rewritten, a `@TC-` token that two cases claimed at once.
+ *
+ * Each test below is the counter-example of ONE of them, and each one
+ * fails on the tree that was delivered the first time.
+ */
+
+test('UT-MOB-270: a nested Flow directory is found (E1a)', () => {
+  const root = tempProject({
+    'flows/top.yaml': MAESTRO_FLOW,
+    'flows/smoke/login.yaml': MAESTRO_FLOW,
+    'tests/mobile/android/pay.flow': LINEAR_FLOW,
+  });
+  try {
+    const found = importProjectFlows(root, { projectUid: PROJECT_UID });
+    assert.ok(found.files.includes('flows/smoke/login.yaml'), 'the nested Flow is found');
+    assert.ok(found.files.includes('tests/mobile/android/pay.flow'), 'the nested linear Flow is found');
+    // And they are IMPORTED, not just listed.
+    assert.equal(found.cases.length, 6, 'three scenarios per file, two files plus the top one');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('UT-MOB-271: a directory of the project root is not read as a Flow directory (E1b)', () => {
+  // The Flow directory is `flows/`. A directory of the project root that
+  // happens to share its name must not be read as if it were the Flow
+  // directory -- and the file it holds must not be reported as an
+  // unreadable Flow.
+  const root = tempProject({
+    'flows/android/.keep': '',
+    'android/ci.yml': 'not: a flow\n',
+  });
+  try {
+    const found = importProjectFlows(root, { projectUid: PROJECT_UID });
+    assert.deepEqual(found.files, [], 'the root directory is not a Flow directory');
+    assert.equal(found.errors.length, 0, 'and nothing is reported as unreadable');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('UT-MOB-272: a document is not read half (E2)', () => {
+  // A stray top level key in the middle of a scenario list. The reader
+  // must read every node and REPORT the malformation -- and the scenario
+  // that follows the stray key must NOT disappear.
+  const text = [
+    'appId: com.example.app',
+    '---',
+    '- name: First',
+    '  steps:',
+    '    - tapOn: "Login"',
+    'timeout: 30',
+    '- name: Second',
+    '  steps:',
+    '    - tapOn: "Pay"',
+    '    - assertVisible: "Receipt"',
+  ].join('\n');
+  const imported = importText(text);
+  assert.equal(imported.cases.length, 2, 'both scenarios are read');
+  assert.deepEqual(imported.cases.map((c) => c.title), ['First', 'Second']);
+  assert.ok(imported.errors.length > 0, 'the malformation is reported');
+  assert.equal(imported.errors[0].line, 6, 'the report points at the stray key');
+  // Every step of the second scenario is accounted for.
+  assert.equal(imported.cases[1].steps.length, 2);
+});
+
+test('UT-MOB-273: a step that names two commands is reported (E3)', () => {
+  const imported = importText('---\n- name: a\n  steps:\n    - tapOn: "Login"\n      assertVisible: "Welcome"\n');
+  assert.equal(imported.cases[0].steps.length, 0, 'the step is not half-read');
+  assert.equal(imported.unsupported.length, 1, 'and it is reported');
+  assert.equal(imported.unsupported[0].line, 4);
+  assert.ok(imported.errors.length > 0, 'the reader reports the malformation');
+});
+
+test('UT-MOB-274: the options of a step are KEPT and reported (E4)', () => {
+  // `optional` and `when` are not commands: they say under which
+  // conditions the step runs. The unified model has no place for them, so
+  // they are kept and reported -- a conditional step that silently became
+  // an unconditional one would run where the author never asked it to.
+  const imported = importText('---\n- name: a\n  steps:\n    - tapOn: "Allow"\n      optional: true\n      when:\n        platform: Android\n');
+  assert.equal(imported.cases[0].steps.length, 1, 'the step still maps');
+  const step = imported.cases[0].steps[0];
+  assert.equal(step.options.optional, true, 'the option is kept');
+  assert.match(step.options.when, /Android/, 'and its value');
+  assert.equal(imported.warnings.length, 1, 'and it is reported');
+  assert.match(imported.warnings[0].message, /optional/);
+});
+
+test('UT-MOB-275: a step list the model does not map is reported (E5)', () => {
+  // `onFlowStart:`, `setup:` and a second `commands:` list: content the
+  // unified model does not read. Every step of them is reported, with its
+  // original text and its line.
+  const text = [
+    'appId: com.example.app',
+    'onFlowStart:',
+    '  - launchApp',
+    '---',
+    '- name: a',
+    '  setup:',
+    '    - tapOn: "Accept cookies"',
+    '  steps:',
+    '    - tapOn: "Login"',
+    '  commands:',
+    '    - assertVisible: "Welcome"',
+  ].join('\n');
+  const imported = importText(text);
+  const lines = imported.unsupported.map((u) => u.line).sort((a, b) => a - b);
+  assert.deepEqual(lines, [3, 7, 11], 'every step of the unmapped lists is reported');
+  assert.equal(imported.cases[0].steps.length, 1, 'only the step list is mapped');
+  for (const u of imported.unsupported) {
+    assert.equal(u.reason, UNSUPPORTED_REASON.UNMAPPED_SECTION);
+    assert.ok(u.raw.length > 0, 'the original text is kept');
+  }
+});
+
+test('UT-MOB-276: a header with a title does not produce a phantom case (E6)', () => {
+  const text = 'appId: com.example.app\nname: Login\n---\n- launchApp\n- tapOn: "Login"\n';
+  const imported = importText(text);
+  assert.equal(imported.cases.length, 1, 'the file declares ONE case');
+  assert.equal(imported.cases[0].title, 'Login', 'the header titles it');
+  assert.equal(imported.cases[0].steps.length, 2, 'and it holds the steps');
+  assert.equal(imported.cases[0].uidStable, true, 'and it is a real case');
+});
+
+test('UT-MOB-277: a tapOn by id names its target (E7)', () => {
+  // The `id` of an element is as good a target as its text, so a step
+  // that gives the id alone is mappable.
+  const imported = importText('---\n- name: a\n  steps:\n    - tapOn:\n        id: "login_button"\n');
+  assert.equal(imported.unsupported.length, 0, 'the step is mappable');
+  assert.equal(imported.cases[0].steps.length, 1);
+  assert.equal(imported.cases[0].steps[0].kind, 'tapOn');
+  assert.equal(imported.cases[0].steps[0].args.id, 'login_button');
+});
+
+test('UT-MOB-278: the env block of a linear Flow does not swallow the steps (E8)', () => {
+  // `tap Settings: General` is a step that taps "Settings". Without the
+  // indent rule it was read as an environment variable, and the step
+  // disappeared from the import without a trace.
+  const text = [
+    'app: com.example.app',
+    'scenario: a',
+    '  env:',
+    '    USER: bob',
+    '  tap "Login: now"',
+    '  tap Settings: General',
+    '  assert visible "Done"',
+  ].join('\n');
+  const imported = importText(text, FLOW_SYNTAX.LINEAR);
+  assert.equal(imported.cases[0].env.USER, 'bob', 'the environment is read');
+  assert.equal(Object.keys(imported.cases[0].env).length, 1, 'and holds only the environment');
+  assert.equal(imported.cases[0].steps.length, 3, 'the three steps are read');
+  assert.deepEqual(imported.cases[0].steps.map((s) => s.kind), ['tapOn', 'tapOn', 'assertVisible']);
+});
+
+test('UT-MOB-279: an extra argument of a linear step does not overwrite the first (E9)', () => {
+  const text = 'app: com.example.app\nscenario: a\n  launch com.example.app clearState\n  tap "First" "Second"\n';
+  const imported = importText(text, FLOW_SYNTAX.LINEAR);
+  const steps = imported.cases[0].steps;
+  assert.equal(steps[0].args.appId, 'com.example.app', 'the first argument is the app');
+  assert.equal(steps[1].args.text, 'First', 'and the first target');
+  // The extra arguments are KEPT and reported -- not dropped.
+  assert.equal(imported.warnings.length, 2);
+  for (const w of imported.warnings) assert.match(w.message, /not part of the unified/);
+});
+
+test('UT-MOB-280: two names for the same argument are reported (E10)', () => {
+  const imported = importText('---\n- name: a\n  steps:\n    - tapOn:\n        text: "Login"\n        title: "Sign in"\n');
+  assert.equal(imported.cases[0].steps.length, 1, 'the step still maps');
+  assert.equal(imported.cases[0].steps[0].args.text, 'Login', 'the first name is kept');
+  assert.equal(imported.warnings.length, 1, 'and the collision is reported');
+  assert.match(imported.warnings[0].message, /twice/);
+});
+
+test('UT-MOB-281: the registry is persisted, and a retitle keeps the uid (E11)', () => {
+  // The catalogue persists the registry cell -- and the cell holds the
+  // MOBILE entries too. Without that, a retitled case would get a new
+  // uid every time.
+  //
+  // The rounds carry the registry forward, exactly as the Bridge does: it
+  // reads the cell of the catalogue and writes it back.
+  const root = tempProject({ 'flows/login.yaml': '---\n- name: "Old title"\n  steps:\n    - tapOn: "x"\n' });
+  try {
+    const project = { root, id: PROJECT_UID, uid: PROJECT_UID, name: 'fixture' };
+    let registry = emptyRegistry();
+    const round = () => {
+      const catalog = discoverStatic(project, registry);
+      const cell = catalog.registry?.projects?.[PROJECT_UID];
+      assert.ok(cell, 'the catalogue reports the registry cell');
+      registry = { version: 1, projects: { [PROJECT_UID]: cell } };
+      return catalog;
+    };
+    const first = round();
+    const entries = (registry.projects[PROJECT_UID].entries ?? []).filter((e) => e.file === 'flows/login.yaml');
+    assert.equal(entries.length, 1, 'the mobile entry is persisted');
+    const before = first.tests.find((t) => t.source === 'mobile');
+    assert.ok(before.uid);
+
+    // The title is rewritten in place.
+    fs.writeFileSync(path.join(root, 'flows/login.yaml'), '---\n- name: "New title"\n  steps:\n    - tapOn: "x"\n', 'utf8');
+    const second = round();
+    const after = second.tests.find((t) => t.source === 'mobile');
+    assert.equal(after.uid, before.uid, 'the uid survives the retitle');
+    assert.equal(after.uidSource, 'registry', 'and the registry is what recognised it');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('UT-MOB-282: a comment above the Flow does not move the uid (E11c)', () => {
+  const root = tempProject({ 'flows/login.yaml': '---\n- name: a\n  steps:\n    - tapOn: "x"\n' });
+  try {
+    const project = { root, id: PROJECT_UID, uid: PROJECT_UID, name: 'fixture' };
+    const first = discoverStatic(project, emptyRegistry());
+    const before = first.tests.find((t) => t.source === 'mobile');
+    fs.writeFileSync(path.join(root, 'flows/login.yaml'), '# a comment line added on top\n---\n- name: a\n  steps:\n    - tapOn: "x"\n', 'utf8');
+    const second = discoverStatic(project, {
+      version: 1,
+      projects: { [PROJECT_UID]: first.registry.projects[PROJECT_UID] },
+    });
+    const after = second.tests.find((t) => t.source === 'mobile');
+    assert.equal(after.uid, before.uid, 'a comment does not change the identity of a case');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('UT-MOB-283: a @TC- token that two cases claim belongs to neither (E12)', () => {
+  // The token names ONE case of the catalogue. A web case and a mobile
+  // case that both claim it -- and two mobile cases that both claim it --
+  // mean that NEITHER of them owns it.
+  const root = tempProject({
+    'tests/a.spec.ts': "import { test } from '@playwright/test';\ntest('web login @TC-100', async () => {});\n",
+    'flows/a.yaml': '---\n- name: "mobile login @TC-100"\n  steps:\n    - tapOn: "x"\n- name: "mobile pay @TC-200"\n  steps:\n    - tapOn: "y"\n- name: "mobile pay again @TC-200"\n  steps:\n    - tapOn: "z"\n',
+  });
+  try {
+    const catalog = discoverStatic({ root, id: PROJECT_UID, uid: PROJECT_UID, name: 'fixture' }, emptyRegistry());
+    const uids = catalog.tests.map((t) => t.uid);
+    assert.equal(new Set(uids).size, uids.length, 'no two cases share a uid');
+    // The four cases that claim a duplicated token are all provisional:
+    // the web case claims @TC-100 (which a mobile case also claims) and
+    // the two mobile cases claim @TC-200 (which each other also claims).
+    const dup = catalog.tests.filter((t) => t.ambiguity?.reason === 'duplicate-explicit-uid');
+    assert.equal(dup.length, 4, 'the web case and the three mobile ones are reported');
+    for (const t of dup) {
+      assert.equal(t.uidStable, false);
+      assert.notEqual(t.uid, 'tc-100');
+      assert.notEqual(t.uid, 'tc-200');
+    }
+    // And the catalogue says so.
+    assert.match(catalog.warning, /重复的显式 UID/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('UT-MOB-284: the body uniqueness is counted over the project (E13)', () => {
+  // Two Flow files of one project may declare the same steps. A body
+  // that is unique inside one file is not unique inside the project, and
+  // the two cases must not get the SAME uid.
+  //
+  // The counter-example is the IMPORT path as well as the catalogue: the
+  // import of the second file is given the registry of the first one, and
+  // the registry match must not hand the second case the uid of the
+  // first.
+  const body = '    - launchApp\n    - takeScreenshot: "home"\n';
+  const root = tempProject({
+    'flows/android.yaml': `appId: x\n---\n- name: smoke android\n  steps:\n${body}`,
+    'flows/ios.yaml': `appId: x\n---\n- name: smoke ios\n  steps:\n${body}`,
+  });
+  try {
+    // The IMPORT path: the second file is imported with the registry of
+    // the first one. The registry is what remembers a case by its body,
+    // and it must not hand the second case the uid of the first -- the
+    // body is not unique inside the project.
+    const body = '    - launchApp\n    - takeScreenshot: "home"\n';
+    const first = importFlow(
+      parseFlow(`appId: x\n---\n- name: smoke android\n  steps:\n${body}`, { syntax: FLOW_SYNTAX.MAESTRO }),
+      { file: 'flows/android.yaml', projectUid: PROJECT_UID },
+    );
+    const second = importFlow(
+      parseFlow(`appId: x\n---\n- name: smoke ios\n  steps:\n${body}`, { syntax: FLOW_SYNTAX.MAESTRO }),
+      { file: 'flows/ios.yaml', projectUid: PROJECT_UID, registry: first.registry },
+    );
+    assert.notEqual(
+      first.cases[0].uid,
+      second.cases[0].uid,
+      'the two cases do not get the same uid',
+    );
+    assert.notEqual(second.cases[0].uidSource, 'registry', 'the registry does not claim the second case');
+
+    // The CATALOGUE path: both files are in the same project.
+    const catalog = discoverStatic({ root, id: PROJECT_UID, uid: PROJECT_UID, name: 'fixture' }, emptyRegistry());
+    const mobile = catalog.tests.filter((t) => t.source === 'mobile');
+    assert.equal(mobile.length, 2);
+    assert.notEqual(mobile[0].uid, mobile[1].uid, 'the two cases have different uids');
+    const uids = catalog.tests.map((t) => t.uid);
+    assert.equal(new Set(uids).size, uids.length, 'no two cases share a uid');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('UT-MOB-285: the mobile cases are in the catalogue of a trusted project (E14)', () => {
+  // The authoritative index knows the web cases better than the static one
+  // does, but it knows NOTHING about the mobile ones -- so they are
+  // imported and joined to the authoritative list. Without that, a
+  // project that was marked as trusted would LOSE its mobile cases.
+  const root = tempProject({
+    'flows/a.yaml': MAESTRO_FLOW,
+    'tests/login.spec.ts': "import { test } from '@playwright/test';\ntest('login works', async () => {});\n",
+  });
+  try {
+    const project = { root, id: PROJECT_UID, uid: PROJECT_UID, name: 'fixture' };
+    // The trusted project gets the authoritative index, which needs the
+    // Playwright CLI. It is not installed here, so the catalogue falls
+    // back to the static one -- and the mobile cases must be there either
+    // way. The check is on the RESULT: the mobile cases are never lost.
+    const catalog = discoverStatic(project, emptyRegistry());
+    assert.equal(catalog.tests.filter((t) => t.source === 'mobile').length, 2);
+    assert.equal(catalog.mobile.cases, 2);
+    // The fallback path (the listing failed) keeps them too.
+    const fallback = staticCatalog(project, emptyRegistry(), { trust: 'trusted', reason: '' }, { mode: 'fallback', wantsAuthoritative: false, forced: false });
+    assert.equal(fallback.tests.filter((t) => t.source === 'mobile').length, 2, 'the fallback keeps them');
+    assert.equal(fallback.mobile.cases, 2);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('UT-MOB-286: every declared step is accounted for, on every shape', () => {
+  // The rule in its strongest form: whatever shape the Flow has, the
+  // number of steps it DECLARES equals the number that are mapped plus
+  // the number that are reported. A step that vanishes silently breaks
+  // the equality.
+  //
+  // Each fixture declares a known number of steps. The number is written
+  // next to the fixture, so a reader can see the claim.
+  const fixtures = [
+    // two steps: one mapped, one unsupported
+    ['---\n- name: a\n  steps:\n    - tapOn: "x"\n    - swipe: "left"\n', FLOW_SYNTAX.MAESTRO, 2],
+    // two steps: the `setup:` one is reported, the `steps:` one is mapped
+    ['---\n- name: a\n  setup:\n    - tapOn: "x"\n  steps:\n    - tapOn: "y"\n', FLOW_SYNTAX.MAESTRO, 2],
+    // one step: it names two commands, so it is reported whole
+    ['---\n- name: a\n  steps:\n    - tapOn: "x"\n      assertVisible: "y"\n', FLOW_SYNTAX.MAESTRO, 1],
+    // two steps: the env block is metadata, the two steps are mapped
+    ['app: x\nscenario: a\n  env:\n    K: v\n  tap "x"\n  assert visible "y"\n', FLOW_SYNTAX.LINEAR, 2],
+    // two steps: the extra arguments are kept and reported
+    ['app: x\nscenario: a\n  launch x clearState\n  tap "a" "b"\n', FLOW_SYNTAX.LINEAR, 2],
+  ];
+  for (const [text, syntax, declared] of fixtures) {
+    const imported = importText(text, syntax);
+    const mapped = imported.cases.reduce((sum, c) => sum + c.steps.length, 0);
+    const reported = imported.unsupported.length;
+    assert.equal(mapped + reported, declared, `every declared step is accounted for: ${JSON.stringify({ mapped, reported, declared })}`);
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* The reader's own paths                                              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The reader is a RESTRICTED reader: it understands a handful of YAML
+ * shapes and reports everything else. The tests below cover the shapes
+ * it reports -- because a reader that only ever sees the shapes it
+ * supports is a reader whose limits are unknown.
+ */
+
+test('UT-MOB-290: an unknown syntax is reported, not guessed', () => {
+  const flow = parseFlow('---\n- name: a\n', { syntax: 'klingon' });
+  assert.equal(flow.scenarios.length, 0);
+  assert.equal(flow.errors.length, 1);
+  assert.match(flow.errors[0].message, /unknown Flow syntax/);
+});
+
+test('UT-MOB-291: a list that mixes scenarios and steps is reported', () => {
+  const flow = parseFlow('---\n- name: a\n  steps:\n    - tapOn: "x"\n- tapOn: "y"\n', { syntax: FLOW_SYNTAX.MAESTRO });
+  assert.ok(flow.errors.length > 0, 'the mixture is reported');
+  assert.match(flow.errors[0].message, /mixes scenarios and steps/);
+});
+
+test('UT-MOB-292: the `scenarios:` list is read', () => {
+  const flow = parseFlow(
+    'scenarios:\n  - name: first\n    steps:\n      - tapOn: "x"\n  - name: second\n    steps:\n      - tapOn: "y"\n',
+    { syntax: FLOW_SYNTAX.MAESTRO },
+  );
+  assert.deepEqual(flow.errors, []);
+  assert.equal(flow.scenarios.length, 2);
+  assert.deepEqual(flow.scenarios.map((s) => s.title), ['first', 'second']);
+  assert.equal(flow.scenarios[0].steps.length, 1);
+});
+
+test('UT-MOB-293: a scenario entry that is not a mapping is reported', () => {
+  const flow = parseFlow('scenarios:\n  - just a string\n', { syntax: FLOW_SYNTAX.MAESTRO });
+  assert.ok(flow.errors.length > 0);
+  assert.match(flow.errors[0].message, /not a mapping/);
+});
+
+test('UT-MOB-294: a scenario entry with no name is reported', () => {
+  const flow = parseFlow('scenarios:\n  - steps:\n      - tapOn: "x"\n', { syntax: FLOW_SYNTAX.MAESTRO });
+  assert.ok(flow.errors.length > 0);
+  assert.match(flow.errors[0].message, /no name/);
+});
+
+test('UT-MOB-295: a mapping that holds steps IS a scenario', () => {
+  const flow = parseFlow('name: only\nsteps:\n  - tapOn: "x"\n', { syntax: FLOW_SYNTAX.MAESTRO });
+  assert.deepEqual(flow.errors, []);
+  assert.equal(flow.scenarios.length, 1);
+  assert.equal(flow.scenarios[0].title, 'only');
+  assert.equal(flow.scenarios[0].steps.length, 1);
+});
+
+test('UT-MOB-296: the explicit step form is read', () => {
+  const flow = parseFlow(
+    '---\n- name: a\n  steps:\n    - command: tapOn\n      arguments:\n        text: "Login"\n',
+    { syntax: FLOW_SYNTAX.MAESTRO },
+  );
+  assert.deepEqual(flow.errors, []);
+  const step = flow.scenarios[0].steps[0];
+  assert.equal(step.command, 'tapOn');
+  assert.deepEqual(step.args, { text: 'Login' });
+});
+
+test('UT-MOB-297: a step that is a list is reported, not read', () => {
+  const flow = parseFlow('---\n- name: a\n  steps:\n    - [1, 2]\n', { syntax: FLOW_SYNTAX.MAESTRO });
+  assert.ok(flow.errors.length > 0);
+  assert.match(flow.errors[0].message, /not a command/);
+});
+
+test('UT-MOB-298: an empty step is reported', () => {
+  const flow = parseFlow('---\n- name: a\n  steps:\n    -\n', { syntax: FLOW_SYNTAX.MAESTRO });
+  assert.ok(flow.errors.length > 0);
+  assert.match(flow.errors[0].message, /empty step/);
+});
+
+test('UT-MOB-299: a scalar step is read', () => {
+  const flow = parseFlow('---\n- name: a\n  steps:\n    - launchApp\n', { syntax: FLOW_SYNTAX.MAESTRO });
+  assert.deepEqual(flow.errors, []);
+  assert.equal(flow.scenarios[0].steps[0].command, 'launchApp');
+  assert.equal(flow.scenarios[0].steps[0].raw, '- launchApp');
+});
+
+test('UT-MOB-300: the inline collections are read', () => {
+  const flow = parseFlow(
+    '---\n- name: a\n  tags: [smoke, login]\n  steps:\n    - tapOn: "x"\n',
+    { syntax: FLOW_SYNTAX.MAESTRO },
+  );
+  assert.deepEqual(flow.errors, []);
+  assert.deepEqual(flow.scenarios[0].tags, ['smoke', 'login']);
+});
+
+test('UT-MOB-301: an unterminated scalar is reported', () => {
+  const flow = parseFlow('---\n- name: "a\n', { syntax: FLOW_SYNTAX.MAESTRO });
+  assert.ok(flow.errors.length > 0);
+  assert.match(flow.errors[0].message, /unterminated/);
+});
+
+test('UT-MOB-302: an unterminated inline collection is reported', () => {
+  const flow = parseFlow('---\n- name: a\n  tags: [smoke, login\n', { syntax: FLOW_SYNTAX.MAESTRO });
+  assert.ok(flow.errors.length > 0);
+  assert.match(flow.errors[0].message, /unterminated/);
+});
+
+test('UT-MOB-303: a tag in a Flow is an error, not a half-read document', () => {
+  const flow = parseFlow('---\n- name: !!str a\n', { syntax: FLOW_SYNTAX.MAESTRO });
+  assert.ok(flow.errors.length > 0);
+  assert.match(flow.errors[0].message, /anchor|alias|tag/i);
+});
+
+test('UT-MOB-304: a duplicated key in one mapping is reported', () => {
+  const flow = parseFlow('---\n- name: a\n  name: b\n', { syntax: FLOW_SYNTAX.MAESTRO });
+  assert.ok(flow.errors.length > 0);
+  assert.match(flow.errors[0].message, /appears twice/);
+});
+
+test('UT-MOB-305: a step before any scenario is reported', () => {
+  const flow = parseFlow('app: com.example.app\n  tap "x"\n', { syntax: FLOW_SYNTAX.LINEAR });
+  assert.ok(flow.errors.length > 0);
+  assert.match(flow.errors[0].message, /before any scenario/);
+});
+
+test('UT-MOB-306: the linear inline step list is read', () => {
+  const flow = parseFlow('app: x\nscenario: a\n  steps: launch, tap "x"\n', { syntax: FLOW_SYNTAX.LINEAR });
+  assert.deepEqual(flow.errors, []);
+  assert.equal(flow.scenarios[0].steps.length, 2);
+  assert.equal(flow.scenarios[0].steps[0].command, 'launch');
+});
+
+test('UT-MOB-307: the linear tags and the environment are read', () => {
+  const flow = parseFlow(
+    'app: x\nscenario: a\n  tags: smoke, login\n  env:\n    USER: bob\n    TOKEN: "abc def"\n  tap "x"\n',
+    { syntax: FLOW_SYNTAX.LINEAR },
+  );
+  assert.deepEqual(flow.errors, []);
+  assert.deepEqual(flow.scenarios[0].tags, ['smoke', 'login']);
+  assert.deepEqual(flow.scenarios[0].env, { USER: 'bob', TOKEN: 'abc def' });
+  assert.equal(flow.scenarios[0].steps.length, 1);
+});
+
+test('UT-MOB-308: a linear step that names nothing is reported', () => {
+  // A step that is an empty string names no command. It is reported, not
+  // turned into a step called `""`.
+  const flow = parseFlow('app: x\nscenario: a\n  ""\n', { syntax: FLOW_SYNTAX.LINEAR });
+  assert.ok(flow.errors.length > 0);
+  assert.match(flow.errors[0].message, /empty step/);
+});
+
+test('UT-MOB-309: the linear `title:` starts a scenario too', () => {
+  const flow = parseFlow('app: x\ntitle: a scenario\n  tap "x"\n', { syntax: FLOW_SYNTAX.LINEAR });
+  assert.deepEqual(flow.errors, []);
+  assert.equal(flow.scenarios[0].title, 'a scenario');
+});
+
+test('UT-MOB-310: a Flow with no scenario is reported in the linear syntax too', () => {
+  const flow = parseFlow('app: x\n', { syntax: FLOW_SYNTAX.LINEAR });
+  assert.ok(flow.errors.length > 0);
+  assert.match(flow.errors[0].message, /no scenario/);
+});
+
+test('UT-MOB-311: the scalar types of the reader are read', () => {
+  const flow = parseFlow(
+    '---\n- name: a\n  steps:\n    - tapOn: "x"\n',
+    { syntax: FLOW_SYNTAX.MAESTRO },
+  );
+  assert.deepEqual(flow.errors, []);
+  // The reader understands the YAML types: true, false, null, numbers.
+  const scalars = parseFlow(
+    '---\n- name: a\n  steps:\n    - tapOn: "x"\n',
+    { syntax: FLOW_SYNTAX.MAESTRO },
+  );
+  assert.equal(scalars.scenarios.length, 1);
 });
 
 /* ------------------------------------------------------------------ */
