@@ -305,6 +305,13 @@ export function createPlaywrightAdapter() {
         args,
         reportFile: playwrightReportFile(outputDir),
         engine: 'playwright',
+        // ATS-215: the version of the engine that produced the run. The
+        // Trace Viewer is a SEPARATE program whose version must match the
+        // one that wrote the trace, so the version travels with the run:
+        // a reader who opens a trace must be able to tell which viewer it
+        // needs. The version is the one the adapter PROBED (the installed
+        // CLI), not a guess.
+        engineVersion: probe.version || null,
       };
     },
 
@@ -375,6 +382,15 @@ export function createPlaywrightAdapter() {
                 duration: c.duration,
                 error: c.error,
                 attemptsCount: c.attemptsCount,
+                // ATS-215: the attachments of the case -- the link from the
+                // case to the files the engine wrote for it (the trace
+                // above all). The bridge makes the paths relative to the
+                // run folder.
+                attachments: (c.attachments ?? []).map((a) => ({
+                  name: a.name,
+                  contentType: a.contentType,
+                  path: a.path,
+                })),
                 attempts: c.attempts.map((a) => ({
                   status: a.status,
                   expectedStatus: a.expectedStatus ?? null,
