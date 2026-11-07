@@ -55,6 +55,36 @@ hdr() {
   node tools/ats602-probes/probe-mobile-import.mjs 2>&1
 } > "$EV/03-probe-mobile-import.log" 2>&1
 
+# --- 03b: the round-1 review probes --------------------------------------
+#
+# The two probes of the round-1 review, kept VERBATIM (byte-identical to the
+# ones the reviewer attached). They are the counter-examples of the review:
+# every E* line is a way in which a Flow could lose content without a trace.
+#
+# The in-process probe needs nothing but Node. The end-to-end one drives the
+# REAL Bridge over HTTP and needs a real Playwright install -- it is SKIPPED
+# with the reason when there is none, and a skip is never written as a pass.
+{
+  echo "=== ATS-602 evidence: the round-1 review probes (the 14 counter-examples) ==="
+  echo "tree : $COMMIT"
+  echo "date : $STAMP"
+  echo
+  echo "--- the in-process probe (node r1.mjs) ---"
+  node tools/ats602-probes/probe-round1-counterexamples.mjs "$TREE" "$TMPDIR/ats602-r1-probe" 2>&1
+  echo
+  echo "--- the end-to-end probe (node r1-e2e.mjs, the real Bridge over HTTP) ---"
+  PW_NM="${ATS602_PLAYWRIGHT_NODE_MODULES:-}"
+  if [ -n "$PW_NM" ] && [ -d "$PW_NM" ]; then
+    node tools/ats602-probes/probe-round1-counterexamples-e2e.mjs "$TREE" "$PW_NM" "$TMPDIR/ats602-r1-e2e" 2>&1
+  else
+    echo "SKIPPED: no real Playwright install (set ATS602_PLAYWRIGHT_NODE_MODULES to the"
+    echo "          node_modules directory of a real @playwright/test install to run it)."
+    echo "          A skip is NOT a pass: the end-to-end counter-examples are covered by"
+    echo "          IT-ATS602-API-009/010/011 in 02-node-test-mobile-import-it.log, which"
+    echo "          install their own Playwright."
+  fi
+} > "$EV/03b-round1-review-probes.log" 2>&1
+
 # --- 04: the coverage -----------------------------------------------------
 {
   echo "=== ATS-602 evidence: the line and branch coverage of the import ==="
