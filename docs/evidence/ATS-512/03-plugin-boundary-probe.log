@@ -1,8 +1,8 @@
 ================================================================================
 ATS-512 evidence log -- plugin permission boundary probe (includes the negative control)
 ================================================================================
-commit        : a239867003acb242b510e7caa9e337fed804c440
-timestamp     : 2026-11-07T02:40:43Z (UTC)
+commit        : bb95e79d7bb39f14962928c09a123eda896d4ecb
+timestamp     : 2026-11-07T02:48:30Z (UTC)
 repo root     : /d/ICHOR
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -13,7 +13,7 @@ command       : node tools/ats512-probes/probe-plugin-boundary.mjs
 
 === ATS-512 probe: the plugin permission boundary ===
 repo root : D:\ICHOR
-work root : D:\hermes-multica\home\cache\scratch\ats512-dev\ats512-probes
+work root : D:\hermes-multica\home\cache\scratch\ats512-dev2\ats512-probes
 
 --- signal 0: the sample plugin is a valid protocol sample ---
   [PASS] the sample manifest satisfies the plugin contract
@@ -65,7 +65,7 @@ work root : D:\hermes-multica\home\cache\scratch\ats512-dev\ats512-probes
   [PASS] a tampered proposal is refused -- code=PLUGIN_PROPOSAL_INVALID
   [PASS] a re-signed proposal is refused -- code=PLUGIN_PROPOSAL_INVALID
   [PASS] the forged producer still cannot self-review -- code=PLUGIN_REVIEW_SELF_FORBIDDEN
-  [PASS] the proposal id is unique across SDK instances -- plgprop_sample-demo-runner_65f26584-09d8-4766-9484-b99f59068318, plgprop_sample-demo-runner_17460fad-038e-4f33-923a-3c0b80ae9969
+  [PASS] the proposal id is unique across SDK instances -- plgprop_sample-demo-runner_2c740f73-3804-4e62-a65a-a5fdf6cec078, plgprop_sample-demo-runner_a72a6e20-75bf-48f3-8995-60b82744227d
   [PASS] the audit event names the proposal id
   [PASS] the audit event carries the evidence digests
 
