@@ -34,6 +34,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  CLEANED_MARKER_FILENAME,
   DEFAULT_RETENTION_DAYS,
   EVIDENCE_MANIFEST_VERSION,
   MANIFEST_FILENAME,
@@ -915,4 +916,51 @@ test('UT-EVD-053: the cleaning record only grows: a second cleaning keeps the fi
   assert.equal(result.verified, true, 'the files removed by either cleaning are explained');
   assert.deepEqual(result.missing, []);
   assert.deepEqual(result.cleaned, ['late-note.txt', 'report.json']);
+});
+
+test('UT-EVD-054: a cleaning record does not excuse a truncated manifest that still has files on disk', () => {
+  // The exemption for a truncated manifest is NARROW: it holds only when
+  // the folder holds no evidence file that the manifest does not cover.
+  // A cleaning record about ONE file must not excuse the 51 others the
+  // truncated manifest dropped -- they would be outside the tamper
+  // detection.
+  const folder = makeRunFolder({});
+  // More files than the limit holds, so the manifest is truncated.
+  const total = MAX_EVIDENCE_ENTRIES + 12;
+  for (let i = 0; i < total; i++) {
+    fs.writeFileSync(path.join(folder, `file-${String(i).padStart(4, '0')}.txt`), `content ${i}`);
+  }
+  const manifest = buildManifest(makeRun(), folder);
+  assert.equal(manifest.evidence.truncated, true);
+  fs.writeFileSync(path.join(folder, MANIFEST_FILENAME), JSON.stringify(manifest));
+  // A cleaning record that says one file was removed -- but the other
+  // files the manifest dropped are still on the disk.
+  fs.writeFileSync(path.join(folder, CLEANED_MARKER_FILENAME), JSON.stringify({
+    at: '2026-01-01T00:00:00.000Z',
+    removed: ['file-0000.txt'],
+  }));
+  const result = verifyEvidence(folder);
+  assert.equal(result.verified, false, 'the files the manifest dropped are still outside the tamper detection');
+  assert.equal(result.truncated, true);
+  assert.match(result.reason, /does not cover/);
+});
+
+test('UT-EVD-055: a truncated manifest whose dropped files were cleaned does not fail the archive', () => {
+  // The counterpart of UT-EVD-054: when the cleaning removed the files the
+  // truncated manifest dropped, nothing is left unprotected, and the
+  // archive verifies.
+  const folder = makeRunFolder({});
+  const total = MAX_EVIDENCE_ENTRIES + 12;
+  for (let i = 0; i < total; i++) {
+    fs.writeFileSync(path.join(folder, `file-${String(i).padStart(4, '0')}.txt`), `content ${i}`);
+  }
+  const manifest = buildManifest(makeRun(), folder);
+  assert.equal(manifest.evidence.truncated, true);
+  fs.writeFileSync(path.join(folder, MANIFEST_FILENAME), JSON.stringify(manifest));
+  // The cleaning removes everything the manifest did not cover.
+  const result = cleanRunEvidence(folder);
+  assert.equal(result.removed.length, total, 'the cleaner removes the files the truncated manifest dropped');
+  const verified = verifyEvidence(folder);
+  assert.equal(verified.verified, true, 'nothing is left outside the tamper detection');
+  assert.equal(verified.truncated, false);
 });

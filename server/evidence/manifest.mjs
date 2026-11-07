@@ -189,6 +189,41 @@ export function sha256OfFile(file) {
 }
 
 /**
+ * The relative path of a file that is EVIDENCE, or null when it is not.
+ *
+ * The rules are the same for the collector and for the counter: a link is
+ * not evidence, the run's record is not evidence, the manifest is not
+ * evidence, the cleaner's record is not evidence, and a file above the
+ * size limit is not taken into the evidence set. The two must not drift
+ * apart: the counter says whether the folder holds files the manifest
+ * does not cover, and it only means that if it counts the same files the
+ * collector takes.
+ *
+ * @returns {string|null} the relative path with `/` separators
+ */
+function evidenceRelativePath(root, full, item) {
+  // A symbolic link is not evidence: it is a pointer to something
+  // else, and the run folder must not be a way to reach outside it.
+  if (item.isSymbolicLink()) return null;
+  if (item.isDirectory()) return null;
+  if (!item.isFile()) return null;
+  const relative = path.relative(root, full).replace(/\\/g, '/');
+  if (RECORD_FILENAMES.includes(relative)) return null;
+  // The manifest is the record OF the evidence, not evidence itself.
+  if (relative === MANIFEST_FILENAME) return null;
+  // The cleaner's own record is not evidence either: it says the
+  // evidence was removed, so it must not be listed as evidence.
+  if (relative === CLEANED_MARKER_FILENAME) return null;
+  let stat;
+  try { stat = fs.statSync(full); }
+  catch { return null; }
+  // A file above the limit is not taken into the evidence set, so the
+  // manifest and the run record describe the same set of files.
+  if (stat.size > MAX_EVIDENCE_BYTES) return null;
+  return relative;
+}
+
+/**
  * The evidence entries of a run folder.
  *
  * The folder is walked and every FILE that is not part of the run's record
@@ -223,30 +258,16 @@ export function collectEvidence(folder, { maxDepth = 8, maxEntries = MAX_EVIDENC
     for (const item of items) {
       if (entries.length >= maxEntries) { truncated = true; return; }
       const full = path.join(dir, item.name);
-      // A symbolic link is not evidence: it is a pointer to something
-      // else, and the run folder must not be a way to reach outside it.
-      if (item.isSymbolicLink()) continue;
+      // A directory is walked into; a link is not evidence.
       if (item.isDirectory()) { walk(full, depth + 1); continue; }
-      if (!item.isFile()) continue;
-      const relative = path.relative(root, full).replace(/\\/g, '/');
-      if (RECORD_FILENAMES.includes(relative)) continue;
-      // The manifest is the record OF the evidence, not evidence itself.
-      if (relative === MANIFEST_FILENAME) continue;
-      // The cleaner's own record is not evidence either: it says the
-      // evidence was removed, so it must not be listed as evidence.
-      if (relative === CLEANED_MARKER_FILENAME) continue;
-      let stat;
-      try { stat = fs.statSync(full); }
-      catch { continue; }
-      // A file above the limit is not taken into the evidence set, so the
-      // manifest and the run record describe the same set of files.
-      if (stat.size > MAX_EVIDENCE_BYTES) continue;
+      const relative = evidenceRelativePath(root, full, item);
+      if (relative === null) continue;
       // A file that cannot be read is not an entry: an entry with no
       // digest would be a claim the manifest cannot back up.
       try {
         entries.push({
           file: relative,
-          size: stat.size,
+          size: fs.statSync(full).size,
           sha256: sha256OfFile(full),
         });
       } catch { /* the file vanished or cannot be read */ }
@@ -259,6 +280,58 @@ export function collectEvidence(folder, { maxDepth = 8, maxEntries = MAX_EVIDENC
   // only want the entries.
   Object.defineProperty(entries, 'truncated', { value: truncated, enumerable: false });
   return entries;
+}
+
+/**
+ * The relative paths of the evidence files of a run folder.
+ *
+ * Unlike `collectEvidence`, this walk has NO entry limit: it names every
+ * evidence file the folder holds. The cleaner needs the whole list (a
+ * truncated manifest leaves files that the manifest does not list, and
+ * they are evidence too), and so does the check for files a manifest
+ * does not cover.
+ *
+ * @param {string} folder the run folder
+ * @returns {string[]}
+ */
+export function evidenceFilePaths(folder) {
+  const root = path.resolve(folder);
+  const out = [];
+  const walk = (dir, depth) => {
+    if (depth > 8) return;
+    let items;
+    try { items = fs.readdirSync(dir, { withFileTypes: true }); }
+    catch { return; }
+    for (const item of items) {
+      const full = path.join(dir, item.name);
+      if (item.isDirectory()) { walk(full, depth + 1); continue; }
+      const relative = evidenceRelativePath(root, full, item);
+      if (relative === null) continue;
+      out.push(relative);
+    }
+  };
+  walk(root, 0);
+  out.sort();
+  return out;
+}
+
+/**
+ * How many evidence files a run folder holds RIGHT NOW.
+ *
+ * `collectEvidence` stops at the entry limit, so its length cannot say
+ * how many files the folder really holds. This count has no limit: it is
+ * what says whether a truncated manifest still leaves files on disk that
+ * the manifest does not cover -- the files that would be outside the
+ * tamper detection.
+ *
+ * The same files are counted as the collector takes them (see
+ * `evidenceRelativePath`).
+ *
+ * @param {string} folder the run folder
+ * @returns {number}
+ */
+export function countEvidenceFiles(folder) {
+  return evidenceFilePaths(folder).length;
 }
 
 /**
@@ -437,6 +510,25 @@ export function evidencePathIn(folder, relative, anchor = null) {
     };
   }
   return { ok: true, path: full };
+}
+
+/**
+ * The evidence files of a run folder that its manifest does NOT list.
+ *
+ * This is what says whether a truncated manifest still leaves files on
+ * disk that are outside the tamper detection. The count is of files, not
+ * of bytes: one uncovered file is enough to fail the archive.
+ *
+ * @param {string} folder the run folder
+ * @param {Set<string>} listed the files the manifest lists
+ * @returns {number}
+ */
+function countUncoveredEvidence(folder, listed) {
+  let uncovered = 0;
+  for (const relative of evidenceFilePaths(folder)) {
+    if (!listed.has(relative)) uncovered += 1;
+  }
+  return uncovered;
 }
 
 /**
@@ -663,8 +755,17 @@ export function verifyEvidence(folder) {
   // well, so there is nothing left unprotected, and the truncation is
   // explained by the cleaning record rather than a defect (ATS-209
   // review round 1, E7 + E6).
+  //
+  // The exemption is NARROW (ATS-209 review round 2): a cleaning record
+  // alone does not explain the truncation. What has to hold is that the
+  // folder holds NO evidence file that the manifest does not cover -- the
+  // files the truncated manifest dropped are gone. Otherwise a manifest
+  // that dropped 52 files would be exempted from the failure by a
+  // cleaning record about ONE of them, and the 51 files left on the disk
+  // would be outside the tamper detection.
   const truncated = Boolean(manifest?.evidence?.truncated);
-  const truncatedUncovered = truncated && cleanedSet.size === 0;
+  const uncovered = truncated ? countUncoveredEvidence(folder, listedFiles) : 0;
+  const truncatedUncovered = uncovered > 0;
   const verified = missing.length === 0 && changed.length === 0 && rejected.length === 0 && !truncatedUncovered;
   let reason = '';
   if (!verified) {
@@ -881,16 +982,22 @@ export function cleanRunEvidence(folder) {
   // The files that were added after the manifest was written are evidence
   // too -- they are the ones a reader would find in the folder and not in
   // the manifest.
-  for (const entry of collectEvidence(folder)) {
-    const resolved = evidencePathIn(folder, entry.file, anchor);
+  //
+  // The walk here is UNLIMITED (ATS-209 review round 2). `collectEvidence`
+  // stops at the entry limit, so a manifest that was truncated leaves
+  // files on disk that the manifest does not list -- and the cleaner has
+  // to remove them too, or the archive keeps files that are outside the
+  // tamper detection even after the cleaning.
+  for (const relative of evidenceFilePaths(folder)) {
+    const resolved = evidencePathIn(folder, relative, anchor);
     if (!resolved.ok) {
-      rejected.push({ file: entry.file, reason: resolved.reason });
+      rejected.push({ file: relative, reason: resolved.reason });
       continue;
     }
     if (!fs.existsSync(resolved.path)) continue;
     try {
       fs.rmSync(resolved.path, { force: true });
-      if (!fs.existsSync(resolved.path)) removed.push(entry.file);
+      if (!fs.existsSync(resolved.path)) removed.push(relative);
     } catch { /* already gone */ }
   }
   // The engine's own output tree is the evidence container; it goes too.
