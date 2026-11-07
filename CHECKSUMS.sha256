@@ -112,8 +112,8 @@ b1e33953b442c57518352f2036c5095a4c55aaa0db8eeb23ca27e8078d912ec0  docs/evidence/
 e752f813bdafb5a03e3e9d62e74aee2eefc84b2aab5b149565180e33fbbd7664  docs/evidence/ATS-103/09-ci-build-gate.log
 a879946600c2b11a8ffb15e0a3f7e0c76372fea15cb3d45b94d2483cbd144dee  docs/evidence/ATS-103/10-r4-clone-verification-crlf.log
 5573522870684f391441c9eac532728f7907592954ea737e3d84410520ad28a8  docs/evidence/ATS-103/10-r4-clone-verification-lf.log
-879bb41afc25b0960328537194d55e66eb3357a16915f219f92876c185aad559  docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log
-0c36262f17806f0256a4220495f0c11bc672b1b6b7d83938aefdfab9c765291f  docs/evidence/ATS-103/11-r4-dev-clone-verification-lf.log
+e7ea19db8c24ef4b923379b99ef540e96a9b73d9fcc30c5752edf551a91a653c  docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log
+ff9b4a391f6ae5e9ee6dd49c832a8e0390352a56dbfbdc52532ff6e58638c602  docs/evidence/ATS-103/11-r4-dev-clone-verification-lf.log
 525c080704c2c804cd517e05cd7f67aa66fa6a948b58a2e3ad7fc590cf145d23  docs/evidence/ATS-201/08-node-test-full.log
 cc7691ce3eda905a7cafcd26f2780cec8f81c29390499fe9c1c533298456edee  docs/evidence/ATS-201/09-line-coverage.log
 2d0a5cdb52b37a24fd0959424235e46971ed55087bb0214bbbe7c2828e5a12ca  docs/evidence/ATS-201/10-review-regressions.log
@@ -271,7 +271,7 @@ a8482cee9d7e6e505aa4368cebbc6d4641118b122301eea03fa8de4eece90918  docs/evidence/
 934d087079b86f3543319889901f9ab2a1368321f66f0cfa60d069289229f92d  docs/evidence/ATS-216/06-quality-gates.log
 46ee6402dabf8b513ef70f33e6812efbb36d1a199d67433b90c26ee2257c3977  docs/evidence/ATS-216/07-mutation-evidence.log
 68f34505919482fdefa1ec5399ffe465907ecc73b757f7170e396d2b0bd93901  docs/evidence/ATS-216/08-browser-check.log
-be359c0d5a40a956c132ec8d1dc6aba9e4dc21305d4f2b14c69c949ddc5b30c5  docs/evidence/ATS-216/09-reviewer-probe-round1.log
+b630e0fa1d4628ff16a2cd285d0c0447cae0fa7eca3aed927219de577fc30849  docs/evidence/ATS-216/09-reviewer-probe-round1.log
 00afbcf139fd38b591b694bc0fa03adeb82e08f40b7ecfdca44829f7b2c93764  docs/evidence/ATS-301/00-npm-test-full.log
 6e9600f91c11576f76a8848451f49606cbcf3e2ad90eb97038dddccf4ece519f  docs/evidence/ATS-301/01-playwright-ground-truth.log
 64b89f5c8e2acfee0974bea36ef04332026d363a980ea4bc8322bfc03ed4a6d4  docs/evidence/ATS-301/02-wdio-ground-truth.log
