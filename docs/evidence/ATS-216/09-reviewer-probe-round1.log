@@ -11,5 +11,5 @@ INFO B2 real POST /stop on win32 (Playwright) -- status=cancelled cases=0 summar
 INFO C0 project B run -- status=failed passed=1 failed=1
 OK   C1 portable UI 「全部项目」 shows the metrics of ALL projects (失败 card = module over all runs) -- UI 通过/失败=3/3; module all-runs=3/3; module project-A-only=2/2; pageErrors=0
 INFO C2 refs rendered in the portable UI -- cases.buckets/refs ids present: true
-scratch: C:\tmp\ats216-r1-ev\r1-oGuIKd
+scratch: C:\tmp\ats216-r1-dev-ev\r1-L6ZIW4
 RESULT: 8/8 OK
