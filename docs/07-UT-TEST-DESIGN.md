@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：628；已执行通过：612；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：661；已执行通过：645；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -188,6 +188,39 @@
 |UT-PLG-076|FR-028|边界|证据引用过多被拒|65 条 evidenceRefs|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
 |UT-PLG-077|FR-028|异常|形状不合法的结论被拒|outcome 不是对象 / summary 为空 / 引用不是字符串|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
 |UT-PLG-078|FR-028|安全|跨项目上报结论被拒|projectId 不在授予列表里|报 PLUGIN_SCOPE_INVALID 并进审计|node --test|PASS|
+|UT-SEC-001|FR-027|正常|凭据存储契约版本固定|查询 credential-store/v1|contract 固定|node --test|PASS|
+|UT-SEC-002|FR-027|安全|密钥进凭据库而不落盘|写入一个密钥后检查索引文件|索引文件不含秘密与其片段|node --test|PASS|
+|UT-SEC-003|FR-027|安全|引用带指纹但无密钥字段|读取一个凭据引用|有 8 位指纹，无 secret 字段|node --test|PASS|
+|UT-SEC-004|FR-027|正常|密钥字节精确回读|写入后读回|内容完全一致|node --test|PASS|
+|UT-SEC-005|FR-027|异常|未知凭据 id|读取不存在的 id|报 CREDENTIAL_NOT_FOUND|node --test|PASS|
+|UT-SEC-006|FR-027|异常|非法名称/秘密/用途|空名、含路径分隔符、空秘密、未知用途|分别报 CREDENTIAL_NAME_INVALID / CREDENTIAL_INVALID|node --test|PASS|
+|UT-SEC-007|FR-027|异常|重名拒绝|同名写入两次|第二次报 CREDENTIAL_DUPLICATE|node --test|PASS|
+|UT-SEC-008|FR-027|安全|凭据库不可用即拒绝且不回退|后端 available=false|报 CREDENTIAL_STORE_UNAVAILABLE，不留索引|node --test|PASS|
+|UT-SEC-009|FR-027|安全|没有后端时同样拒绝|无可用后端|报 CREDENTIAL_STORE_UNAVAILABLE|node --test|PASS|
+|UT-SEC-010|FR-027|正常|删除同时清凭据库与索引|写入后删除|两处都没有残留|node --test|PASS|
+|UT-SEC-011|FR-027|正常|索引原子写且可重载|写入后重新打开|无 .tmp 残留，记录可读|node --test|PASS|
+|UT-SEC-012|FR-027|异常|索引损坏报错而非静默清空|写入非法 JSON|报 CREDENTIAL_STORE_FAILED|node --test|PASS|
+|UT-SEC-013|FR-027|安全|契约描述不含密钥|describeCredentialStore()|含 provider 与错误码，无密钥|node --test|PASS|
+|UT-SEC-014|FR-027|正常|索引路径在数据目录下|credentialIndexPath()|落在数据目录内|node --test|PASS|
+|UT-SEC-015|FR-027|正常|索引存取往返|保存后读回|内容一致|node --test|PASS|
+|UT-EGR-001|FR-027|正常|外传授权契约版本固定|查询 egress-consent/v1|contract 固定|node --test|PASS|
+|UT-EGR-002|FR-027|安全|无授权即拒绝外传|判定一个空授权|allowed=false 且 code=EGRESS_CONSENT_REQUIRED|node --test|PASS|
+|UT-EGR-003|FR-027|正常|预览描述将要外传的内容|预览一个文件输入|列出 kind/ref/字节数/摘要|node --test|PASS|
+|UT-EGR-004|FR-027|安全|没有预览的确认被拒|伪造 previewId|报 EGRESS_PREVIEW_INVALID|node --test|PASS|
+|UT-EGR-005|FR-027|安全|预览令牌一次性|同一 previewId 确认两次|第二次报 EGRESS_PREVIEW_INVALID|node --test|PASS|
+|UT-EGR-006|FR-027|安全|确认范围与预览不一致被拒|预览 A、确认 B|报 EGRESS_PREVIEW_STALE|node --test|PASS|
+|UT-EGR-007|FR-027|正常|授权后只放行同一范围|授权后判定同一输入|allowed=true|node --test|PASS|
+|UT-EGR-008|FR-027|安全|内容变化后授权失效|授权后修改内容|报 EGRESS_CONSENT_SCOPE_MISMATCH|node --test|PASS|
+|UT-EGR-009|FR-027|安全|授权外的输入种类被拒|授权 file、加入 evidence|报 EGRESS_KIND_NOT_ALLOWED|node --test|PASS|
+|UT-EGR-010|FR-027|异常|过期授权被拒|ttl=60 秒后推进时钟|报 EGRESS_CONSENT_EXPIRED|node --test|PASS|
+|UT-EGR-011|FR-027|安全|撤销后立即失效|撤销后判定|报 EGRESS_CONSENT_REVOKED|node --test|PASS|
+|UT-EGR-012|FR-027|异常|畸形授权记录被拒|id 不合规、状态非法|报 EGRESS_CONSENT_INVALID|node --test|PASS|
+|UT-EGR-013|FR-027|正常|授权记录先落盘再返回|确认后检查存储|记录已在存储里|node --test|PASS|
+|UT-EGR-014|FR-027|异常|非法有效期被拒|ttl=0|报 EGRESS_CONSENT_INVALID|node --test|PASS|
+|UT-EGR-015|FR-027|异常|未知输入种类被拒|kind=wat|报 EGRESS_KIND_NOT_ALLOWED|node --test|PASS|
+|UT-EGR-016|FR-027|异常|畸形摘要被拒|digest 非 sha256|报 EGRESS_CONSENT_INVALID|node --test|PASS|
+|UT-EGR-017|FR-027|正常|范围摘要与输入顺序无关|交换输入顺序|摘要不变|node --test|PASS|
+|UT-EGR-018|FR-027|正常|授权契约描述列出流程与错误码|describeEgressConsent()|含 flow 与错误码|node --test|PASS|
 |UT-SQL-001|NFR-010|正常|元数据层在当前 Node 构建上可用|node:sqlite 无需 flag|sqliteAvailable() 为 true|node --test|PASS|
 |UT-SQL-002|NFR-010|正常|数据库以 WAL 模式运行|在临时目录打开 metadata.db|PRAGMA journal_mode = wal|node --test|PASS|
 |UT-SQL-003|NFR-010|正常|被锁住的写入者会等待而不是立即失败|另一个进程持有 BEGIN IMMEDIATE 写锁|写入者等到锁释放后才提交成功|node --test|PASS|

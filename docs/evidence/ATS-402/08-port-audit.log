@@ -1,0 +1,146 @@
+================================================================================
+ATS-402 evidence log -- the ATS-101 hardcoded-port audit
+================================================================================
+commit        : ce67195e4ccb850a6783509049a9a8b0ea1235cc
+timestamp     : 2026-11-07T02:03:49Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-06f2e5eaa1c4/worktree
+node          : v24.19.0
+python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command       : node tools/ats101-probes/scenario-d-port-audit.mjs
+================================================================================
+
+=== ATS-101 scenario D: hardcoded default-port audit ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-06f2e5eaa1c4\worktree
+port      : 4577
+
+--- RUNTIME hardcoding in shipped source ---
+  apps/studio/app/page.tsx:189  <footer className="bottom-bar"><span><span className="online"/> LOCAL RUNNER · 127.0.0.1:4577</span><span>Git ...
+  apps/studio/lib/api.ts:38  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
+  apps/studio/public/fallback.html:3  </style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</spa...
+  server/index.mjs:56  const PORT=Number(process.env.ATS_PORT||4577);
+  server/index.mjs:615  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
+  src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
+total = 6
+
+--- NON-runtime data mentions (data/scripts that only display it) ---
+  start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
+  start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
+  start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
+  tests/test-cases.json:7201  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:7267  "input": "Host=evil.example:4577",
+  tests/test-cases.json:8994  "input": "同 LAN 他机尝试访问 4577",
+  tools/generate_test_docs.py:390  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
+  tools/generate_test_docs.py:396  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
+  tools/generate_test_docs.py:513  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
+  tools/update_wbs_ats216.py:101  '（Next 工作台按端口解析 API 基址，apps/studio/lib/api.ts 硬编码 4577 是 ATS-101 已登记的约束，浏览器检查的 Bridge 因此跑在默认端口上；便携 U...
+  test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)
+total = 11
+
+--- DOC mentions (prose that names the port) ---
+  docs/04-DETAILED-DESIGN.md:16  所有带状态 API 要求 `X-ATS-Token`；`/api/session` 必须在 localhost 或 tauri 来源访问，不接受陌生 Origin。Node 绑定 loopback `...
+  docs/08-IT-TEST-DESIGN.md:30  |IT-UI-001|FR-020|正常|Next UI 与 Bridge CORS|localhost:3000 + 4577|页面 API 可正常请求|需 npm 依赖|PENDING|
+  docs/08-IT-TEST-DESIGN.md:36  |IT-API-004|NFR-002|安全|错误 Host 拒绝|Host=evil.example:4577|403 INVALID_HOST|可自动化|PENDING|
+  docs/09-ST-TEST-DESIGN.md:24  |ST-014|NFR-002|安全|远程主机访问拒绝|同 LAN 他机尝试访问 4577|连接拒绝或无法访问 API|网络抓包|PENDING|
+  docs/11-SECURITY-RISK.md:43  | session token 同机可请求；固定 4577 端口 | 其他同机进程干扰 | HIGH | IPC/Unix domain socket/named pipe、随机端口、OS 身份验证 ...
+  docs/12-DEPLOY-OPERATIONS.md:9  便携模式（已通过本地 HTTP IT）：`npm start`，访问 `http://127.0.0.1:4577/fallback.html`；首次无任何项目可点击添加。Windows PowerS...
+  docs/12-DEPLOY-OPERATIONS.md:21  | 服务存活 | `GET /api/health` | 检查 4577 端口冲突与 Node 版本 |
+  docs/12-DEPLOY-OPERATIONS.md:36  - `ATS_PORT`：默认 4577（Next UI 的 API BASE 当前写死 4577，变更端口需同步调整 UI 配置；非动态端口发布模式）
+  docs/16-BASELINE-ADR.md:98  Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-ATS-Token`；`/api/session` 由 Origin allowlist...
+  docs/16-BASELINE-ADR.md:122  1. **默认端口 4577 在发布源码中被硬编码在 6 处**（不含文档与测试数据）。改端口须同步全部，否则 UI 与 CSP 会指向错误端口：
+  docs/16-BASELINE-ADR.md:126  | 1 | `server/index.mjs:56` | 默认值 `process.env.ATS_PORT\|\|4577` |
+  docs/16-BASELINE-ADR.md:129  | 4 | `apps/studio/app/page.tsx:189` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
+  docs/16-BASELINE-ADR.md:130  | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
+  docs/16-BASELINE-ADR.md:144  2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
+  docs/16-BASELINE-ADR.md:344  - **ATS-103 已实测静态导出与 Bridge 的接口面接缝**（`docs/22-FRONTEND-EXPORT.md`）：`next build` 成功产出 `apps/studio/ou...
+  docs/16-BASELINE-ADR.md:352  - `src-tauri/src/lib.rs` 以 `Command::new("node")` 拉起 `../server/index.mjs` 并设 `ATS_PORT=4577`；**要求 P...
+  docs/22-FRONTEND-EXPORT.md:22  | Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（**12927 字节**），带 CSP（`connect-src` 含 `http://127.0.0.1...
+  docs/22-FRONTEND-EXPORT.md:67  1. 页面由 Bridge 自身在 `127.0.0.1:4577` 提供（`server/index.mjs` 的 `staticFile()` 把 `apps/studio/out` 当静态根目录...
+  docs/22-FRONTEND-EXPORT.md:68  2. `apps/studio/lib/api.ts` 的 `root()` 在运行时决定 API 基址：**端口是 4577 时用同源空串**（即 `/api/...`），否则用绝对地址 `http...
+  docs/22-FRONTEND-EXPORT.md:88  PASS  the page's API requests go to the host its own location implies  --  page location host: local...
+  docs/22-FRONTEND-EXPORT.md:106  **「任何静态文件服务器都能提供这份导出」是不成立的**（第一轮复核 C5(a) 的反例已推翻该说法）。实测：用 `python -m http.server 8931` 提供 `out/`，而 Br...
+  docs/22-FRONTEND-EXPORT.md:108  **准确的说法是**：这份导出可以被**任意静态服务器**提供，但**只有当页面的 Origin 落在 Bridge 的白名单里**时，它对 Bridge 的 API 调用才会被接受。当前白名单是 `...
+  docs/22-FRONTEND-EXPORT.md:112  **Bridge 在非默认端口时，导出页的 API 调用是不可用的**——导出页的基址解析与 Bridge 的 CSP 都指向默认端口 4577（`docs/16-BASELINE-ADR.md` §...
+  docs/22-FRONTEND-EXPORT.md:168  PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:457...
+  docs/22-FRONTEND-EXPORT.md:196  PASS  the exported page loads in a real browser  --  HTTP 200, http://localhost:4577/
+  docs/22-FRONTEND-EXPORT.md:198  PASS  the page's API requests go to the host its own location implies  --  page location host: local...
+  docs/22-FRONTEND-EXPORT.md:208  **白名单跨源**（把导出页放在 `127.0.0.1:3000`，Bridge 在 4577）：
+  docs/22-FRONTEND-EXPORT.md:215  **跨源这一遍有且只有一条断言变红，而且它变红是设计使然，不是缺陷**：变红的是「页面的 API 请求去页面自身 origin 隐含的 host」。这条断言**按构造就是同源判别器**——页面在 `l...
+  docs/22-FRONTEND-EXPORT.md:239  | **B2** 基址写死**且** bundle 里留一个**无关的** `location.port` 比较 | 可执行判别（静态启发式**抓不到**它） | 静态启发式**仍然绿**（25/25...
+  docs/28-QUALITY-OVERVIEW.md:200  > 浏览器实测的一个约束：Next 工作台按**端口**解析 API 基址（`apps/studio/lib/api.ts` 硬编码 4577，这是 ATS-101 已登记的约束），因此浏览器检查的 ...
+  README.md:9  3. 浏览器打开 <http://127.0.0.1:4577/fallback.html>。这是**已测试的零依赖便携 UI**。
+  README.md:24  完成构建后，打开 <http://127.0.0.1:4577/>，将使用正式 Next.js 工作台（Monaco 编辑器 + 流程投影）。开发模式：开一个终端运行 `npm start`，另一个运...
+  README.md:30  先执行 `npm --prefix apps/studio install`；在本机安装 `rustup` 和 Tauri CLI，然后在项目根目录运行 `npx tauri dev`（或通过 npm...
+  README.md:54  **安全提示：测试脚本本质上是可执行代码。仅添加可信仓库。** 这是本地开发版本，Node 子进程不等于安全沙箱；CLI/测试代码仍可访问执行用户权限下的文件、网络和环境变量。不要将 4577 端口公...
+  tools/ats101-probes/README.md:140  端口 `4577`），因此 `tools/ats101-probes/` 下的端口字面量属于**文档提及**，
+  tools/ats101-probes/scenario-d-port-audit.mjs:4  *   The hardcoded default port 4577 must be listed COMPLETELY in
+  tools/ats101-probes/scenario-d-port-audit.mjs:19  const PORT = '4577';
+  tools/ats216-probes/browser-check.mjs:126  // hardcodes 4577, the documented ATS-101 constraint), so the browser check
+  tools/ats216-probes/browser-check.mjs:130  const defaultPort = Number(process.env.ATS_PORT || 4577);
+  tools/ats216-probes/collect-evidence.sh:95  # hardcodes 4577 -- the ATS-101 constraint), so the browser check needs the
+total = 40
+
+--- distinct RUNTIME files ---
+  apps/studio/app/page.tsx
+  apps/studio/lib/api.ts
+  apps/studio/public/fallback.html
+  server/index.mjs
+  src-tauri/src/lib.rs
+
+--- distinct DOC files (c) class, excluding 16 itself and the probe dir ---
+  README.md (4)
+  docs/04-DETAILED-DESIGN.md (1)
+  docs/08-IT-TEST-DESIGN.md (2)
+  docs/09-ST-TEST-DESIGN.md (1)
+  docs/11-SECURITY-RISK.md (1)
+  docs/12-DEPLOY-OPERATIONS.md (4)
+  docs/22-FRONTEND-EXPORT.md (24)
+  docs/28-QUALITY-OVERVIEW.md (1)
+  tools/ats216-probes/browser-check.mjs (2)
+  tools/ats216-probes/collect-evidence.sh (1)
+files = 10, mentions = 41
+
+--- files listed in 16 §3.1 (port list) ---
+  README.md
+  apps/studio/app/page.tsx
+  apps/studio/lib/api.ts
+  apps/studio/public/fallback.html
+  docs/04-DETAILED-DESIGN.md
+  docs/08-IT-TEST-DESIGN.md
+  docs/09-ST-TEST-DESIGN.md
+  docs/11-SECURITY-RISK.md
+  docs/12-DEPLOY-OPERATIONS.md
+  docs/22-FRONTEND-EXPORT.md
+  docs/28-QUALITY-OVERVIEW.md
+  server/index.mjs
+  src-tauri/src/lib.rs
+  start.ps1
+  start.sh
+  test-cases.xlsx
+  tests/test-cases.json
+  tools/ats101-probes/scenario-d-port-audit.mjs
+  tools/ats216-probes/browser-check.mjs
+  tools/ats216-probes/collect-evidence.sh
+  tools/generate_test_docs.py
+  tools/update_wbs_ats216.py
+
+--- verdict ---
+runtime occurrences in source   : 6
+distinct runtime files          : 5
+non-runtime data files          : 6
+doc-mention files (excl. 16)    : 10
+doc mentions (excl. 16)         : 41
+runtime files missing from §3.1 : (none)
+non-runtime missing from §3.1   : (none)
+runtime positions missing       : (none)
+listed but not found at runtime : (none)
+count claimed in 16 §3.1        : 6
+actual runtime occurrence count : 6
+count matches source            : true
+doc files/mentions claimed      : 10 / 41
+doc files/mentions actual       : 10 / 41
+doc mention count matches       : true
+
+RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
+
+--- exit code: 0 ---

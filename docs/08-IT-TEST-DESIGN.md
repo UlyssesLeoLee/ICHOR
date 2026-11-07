@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：151；已执行通过：137；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：171；已执行通过：157；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -66,6 +66,26 @@
 |IT-PLG-014|FR-028|安全|原型链名字不是合法档位|tier 取 toString / __proto__ / constructor / hasOwnProperty / valueOf|一律 400 + PLUGIN_MANIFEST_INVALID|node --test|PASS|
 |IT-PLG-015|NFR-002|安全|未知档位的错误体不泄漏内部细节|tier=toString|响应体不含 JS 内部错误文本，也不含本机路径|node --test|PASS|
 |IT-PLG-CLEANUP|NFR-005|清理|插件 API 子进程与夹清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
+|IT-SEC-SETUP|NFR-011|正常|安全面 API 的 bridge 启动|隔离 ATS_DATA_DIR 与随机端口|/api/health=200 并取得 token|node --test|PASS|
+|IT-SEC-001|FR-027|正常|安全契约经 API 暴露|GET /api/security/contract|200 + credential-store/v1 + egress-consent/v1|node --test|PASS|
+|IT-SEC-002|NFR-002|安全|安全端点需要会话 token|不带 X-ATS-Token 访问三个端点|均 401 INVALID_SESSION|node --test|PASS|
+|IT-SEC-003|FR-027|安全|凭据清单只含引用|GET /api/security/credentials|每条引用无 secret 字段，指纹 8 位|node --test|PASS|
+|IT-SEC-004|FR-027|安全|秘密不出现在平台状态文件|写真实凭据库后扫描数据目录|目录内任何文件都不含秘密|node --test (real store)|PASS|
+|IT-SEC-005|FR-027|异常|重名被拒|同名写入两次|400 CREDENTIAL_DUPLICATE|node --test (real store)|PASS|
+|IT-SEC-006|FR-027|异常|非法凭据名被拒|name=../escape|400 CREDENTIAL_NAME_INVALID|node --test|PASS|
+|IT-SEC-007|FR-027|正常|预览展示真实范围|POST /api/security/egress/preview|列出 ref、字节数与 SHA-256|node --test|PASS|
+|IT-SEC-008|FR-027|安全|无授权外传被拒|POST /api/security/egress/check|403 EGRESS_CONSENT_REQUIRED|node --test|PASS|
+|IT-SEC-009|FR-027|正常|预览到确认到放行的全流程|preview -> confirm -> check|201 授权 + 200 allowed|node --test|PASS|
+|IT-SEC-010|FR-027|安全|预览令牌不可复用|同一 previewId 确认两次|第二次 400 EGRESS_PREVIEW_INVALID|node --test|PASS|
+|IT-SEC-011|FR-027|安全|无预览的确认被拒|伪造 previewId|400 EGRESS_PREVIEW_INVALID|node --test|PASS|
+|IT-SEC-012|FR-027|安全|确认后内容变化被拒|授权后改文件再 check|403 EGRESS_CONSENT_SCOPE_MISMATCH|node --test|PASS|
+|IT-SEC-013|FR-027|安全|撤销后立即被拒|撤销后 check|403 EGRESS_CONSENT_REVOKED|node --test|PASS|
+|IT-SEC-014|FR-027|安全|越界范围被拒|../outside.spec.ts、C:/Windows/win.ini、/etc/passwd|均 400 EGRESS_GATE_SCOPE_INVALID|node --test|PASS|
+|IT-SEC-015|FR-027|异常|未知项目被拒|不存在的 projectId|404 PROJECT_NOT_FOUND|node --test|PASS|
+|IT-SEC-016|FR-027|安全|授权记录不含内容|GET /api/security/egress/consents|记录无 inputs/content 字段|node --test|PASS|
+|IT-SEC-017|NFR-011|正常|诊断端点报告安全面|GET /api/diagnostics|含 credentialStore 与 egressConsent|node --test|PASS|
+|IT-SEC-018|NFR-011|异常|非安全类错误保持 ATS-402 之前的行为|POST /api/projects 指向不存在目录|500 + 原始消息，无安全类 details|node --test|PASS|
+|IT-SEC-CLEANUP|NFR-005|清理|安全 API 子进程与夹清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
 |IT-DSC-SETUP|FR-021|正常|真实 Playwright 装入夹具|临时目录 npm install @playwright/test 1.64.1|node_modules/@playwright/test/cli.js 存在|node --test|PASS|
 |IT-DSC-001|FR-021|正常|列举报告项目的用例|真实 CLI --list|得到 file/title/line 与 CLI 版本|node --test|PASS|
 |IT-DSC-002|FR-021|正常|动态用例只在权威索引里|一个模板生成两个渲染标题|权威索引有两个，静态索引只有一个模板条目|node --test|PASS|

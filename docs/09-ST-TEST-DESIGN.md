@@ -1,6 +1,6 @@
 # ATS-ST-001 システムテスト設計書
 
-> 设计总数：30；已执行通过：7；待执行/未实现：23。**PENDING 不是测试通过**。
+> 设计总数：33；已执行通过：7；待执行/未实现：26。**PENDING 不是测试通过**。
 
 系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。
 
@@ -32,6 +32,9 @@
 |ST-022|FR-020|兼容性|Tauri Windows 开发构建|Windows+Rust+WebView2|桌面窗口打开，bridge 连接成功|编译+运行记录|PENDING|
 |ST-023|NFR-009|隐私|数据不自动离开本地|操作工作台并抓包|未主动请求 AI/SaaS endpoints|网络流量|PENDING|
 |ST-024|NFR-011|运行维护|错误信息可用于故障定位|停掉 server、损坏 state、缺 browser|明确错误而非模拟成功|录屏与日志|PENDING|
+|ST-031|FR-027|隐私|密钥入库后不出现在本机可读文件|在真实 Windows 上存入密钥后扫描数据目录与凭据索引|秘密只存在于系统凭据库；索引只有引用与指纹|凭据管理器截图+目录扫描|PENDING|
+|ST-032|FR-027|隐私|首次外传前必须展示范围并确认|在 UI 上选择项目内容并触发外传|先出现范围清单（文件、字节数、摘要），未确认则不外传|录屏+网络抓包|PENDING|
+|ST-033|NFR-009|隐私|无授权的外传请求被拒|清空授权后触发外传|请求被拒并给出 EGRESS_CONSENT_REQUIRED|录屏+接口日志|PENDING|
 |ST-025|NFR-010|单实例|同一数据目录只允许一个 Bridge|真实 Bridge：A 服务时启动 B；两个 Bridge 同时启动|B 退出码 1 并报持有者；同时启动恰一个服务|node tools/ats207-probes/st-ats207.mjs|PASS|
 |ST-026|NFR-010|恢复|崩溃后损坏文件的处理|零长度 state.json；损坏的 metadata.db|前者拒绝启动且文件不变；后者隔离并由 state.json 重建，历史完整|node tools/ats207-probes/st-ats207.mjs|PASS|
 |ST-027|FR-016|功能|质量概览：失败/重试/取消分开计数|真实 Bridge + 真实 Playwright：一次真实失败运行、一次真实重试后通过、一次真实停止|失败计入失败桶、重试用例计入 flaky 桶、停止的运行计入 cancelled 且不计入失败与通过率|node tools/ats216-probes/st-ats216.mjs|PASS|

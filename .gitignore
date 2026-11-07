@@ -3,6 +3,10 @@ node_modules/
 out/
 *.tsbuildinfo
 src-tauri/target/
+# The Rust dependency lock file is a BUILD ARTEFACT, not product source:
+# docs/16-BASELINE-ADR.md §5.3 records that it is deliberately NOT under
+# version control, and the desktop shell is not built by the ATS-402 gates.
+src-tauri/Cargo.lock
 .DS_Store
 .env*
 !.env.example

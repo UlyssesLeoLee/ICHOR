@@ -44,7 +44,7 @@
 | FR-024 | AI 生成 | 需求→测试意图→脚本候选→审查后写入 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |
 | FR-025 | AI 诊断 | 失败归类、差异建议，不能自动修改断言或提交 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |
 | FR-026 | 图谱血缘与覆盖缺口 | Requirement→Script→Run→Evidence 可查询和影响分析 | P1 | DESIGNED |
-| FR-027 | 多环境/密钥存储 | 单独安全凭据存储，配置不进入 Git | P1 | DESIGNED（档案侧已实现：ATS-212 交付了项目级环境档案 API、变量白名单、凭据形态拒绝与封口的 runner 环境，档案不进 Git；**独立的凭据存储仍未实现**，凭据形态的变量被拒并指向凭据存储） |
+| FR-027 | 多环境/密钥存储 | 单独安全凭据存储，配置不进入 Git | P1 | **已实现（ATS-402）**：密钥入系统凭据库（Windows Credential Manager / macOS Keychain / Linux Secret Service），磁盘上只留引用；另有 ATS-212 的项目级环境档案 API、变量白名单与封口的 runner 环境，档案不进 Git |
 | FR-028 | CI/CD 与远程执行 | RunnerAdapter/Queue/工作区隔离 | P2 | DESIGNED |
 | FR-029 | Agent 自主探索 | 异常流程候选、人工验证后固化 | P2 | DESIGNED |
 | FR-030 | 团队多用户 | RBAC、审计、团队项目与云数据同步 | P2 | DESIGNED |
@@ -68,7 +68,7 @@
 | NFR-006 | 性能 | 普通仓库 500 用例索引目标 3 秒内（非环境实测） | P1 | 待 ST 测量 |
 | NFR-007 | 可移植性 | Windows/macOS/Linux Web 便携版；Tauri 各 OS 构建另验 | P1 | 部分 |
 | NFR-008 | 恢复能力 | 服务异常重启后未完成运行标记 interrupted、保留历史 | P0 | 部分实现（B-03 的卡死缺陷已修复：`cancelling` 纳入启动恢复、无活动 job 的在飞 Run 可经 `/stop` 释放；`/stop` 对已终结 Run 的幂等语义与运行锁判定仍归 ATS-108/ATS-112）；ATS-207：数据目录单实例锁（原子抢锁、崩溃后锁可回收、持有者可校验），真实 Playwright 运行中强杀整棵进程树后重启 run=interrupted 且已完成历史保留（ST-017 已实测） |
-| NFR-009 | 隐私保护 | 不自动上传代码、截图、Trace、密钥到外部 AI 服务 | P0 | 已实现，未来 AI 需再评估 |
+| NFR-009 | 隐私保护 | 不自动上传代码、截图、Trace、密钥到外部 AI 服务 | P0 | 已实现，未来 AI 需再评估；**ATS-402 追加**：外传前须先由平台侧读真实文件并复算摘要、展示范围、取得覆盖该范围的知情授权（preview→confirm→grant），无授权/范围不符/已撤销一律拒绝，**放行与拒绝都写入外传审计** |
 | NFR-010 | 可靠性 | 数据库原子写入；避免操作时半写入 | P0 | state.json 先 fsync 再改名（ATS-207：写入中强杀不留残缺文件，损坏的状态文件拒绝启动，损坏的 SQLite 镜像隔离后由 state.json 重建），源文件写入仍需改进；ATS-206 已交付状态迁移的数量一致校验与失败可还原（备份 + 按日志自动回滚 + SQLite 镜像先校验后替换） |
 | NFR-011 | 可运维性 | 日志/错误码/版本信息可查询，API 返回可定位信息 | P0 | 已实现基础 |
 | NFR-012 | 合规许可 | 进入正式发行前完成依赖 SPDX 清单及分发审计 | P1 | 未完成 |

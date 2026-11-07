@@ -31,7 +31,7 @@ file. A citation of a different line of an audited file is therefore NOT
 covered and has to carry a needle here.
 
 The NON-runtime port citations (`start.sh:4`, `start.ps1:8-9`,
-`tools/generate_test_docs.py:383,389,488`) are checked by this script: the
+`tools/generate_test_docs.py:416,422,541`) are checked by this script: the
 port audit only asserts that those FILES are listed, not that the listed
 positions are the port-bearing ones.
 
@@ -132,17 +132,17 @@ EXPECTED = {
         9: "Start-Process 'http://127.0.0.1:",
     },
     'tools/generate_test_docs.py': {
-        383: "'localhost:3000 + ",
-        389: "'Host=evil.example:",
-        488: '同 LAN 他机尝试访问 ',
+        416: "'localhost:3000 + ",
+        422: "'Host=evil.example:",
+        541: '同 LAN 他机尝试访问 ',
     },
-        # The ATS-103 WBS updater used to mention the port inside a NOTE
-        # TEXT (the value never took effect), and the ADR cited that line.
-        # ATS-103 rewrote the note so it names the Bridge rather than
-        # spelling out the port -- the note therefore no longer contains a
-        # port literal, it is no longer a non-runtime port mention, and it
-        # no longer needs a citation here.
-        }
+    # The ATS-103 WBS updater used to mention the port inside a NOTE
+    # TEXT (the value never took effect), and the ADR cited that line.
+    # ATS-103 rewrote the note so it names the Bridge rather than
+    # spelling out the port -- the note therefore no longer contains a
+    # port literal, it is no longer a non-runtime port mention, and it
+    # no longer needs a citation here.
+}
 
 # ---------------------------------------------------------------------------
 # The RANGE citations. The end of a range is READ FROM THE ADR TEXT -- it is
@@ -172,8 +172,8 @@ RANGES = [
 PORT_AUDITED = {
     # RUNTIME port hardcodings: the audit validates each of these positions
     # against the source.
-    'apps/studio/lib/api.ts': {26: 'the API base URL'},
-    'apps/studio/app/page.tsx': {133: 'the workbench footer text'},
+    'apps/studio/lib/api.ts': {38: 'the API base URL'},
+    'apps/studio/app/page.tsx': {189: 'the workbench footer text'},
     'apps/studio/public/fallback.html': {3: 'the portable UI footer text'},
     'src-tauri/src/lib.rs': {19: 'the ATS_PORT environment default'},
 }
