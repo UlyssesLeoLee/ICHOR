@@ -112,8 +112,8 @@ b1e33953b442c57518352f2036c5095a4c55aaa0db8eeb23ca27e8078d912ec0  docs/evidence/
 e752f813bdafb5a03e3e9d62e74aee2eefc84b2aab5b149565180e33fbbd7664  docs/evidence/ATS-103/09-ci-build-gate.log
 a879946600c2b11a8ffb15e0a3f7e0c76372fea15cb3d45b94d2483cbd144dee  docs/evidence/ATS-103/10-r4-clone-verification-crlf.log
 5573522870684f391441c9eac532728f7907592954ea737e3d84410520ad28a8  docs/evidence/ATS-103/10-r4-clone-verification-lf.log
-e7ea19db8c24ef4b923379b99ef540e96a9b73d9fcc30c5752edf551a91a653c  docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log
-ff9b4a391f6ae5e9ee6dd49c832a8e0390352a56dbfbdc52532ff6e58638c602  docs/evidence/ATS-103/11-r4-dev-clone-verification-lf.log
+f980b83170017e53fb4bc653d086db1c30d4dbdd65c673b234e5e2cc5961a1fe  docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log
+53d4af15d3ec55857d84777dcb2c0b46db34f916ad4b50c295c1235971fc33ce  docs/evidence/ATS-103/11-r4-dev-clone-verification-lf.log
 525c080704c2c804cd517e05cd7f67aa66fa6a948b58a2e3ad7fc590cf145d23  docs/evidence/ATS-201/08-node-test-full.log
 cc7691ce3eda905a7cafcd26f2780cec8f81c29390499fe9c1c533298456edee  docs/evidence/ATS-201/09-line-coverage.log
 2d0a5cdb52b37a24fd0959424235e46971ed55087bb0214bbbe7c2828e5a12ca  docs/evidence/ATS-201/10-review-regressions.log
