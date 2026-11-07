@@ -37,8 +37,8 @@
 | 19-REMOTE-RUNNER-PROTOCOL.md | 远程协议・威胁模型 | S5 远程执行面的信任边界、认证、版本握手、租户隔离、拒绝规则（ADR-015~023，全部 DESIGNED） |
 | 20-PARALLEL-ORCHESTRATION.md | 并行编排 | 多任务并行执行的编排约束 |
 | 21-CONTROL-PLANE-API.md | 控制面 API・边界分离 | ATS-506：部署式控制面 API（`/cp/v1`）与桌面本地 API 的进程/端点/凭据/错误码分离、入站与出站边界规则、启动配置、桌面侧调用边界与实测证据 |
+| 21-PLUGIN-CONTRACT.md | 插件契約 | ATS-512 插件契约 v1：插件 Manifest、封闭权限清单、宿主策略档位、Runner SDK 操作面、审计与证据边界、**宿主持有的权威提案记录**、文件与项目两层作用域、协议样例（ADR-024~028；契约层已实现，插件宿主与沙箱未实现） |
 | 23-AI-DATA-SECURITY.md | AI 数据安全 | ATS-402：AI API Key 存储与数据外传知情授权（系统凭据库 + 引用式落盘、preview→confirm→grant 三步授权、平台侧复算内容摘要、放行与拒绝都进外传审计、错误码与实测证据；模型提供商未接入） |
-| 21-PLUGIN-CONTRACT.md | 插件契約 | ATS-512 插件契约 v1：插件 Manifest、封闭权限清单、宿主策略档位、Runner SDK 操作面、审计与证据边界、协议样例（ADR-024~028；契约层已实现，插件宿主未实现） |
 | 25-MOBILE-APP-TESTING.md | 移动端测试执行面 | S6 / v0.5.0：移动端目标抽象（设备/模拟器/远端会话）、Flow→TestDefinition 映射、Android Runner 与证据归档、能力矩阵与 iOS/Maestro 边界（ATS-601~606；ATS-601 的目标与会话**契约层**已实现并经 UT 实测，其余仍为 DESIGNED，仓库内无真实移动端执行） |
 | dependencies/ | 依賴清單 | ATS-102 生成的依赖清单（机读 JSON + 人读 MD），由 lockfile 派生，可机读校验 |
 | evidence/ | 実行証跡 | ATS-101/ATS-102/ATS-103/ATS-201/ATS-202/ATS-205/ATS-301/ATS-401/ATS-402/ATS-501/ATS-506/ATS-512/ATS-208/ATS-216 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界、构建门禁与可重现性、UID 规范、权威发现契约、协议契约校验、前端静态导出与 Bridge API 契约、控制面边界、插件权限边界、执行模型与事件复演、AI 数据安全：凭据存储与外传知情授权） |
