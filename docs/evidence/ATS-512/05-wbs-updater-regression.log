@@ -1,9 +1,9 @@
 ================================================================================
 ATS-512 evidence log -- the WBS updaters coexist, are idempotent and keep every task note
 ================================================================================
-commit        : 1b38a99148f74dc09451faa77d403b9e7d79d5ae
-timestamp     : 2026-11-07T02:34:17Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-33c4a0ec36ec/worktree
+commit        : a239867003acb242b510e7caa9e337fed804c440
+timestamp     : 2026-11-07T02:40:43Z (UTC)
+repo root     : /d/ICHOR
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -12,7 +12,7 @@ command       : bash tools/ats501-probes/check-wbs-updaters.sh
 ================================================================================
 
 === ATS-501 regression: WBS updater interaction ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-33c4a0ec36ec/worktree
+repo root : /d/ICHOR
 updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats201.py tools/update_wbs_ats202.py tools/update_wbs_ats204.py tools/update_wbs_ats205.py tools/update_wbs_ats206.py tools/update_wbs_ats207.py tools/update_wbs_ats208.py tools/update_wbs_ats209.py tools/update_wbs_ats212.py tools/update_wbs_ats216.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats402.py tools/update_wbs_ats501.py tools/update_wbs_ats506.py tools/update_wbs_ats512.py tools/update_wbs_ats601.py tools/update_wbs_ats601_rtm.py tools/update_wbs_ats602.py
 updater # : 23 (discovered from tools/update_wbs_*.py)
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]

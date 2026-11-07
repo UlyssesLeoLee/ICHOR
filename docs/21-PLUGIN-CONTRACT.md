@@ -224,7 +224,7 @@ SDK 的每个方法按同一顺序做四件事：**授权判定 → 作用域判
 
 ### 5.4 全量套件与既有失败
 
-`npm test` 在合并 dev 后的树上：**1274 通过 / 0 失败 / 13 跳过**（`docs/evidence/ATS-512/04-full-test-suite.log`）。
+`npm test` 在**合并后的 dev 树**上：**1285 通过 / 0 失败 / 2 跳过**（`docs/evidence/ATS-512/04-full-test-suite.log`）。
 
 第 1 轮交付时，全量套件里有一个失败 **IT-API-013**，属 ATS-301：示例工程 `examples/sample-playwright/` 在那个检出里没有 `node_modules`，适配器因此把必需能力报为不支持，协商返回 409 而不是 200。当时用 `tools/ats512-probes/prove-baseline-regression.sh` 在不含本任务任何代码的参考树上复跑，确认它是既有失败。
 

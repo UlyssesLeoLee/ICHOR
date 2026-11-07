@@ -1,9 +1,9 @@
 ================================================================================
 ATS-512 evidence log -- the ATS-101 hardcoded-port audit
 ================================================================================
-commit        : 1b38a99148f74dc09451faa77d403b9e7d79d5ae
-timestamp     : 2026-11-07T02:34:17Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-33c4a0ec36ec/worktree
+commit        : a239867003acb242b510e7caa9e337fed804c440
+timestamp     : 2026-11-07T02:40:43Z (UTC)
+repo root     : /d/ICHOR
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -12,7 +12,7 @@ command       : node tools/ats101-probes/scenario-d-port-audit.mjs
 ================================================================================
 
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-22-33c4a0ec36ec\worktree
+repo root : D:\ICHOR
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
