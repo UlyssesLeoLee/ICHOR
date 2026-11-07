@@ -4,8 +4,7 @@
 
 - 克隆方式：`git clone --no-hardlinks D:/ICHOR <dir>`（`--no-hardlinks` 避免克隆与源
   共用 blob，行号/树混淆）
-- 采集时的 dev tip：`8831630`（`chore(ATS-209): 在合入 dev 之后的交付树上重新生成
-  CHECKSUMS.sha256`）
+- 采集时的 dev tip：`5135242`（`merge(ATS-103): 第 3 轮返工最终交付（清单对齐 ATS-209 后的 dev`）
 - 每一份日志的头部都记着自己描述的 commit（`commit : <sha>`）
 
 采集命令：`bash tools/ats209-probes/collect-evidence.sh .`

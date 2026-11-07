@@ -1,14 +1,14 @@
 === the round 2 review probe against this tree ===
-tree   : C:/tmp/multica-task-3923829175/ats209-devtip
-commit : 8831630ca555521f0f93c5296d08655d84a85d36
+tree   : C:/tmp/multica-task-3923829175/ats209-final
+commit : 513524289384fd83f2957f3777c65c4bca653950
 
 --- J1: manifest entry through a directory junction inside the run folder ---
 ok     J1: exit=0; state.json kept=true; run_1_bbbbbbbbbbbbbbbbbbbbbbbb/events.jsonl (not expired) kept=true; refused lines=2
 --- J2: the run's results/ is a junction to another run ---
 ok     J2: exit=0; run_1_dddddddddddddddddddddddd/events.jsonl kept=true; run_1_dddddddddddddddddddddddd/report.json kept=true
 --- M1: a second cleaning that removes something ---
-info   clean #1 exit=0; verify exit=0; marker={ "at": "2026-11-07T00:57:30.254Z", "removed": [ "html/index.html", "report.json" ] }
-ok     M1: after a second cleaning, the files removed by the first are still explained; clean #2 exit=0; verify exit=0; marker={ "at": "2026-11-07T00:57:30.425Z", "removed": [ "html/index.html", "late-note.txt", "report.json" ] }; verify says: ["runs checked: 1, not matching: 0, cleaned by the retention policy: 1"]
+info   clean #1 exit=0; verify exit=0; marker={ "at": "2026-11-07T01:03:29.953Z", "removed": [ "html/index.html", "report.json" ] }
+ok     M1: after a second cleaning, the files removed by the first are still explained; clean #2 exit=0; verify exit=0; marker={ "at": "2026-11-07T01:03:30.154Z", "removed": [ "html/index.html", "late-note.txt", "report.json" ] }; verify says: ["runs checked: 1, not matching: 0, cleaned by the retention policy: 1"]
 --- T1: a run folder above the entry limit fails closed ---
 ok     T1: report.json covered=false; manifest truncated=true; after tampering report.json verified=false truncated=true reason="the manifest does not cover the whole evidence folder"
 
