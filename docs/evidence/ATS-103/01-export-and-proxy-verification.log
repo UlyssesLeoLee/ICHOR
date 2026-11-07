@@ -1,19 +1,19 @@
 === ATS-103 evidence: static export + Bridge API seam verification ===
-date      : 2026-11-07T01:17:09Z (UTC)
-commit    : 1e21da792acdf596fc9e305a4c96bf446b720f19
+date      : 2026-11-07T02:28:01Z (UTC)
+commit    : 3054795042533098bf96f3e0439df3f0208a9164
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats103-probes/verify-export-and-proxy.mjs
 
 PASS  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
-PASS  export contains index.html  --  13679 bytes
+PASS  export contains index.html  --  14056 bytes
 PASS  export contains 404.html
 PASS  export contains _next/static assets
 PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
 PASS  every asset referenced by index.html exists on disk (9 assets)
 PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
 PASS  bridge boots and answers /api/health
-PASS  bridge serves the exported index.html at /  --  HTTP 200, 13679 bytes
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 14056 bytes
 PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
 PASS  the bridge serves the exported chunk /_next/static/chunks/04p_vbrqf_cr7.js  --  HTTP 200
 PASS  GET /api/session returns a token
@@ -33,22 +33,22 @@ PASS  the collected artefacts include report.json  --  1 report.json entries
   status    : failed
   error     : (none)
   reportWarn: (none)
-  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-dqUwtM\runs\run_1_e806a7b66c2eb7f52305f09d\results --trace on --workers 1
+  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-EG3NTK\runs\run_1_b3b8a4f8669e980673dfd2c0\results --trace on --workers 1
   log tail  : 
-    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-dqUwtM\runs\run_1_e806a7b66c2eb7f52305f09d\results\home-导航入口正常-REQ-002\error-context.md
+    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-EG3NTK\runs\run_1_b3b8a4f8669e980673dfd2c0\results\home-导航入口正常-REQ-002\error-context.md
 
     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
-    D:\hermes-multica\home\cache\scratch\tmp\ats103-dqUwtM\runs\run_1_e806a7b66c2eb7f52305f09d\results\home-导航入口正常-REQ-002\trace.zip
+    D:\hermes-multica\home\cache\scratch\tmp\ats103-EG3NTK\runs\run_1_b3b8a4f8669e980673dfd2c0\results\home-导航入口正常-REQ-002\trace.zip
     Usage:
 
-        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-dqUwtM\runs\run_1_e806a7b66c2eb7f52305f09d\results\home-导航入口正常-REQ-002\trace.zip
+        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-EG3NTK\runs\run_1_b3b8a4f8669e980673dfd2c0\results\home-导航入口正常-REQ-002\trace.zip
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
 
   1 failed
     tests\home.spec.ts:22:1 › 导航入口正常 @REQ-002 ──────────────────────────────────────────────────────
-  1 passed (6.5s)
+  1 passed (6.3s)
 
 --- end run detail ---
 
