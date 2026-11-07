@@ -574,7 +574,7 @@ function matchRegistry(it, { registryByBody, bodyCounts, reserved }) {
  * up in the ambiguity report, because the author wrote down the same uid twice
  * and only the author can say which case it belongs to.
  */
-export function resolveIdentities({ projectUid, discovered, registry, scope = null }) {
+export function resolveIdentities({ projectUid, discovered, registry, scope = null, duplicateExplicitUids = null, extraCandidates = null }) {
   const reg = registryOf(registry, projectUid);
   const items = discovered.map((d) => ({
     ...d,
@@ -601,6 +601,13 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
   }
   const reserved = new Set(explicitOwners.keys());
 
+  // A token that ANOTHER ENGINE claims as well is claimed by nobody. The
+  // caller knows the whole catalogue -- the web cases and the mobile ones --
+  // and passes the tokens that more than one case claims. Both sides then
+  // give the token up.
+  const claimedElsewhere = duplicateExplicitUids instanceof Set ? duplicateExplicitUids : new Set();
+  const isDuplicated = (uid) => (explicitOwners.get(uid)?.length ?? 0) > 1 || claimedElsewhere.has(uid);
+
   const registryByBody = new Map();
   for (const e of reg.entries) {
     if (!e.bodyKey || !e.uid) continue;
@@ -610,7 +617,7 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
 
   const candidates = items.map((it) => {
     if (it.explicitUid) {
-      if (explicitOwners.get(it.explicitUid).length > 1) {
+      if (isDuplicated(it.explicitUid)) {
         // The same annotation on two cases: neither may claim it.
         return {
           ...it,
@@ -740,7 +747,7 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
     };
   }
 
-  const entries = mergeRegistry(reg, candidates, scope);
+  const entries = mergeRegistry(reg, [...candidates, ...(extraCandidates ?? [])], scope);
   return { items: candidates, registry: { version: UID_SCHEME_VERSION, projects: { ...(registry?.projects ?? {}), [projectUid]: entries } } };
 }
 

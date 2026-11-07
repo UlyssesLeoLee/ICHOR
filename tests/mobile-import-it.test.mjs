@@ -25,7 +25,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 import { freePort } from './helpers/free-port.mjs';
 
@@ -93,6 +93,29 @@ fs.writeFileSync(path.join(FIXTURE, 'flows', 'pay.flow'), LINEAR_FLOW, 'utf8');
 fs.writeFileSync(path.join(FIXTURE, 'flows', 'unsupported.yaml'), UNSUPPORTED_FLOW, 'utf8');
 
 let cp, token, projectId;
+
+/*
+ * The TRUSTED path of the catalogue needs a real Playwright install: the
+ * authoritative index is `playwright test --list`, and there is no way to
+ * fake it -- the command runs the project's own code.
+ *
+ * The install is done into a scratch directory of its own, so that the
+ * fixture of this file stays a fixture. When the install does not succeed
+ * (no network, for instance), the test that needs it is SKIPPED -- and the
+ * skip says why. A skip is not a pass: the evidence records the skip.
+ */
+const PW_DIR = path.join(WORK, 'pw');
+fs.mkdirSync(PW_DIR, { recursive: true });
+fs.writeFileSync(path.join(PW_DIR, 'package.json'), '{"name":"ats602-pw","private":true}', 'utf8');
+const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+const install = fs.existsSync(npmCli)
+  ? spawnSync(process.execPath, [npmCli, 'install', '@playwright/test@1.64.1', '--no-audit', '--no-fund'], {
+    cwd: PW_DIR, encoding: 'utf8',
+  })
+  : spawnSync('npm', ['install', '@playwright/test@1.64.1', '--no-audit', '--no-fund'], {
+    cwd: PW_DIR, encoding: 'utf8', shell: true,
+  });
+const installed = install.status === 0 && fs.existsSync(path.join(PW_DIR, 'node_modules', '@playwright', 'test'));
 
 async function ready() {
   for (let i = 0; i < 100; i++) {
@@ -240,6 +263,151 @@ test('IT-ATS602-API-008: a project without a Flow has no mobile cases', async ()
   const [, catalog] = await api(`/api/projects/${r[1].project.id}/tests`);
   assert.equal(catalog.tests.filter((t) => t.source === 'mobile').length, 0);
   assert.equal(catalog.mobile.cases, 0);
+});
+
+/* ------------------------------------------------------------------ */
+/* The round-2 counter-examples                                       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The round-1 review found that the mobile cases were LOST on the
+ * authoritative path, that the registry was never persisted for them, and
+ * that a `@TC-` token could be claimed by a web case and a mobile case
+ * at once.
+ *
+ * These are the same counter-examples, driven over HTTP against the REAL
+ * Bridge -- because the review found them there, and the answer has to
+ * hold there.
+ */
+
+test('IT-ATS602-API-009: a retitled mobile case keeps its uid over HTTP', async () => {
+  // The registry is persisted, and it holds the MOBILE entries too. So a
+  // case whose title is rewritten in place keeps its uid: the registry
+  // recognises it by its steps.
+  const dir = path.join(WORK, 'retitle');
+  fs.mkdirSync(path.join(dir, 'flows'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"retitle","private":true}', 'utf8');
+  fs.writeFileSync(
+    path.join(dir, 'playwright.config.ts'),
+    "import { defineConfig } from '@playwright/test';\nexport default defineConfig({ testDir: './tests' });\n",
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(dir, 'tests', 'a.spec.ts'),
+    "import { test } from '@playwright/test';\ntest('a web case', async ({ page }) => {});\n",
+    'utf8',
+  );
+  const flow = path.join(dir, 'flows', 'login.yaml');
+  const write = (title) => fs.writeFileSync(
+    flow,
+    `appId: com.example.app\n---\n- name: "${title}"\n  steps:\n    - launchApp\n    - tapOn: "Login"\n`,
+    'utf8',
+  );
+  write('Old title');
+  const r = await api('/api/projects', 'POST', { path: dir });
+  assert.equal(r[0], 201);
+  const pid = r[1].project.id;
+
+  const [, before] = await api(`/api/projects/${pid}/tests`);
+  const m1 = before.tests.find((t) => t.source === 'mobile');
+  assert.ok(m1, 'the mobile case is in the catalogue');
+  assert.ok(m1.uid);
+
+  // The title is rewritten in place.
+  write('New title');
+  const [, after] = await api(`/api/projects/${pid}/tests`);
+  const m2 = after.tests.find((t) => t.source === 'mobile');
+  assert.ok(m2, 'the mobile case is still in the catalogue');
+  assert.equal(m2.uid, m1.uid, 'the uid survives the retitle');
+  assert.equal(m2.uidSource, 'registry', 'and the registry is what recognised it');
+});
+
+test('IT-ATS602-API-010: a @TC- token that a web case and a mobile case claim binds to neither', async () => {
+  const dir = path.join(WORK, 'dup-tc');
+  fs.mkdirSync(path.join(dir, 'flows'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"dup","private":true}', 'utf8');
+  fs.writeFileSync(
+    path.join(dir, 'playwright.config.ts'),
+    "import { defineConfig } from '@playwright/test';\nexport default defineConfig({ testDir: './tests' });\n",
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(dir, 'tests', 'a.spec.ts'),
+    "import { test } from '@playwright/test';\ntest('web login @TC-100', async ({ page }) => {});\n",
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(dir, 'flows', 'a.yaml'),
+    '---\n- name: "mobile login @TC-100"\n  steps:\n    - tapOn: "x"\n',
+    'utf8',
+  );
+  const r = await api('/api/projects', 'POST', { path: dir });
+  assert.equal(r[0], 201);
+  const [, catalog] = await api(`/api/projects/${r[1].project.id}/tests`);
+  const uids = catalog.tests.map((t) => t.uid);
+  assert.equal(new Set(uids).size, uids.length, 'no two cases share a uid');
+  const dup = catalog.tests.filter((t) => t.ambiguity?.reason === 'duplicate-explicit-uid');
+  assert.equal(dup.length, 2, 'the web case and the mobile one are both reported');
+  for (const t of dup) {
+    assert.equal(t.uidStable, false, 'neither of them is bound to the token');
+    assert.notEqual(t.uid, 'tc-100');
+  }
+  assert.match(catalog.warning, /重复的显式 UID/);
+});
+
+test('IT-ATS602-API-011: a trusted project keeps its mobile cases', { skip: installed ? false : 'no real Playwright' }, async () => {
+  // The authoritative index knows the web cases better than the static
+  // one does -- it sees the dynamic ones -- but it knows NOTHING about
+  // the mobile ones. Without the mobile import on that path, a project
+  // that was marked as trusted would LOSE its mobile cases: they would
+  // not be moved somewhere else, they would simply be gone.
+  const dir = path.join(WORK, 'trusted');
+  fs.mkdirSync(path.join(dir, 'flows'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"trusted","private":true}', 'utf8');
+  fs.writeFileSync(
+    path.join(dir, 'playwright.config.ts'),
+    "import { defineConfig } from '@playwright/test';\nexport default defineConfig({ testDir: './tests' });\n",
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(dir, 'tests', 'a.spec.ts'),
+    "import { test } from '@playwright/test';\ntest('a web case', async ({ page }) => {});\n",
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(dir, 'flows', 'a.yaml'),
+    'appId: com.example.app\n---\n- name: "a mobile case"\n  steps:\n    - launchApp\n    - tapOn: "Login"\n',
+    'utf8',
+  );
+  // The authoritative index runs `playwright test --list` INSIDE the
+  // project, so the project needs the Playwright install. It is a
+  // JUNCTION to the scratch install -- the fixture stays a fixture and
+  // nothing is copied into the repository.
+  fs.symlinkSync(path.join(PW_DIR, 'node_modules'), path.join(dir, 'node_modules'), 'junction');
+  const r = await api('/api/projects', 'POST', { path: dir });
+  assert.equal(r[0], 201);
+  const pid = r[1].project.id;
+
+  const [, untrusted] = await api(`/api/projects/${pid}/tests`);
+  assert.equal(untrusted.discovery, 'static');
+  assert.equal(untrusted.tests.filter((t) => t.source === 'mobile').length, 1);
+
+  const grant = await api(`/api/projects/${pid}/trust`, 'POST', { trust: 'trusted', reason: 'the mobile cases have to survive' });
+  assert.equal(grant[0], 200);
+
+  const [, trusted] = await api(`/api/projects/${pid}/tests`);
+  assert.equal(trusted.discovery, 'authoritative', 'the trusted project gets the authoritative index');
+  // The mobile cases are still there.
+  const mobile = trusted.tests.filter((t) => t.source === 'mobile');
+  assert.equal(mobile.length, 1, 'the mobile case survives the switch to the authoritative index');
+  assert.equal(mobile[0].title, 'a mobile case');
+  assert.deepEqual(mobile[0].steps.map((s) => s.kind), ['launchApp', 'tapOn']);
+  // And the section is reported, so a reader can see them.
+  assert.ok(trusted.mobile, 'the catalogue carries the mobile section');
+  assert.equal(trusted.mobile.cases, 1);
 });
 
 test('IT-ATS602-API-CLEANUP: stop the bridge and remove the fixture', async () => {

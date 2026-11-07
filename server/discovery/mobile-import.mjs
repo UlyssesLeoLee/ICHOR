@@ -195,13 +195,19 @@ export const STEP_ARGUMENTS = Object.freeze({
   }),
   tapOn: Object.freeze({
     primary: 'text',
-    required: Object.freeze(['text']),
+    // A step names its TARGET. The text of the element is one way to name
+    // it and its resource id is another -- so a step that gives the `id`
+    // alone names a target just as well as one that gives the `text`.
+    // The requirement is therefore "at least one of", not "the text".
+    required: Object.freeze([]),
+    requiredAny: Object.freeze([Object.freeze(['text', 'id'])]),
     optional: Object.freeze(['id', 'index', 'point', 'retryTapIfNoChange', 'waitToSettleTimeoutMs']),
     aliases: Object.freeze({ text: Object.freeze(['text', 'textToTap', 'label', 'title']) }),
   }),
   assertVisible: Object.freeze({
     primary: 'text',
-    required: Object.freeze(['text']),
+    required: Object.freeze([]),
+    requiredAny: Object.freeze([Object.freeze(['text', 'id'])]),
     optional: Object.freeze(['id', 'index']),
     aliases: Object.freeze({ text: Object.freeze(['text', 'textToTap', 'label', 'title']) }),
   }),
@@ -243,6 +249,16 @@ export const UNSUPPORTED_REASON = Object.freeze({
   MISSING_ARGUMENT: 'missing-argument',
   /** The command is known, but this qualifier is not supported. */
   UNSUPPORTED_QUALIFIER: 'unsupported-qualifier',
+  /**
+   * The step is in a section the unified model does not map.
+   *
+   * A Flow may hold several step lists -- `onFlowStart:`, `setup:`, a
+   * second `commands:` list. Only one of them is the scenario's step list;
+   * the others are content the platform does not read. Every step in them
+   * is reported with this reason, so that the author of the Flow learns
+   * that the platform did not run them.
+   */
+  UNMAPPED_SECTION: 'unmapped-section',
 });
 
 /**
@@ -283,31 +299,111 @@ export const UNSUPPORTED_REASON = Object.freeze({
  *     raw: string
  *   }
  */
-export function importFlow(flow, { file = '', projectUid = null, registry = null } = {}) {
+/**
+ * Maps a parsed Flow onto the unified case model, WITHOUT resolving the
+ * UIDs.
+ *
+ * The UIDs are resolved separately, and separately ON PURPOSE: they are a
+ * property of the PROJECT, not of a file. Two Flow files of one project may
+ * declare the same steps, and a body that is unique inside one file is not
+ * unique inside the project. So the mapping is per file, and the identity
+ * is resolved over all the files of the project at once.
+ *
+ * @param {object} flow       the parsed Flow (see `mobile-flow.mjs`)
+ * @param {object} [opts]
+ * @param {string} opts.file  the project-relative path of the Flow file
+ *
+ * Returns:
+ *   {
+ *     file:    string,
+ *     syntax:  string,
+ *     appId:   string | null,
+ *     cases:   [ MobileCase ],   -- the TestDefinitions the Flow produced
+ *     unsupported: [ UnsupportedStep ],
+ *     warnings: [ { line, message } ],  -- arguments outside the model
+ *     errors:  [ { line, message } ]
+ *   }
+ */
+export function mapFlow(flow, { file = '' } = {}) {
   const errors = [...(flow?.errors ?? [])];
   const warnings = [];
   const cases = [];
   const unsupported = [];
 
+  // The content of a Flow that the unified model does not map: the step
+  // lists the platform does not read (`onFlowStart:`, `setup:`, a second
+  // `commands:` list) and the steps they hold.
+  //
+  // Every one of those steps is REPORTED as an unsupported step with its
+  // original text and its line. A step the platform cannot use must not
+  // disappear without a trace -- that is the whole point of the rule.
+  for (const item of flow?.unmapped ?? []) {
+    unsupported.push({
+      file,
+      line: item.line,
+      raw: item.raw ?? '',
+      command: '',
+      reason: UNSUPPORTED_REASON.UNMAPPED_SECTION,
+      reasonText: `the "${item.key}" section of the ${item.scope === 'header' ? 'file' : 'scenario'} is not part of the unified mobile case model; the steps it declares are kept here and are not run`,
+      suggestion: null,
+    });
+  }
+
   for (const scenario of flow?.scenarios ?? []) {
     const mapped = mapScenario(scenario, { file, unsupported, warnings, appId: flow?.appId ?? null });
     if (!mapped) continue;
-    cases.push(mapped);
+    cases.push({
+      ...mapped,
+      // The keys the identity is decided by. They are computed HERE, in the
+      // mapping, because the identity is a property of the PROJECT and is
+      // decided over all the files at once -- the mapping is what produces
+      // the keys, and the resolution is what turns them into a UID.
+      titleKey: normalizeTitleKey(mapped.title),
+      bodyKey: bodyKeyOfCase(mapped),
+    });
   }
-
-  // The UIDs. The basis is the POSITION (file + line), so that switching the
-  // import method -- or the syntax the file is written in -- does not move
-  // an existing UID (docs/25 §4.3).
-  const resolved = resolveMobileUids({ cases, projectUid, registry, file });
 
   return {
     file,
     syntax: flow?.syntax ?? null,
     appId: flow?.appId ?? null,
-    cases: resolved.cases,
+    cases,
     unsupported,
     warnings,
     errors,
+  };
+}
+
+/**
+ * Imports a parsed Flow onto the unified case model.
+ *
+ * @param {object} flow       the parsed Flow (see `mobile-flow.mjs`)
+ * @param {object} [opts]
+ * @param {string} opts.file  the project-relative path of the Flow file
+ * @param {string} [opts.projectUid]  the project the file belongs to
+ * @param {object} [opts.registry]    the UID registry of the project
+ *
+ * Returns the mapped cases with their UIDs, the unsupported steps, the
+ * warnings, the errors, and the registry with this project's cell
+ * replaced. The other projects' cells are carried over untouched: an
+ * import of one project must not erase the memory of another one.
+ */
+export function importFlow(flow, { file = '', projectUid = null, registry = null } = {}) {
+  const mapped = mapFlow(flow, { file });
+  const resolved = resolveMobileUids({
+    cases: mapped.cases,
+    projectUid,
+    registry,
+    scope: new Set([file]),
+    // The caller knows ONE file only: the cases of the other files of the
+    // project are unknown, so the registry match is restricted to this
+    // file's entries.
+    bodyScope: 'file',
+  });
+
+  return {
+    ...mapped,
+    cases: resolved.cases,
     // The registry with THIS project's cell replaced. The other projects'
     // cells are carried over untouched: an import of one project must not
     // erase the memory of another one.
@@ -378,6 +474,14 @@ function derivedTitle(file, line) {
  * Returns the mapped step, or `null` when the step cannot be mapped -- in
  * which case the step has ALREADY been pushed onto the `unsupported` list,
  * with its original text, its line and the reason.
+ *
+ * THE OPTIONS OF THE STEP
+ * -----------------------
+ * `optional`, `when`, `timeout` and the rest are not commands: they say
+ * under which conditions the step runs. The unified mobile case model has
+ * no place for them, so they are KEPT in the step and REPORTED -- a
+ * conditional step that silently became an unconditional one would run
+ * where the author never asked it to.
  */
 function mapStep(step, { file, unsupported, warnings, appId }) {
   const kind = stepKindOf(step.command);
@@ -413,7 +517,7 @@ function mapStep(step, { file, unsupported, warnings, appId }) {
   }
 
   const spec = STEP_ARGUMENTS[kind];
-  const { args, unknown } = canonicalArguments(kind, spec, step.args ?? {});
+  const { args, unknown, collisions } = canonicalArguments(kind, spec, step.args ?? {});
 
   // A `launchApp` that names no app takes the app the Flow declares. That
   // is not a guess: the Flow says which app the whole file drives, and the
@@ -434,10 +538,30 @@ function mapStep(step, { file, unsupported, warnings, appId }) {
     });
   }
 
-  const missing = spec.required.filter((name) => {
-    const value = args[name];
-    return value === undefined || value === null || String(value).trim() === '';
-  });
+  // TWO NAMES FOR THE SAME ARGUMENT. The step keeps one value and the
+  // other one is reported -- a step whose target silently changed would
+  // tap the wrong thing.
+  for (const collision of collisions) {
+    warnings.push({
+      line: step.line,
+      message: `the step "${kind}" names the argument "${collision.canonical}" twice (as "${collision.kept}" and as "${collision.name}"); the first one is kept and the second one is not used`,
+      raw: step.raw,
+    });
+  }
+
+  // The OPTIONS of the step. They are kept and reported: the model has no
+  // place for a condition, so the reader has to know that the condition
+  // was there.
+  const options = step.options ?? null;
+  if (options) {
+    warnings.push({
+      line: step.line,
+      message: `the step "${kind}" carries the option(s) ${Object.keys(options).join(', ')}, which are not part of the unified mobile case model; they are kept as they are`,
+      raw: step.raw,
+    });
+  }
+
+  const missing = missingArgumentsOf(spec, args);
   if (missing.length) {
     unsupported.push({
       file,
@@ -455,9 +579,33 @@ function mapStep(step, { file, unsupported, warnings, appId }) {
     kind,
     args,
     assertion: readAssertionOf(step, kind, args),
+    ...(options ? { options } : {}),
     line: step.line,
     raw: step.raw,
   };
+}
+
+/**
+ * The required arguments a step is missing.
+ *
+ * A kind may require an argument, or it may require AT LEAST ONE OF a set
+ * of them: a `tapOn` names its target either by its text or by its
+ * resource id, and either is enough.
+ */
+function missingArgumentsOf(spec, args) {
+  const missing = [];
+  for (const name of spec.required ?? []) {
+    const value = args[name];
+    if (value === undefined || value === null || String(value).trim() === '') missing.push(name);
+  }
+  for (const group of spec.requiredAny ?? []) {
+    const satisfied = group.some((name) => {
+      const value = args[name];
+      return value !== undefined && value !== null && String(value).trim() !== '';
+    });
+    if (!satisfied) missing.push(group.join(' or '));
+  }
+  return missing;
 }
 
 /**
@@ -467,10 +615,19 @@ function mapStep(step, { file, unsupported, warnings, appId }) {
  * PRIMARY argument. A named argument is canonicalised through the kind's
  * alias table. An argument that is in no alias table is kept under its own
  * name and reported.
+ *
+ * TWO ALIASES OF THE SAME ARGUMENT
+ * --------------------------------
+ * A step may name the same argument twice: `text: "Login"` together with
+ * `title: "Sign in"` says two different things about the same argument.
+ * The first one wins -- the step keeps a single value -- and the
+ * COLLISION is reported. Silently letting the second one overwrite the
+ * first would change what the step does without telling anybody.
  */
 function canonicalArguments(kind, spec, rawArgs) {
   const args = {};
   const unknown = [];
+  const collisions = [];
   const aliasOf = new Map();
   for (const [canonical, aliases] of Object.entries(spec.aliases)) {
     for (const alias of aliases) aliasOf.set(alias, canonical);
@@ -485,13 +642,17 @@ function canonicalArguments(kind, spec, rawArgs) {
     }
     const canonical = aliasOf.get(name);
     if (canonical) {
+      if (args[canonical] !== undefined) {
+        collisions.push({ canonical, name, kept: args[canonical], dropped: value });
+        continue;
+      }
       args[canonical] = value;
       continue;
     }
     args[name] = value;
     if (!spec.optional.includes(name)) unknown.push(name);
   }
-  return { args, unknown };
+  return { args, unknown, collisions };
 }
 
 /**
@@ -543,6 +704,23 @@ function isSupportedQualifier(kind, qualifier) {
 /* ------------------------------------------------------------------ */
 
 /**
+ * Resolves the identities of the mobile cases of a WHOLE PROJECT.
+ *
+ * The identity of a case is a property of the project, not of a file: two
+ * Flow files of one project may declare the same steps, and a body that is
+ * unique inside one file is not unique inside the project. So the mapping
+ * is done file by file and the identities are resolved here, once, over
+ * all the cases at once.
+ *
+ * The result is the project's registry CELL -- `{version, entries}` -- the
+ * shape the ATS-201 registry stores and the shape the catalogue writes
+ * back.
+ */
+export function resolveProjectMobileUids({ cases, projectUid = null, registry = null, scope = null, duplicateExplicitUids = null }) {
+  return resolveMobileUids({ cases, projectUid, registry, scope, duplicateExplicitUids });
+}
+
+/**
  * Resolves the UID of every imported case.
  *
  * The ladder is the ATS-201 one, applied to the mobile cases:
@@ -563,11 +741,41 @@ function isSupportedQualifier(kind, qualifier) {
  * method must not change an existing UID. The title key is only the
  * DISCRIMINATOR between the cases of one file.
  *
+ * THE SCOPE IS THE PROJECT
+ * ------------------------
+ * The counts that decide a UID are counted over the WHOLE PROJECT, not
+ * over one file. Two Flow files of one project may declare the same
+ * steps -- `flows/android.yaml` and `flows/ios.yaml` often do -- and a
+ * body that is unique inside one file is not unique inside the project.
+ * Counting per file is what let two different cases end up with the SAME
+ * UID.
+ *
+ * The `bodyScope` says how much the caller knows about the project:
+ *
+ *   * `'project'` -- the caller has EVERY case of the project, so a body
+ *     that is unique among them identifies a case, and the registry may
+ *     hand it back even when the case moved to another file.
+ *   * `'file'`    -- the caller has ONE file only. The cases of the other
+ *     files are unknown, so a body that is unique in this file may still
+ *     be shared with a case of another file -- and handing the registry's
+ *     UID to such a case would give TWO cases the SAME UID. So the
+ *     registry match is restricted to the entries of THIS file, and the
+ *     case gets a UID derived from its position instead.
+ *
+ * The EXPLICIT ANNOTATIONS ARE CLAIMS
+ * -----------------------------------
+ * A `@TC-<token>` is the author saying "this case is that one". Two cases
+ * claiming the same token means NEITHER of them owns it -- the author has
+ * to say which case the token belongs to. Every one of them is reported
+ * and gets a provisional identifier. The same holds across the engines: a
+ * web case and a mobile case that claim the same token collide as well,
+ * because the token names ONE case in the catalogue.
+ *
  * WITHOUT a project UID the cases cannot have a stable, project-scoped
  * identifier, so they get a PROVISIONAL one and `uidStable: false`. A UID
  * derived from a missing project would collide with another project's.
  */
-function resolveMobileUids({ cases, projectUid, registry, file }) {
+function resolveMobileUids({ cases, projectUid, registry, scope = null, duplicateExplicitUids = null, bodyScope = 'project' }) {
   const entries = registry?.projects?.[projectUid]?.entries ?? [];
   const byBody = new Map();
   for (const e of entries) {
@@ -588,6 +796,28 @@ function resolveMobileUids({ cases, projectUid, registry, file }) {
     titleCounts.set(key, (titleCounts.get(key) ?? 0) + 1);
   }
 
+  // The EXPLICIT ANNOTATIONS are claims, and a claim that two cases make
+  // is a claim that neither of them can hold.
+  const explicitOwners = new Map();
+  for (const c of cases) {
+    const explicit = explicitUidOf(c.title);
+    if (!explicit) continue;
+    if (!explicitOwners.has(explicit)) explicitOwners.set(explicit, []);
+    explicitOwners.get(explicit).push(c);
+  }
+  // The tokens the registry already binds to a case of ANOTHER file: a
+  // mobile case may not take a token a web case already owns.
+  const reserved = new Set(
+    entries
+      .filter((e) => e.uid && e.uidSource === 'explicit' && !(scope && scope.has(e.file)))
+      .map((e) => e.uid),
+  );
+  // The tokens that ANOTHER ENGINE claims as well. The catalogue knows
+  // the whole catalogue -- the web cases and the mobile ones -- and a
+  // token that a web case and a mobile case both claim belongs to
+  // NEITHER of them, exactly as it would if two web cases claimed it.
+  const claimedElsewhere = duplicateExplicitUids instanceof Set ? duplicateExplicitUids : new Set();
+
   const out = [];
   for (const c of cases) {
     const bodyKey = bodyKeyOfCase(c);
@@ -595,14 +825,42 @@ function resolveMobileUids({ cases, projectUid, registry, file }) {
     const explicit = explicitUidOf(c.title);
 
     if (explicit) {
+      const owners = explicitOwners.get(explicit) ?? [];
+      if (owners.length > 1 || reserved.has(explicit) || claimedElsewhere.has(explicit)) {
+        // The token is claimed by more than one case, or by a case of
+        // another file. Neither may take it.
+        out.push({
+          ...c,
+          uid: null,
+          uidSource: 'provisional',
+          uidStable: false,
+          uidBasis: null,
+          bodyKey,
+          titleKey,
+          duplicateExplicit: explicit,
+          ambiguity: {
+            key: `explicit:${explicit}`,
+            reason: 'duplicate-explicit-uid',
+            explicitUid: explicit,
+            candidates: owners.map((o) => ({ file: o.file, title: o.title, line: o.line })),
+          },
+        });
+        continue;
+      }
       out.push({ ...c, uid: explicit, uidSource: 'explicit', uidStable: true, uidBasis: 'explicit', bodyKey, titleKey });
       continue;
     }
 
     // The registry: the body fingerprint of the case, when it is unique in
     // the project. This is what keeps the UID when the title is rewritten.
+    //
+    // When the caller knows only ONE file, the match is restricted to the
+    // entries of that file: a body that is unique in this file may still be
+    // shared with a case of another file, and handing the registry's UID
+    // to both of them would give two cases the SAME UID.
     const hits = bodyKey ? (byBody.get(bodyKey) ?? []) : [];
-    const uids = [...new Set(hits.map((h) => h.uid).filter(Boolean))];
+    const scoped = bodyScope === 'file' ? hits.filter((h) => h.file === c.file) : hits;
+    const uids = [...new Set(scoped.map((h) => h.uid).filter(Boolean))];
     if (bodyKey && bodyCounts.get(bodyKey) === 1 && uids.length === 1) {
       out.push({ ...c, uid: uids[0], uidSource: 'registry', uidStable: true, uidBasis: 'body-key', bodyKey, titleKey });
       continue;
@@ -610,7 +868,7 @@ function resolveMobileUids({ cases, projectUid, registry, file }) {
 
     if (!projectUid) {
       // Without a project there is no project-scoped identifier to derive.
-      const uid = provisionalTestUid('no-project', file, c.title, c.line, out.length + 1);
+      const uid = provisionalTestUid('no-project', c.file, c.title, c.line, out.length + 1);
       out.push({
         ...c,
         uid,
@@ -629,19 +887,19 @@ function resolveMobileUids({ cases, projectUid, registry, file }) {
     }
 
     if (titleCounts.get(titleKey) === 1) {
-      const uid = deriveTestUid(projectUid, positionBasis(file, c.line, titleKey));
+      const uid = deriveTestUid(projectUid, positionBasis(c.file, c.line, titleKey));
       out.push({ ...c, uid, uidSource: 'derived', uidStable: true, uidBasis: 'position-title', bodyKey, titleKey });
       continue;
     }
 
     // The title is shared. The body decides, when it is unique.
     if (bodyKey && bodyCounts.get(bodyKey) === 1) {
-      const uid = deriveTestUid(projectUid, positionBasis(file, c.line, bodyKey));
+      const uid = deriveTestUid(projectUid, positionBasis(c.file, c.line, bodyKey));
       out.push({ ...c, uid, uidSource: 'derived-body', uidStable: true, uidBasis: 'body-key', bodyKey, titleKey });
       continue;
     }
 
-    const uid = provisionalTestUid(projectUid, file, c.title, c.line, out.length + 1);
+    const uid = provisionalTestUid(projectUid, c.file, c.title, c.line, out.length + 1);
     out.push({
       ...c,
       uid,
@@ -654,12 +912,31 @@ function resolveMobileUids({ cases, projectUid, registry, file }) {
         key: titleKey,
         reason: 'identical-title',
         candidates: cases.filter((x) => normalizeTitleKey(x.title) === titleKey)
-          .map((x) => ({ file, title: x.title, line: x.line })),
+          .map((x) => ({ file: x.file, title: x.title, line: x.line })),
       },
     });
   }
 
-  return { cases: out, registry: mergeMobileRegistry(entries, out, file) };
+  // The provisional identifiers of the ambiguous groups: the ordinal is
+  // counted inside the group, so that the identifier of a case does not
+  // depend on the cases that happen to come before it.
+  const ambiguousGroups = new Map();
+  for (const c of out) {
+    if (c.uid) continue;
+    const key = c.duplicateExplicit ? `explicit:${c.duplicateExplicit}` : c.titleKey;
+    if (!ambiguousGroups.has(key)) ambiguousGroups.set(key, []);
+    ambiguousGroups.get(key).push(c);
+  }
+  for (const group of ambiguousGroups.values()) {
+    group.sort((a, b) => (a.file === b.file ? a.line - b.line : a.file < b.file ? -1 : 1));
+    group.forEach((c, index) => {
+      c.uid = provisionalTestUid(projectUid ?? 'no-project', c.file, c.title, c.line, index + 1);
+      c.uidSource = 'provisional';
+      c.uidStable = false;
+    });
+  }
+
+  return { cases: out, registry: mergeMobileRegistry(entries, out, scope) };
 }
 
 /**
@@ -704,8 +981,12 @@ export function bodyKeyOfCase(c) {
  * ATS-201 registry stores. The whole registry (with the other projects'
  * cells) is not rebuilt here: a caller that has one does not want its
  * other projects' cells overwritten.
+ *
+ * The SCOPE is the set of files this import covered. An entry whose file
+ * is outside the scope is KEPT: it says nothing about the cases inside
+ * it, and pruning it would drop the identity of a case that still exists.
  */
-function mergeMobileRegistry(entries, cases, file) {
+function mergeMobileRegistry(entries, cases, scope = null) {
   const byUid = new Map();
   for (const e of entries) {
     if (e.uid && !byUid.has(e.uid)) byUid.set(e.uid, e);
@@ -718,7 +999,7 @@ function mergeMobileRegistry(entries, cases, file) {
       uidSource: c.uidSource,
       titleKey: c.titleKey,
       bodyKey: c.bodyKey,
-      file,
+      file: c.file,
       title: c.title,
       line: c.line,
       aliases: [],
@@ -745,7 +1026,7 @@ function mergeMobileRegistry(entries, cases, file) {
   const merged = [...byUid.values()];
   return {
     version: 1,
-    entries: pruneRegistry(merged, cases, new Set([file])),
+    entries: pruneRegistry(merged, cases, scope),
   };
 }
 

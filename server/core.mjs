@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, scanTestCases, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid, normalizeTestPath, bodyKeyOf } from './uid.mjs';
+import { projectUidFor, projectUidOf, resolveIdentities, extractCallbackBody, scanTestCases, UID_SCHEME_VERSION, emptyRegistry, attemptUidFor, findTestUid, normalizeTestPath, bodyKeyOf, extractExplicitUid } from './uid.mjs';
 import { buildPlaywrightArgs, probePlaywrightCli } from './adapters/playwright-cli.mjs';
 import { openDatabase as openMetadataDatabase } from './sqlite/db.mjs';
 import { storeState } from './sqlite/store.mjs';
@@ -12,7 +12,7 @@ import { resolveAuthoritativeIdentities } from './discovery/authoritative.mjs';
 import { compareDiscoveries, readBodies, staticCasesWithScope, DISCOVERY } from './discovery/index.mjs';
 // ATS-602: the mobile Flow import. A Flow file declares cases like a spec
 // file declares cases, so the mobile cases join the SAME catalogue.
-import { importProjectFlows } from './discovery/mobile-flow-import.mjs';
+import { importProjectFlows, mapProjectFlows, resolveProjectMobileUids } from './discovery/mobile-flow-import.mjs';
 import { TRUST, trustOf } from './discovery/trust.mjs';
 // ATS-208: the unified Run/Test/Attempt/ExecutionEvent model. The report
 // parsing, the attempt building and the status vocabulary live THERE, so
@@ -826,26 +826,129 @@ export function walkTests(root,rel='',depth=0,acc=[]) {
  *
  * So a Flow that fails to import contributes NO cases and reports its
  * problem in `mobile.imports`; the rest of the catalogue is unaffected.
+ *
+ * The identities are resolved TOGETHER with the web ones -- see
+ * `discoverStatic`. The mobile cases are MAPPED here; the UIDs are
+ * decided over the whole catalogue.
  */
 export function discoverMobile(project, registry, projectUid) {
-  const imported=importProjectFlows(project.root,{projectUid,registry});
-  const cases=imported.cases.map(c=>({
-   id:c.uid,uid:c.uid,uidSource:c.uidSource,uidStable:c.uidStable,
-   uidBasis:c.uidBasis,
-   file:c.file,title:c.title,line:c.line,
-   source:'mobile',engine:'mobile',level:'ST',
-   appId:c.appId,tags:c.tags,
-   steps:c.steps,
-   unsupportedCount:c.unsupportedCount,
-   ...(c.ambiguity?{ambiguity:c.ambiguity}:{})
+  const imported = importProjectFlows(project.root, { projectUid, registry });
+  const mapped = imported.cases.map((c) => ({
+    file: c.file,
+    title: c.title,
+    line: c.line,
+    // The step fingerprint of the case: the body the registry remembers
+    // it by.
+    bodyKey: c.bodyKey ?? null,
+    titleKey: c.titleKey ?? null,
+    uid: c.uid,
+    uidSource: c.uidSource,
+    uidStable: c.uidStable,
+    uidBasis: c.uidBasis,
+    appId: c.appId,
+    tags: c.tags,
+    steps: c.steps,
+    unsupportedCount: c.unsupportedCount,
+    ...(c.ambiguity ? { ambiguity: c.ambiguity } : {}),
   }));
   return {
-   cases,
-   files:imported.files,
-   imports:imported.results.map(r=>r.report),
-   unsupported:imported.unsupported,
-   errors:imported.errors,
+    mapped,
+    files: imported.files,
+    imports: imported.results.map((r) => r.report),
+    unsupported: imported.unsupported,
+    errors: imported.errors,
+    registry: imported.registry,
   };
+}
+
+/**
+ * ATS-602: the `@TC-` tokens that more than one case of the catalogue
+ * claims.
+ *
+ * The catalogue holds the cases of BOTH engines: the web ones and the
+ * mobile ones. A token names ONE case, so a token that two cases claim --
+ * a web case and a mobile case, or two cases of the same engine -- belongs
+ * to NEITHER of them. The catalogue has to know that before it resolves
+ * the identities, because the resolution is what gives the token to a
+ * case.
+ *
+ * The token is counted over the WHOLE catalogue, so the two engines are
+ * one catalogue and not two.
+ */
+function duplicatedExplicitTokens(webCases, mobileCases) {
+  const owners = new Map();
+  const claim = (title) => {
+    const token = extractExplicitUid(title);
+    if (!token) return;
+    owners.set(token, (owners.get(token) ?? 0) + 1);
+  };
+  for (const c of webCases ?? []) claim(c.title);
+  for (const c of mobileCases ?? []) claim(c.title);
+  const out = new Set();
+  for (const [token, count] of owners) {
+    if (count > 1) out.add(token);
+  }
+  return out;
+}
+
+/**
+ * ATS-602: the registry cell of a project, with BOTH engines' entries.
+ *
+ * The registry is the memory of the cases of a project, and the project
+ * has cases of two engines: the web ones and the mobile ones. They share
+ * ONE cell, so:
+ *
+ *   * neither side prunes the entries of the other (the pruning rule is
+ *     "an entry whose file was part of THIS discovery and no resolved
+ *     case claims its uid is dropped" -- and a mobile entry is not part
+ *     of the web discovery);
+ *   * a case that moves from one engine to the other keeps its identity,
+ *     because the registry still knows it.
+ *
+ * The entries are merged BY UID: two entries with the same uid describe
+ * the same case, and the newest position wins.
+ */
+function mergeRegistryCells(baseCell, resolvedCell, mobileCases, projectUid) {
+  const byUid = new Map();
+  const add = (entry) => {
+    if (!entry) return;
+    if (!entry.uid) { byUid.set(`#${byUid.size}`, entry); return; }
+    if (!byUid.has(entry.uid)) byUid.set(entry.uid, entry);
+  };
+  for (const e of baseCell?.entries ?? []) add(e);
+  for (const e of resolvedCell?.entries ?? []) add(e);
+  for (const c of mobileCases) {
+    if (!c.uid) continue;
+    add({
+      uid: c.uid,
+      uidSource: c.uidSource,
+      titleKey: c.titleKey,
+      bodyKey: c.bodyKey,
+      file: c.file,
+      title: c.title,
+      line: c.line,
+      aliases: [],
+    });
+  }
+  return { version: UID_SCHEME_VERSION, entries: [...byUid.values()] };
+}
+
+/**
+ * ATS-602: the identities of the mobile cases of a project.
+ *
+ * The mobile cases are resolved with the SAME rules as the web ones, and
+ * over the same registry cell -- the two engines share ONE registry, so a
+ * case that moves from one engine to the other keeps its identity.
+ */
+function resolveMobileIdentities({ projectUid, cases, registry, scope, duplicateExplicitUids }) {
+  const resolved = resolveProjectMobileUids({
+    cases,
+    projectUid,
+    registry,
+    scope,
+    duplicateExplicitUids,
+  });
+  return resolved.cases;
 }
 
 export function discoverStatic(project, registry) {
@@ -855,26 +958,64 @@ export function discoverStatic(project, registry) {
    for(const c of scanTestCases(content))discovered.push({file,...c});
  }
  const projectUid=projectUidOf(project);
- // The scope of this discovery is the set of files it covered. The registry
- // only prunes entries whose file is INSIDE the scope: a file that is not part
- // of this discovery says nothing about the cases inside it, and pruning its
- // entries would drop the identity of a case that still exists.
- const resolved=resolveIdentities({projectUid,discovered,registry,scope:new Set(files)});
- const tests=resolved.items.map(t=>({
-   id:t.uid,uid:t.uid,uidSource:t.uidSource,uidStable:t.uidStable,
-   file:t.file,title:t.title,line:t.line,source:'static',level:'ST',
-   ...(t.ambiguity?{ambiguity:t.ambiguity}:{})
- }));
  // ATS-602: the MOBILE cases. A Flow file declares cases like a spec file
  // declares cases, so the mobile cases are part of the SAME catalogue --
  // they are TestDefinitions with a `source` that says where they came
  // from. They are NOT a second kind of case: the UID rules, the registry
  // and every lookup by file/line work on them unchanged.
  const mobile=discoverMobile(project,registry,projectUid);
+ // The scope of this discovery is the set of files it covered. The registry
+ // only prunes entries whose file is INSIDE the scope: a file that is not part
+ // of this discovery says nothing about the cases inside it, and pruning its
+ // entries would drop the identity of a case that still exists.
+ const scope=new Set([...files,...mobile.files]);
+ // ATS-602: the identities are decided over the WHOLE catalogue -- the web
+ // cases and the mobile ones AT ONCE. That is what makes the two engines
+ // ONE catalogue rather than two catalogues that happen to live in the
+ // same array: a `@TC-` token that a web case and a mobile case both claim
+ // belongs to NEITHER of them, exactly as it would if two web cases
+ // claimed it.
+ //
+ // So the duplicate tokens are found FIRST -- over both engines -- and then
+ // handed to both resolvers.
+ const duplicateExplicitUids=duplicatedExplicitTokens(discovered,mobile.mapped);
+ // The mobile cases are resolved FIRST, over the registry cell, so that
+ // their entries are known before the web ones are merged in. The two
+ // engines share ONE cell: the registry is the memory of the cases of the
+ // project, and a case that moves from one engine to the other has to keep
+ // its identity.
+ const mobileResolved=resolveMobileIdentities({projectUid,cases:mobile.mapped,registry,scope,duplicateExplicitUids});
+ const resolved=resolveIdentities({
+   projectUid,
+   discovered,
+   registry,
+   scope,
+   duplicateExplicitUids,
+   // The mobile cases go into the SAME cell, so that neither side prunes
+   // or overwrites the entries of the other.
+   extraCandidates:mobileResolved.map(t=>({
+     uid:t.uid,uidSource:t.uidSource,titleKey:t.titleKey,bodyKey:t.bodyKey,
+     file:t.file,title:t.title,line:t.line,
+   })),
+ });
+ const tests=resolved.items.map(t=>({
+   id:t.uid,uid:t.uid,uidSource:t.uidSource,uidStable:t.uidStable,
+   file:t.file,title:t.title,line:t.line,source:'static',level:'ST',
+   ...(t.ambiguity?{ambiguity:t.ambiguity}:{})
+ }));
  // The mobile cases JOIN the catalogue: a Flow file declares cases, and a
  // case is a case. They carry their own `source`, so a reader can tell
  // where a case came from, and the UID rules work on them unchanged.
- const allTests=[...tests,...mobile.cases];
+ const allTests=[...tests,...mobileResolved.map(t=>({
+   id:t.uid,uid:t.uid,uidSource:t.uidSource,uidStable:t.uidStable,
+   uidBasis:t.uidBasis,
+   file:t.file,title:t.title,line:t.line,
+   source:'mobile',engine:'mobile',level:'ST',
+   appId:t.appId,tags:t.tags,
+   steps:t.steps,
+   unsupportedCount:t.unsupportedCount,
+   ...(t.ambiguity?{ambiguity:t.ambiguity}:{})
+ }))];
  const ambiguous=allTests.filter(t=>!t.uidStable).length;
  // Every kind of uncertainty is REPORTED. A case that got a uid but whose
  // registry entry disagreed with it is reported as well: the uid is usable,
@@ -895,7 +1036,7 @@ export function discoverStatic(project, registry) {
  // run is NOT silently dropped -- it is counted here and listed in the
  // import report, so the author of the Flow learns which of their steps
  // the platform does not support yet.
- if(mobile.cases.length)warning+=` 移动端 Flow 导入 ${mobile.cases.length} 个用例（${mobile.files.length} 个文件）。`;
+ if(mobileResolved.length)warning+=` 移动端 Flow 导入 ${mobileResolved.length} 个用例（${mobile.files.length} 个文件）。`;
  if(mobile.unsupported.length)warning+=` ${mobile.unsupported.length} 个移动端步骤不受支持，已保留原文并记录在导入报告中。`;
  if(mobile.errors.length)warning+=` ${mobile.errors.length} 个移动端 Flow 读取错误，详见导入报告。`;
  return {
@@ -908,7 +1049,7 @@ export function discoverStatic(project, registry) {
   warning,
   mobile:{
    files:mobile.files,
-   cases:mobile.cases.length,
+   cases:mobileResolved.length,
    unsupportedSteps:mobile.unsupported.length,
    errors:mobile.errors.length,
    imports:mobile.imports,
@@ -959,7 +1100,7 @@ function decideDiscovery(trust, force) {
  * FAILED. The project is trusted, so the trust gate does not apply and the
  * warning must not mention it -- the caller says what actually went wrong.
  */
-function staticCatalog(project, registry, trust, decision) {
+export function staticCatalog(project, registry, trust, decision) {
   const base = {
     ...discoverStatic(project, registry),
     trust,
@@ -1104,19 +1245,64 @@ function authoritativeCatalog(project, registry, trust, decision, listed) {
     scope: new Set(files)
   });
 
-  const tests = resolved.items.map(t => ({
-    id: t.uid, uid: t.uid, uidSource: t.uidSource, uidStable: t.uidStable,
-    uidBasis: t.basis,
-    file: t.file, title: t.title, line: t.line,
-    describePath: t.scope,
-    specIds: t.specIds,
-    // ATS-204: the anchor of the case. It is what a case that has no body
-    // of its own is remembered BY: the position it was reported at plus
-    // its ordinal there.
-    anchor: t.anchor ?? null,
-    source: 'authoritative', level: 'ST',
-    ...(t.ambiguity ? { ambiguity: t.ambiguity } : {})
-  }));
+  // ATS-602: the MOBILE cases join the authoritative catalogue too.
+  //
+  // A Flow file declares cases, and a case is a case -- whichever index
+  // the catalogue is built from. The authoritative index knows the web
+  // cases better than the static one does (it sees the dynamic and the
+  // parameterised ones), but it knows NOTHING about the mobile cases: no
+  // Flow file is a Playwright test file, so `playwright test --list` never
+  // mentions one.
+  //
+  // So the mobile cases are imported and resolved HERE, and they JOIN the
+  // authoritative list. Without that, a project that was marked as trusted
+  // would LOSE its mobile cases -- they would not be moved to another
+  // section, they would simply be gone, and the catalogue would not even
+  // say so.
+  const mobile = discoverMobile(project, registry, projectUid);
+  const mobileScope = new Set([...files, ...mobile.files]);
+  // The duplicate `@TC-` tokens are counted over BOTH engines, so that a
+  // token a web case and a mobile case both claim belongs to neither.
+  const duplicateExplicitUids = duplicatedExplicitTokens(
+    listed.tests.map((t) => ({ title: t.title })),
+    mobile.mapped,
+  );
+  const mobileResolved = resolveMobileIdentities({
+    projectUid,
+    cases: mobile.mapped,
+    registry,
+    scope: mobileScope,
+    duplicateExplicitUids,
+  });
+  // The mobile entries go into the SAME registry cell as the web ones, so
+  // that neither side prunes or overwrites the entries of the other.
+  const mergedRegistry = mergeRegistryCells(projectRegistry, resolved.registry, mobileResolved, projectUid);
+
+  const tests = [
+    ...resolved.items.map(t => ({
+      id: t.uid, uid: t.uid, uidSource: t.uidSource, uidStable: t.uidStable,
+      uidBasis: t.basis,
+      file: t.file, title: t.title, line: t.line,
+      describePath: t.scope,
+      specIds: t.specIds,
+      // ATS-204: the anchor of the case. It is what a case that has no body
+      // of its own is remembered BY: the position it was reported at plus
+      // its ordinal there.
+      anchor: t.anchor ?? null,
+      source: 'authoritative', level: 'ST',
+      ...(t.ambiguity ? { ambiguity: t.ambiguity } : {})
+    })),
+    ...mobileResolved.map(t => ({
+      id: t.uid, uid: t.uid, uidSource: t.uidSource, uidStable: t.uidStable,
+      uidBasis: t.uidBasis,
+      file: t.file, title: t.title, line: t.line,
+      source: 'mobile', engine: 'mobile', level: 'ST',
+      appId: t.appId, tags: t.tags,
+      steps: t.steps,
+      unsupportedCount: t.unsupportedCount,
+      ...(t.ambiguity ? { ambiguity: t.ambiguity } : {})
+    })),
+  ];
 
   const consistency = compareDiscoveries(listed.tests, staticCasesWithScope(project.root, files));
   const ambiguous = tests.filter(t => !t.uidStable).length;
@@ -1132,16 +1318,30 @@ function authoritativeCatalog(project, registry, trust, decision, listed) {
   if (shifted) warning += ` ${shifted} 个用例的模板渲染数发生了变化（${[...new Set(tests.filter(t => t.ambiguity?.reason === 'render-shift-possible').map(t => t.ambiguity.previousCount + '→' + t.ambiguity.currentCount))].join('、')}），锚点次序可能已经位移，这些用例的 UID 由本次发现派生，需要人工复核。`;
   if (outside) warning += ` ${outside} 个用例位于项目根目录之外，已被排除。`;
   if (!consistency.agrees) warning += ` 与静态索引的差异：${consistency.onlyAuthoritative.length} 个用例仅权威索引可见，${consistency.onlyStatic.length} 个用例仅静态索引可见。`;
+  // ATS-602: the mobile import reports itself on the authoritative path
+  // too, exactly as it does on the static one. A step the platform cannot
+  // run is NOT silently dropped -- it is counted here and listed in the
+  // import report.
+  if (mobileResolved.length) warning += ` 移动端 Flow 导入 ${mobileResolved.length} 个用例（${mobile.files.length} 个文件）。`;
+  if (mobile.unsupported.length) warning += ` ${mobile.unsupported.length} 个移动端步骤不受支持，已保留原文并记录在导入报告中。`;
+  if (mobile.errors.length) warning += ` ${mobile.errors.length} 个移动端 Flow 读取错误，详见导入报告。`;
 
   return {
     files,
     tests,
     discovery: DISCOVERY.AUTHORITATIVE,
-    uidVersion: resolved.registry.version,
+    uidVersion: mergedRegistry.version,
     projectUid,
-    registry: { version: resolved.registry.version, projects: { ...((registry && registry.projects) || {}), [projectUid]: resolved.registry } },
+    registry: { version: mergedRegistry.version, projects: { ...((registry && registry.projects) || {}), [projectUid]: mergedRegistry } },
     warning,
     trust,
+    mobile: {
+      files: mobile.files,
+      cases: mobileResolved.length,
+      unsupportedSteps: mobile.unsupported.length,
+      errors: mobile.errors.length,
+      imports: mobile.imports,
+    },
     authoritative: {
       attempted: true,
       outcome: LIST_OUTCOME.OK,
