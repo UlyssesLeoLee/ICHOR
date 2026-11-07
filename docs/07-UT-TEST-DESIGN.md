@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：589；已执行通过：573；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：628；已执行通过：612；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -597,6 +597,45 @@
 |UT-MOB-260|FR-032|正常|移动端用例进入统一目录|项目里有一个 Flow 与一个 web 用例|目录里两种用例都在，移动端用例是 TestDefinition|node --test|PASS|
 |UT-MOB-261|FR-032|正常|没有 Flow 的项目没有移动端用例|项目里只有 web 用例|移动端用例数为 0 且目录不含移动端字样|node --test|PASS|
 |UT-MOB-262|FR-032|安全|不支持的步骤计入目录的告警|Flow 里有一个不支持的步骤|告警写明 1 个移动端步骤不受支持|node --test|PASS|
+|UT-MOB-270|FR-032|正常|嵌套目录下的 Flow 被发现并导入|flows/smoke/login.yaml 与 tests/mobile/android/pay.flow|嵌套路径出现在发现结果里且产出用例|node --test|PASS|
+|UT-MOB-271|FR-032|安全|项目根下同名目录不被当成 Flow 目录|项目根有 android/ 而 Flow 目录是 flows/|发现结果为空且不报读不出的错误|node --test|PASS|
+|UT-MOB-272|FR-032|异常|文档不被读一半|场景列表中间插一个顶层键|两个场景都在，且错误指向那个顶层键|node --test|PASS|
+|UT-MOB-273|FR-032|异常|一个步骤命名两个命令时报错|步骤里同时有 tapOn 与 assertVisible|该步骤整条上报，不只取第一个|node --test|PASS|
+|UT-MOB-274|FR-032|安全|步骤的选项被保留并告警|步骤带 optional 与 when|选项留在步骤里且产生一条告警|node --test|PASS|
+|UT-MOB-275|FR-032|安全|模型不映射的段落里的每一步都进报告|头部 onFlowStart 与场景 setup 与第二个列表|三步全部上报，原因是 unmapped-section|node --test|PASS|
+|UT-MOB-276|FR-032|正常|头部标题不产出幻影用例|头部有 name 而正文是步骤列表|只产出一个用例，且它带步骤|node --test|PASS|
+|UT-MOB-277|FR-032|正常|按 id 指向元素的步骤可映射|tapOn 只给 id|该步骤映射成功，参数里保留 id|node --test|PASS|
+|UT-MOB-278|FR-032|异常|线性语法的 env 块不吞掉步骤|env 之后有 tap Settings: General|环境只含环境变量，三个步骤都在|node --test|PASS|
+|UT-MOB-279|FR-032|安全|线性语法的多余参数不覆盖主参数|launch x clearState 与 tap "a" "b"|主参数保持第一个值，多余参数保留并告警|node --test|PASS|
+|UT-MOB-280|FR-032|安全|同一参数的两个写法不静默覆盖|步骤同时给 text 与 title|保留第一个，产生一条冲突告警|node --test|PASS|
+|UT-MOB-281|FR-032|正常|移动端注册表被持久化且改标题后 UID 不变|改写 Flow 的场景标题后重新发现|UID 不变且 uidSource=registry|node --test|PASS|
+|UT-MOB-282|FR-032|正常|Flow 顶部加注释不改变身份|在 Flow 顶部加一行注释|UID 不变|node --test|PASS|
+|UT-MOB-283|FR-032|安全|重复的 @TC- token 跨引擎由双方都不绑定|web 用例与移动端用例声明同一个 @TC-100|目录里没有重复 UID，相关用例都标 duplicate-explicit-uid|node --test|PASS|
+|UT-MOB-284|FR-032|安全|步骤指纹的唯一性按全项目判定|两个 Flow 文件声明同样的步骤|两个用例的 UID 不同|node --test|PASS|
+|UT-MOB-285|FR-032|正常|可信项目的目录里也有移动端用例|标记为可信的项目|静态与回退路径都带移动端用例与 mobile 段|node --test|PASS|
+|UT-MOB-286|FR-032|安全|任何形状下声明的步骤都被交代|五种形状的 Flow|已映射数 + 已报告数 = 声明数|node --test|PASS|
+|UT-MOB-290|FR-032|异常|未知语法被报告而不是猜|传一个不认识的语法名|零个场景且报 unknown Flow syntax|node --test|PASS|
+|UT-MOB-291|FR-032|异常|混排场景与步骤的列表被报告|一个列表里既有场景又有步骤|报 mixes scenarios and steps|node --test|PASS|
+|UT-MOB-292|FR-032|正常|scenarios 列表被读|顶层 scenarios 列表|读出两个场景与它们的步骤|node --test|PASS|
+|UT-MOB-293|FR-032|异常|不是映射的场景项被报告|scenarios 列表里有一个字符串|报 not a mapping|node --test|PASS|
+|UT-MOB-294|FR-032|异常|没有名字的场景项被报告|scenarios 列表里有一项没有 name|报 no name|node --test|PASS|
+|UT-MOB-295|FR-032|正常|带步骤的映射就是一个场景|顶层 name 与 steps|读出一个带标题与步骤的场景|node --test|PASS|
+|UT-MOB-296|FR-032|正常|显式步骤形式被读|command 加 arguments 块|命令与参数被读出|node --test|PASS|
+|UT-MOB-297|FR-032|异常|列表形式的步骤被报告|步骤是一个行内列表|报 not a command|node --test|PASS|
+|UT-MOB-298|FR-032|异常|空步骤被报告|步骤项是空的|报 empty step|node --test|PASS|
+|UT-MOB-299|FR-032|正常|标量步骤被读|步骤是 launchApp|命令是 launchApp，原文保留|node --test|PASS|
+|UT-MOB-300|FR-032|正常|行内集合被读|tags 是行内列表|标签读成列表|node --test|PASS|
+|UT-MOB-301|FR-032|异常|未闭合的引号被报告|标题是未闭合的双引号|报 unterminated|node --test|PASS|
+|UT-MOB-302|FR-032|异常|未闭合的行内集合被报告|tags 是未闭合的行内列表|报 unterminated|node --test|PASS|
+|UT-MOB-303|FR-032|安全|标签不被读成半个文档|标题带 YAML 标签|报错误而不是读一半|node --test|PASS|
+|UT-MOB-304|FR-032|异常|同一映射里重复的键被报告|一个场景有两个 name|报 appears twice|node --test|PASS|
+|UT-MOB-305|FR-032|异常|场景之前的步骤被报告|线性声明里步骤排在 scenario 之前|报 before any scenario|node --test|PASS|
+|UT-MOB-306|FR-032|正常|线性语法的行内步骤列表被读|steps: launch, tap "x"|读出两个步骤|node --test|PASS|
+|UT-MOB-307|FR-032|正常|线性语法的标签与环境被读|线性声明带 tags 与 env|标签与环境被读出，引号被剥掉|node --test|PASS|
+|UT-MOB-308|FR-032|异常|什么都不命名的线性步骤被报告|步骤是一对空引号|报 empty step|node --test|PASS|
+|UT-MOB-309|FR-032|正常|线性语法的 title 也开启一个场景|线性声明用 title:|读出一个场景|node --test|PASS|
+|UT-MOB-310|FR-032|异常|线性语法里没有场景也被报告|只有 app 的线性声明|报 no scenario|node --test|PASS|
+|UT-MOB-311|FR-032|正常|读取器的标量类型被读|一个普通的 YAML 声明|读出一个场景|node --test|PASS|
 
 ## 进入与退出条件
 

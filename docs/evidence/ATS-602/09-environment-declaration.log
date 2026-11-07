@@ -1,6 +1,6 @@
 === ATS-602 evidence: the environment declaration ===
-tree : 69b6fdf90b9f13e80ad57ef48d1c7af49a90cb54
-date : 2026-11-06T22:42:19Z
+tree : 50a6e77602e7b03b38aee0497e57822d6a91378c
+date : 2026-11-07T01:28:52Z
 
 --- 本机的移动端环境（记录事实，不作通过/未通过声明）---
 adb          C:\Users\seiko\AppData\Local\Android\Sdk\platform-tools\adb.exe

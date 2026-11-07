@@ -1,13 +1,13 @@
 === ATS-103 evidence: ADR citation check ===
-date      : 2026-11-07T00:05:57Z (UTC)
-commit    : e15e37da351945efe0e08a7643feddf8c6f8d9a0
+date      : 2026-11-07T01:17:09Z (UTC)
+commit    : 1e21da792acdf596fc9e305a4c96bf446b720f19
 node      : v22.23.4
 npm       : 10.9.9
 command   : python tools/check_adr_citations.py
 
 --- citations enumerated from the ADR ---
-  apps/studio/app/page.tsx         116
-  apps/studio/lib/api.ts           23
+  apps/studio/app/page.tsx         133
+  apps/studio/lib/api.ts           26
   apps/studio/public/fallback.html 3
   server/core.mjs                  1190, 780
   server/index.mjs                 1010, 1011, 241, 47, 513-543, 527, 545, 556, 749, 993
@@ -37,8 +37,8 @@ ok   server/index.mjs:1011
 ok   server/core.mjs:780
 ok   server/core.mjs:1190
 ok   server/index.mjs:513-543 (cancelRun extent)
-ok   apps/studio/app/page.tsx:116 (the workbench footer text -- covered by the ATS-101 port audit)
-ok   apps/studio/lib/api.ts:23 (the API base URL -- covered by the ATS-101 port audit)
+ok   apps/studio/app/page.tsx:133 (the workbench footer text -- covered by the ATS-101 port audit)
+ok   apps/studio/lib/api.ts:26 (the API base URL -- covered by the ATS-101 port audit)
 ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
 ok   src-tauri/src/lib.rs:19 (the ATS_PORT environment default -- covered by the ATS-101 port audit)
 

@@ -35,7 +35,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { detectSyntax, parseFlow, FLOW_SYNTAX } from './mobile-flow.mjs';
-import { buildImportReport, formatImportReport, importFlow } from './mobile-import.mjs';
+import { buildImportReport, formatImportReport, importFlow, mapFlow, resolveProjectMobileUids } from './mobile-import.mjs';
 
 /**
  * The directories a Flow file may live in.
@@ -111,7 +111,13 @@ export function findFlowFiles(root, { depth = 4, maxFiles = 500 } = {}) {
       if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
       const childRel = rel ? `${rel}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
-        walk(entry.name, childRel, level + 1);
+        // The RECURSION carries the path RELATIVE TO THE PROJECT ROOT, not
+        // the name of the directory. Walking `entry.name` would read the
+        // subdirectory of the PROJECT ROOT instead of the subdirectory of
+        // the Flow directory -- so a nested Flow was never found, and a
+        // directory of the project root that happened to share its name was
+        // read as if it were the Flow directory.
+        walk(childRel, childRel, level + 1);
         continue;
       }
       if (!entry.isFile()) continue;
@@ -153,7 +159,7 @@ export function findFlowFiles(root, { depth = 4, maxFiles = 500 } = {}) {
  * `errors` -- never an exception the caller has to catch, and never a
  * silent empty result.
  */
-export function importFlowFile(root, relative, { syntax = null, projectUid = null, registry = null } = {}) {
+export function importFlowFile(root, relative, { syntax = null, projectUid = null, registry = null, resolveUids = true } = {}) {
   const file = String(relative ?? '');
   const errors = [];
 
@@ -185,7 +191,11 @@ export function importFlowFile(root, relative, { syntax = null, projectUid = nul
   }
 
   const flow = parseFlow(text, { syntax: chosen });
-  const imported = importFlow(flow, { file, projectUid, registry });
+  // The UIDs are resolved over the WHOLE PROJECT, so a single file is
+  // MAPPED here and the identities are resolved by the caller.
+  const imported = resolveUids
+    ? importFlow(flow, { file, projectUid, registry })
+    : mapFlow(flow, { file });
   const report = buildImportReport(imported);
 
   return {
@@ -202,22 +212,81 @@ export function importFlowFile(root, relative, { syntax = null, projectUid = nul
 }
 
 /**
- * Imports every Flow file of a project.
+ * MAPS every Flow file of a project, without resolving the identities.
  *
- * The result carries the cases of all the files together and the reports
- * of all the files, so that the caller can answer "what does this project
- * contain" in one call.
+ * The mapping is a property of a FILE: what the file declares and how it
+ * maps onto the unified model. The IDENTITY is a property of the PROJECT,
+ * and it is resolved separately -- over the web cases and the mobile ones
+ * at once, so that the two engines are one catalogue.
+ *
+ * The split is what lets the catalogue decide the duplicate `@TC-` tokens
+ * across BOTH engines: the mapping has to be known before the identities
+ * can be resolved, and the identities cannot be resolved before the
+ * duplicate tokens are known.
  */
-export function importProjectFlows(root, { projectUid = null, registry = null, syntax = null } = {}) {
+export function mapProjectFlows(root, { syntax = null } = {}) {
   const files = findFlowFiles(root);
   const results = [];
   for (const file of files) {
-    results.push(importFlowFile(root, file, { syntax, projectUid, registry }));
+    results.push(importFlowFile(root, file, { syntax, resolveUids: false }));
   }
   const cases = results.flatMap((r) => r.cases);
   const unsupported = results.flatMap((r) => r.unsupported);
   const errors = results.flatMap((r) => r.errors);
   return { files, cases, unsupported, errors, results };
+}
+
+/**
+ * Imports every Flow file of a project.
+ *
+ * The result carries the cases of all the files together and the reports
+ * of all the files, so that the caller can answer "what does this project
+ * contain" in one call.
+ *
+ * THE UIDS ARE RESOLVED OVER THE WHOLE PROJECT
+ * --------------------------------------------
+ * The identity of a case is a property of the PROJECT: two Flow files of
+ * one project may declare the same steps, and a body that is unique inside
+ * one file is not unique inside the project. So the files are MAPPED one by
+ * one -- the mapping is a property of a file -- and the identities are
+ * resolved once, over all the cases of all the files.
+ *
+ * The registry that comes back is the project's cell with the mobile
+ * entries in it. The caller persists it, and the next import finds the
+ * cases by their body and hands back the same UIDs.
+ *
+ * The `duplicateExplicitUids` are the `@TC-` tokens that more than one case
+ * of the catalogue claims -- the web ones included. A token that two cases
+ * claim belongs to NEITHER of them.
+ */
+export function importProjectFlows(root, { projectUid = null, registry = null, syntax = null, duplicateExplicitUids = null } = {}) {
+  const mapped = mapProjectFlows(root, { syntax });
+  const files = mapped.files;
+  const results = mapped.results;
+
+  // The identities, resolved over every case of the project at once.
+  const resolved = resolveProjectMobileUids({
+    cases: mapped.cases,
+    projectUid,
+    registry,
+    scope: new Set(files),
+    duplicateExplicitUids,
+  });
+
+  return {
+    files,
+    cases: resolved.cases,
+    unsupported: mapped.unsupported,
+    errors: mapped.errors,
+    results,
+    registry: {
+      version: registry?.version ?? 1,
+      projects: {
+        ...(registry?.projects ?? {}),
+        ...(projectUid && resolved.registry ? { [projectUid]: resolved.registry } : {}),
+      },
+    },
+  };
 }
 
 /**
@@ -256,4 +325,4 @@ function isInside(parent, child) {
   return rel !== '' && rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
 }
 
-export { FLOW_SYNTAX, parseFlow, detectSyntax, importFlow, buildImportReport, formatImportReport };
+export { FLOW_SYNTAX, parseFlow, detectSyntax, importFlow, mapFlow, buildImportReport, formatImportReport, resolveProjectMobileUids };
