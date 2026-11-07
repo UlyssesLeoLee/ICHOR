@@ -31,7 +31,7 @@ file. A citation of a different line of an audited file is therefore NOT
 covered and has to carry a needle here.
 
 The NON-runtime port citations (`start.sh:4`, `start.ps1:8-9`,
-`tools/generate_test_docs.py:348,354,451`) are checked by this script: the
+`tools/generate_test_docs.py:416,422,541`) are checked by this script: the
 port audit only asserts that those FILES are listed, not that the listed
 positions are the port-bearing ones.
 
@@ -132,17 +132,17 @@ EXPECTED = {
         9: "Start-Process 'http://127.0.0.1:",
     },
     'tools/generate_test_docs.py': {
-            390: "'localhost:3000 + ",
-            396: "'Host=evil.example:",
-            513: '同 LAN 他机尝试访问 ',
-        },
-        # The ATS-103 WBS updater used to mention the port inside a NOTE
-        # TEXT (the value never took effect), and the ADR cited that line.
-        # ATS-103 rewrote the note so it names the Bridge rather than
-        # spelling out the port -- the note therefore no longer contains a
-        # port literal, it is no longer a non-runtime port mention, and it
-        # no longer needs a citation here.
-        }
+        416: "'localhost:3000 + ",
+        422: "'Host=evil.example:",
+        541: '同 LAN 他机尝试访问 ',
+    },
+    # The ATS-103 WBS updater used to mention the port inside a NOTE
+    # TEXT (the value never took effect), and the ADR cited that line.
+    # ATS-103 rewrote the note so it names the Bridge rather than
+    # spelling out the port -- the note therefore no longer contains a
+    # port literal, it is no longer a non-runtime port mention, and it
+    # no longer needs a citation here.
+}
 
 # ---------------------------------------------------------------------------
 # The RANGE citations. The end of a range is READ FROM THE ADR TEXT -- it is

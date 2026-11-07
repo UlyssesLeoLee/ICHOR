@@ -1,0 +1,39 @@
+================================================================================
+ATS-512 evidence log -- the round-1 review's 11 counterexamples no longer reproduce
+================================================================================
+commit        : a239867003acb242b510e7caa9e337fed804c440
+timestamp     : 2026-11-07T02:40:43Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+default enc   : gbk (what the same interpreter would use without the forcing)
+command       : node tools/ats512-probes/check-review-counterexamples.mjs
+================================================================================
+
+no     CE1 describe() unaudited: 2x describe() -> 2 audit events
+        claimed: every SDK call produces an audit event
+no     CE2 evidence-skip attempt unaudited: PLUGIN_EVIDENCE_REQUIRED / PLUGIN_EVIDENCE_REQUIRED -> 2 audit events
+        claimed: refused calls are audited
+no     CE3 other refusals unaudited: PLUGIN_SCOPE_INVALID, PLUGIN_SCOPE_INVALID, PLUGIN_EVIDENCE_REQUIRED, PLUGIN_EVIDENCE_REQUIRED -> 4 audit events
+        claimed: every refused call is audited
+no     CE4 failed host read unaudited: UNCODED(Error: ENOENT) -> 1 audit events
+        claimed: every SDK call audited
+no     CE5 cross-project reads: host received projectId=proj_OTHER_TENANT in 0/3 calls
+        claimed: the host binds the allowed projects; the SDK refuses the others
+no     CE6 forged/evidence-less proposal approvable: reviewPluginProposal(forged, evidenceRefs:[]) -> PLUGIN_PROPOSAL_INVALID, approval=undefined
+        claimed: the host holds the authoritative record; a proposal it does not hold is refused
+no     CE7 tampered proposal self-approved: after tamper, review by plugin:evil -> PLUGIN_PROPOSAL_INVALID; audit records digest=true, proposalId=true
+        claimed: the review compares the proposal with the HOST record; the audit trail names the proposal and its digests
+no     CE8 authorize fail-open: constructor=false __proto__=false toString=false hasOwnProperty=false nonexistent=false
+        claimed: unknown operation -> allowed:false
+no     CE9 tier prototype keys: toString -> PLUGIN_MANIFEST_INVALID; constructor(empty) -> PLUGIN_MANIFEST_INVALID; nope -> PLUGIN_MANIFEST_INVALID
+        claimed: unknown tier -> PLUGIN_MANIFEST_INVALID
+no     CE10 proposalId collision: two SDK instances -> plgprop_evil_8d95c87e-ce03-47d5-8e46-bb3273210df6, plgprop_evil_86e0df2d-f30d-4437-8092-a72c3b6e9e57
+        claimed: the proposal id is globally unique
+no     CE11 seq != sink count: first call UNCODED(Error: sink down) (read already performed), sink holds seq=[1]
+        claimed: the sequence advances only after the sink accepted the event
+
+0 counterexample(s) still reproduce, 11 no longer reproduce
+
+--- exit code: 0 ---

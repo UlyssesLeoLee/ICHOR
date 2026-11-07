@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：169；已执行通过：155；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：171；已执行通过：157；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -63,6 +63,8 @@
 |IT-PLG-011|NFR-005|安全|校验端点不加载也不运行任何东西|校验前后对比数据目录|目录内容不变|node --test|PASS|
 |IT-PLG-012|FR-028|正常|诊断端点报告插件契约状态|GET /api/diagnostics|pluginContract.version=plugin-contract/v1，status=CONTRACT_ONLY|node --test|PASS|
 |IT-PLG-013|NFR-011|异常|非插件错误保持 ATS-512 之前的行为|POST /api/projects 指向不存在的目录|500 + 原始 ENOENT 消息，无插件 details|node --test|PASS|
+|IT-PLG-014|FR-028|安全|原型链名字不是合法档位|tier 取 toString / __proto__ / constructor / hasOwnProperty / valueOf|一律 400 + PLUGIN_MANIFEST_INVALID|node --test|PASS|
+|IT-PLG-015|NFR-002|安全|未知档位的错误体不泄漏内部细节|tier=toString|响应体不含 JS 内部错误文本，也不含本机路径|node --test|PASS|
 |IT-PLG-CLEANUP|NFR-005|清理|插件 API 子进程与夹清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
 |IT-SEC-SETUP|NFR-011|正常|安全面 API 的 bridge 启动|隔离 ATS_DATA_DIR 与随机端口|/api/health=200 并取得 token|node --test|PASS|
 |IT-SEC-001|FR-027|正常|安全契约经 API 暴露|GET /api/security/contract|200 + credential-store/v1 + egress-consent/v1|node --test|PASS|

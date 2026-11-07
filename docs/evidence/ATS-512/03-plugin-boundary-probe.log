@@ -1,9 +1,9 @@
 ================================================================================
 ATS-512 evidence log -- plugin permission boundary probe (includes the negative control)
 ================================================================================
-commit        : bf36a1fefc0ad9374fae5dacff99a8af3234104b
-timestamp     : 2026-11-05T14:16:30Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-c720363925af/worktree
+commit        : a239867003acb242b510e7caa9e337fed804c440
+timestamp     : 2026-11-07T02:40:43Z (UTC)
+repo root     : /d/ICHOR
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -12,8 +12,8 @@ command       : node tools/ats512-probes/probe-plugin-boundary.mjs
 ================================================================================
 
 === ATS-512 probe: the plugin permission boundary ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-22-c720363925af\worktree
-work root : C:\Users\seiko\AppData\Local\Temp\multica-task-1763796546\ats512-probes
+repo root : D:\ICHOR
+work root : D:\hermes-multica\home\cache\scratch\ats512-dev\ats512-probes
 
 --- signal 0: the sample plugin is a valid protocol sample ---
   [PASS] the sample manifest satisfies the plugin contract
@@ -29,6 +29,7 @@ work root : C:\Users\seiko\AppData\Local\Temp\multica-task-1763796546\ats512-pro
 --- signal 2: a plugin cannot approve its own outcome ---
   [PASS] the outcome is a proposal, not a state change
   [PASS] the proposal names the plugin as its producer -- plugin:sample-demo-runner
+  [PASS] the HOST holds the proposal record, not the plugin
   [PASS] the plugin cannot review its own proposal -- code=PLUGIN_REVIEW_SELF_FORBIDDEN
   [PASS] an independent reviewer can approve
 
@@ -58,7 +59,28 @@ work root : C:\Users\seiko\AppData\Local\Temp\multica-task-1763796546\ats512-pro
   [PASS] every tier grants only vocabulary permissions
   [PASS] the SDK surface matches the operation table
 
+--- signal 7: the host holds the proposal record, the plugin cannot forge one ---
+  [PASS] the host holds the proposal
+  [PASS] a proposal the host does not hold is refused -- code=PLUGIN_PROPOSAL_INVALID
+  [PASS] a tampered proposal is refused -- code=PLUGIN_PROPOSAL_INVALID
+  [PASS] a re-signed proposal is refused -- code=PLUGIN_PROPOSAL_INVALID
+  [PASS] the forged producer still cannot self-review -- code=PLUGIN_REVIEW_SELF_FORBIDDEN
+  [PASS] the proposal id is unique across SDK instances -- plgprop_sample-demo-runner_65f26584-09d8-4766-9484-b99f59068318, plgprop_sample-demo-runner_17460fad-038e-4f33-923a-3c0b80ae9969
+  [PASS] the audit event names the proposal id
+  [PASS] the audit event carries the evidence digests
+
+--- signal 8: every refused call leaves a trace ---
+  [PASS] every refusal was audited -- events=4 attempts=4
+  [PASS] describe() is audited too
+
+--- signal 9: prototype names are not table entries ---
+  [PASS] no prototype name is an authorised operation -- allowed=0
+  [PASS] no prototype name is a policy tier
+
 --- verdict ---
-PASS: a plugin cannot exceed its declared permissions, review its own outcome, or forge evidence
+PASS: the SDK refuses a plugin that exceeds its granted permissions, reads outside its
+      granted scope or projects, skips the evidence, or forges/tampers a proposal;
+      every refused call is audited. NOT proved here: that a plugin cannot escape the
+      SDK by importing node:fs itself -- there is no plugin host and no sandbox yet.
 
 --- exit code: 0 ---

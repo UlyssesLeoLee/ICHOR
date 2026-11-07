@@ -132,6 +132,7 @@ export const PLUGIN_ERROR_CODES = Object.freeze([
   'PLUGIN_SCOPE_INVALID',
   'PLUGIN_OPERATION_UNSUPPORTED',
   'PLUGIN_AUDIT_REQUIRED',
+  'PLUGIN_HOST_REQUIRED',
   'PLUGIN_EVIDENCE_REQUIRED',
   'PLUGIN_PROPOSAL_INVALID',
   'PLUGIN_REVIEW_SELF_FORBIDDEN',
@@ -166,6 +167,25 @@ function isSafeRelativePath(value) {
   return segments.every((s) => s !== '..' && s !== '');
 }
 
+/**
+ * 自有属性查找。
+ *
+ * 冻结表都是**普通对象**（`Object.freeze({...})`），它们的原型是
+ * `Object.prototype`。用 `table[key]` 查一个外部输入时，`key` 取
+ * `'constructor'` / `'__proto__'` / `'toString'` / `'hasOwnProperty'`
+ * 会命中继承链上的属性——`PLUGIN_OPERATIONS['constructor']` 拿到的是
+ * `Object` 构造函数，不是「未知操作」。
+ *
+ * 这不是理论上的洁癖：闸门函数**对未知输入必须 fail-closed**。一个
+ * fail-open 的授权闸门比没有闸门更危险，因为它看起来在工作。
+ * 所以每一处用外部输入索引冻结表的地方都走这个函数。
+ */
+function ownLookup(table, key) {
+  if (typeof key !== 'string') return undefined;
+  if (!Object.prototype.hasOwnProperty.call(table, key)) return undefined;
+  return table[key];
+}
+
 /* ------------------------------------------------------------------ */
 /* 权限解析                                                            */
 /* ------------------------------------------------------------------ */
@@ -183,7 +203,7 @@ function isSafeRelativePath(value) {
  * **档位是宿主的决定**：插件声明得再多，也只能在档位内生效。
  */
 export function resolvePluginPermissions(declared, tier = DEFAULT_PLUGIN_POLICY_TIER) {
-  const ceiling = PLUGIN_POLICY_TIERS[tier];
+  const ceiling = ownLookup(PLUGIN_POLICY_TIERS, tier);
   if (!ceiling) {
     fail('PLUGIN_MANIFEST_INVALID', `unknown policy tier: ${tier}`, {
       tier,
@@ -222,7 +242,7 @@ export function resolvePluginPermissions(declared, tier = DEFAULT_PLUGIN_POLICY_
  * 是可行动的说明，调用方直接把它回给用户即可。
  */
 export function authorizePluginOperation(manifest, operation, tier = DEFAULT_PLUGIN_POLICY_TIER) {
-  const spec = PLUGIN_OPERATIONS[operation];
+  const spec = ownLookup(PLUGIN_OPERATIONS, operation);
   if (!spec) {
     return {
       allowed: false,
@@ -411,9 +431,9 @@ export function describePluginContract(tier = DEFAULT_PLUGIN_POLICY_TIER) {
     })),
     errorCodes: [...PLUGIN_ERROR_CODES],
     grantPolicy: 'a manifest declares; the host grants. the effective set is the declared set intersected with the host policy tier.',
-    auditPolicy: 'every SDK call produces an audit event in the host sink; a denied call is audited as well. the plugin cannot suppress it.',
+    auditPolicy: 'every SDK call that performs an operation produces an audit event in the host sink, including the denied ones. the plugin cannot suppress it.',
     evidencePolicy: 'the SHA-256 of an evidence reference is computed by the host resolver, never supplied by the plugin.',
-    reviewPolicy: 'a plugin outcome is a proposal with approval=pending; the plugin may not review its own proposal.',
+    reviewPolicy: 'a plugin outcome is a proposal with approval=pending; the plugin may not review its own proposal. the host holds the authoritative proposal record, and a proposal the host does not hold is refused.',
     designStatus: 'CONTRACT_ONLY',
   };
 }

@@ -202,6 +202,26 @@ test('IT-PLG-013: a non-plugin error keeps its pre-ATS-512 behaviour', async () 
   assert.ok(!('details' in r[1]) || !JSON.stringify(r[1].details).includes('PLUGIN_'));
 });
 
+test('IT-PLG-014: a tier named after a prototype member is a 400, not a crash', async () => {
+  // The tier table is a frozen object, so `PLUGIN_POLICY_TIERS['toString']`
+  // would find the inherited function instead of "no such tier". The
+  // lookup uses own properties, so every prototype name is an unknown tier.
+  for (const tier of ['toString', '__proto__', 'constructor', 'hasOwnProperty', 'valueOf']) {
+    const r = await api('/api/plugins/validate', 'POST', { manifest: manifest(), tier });
+    assert.equal(r[0], 400, `${tier} must be a 400`);
+    assert.equal(r[1].error, 'PLUGIN_MANIFEST_INVALID', tier);
+    assert.equal(r[1].details.tier, tier);
+  }
+});
+
+test('IT-PLG-015: the error body of an unknown tier leaks no internal detail', async () => {
+  const r = await api('/api/plugins/validate', 'POST', { manifest: manifest(), tier: 'toString' });
+  const body = JSON.stringify(r[1]);
+  // The JS error text must not be echoed back to the caller.
+  assert.ok(!body.includes('includes is not a function'), body);
+  assert.ok(!body.includes(root), 'the response leaks the repository path');
+});
+
 test('IT-PLG-CLEANUP: stop and cleanup', () => {
   cp.kill();
   fs.rmSync(data, { recursive: true, force: true });
