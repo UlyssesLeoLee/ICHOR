@@ -125,8 +125,8 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    |---|---|---|
    | 1 | `server/index.mjs:47` | 默认值 `process.env.ATS_PORT\|\|4577` |
    | 2 | `server/index.mjs:556` | CSP `connect-src` |
-   | 3 | `apps/studio/lib/api.ts:23` | API Base |
-   | 4 | `apps/studio/app/page.tsx:116` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
+   | 3 | `apps/studio/lib/api.ts:26` | API Base |
+   | 4 | `apps/studio/app/page.tsx:133` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
    | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
    | 6 | `src-tauri/src/lib.rs:19` | `ATS_PORT` 环境变量默认值 |
 

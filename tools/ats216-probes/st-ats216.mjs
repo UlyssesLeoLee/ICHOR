@@ -375,6 +375,73 @@ try {
     `raw groups=${JSON.stringify([...expectedGroups.entries()])} `
     + `module groups=${JSON.stringify([...moduleGroups.entries()])}`);
 
+  /* --- ST-216-7: the metrics of the runs WITHOUT a verdict ------------- */
+  // The stopped run is cancelled. Its cases must not enter the attempt
+  // buckets, the retry metrics or the cross-run view: a run the operator
+  // stopped says nothing about the quality of the code under test.
+  //
+  // The expectation is derived from the RAW run list -- the cases of the
+  // runs that carry a verdict -- so a module that lets a cancelled run's
+  // cases into the metrics FAILS this check.
+  const verdictRunsRaw = runs.filter((r) => r.status === 'passed' || r.status === 'failed');
+  const noVerdictRuns = runs.filter((r) => !['passed', 'failed'].includes(r.status));
+  const rawVerdictAttempts = verdictRunsRaw
+    .flatMap((r) => (r.summary?.cases ?? []))
+    .reduce((n, c) => n + (Number(c.attemptsCount) ?? (c.attempts?.length ?? 1)), 0);
+  const rawVerdictRetried = verdictRunsRaw
+    .flatMap((r) => (r.summary?.cases ?? []))
+    .filter((c) => (c.attemptsCount ?? 0) > 1).length;
+  const rawNoVerdictCases = noVerdictRuns
+    .flatMap((r) => (r.summary?.cases ?? []));
+  check('ST-216-7a the cases of a run WITHOUT a verdict do not enter the attempt buckets',
+    o.attempts.total === rawVerdictAttempts
+      && o.cases.attempts === rawVerdictAttempts
+      && o.cases.inconclusiveAttempts === rawNoVerdictCases
+        .reduce((n, c) => n + (Number(c.attemptsCount) ?? 1), 0),
+    `attempts.total=${o.attempts.total} raw(verdict)=${rawVerdictAttempts} `
+    + `inconclusiveAttempts=${o.cases.inconclusiveAttempts} `
+    + `raw(no verdict)=${rawNoVerdictCases.reduce((n, c) => n + (Number(c.attemptsCount) ?? 1), 0)}`);
+  check('ST-216-7b the cases of a run WITHOUT a verdict do not enter the retry metrics',
+    o.cases.retried === rawVerdictRetried,
+    `cases.retried=${o.cases.retried} raw(verdict)=${rawVerdictRetried} `
+    + `inconclusiveRetried=${o.cases.inconclusiveRetried}`);
+  // The cross-run view counts only the runs that carry a verdict.
+  const rawVerdictTestKeys = new Set();
+  for (const r of verdictRunsRaw) {
+    for (const c of (r.summary?.cases ?? [])) {
+      rawVerdictTestKeys.add(JSON.stringify([c.file ?? '', c.scope ?? [], c.line ?? null, c.title ?? '']));
+    }
+  }
+  check('ST-216-7c the cross-run view only counts the runs that carry a verdict',
+    o.tests.total <= rawVerdictTestKeys.size,
+    `tests.total=${o.tests.total} raw(verdict identities)=${rawVerdictTestKeys.size} `
+    + `no-verdict runs=${noVerdictRuns.length}`);
+
+  /* --- ST-216-8: the reconciliation checks the DISPLAYED numbers ------- */
+  // The probe recomputes the numbers the interface DISPLAYS from the raw
+  // run list and compares them with what the module reports. A module
+  // whose displayed numbers do not match the bridge's counters FAILS.
+  const displayedByBucket = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
+  for (const r of verdictRunsRaw) {
+    for (const c of (r.summary?.cases ?? [])) {
+      if (c.status in displayedByBucket) displayedByBucket[c.status] += 1;
+    }
+  }
+  const displayedMatches = o.cases.passed === displayedByBucket.passed
+    && o.cases.failed === displayedByBucket.failed
+    && o.cases.flaky === displayedByBucket.flaky
+    && o.cases.skipped === displayedByBucket.skipped;
+  check('ST-216-8a the displayed case counts match the raw case list of the verdict runs',
+    displayedMatches,
+    `displayed=${JSON.stringify({ passed: o.cases.passed, failed: o.cases.failed, flaky: o.cases.flaky, skipped: o.cases.skipped })} `
+    + `raw=${JSON.stringify(displayedByBucket)}`);
+  // The run buckets: every run is in exactly one of them.
+  const runBucketSum = o.runs.passed + o.runs.failed + o.runs.cancelled + o.runs.error
+    + o.runs.interrupted + o.runs.inFlight + o.runs.unknown;
+  check('ST-216-8b every run is in exactly one run bucket',
+    runBucketSum === runs.length,
+    `bucketSum=${runBucketSum} runs=${runs.length}`);
+
   await killTree(b.cp);
 } catch (err) {
   check('ST-ats216 probe ran to the end', false, err.stack);

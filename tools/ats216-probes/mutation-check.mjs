@@ -21,6 +21,12 @@
  *   5. the retry count is dropped                  (重试不被计数)
  *   6. the ANSI colour codes are kept              (同一个缺陷聚成两类)
  *   7. the attempt count ignores the attempts      (执行次数被抹掉)
+ *   8. the cases of a run without a verdict enter the metrics
+ *                                            (取消的运行污染了判定指标)
+ *   9. the case identity is reduced to the file and the title
+ *                                            (同名的两个用例被合并成一个)
+ *  10. the displayed counts are not reconciled with the bridge
+ *                                            (界面显示的数不再被核对)
  *
  * The module is restored after every mutation, and the script asserts that
  * the restored file is byte-identical to the original.
@@ -91,11 +97,44 @@ const MUTATIONS = [
     needle: 'const attemptsCount = Number.isFinite(c.attemptsCount)\n        ? c.attemptsCount\n        : attempts.length;',
     replacement: 'const attemptsCount = 1;',
   },
+  {
+    // The cases of a run that did not reach a verdict must not enter the
+    // attempt buckets, the retry metrics or the cross-run view.
+    id: 'the cases of a run without a verdict enter the metrics',
+    needle: "      if (group !== 'verdict') {",
+    replacement: "      if (false) {",
+  },
+  {
+    // The cross-run identity must not merge two distinct cases.
+    id: 'the case identity is reduced to the file and the title',
+    needle: 'const tkey = testKeyOf(ref.file, ref.title, identity);',
+    replacement: 'const tkey = testKeyOf(ref.file, ref.title);',
+  },
+  {
+    // The reconciliation must compare the DISPLAYED numbers with the
+    // counters the bridge reported. The mutation removes the check, so a
+    // module that buckets a case wrongly is no longer caught.
+    id: 'the displayed counts are not reconciled with the bridge',
+    needle: "if (!reportedBucketSeen[b]) continue;",
+    replacement: "if (true) continue;",
+  },
 ];
 
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, {
   cwd: repo, encoding: 'utf8', timeout: 600000, ...opts,
 });
+
+/*
+ * LINE ENDINGS.
+ *
+ * The needle of a mutation spans several lines, so it has to match the
+ * file's line endings: a checkout on Windows has CRLF and a checkout on
+ * Linux has LF. The module is therefore matched and mutated in its
+ * NORMALIZED form (LF), and the ORIGINAL BYTES are restored afterwards --
+ * the restore is byte-for-byte, so the line endings of the tree are never
+ * changed by the probe.
+ */
+const normalize = (s) => s.replace(/\r\n/g, '\n');
 
 console.log('=== ATS-216 mutation check: the tests must fail when the module is broken ===');
 console.log(`repo    : ${repo}`);
@@ -103,14 +142,16 @@ console.log(`module  : ${modulePath}`);
 console.log('');
 
 for (const m of MUTATIONS) {
-  const text = original.toString('utf8');
-  const occurrences = text.split(m.needle).length - 1;
+  const text = normalize(original.toString('utf8'));
+  const needle = normalize(m.needle);
+  const replacement = normalize(m.replacement);
+  const occurrences = text.split(needle).length - 1;
   if (occurrences !== 1) {
     check(`${m.id} -- the mutation is unambiguous`, false,
       `the needle occurs ${occurrences} time(s), expected exactly 1`);
     continue;
   }
-  fs.writeFileSync(modulePath, text.replace(m.needle, m.replacement));
+  fs.writeFileSync(modulePath, text.replace(needle, replacement));
 
   const ut = run('node', ['--test', 'tests/quality-overview.test.mjs']);
   const st = run('node', ['tools/ats216-probes/st-ats216.mjs', '.', scratchArg, nodeModulesArg]);

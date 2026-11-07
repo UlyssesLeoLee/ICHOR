@@ -251,6 +251,12 @@ export function mergeWdioReports(reports) {
       title: c.title,
       file: c.file,
       status: c.status,
+      // The IDENTITY of the case, as the model computed it. The WebdriverIO
+      // adapter keys its cases on the file, the title and the ordinal of
+      // the group inside the suite, and that key is what tells two
+      // same-titled cases of one suite apart -- so it travels with the
+      // case, exactly as the describe path does for Playwright.
+      caseKey: c.caseKey ?? null,
       duration: c.duration,
       error: c.error,
       attemptsCount: c.attemptsCount,
