@@ -3,6 +3,10 @@ node_modules/
 out/
 *.tsbuildinfo
 src-tauri/target/
+# The Rust dependency lock file is a BUILD ARTEFACT, not product source:
+# docs/16-BASELINE-ADR.md §5.3 records that it is deliberately NOT under
+# version control, and the desktop shell is not built by the ATS-402 gates.
+src-tauri/Cargo.lock
 .DS_Store
 .env*
 !.env.example
@@ -41,3 +45,20 @@ taskfiles.json
 conflict_groups.json
 wupd_instr.md
 conclusion.md
+
+# The ATS-103 evidence collector's intermediate files. The final log is
+# 06-mutation-evidence.log; the .head/.body pair is how the collector
+# prepends a provenance block to the script's own output.
+docs/evidence/ATS-103/06-mutation-evidence.log.head
+docs/evidence/ATS-103/06-mutation-evidence.log.body
+
+# The review probes are downloaded into the worktree during a review round.
+.probes/
+
+# The same, under the other name a review round uses.
+.probe/
+
+# The reviewer probe material downloaded for a review round: it is INPUT,
+# not a deliverable. The evidence the delivery keeps lives in
+# docs/evidence/ATS-208/.
+.work/

@@ -1,0 +1,69 @@
+=== the ATS-209 unit suite ===
+tree   : C:/tmp/multica-task-3923829175/ats209-final
+commit : 513524289384fd83f2957f3777c65c4bca653950
+
+✔ UT-EVD-001: the manifest names the run it belongs to and carries the digests (5.021ms)
+✔ UT-EVD-002: the manifest does not list itself, the event log or the raw output (2.5494ms)
+✔ UT-EVD-003: the manifest is a function of the run and the folder (2.2281ms)
+✔ UT-EVD-004: the evidence set digest does not depend on the order of the entries (0.2441ms)
+✔ UT-EVD-005: the evidence entries are sorted by their relative path (2.2172ms)
+✔ UT-EVD-006: a symbolic link is not evidence (1.8566ms)
+✔ UT-EVD-007: the digest of a file is the digest of its bytes (0.9229ms)
+✔ UT-EVD-008: a manifest that cannot be read is reported, not treated as empty (1.1619ms)
+✔ UT-EVD-009: an intact evidence set verifies (3.9752ms)
+✔ UT-EVD-010: a file that was changed after the archive is reported as changed (2.4567ms)
+✔ UT-EVD-011: a file that was deleted is reported as missing (3.8132ms)
+✔ UT-EVD-012: a file that was added after the archive is reported as extra (2.8396ms)
+✔ UT-EVD-013: a folder without a manifest cannot be verified (0.7882ms)
+✔ UT-EVD-014: only a terminal run is eligible for the cleaning (0.079ms)
+✔ UT-EVD-015: a run in flight is never expired (0.149ms)
+✔ UT-EVD-016: the expired runs are the terminal ones past the period (0.0934ms)
+✔ UT-EVD-017: a retention period that is not a number is refused (0.3053ms)
+✔ UT-EVD-018: the cleaning removes the evidence and keeps the run record (6.2066ms)
+✔ UT-EVD-019: the cleaning does not touch the run record itself (2.6369ms)
+✔ UT-EVD-020: the cleaning refuses to run while a Bridge holds the directory (0.8345ms)
+✔ UT-EVD-021: a dry run reports what would be removed and removes nothing (1.1073ms)
+✔ UT-EVD-022: the cleaning writes a journal of what it removed (3.0252ms)
+✔ UT-EVD-023: a damaged journal line is reported, not dropped (0.6573ms)
+✔ UT-EVD-024: the retention plan says which runs are expired and how much space they take (2.2155ms)
+✔ UT-EVD-025: the plan touches nothing (1.255ms)
+✔ UT-EVD-026: the deduplication index records the second copy as a duplicate (0.2335ms)
+✔ UT-EVD-027: the index of a state without one is the empty index (0.0822ms)
+✔ UT-EVD-028: a re-scan of a run supersedes what the index said about it (0.0733ms)
+✔ UT-EVD-029: the deduplication report names the content that is stored twice (0.2033ms)
+✔ UT-EVD-030: the key of an evidence copy is derived, not random (0.0443ms)
+✔ UT-EVD-031: the shared bytes are counted once per duplicate (1.6713ms)
+✔ UT-EVD-032: the blob is stored under its own digest (2.9195ms)
+✔ UT-EVD-033: the same content is stored ONCE (3.4833ms)
+✔ UT-EVD-034: a blob whose copy does not match the digest is not stored (2.0685ms)
+✔ UT-EVD-035: a file that is too large is not stored (0.4528ms)
+✔ UT-EVD-036: the run file becomes a hard link to the stored copy (3.6694ms)
+✔ UT-EVD-037: removing the run copy keeps the stored copy (3.8054ms)
+✔ UT-EVD-038: a blob that a run still refers to is not pruned (4.0595ms)
+✔ UT-EVD-039: a blob that no run refers to any more is pruned (3.6871ms)
+✔ UT-EVD-040: the blob path is derived from the digest (0.1399ms)
+✔ UT-EVD-041: a blob whose content was tampered with is not reused (E1) (4.2044ms)
+✔ UT-EVD-042: a manifest entry outside the run folder is refused, not followed (E3) (2.3216ms)
+✔ UT-EVD-043: the cleaning refuses to remove a file outside the run folder (E3) (2.6081ms)
+✔ UT-EVD-044: a manifest that hit the entry limit says so and does not verify (E6) (299.5205ms)
+✔ UT-EVD-045: the run record and the manifest describe the same file set (E6) (118.564ms)
+✔ UT-EVD-046: evidence removed by the retention policy is not reported as a tamper (E7) (6.0193ms)
+✔ UT-EVD-047: a file that vanishes WITHOUT a cleaning record is still a tamper (E7) (3.2874ms)
+✔ UT-EVD-048: the cleaning reports only the files it actually removed (E4) (2.6305ms)
+✔ UT-EVD-049: the deduplication report names the SHARED bytes, not wasted ones (review) (0.1466ms)
+✔ UT-EVD-050: a manifest entry that leaves the run folder through a junction is refused (J1) (2.8541ms)
+✔ UT-EVD-051: the cleaning refuses to remove a file that a junction reaches (J1) (3.4907ms)
+✔ UT-EVD-052: a file that is gone is still reported as missing, not as an escape (J1) (1.5986ms)
+✔ UT-EVD-053: the cleaning record only grows: a second cleaning keeps the first (M1) (5.3183ms)
+✔ UT-EVD-054: a cleaning record does not excuse a truncated manifest that still has files on disk (265.0115ms)
+✔ UT-EVD-055: a truncated manifest whose dropped files were cleaned does not fail the archive (480.7653ms)
+ℹ tests 55
+ℹ suites 0
+ℹ pass 55
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1382.8466
+
+exit code : 0

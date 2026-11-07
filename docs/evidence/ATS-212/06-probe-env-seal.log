@@ -1,0 +1,74 @@
+=== the environment seal: what the runner child received ===
+repo root : /d/ICHOR
+commit    : bb70d57
+branch    : dev
+node      : v24.19.0
+python    : Python 3.11.16
+
+
+=== the bridge ===
+health        : {"ok":true,"version":"0.1.0","mode":"local","node":"v24.19.0"}
+session token : obtained
+
+=== the project ===
+project id    : proj_1_790461258cabb8039e05e3e4
+
+=== 1. a variable that is not on the whitelist ===
+status        : 400
+error         : ENV_VARIABLE_NOT_ALLOWED
+rejected      : [{"name":"NOT_ON_THE_LIST","reason":"the name is not on the environment whitelist of this project"}]
+
+=== 2. a credential-shaped name, even with the whitelist permitting it ===
+status        : 400
+error         : ENV_VARIABLE_NOT_ALLOWED
+rejected      : [{"name":"API_TOKEN","reason":"the name is credential-shaped; a credential belongs in the credential store, not in an environment profile"}]
+
+=== 3. the accepted profile ===
+status        : 200
+profile       : {"id":"env_1_b075bec8560b22cb0075f09e","uid":"env_1_b075bec8560b22cb0075f09e","projectUid":"proj_1_790461258cabb8039e05e3e4","name":"staging","environment":"staging","variables":["BASE_URL","TENANT"],"variableCount":2,"createdAt":"2026-11-06T23:30:37.653Z","updatedAt":"2026-11-06T23:30:37.653Z"}
+carries values: false
+
+=== 4. the run and its environment ===
+status        : 202
+envUid        : env_1_b075bec8560b22cb0075f09e
+envName       : staging
+envTier       : staging
+envVariables  : ["BASE_URL","TENANT"]
+carries values: false
+
+=== 5. what the runner CHILD actually received ===
+the data dir   :
+  bridge.lock
+  evidence-store/
+    9f/
+      cd/
+        9fcd978856f276db7ea81472b6302c78f6737b2ed1e40f51169ed43bd4a460e0
+    c8/
+      39/
+        c839f0489d44ae488c484959b255e85003bb27195aad0e39bfdb6ebe08249a3f
+  metadata.db
+  runs/
+    run_1_c49090dba1ac9024f9c2d90c/
+      events.jsonl
+      manifest.json
+      report.json
+      report.json.env.json
+      stdout.log
+  state.json
+  
+BASE_URL          : https://staging.example
+TENANT            : acme
+HOST_SECRET_MARKER: (absent) -- the host secret did NOT reach the child
+PATH              : (present)
+key count         : 24
+the keys          : BASE_URL, CI, ComSpec, FORCE_COLOR, HOME, HOMEDRIVE, HOMEPATH, LANG, LOGONSERVER, PATH, PATHEXT, PLAYWRIGHT_HTML_OPEN, PLAYWRIGHT_HTML_OUTPUT_DIR, PLAYWRIGHT_JSON_OUTPUT_FILE, SYSTEMDRIVE, SystemRoot, TEMP, TENANT, TMP, TMPDIR, USERDOMAIN, USERNAME, USERPROFILE, windir
+
+=== 6. the manifest of the run ===
+manifest.env     : {"uid":"env_1_b075bec8560b22cb0075f09e","name":"staging","tier":"staging","variables":["BASE_URL","TENANT"]}
+carries values   : false
+
+=== 7. a run that references a profile that does not exist ===
+status        : 404
+error         : ENV_PROFILE_NOT_FOUND
+
+exit code : 0

@@ -1,0 +1,9 @@
+=== ATS-602 evidence: the release manifest ===
+tree : 69b6fdf90b9f13e80ad57ef48d1c7af49a90cb54
+date : 2026-11-06T22:42:19Z
+
+manifest entries : 616
+digest mismatches: 0
+tracked-not-listed: 1 ['tools/ats602-probes/collect-evidence.sh']
+listed-not-tracked: 0 []
+RESULT: MISMATCH

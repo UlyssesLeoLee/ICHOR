@@ -1,0 +1,31 @@
+=== the probes of the second review round ===
+repo root : /d/d/ats208-landing
+commit    : 981e2c7
+node      : v24.19.0
+
+probes    : .work/r2/probes-r2
+
+--- wdio-dup: does the WDIO merge hide a failure? ---
+ok   a retried test: fail, then pass: [failed,passed] -> total=1 failed=0 flaky=1 passed=0 cases=["flakyx2"]  (expected total=1 failed=0)
+ok   two distinct same-titled tests, both pass (a pass is never retried): [passed,passed] -> total=2 failed=0 flaky=0 passed=2 cases=["passedx1","passedx1"]  (expected total=2 failed=0)
+ok   two distinct same-titled tests: pass, then fail (a pass is never retried): [passed,failed] -> total=2 failed=1 flaky=0 passed=1 cases=["passedx1","failedx1"]  (expected total=2 failed=1)
+ok   forEach-style: pass, fail, pass (data-driven, same title): [passed,failed,passed] -> total=2 failed=0 flaky=1 passed=1 cases=["passedx1","flakyx2"]  (expected total=2 failed=0)
+
+RESULT: 0 failed check(s)
+exit code : 0
+
+--- verdict-unknown: does an unknown verdict become passed? ---
+ok   "failed, no case status": attempts=[failed] -> case.status=failed outcome=unknown
+ok   "failed, unknown case status": attempts=[failed] -> case.status=failed outcome=unknown
+aggregateVerdicts(['unknown']) = null
+summary {"passed":0,"failed":2,"total":2}
+
+RESULT: 0 failed check(s)
+exit code : 0
+
+--- replay-contract: does the replay report lost or reused numbers? ---
+ok   leading hole (events 1..2 lost): sequence=[3] gaps=[1,2] valid=true violations=0 status=interrupted
+ok   duplicate sequence number: sequence=[1,2,2] gaps=[] valid=false violations=0 status=passed
+
+RESULT: 0 failed check(s)
+exit code : 0

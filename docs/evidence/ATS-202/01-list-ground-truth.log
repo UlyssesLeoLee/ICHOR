@@ -1,0 +1,55 @@
+=== command ===
+node tools/ats202-probes/list-ground-truth.mjs
+=== output ===
+--- installing the real @playwright/test ---
+
+=== 1. the report shape ===
+  PASS  the CLI exits 0 on a successful listing
+  PASS  a JSON report is written
+  PASS  the report carries config/rootDir/suites/errors/stats
+  PASS  the CLI version is reported
+  PASS  the report names rootDir
+  PASS  every spec carries an id
+  PASS  the spec id has the shape <hex>-<hex>
+
+=== 2. the reported file spelling ===
+  PASS  the file is relative to rootDir, not to the project root
+  PASS  rootDir is the resolved testDir
+
+=== 3. what the spec id identifies ===
+  PASS  two tests in one file share the file half of the id
+  PASS  two tests in one file differ in the test half of the id
+  PASS  the listing is deterministic
+  PASS  the id survives an edit of the test body
+  PASS  the id of ANOTHER test in the same file is unaffected
+  PASS  the id is NOT positional: inserting a test above does not change it
+  PASS  the id CHANGES when the test is renamed
+  PASS  the id CHANGES when the file is renamed
+
+=== 4. how a describe path is reported ===
+  PASS  the spec title is the LEAF title, without the describe path
+  PASS  the describe path is reported through the suite nesting
+  PASS  the line points at the test() call
+
+=== 5. a matrix of Playwright projects ===
+  PASS  the same logical case is reported once per project
+  PASS  each project gets its own spec id
+  PASS  each row names its project
+
+=== 6. what --list executes ===
+  PASS  the listing LOADS the project config (it executes its top level)
+  PASS  the listing does NOT run globalSetup
+  PASS  the listing EXECUTES the top level of the spec files (this is why --list needs a trusted repository)
+  PASS  the listing does NOT run the test bodies
+
+=== 7. how the CLI fails ===
+  PASS  a broken config exits non-zero
+  PASS  a broken config produces NO report file
+  PASS  a broken config explains itself on stderr
+  PASS  a duplicate title exits non-zero
+  PASS  a duplicate title is reported in errors[]
+  PASS  a project with no tests exits non-zero
+  PASS  a project with no tests is reported as "No tests found"
+
+RESULT: OK
+=== exit code: 0 ===

@@ -100,13 +100,26 @@ v0.1 の Bridge は Playwright Test CLI を直接起動していた。引数ベ�
   contractVersion: 1,              // ADAPTER_CONTRACT_VERSION と一致すること
   capabilities(project) -> Cap[],  // プロジェクトごとの能力行列
   discover(project) -> { tests, files, warning, runner },
-  start({project, run, file, outputDir}) -> { child, pid, command, args, ... },
+  start({project, run, file, outputDir, env}) -> { child, pid, command, args, ... },
   stop(handle),
   collect({outputDir}) -> { summary, ... } | null,
 }
 ```
 
 `assertAdapter()` が登録時に形を検証する（欠落 operation / バージョン不一致は登録時に落ちる）。
+
+#### 4.1.1 `env` — 渡される子プロセス環境（ATS-212）
+
+`start` は `env` を受け取る。これは **子プロセスが受け取る環境そのもの**であり、既定は「宿主の環境を複製する」ではない。
+
+Bridge 側（`server/index.mjs`）は `buildRunnerEnv(profile, {baseEnv})` で環境を組み立て、アダプタはそれをそのまま `spawn` の `env` に渡す。环境は**封口**されている:
+
+- 平台基础键（`PATH` / `SystemRoot` / `ComSpec` 等）+ 白名单で筛选された档案変数のみ
+- **宿主の `process.env` は継承しない**（操作者の shell 里的云凭据不会进到被测代码，也不会被写进归档为证据的报告）
+- 档案がない場合も同样封口（基础键仍齐全，子进程照样跑得起来）
+- アダプタ自身の出力変数（報告の書き先）は**最後に**適用される——エンジンの契約は、報告がアダプタ指定の場所に書かれることだから
+
+この `env` を受け取るのは **Runner 境界**（`server/adapters/playwright.mjs` と `server/adapters/wdio.mjs`）だけである。`discover` のような宿主側の経路は `process.env` を参照してよい——それはBridge自身のプロセスであり、被测代码ではない。
 
 ### 4.2 能力行列はプロジェクトごとに計算する
 
@@ -318,7 +331,7 @@ Playwright CLI には `--screenshot` / `--video` が無い。これらは `playw
 | 操作 | Bridge の経路 | 契約か否か |
 |---|---|---|
 | discover | `GET /api/projects/:id/tests` → `discoverStatic()`（`server/core.mjs`） | **契約ではない**（v0.1 経路） |
-| start | `adapter.start({project, run, file, outputDir})` | 契約 |
+| start | `adapter.start({project, run, file, outputDir, env})` | 契約 |
 | stop | `POST /api/runs/:id/stop` → `cancelRun()` が `taskkill` を inline 実行（`server/index.mjs`） | **契約ではない**（v0.1 経路） |
 | collect | `adapter.collect({outputDir})` | 契約 |
 
@@ -385,6 +398,25 @@ Playwright CLI には `--screenshot` / `--video` が無い。これらは `playw
 | `09-filterbyfile-c1.log` | C1（Playwright の位置引数フィルタ）が本物であることの実測 | `bash tools/ats401-probes/collect-evidence.sh`（`05-review-regressions.log`） |
 | `10-port-audit.log` | ATS-101 シナリオ D のハードコードポート監査の実測 | `node tools/ats101-probes/scenario-d-port-audit.mjs` |
 | `11-wbs-ats301-note.log` | 合併後の工作簿における ATS-301 行の実テキストと updater の出力の比対 | `PYTHONUTF8=1 python tools/ats301-probes/show-ats301-note.py` |
+| `12-clean-clone-npm-test.log` | **クリーン checkout**（fixture 未インストール、`node_modules` 無し）での `npm test`。0 fail であること、skip が明示されることを確認する（D1 の証拠） | `bash tools/ats301-probes/collect-review4-evidence.sh` |
+| `13-lf-clone-verify-checksums.log` | **LF checkout**（`core.autocrlf=false`、manifest は commit された blob の LF のまま）での `verify_checksums.py`。`RESULT: OK` を確認する（D3 の証拠） | `bash tools/ats301-probes/collect-review4-evidence.sh` |
+| `14-workflow-gate-parity.log` | workflow とローカル門禁の**逐一対応**（D2 の証拠）。`--check-parity` が workflow を読み、各 `run:` とローカル門禁のコマンドを両方向に比較する | `bash tools/ats301-probes/collect-review4-evidence.sh` |
+
+#### 環境条件について（重要）
+
+上記 3 ログは**実行条件ごと**に記録されている。レビューは「どの環境で確認したか」を
+明示的に要求した。具体的には:
+
+| ログ | checkout | fixture | `core.autocrlf` | manifest の改行 |
+|---|---|---|---|---|
+| `12-clean-clone-npm-test.log` | 新しい clone | **無し**（`npm install` を実行しない） | デフォルト | LF |
+| `13-lf-clone-verify-checksums.log` | 新しい clone | 無し | **`false`**（clone 時に指定） | **LF** |
+| `14-workflow-gate-parity.log` | 作業ツリー | 無し | 依存しない | 依存しない |
+
+「一つの環境で通った」は「検証した」ではない。第 3 次のレビューで問題になったのは
+、まさに**前のラウンドが fixture 入り・CRLF の環境だけで検証し、clean checkout と
+LF checkout で壊れていることに気づかなかった**ことである。この 3 ログはその 2 つの
+環境を明示的に再現する。
 
 ### 10.2 門禁
 
@@ -399,6 +431,34 @@ WBS の共有セル回帰テスト（`tools/test_wbs_common.py`）、ADR 引用�
 **ポート監査を門禁に含める理由**：ATS-301 の納品で「ポート番号を含むソースファイル」を追加したことで ATS-101 のポート監査が赤くなったが、ポート監査を走らせていない門禁ではこの型の回帰を検出できない。門禁が通ってもポート監査が落ちるという状態を作り出さないため、監査を門禁の一部として組み込む。
 
 この門禁は CI（`.github/workflows/ats-102-build.yml`）でも `npm run gate:ats301` として走る。
+
+#### ATS-102 の「ローカル門禁 = workflow」一致を機械的に検証する
+
+`tools/ci_build_gate.mjs` は「EXACTLY the steps that ats-102-build.yml runs」を
+主張するが、**コメントは失敗できない**。ATS-301 が workflow に「Run the ATS-301
+gate」を追加した際、ローカル門禁にはその手順が無く、主張と実体が乖離したまま
+誰にも気づかれなかった。
+
+そこで主張を**検査する**ようにした:
+
+```
+node tools/ci_build_gate.mjs --check-parity
+```
+
+この検査は workflow ファイルを**読み**、各 `run:` コマンドとローカル門禁が発行する
+コマンドを**両方向に**突き合わせる。片側だけにある手順は名前付きで報告される。
+workflow 側の手順は**ハードコードした表ではなく YAML から解析**するため、
+「誰かが workflow に手順を追加したがローカル門禁には無い」型の回帰も検出できる
+（表方式ではこの方向を見逃す）。
+
+この検査は CI の workflow 自身にも手順として実行される:
+
+```yaml
+- name: Verify the local build gate matches this workflow
+  run: node tools/ci_build_gate.mjs --check-parity
+```
+
+したがって「workflow とローカル門禁の不一致」は CI 自体が赤くなる。
 
 スクリプト自身が `PYTHONUTF8=1` / `PYTHONIOENCODING=utf-8` を設定し、解釈系と stdout エンコーディングを evidence に記録する
 （既定の Windows コンソールは stdout が ANSI コードページ (gbk/cp936) になり、中国語を含む出力が壊れる）。

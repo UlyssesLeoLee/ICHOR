@@ -13,7 +13,11 @@ about to write. The derivation is:
     B9  = IFERROR(1 - SUM(开发WBS!P6:P94) / SUM(开发WBS!K6:K94), 0)
     B10 = SUM(开发WBS!P6:P94)
 
-The row range (6..94) mirrors the formulas stored in the workbook.
+The row range (6..94) mirrors the formulas stored in the workbook. It is
+NOT a constant: the sheet grew when ATS-601 appended the mobile rows, and
+the formulas in the workbook were grown with it. `totals()` therefore
+derives the last row from the SHEET (`last_data_row`), so the cached value
+always agrees with the formula that produced it.
 """
 import re
 import struct
@@ -37,8 +41,9 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-301】', '【ATS-401】',
-           '【ATS-501】', '【ATS-506】', '【ATS-512】')
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-204】', '【ATS-205】',
+           '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-216】', '【ATS-301】',
+           '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】', '【ATS-601】', '【ATS-602】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -81,14 +86,70 @@ NARRATIVE_FRAGMENTS = {
         'D7': 'CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md',
     },
     '【ATS-103】': {
-        'D6': 'Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过（ATS-103）',
+        'D6': 'Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过，'
+              '真实 headless Chromium 驱动导出页 7/7 通过（ATS-103）',
         'D7': '静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；'
-              '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112，'
+              '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112；'
+              'Bridge 静态路由只覆盖 /，目录索引与 404 未实现；'
               '详见 docs/22-FRONTEND-EXPORT.md',
     },
     '【ATS-401】': {
         'D6': 'Agent 契约层已实现',
         'D7': '详见 docs/17-AGENT-CONTRACT.md',
+    },
+    '【ATS-202】': {
+        'D6': '权威发现已实现（ATS-202：playwright test --list；未可信仓库回退静态索引）',
+        'D7': '权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；'
+              '详见 docs/23-AUTHORITATIVE-DISCOVERY.md',
+    },
+    '【ATS-204】': {
+        'D6': '身份映射器已实现（ATS-204：改名/改标题后的 UID 重识别、动态用例的锚点、'
+              '歧义不误关联）',
+        'D7': '跨机器的用例身份不在本任务范围（Project UID 依赖绝对路径）；'
+              '详见 docs/26-IDENTITY-MAPPER.md',
+    },
+    '【ATS-205】': {
+        'D6': 'SQLite 元数据层已实现（ATS-205：WAL、版本迁移与事务；state.json 的镜像）',
+        'D7': '元数据层当前只做 state.json 的镜像，不提供查询 API；'
+              '详见 docs/06-DATA-DESIGN.md §5',
+    },
+    '【ATS-206】': {
+        'D6': '状态数据迁移 CLI 已实现（ATS-206：安全导入、备份与回滚；数量一致）',
+        'D7': '迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；'
+              '详见 docs/24-STATE-MIGRATION.md',
+    },
+    '【ATS-207】': {
+        'D6': '数据目录单实例锁与崩溃恢复已实现（ATS-207：原子抢锁、持有者校验、'
+              'state.json 落盘同步、损坏镜像隔离重建）',
+        'D7': '断电只以强杀进程模拟，未做真实掉电；桌面壳不显示占用提示；'
+              '详见 docs/06-DATA-DESIGN.md §5.7',
+    },
+    '【ATS-208】': {
+        'D6': '执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，'
+              '事件可按 run+sequence 复演）',
+        'D7': '执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；'
+              '详见 docs/06-DATA-DESIGN.md §5.4',
+    },
+    '【ATS-212】': {
+        'D6': '项目级环境档案与 runner 环境封口已实现（ATS-212：档案按项目命名空间；'
+              '只有白名单内的变量可传递；runner 不继承宿主环境）',
+        'D7': '凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；'
+              '详见 docs/04-DETAILED-DESIGN.md §5A',
+    },
+    '【ATS-209】': {
+        'D6': '证据清单与保留策略已实现（ATS-209：清单带所属运行与整组摘要、'
+              '内容寻址去重、到期清理只删证据不删 Run 元数据）',
+        'D7': '证据清单未签名（不得宣称 WORM 或防篡改等级），'
+              '清理掉证据后清单与文件夹不再一致（校验会如实报 missing）；'
+              '详见 docs/27-EVIDENCE-MANIFEST.md',
+    },
+    '【ATS-216】': {
+        'D6': '质量概览模块已实现（ATS-216：失败聚类/Flaky 基础指标，非 AI；'
+              '失败/重试/取消分开计数，指标与原始结果可核对）',
+        'D7': '质量概览已在真实 Chromium 里实测渲染（两个界面都打开质量概览页、指标与对账表都渲染、'
+              '两界面数字一致、无 console 错误），但人工可用性（无障碍/键盘/加载态）未评测，属 ATS-111；'
+              '聚类只到「错误文本归一化后的签名」，不做根因判断；'
+              '详见 docs/28-QUALITY-OVERVIEW.md',
     },
     '【ATS-501】': {
             'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',
@@ -105,6 +166,18 @@ NARRATIVE_FRAGMENTS = {
             'D6': '插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）',
             'D7': '插件宿主与沙箱未实现（ATS-512 只交付契约层）；'
                   '详见 docs/21-PLUGIN-CONTRACT.md',
+            },
+        '【ATS-601】': {
+            'D6': '移动端目标与会话契约已实现（ATS-601：三类目标、会话状态机、能力协商与拒绝规则；'
+                  '无真实设备）',
+            'D7': '移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；'
+                  '详见 docs/25-MOBILE-APP-TESTING.md',
+        },
+        '【ATS-602】': {
+            'D6': '移动端 Flow 导入映射已实现（ATS-602：跨引擎用例模型、映射规则与导入报告；'
+                  '不支持的步骤保留原文并标记，不静默丢弃）',
+            'D7': '移动端执行面仍无任何实现（ATS-602 只交付用例模型与导入映射；'
+                  '真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md',
         },
     }
 
@@ -459,12 +532,36 @@ def sheet_cells(parts, sheet_name):
     return rows
 
 
+def last_data_row(rows):
+    """The last row of the 开发WBS sheet that carries a task.
+
+    The sheet GREW: ATS-601 appended the mobile rows, so the range that the
+    总览 formulas cover (6..N) is not a constant any more -- it is written
+    into the workbook by whoever grew the sheet, and the derivations have to
+    follow it. A derivation that kept the old constant would silently drop
+    the appended rows from the totals, and the cached 总览 value would
+    disagree with the formula that produced it.
+    """
+    last = FIRST_ROW - 1
+    for rid, cells in rows.items():
+        if rid < FIRST_ROW:
+            continue
+        if (cells.get('A') or '').startswith('ATS-'):
+            last = max(last, rid)
+    return last
+
+
 def totals(parts=None):
     """Return the 总览 figures derived from the 开发WBS sheet.
 
     Returns a dict with `completed` (count of 已完成), `sum_estimate`
     (SUM of K), `sum_remaining` (SUM of P) and `completion_rate`
     (1 - SUM(P)/SUM(K), 0 when there is nothing to divide).
+
+    THE ROW RANGE FOLLOWS THE SHEET, not a hardcoded constant: the sheet
+    grew when ATS-601 appended the mobile rows, and the 总览 formulas in
+    the workbook were grown with it. A derivation over the old constant
+    would leave the cached 总览 value disagreeing with its own formula.
     """
     if parts is None:
         parts = read_parts()
@@ -472,7 +569,7 @@ def totals(parts=None):
     completed = 0
     sum_estimate = 0.0
     sum_remaining = 0.0
-    for rid in range(FIRST_ROW, LAST_ROW + 1):
+    for rid in range(FIRST_ROW, last_data_row(rows) + 1):
         cells = rows.get(rid)
         if not cells:
             continue

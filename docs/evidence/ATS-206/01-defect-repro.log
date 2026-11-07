@@ -1,0 +1,25 @@
+=== the ATS-206 defect probe -- BEFORE the fix ===
+repo root : /tmp/multica-task-1424564649/ats206-base
+base commit: 3a9d1e302556bd4bdca34764e575a6a33b3c1d2a
+node      : v24.19.0
+
+This is the ATS-201 migration as it was on the base commit: the state
+is rebuilt from a fixed set of keys, so a key the migration does not
+know about is dropped, and a map that is keyed by the project
+identifier is not re-keyed.
+
+=== the ATS-206 defect probe ===
+the legacy project id : proj_11111111-1111-1111-1111-111111111111
+the migrated project  : proj_1_4e4d0411dc4fc16b734efa2b
+
+(A) the trust map
+    present in the migrated state : NO  <<DROPPED>>
+
+(B) the UID registry
+    the registry keys              : ["proj_11111111-1111-1111-1111-111111111111"]
+    reachable under the new UID    : NO  <<UNREACHABLE>>
+    still under the legacy key     : YES
+
+VERDICT: DATA LOSS: a map is dropped or unreachable
+
+exit code : 0

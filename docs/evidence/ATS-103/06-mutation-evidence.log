@@ -1,0 +1,702 @@
+=== ATS-103 evidence: mutation evidence ===
+date      : 2026-11-07T00:05:57Z (UTC)
+commit    : e15e37da351945efe0e08a7643feddf8c6f8d9a0
+node      : v22.23.4
+npm       : 10.9.9
+command   : bash tools/ats103-probes/mutation-evidence.sh
+
+=== ATS-103 evidence: mutation evidence ===
+date      : 2026-11-07T00:07:19Z (UTC)
+commit    : e15e37da351945efe0e08a7643feddf8c6f8d9a0
+node      : v22.23.4
+npm       : 10.9.9
+
+Each mutation below breaks ONE claim the probe makes. The probe's
+corresponding check must turn RED (FAIL) and the probe must exit 1.
+A mutation that leaves the probe green means the check was vacuous.
+
+======================================================================
+MUTATION A -- an app/api/session route handler in the app source
+======================================================================
+
+Claim under test:
+  PASS  the export contains no server-side API route output
+
+This mutation has two shapes, and they prove different things:
+  A  -- a handler WITHOUT force-static: Next.js refuses it at BUILD
+        time, so the export is never produced. This proves that the
+        build rejects such a route; it does NOT exercise the
+        export-tree assertion, because there is no export tree.
+  A' -- a handler WITH force-static: the build SUCCEEDS and the
+        handler is prerendered into the export as out/api/session.
+        This is the shape that makes the export-tree assertion turn
+        RED, and it is the one that proves the assertion works.
+
+--- mutation: apps/studio/app/api/session/route.ts (no force-static) ---
+export function GET() { return Response.json({ proxiedByNext: true }); }
+
+--- next build (the mutated source) ---
+
+> @ai-test-studio/ui@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 26ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1308ms
+  Running TypeScript ...
+  Finished TypeScript in 1840ms ...
+  Collecting page data using 5 workers ...
+Error: export const dynamic = "force-static"/export const revalidate not configured on route "/api/session" with "output: export". See more info here: https://nextjs.org/docs/advanced-features/static-html-export
+    at Object.<anonymous> (C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\.next\server\app\api\session\route.js:5:3)
+
+> Build error occurred
+Error: Failed to collect page data for /api/session
+    at ignore-listed frames {
+  type: 'Error'
+}
+BUILD_EXIT=1
+
+--- what the build said about the route under output: 'export' ---
+MUTATION A -- an app/api/session route handler in the app source
+        handler is prerendered into the export as out/api/session.
+--- mutation: apps/studio/app/api/session/route.ts (no force-static) ---
+Error: export const dynamic = "force-static"/export const revalidate not configured on route "/api/session" with "output: export". See more info here: https://nextjs.org/docs/advanced-features/static-html-export
+Error: Failed to collect page data for /api/session
+  type: 'Error'
+
+--- the export tree after the build ---
+ls: cannot access 'apps/studio/out/api/': No such file or directory
+
+--- the probe against the mutated export ---
+(the build refused the route, so there is no export to probe;
+ the refusal IS the finding this shape proves)
+FAIL  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
+FAIL  export contains index.html  --  the export directory does not exist
+FAIL  export contains 404.html  --  the export directory does not exist
+FAIL  export contains _next/static assets  --  the export directory does not exist
+FAIL  the export contains no server-side API route output  --  the export directory does not exist
+FAIL  every asset referenced by index.html exists on disk  --  the export directory does not exist
+FAIL  the shipped bundle carries a comparison of the page location port  --  the export directory does not exist
+FAIL  bridge boots and answers /api/health  --  the export directory does not exist
+FAIL  bridge serves the exported index.html at /  --  the export directory does not exist
+FAIL  the served page carries a CSP that allows the API origin  --  the export directory does not exist
+FAIL  the bridge serves the exported chunk  --  the export directory does not exist
+FAIL  GET /api/session returns a token  --  the export directory does not exist
+FAIL  a foreign Origin is rejected (403)  --  the export directory does not exist
+FAIL  an unauthenticated API call is rejected (401)  --  the export directory does not exist
+FAIL  GET /api/projects succeeds with the session token  --  the export directory does not exist
+FAIL  POST /api/projects registers the sample Playwright project  --  the export directory does not exist
+FAIL  GET /api/projects/{id}/tests returns the static index  --  the export directory does not exist
+FAIL  POST /api/projects/{id}/run is accepted (202)  --  the export directory does not exist
+FAIL  the accepted run reaches a passed/failed terminal state  --  the export directory does not exist
+FAIL  the terminal run reports a per-case result set  --  the export directory does not exist
+FAIL  the terminal run summary matches the on-disk report.json  --  the export directory does not exist
+FAIL  the terminal run collected artefacts  --  the export directory does not exist
+FAIL  the collected artefacts include report.json  --  the export directory does not exist
+FAIL  GET /api/runs lists the run history  --  the export directory does not exist
+PASS  the probe executed every registered check  --  25/25 checks executed
+
+RESULT: FAILED -- 1/25 checks passed.
+  FAILED: export directory exists (apps/studio/out)  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
+  FAILED: export contains index.html  the export directory does not exist
+  FAILED: export contains 404.html  the export directory does not exist
+  FAILED: export contains _next/static assets  the export directory does not exist
+  FAILED: the export contains no server-side API route output  the export directory does not exist
+  FAILED: every asset referenced by index.html exists on disk  the export directory does not exist
+  FAILED: the shipped bundle carries a comparison of the page location port  the export directory does not exist
+  FAILED: bridge boots and answers /api/health  the export directory does not exist
+  FAILED: bridge serves the exported index.html at /  the export directory does not exist
+  FAILED: the served page carries a CSP that allows the API origin  the export directory does not exist
+  FAILED: the bridge serves the exported chunk  the export directory does not exist
+  FAILED: GET /api/session returns a token  the export directory does not exist
+  FAILED: a foreign Origin is rejected (403)  the export directory does not exist
+  FAILED: an unauthenticated API call is rejected (401)  the export directory does not exist
+  FAILED: GET /api/projects succeeds with the session token  the export directory does not exist
+  FAILED: POST /api/projects registers the sample Playwright project  the export directory does not exist
+  FAILED: GET /api/projects/{id}/tests returns the static index  the export directory does not exist
+  FAILED: POST /api/projects/{id}/run is accepted (202)  the export directory does not exist
+  FAILED: the accepted run reaches a passed/failed terminal state  the export directory does not exist
+  FAILED: the terminal run reports a per-case result set  the export directory does not exist
+  FAILED: the terminal run summary matches the on-disk report.json  the export directory does not exist
+  FAILED: the terminal run collected artefacts  the export directory does not exist
+  FAILED: the collected artefacts include report.json  the export directory does not exist
+  FAILED: GET /api/runs lists the run history  the export directory does not exist
+PROBE_EXIT=1
+
+======================================================================
+MUTATION A' -- the same route handler, WITH force-static
+======================================================================
+
+Claim under test (the export-tree assertion itself):
+  PASS  the export contains no server-side API route output
+
+The build does NOT refuse this shape: the handler is prerendered
+into the export as the static file out/api/session. The probe must
+therefore report
+  FAIL  the export contains no server-side API route output -- found: api/session
+and exit 1. This is the shape that exercises the assertion's own
+traversal logic.
+
+--- mutation: apps/studio/app/api/session/route.ts (with force-static) ---
+export const dynamic = 'force-static';
+export function GET() { return Response.json({ proxiedByNext: true }); }
+
+--- next build (the mutated source, force-static) ---
+
+> @ai-test-studio/ui@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 28ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1275ms
+  Running TypeScript ...
+  Finished TypeScript in 1815ms ...
+  Collecting page data using 5 workers ...
+  Generating static pages using 5 workers (0/4) ...
+  Generating static pages using 5 workers (1/4) 
+  Generating static pages using 5 workers (2/4) 
+  Generating static pages using 5 workers (3/4) 
+✓ Generating static pages using 5 workers (4/4) in 659ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+└ ○ /api/session
+
+
+○  (Static)  prerendered as static content
+
+BUILD_EXIT=0
+
+--- the export tree after the build ---
+total 5
+drwxr-xr-x 1 seiko 197610  0 11月  7 09:07 .
+drwxr-xr-x 1 seiko 197610  0 11月  7 09:07 ..
+-rw-r--r-- 1 seiko 197610 22 11月  7 09:07 session
+
+--- the probe against the mutated export ---
+PASS  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
+PASS  export contains index.html  --  13679 bytes
+PASS  export contains 404.html
+PASS  export contains _next/static assets
+FAIL  the export contains no server-side API route output  --  found: api/session
+PASS  every asset referenced by index.html exists on disk (9 assets)
+PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
+PASS  bridge boots and answers /api/health
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 13679 bytes
+PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
+PASS  the bridge serves the exported chunk /_next/static/chunks/04p_vbrqf_cr7.js  --  HTTP 200
+PASS  GET /api/session returns a token
+PASS  a foreign Origin is rejected (403)  --  HTTP 403
+PASS  an unauthenticated API call is rejected (401)  --  HTTP 401
+PASS  GET /api/projects succeeds with the session token
+PASS  POST /api/projects registers the sample Playwright project  --  HTTP 201
+PASS  GET /api/projects/{id}/tests returns the static index  --  2 tests
+PASS  POST /api/projects/{id}/run is accepted (202)  --  HTTP 202
+PASS  the accepted run reaches a passed/failed terminal state  --  status=failed
+PASS  the terminal run reports a per-case result set  --  2 cases
+PASS  the terminal run summary matches the on-disk report.json  --  summary and report.json agree (1/1/0/0/2)
+PASS  the terminal run collected artefacts  --  28 artefacts
+PASS  the collected artefacts include report.json  --  1 report.json entries
+
+--- run detail (diagnostic) ---
+  status    : failed
+  error     : (none)
+  reportWarn: (none)
+  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-xCIeYW\runs\run_1_6309f0b4291e8960fef90d4d\results --trace on --workers 1
+  log tail  : 
+    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-xCIeYW\runs\run_1_6309f0b4291e8960fef90d4d\results\home-导航入口正常-REQ-002\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    D:\hermes-multica\home\cache\scratch\tmp\ats103-xCIeYW\runs\run_1_6309f0b4291e8960fef90d4d\results\home-导航入口正常-REQ-002\trace.zip
+    Usage:
+
+        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-xCIeYW\runs\run_1_6309f0b4291e8960fef90d4d\results\home-导航入口正常-REQ-002\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests\home.spec.ts:22:1 › 导航入口正常 @REQ-002 ──────────────────────────────────────────────────────
+  1 passed (6.0s)
+
+--- end run detail ---
+
+PASS  GET /api/runs lists the run history  --  1 runs
+PASS  the probe executed every registered check  --  25/25 checks executed
+
+RESULT: FAILED -- 24/25 checks passed.
+  FAILED: the export contains no server-side API route output  found: api/session
+PROBE_EXIT=1
+
+
+> @ai-test-studio/ui@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 26ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1139ms
+  Running TypeScript ...
+  Finished TypeScript in 1815ms ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/3) ...
+✓ Generating static pages using 4 workers (3/3) in 597ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+
+CLEAN_REBUILD_EXIT=0
+
+======================================================================
+MUTATION B -- the API base is a build-time constant
+======================================================================
+
+Claim under test:
+  PASS  the shipped bundle carries a comparison of the page location port
+
+--- mutation: apps/studio/lib/api.ts ---
+  before: (the runtime base definition in apps/studio/lib/api.ts)
+  after : const root=()=>'http://127.0.0.1:4577';
+
+--- next build (the mutated source) ---
+
+> @ai-test-studio/ui@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 25ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1221ms
+  Running TypeScript ...
+  Finished TypeScript in 1783ms ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/3) ...
+✓ Generating static pages using 4 workers (3/3) in 581ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+
+BUILD_EXIT=0
+
+--- the HTTP probe against the mutated export ---
+(the static heuristic must turn RED here: no location.port comparison)
+PASS  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
+PASS  export contains index.html  --  13679 bytes
+PASS  export contains 404.html
+PASS  export contains _next/static assets
+PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
+PASS  every asset referenced by index.html exists on disk (9 assets)
+FAIL  the shipped bundle carries a comparison of the page location port  --  reads location.port: false, compares it: false, references /api/session: true
+PASS  bridge boots and answers /api/health
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 13679 bytes
+PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
+PASS  the bridge serves the exported chunk /_next/static/chunks/0-x_zj0ch3xht.js  --  HTTP 200
+PASS  GET /api/session returns a token
+PASS  a foreign Origin is rejected (403)  --  HTTP 403
+PASS  an unauthenticated API call is rejected (401)  --  HTTP 401
+PASS  GET /api/projects succeeds with the session token
+PASS  POST /api/projects registers the sample Playwright project  --  HTTP 201
+PASS  GET /api/projects/{id}/tests returns the static index  --  2 tests
+PASS  POST /api/projects/{id}/run is accepted (202)  --  HTTP 202
+PASS  the accepted run reaches a passed/failed terminal state  --  status=failed
+PASS  the terminal run reports a per-case result set  --  2 cases
+PASS  the terminal run summary matches the on-disk report.json  --  summary and report.json agree (1/1/0/0/2)
+PASS  the terminal run collected artefacts  --  28 artefacts
+PASS  the collected artefacts include report.json  --  1 report.json entries
+
+--- run detail (diagnostic) ---
+  status    : failed
+  error     : (none)
+  reportWarn: (none)
+  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-8snbJ5\runs\run_1_6309f0b4291e8960fef90d4d\results --trace on --workers 1
+  log tail  : 
+    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-8snbJ5\runs\run_1_6309f0b4291e8960fef90d4d\results\home-导航入口正常-REQ-002\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    D:\hermes-multica\home\cache\scratch\tmp\ats103-8snbJ5\runs\run_1_6309f0b4291e8960fef90d4d\results\home-导航入口正常-REQ-002\trace.zip
+    Usage:
+
+        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-8snbJ5\runs\run_1_6309f0b4291e8960fef90d4d\results\home-导航入口正常-REQ-002\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests\home.spec.ts:22:1 › 导航入口正常 @REQ-002 ──────────────────────────────────────────────────────
+  1 passed (6.0s)
+
+--- end run detail ---
+
+PASS  GET /api/runs lists the run history  --  1 runs
+PASS  the probe executed every registered check  --  25/25 checks executed
+
+RESULT: FAILED -- 24/25 checks passed.
+  FAILED: the shipped bundle carries a comparison of the page location port  reads location.port: false, compares it: false, references /api/session: true
+PROBE_EXIT=1
+
+--- the EXECUTED discriminator against the mutated export ---
+(this one must turn RED too: the API requests leave for the numeric address)
+PASS  the exported page loads in a real browser  --  HTTP 200, http://localhost:4577/
+PASS  the page's own session call succeeds  --  GET /api/session -> 200, GET /api/session -> 200
+FAIL  the page's API requests go to the host its own location implies  --  page location host: localhost:4577; API request hosts: 127.0.0.1:4577
+PASS  adding a project through the UI registers it and lists the catalog  --  toast=项目添加成功：未修改原仓库, catalog items=2
+PASS  running through the UI reaches a terminal state  --  toast=已提交到本地 Playwright Runner, status=failed
+PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 28 artefacts
+PASS  the page produced no console error and no failed request  --  console errors: none; failed requests: none
+
+--- API calls the page made ---
+  GET /api/session -> 200
+  GET /api/session -> 200
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/runs -> 200
+  POST /api/projects -> 201
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/runs -> 200
+  GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/tests -> 200
+  GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/lineage -> 200
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  POST /api/projects/proj_1_58fa8e223638d85e8cf3368a/run -> 202
+  GET /api/runs -> 200
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+--- end ---
+--- bridge stderr ---
+  (node:7148) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+--- end ---
+PASS  the probe executed every registered check  --  8/8 checks executed
+
+RESULT: FAILED -- 7/8 checks passed.
+  FAILED: the page's API requests go to the host its own location implies  page location host: localhost:4577; API request hosts: 127.0.0.1:4577
+UI_PROBE_EXIT=1
+
+
+--- the source was restored and the export rebuilt (clean baseline) ---
+
+> @ai-test-studio/ui@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 28ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1272ms
+  Running TypeScript ...
+  Finished TypeScript in 1788ms ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/3) ...
+✓ Generating static pages using 4 workers (3/3) in 548ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+
+CLEAN_REBUILD_EXIT=0
+
+======================================================================
+MUTATION B2 -- a baked base PLUS an unrelated location.port comparison
+======================================================================
+
+Claim under test (the static heuristic's BOUND):
+  PASS  the shipped bundle carries a comparison of the page location port
+
+The base is baked AND the bundle carries a location.port comparison that
+does not select the base. The static heuristic CANNOT tell this from
+the honest bundle -- it only sees that a comparison exists -- so this
+shape leaves the static heuristic GREEN. That is the honest bound of
+the heuristic, and it is why the runtime-resolution claim is proved by
+the EXECUTED discriminator in ui-smoke.mjs, which opens the page by
+NAME (localhost) and records the host the API requests actually went
+to. A baked base sends them to the numeric address; a runtime-resolved
+base sends them to localhost.
+
+--- mutation: apps/studio/lib/api.ts (baked base + unrelated comparison) ---
+  before: (the runtime base definition in apps/studio/lib/api.ts)
+  after : the base is a constant; a location.port comparison remains, but
+          it only feeds a diagnostic string -- it no longer selects the base
+
+--- next build (the mutated source, B2) ---
+
+> @ai-test-studio/ui@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 25ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1121ms
+  Running TypeScript ...
+  Finished TypeScript in 1765ms ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/3) ...
+✓ Generating static pages using 4 workers (3/3) in 549ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+
+BUILD_EXIT=0
+
+--- the HTTP probe against the mutated export ---
+(the static heuristic is expected to stay GREEN here -- that is the bound)
+PASS  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
+PASS  export contains index.html  --  13679 bytes
+PASS  export contains 404.html
+PASS  export contains _next/static assets
+PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
+PASS  every asset referenced by index.html exists on disk (9 assets)
+PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
+PASS  bridge boots and answers /api/health
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 13679 bytes
+PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
+PASS  the bridge serves the exported chunk /_next/static/chunks/04p_vbrqf_cr7.js  --  HTTP 200
+PASS  GET /api/session returns a token
+PASS  a foreign Origin is rejected (403)  --  HTTP 403
+PASS  an unauthenticated API call is rejected (401)  --  HTTP 401
+PASS  GET /api/projects succeeds with the session token
+PASS  POST /api/projects registers the sample Playwright project  --  HTTP 201
+PASS  GET /api/projects/{id}/tests returns the static index  --  2 tests
+PASS  POST /api/projects/{id}/run is accepted (202)  --  HTTP 202
+PASS  the accepted run reaches a passed/failed terminal state  --  status=failed
+PASS  the terminal run reports a per-case result set  --  2 cases
+PASS  the terminal run summary matches the on-disk report.json  --  summary and report.json agree (1/1/0/0/2)
+PASS  the terminal run collected artefacts  --  28 artefacts
+PASS  the collected artefacts include report.json  --  1 report.json entries
+
+--- run detail (diagnostic) ---
+  status    : failed
+  error     : (none)
+  reportWarn: (none)
+  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-sxxKfh\runs\run_1_6309f0b4291e8960fef90d4d\results --trace on --workers 1
+  log tail  : 
+    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-sxxKfh\runs\run_1_6309f0b4291e8960fef90d4d\results\home-导航入口正常-REQ-002\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    D:\hermes-multica\home\cache\scratch\tmp\ats103-sxxKfh\runs\run_1_6309f0b4291e8960fef90d4d\results\home-导航入口正常-REQ-002\trace.zip
+    Usage:
+
+        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-sxxKfh\runs\run_1_6309f0b4291e8960fef90d4d\results\home-导航入口正常-REQ-002\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests\home.spec.ts:22:1 › 导航入口正常 @REQ-002 ──────────────────────────────────────────────────────
+  1 passed (6.0s)
+
+--- end run detail ---
+
+PASS  GET /api/runs lists the run history  --  1 runs
+PASS  the probe executed every registered check  --  25/25 checks executed
+
+RESULT: OK -- 25/25 checks passed.
+PROBE_EXIT=0
+
+--- the EXECUTED discriminator against the mutated export ---
+(this one must turn RED: the API requests leave for the numeric address)
+PASS  the exported page loads in a real browser  --  HTTP 200, http://localhost:4577/
+PASS  the page's own session call succeeds  --  GET /api/session -> 200, GET /api/session -> 200
+FAIL  the page's API requests go to the host its own location implies  --  page location host: localhost:4577; API request hosts: 127.0.0.1:4577
+PASS  adding a project through the UI registers it and lists the catalog  --  toast=项目添加成功：未修改原仓库, catalog items=2
+PASS  running through the UI reaches a terminal state  --  toast=已提交到本地 Playwright Runner, status=failed
+PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 28 artefacts
+PASS  the page produced no console error and no failed request  --  console errors: none; failed requests: none
+
+--- API calls the page made ---
+  GET /api/session -> 200
+  GET /api/session -> 200
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/runs -> 200
+  POST /api/projects -> 201
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/tests -> 200
+  GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/lineage -> 200
+  GET /api/runs -> 200
+  POST /api/projects/proj_1_58fa8e223638d85e8cf3368a/run -> 202
+  GET /api/runs -> 200
+  GET /api/projects -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_6309f0b4291e8960fef90d4d -> 200
+--- end ---
+--- bridge stderr ---
+  (node:23388) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+--- end ---
+PASS  the probe executed every registered check  --  8/8 checks executed
+
+RESULT: FAILED -- 7/8 checks passed.
+  FAILED: the page's API requests go to the host its own location implies  page location host: localhost:4577; API request hosts: 127.0.0.1:4577
+UI_PROBE_EXIT=1
+
+--- the source was restored and the export rebuilt (clean baseline) ---
+
+> @ai-test-studio/ui@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 26ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1106ms
+  Running TypeScript ...
+  Finished TypeScript in 1692ms ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/3) ...
+✓ Generating static pages using 4 workers (3/3) in 555ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+
+CLEAN_REBUILD_EXIT=0
+
+
+======================================================================
+MUTATION C -- the Playwright engine is not installed
+======================================================================
+
+Claim under test:
+  PASS  the accepted run reaches a passed/failed terminal state
+  PASS  the terminal run reports a per-case result set
+  PASS  the terminal run summary matches the on-disk report.json
+  PASS  the terminal run collected artefacts
+
+--- mutation: examples/sample-playwright/node_modules is moved away ---
+PASS  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
+PASS  export contains index.html  --  13679 bytes
+PASS  export contains 404.html
+PASS  export contains _next/static assets
+PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
+PASS  every asset referenced by index.html exists on disk (9 assets)
+PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
+PASS  bridge boots and answers /api/health
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 13679 bytes
+PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
+PASS  the bridge serves the exported chunk /_next/static/chunks/04p_vbrqf_cr7.js  --  HTTP 200
+PASS  GET /api/session returns a token
+PASS  a foreign Origin is rejected (403)  --  HTTP 403
+PASS  an unauthenticated API call is rejected (401)  --  HTTP 401
+PASS  GET /api/projects succeeds with the session token
+PASS  POST /api/projects registers the sample Playwright project  --  HTTP 201
+PASS  GET /api/projects/{id}/tests returns the static index  --  2 tests
+PASS  POST /api/projects/{id}/run is accepted (202)  --  HTTP 202
+FAIL  the accepted run reaches a passed/failed terminal state  --  status=error error=PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT
+FAIL  the terminal run reports a per-case result set  --  0 cases
+FAIL  the terminal run summary matches the on-disk report.json  --  summary=none, report.json=missing
+FAIL  the terminal run collected artefacts  --  0 artefacts
+FAIL  the collected artefacts include report.json  --  0 report.json entries
+
+--- run detail (diagnostic) ---
+  status    : error
+  error     : PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT
+  reportWarn: (none)
+  command   : 
+  log tail  : 
+--- end run detail ---
+
+PASS  GET /api/runs lists the run history  --  1 runs
+PASS  the probe executed every registered check  --  25/25 checks executed
+
+RESULT: FAILED -- 20/25 checks passed.
+  FAILED: the accepted run reaches a passed/failed terminal state  status=error error=PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT
+  FAILED: the terminal run reports a per-case result set  0 cases
+  FAILED: the terminal run summary matches the on-disk report.json  summary=none, report.json=missing
+  FAILED: the terminal run collected artefacts  0 artefacts
+  FAILED: the collected artefacts include report.json  0 report.json entries
+PROBE_EXIT=1
+
+--- the fixture dependencies were restored ---
+
+======================================================================
+SUMMARY -- every mutation must leave the probe red (exit 1)
+======================================================================
+
+MUTATION A: an app/api/session route handler (no force-static)
+A          -> the BUILD refuses it; no export is produced
+MUTATION A': the same route handler, WITH force-static
+A'         -> the export tree assertion turns RED (found: api/session)
+MUTATION B: the API base is a build-time constant
+B          -> the static heuristic turns RED, the EXECUTED one too
+MUTATION B2: a baked base PLUS an unrelated location.port comparison
+B2         -> the static heuristic stays GREEN (its bound); the
+              EXECUTED discriminator turns RED
+MUTATION C: the Playwright engine is not installed
+
+--- the exit codes and results recorded above ---
+52:BUILD_EXIT=1
+119:PROBE_EXIT=1
+167:BUILD_EXIT=0
+228:PROBE_EXIT=1
+253:CLEAN_REBUILD_EXIT=0
+290:BUILD_EXIT=0
+346:PROBE_EXIT=1
+396:UI_PROBE_EXIT=1
+423:CLEAN_REBUILD_EXIT=0
+471:BUILD_EXIT=0
+526:PROBE_EXIT=0
+576:UI_PROBE_EXIT=1
+602:CLEAN_REBUILD_EXIT=0
+657:PROBE_EXIT=1
+
+--- the source tree and the export were restored ---
+--- git status of the mutated paths (empty == restored) ---
+--- (the two lines above are empty: the mutation was fully reverted) ---
+MUTATION_SCRIPT_EXIT=0

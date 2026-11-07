@@ -1,0 +1,53 @@
+=== command ===
+node --test tests/identity.test.mjs
+=== output ===
+✔ UT-ATS204-001: the UID survives a rename, and the old spelling is recorded as an alias (9.709ms)
+✔ UT-ATS204-002: the UID survives a rename AND a retitle (5.1231ms)
+✔ UT-ATS204-003: an attempt of a renamed+retitled case is bound to the original UID (6.3361ms)
+✔ UT-ATS204-004: an attempt of a case whose file was renamed is bound to the original UID (4.2824ms)
+✔ UT-ATS204-005: a case that took over the old file name does NOT get the old UID (4.3021ms)
+✔ UT-ATS204-006: a body that two cases of the same run share identifies neither (0.1638ms)
+✔ UT-ATS204-007: an ambiguous title in the project binds nothing (0.1715ms)
+✔ UT-ATS204-008: a case that shares its title with another in the SAME file is bound by the body (0.126ms)
+✔ UT-ATS204-009: the alias is used only when the body is unavailable (0.1527ms)
+✔ UT-ATS204-010: an explicit annotation always wins over the position (0.1574ms)
+✔ UT-ATS204-011: a duplicated explicit annotation binds neither case (0.1123ms)
+✔ UT-ATS204-012: a dynamic case keeps its UID when the template is re-worded (3.3284ms)
+✔ UT-ATS204-013: a template that GAINS a render reports the shift instead of guessing (2.3951ms)
+✔ UT-ATS204-014: the anchor names the position and the ordinal of a case (0.1714ms)
+✔ UT-ATS204-015: the two rows the CLI writes for one case in two projects are ONE case (0.5953ms)
+✔ UT-ATS204-016: the two attempts of a matrix case carry the SAME TestDefinition UID (2.5136ms)
+✔ UT-ATS204-018: a renamed case is bound by its body even though the position does not match (0.1095ms)
+✔ UT-ATS204-019: a positional hit whose body CONTRADICTS it does not bind, and says so (0.1072ms)
+✔ UT-ATS204-020: a positional hit whose body AGREES binds, and reports nothing (0.0602ms)
+✔ UT-ATS204-021: a NEW case with an explicit token binds to it, registry or not (0.0479ms)
+✔ UT-ATS204-017: the old lookup keeps its documented behaviour (2.3658ms)
+✔ UT-ATS204-022 (E1): a replaced loop element does not take the removed render's uid (2.3821ms)
+✔ UT-ATS204-023 (E3): a case inserted above keeps the existing case's uid (2.2694ms)
+✔ UT-ATS204-024 (E4): a case replaced in place by a different one is a NEW case (2.1663ms)
+✔ UT-ATS204-025 (M1): two same-titled cases under different describes are TWO cases (2.2578ms)
+✔ UT-ATS204-026 (M1b): the two describes bind to their OWN TestDefinition (2.7356ms)
+✔ UT-ATS204-027 (X1): an explicit token the catalogue judged DUPLICATE is not bound (2.5117ms)
+✔ UT-ATS204-037 (X3): the STATIC catalogue also records the duplicate verdict, so a single-file run does not bind it (4.0819ms)
+✔ UT-ATS204-038 (X2s): the static catalogue forgets the verdict once the duplicate is gone (4.4919ms)
+✔ UT-ATS204-028: the anchor counts the CLI's REPORT order, not the title-sorted order (0.1464ms)
+✔ UT-ATS204-029: the anchor does not decide a case the scanner CAN see (0.0724ms)
+✔ UT-ATS204-030: a partly rewritten group is reported and binds nothing (0.1065ms)
+✔ UT-ATS204-031: two anchors at the same ordinal are reported, not resolved (0.1189ms)
+✔ UT-ATS204-039 (N4): the anchor does not hand a SOURCE case its uid to a different case at the same position (0.0908ms)
+✔ UT-ATS204-040 (N4): a DYNAMIC entry may still be recognised by the anchor (0.0606ms)
+✔ UT-ATS204-032: a group that grew reports the shift (0.0799ms)
+✔ UT-ATS204-033: the anchor of a case names its position and its ordinal (0.1082ms)
+✔ UT-ATS204-034: two entries that share the file, the line and the title stay unbound (0.0648ms)
+✔ UT-ATS204-034B: the file-line signal reports when it cannot pick one (0.0567ms)
+✔ UT-ATS204-035: two entries under the same describe path and title are ambiguous (0.0583ms)
+✔ UT-ATS204-036: the scope signal needs the body to AGREE (0.0587ms)
+ℹ tests 41
+ℹ suites 0
+ℹ pass 41
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 189.9524
+=== exit code: 0 ===

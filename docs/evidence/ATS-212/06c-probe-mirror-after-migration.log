@@ -1,0 +1,14 @@
+=== the SQLite mirror after the state migration re-keys the profiles ===
+repo root : /d/ICHOR
+commit    : bb70d57
+branch    : dev
+node      : v24.19.0
+python    : Python 3.11.16
+
+project  : proj_11111111-2222-3333-4444-555555555555 -> proj_1_6edc4fc29f30468265e472dc
+profiles : [{"uid":"env_1_e401b00760dc3f9737deb380","projectUid":"proj_1_6edc4fc29f30468265e472dc"}]
+whitelists: {"proj_1_6edc4fc29f30468265e472dc":["BASE_URL"]}
+mirror problems: 0
+RESULT: OK -- the mirror is exact after the migration
+
+exit code : 0

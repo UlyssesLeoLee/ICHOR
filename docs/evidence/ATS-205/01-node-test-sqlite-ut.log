@@ -1,0 +1,66 @@
+=== the SQLite metadata layer unit suite ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-f2bf44f89533/worktree
+commit    : 25b3c3d
+branch    : agent/m2/seikoist-164
+node      : v24.19.0
+python    : Python 3.11.16
+
+✔ UT-SQL-001: the metadata layer is available on this Node build (1.0122ms)
+✔ UT-SQL-002: the database runs in WAL mode (15.4249ms)
+✔ UT-SQL-003: a blocked writer waits instead of failing at once (1602.966ms)
+✔ UT-SQL-003b: with the busy timeout at 0 the blocked writer fails instead of waiting (1596.7779ms)
+✔ UT-SQL-004: the busy timeout is configurable (17.4871ms)
+✔ UT-SQL-005: a WAL database leaves the -wal sidecar behind (21.5629ms)
+✔ UT-SQL-010: a committed transaction is visible to a reader (2.3236ms)
+✔ UT-SQL-011: a transaction that throws is rolled back whole (1.5087ms)
+✔ UT-SQL-012: the state is written in ONE transaction, so a reader never sees half of it (1.9022ms)
+✔ UT-SQL-020: a fresh database is at the newest known version (1.2875ms)
+✔ UT-SQL-021: the schema version lives INSIDE the database (1.0783ms)
+✔ UT-SQL-022: the migration is idempotent (2.0018ms)
+✔ UT-SQL-023: a migration to an older version applies only the missing steps (30.8849ms)
+✔ UT-SQL-024: a failed migration step leaves the version and the objects untouched (3.4151ms)
+✔ UT-SQL-025: a database that is NEWER than the code is refused, not downgraded silently (1.7533ms)
+✔ UT-SQL-026: a downgrade drops the higher version and its data (3.4712ms)
+✔ UT-SQL-027: a downgrade to version 0 removes every table (2.0649ms)
+✔ UT-SQL-028: a downgrade to a version the database does not have is refused (1.1929ms)
+✔ UT-SQL-029: every migration step declares an up AND a down script (0.2562ms)
+✔ UT-SQL-030: a step that fails leaves no half-applied objects behind (1.3531ms)
+✔ UT-SQL-040: the database holds exactly the state that was imported (3.8312ms)
+✔ UT-SQL-041: the import is idempotent (1.6119ms)
+✔ UT-SQL-042: a record keeps every field, including one the layer does not model (1.0048ms)
+✔ UT-SQL-043: the mirror reports a difference instead of hiding it (1.6127ms)
+✔ UT-SQL-044: the layer answers the queries it exists for (1.5856ms)
+✔ UT-SQL-050: two concurrent writers lose no record (103.7413ms)
+✔ UT-SQL-051: a reader sees the committed state while a writer is working (95.3437ms)
+✔ UT-SQL-031: two concurrent migrators do not apply the same step twice (924.4667ms)
+✔ UT-SQL-032: a foreign table with the same name is refused, not adopted (13.4661ms)
+✔ UT-SQL-033: a table with the EXPECTED shape is still idempotent (14.5029ms)
+✔ UT-SQL-034: a database that is NEWER than the code does not leak its handle (15.3369ms)
+✔ UT-SQL-045: the verification catches a tampered registry entry (1.2657ms)
+✔ UT-SQL-046: the verification catches an indexed column that contradicts its record (1.1182ms)
+✔ UT-SQL-047: the verification catches missing attempts and artifacts (0.8781ms)
+✔ UT-SQL-048: the verification catches a tampered attempt (0.8778ms)
+the SQLite metadata mirror failed: database is locked
+✔ UT-SQL-049: the mirror recovers after a transient failure (3140.9833ms)
+✔ UT-SQL-049b: a mirror failure does not stop the state file from being written (32.4511ms)
+the SQLite metadata mirror failed: database is locked
+✔ UT-SQL-049c: a mirror failure does not take the bridge down (3128.1375ms)
+✔ UT-SQL-064: the tool refuses an invalid --to with the usage exit code (2.0436ms)
+✔ UT-SQL-065: the tool refuses an unknown argument and an unknown command (0.2515ms)
+✔ UT-SQL-066: the read-only commands do not create the database (4.5553ms)
+✔ UT-SQL-067: the tool reports the errors it cannot recover from (3.971ms)
+✔ UT-SQL-068: the tool reports a mismatch and fails (24.8913ms)
+✔ UT-SQL-060: the tool reports the status of a database (74.9725ms)
+✔ UT-SQL-061: the tool imports the state and verifies the mirror (153.9232ms)
+✔ UT-SQL-062: the tool migrates and downgrades on demand (214.8392ms)
+✔ UT-SQL-063: the tool refuses an unknown command (64.1289ms)
+ℹ tests 47
+ℹ suites 0
+ℹ pass 47
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11422.3206
+
+exit code : 0

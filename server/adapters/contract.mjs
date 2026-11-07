@@ -31,6 +31,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { BASE_ENV_KEYS } from '../env/profiles.mjs';
 
 /** Contract version. Bumped when the capability set or the operation set changes. */
 export const ADAPTER_CONTRACT_VERSION = 1;
@@ -111,6 +112,146 @@ export function capability(name, supported, { reason = '', evidence = '', detail
 
 /** The four operations every adapter must implement. */
 export const REQUIRED_OPERATIONS = Object.freeze(['discover', 'start', 'stop', 'collect']);
+
+/* ------------------------------------------------------------------ */
+/* The DEVICE extension (ATS-601)                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * ATS-601: the DEVICE layer of the adapter contract.
+ *
+ * The contract above answers "which ENGINE drives this project?". It does
+ * not answer "WHERE does it run?". For a browser test the answer is "in
+ * this process"; for a mobile test the answer is "on THAT device", and
+ * that device has a lifecycle, a proven capability set and (for a farm)
+ * a lease.
+ *
+ * The extension is deliberately ADDITIVE and OPTIONAL:
+ *
+ *   * an adapter without a `device` section behaves exactly as before --
+ *     `assertAdapter` does not require it, and the existing adapters do
+ *     not have one;
+ *   * an adapter WITH a `device` section declares that it runs on a
+ *     device target, and declares the device-level capabilities it can
+ *     prove for a given target/session;
+ *   * the two layers are negotiated together by `negotiateWithDevice`, so
+ *     a mobile adapter is a normal ATS-301 adapter with a second, device
+ *     specific question -- NOT a second contract.
+ *
+ * The rejection semantics are the ones the mobile design document names:
+ * a missing target or an unsatisfied capability is an EXPLICIT rejection
+ * (`REMOTE_TARGET_UNAVAILABLE` / `REMOTE_CAPABILITY_MISSING`), never a
+ * silent fall back to another execution mode.
+ */
+export const DEVICE_CONTRACT_VERSION = 1;
+
+/**
+ * Build one DEVICE-level capability entry.
+ *
+ * The shape is deliberately the SAME as an engine capability entry
+ * (`name` / `supported` / `reason` / `evidence` / `detail`), so that a
+ * caller reads both layers the same way. Two rules carry over unchanged:
+ * an unsupported capability carries a REASON, and a supported one carries
+ * the EVIDENCE of how it was proven. "The device should be able to do
+ * this" is not proof; "the hierarchy dump returned a tree" is.
+ */
+export function deviceCapability(name, supported, { reason = '', evidence = '', detail = {} } = {}) {
+  if (typeof name !== 'string' || !name) {
+    throw new AdapterError('UNKNOWN_CAPABILITY', 'a device capability needs a name');
+  }
+  if (!supported && !reason) {
+    throw new AdapterError('CAPABILITY_REASON_REQUIRED', `device capability ${name} is unsupported but has no reason`);
+  }
+  if (supported && !evidence) {
+    throw new AdapterError('CAPABILITY_EVIDENCE_REQUIRED', `device capability ${name} is supported but has no evidence`);
+  }
+  return {
+    name,
+    kind: 'optional',
+    supported: Boolean(supported),
+    reason: supported ? '' : reason,
+    evidence: supported ? evidence : '',
+    detail,
+  };
+}
+
+/**
+ * Negotiate over a list of device capability entries.
+ *
+ * The generic form of the engine-side `negotiate`: it takes the entries
+ * an adapter declared for ONE target/session and the capabilities the
+ * caller needs, and reports what is missing. An unknown requested
+ * capability is REPORTED, not thrown -- exactly like the engine side.
+ */
+export function negotiateDevice(entries, requested = []) {
+  const byName = new Map((entries || []).map((c) => [c.name, c]));
+  const missing = [];
+  const resolved = [];
+  for (const name of requested) {
+    const cap = byName.get(name);
+    if (!cap) {
+      missing.push({ name, kind: 'unknown', supported: false, reason: 'the adapter does not declare this device capability', evidence: '', detail: {} });
+      continue;
+    }
+    resolved.push(cap);
+    if (!cap.supported) missing.push(cap);
+  }
+  return {
+    requested: [...requested],
+    supported: missing.length === 0,
+    missing,
+    capabilities: entries || [],
+  };
+}
+
+/**
+ * Assert that an adapter's DEVICE section is conforming.
+ *
+ * Called only when an adapter HAS a device section, so a plain engine
+ * adapter is unaffected by this contract version.
+ */
+export function assertDeviceAdapter(adapter) {
+  const device = adapter.device;
+  if (!device || typeof device !== 'object') {
+    throw new AdapterError('INVALID_DEVICE_ADAPTER', `adapter ${adapter.kind} has no device section`);
+  }
+  if (device.contractVersion !== DEVICE_CONTRACT_VERSION) {
+    throw new AdapterError('CONTRACT_VERSION_MISMATCH', `adapter ${adapter.kind} speaks device contract v${device.contractVersion}, this build speaks v${DEVICE_CONTRACT_VERSION}`);
+  }
+  if (typeof device.capabilities !== 'function') {
+    throw new AdapterError('INVALID_DEVICE_ADAPTER', `adapter ${adapter.kind} is missing device.capabilities()`);
+  }
+  return adapter;
+}
+
+/**
+ * Negotiate BOTH layers at once: the engine and the device.
+ *
+ * This is the single entry point a mobile run uses. The engine layer says
+ * "this runner can discover/start/stop/collect"; the device layer says
+ * "THIS device can do these things". Both must hold.
+ *
+ * The result keeps the two layers apart (`engine` / `device`) so that a
+ * caller can tell the user WHICH layer failed -- "the runner does not
+ * support trace" and "the device cannot dump the view hierarchy" are
+ * different problems with different fixes.
+ */
+export function negotiateWithDevice(adapter, project, deviceContext = {}, requested = []) {
+  const engine = negotiate(adapter, project, requested);
+  const device = adapter.device
+    ? negotiateDevice(adapter.device.capabilities(deviceContext), deviceContext.requested ?? requested)
+    : { requested: [...requested], supported: true, missing: [], capabilities: [] };
+  return {
+    adapter: adapter.kind,
+    contractVersion: adapter.contractVersion,
+    deviceContractVersion: adapter.device ? adapter.device.contractVersion : null,
+    requested: [...requested],
+    supported: engine.supported && device.supported,
+    engine,
+    device,
+    missing: [...engine.missing, ...device.missing],
+  };
+}
 
 /**
  * Validate that an object is a conforming adapter. Called by the registry so a
@@ -197,9 +338,34 @@ export function gaps(adapter, project) {
 /* Shared probing helpers -- used by the concrete adapters.            */
 /* ------------------------------------------------------------------ */
 
-/** Run a command and capture its outcome; never throws. */
+/**
+ * The platform base keys of the host environment -- and nothing else.
+ *
+ * This is the environment a child process gets when it must run but must
+ * not see the operator's shell.
+ */
+function baseEnv() {
+  const env = {};
+  for (const key of BASE_ENV_KEYS) {
+    const value = process.env[key];
+    if (value !== undefined && value !== null) env[key] = String(value);
+  }
+  return env;
+}
+
+/**
+ * Run a command and capture its outcome; never throws.
+ *
+ * ATS-212: the probe's environment is SEALED as well. The probe runs the
+ * PROJECT'S OWN CLI (`node <project>/node_modules/@playwright/test/cli.js
+ * --help`), so it is the same trust boundary as the run -- the code that
+ * ships with the project. Inheriting `{...process.env}` would hand an
+ * operator's cloud credentials to that code for no reason.
+ *
+ * `env` may still be passed explicitly (a caller that has a reason to).
+ */
 export function probeCommand(command, args, { cwd, timeout = 20000, env } = {}) {
-  const r = spawnSync(command, args, { cwd, timeout, encoding: 'utf8', env: env || process.env, shell: false });
+  const r = spawnSync(command, args, { cwd, timeout, encoding: 'utf8', env: env || baseEnv(), shell: false });
   return {
     ok: r.status === 0,
     status: r.status,

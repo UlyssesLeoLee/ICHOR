@@ -16,13 +16,21 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { planMigration, isMigrated } from '../tools/migrate_uids.mjs';
 import {
-  acquireBridgeLock, releaseBridgeLock, readBridgeLock, lockPath, isProcessAlive
+  acquireBridgeLock, releaseBridgeLock, readBridgeLock, lockPath, isProcessAlive, processStartTime
 } from '../server/core.mjs';
+import { freePort } from './helpers/free-port.mjs';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-mig-reg-'));
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const script = path.join(repoRoot, 'tools', 'migrate_uids.mjs');
 
+// The health probe is BOUNDED. An unbounded fetch turns ONE request that
+// never comes back into a stall of the whole boot window, and the boot wait
+// then reports "the bridge did not come up" for a bridge that IS listening
+// and merely busy. Measured: a hung probe made the wait 31 s long (the 20 s
+// window plus an ~11 s request that never came back). The timeout is far
+// below the window, so a slow-but-alive bridge is still found, and a hung
+// request is retried instead of consuming the wait.
 function legacyState(root) {
   return {
     schema: 1,
@@ -211,7 +219,114 @@ test('UT-MIG-REG-009: the Bridge releases the lock when it stops', async () => {
   assert.equal(readBridgeLock(lockPath(dataDir)), null);
 });
 
-test('UT-MIG-REG-010: cleanup removes the temporary fixture', () => {
+/* ------------------------------------------------------------------ */
+/* L1 -- the holder of the lock is VERIFIABLE                            */
+/* ------------------------------------------------------------------ */
+
+test('UT-MIG-REG-011: the lock records the start time of its holder', () => {
+  const file = path.join(dir, 'lock-identity.json');
+  acquireBridgeLock(file);
+  const holder = readBridgeLock(file);
+  assert.ok(holder);
+  assert.equal(holder.pid, process.pid);
+  // The start time is what makes the pid verifiable: a pid alone is reused by
+  // the operating system, the pair (pid, start time) is not.
+  assert.ok(holder.processStartedAt, 'the lock records the start time of the holder');
+  releaseBridgeLock(file);
+});
+
+test('UT-MIG-REG-012: a lock whose pid was reused by another process is stale', () => {
+  const file = path.join(dir, 'lock-reused.json');
+  // The pid is alive -- it is this very process -- but it is NOT the process
+  // that took the lock: the recorded start time belongs to somebody else.
+  // The operating system reuses pids, so this is what a leftover lock file
+  // looks like once its original owner is gone.
+  const foreign = processStartTime(process.pid);
+  fs.writeFileSync(file, JSON.stringify({
+    pid: process.pid,
+    startedAt: '2026-01-01T00:00:00Z',
+    processStartedAt: foreign === null ? 'not-a-real-start-time' : '2001-01-01T00:00:00.0000000Z'
+  }));
+  // The lock does not block: the holder cannot be the recorded one.
+  assert.equal(readBridgeLock(file), null);
+  // And the next owner can take it.
+  acquireBridgeLock(file);
+  assert.equal(readBridgeLock(file).pid, process.pid);
+  releaseBridgeLock(file);
+});
+
+test('UT-MIG-REG-013: a lock of a live holder is not stale', () => {
+  const file = path.join(dir, 'lock-live.json');
+  acquireBridgeLock(file);
+  const holder = readBridgeLock(file);
+  assert.ok(holder, 'the holder is live');
+  assert.equal(holder.pid, process.pid);
+  assert.throws(() => acquireBridgeLock(file), /BRIDGE_ALREADY_RUNNING/);
+  releaseBridgeLock(file);
+});
+
+test('UT-MIG-REG-014: the Bridge states the recovery steps when the lock is held', async () => {
+  const dataDir = path.join(dir, 'recovery');
+  fs.mkdirSync(dataDir, { recursive: true });
+  // A lock that carries no verifiable identity: the pid is alive, but nothing
+  // says WHICH process it is. The Bridge cannot tell a running Bridge from a
+  // reused pid, so it refuses to start and answers with the steps that
+  // resolve the question.
+  fs.writeFileSync(lockPath(dataDir), JSON.stringify({
+    pid: process.pid,
+    startedAt: '2026-01-01T00:00:00Z'
+  }));
+
+  const port = await freePort();
+  const cp = spawn(process.execPath, [path.join(repoRoot, 'server', 'index.mjs')], {
+    cwd: repoRoot,
+    env: { ...process.env, ATS_PORT: String(port), ATS_DATA_DIR: dataDir },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  let stderr = '';
+  cp.stderr.on('data', (b) => { stderr += b.toString(); });
+  const code = await new Promise((resolve) => cp.on('close', resolve));
+  assert.notEqual(code, 0, 'the Bridge exits when the lock is held');
+  // The message says HOW to recover, not only that something holds the lock.
+  assert.match(stderr, /holds the data directory lock/);
+  assert.match(stderr, /delete the lock file/i, 'the recovery step is stated');
+  assert.match(stderr, /no Bridge is running/i, 'the check comes before the step');
+});
+
+test('UT-MIG-REG-015: the Bridge starts when the lock belongs to a reused pid', async () => {
+  const dataDir = path.join(dir, 'reused');
+  fs.mkdirSync(dataDir, { recursive: true });
+  // The pid is alive -- it is this very process -- but the recorded start time
+  // belongs to another process: the operating system reused the pid. The lock
+  // is stale, so it does not block the Bridge.
+  const foreign = processStartTime(process.pid);
+  fs.writeFileSync(lockPath(dataDir), JSON.stringify({
+    pid: process.pid,
+    startedAt: '2026-01-01T00:00:00Z',
+    processStartedAt: foreign === null ? 'not-a-real-start-time' : '2001-01-01T00:00:00.0000000Z'
+  }));
+
+  const port = await freePort();
+  const cp = spawn(process.execPath, [path.join(repoRoot, 'server', 'index.mjs')], {
+    cwd: repoRoot,
+    env: { ...process.env, ATS_PORT: String(port), ATS_DATA_DIR: dataDir },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  let stderr = '';
+  cp.stderr.on('data', (b) => { stderr += b.toString(); });
+  // The Bridge has to come UP: it listens on its port.
+  const deadline = Date.now() + 20000;
+  let up = false;
+  while (Date.now() < deadline) {
+    try { if ((await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2000) })).ok) { up = true; break; } } catch { /* not up yet */ }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  cp.kill();
+  await new Promise((r) => setTimeout(r, 500));
+  assert.ok(up, `the Bridge starts despite the stale lock: ${stderr}`);
+});
+
+test('UT-MIG-REG-016: cleanup removes the temporary fixture', () => {
   fs.rmSync(dir, { recursive: true, force: true });
   assert.equal(fs.existsSync(dir), false);
 });

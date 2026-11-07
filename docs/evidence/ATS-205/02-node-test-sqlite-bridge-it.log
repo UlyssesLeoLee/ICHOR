@@ -1,0 +1,24 @@
+=== the SQLite metadata layer bridge integration suite ===
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-f2bf44f89533/worktree
+commit    : 25b3c3d
+branch    : agent/m2/seikoist-164
+node      : v24.19.0
+python    : Python 3.11.16
+
+✔ IT-SQL-001: the bridge starts and creates the metadata database (318.7117ms)
+✔ IT-SQL-002: the metadata database carries the schema version (2.5686ms)
+✔ IT-SQL-003: a registered project appears in the metadata database (66.2536ms)
+✔ IT-SQL-004: the mirror holds exactly what the JSON state holds (1.9051ms)
+✔ IT-SQL-005: the bridge still serves the API after the mirror is in place (56.5265ms)
+✔ IT-SQL-006: the mirror recovers after the database was locked for too long (4206.6894ms)
+✔ IT-SQL-CLEANUP: stop and cleanup (5.3155ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4758.5978
+
+exit code : 0

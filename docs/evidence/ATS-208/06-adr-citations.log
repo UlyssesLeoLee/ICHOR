@@ -1,0 +1,50 @@
+=== the ADR citation check ===
+repo root : /d/d/ats208-landing
+commit    : 981e2c7
+branch    : 
+node      : v24.19.0
+python    : Python 3.11.16
+
+--- citations enumerated from the ADR ---
+  apps/studio/app/page.tsx         81
+  apps/studio/lib/api.ts           14
+  apps/studio/public/fallback.html 3
+  server/core.mjs                  1093, 762
+  server/index.mjs                 224, 30, 446-476, 460, 478, 489, 659, 819, 836, 837
+  src-tauri/Cargo.toml             11
+  src-tauri/src/lib.rs             19
+  start.ps1                        8-9
+  start.sh                         4
+  tools/generate_test_docs.py      290,296,382
+  tools/update_wbs_ats103.py       110,114
+
+ok   src-tauri/Cargo.toml:11
+ok   start.sh:4
+ok   start.ps1:8
+ok   start.ps1:9
+ok   tools/generate_test_docs.py:290
+ok   tools/generate_test_docs.py:296
+ok   tools/generate_test_docs.py:382
+ok   tools/update_wbs_ats103.py:110
+ok   tools/update_wbs_ats103.py:114
+ok   server/index.mjs:30
+ok   server/index.mjs:224
+ok   server/index.mjs:446
+ok   server/index.mjs:460
+ok   server/index.mjs:478
+ok   server/index.mjs:489
+ok   server/index.mjs:659
+ok   server/index.mjs:819
+ok   server/index.mjs:836
+ok   server/index.mjs:837
+ok   server/core.mjs:762
+ok   server/core.mjs:1093
+ok   server/index.mjs:446-476 (cancelRun extent)
+ok   apps/studio/app/page.tsx:81 (the workbench footer text -- covered by the ATS-101 port audit)
+ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)
+ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
+ok   src-tauri/src/lib.rs:19 (the ATS_PORT environment default -- covered by the ATS-101 port audit)
+
+RESULT: OK
+
+exit code : 0

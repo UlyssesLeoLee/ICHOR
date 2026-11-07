@@ -1,0 +1,59 @@
+=== command ===
+node --test tests/execution-model.test.mjs tests/execution-model-it.test.mjs
+=== output ===
+✔ IT-EXE-001: the bridge starts (415.3322ms)
+✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (348.4159ms)
+✔ IT-EXE-003: the events of a run replay into its status, gap-free (2.4141ms)
+✔ IT-EXE-004: the events are in the state file AND in the metadata database (3.0732ms)
+✔ IT-EXE-005: the durable log and the state file carry the same events (0.4146ms)
+✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (1267.6039ms)
+✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (1331.9183ms)
+✔ IT-EXE-CLEANUP: stop and cleanup (8.6ms)
+✔ IT-EXE-008: the bridge starts even when the run folder is gone (1470.5429ms)
+✔ IT-EXE-009: a torn event log stays readable (1496.2292ms)
+✔ IT-EXE-010: no event is appended after a terminal event (1499.9461ms)
+✔ IT-EXE-011: a run that was cancelling when the bridge died is recovered (1790.1776ms)
+✔ IT-EXE-012: the summary of a run agrees with the exit code of the engine (727.4524ms)
+✔ IT-EXE-013: the replay reports the lost and the reused sequence numbers (1408.6134ms)
+✔ UT-EXE-001: every engine status maps onto the common vocabulary (0.789ms)
+✔ UT-EXE-002: an unknown status becomes unknown, not a guess (0.1362ms)
+✔ UT-EXE-003: the terminal run statuses are the ones a run never leaves (0.1102ms)
+✔ UT-EXE-004: a retried case is ONE case that keeps EVERY attempt (0.6735ms)
+✔ UT-EXE-005: the counters count the CASES, never the executions (0.1785ms)
+✔ UT-EXE-006: the aggregation of the attempts follows the documented order (0.1517ms)
+✔ UT-EXE-007: two cases with the same title in one file stay two cases (0.1553ms)
+✔ UT-EXE-008: a case with no execution still exists and is counted once (0.1372ms)
+✔ UT-EXE-009: the attempts of one case share the TestDefinition UID (4.3119ms)
+✔ UT-EXE-010: the events of a run replay into its terminal status (0.8218ms)
+✔ UT-EXE-011: an interrupted run replays into `interrupted` (0.122ms)
+✔ UT-EXE-012: the replay follows the SEQUENCE, not the order of the array (0.095ms)
+✔ UT-EXE-013: a hole in the sequence is reported, not hidden (0.1142ms)
+✔ UT-EXE-014: an empty stream determines no status (0.0672ms)
+✔ UT-EXE-015: the sequence of a run is gap-free and starts at 1 (0.0785ms)
+✔ UT-EXE-016: the state machine refuses the transitions it can disprove (0.0871ms)
+✔ UT-EXE-017: the event that names the status is the last one of the stream (0.0876ms)
+✔ UT-EXE-018: the unified view carries the run, the cases and the attempts (0.3335ms)
+✔ UT-EXE-019: an empty report does not crash and reports zero (0.0667ms)
+✔ UT-EXE-020: an expected failure is a PASSED case, not a failed one (0.1244ms)
+✔ UT-EXE-021: an UNEXPECTED pass is a FAILED case, not a passed one (0.0926ms)
+✔ UT-EXE-022: the counters of a run agree with the engine's own stats (0.1694ms)
+✔ UT-EXE-023: an execution without a declared expectation is not a guess (0.0694ms)
+✔ UT-EXE-023B: the per-project verdicts decide the case, not the attempt mix (0.7158ms)
+✔ UT-EXE-024: a stream that violates the state machine is NOT valid (0.1431ms)
+✔ UT-EXE-025: a stream that obeys the state machine is valid (0.1054ms)
+✔ UT-EXE-026: a torn line is skipped and REPORTED, not fatal (0.2ms)
+✔ UT-EXE-027: an intact log reports no damage (0.0925ms)
+✔ UT-EXE-028: the state diagram of the design document agrees with the code (0.8094ms)
+✔ UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry (0.5938ms)
+✔ UT-EXE-030: an unknown verdict never becomes `passed` (0.3248ms)
+✔ UT-EXE-031: the replay reports the lost and the reused sequence numbers (0.4433ms)
+✔ UT-EXE-032: a skipped attempt never turns a failure into a pass (0.5735ms)
+ℹ tests 47
+ℹ suites 0
+ℹ pass 47
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11876.1508
+=== exit code: 0 ===

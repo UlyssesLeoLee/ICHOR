@@ -2,7 +2,7 @@
 node tools/ats201-probes/uid-e2e.mjs
 === output ===
 === ATS-201 UID end-to-end ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-ef22b10e5916\worktree
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-16-fc995df3961a\worktree
 work dir  : C:\Users\seiko\AppData\Local\Temp\ats201-uid-e2e
 
 --- 1. project registration and test catalog ---
