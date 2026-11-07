@@ -37,10 +37,11 @@
 | 19-REMOTE-RUNNER-PROTOCOL.md | 远程协议・威胁模型 | S5 远程执行面的信任边界、认证、版本握手、租户隔离、拒绝规则（ADR-015~023，全部 DESIGNED） |
 | 20-PARALLEL-ORCHESTRATION.md | 并行编排 | 多任务并行执行的编排约束 |
 | 21-CONTROL-PLANE-API.md | 控制面 API・边界分离 | ATS-506：部署式控制面 API（`/cp/v1`）与桌面本地 API 的进程/端点/凭据/错误码分离、入站与出站边界规则、启动配置、桌面侧调用边界与实测证据 |
+| 23-AI-DATA-SECURITY.md | AI 数据安全 | ATS-402：AI API Key 存储与数据外传知情授权（系统凭据库 + 引用式落盘、preview→confirm→grant 三步授权、平台侧复算内容摘要、放行与拒绝都进外传审计、错误码与实测证据；模型提供商未接入） |
 | 21-PLUGIN-CONTRACT.md | 插件契約 | ATS-512 插件契约 v1：插件 Manifest、封闭权限清单、宿主策略档位、Runner SDK 操作面、审计与证据边界、协议样例（ADR-024~028；契约层已实现，插件宿主未实现） |
 | 25-MOBILE-APP-TESTING.md | 移动端测试执行面 | S6 / v0.5.0：移动端目标抽象（设备/模拟器/远端会话）、Flow→TestDefinition 映射、Android Runner 与证据归档、能力矩阵与 iOS/Maestro 边界（ATS-601~606；ATS-601 的目标与会话**契约层**已实现并经 UT 实测，其余仍为 DESIGNED，仓库内无真实移动端执行） |
 | dependencies/ | 依賴清單 | ATS-102 生成的依赖清单（机读 JSON + 人读 MD），由 lockfile 派生，可机读校验 |
-| evidence/ | 実行証跡 | ATS-101/ATS-102/ATS-103/ATS-201/ATS-202/ATS-205/ATS-301/ATS-401/ATS-501/ATS-506/ATS-512/ATS-208/ATS-216 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界、构建门禁与可重现性、UID 规范、权威发现契约、协议契约校验、前端静态导出与 Bridge API 契约、控制面边界、插件权限边界、执行模型与事件复演） |
+| evidence/ | 実行証跡 | ATS-101/ATS-102/ATS-103/ATS-201/ATS-202/ATS-205/ATS-301/ATS-401/ATS-402/ATS-501/ATS-506/ATS-512/ATS-208/ATS-216 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界、构建门禁与可重现性、UID 规范、权威发现契约、协议契约校验、前端静态导出与 Bridge API 契约、控制面边界、插件权限边界、执行模型与事件复演、AI 数据安全：凭据存储与外传知情授权） |
 | tools/ats101-probes/ | 再現スクリプト | ATS-101 全部阻断项与约束清单的仓库内可重跑复现脚本（见 `docs/evidence/ATS-101/`） |
 | tools/ats201-probes/ | 再現スクリプト | ATS-201 稳定 UID 规范的可重跑验证脚本，含真实 Playwright 报告契约测试（见 `docs/evidence/ATS-201/`） |
 | tools/ats202-probes/ | 再現スクリプト | ATS-202 权威发现的真实 Playwright `--list` 契约测量（33 项断言，含「`--list` 会执行项目代码」这条安全事实，见 `docs/evidence/ATS-202/`） |
@@ -49,6 +50,7 @@
 | tools/ats501-probes/ | 検証スクリプト | ATS-501 远程协议契约的机读校验、负向夹具与 WBS 更新脚本的共存回归（见 `docs/evidence/ATS-501/`） |
 | tools/ats103-probes/ | 検証スクリプト | ATS-103 静态导出 → Bridge → 会话/项目/运行 全链的可重跑验证脚本：25 项 HTTP/运行时检查 + 真实 headless Chromium 的 8 项 UI 驱动检查 + 五变异证据（见 `docs/evidence/ATS-103/`） |
 | tools/ats506-probes/ | 検証スクリプト | ATS-506 控制面边界的负向夹具（8 个守护变异必须被对应用例捕获）与证据收集脚本（见 `docs/evidence/ATS-506/`） |
+| tools/ats402-probes/ | 検証スクリプト | ATS-402 AI 数据安全边界的仓库内可重跑探针（秘密不进文件/argv/日志的静态检查、真实系统凭据库回读、外传闸门判定、外传审计留痕，每项均带负控，见 `docs/evidence/ATS-402/`） |
 | tools/ats512-probes/ | 検証スクリプト | ATS-512 插件权限边界的仓库内可重跑探针（超权拒绝、审计不可抑制、证据不可伪造，含负控，见 `docs/evidence/ATS-512/`） |
 | tools/ats216-probes/ | 検証スクリプト | ATS-216 质量概览的可重跑探针（真实 Bridge + 真实 Playwright 的系统测试、变异检查、证据收集脚本，见 `docs/evidence/ATS-216/`） |
 | tools/ats208-probes/ | 検証スクリプト | ATS-208 执行模型的可重跑探针（重试用例的计数与 attempt 保留、事件流按 run+sequence 复演，含 Bridge 崩溃场景，见 `docs/evidence/ATS-208/`） |

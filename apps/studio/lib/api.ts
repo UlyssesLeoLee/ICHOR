@@ -23,6 +23,18 @@ export type CaseAttempt={status:string,retry:number,duration:number,error:string
 export type CaseResult={title:string,file:string,status:string,duration:number,error:string,attemptsCount:number,scope?:string[],line?:number|null,column?:number|null,caseKey?:string|null,attempts:CaseAttempt[]};
 export type Run={id:string,uid:string,seq:number,projectId:string,projectUid:string,projectName:string,file:string|null,gitCommit:string,status:string,createdAt:string,startedAt:string|null,finishedAt:string|null,log?:string,error?:string,summary?:{passed:number,failed:number,skipped:number,flaky:number,total:number,executions:number,cases:CaseResult[]},artifacts?:{file:string,size:number,sha256:string}[],attempts?:Attempt[]};
 export type Source={file:string,content:string,hash:string};
+// ATS-402: the AI data security surface. A credential reference NEVER
+// carries the secret -- only the name, the provider and a short
+// fingerprint the user can compare by eye.
+export type CredentialRef={id:string,name:string,purpose:string,provider:string,fingerprint:string,createdAt:string,updatedAt:string};
+export type EgressScopeItem={kind:string,ref:string,digest:string,bytes:number};
+export type EgressScope={kinds:string[],count:number,totalBytes:number,items:EgressScopeItem[],scopeDigest:string};
+export type EgressPreview={previewId:string,scope:EgressScope,note:string};
+export type EgressConsent={id:string,contract:string,kinds:string[],scopeDigest:string,itemCount:number,totalBytes:number,createdAt:string,expiresAt:string,state:string,revokedAt:string|null};
+export type SecurityContract={contract:string,provider:string,purposes:string[],errorCodes:string[],note:string,egressConsent:{contract:string,kinds:string[],states:string[],errorCodes:string[],defaultTtlSeconds:number,maxTtlSeconds:number,flow:string,note:string},egressAudit:{contract:string,events:string[],cap:number,note:string}};
+// ATS-402: an audit record names the refs and their digests. It never carries the content.
+export type EgressAuditItem={kind:string,ref:string,digest:string,bytes:number};
+export type EgressAuditRecord={id:string,at:string,event:string,outcome:string,code:string|null,reason:string|null,consentId:string|null,projectId:string|null,kinds:string[],itemCount:number,totalBytes:number,scopeDigest:string|null,items:EgressAuditItem[]};
 const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
 let token='';
 export async function api<T>(url:string,method='GET',payload?:unknown):Promise<T>{

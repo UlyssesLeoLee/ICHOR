@@ -1,14 +1,14 @@
 'use client';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import dynamic from 'next/dynamic';
-import {Activity,BookOpen,Box,ChartNoAxesCombined,CheckCircle2,ChevronRight,Clock,Code2,Download,FileCode2,FilePlus2,FolderGit2,GitBranch,GitCommitHorizontal,LayoutDashboard,Layers3,Network,Play,RefreshCcw,Save,Search,ShieldAlert,Square,Terminal,TestTube2,XCircle} from 'lucide-react';
-import {api,downloadArtifact,type Project,type TestDef,type TestCatalog,type Run,type Source} from '../lib/api';
+import {Activity,BookOpen,Box,ChartNoAxesCombined,CheckCircle2,ChevronRight,Clock,Code2,Download,FileCode2,FilePlus2,FileSearch,FolderGit2,GitBranch,GitCommitHorizontal,KeyRound,LayoutDashboard,Layers3,Lock,Network,Play,RefreshCcw,Save,Search,ShieldAlert,Square,Terminal,TestTube2,Trash2,XCircle} from 'lucide-react';
+import {api,downloadArtifact,type Project,type TestDef,type TestCatalog,type Run,type Source,type CredentialRef,type EgressScope,type EgressPreview,type EgressConsent,type SecurityContract,type EgressAuditRecord} from '../lib/api';
 // ATS-216: the QUALITY OVERVIEW module. It lives in `public/` so that the
 // Next workbench and the zero-dependency portable UI import the SAME
 // implementation -- the metrics cannot drift apart between the two UIs.
 import {buildQualityOverview,qualityMetricCards,type QualityOverview} from '../public/quality.mjs';
 const Monaco=dynamic(()=>import('@monaco-editor/react'),{ssr:false});
-type Tab='catalog'|'runs'|'quality'|'trace'|'architecture';
+type Tab='catalog'|'runs'|'quality'|'trace'|'security'|'architecture';
 const label:Record<string,string>={passed:'通过',failed:'失败',running:'运行中',queued:'排队中',cancelling:'停止中',cancelled:'已停止',interrupted:'中断',error:'错误'};
 // ATS-216: the labels of the buckets the overview distinguishes. A CANCELLED
 // run and a FLAKY case get their own words -- they are not "失败" and they
@@ -29,6 +29,10 @@ export default function Studio(){
  const [source,setSource]=useState<Source|null>(null),[draft,setDraft]=useState(''),[view,setView]=useState<'graph'|'code'>('graph');
  const [tab,setTab]=useState<Tab>('catalog'),[filter,setFilter]=useState(''),[projectPath,setProjectPath]=useState('');
  const [dialog,setDialog]=useState(false),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
+ const [secContract,setSecContract]=useState<SecurityContract|null>(null),[credentials,setCredentials]=useState<CredentialRef[]>([]);
+ const [consents,setConsents]=useState<EgressConsent[]>([]),[preview,setPreview]=useState<EgressPreview|null>(null);
+ const [audit,setAudit]=useState<EgressAuditRecord[]>([]);
+ const [keyName,setKeyName]=useState(''),[keySecret,setKeySecret]=useState('');
  const [lineage,setLineage]=useState<{requirements:{uid:string,title:string,status?:string}[],links:{from:string,to:string,type?:string}[]}>({requirements:[],links:[]});
  // ATS-216: the scope of the quality overview. `project` is the default;
  // `all` spans every project, `run` is a single run.
@@ -49,6 +53,15 @@ export default function Studio(){
  const stats={passed:projectRuns.filter(r=>r.status==='passed').length,failed:projectRuns.filter(r=>r.status==='failed').length,total:projectRuns.length};
  const currentRun=runDetail && runDetail.projectId===active ? runDetail : projectRuns[0];
  useEffect(()=>{if(currentRun?.id&&tab==='runs')api<{run:Run}>(`/api/runs/${currentRun.id}`).then(r=>setRunDetail(r.run)).catch(()=>{});},[runs,tab,currentRun?.id]);
+ const loadSecurity=useCallback(async()=>{try{
+  const [c,k,g,a]=await Promise.all([
+   api<SecurityContract>('/api/security/contract'),
+   api<{credentials:CredentialRef[]}>('/api/security/credentials'),
+   api<{consents:EgressConsent[]}>('/api/security/egress/consents'),
+   api<{audit:EgressAuditRecord[]}>('/api/security/egress/audit')]);
+  setSecContract(c);setCredentials(k.credentials);setConsents(g.consents);setAudit(a.audit);
+ }catch(e){notify((e as Error).message)}},[]);
+ useEffect(()=>{if(tab==='security')loadSecurity();},[tab,loadSecurity]);
  async function openFile(test:TestDef){setSelected(test);try{const s=await api<Source>(`/api/projects/${active}/source?file=${encodeURIComponent(test.file)}`);setSource(s);setDraft(s.content)}catch(e){notify((e as Error).message)}}
  async function addProject(){setBusy(true);try{const r=await api<{project:Project}>('/api/projects','POST',{path:projectPath});setDialog(false);setProjectPath('');setActive(r.project.id);await refresh();notify('项目添加成功：未修改原仓库')}catch(e){notify((e as Error).message)}finally{setBusy(false)}}
  async function execute(file:string|null){if(!active)return;try{const {run}=await api<{run:Run}>(`/api/projects/${active}/run`,'POST',{file});setRunDetail(run);setTab('runs');await refresh();notify('已提交到本地 Playwright Runner')}catch(e){notify((e as Error).message)}}
@@ -67,12 +80,32 @@ export default function Studio(){
  // workbench and the portable UI show the same numbers -- and every card
  // carries the raw items it was counted from.
  const qualityCards=useMemo(()=>qualityMetricCards(overview),[overview]);
+ // --- ATS-402: the AI data security actions --------------------------------
+ // The secret is sent once to the credential store and then CLEARED from the
+ // local state, so it is not left in the component's memory.
+ async function saveKey(){if(!keyName||!keySecret)return;setBusy(true);
+  try{await api<{credential:CredentialRef}>('/api/security/credentials','POST',{name:keyName,secret:keySecret,purpose:'ai-provider'});
+   setKeySecret('');await loadSecurity();notify('密钥已存入系统凭据库，本地仅保留引用');
+  }catch(e){notify((e as Error).message)}finally{setBusy(false)}}
+ async function removeKey(id:string){try{await api(`/api/security/credentials/${id}`,'DELETE');await loadSecurity();notify('已删除凭据库中的密钥')}catch(e){notify((e as Error).message)}}
+ async function previewEgress(){if(!active)return notify('请先选择项目');
+  const inputs=catalog.tests.length?[{kind:'file',ref:catalog.tests[0].file}]:[];
+  if(!inputs.length)return notify('该项目没有可预览的测试文件');
+  try{const r=await api<{preview:EgressPreview}>('/api/security/egress/preview','POST',{projectId:active,inputs});setPreview(r.preview)}
+  catch(e){notify((e as Error).message)}}
+ async function confirmEgress(){if(!preview||!active)return;setBusy(true);
+  try{const inputs=preview.scope.items.map(i=>({kind:i.kind,ref:i.ref}));
+   await api<{consent:EgressConsent}>('/api/security/egress/confirm','POST',{projectId:active,inputs,previewId:preview.previewId});
+   setPreview(null);await loadSecurity();notify('已记录知情授权');
+  }catch(e){notify((e as Error).message)}finally{setBusy(false)}}
+ async function revokeConsent(id:string){try{await api(`/api/security/egress/consents/${id}`,'DELETE');await loadSecurity();notify('授权已撤销，立即生效')}catch(e){notify((e as Error).message)}}
  return <div className="app-shell">
   <aside className="rail"><div className="mark"><TestTube2 size={23}/></div>
    <button title="测试目录" className={tab==='catalog'?'rail-btn active':'rail-btn'} onClick={()=>setTab('catalog')}><Layers3 size={20}/></button>
    <button title="执行中心" className={tab==='runs'?'rail-btn active':'rail-btn'} onClick={()=>setTab('runs')}><Activity size={20}/></button>
    <button title="质量概览" className={tab==='quality'?'rail-btn active':'rail-btn'} onClick={()=>setTab('quality')}><ChartNoAxesCombined size={20}/></button>
    <button title="需求追踪" className={tab==='trace'?'rail-btn active':'rail-btn'} onClick={()=>setTab('trace')}><Network size={20}/></button>
+   <button title="AI 数据安全" className={tab==='security'?'rail-btn active':'rail-btn'} onClick={()=>setTab('security')}><Lock size={20}/></button>
    <button title="架构和限制" className={tab==='architecture'?'rail-btn active':'rail-btn'} onClick={()=>setTab('architecture')}><Box size={20}/></button>
    <div className="rail-bottom"><span className="live-dot"/></div>
   </aside>
@@ -92,6 +125,7 @@ export default function Studio(){
      {qualityScope==='run'&&<div className="file-list">{projectRuns.map(r=><button key={r.id} className={'run-item '+(qualityRunId===r.id?'selected':'')} onClick={()=>setQualityRunId(r.id)}><span className={'status-dot '+r.status}/><span><b>{r.file||'全部测试'}</b><small>{formatTime(r.createdAt)}</small></span><small>{label[r.status]||r.status}</small></button>)}</div>}
      <div className="sidebar-hint">失败、重试与取消分开计数。质量概览页的「原始结果」列出每个数字的来源用例与 attempt。</div></> }
      {tab==='trace'&&<div className="file-list">{lineage.requirements.map(r=><div key={r.uid} className="file-item"><BookOpen size={16}/><span><b>{r.title}</b><small>{r.uid}</small></span></div>)}{!lineage.requirements.length&&<div className="empty-small">项目 .aitest/requirements.json<br/>可加载需求与关联关系</div>}</div>}
+     {tab==='security'&&<div className="sidebar-hint">密钥存系统凭据库；外传前先展示范围并确认。</div>}
      {tab==='architecture'&&<div className="sidebar-hint">Git 是唯一脚本来源；SQLite 和远程执行留到后续迭代。v0.1 存储为本地 JSON。</div>}
      <div className="sidebar-footer">{catalog.tests.length} tests · {catalog.files.length} files<br/><span>{selectedProject?.root||'未连接 Git 项目'}</span></div>
     </aside>
@@ -127,6 +161,28 @@ export default function Studio(){
       <div className="card"><div className="card-title"><Terminal size={16}/> 运行分布</div><table><thead><tr><th>运行状态</th><th>数量</th><th>含义</th></tr></thead><tbody>{[['passed',overview.runs.passed],['failed',overview.runs.failed],['cancelled',overview.runs.cancelled],['error',overview.runs.error],['interrupted',overview.runs.interrupted],['unknown',overview.runs.unknown],['inFlight',overview.runs.inFlight]].map(([k,v])=><tr key={String(k)}><td>{runBucketLabel[String(k)]||bucketLabel[String(k)]||String(k)}</td><td>{String(v)}</td><td>{k==='inFlight'?'尚未结束，不计入任何比率':['passed','failed'].includes(String(k))?'计入运行通过率':'未得出结论，不计入失败'}</td></tr>)}</tbody></table></div>
      </>}
      {tab==='trace'&&<><div className="section-top"><div><div className="eyebrow">QUALITY LINEAGE</div><h1>需求与测试追踪</h1><p>Requirement → Script → Execution → Evidence 的可查询映射。</p></div></div><div className="card"><div className="card-title"><Network size={17}/> 关联矩阵</div><table><thead><tr><th>需求编号</th><th>需求名称</th><th>关联用例</th><th>覆盖情况</th></tr></thead><tbody>{lineage.requirements.map(req=>{const targets=lineage.links.filter(x=>x.from===req.uid).map(x=>x.to);return <tr key={req.uid}><td>{req.uid}</td><td>{req.title}</td><td>{targets.join(', ')||'—'}</td><td>{targets.length?'已建立关联':'待补充'}</td></tr>})}</tbody></table>{!lineage.requirements.length&&<p className="muted">在项目中建立 .aitest/requirements.json 和 traceability.json 后可显示需求关系。</p>}</div></>}
+     {tab==='security'&&<><div className="section-top"><div><div className="eyebrow">AI DATA SECURITY</div><h1>AI 数据安全</h1><p>密钥存入系统凭据库；任何项目内容外传前先展示范围并由你确认。</p></div><button className="btn secondary" onClick={loadSecurity}><RefreshCcw size={15}/> 刷新</button></div>
+      <div className="metric-row"><div className="metric"><span>凭据库</span><strong className="small-value">{secContract?.provider||'不可用'}</strong><small>{secContract?'系统凭据库已就绪':'本机没有系统凭据库'}</small></div><div className="metric"><span>已存密钥</span><strong>{credentials.length}</strong><small>本地只保留引用</small></div><div className="metric"><span>有效授权</span><strong>{consents.filter(c=>c.state==='granted').length}</strong><small>到期自动失效</small></div><div className="metric"><span>外传策略</span><strong className="small-value">默认拒绝</strong><small>无授权不外传</small></div></div>
+      <div className="split"><div className="card grow"><div className="card-title"><KeyRound size={16}/> 密钥存储</div>
+       <p className="muted">密钥本体写入<b>系统凭据库</b>；本机索引只保留引用与指纹。没有任何接口会返回密钥原文。</p>
+       <div className="panel-right" style={{justifyContent:'flex-start',gap:8,margin:'10px 0'}}><input placeholder="密钥名称" value={keyName} onChange={e=>setKeyName(e.target.value)}/><input placeholder="密钥内容" type="password" value={keySecret} onChange={e=>setKeySecret(e.target.value)}/><button className="btn primary small" onClick={saveKey} disabled={busy||!keyName||!keySecret}><Save size={13}/> 存入</button></div>
+       {credentials.map(c=><div className="result-item" key={c.id}><span className="ok"><Lock size={15}/></span><div><b>{c.name}</b><small>{c.provider} · 指纹 {c.fingerprint} · {c.purpose}</small></div><button className="btn danger small" onClick={()=>removeKey(c.id)}><Trash2 size={13}/> 删除</button></div>)}
+       {!credentials.length&&<p className="muted">尚未存入任何密钥。</p>}
+      </div>
+      <div className="card evidence"><div className="card-title"><ShieldAlert size={16}/> 数据外传授权</div>
+       <p className="muted">流程：<b>预览范围 → 确认 → 授权</b>。范围由平台侧读取真实文件并复算摘要，内容变了授权即失效。</p>
+       <button className="btn secondary small" style={{margin:'10px 0'}} onClick={previewEgress}><FileSearch size={13}/> 预览将要外传的范围</button>
+       {preview&&<div className="card" style={{marginTop:10}}><div className="card-title">待确认的范围</div><p className="muted">{preview.scope.count} 项 · {preview.scope.totalBytes} 字节 · 种类 {preview.scope.kinds.join('、')}</p>{preview.scope.items.map(i=><div className="result-item" key={i.ref}><span className="ok"><FileCode2 size={15}/></span><div><b>{i.ref}</b><small>{i.kind} · {i.bytes} 字节 · SHA-256 {i.digest.slice(0,16)}…</small></div></div>)}<button className="btn primary small" onClick={confirmEgress} disabled={busy}>确认并授权</button></div>}
+       {consents.map(c=><div className="result-item" key={c.id}><span className={c.state==='granted'?'ok':'bad'}>{c.state==='granted'?<CheckCircle2 size={15}/>:<XCircle size={15}/>}</span><div><b>{c.kinds.join('、')} · {c.itemCount} 项</b><small>{c.state} · {c.expiresAt} 到期 · 摘要 {c.scopeDigest.slice(0,12)}…</small></div>{c.state==='granted'&&<button className="btn danger small" onClick={()=>revokeConsent(c.id)}><Trash2 size={13}/> 撤销</button>}</div>)}
+       {!consents.length&&<p className="muted">尚无授权记录。</p>}
+      </div></div>
+      <div className="card"><div className="card-title"><ShieldAlert size={16}/> 外传审计</div>
+       <p className="muted">每一次外传判定都会留痕，<b>放行与拒绝都记</b>。记录里只有 ref、字节数与 SHA-256 摘要——<b>不含内容、不含密钥</b>。</p>
+       {audit.map(r=><div className="result-item" key={r.id}><span className={r.outcome==='allowed'?'ok':'bad'}>{r.outcome==='allowed'?<CheckCircle2 size={15}/>:<XCircle size={15}/>}</span><div><b>{r.event}</b><small>{formatTime(r.at)} · {r.kinds.join('、')||'—'} · {r.itemCount} 项 · {r.totalBytes} 字节{r.code?` · ${r.code}`:''}</small>{r.items.map(i=><small key={i.ref} style={{display:'block'}}>{i.ref} · SHA-256 {i.digest.slice(0,12)}…</small>)}</div></div>)}
+       {!audit.length&&<p className="muted">尚无外传记录。</p>}
+      </div>
+      <div className="note"><ShieldAlert size={15}/> 未接入模型提供商，因此当前没有任何请求能真正到达模型；本页交付的是凭据存储与外传授权这两道闸门本身。</div>
+     </>}
      {tab==='architecture'&&<><div className="section-top"><div><div className="eyebrow">DESIGN BASELINE</div><h1>架构与运行边界</h1><p>Git-native · Evidence-driven · Visual-first</p></div></div><div className="architecture"><div className="arch-card"><FolderGit2/><h3>Git / Playwright</h3><p>已有仓库与测试代码是事实来源</p></div><div className="arch-card"><Activity/><h3>Node Runner Bridge</h3><p>本机子进程启动、停止、结果采集</p></div><div className="arch-card"><Clock/><h3>Execution History</h3><p>本地存储运行日志与不可变证据</p></div><div className="arch-card"><BookOpen/><h3>IPA Traceability</h3><p>需求、脚本与执行结果的映射入口</p></div></div><div className="note"><ShieldAlert size={15}/> 安全限制：仅用于可信的本地项目。Node 子进程不是容器沙箱。暂未加入远程执行、RBAC、密钥保险箱或 AI 自动写回。</div></>}
     </main>
    </section>
