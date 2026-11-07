@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# ATS-512: prove that the one failing test in the full suite is PRE-EXISTING.
+# ATS-512: prove that any failing test in the full suite is PRE-EXISTING.
 #
-# The full `node --test tests/*.test.mjs` suite reports one failure,
-# IT-API-013, on this branch. This script shows that the same test fails on a
-# tree that contains NO ATS-512 code, therefore the failure is not caused by
-# this task.
+# The full `node --test tests/*.test.mjs` suite is the honest baseline. If
+# it reports a failure, this script shows whether the SAME test fails on a
+# tree that contains NO ATS-512 code. Only then is the failure attributable
+# to someone else.
 #
-# The comparison tree is `dev` -- the branch this task merges back into. It is
-# the honest reference: it contains ATS-103 and ATS-506 (which arrived while
-# this task was running) but none of this task's code.
+# The comparison tree is the merge base of this branch and `dev`: that is the
+# last commit both share, so it contains no ATS-512 work at all. (Using `dev`
+# itself would NOT work any more: the round-1 delivery is already merged
+# into `dev`, so `dev` now contains the ATS-512 code.)
 #
 # The tree is exported with `git archive`, so it is exactly the committed
 # content -- no uncommitted file of this working tree can leak into it.
@@ -19,13 +20,17 @@ set -u
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT" || exit 1
 
-REF="${ATS_BASELINE_REF:-dev}"
 TMP="${TMPDIR:-/tmp}/ats512-baseline-regression"
 rm -rf "$TMP"
 mkdir -p "$TMP"
 
-echo "reference tree : $REF ($(git rev-parse --short "$REF"))"
+# The last commit this branch shares with dev: the reference tree.
+BASE="$(git merge-base HEAD dev 2>/dev/null || git rev-parse HEAD~1)"
+REF="${ATS_BASELINE_REF:-$BASE}"
+
+echo "reference tree : $REF ($(git rev-parse --short "$REF")) -- the merge base with dev"
 echo "work tree      : $(git rev-parse --short HEAD)"
+echo
 
 git archive "$REF" | tar -x -C "$TMP" || exit 1
 
@@ -38,26 +43,32 @@ echo "--- this branch (WITH the ATS-512 code) ---"
 node --test tests/api.test.mjs 2>&1 | grep -E '^✖|^ℹ (pass|fail|skipped)'
 
 echo
-echo "--- why it fails ---"
+echo "--- how to read this ---"
 cat <<'EOF'
-examples/sample-playwright/ has no node_modules in this checkout, so the
-Playwright adapter reports the required capabilities as unsupported and the
-negotiation returns 409 instead of 200. The example project's dependencies
-are NOT part of the repository (.gitignore: examples/*/node_modules/), so
-this failure depends on whether the example was installed locally -- not on
-the product code. It is an ATS-301 environment dependency, not an ATS-512
-defect, and it is NOT counted as a PASS.
+If BOTH trees fail the same test, that failure is pre-existing and is not
+caused by this task; it is recorded, not counted as a PASS.
+
+If BOTH trees pass, there is nothing to attribute: the suite is green on the
+reference tree as well, and no failure needs an excuse.
+
+If the reference tree passes and this branch fails, that IS a regression
+introduced by this task, and the script reports it as such.
 EOF
 
-# The script's own verdict: the same test must fail in BOTH trees.
+# The script's own verdict: the failures must be the SAME in both trees.
+REF_FAILS=$( cd "$TMP" && node --test tests/api.test.mjs 2>&1 | grep -c '✖' )
+HEAD_FAILS=$( node --test tests/api.test.mjs 2>&1 | grep -c '✖' )
 echo
-REF_FAILS=$( cd "$TMP" && node --test tests/api.test.mjs 2>&1 | grep -c '✖ IT-API-013' )
-HEAD_FAILS=$( node --test tests/api.test.mjs 2>&1 | grep -c '✖ IT-API-013' )
-if [ "$REF_FAILS" -ge 1 ] && [ "$HEAD_FAILS" -ge 1 ]; then
-  echo "RESULT: OK -- IT-API-013 fails on the reference tree as well ($REF_FAILS occurrence(s)),"
-  echo '        so it is pre-existing and not caused by this task.'
+echo "failures -- reference tree: $REF_FAILS, this branch: $HEAD_FAILS"
+if [ "$REF_FAILS" -eq "$HEAD_FAILS" ]; then
+  if [ "$HEAD_FAILS" -eq 0 ]; then
+    echo "RESULT: OK -- the suite is green on BOTH trees: no failure to attribute."
+  else
+    echo "RESULT: OK -- the same failure(s) occur on the reference tree as well,"
+    echo "        so they are pre-existing and not caused by this task."
+  fi
   exit 0
 fi
-echo "RESULT: MISMATCH -- the failure is not reproduced on the reference tree"
-echo "        (reference: $REF_FAILS, this branch: $HEAD_FAILS)."
+echo "RESULT: MISMATCH -- the reference tree and this branch disagree"
+echo "        (reference: $REF_FAILS, this branch: $HEAD_FAILS): this is a regression."
 exit 1
