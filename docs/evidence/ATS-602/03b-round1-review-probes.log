@@ -1,6 +1,6 @@
 === ATS-602 evidence: the round-1 review probes (the 14 counter-examples) ===
-tree : bf75ab5187dbf180db168a0e668e9288429f2f0e
-date : 2026-11-07T01:13:05Z
+tree : aa58d9d1d106d776b88f085296767174f19cbd42
+date : 2026-11-07T01:19:39Z
 
 --- the in-process probe (node r1.mjs) ---
 E1a OK :: findFlowFiles = ["flows/smoke/login.yaml","flows/top.yaml","tests/mobile/android/pay.flow"] (expected to include flows/smoke/login.yaml and tests/mobile/android/pay.flow)

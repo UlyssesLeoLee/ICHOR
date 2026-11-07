@@ -1,6 +1,6 @@
 === ATS-602 evidence: the line and branch coverage of the import ===
-tree : bf75ab5187dbf180db168a0e668e9288429f2f0e
-date : 2026-11-07T01:13:05Z
+tree : aa58d9d1d106d776b88f085296767174f19cbd42
+date : 2026-11-07T01:19:39Z
 
 ℹ tests 80
 ℹ pass 80
