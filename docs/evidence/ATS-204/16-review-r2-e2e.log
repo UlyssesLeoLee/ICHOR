@@ -7,13 +7,13 @@ node tools/ats204-probes/review-r2/r2-e2e.mjs . D:/hermes-multica/home/cache/scr
   actual:   checkout @TC-001:tc-001(explicit)
   catalogue after fix:
     "checkout @TC-001" line=3 scope=[] uid=tc-001 basis=explicit
-    "refund" line=3 scope=[] uid=tcp_1_c3f71231c6457f91_2 basis=body-key
+    "refund" line=3 scope=[] uid=tcp_1_3ea3094204184ff4_2 basis=body-key
   registry entries still marked duplicateExplicit: []
   VERDICT:  OK
 
 [X3] static (untrusted, the default) catalogue STILL judges @TC-001 duplicated, and a single-file run agrees: unbound, explicit-ambiguous
   expected: catalogue flags both; attempt null(explicit-ambiguous)
-  actual:   refund @TC-001:null(explicit-ambiguous)  | catalogue(static): checkout @TC-001:tcp_1_85ca17aa338d48f7_1(duplicate-explicit-uid), refund @TC-001:tcp_1_d30052fbd7ce5a9f_2(duplicate-explicit-uid)
+  actual:   refund @TC-001:null(explicit-ambiguous)  | catalogue(static): checkout @TC-001:tcp_1_6fb25194bde1f5ea_1(duplicate-explicit-uid), refund @TC-001:tcp_1_b9331215f30cd373_2(duplicate-explicit-uid)
   VERDICT:  OK
 
 [X2s] static (untrusted) path: after the duplicate is removed from b.spec, a single-file run of a.spec binds tc-001 again
@@ -21,33 +21,33 @@ node tools/ats204-probes/review-r2/r2-e2e.mjs . D:/hermes-multica/home/cache/scr
   actual:   checkout @TC-001:tc-001(explicit)
   catalogue after fix (static):
     "checkout @TC-001" line=3 scope=[] uid=tc-001 basis=undefined
-    "refund" line=3 scope=[] uid=tcp_1_de6af970aaba4b38_2 basis=undefined
+    "refund" line=3 scope=[] uid=tcp_1_7625b649c867497a_2 basis=undefined
   registry entries still marked duplicateExplicit: []
   VERDICT:  OK
 
 [M3] describe-loop: the FAILED attempt (b > works) carries b's uid, the passed one a's uid
-  expected: failed->tc_1_d_13545a5fc59bd60c, passed->tc_1_d_dd9f1ed375c96ae1
-  actual:   failed->tc_1_d_13545a5fc59bd60c(file-scope-title), passed->tc_1_d_dd9f1ed375c96ae1(file-scope-title)
+  expected: failed->tc_1_d_3e073bd56775ad67, passed->tc_1_d_ce2862375d416c4e
+  actual:   failed->tc_1_d_3e073bd56775ad67(file-scope-title), passed->tc_1_d_ce2862375d416c4e(file-scope-title)
   VERDICT:  OK
 
 [N2] all loop data replaced (alice,bob -> carol,dave), same count: anchor treats it as a re-wording
   expected: documented in doc 26 §7 if inherited
   actual:   2 render(s) inherited by position-anchor
   before:
-    "user alice" line=4 scope=[] uid=tc_1_d_ba406584ab4c6c88 basis=title-key
-    "user bob" line=4 scope=[] uid=tc_1_d_0f78f14345dcba4d basis=title-key
+    "user alice" line=4 scope=[] uid=tc_1_d_0969ac66f66a3a65 basis=title-key
+    "user bob" line=4 scope=[] uid=tc_1_d_edb666f146ddfa03 basis=title-key
   after:
-    "user carol" line=4 scope=[] uid=tc_1_d_ba406584ab4c6c88 basis=position-anchor
-    "user dave" line=4 scope=[] uid=tc_1_d_0f78f14345dcba4d basis=position-anchor
+    "user carol" line=4 scope=[] uid=tc_1_d_0969ac66f66a3a65 basis=position-anchor
+    "user dave" line=4 scope=[] uid=tc_1_d_edb666f146ddfa03 basis=position-anchor
   VERDICT:  INFO (not blocking)
 
 [N4] a source test replaced in place by a one-render loop with a new title: does it inherit the old uid?
-  expected: uid != tc_1_d_f1d577ea7f1efc1e
-  actual:   uid=tc_1_d_225d6b8884d8b407 basis=title-key
+  expected: uid != tc_1_d_121c286594e86787
+  actual:   uid=tc_1_d_cb4e3df2b366f45b basis=title-key
   before:
-    "login works" line=3 scope=[] uid=tc_1_d_f1d577ea7f1efc1e basis=title-key
+    "login works" line=3 scope=[] uid=tc_1_d_121c286594e86787 basis=title-key
   after:
-    "search x" line=3 scope=[] uid=tc_1_d_225d6b8884d8b407 basis=title-key amb=render-source-entry
+    "search x" line=3 scope=[] uid=tc_1_d_cb4e3df2b366f45b basis=title-key amb=render-source-entry
   VERDICT:  OK
 
 SUMMARY: 0 blocking check(s) failed

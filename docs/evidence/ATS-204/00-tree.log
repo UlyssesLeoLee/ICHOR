@@ -1,11 +1,12 @@
 === command ===
 bash -c git log --oneline -5; echo; git status --short
 === output ===
-5aaf6b7 Merge branch 'dev' of D:/ICHOR into agent/m3/seikoist-166
-c370e84 chore(ATS-204): 在合并 dev 之后的交付树上重新生成 CHECKSUMS.sha256
-9a5aeab docs(ATS-204): 索引与设计书同步第 2 轮的修改，证据改到合并 dev 后的树上
-70a39e4 merge(ATS-103): 第 3 轮返工交付（R1-R4 修正 + 证据 + 一处 CORS 修复）
-9e599b1 merge(dev): 合入最新 dev（ATS-212 最终树）
+ebd1b34 Merge branch 'dev' of D:/ICHOR into agent/m3/seikoist-166
+eecb659 chore(ATS-204): 在合并 dev 之后的交付树上重新生成 CHECKSUMS.sha256
+6bdf618 merge(ATS-103): 补入 dev 克隆上的 R4 复跑日志与校验和清单
+59f61df test(ATS-204): 在合并 dev（ATS-103 第 3 轮返工）之后的交付树上重新采集全部证据
+c9b2c11 chore(ATS-103): 重新生成 CHECKSUMS.sha256
 
  M docs/evidence/ATS-204/00-tree.log
+?? reply.md
 === exit code: 0 ===
