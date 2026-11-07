@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：563；已执行通过：547；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：589；已执行通过：573；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -162,6 +162,32 @@
 |UT-PLG-050|FR-028|安全|SDK 自己不碰文件系统|检查 sdk.mjs 源码|不 import node:fs / node:child_process，不 spawn|node --test|PASS|
 |UT-PLG-051|FR-028|安全|禁止权限永不出现在生效集合里|每个档位下解析全量申请|granted 与禁止清单无交集|node --test|PASS|
 |UT-PLG-052|FR-028|正常|SDK 没有写任何文件|检查临时夹目录|目录为空|node --test|PASS|
+|UT-PLG-053|FR-028|安全|describe() 也进审计|连续两次 describe()|两条 plugin.describe 事件，seq 为 1、2|node --test|PASS|
+|UT-PLG-054|FR-028|安全|跳过证据的尝试进审计|evidenceRefs 为空或缺失|报 PLUGIN_EVIDENCE_REQUIRED 并留下 plugin.proposal.refused|node --test|PASS|
+|UT-PLG-055|FR-028|安全|每一次被拒的调用都进审计|非法 runUid / 宿主解不出摘要 / 非法 status|每次拒绝各留一条审计事件|node --test|PASS|
+|UT-PLG-056|FR-028|安全|宿主读取失败也进审计|宿主 readTestFile 抛错|事件 outcome=failed 且带错误信息|node --test|PASS|
+|UT-PLG-057|FR-028|异常|宿主没有提案存储时拒绝构造 SDK|缺 submitProposal / getProposal|报 PLUGIN_HOST_REQUIRED|node --test|PASS|
+|UT-PLG-058|FR-028|安全|提案由宿主持有|reportOutcome 后查宿主存储|宿主记录里有这份提案，approval=pending|node --test|PASS|
+|UT-PLG-059|FR-028|安全|审计记 proposalId 与证据摘要|上报一次结论|事件带 proposalId 与每条证据的 sha256|node --test|PASS|
+|UT-PLG-060|FR-028|安全|宿主没有的提案不能评审|伪造一个形状合法的提案|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-061|FR-028|安全|被篡改的提案不能评审|改 sha256 与 producedBy|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-062|FR-028|异常|评审缺少宿主记录存储时被拒|不传 host|报 PLUGIN_REVIEW_STATE_INVALID|node --test|PASS|
+|UT-PLG-063|FR-028|安全|proposalId 全局唯一|三个 SDK 实例各产一份提案|三个 id 互不相同|node --test|PASS|
+|UT-PLG-064|FR-028|安全|越出授予项目被拒并审计|对 proj_OTHER_TENANT 调用三个操作|报 PLUGIN_SCOPE_INVALID，宿主没收到那个 id|node --test|PASS|
+|UT-PLG-065|FR-028|安全|没有授予项目时什么都读不到|不传 projects|报 PLUGIN_SCOPE_INVALID 并进审计|node --test|PASS|
+|UT-PLG-066|FR-028|正常|授予的项目出现在 describe() 里|授予两个项目|grantedPermissions 之外另有 grantedProjects|node --test|PASS|
+|UT-PLG-067|FR-028|安全|原型链上的名字不是合法操作|constructor / __proto__ / toString / hasOwnProperty / valueOf|一律 allowed=false 且 permission=null|node --test|PASS|
+|UT-PLG-068|FR-028|安全|原型链上的名字不是合法档位|tier 取上述名字|报 PLUGIN_MANIFEST_INVALID|node --test|PASS|
+|UT-PLG-069|FR-028|安全|authorizePluginCall 对未知操作给专用错误码|operation=toString|报 PLUGIN_OPERATION_UNSUPPORTED|node --test|PASS|
+|UT-PLG-070|FR-028|正常|sink 拒收事件时序号不前进|sink 第一次抛错|序号停在原处，下一次成功写入从 1 开始|node --test|PASS|
+|UT-PLG-071|FR-028|安全|宿主拒收提案记录时被审计|submitProposal 抛错|报 PLUGIN_PROPOSAL_INVALID 并留下审计事件|node --test|PASS|
+|UT-PLG-072|FR-028|正常|readRequirements 成功路径|宿主返回需求|返回宿主的结果并记一条 plugin.requirements.read|node --test|PASS|
+|UT-PLG-073|FR-028|安全|没有该权限时 readRequirements 被拒|清单未申请 requirements.read|报 PLUGIN_PERMISSION_DENIED 并进审计|node --test|PASS|
+|UT-PLG-074|FR-028|正常|readRunEvidence 成功路径|宿主返回归档证据|返回宿主的结果并记一条 plugin.evidence.read|node --test|PASS|
+|UT-PLG-075|FR-028|安全|非法 runUid 的证据读取被拒并审计|runUid=run_x|报 PLUGIN_SCOPE_INVALID 并进审计|node --test|PASS|
+|UT-PLG-076|FR-028|边界|证据引用过多被拒|65 条 evidenceRefs|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-077|FR-028|异常|形状不合法的结论被拒|outcome 不是对象 / summary 为空 / 引用不是字符串|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-078|FR-028|安全|跨项目上报结论被拒|projectId 不在授予列表里|报 PLUGIN_SCOPE_INVALID 并进审计|node --test|PASS|
 |UT-SQL-001|NFR-010|正常|元数据层在当前 Node 构建上可用|node:sqlite 无需 flag|sqliteAvailable() 为 true|node --test|PASS|
 |UT-SQL-002|NFR-010|正常|数据库以 WAL 模式运行|在临时目录打开 metadata.db|PRAGMA journal_mode = wal|node --test|PASS|
 |UT-SQL-003|NFR-010|正常|被锁住的写入者会等待而不是立即失败|另一个进程持有 BEGIN IMMEDIATE 写锁|写入者等到锁释放后才提交成功|node --test|PASS|

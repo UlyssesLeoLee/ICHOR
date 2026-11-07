@@ -163,8 +163,8 @@ NARRATIVE_FRAGMENTS = {
                   '详见 docs/21-CONTROL-PLANE-API.md',
         },
         '【ATS-512】': {
-            'D6': '插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）',
-            'D7': '插件宿主与沙箱未实现（ATS-512 只交付契约层）；'
+            'D6': '插件契约层已实现（权限清单与 Runner SDK，含宿主持有的权威提案记录；插件宿主未实现）',
+            'D7': '插件宿主与沙箱未实现（ATS-512 只交付契约层；同进程插件仍可自行 import，ATS-403 之前无保证）；'
                   '详见 docs/21-PLUGIN-CONTRACT.md',
             },
         '【ATS-601】': {
