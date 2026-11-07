@@ -181,7 +181,7 @@ ATS-401 的契约纯度检查一致。
 
 ### 5.4 覆盖与构建
 
-- 全量套件：`npm test` **1217 项 / 0 失败 / 13 跳过**（`05-full-test-suite.log`）。
+- 全量套件：`npm test` **1259 项 / 0 失败 / 13 跳过**（`05-full-test-suite.log`）。
   13 项跳过是需要真实浏览器或真实凭据库的用例，与本任务无关。
 - 类型检查：`npx tsc --noEmit`（`apps/studio`）无错，见 `12-tsc.log`。
 - `next build` 成功产出 `apps/studio/out`，含新的「AI 数据安全」页签

@@ -1,8 +1,8 @@
 ================================================================================
 ATS-402 evidence log -- every file:line citation in the baseline ADR still resolves
 ================================================================================
-commit        : d387d7e8b903da52586e1c1d2ac621eaad46879c
-timestamp     : 2026-11-07T01:54:46Z (UTC)
+commit        : ce67195e4ccb850a6783509049a9a8b0ea1235cc
+timestamp     : 2026-11-07T02:03:49Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-06f2e5eaa1c4/worktree
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -14,7 +14,7 @@ command       : python tools/check_adr_citations.py
   apps/studio/app/page.tsx         189
   apps/studio/lib/api.ts           38
   apps/studio/public/fallback.html 3
-  server/core.mjs                  1190, 780
+  server/core.mjs                  1390, 780
   server/index.mjs                 1143, 1172, 1173, 250, 56, 572-602, 586, 604, 615, 808
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
@@ -40,7 +40,7 @@ ok   server/index.mjs:1143
 ok   server/index.mjs:1172
 ok   server/index.mjs:1173
 ok   server/core.mjs:780
-ok   server/core.mjs:1190
+ok   server/core.mjs:1390
 ok   server/index.mjs:572-602 (cancelRun extent)
 ok   apps/studio/app/page.tsx:189 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:38 (the API base URL -- covered by the ATS-101 port audit)
