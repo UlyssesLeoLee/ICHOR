@@ -99,6 +99,12 @@ run_step 08-coverage.log "the line coverage of the ATS-209 modules" \
 run_step 09-review-probe.log "the round 1 review probe against this tree" \
   node "$NATIVE_TREE/tools/ats209-probes/ats209-r1-probe.mjs" "$NATIVE_TREE" "$TMPDIR/ats209-r1-probe"
 
+run_step 10-review-probe-round2.log "the round 2 review probe against this tree" \
+  node "$NATIVE_TREE/tools/ats209-probes/ats209-r2-probe.mjs" "$NATIVE_TREE" "$TMPDIR/ats209-r2-probe"
+
+run_step 11-wbs-row.log "the ATS-209 row of docs/WBS.xlsx" \
+  python tools/update_wbs_ats209.py --verify-only
+
 hdr "done"
 echo "the evidence of this run is in $OUT/"
 ls -la "$OUT"

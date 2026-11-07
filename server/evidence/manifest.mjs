@@ -189,6 +189,41 @@ export function sha256OfFile(file) {
 }
 
 /**
+ * The relative path of a file that is EVIDENCE, or null when it is not.
+ *
+ * The rules are the same for the collector and for the counter: a link is
+ * not evidence, the run's record is not evidence, the manifest is not
+ * evidence, the cleaner's record is not evidence, and a file above the
+ * size limit is not taken into the evidence set. The two must not drift
+ * apart: the counter says whether the folder holds files the manifest
+ * does not cover, and it only means that if it counts the same files the
+ * collector takes.
+ *
+ * @returns {string|null} the relative path with `/` separators
+ */
+function evidenceRelativePath(root, full, item) {
+  // A symbolic link is not evidence: it is a pointer to something
+  // else, and the run folder must not be a way to reach outside it.
+  if (item.isSymbolicLink()) return null;
+  if (item.isDirectory()) return null;
+  if (!item.isFile()) return null;
+  const relative = path.relative(root, full).replace(/\\/g, '/');
+  if (RECORD_FILENAMES.includes(relative)) return null;
+  // The manifest is the record OF the evidence, not evidence itself.
+  if (relative === MANIFEST_FILENAME) return null;
+  // The cleaner's own record is not evidence either: it says the
+  // evidence was removed, so it must not be listed as evidence.
+  if (relative === CLEANED_MARKER_FILENAME) return null;
+  let stat;
+  try { stat = fs.statSync(full); }
+  catch { return null; }
+  // A file above the limit is not taken into the evidence set, so the
+  // manifest and the run record describe the same set of files.
+  if (stat.size > MAX_EVIDENCE_BYTES) return null;
+  return relative;
+}
+
+/**
  * The evidence entries of a run folder.
  *
  * The folder is walked and every FILE that is not part of the run's record
@@ -223,30 +258,16 @@ export function collectEvidence(folder, { maxDepth = 8, maxEntries = MAX_EVIDENC
     for (const item of items) {
       if (entries.length >= maxEntries) { truncated = true; return; }
       const full = path.join(dir, item.name);
-      // A symbolic link is not evidence: it is a pointer to something
-      // else, and the run folder must not be a way to reach outside it.
-      if (item.isSymbolicLink()) continue;
+      // A directory is walked into; a link is not evidence.
       if (item.isDirectory()) { walk(full, depth + 1); continue; }
-      if (!item.isFile()) continue;
-      const relative = path.relative(root, full).replace(/\\/g, '/');
-      if (RECORD_FILENAMES.includes(relative)) continue;
-      // The manifest is the record OF the evidence, not evidence itself.
-      if (relative === MANIFEST_FILENAME) continue;
-      // The cleaner's own record is not evidence either: it says the
-      // evidence was removed, so it must not be listed as evidence.
-      if (relative === CLEANED_MARKER_FILENAME) continue;
-      let stat;
-      try { stat = fs.statSync(full); }
-      catch { continue; }
-      // A file above the limit is not taken into the evidence set, so the
-      // manifest and the run record describe the same set of files.
-      if (stat.size > MAX_EVIDENCE_BYTES) continue;
+      const relative = evidenceRelativePath(root, full, item);
+      if (relative === null) continue;
       // A file that cannot be read is not an entry: an entry with no
       // digest would be a claim the manifest cannot back up.
       try {
         entries.push({
           file: relative,
-          size: stat.size,
+          size: fs.statSync(full).size,
           sha256: sha256OfFile(full),
         });
       } catch { /* the file vanished or cannot be read */ }
@@ -262,6 +283,58 @@ export function collectEvidence(folder, { maxDepth = 8, maxEntries = MAX_EVIDENC
 }
 
 /**
+ * The relative paths of the evidence files of a run folder.
+ *
+ * Unlike `collectEvidence`, this walk has NO entry limit: it names every
+ * evidence file the folder holds. The cleaner needs the whole list (a
+ * truncated manifest leaves files that the manifest does not list, and
+ * they are evidence too), and so does the check for files a manifest
+ * does not cover.
+ *
+ * @param {string} folder the run folder
+ * @returns {string[]}
+ */
+export function evidenceFilePaths(folder) {
+  const root = path.resolve(folder);
+  const out = [];
+  const walk = (dir, depth) => {
+    if (depth > 8) return;
+    let items;
+    try { items = fs.readdirSync(dir, { withFileTypes: true }); }
+    catch { return; }
+    for (const item of items) {
+      const full = path.join(dir, item.name);
+      if (item.isDirectory()) { walk(full, depth + 1); continue; }
+      const relative = evidenceRelativePath(root, full, item);
+      if (relative === null) continue;
+      out.push(relative);
+    }
+  };
+  walk(root, 0);
+  out.sort();
+  return out;
+}
+
+/**
+ * How many evidence files a run folder holds RIGHT NOW.
+ *
+ * `collectEvidence` stops at the entry limit, so its length cannot say
+ * how many files the folder really holds. This count has no limit: it is
+ * what says whether a truncated manifest still leaves files on disk that
+ * the manifest does not cover -- the files that would be outside the
+ * tamper detection.
+ *
+ * The same files are counted as the collector takes them (see
+ * `evidenceRelativePath`).
+ *
+ * @param {string} folder the run folder
+ * @returns {number}
+ */
+export function countEvidenceFiles(folder) {
+  return evidenceFilePaths(folder).length;
+}
+
+/**
  * Whether a collected evidence set was truncated by the entry limit.
  *
  * `collectEvidence` returns an array, so the flag is a non-enumerable
@@ -273,6 +346,102 @@ export function isTruncated(entries) {
 }
 
 /**
+ * Whether the file system compares paths by their letters.
+ *
+ * Windows compares them without regard to case, so two spellings of the
+ * same path are the same path there. The containment check compares the
+ * resolved paths, and on Windows the resolved spelling of the same
+ * directory may differ in case from the spelling the caller used.
+ */
+const CASE_INSENSITIVE_FS = process.platform === 'win32';
+
+/**
+ * A path as it is COMPARED: on a case-insensitive file system the letters
+ * are folded, so that two spellings of one path compare equal.
+ */
+function comparablePath(p) {
+  return CASE_INSENSITIVE_FS ? p.toLowerCase() : p;
+}
+
+/**
+ * True when `candidate` is INSIDE `root`.
+ *
+ * Both paths are expected to be comparable already (see
+ * `comparablePath`). The root itself is NOT inside the root: a path that
+ * IS the root names the run folder, not a file of the run.
+ */
+function isInsideReal(rootReal, candidateReal) {
+  const rel = path.relative(rootReal, candidateReal);
+  if (rel === '' || rel === '..') return false;
+  if (rel.startsWith('..' + path.sep)) return false;
+  if (path.isAbsolute(rel)) return false;
+  return true;
+}
+
+/**
+ * The real path of the deepest EXISTING ancestor of a path.
+ *
+ * A manifest entry whose file was already cleaned away names a path that
+ * does not exist. That is a MISSING file, not an escape: the entry still
+ * has to be resolved, or a cleaned run would suddenly look like a run
+ * whose manifest points out of its folder.
+ *
+ * So the resolution walks UP to the deepest ancestor that exists and
+ * resolves THAT. The result is the path the entry WOULD have, with the
+ * links along the way already followed -- which is exactly what the
+ * containment check needs to know.
+ *
+ * `null` when not even the root of the path exists.
+ */
+function deepestExistingRealPath(target) {
+  let current = target;
+  const tail = [];
+  for (;;) {
+    try {
+      const real = fs.realpathSync(current);
+      return tail.length ? path.join(real, ...tail) : real;
+    } catch {
+      const parent = path.dirname(current);
+      if (parent === current) return null;
+      tail.unshift(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
+/**
+ * The directory a run's evidence has to stay inside.
+ *
+ * The anchor is the run folder AS THE RUN ID NAMES IT: the run folder's
+ * own name, placed under the RESOLVED path of its parent. Two things
+ * follow from that:
+ *
+ *   * the run folder's PARENT may sit under a link (a data directory that
+ *     is itself a link is ordinary), and then the resolved parent is the
+ *     anchor -- so an ordinary file inside the run folder is still
+ *     inside it;
+ *   * the run folder ITSELF may be a link, and then the resolved path of
+ *     every file in it lies OUTSIDE the anchor -- so nothing in it is
+ *     inside the run folder, and every entry of its manifest is refused.
+ *
+ * Comparing against the resolved run folder instead would let a run
+ * folder that is a junction pass everything it names: the junction
+ * target would be "the run folder", and every path under it would be
+ * "inside".
+ *
+ * @returns {{root:string, anchor:string}}
+ */
+export function evidenceAnchor(folder) {
+  const root = path.resolve(folder);
+  const parent = path.dirname(root);
+  let parentReal = null;
+  try { parentReal = fs.realpathSync(parent); }
+  catch { parentReal = null; }
+  const anchor = parentReal ? path.join(parentReal, path.basename(root)) : root;
+  return { root, anchor };
+}
+
+/**
  * Resolves a manifest entry to a path INSIDE the run folder.
  *
  * A manifest entry names a file RELATIVE to the run folder. A name that
@@ -281,14 +450,34 @@ export function isTruncated(entries) {
  * it would delete files that belong to something else entirely. Such an
  * entry is REJECTED here, and the caller reports it.
  *
+ * THE LEXICAL CHECK IS NOT ENOUGH (ATS-209 review round 2, J1)
+ * --------------------------------------------------------------
+ * A name can stay inside the run folder and still leave it: a DIRECTORY
+ * LINK inside the folder that points somewhere else. `lnk/state.json` is
+ * lexically inside the run folder, but `lnk` resolves to the data
+ * directory, so the entry names the data directory's state file. A
+ * cleaner that followed it would delete the state file of the data
+ * directory it was cleaning, and a run that is not even expired would
+ * lose its event log.
+ *
+ * So the entry is resolved for REAL -- every link along the way is
+ * followed -- and the resolved path has to be inside the run folder's
+ * anchor (see `evidenceAnchor`). A file that does not exist is resolved
+ * through its deepest existing ancestor, so a cleaned or missing file
+ * stays a MISSING file and not an escape.
+ *
  * The rule is the same one the attachment download uses (FR-015): the
  * resolved path has to stay under the run folder. The check is done on
  * the RESOLVED path, so `a/../b` and `./b` are both fine while `../b` is
  * not.
  *
+ * @param {string} folder the run folder
+ * @param {string} relative the manifest entry
+ * @param {{root:string, anchor:string}} [anchor] the anchor, when the
+ *   caller resolves many entries of the same folder
  * @returns {{ok:true, path:string}|{ok:false, reason:string}}
  */
-export function evidencePathIn(folder, relative) {
+export function evidencePathIn(folder, relative, anchor = null) {
   if (typeof relative !== 'string' || !relative) {
     return { ok: false, reason: 'the entry does not name a file' };
   }
@@ -298,12 +487,48 @@ export function evidencePathIn(folder, relative) {
     return { ok: false, reason: 'the entry names an absolute path' };
   }
   const root = path.resolve(folder);
-  const full = path.resolve(root, relative);
+  let full;
+  try { full = path.resolve(root, relative); }
+  catch { return { ok: false, reason: 'the entry does not name a file' }; }
   const rel = path.relative(root, full);
   if (rel === '' || rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) {
     return { ok: false, reason: 'the entry points outside the run folder' };
   }
+  // The REAL path of the entry: every link along the way is followed.
+  const resolved = deepestExistingRealPath(full);
+  if (resolved === null) {
+    // Nothing of the path exists, not even the run folder: the entry
+    // names a file that is not there, and the caller reports it as
+    // missing.
+    return { ok: true, path: full };
+  }
+  const the = anchor ?? evidenceAnchor(folder);
+  if (!isInsideReal(comparablePath(the.anchor), comparablePath(resolved))) {
+    return {
+      ok: false,
+      reason: 'the entry resolves outside the run folder through a link or junction',
+    };
+  }
   return { ok: true, path: full };
+}
+
+/**
+ * The evidence files of a run folder that its manifest does NOT list.
+ *
+ * This is what says whether a truncated manifest still leaves files on
+ * disk that are outside the tamper detection. The count is of files, not
+ * of bytes: one uncovered file is enough to fail the archive.
+ *
+ * @param {string} folder the run folder
+ * @param {Set<string>} listed the files the manifest lists
+ * @returns {number}
+ */
+function countUncoveredEvidence(folder, listed) {
+  let uncovered = 0;
+  for (const relative of evidenceFilePaths(folder)) {
+    if (!listed.has(relative)) uncovered += 1;
+  }
+  return uncovered;
 }
 
 /**
@@ -481,13 +706,20 @@ export function verifyEvidence(folder) {
   const changed = [];
   const rejected = [];
   let checked = 0;
+  // The anchor of the run folder is computed ONCE: every entry of this
+  // manifest is compared against the same run folder, and resolving the
+  // path for every entry would repeat the same file system work.
+  const anchor = evidenceAnchor(folder);
   for (const entry of listed) {
     if (!entry || typeof entry.file !== 'string') continue;
     // ATS-209 review round 1 (E3): an entry that points outside the run
     // folder does not describe this run's evidence. It is refused and
     // reported -- never followed, because following it would make the
     // verifier (and the cleaner) reach into another run's files.
-    const resolved = evidencePathIn(folder, entry.file);
+    //
+    // ATS-209 review round 2 (J1): the refusal also covers an entry that
+    // STAYS inside the run folder lexically and leaves it through a link.
+    const resolved = evidencePathIn(folder, entry.file, anchor);
     if (!resolved.ok) {
       rejected.push({ file: entry.file, reason: resolved.reason });
       continue;
@@ -523,8 +755,17 @@ export function verifyEvidence(folder) {
   // well, so there is nothing left unprotected, and the truncation is
   // explained by the cleaning record rather than a defect (ATS-209
   // review round 1, E7 + E6).
+  //
+  // The exemption is NARROW (ATS-209 review round 2): a cleaning record
+  // alone does not explain the truncation. What has to hold is that the
+  // folder holds NO evidence file that the manifest does not cover -- the
+  // files the truncated manifest dropped are gone. Otherwise a manifest
+  // that dropped 52 files would be exempted from the failure by a
+  // cleaning record about ONE of them, and the 51 files left on the disk
+  // would be outside the tamper detection.
   const truncated = Boolean(manifest?.evidence?.truncated);
-  const truncatedUncovered = truncated && cleanedSet.size === 0;
+  const uncovered = truncated ? countUncoveredEvidence(folder, listedFiles) : 0;
+  const truncatedUncovered = uncovered > 0;
   const verified = missing.length === 0 && changed.length === 0 && rejected.length === 0 && !truncatedUncovered;
   let reason = '';
   if (!verified) {
@@ -688,6 +929,14 @@ export function groupEvidenceByDigest(runs, folderOf) {
  * manifest that the bridge never wrote can name anything at all, and a
  * cleaner that believed it would delete another run's files.
  *
+ * ONLY FILES THAT REALLY ARE INSIDE THE RUN FOLDER ARE REMOVED (ATS-209
+ * review round 2, J1). The containment is decided on the RESOLVED path,
+ * so an entry that stays inside the run folder lexically and leaves it
+ * through a DIRECTORY LINK -- `lnk/state.json`, where `lnk` is a junction
+ * to the data directory -- is refused as well. Without that, the cleaning
+ * of one run deleted the state file of the data directory and the event
+ * log of a run that was not even expired.
+ *
  * ONLY FILES THAT WERE THERE ARE REPORTED AS REMOVED (E4). `rm` with
  * `force` does not fail on a file that is already gone, so the removal is
  * checked before it is claimed: the journal must not say a file was
@@ -709,11 +958,14 @@ export function cleanRunEvidence(folder) {
   if (!fs.existsSync(folder)) {
     return { removed, kept, rejected, manifest: null };
   }
+  // The anchor of the run folder is computed ONCE: every entry is
+  // compared against the same run folder.
+  const anchor = evidenceAnchor(folder);
   // The files the manifest lists are the evidence.
   const listed = Array.isArray(manifest?.artifacts) ? manifest.artifacts : [];
   for (const entry of listed) {
     if (!entry || typeof entry.file !== 'string') continue;
-    const resolved = evidencePathIn(folder, entry.file);
+    const resolved = evidencePathIn(folder, entry.file, anchor);
     if (!resolved.ok) {
       rejected.push({ file: entry.file, reason: resolved.reason });
       continue;
@@ -730,23 +982,39 @@ export function cleanRunEvidence(folder) {
   // The files that were added after the manifest was written are evidence
   // too -- they are the ones a reader would find in the folder and not in
   // the manifest.
-  for (const entry of collectEvidence(folder)) {
-    const resolved = evidencePathIn(folder, entry.file);
+  //
+  // The walk here is UNLIMITED (ATS-209 review round 2). `collectEvidence`
+  // stops at the entry limit, so a manifest that was truncated leaves
+  // files on disk that the manifest does not list -- and the cleaner has
+  // to remove them too, or the archive keeps files that are outside the
+  // tamper detection even after the cleaning.
+  for (const relative of evidenceFilePaths(folder)) {
+    const resolved = evidencePathIn(folder, relative, anchor);
     if (!resolved.ok) {
-      rejected.push({ file: entry.file, reason: resolved.reason });
+      rejected.push({ file: relative, reason: resolved.reason });
       continue;
     }
     if (!fs.existsSync(resolved.path)) continue;
     try {
       fs.rmSync(resolved.path, { force: true });
-      if (!fs.existsSync(resolved.path)) removed.push(entry.file);
+      if (!fs.existsSync(resolved.path)) removed.push(relative);
     } catch { /* already gone */ }
   }
   // The engine's own output tree is the evidence container; it goes too.
+  //
+  // ATS-209 review round 2 (J1): when `results` is a DIRECTORY LINK, the
+  // link itself is removed -- the tree it points at is NOT. Removing a
+  // link must never remove what the link names: the link may well name
+  // another run's folder. The link is therefore unlinked on its own, and
+  // the tree it pointed at is left alone.
   const resultsDir = path.join(folder, 'results');
   if (fs.existsSync(resultsDir)) {
+    let isLink = false;
+    try { isLink = fs.lstatSync(resultsDir).isSymbolicLink(); }
+    catch { isLink = false; }
     try {
-      fs.rmSync(resultsDir, { recursive: true, force: true });
+      if (isLink) fs.unlinkSync(resultsDir);
+      else fs.rmSync(resultsDir, { recursive: true, force: true });
       if (!fs.existsSync(resultsDir)) removed.push('results/');
     } catch { /* already gone */ }
   }
@@ -759,11 +1027,22 @@ export function cleanRunEvidence(folder) {
   // removed. Without it the missing files are indistinguishable from a
   // tamper, and the verification would report every cleaned run as
   // tampered -- which makes the tamper alarm worthless.
+  //
+  // ATS-209 review round 2 (M1): the record is ONLY EVER EXTENDED. A
+  // second cleaning that removes something else would otherwise rewrite
+  // the record and erase the explanation of the first cleaning -- and the
+  // files the first cleaning removed would be reported as MISSING again,
+  // which is the same signal a tamper carries.
   if (removed.length) {
+    const markerFile = path.join(folder, CLEANED_MARKER_FILENAME);
+    const previous = readCleanedMarker(folder);
+    // The union of what the earlier cleanings removed and what this one
+    // removed: the record of a removal is never withdrawn.
+    const all = [...new Set([...(previous.removed ?? []), ...removed])].sort();
     try {
       fs.writeFileSync(
-        path.join(folder, CLEANED_MARKER_FILENAME),
-        JSON.stringify({ at: new Date().toISOString(), removed: [...removed].sort() }, null, 2),
+        markerFile,
+        JSON.stringify({ at: new Date().toISOString(), removed: all }, null, 2),
         'utf8'
       );
       kept.push(CLEANED_MARKER_FILENAME);

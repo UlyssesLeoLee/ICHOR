@@ -34,6 +34,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  CLEANED_MARKER_FILENAME,
   DEFAULT_RETENTION_DAYS,
   EVIDENCE_MANIFEST_VERSION,
   MANIFEST_FILENAME,
@@ -45,6 +46,7 @@ import {
   evidenceSetDigest,
   expiredRuns,
   isTerminalForRetention,
+  readCleanedMarker,
   readManifest,
   retentionReport,
   sharedEvidenceBytes,
@@ -794,4 +796,171 @@ test('UT-EVD-049: the deduplication report names the SHARED bytes, not wasted on
   assert.equal(report.sharedBytes, 100);
   assert.equal(report.wastedBytes, report.sharedBytes, 'the old name is kept and means the same thing');
   assert.equal(report.top[0].sharedBytes, 100);
+});
+
+// ---------------------------------------------------------------------------
+// ATS-209 review round 2: a directory LINK inside the run folder.
+//
+// The containment check of round 1 was LEXICAL: it compared the resolved
+// path of the entry with the run folder, but did not follow the links
+// ALONG the way. A junction inside the run folder that points at the data
+// directory makes an entry that is lexically inside the run folder name a
+// file that is not: `lnk/state.json` is the data directory's state file.
+//
+// The refusal therefore has to be decided on the REAL path, and it has to
+// hold for the VERIFIER and for the CLEANER alike.
+// ---------------------------------------------------------------------------
+
+/**
+ * A run folder with a junction inside it that points at `target`.
+ *
+ * The junction is created the way the runner's output directory could
+ * carry one: as a directory link. The link is removed with the folder, so
+ * the temporary directories do not leak.
+ */
+function makeRunFolderWithJunction(target) {
+  const folder = makeRunFolder({ 'report.json': '{}' });
+  const link = path.join(folder, 'lnk');
+  fs.symlinkSync(target, link, 'junction');
+  return { folder, link };
+}
+
+test('UT-EVD-050: a manifest entry that leaves the run folder through a junction is refused (J1)', () => {
+  const outside = tmp();
+  fs.writeFileSync(path.join(outside, 'state.json'), '{"secret":true}');
+  const { folder } = makeRunFolderWithJunction(outside);
+  fs.writeFileSync(path.join(folder, MANIFEST_FILENAME), JSON.stringify({
+    version: 2,
+    runId: makeRun().id,
+    artifacts: [
+      { file: 'report.json', size: 2, sha256: sha256OfText('{}') },
+      // Lexically inside the run folder, but it resolves to the file in
+      // the directory the junction points at.
+      { file: 'lnk/state.json', size: 14, sha256: 'x' },
+    ],
+  }));
+  const result = verifyEvidence(folder);
+  assert.equal(result.verified, false, 'a manifest that points out of the run folder is not verifiable');
+  assert.equal(result.rejected.length, 1, 'the entry through the junction must be refused');
+  assert.equal(result.rejected[0].file, 'lnk/state.json');
+  assert.match(result.rejected[0].reason, /link or junction/);
+  // The file that IS inside the folder was still checked.
+  assert.equal(result.checked, 1);
+});
+
+test('UT-EVD-051: the cleaning refuses to remove a file that a junction reaches (J1)', () => {
+  const outside = tmp();
+  const victim = path.join(outside, 'state.json');
+  fs.writeFileSync(victim, '{"secret":true}');
+  const { folder } = makeRunFolderWithJunction(outside);
+  fs.writeFileSync(path.join(folder, MANIFEST_FILENAME), JSON.stringify({
+    version: 2,
+    runId: makeRun().id,
+    artifacts: [
+      { file: 'report.json', size: 2, sha256: sha256OfText('{}') },
+      { file: 'lnk/state.json', size: 14, sha256: 'x' },
+    ],
+  }));
+  const result = cleanRunEvidence(folder);
+  // The file the junction reaches is still there: the cleaning must not
+  // reach out of the run folder, not even through a link.
+  assert.equal(fs.existsSync(victim), true, 'the cleaning must not reach outside the run folder');
+  assert.equal(result.rejected.length, 1);
+  assert.equal(result.rejected[0].file, 'lnk/state.json');
+  assert.ok(!result.removed.includes('lnk/state.json'), 'a refused entry is not reported as removed');
+  // The file inside the folder was removed.
+  assert.equal(fs.existsSync(path.join(folder, 'report.json')), false);
+});
+
+test('UT-EVD-052: a file that is gone is still reported as missing, not as an escape (J1)', () => {
+  // A cleaned run's manifest names files that are no longer there. Those
+  // entries have to stay MISSING: a run whose evidence was cleaned must
+  // not suddenly look like a run whose manifest points out of its folder.
+  const folder = makeRunFolder({});
+  fs.writeFileSync(path.join(folder, MANIFEST_FILENAME), JSON.stringify({
+    version: 2,
+    runId: makeRun().id,
+    artifacts: [{ file: 'report.json', size: 2, sha256: sha256OfText('{}') }],
+  }));
+  // The file is not there: it was cleaned.
+  const result = verifyEvidence(folder);
+  assert.equal(result.verified, false);
+  assert.deepEqual(result.missing, ['report.json'], 'a file that is gone is missing');
+  assert.deepEqual(result.rejected, [], 'a file that is gone is not an escape');
+});
+
+test('UT-EVD-053: the cleaning record only grows: a second cleaning keeps the first (M1)', () => {
+  const folder = makeRunFolder({ 'report.json': '{}' });
+  fs.writeFileSync(path.join(folder, MANIFEST_FILENAME), JSON.stringify({
+    version: 2,
+    runId: makeRun().id,
+    artifacts: [{ file: 'report.json', size: 2, sha256: sha256OfText('{}') }],
+  }));
+  const first = cleanRunEvidence(folder);
+  assert.deepEqual(first.removed, ['report.json']);
+  const afterFirst = readCleanedMarker(folder);
+  assert.deepEqual(afterFirst.removed, ['report.json']);
+  // A file that appears afterwards and is removed by a second cleaning.
+  fs.writeFileSync(path.join(folder, 'late-note.txt'), 'added after the first cleaning');
+  const second = cleanRunEvidence(folder);
+  assert.deepEqual(second.removed, ['late-note.txt']);
+  const afterSecond = readCleanedMarker(folder);
+  assert.deepEqual(
+    afterSecond.removed,
+    ['late-note.txt', 'report.json'],
+    'the record of the first cleaning must not be erased by the second'
+  );
+  // And the run still verifies: the files removed by BOTH cleanings are
+  // explained, so they are not reported as a tamper.
+  const result = verifyEvidence(folder);
+  assert.equal(result.verified, true, 'the files removed by either cleaning are explained');
+  assert.deepEqual(result.missing, []);
+  assert.deepEqual(result.cleaned, ['late-note.txt', 'report.json']);
+});
+
+test('UT-EVD-054: a cleaning record does not excuse a truncated manifest that still has files on disk', () => {
+  // The exemption for a truncated manifest is NARROW: it holds only when
+  // the folder holds no evidence file that the manifest does not cover.
+  // A cleaning record about ONE file must not excuse the 51 others the
+  // truncated manifest dropped -- they would be outside the tamper
+  // detection.
+  const folder = makeRunFolder({});
+  // More files than the limit holds, so the manifest is truncated.
+  const total = MAX_EVIDENCE_ENTRIES + 12;
+  for (let i = 0; i < total; i++) {
+    fs.writeFileSync(path.join(folder, `file-${String(i).padStart(4, '0')}.txt`), `content ${i}`);
+  }
+  const manifest = buildManifest(makeRun(), folder);
+  assert.equal(manifest.evidence.truncated, true);
+  fs.writeFileSync(path.join(folder, MANIFEST_FILENAME), JSON.stringify(manifest));
+  // A cleaning record that says one file was removed -- but the other
+  // files the manifest dropped are still on the disk.
+  fs.writeFileSync(path.join(folder, CLEANED_MARKER_FILENAME), JSON.stringify({
+    at: '2026-01-01T00:00:00.000Z',
+    removed: ['file-0000.txt'],
+  }));
+  const result = verifyEvidence(folder);
+  assert.equal(result.verified, false, 'the files the manifest dropped are still outside the tamper detection');
+  assert.equal(result.truncated, true);
+  assert.match(result.reason, /does not cover/);
+});
+
+test('UT-EVD-055: a truncated manifest whose dropped files were cleaned does not fail the archive', () => {
+  // The counterpart of UT-EVD-054: when the cleaning removed the files the
+  // truncated manifest dropped, nothing is left unprotected, and the
+  // archive verifies.
+  const folder = makeRunFolder({});
+  const total = MAX_EVIDENCE_ENTRIES + 12;
+  for (let i = 0; i < total; i++) {
+    fs.writeFileSync(path.join(folder, `file-${String(i).padStart(4, '0')}.txt`), `content ${i}`);
+  }
+  const manifest = buildManifest(makeRun(), folder);
+  assert.equal(manifest.evidence.truncated, true);
+  fs.writeFileSync(path.join(folder, MANIFEST_FILENAME), JSON.stringify(manifest));
+  // The cleaning removes everything the manifest did not cover.
+  const result = cleanRunEvidence(folder);
+  assert.equal(result.removed.length, total, 'the cleaner removes the files the truncated manifest dropped');
+  const verified = verifyEvidence(folder);
+  assert.equal(verified.verified, true, 'nothing is left outside the tamper detection');
+  assert.equal(verified.truncated, false);
 });
