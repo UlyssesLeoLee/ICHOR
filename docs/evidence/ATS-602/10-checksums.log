@@ -1,9 +1,19 @@
 === ATS-602 evidence: the release manifest ===
-tree : 69b6fdf90b9f13e80ad57ef48d1c7af49a90cb54
-date : 2026-11-06T22:42:19Z
+tree : bf75ab5187dbf180db168a0e668e9288429f2f0e
+date : 2026-11-07T01:13:05Z
 
-manifest entries : 616
-digest mismatches: 0
-tracked-not-listed: 1 ['tools/ats602-probes/collect-evidence.sh']
+manifest entries : 654
+digest mismatches: 17
+    docs/07-UT-TEST-DESIGN.md 0bd5db53485a3fe6a6da237a28f54593eab65ef1662c3933eebdac85f0f1dacf != ad6e7869a2721a6479d77d2c92f7070c45cee1f25276a1004f33ba029e7589d0
+    docs/08-IT-TEST-DESIGN.md ff2b287da0b3d4db743e9fd8eadd4df556ab5fe1a4ed1718cab7996db1b07a80 != a610d07dd77d99134534f05048418958b682cb1747992e59af31d30c4185bbf7
+    docs/10-RTM.md 4463caa7dc9c969fd2bc8a5258321fbcd2dd36f93cf59cd11b6ccfc2f9d096e9 != e5b1160dd12282dcda98ed53a02b1308b5b8e4a18d17a148598698d099f02f51
+    docs/16-BASELINE-ADR.md e23db9449414ae0b2ef3778ad7f2207c33a436127d71fb239090bba60018fe37 != 88fbf73276b501172b5fb494cc369cd4f529c1211145e17d3744b01414f59e1d
+    docs/25-MOBILE-APP-TESTING.md 0120b3749b1af02164733cc2d9369f5dc3b145b1ca42ece05dbf2a2799dd94af != 0e2620463629ce9345be53dbe736dbedc74495c6b46b2e40f99156bc2f8d6e79
+    server/core.mjs cf969874b860e9e7f740e4b9218364274bce84f4afbddf3df4fea7651561f81e != b19d9ea904eab3e4d5efdba3cef0fd5a494692cdadc2df21d18fb002ea69105d
+    server/discovery/mobile-flow-import.mjs b67b52600caed9b23596c04c1ed3ff2124728cc5ee625e4b620007b6ddb7da59 != a5830c0895effaf19e66fe1e89db03fea3e62870fec462f32a3a016191f13f32
+    server/discovery/mobile-flow.mjs ff9fdfab2cc2f7b7d5e25a7ff36950df45e3fb9b0268f873403018432854f5ab != d937e8202877f67f04d80e0eb997b2944cb00c5058d3163f25d8b2976c4b3ca7
+    server/discovery/mobile-import.mjs b8d407ef909a71e7e18a1925f1cee15e58af995fd76e1bd1fda54422790df4c2 != 5cbe5583066c420cb2b15f28a1bfeed9e115efe9de0ecf343ce1f1b5a3fbdd4f
+    server/uid.mjs a63d74e2ae10ad7b03639fdb4d43b4ebca05948ae0a9747d8b2be2aa36e6d825 != d8e4a6751c3d59830c62bfd3efe708fd06c6c1e85db4746c6b46eb6da13d49a0
+tracked-not-listed: 2 ['tools/ats602-probes/probe-round1-counterexamples-e2e.mjs', 'tools/ats602-probes/probe-round1-counterexamples.mjs']
 listed-not-tracked: 0 []
 RESULT: MISMATCH

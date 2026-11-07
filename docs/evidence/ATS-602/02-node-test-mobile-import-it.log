@@ -1,22 +1,25 @@
 === ATS-602 evidence: the mobile Flow import (integration tests) ===
-tree : 69b6fdf90b9f13e80ad57ef48d1c7af49a90cb54
-date : 2026-11-06T22:42:19Z
+tree : bf75ab5187dbf180db168a0e668e9288429f2f0e
+date : 2026-11-07T01:13:05Z
 
-✔ IT-ATS602-API-SETUP: start the bridge (594.2596ms)
-✔ IT-ATS602-API-001: the mobile cases are in the catalogue the API serves (135.404ms)
-✔ IT-ATS602-API-002: the mobile case carries its steps and its engine (122.6328ms)
-✔ IT-ATS602-API-003: the import report is served with the catalogue (108.0926ms)
-✔ IT-ATS602-API-004: the warning says that steps were not supported (134.5203ms)
-✔ IT-ATS602-API-005: the two syntaxes produce the SAME kind of case (142.4098ms)
-✔ IT-ATS602-API-006: the uid of a mobile case survives a restart of the bridge (952.9168ms)
-✔ IT-ATS602-API-007: the uids of the mobile cases are distinct from the web ones (90.1592ms)
-✔ IT-ATS602-API-008: a project without a Flow has no mobile cases (184.8452ms)
-✔ IT-ATS602-API-CLEANUP: stop the bridge and remove the fixture (209.9947ms)
-ℹ tests 10
+✔ IT-ATS602-API-SETUP: start the bridge (448.1751ms)
+✔ IT-ATS602-API-001: the mobile cases are in the catalogue the API serves (69.1729ms)
+✔ IT-ATS602-API-002: the mobile case carries its steps and its engine (63.6825ms)
+✔ IT-ATS602-API-003: the import report is served with the catalogue (64.6657ms)
+✔ IT-ATS602-API-004: the warning says that steps were not supported (78.3653ms)
+✔ IT-ATS602-API-005: the two syntaxes produce the SAME kind of case (61.2687ms)
+✔ IT-ATS602-API-006: the uid of a mobile case survives a restart of the bridge (848.0082ms)
+✔ IT-ATS602-API-007: the uids of the mobile cases are distinct from the web ones (109.6787ms)
+✔ IT-ATS602-API-008: a project without a Flow has no mobile cases (134.5114ms)
+✔ IT-ATS602-API-009: a retitled mobile case keeps its uid over HTTP (203.809ms)
+✔ IT-ATS602-API-010: a @TC- token that a web case and a mobile case claim binds to neither (163.7826ms)
+✔ IT-ATS602-API-011: a trusted project keeps its mobile cases (889.5103ms)
+✔ IT-ATS602-API-CLEANUP: stop the bridge and remove the fixture (351.823ms)
+ℹ tests 13
 ℹ suites 0
-ℹ pass 10
+ℹ pass 13
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 2792.2517
+ℹ duration_ms 4784.9452

@@ -1,9 +1,9 @@
 === ATS-602 evidence: the quality gates (ATS-301 gate + WBS updaters) ===
-tree : 69b6fdf90b9f13e80ad57ef48d1c7af49a90cb54
-date : 2026-11-06T22:42:19Z
+tree : bf75ab5187dbf180db168a0e668e9288429f2f0e
+date : 2026-11-07T01:13:05Z
 
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /d/ICHOR
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-49-6085594711e0/worktree
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 node      : v24.19.0
@@ -83,19 +83,17 @@ all checks passed
 
 --- 2. every ADR path:line citation resolves ---
 --- citations enumerated from the ADR ---
-  apps/studio/app/page.tsx         116
-  apps/studio/lib/api.ts           14
+  apps/studio/app/page.tsx         133
+  apps/studio/lib/api.ts           26
   apps/studio/public/fallback.html 3
-  server/core.mjs                  1101, 762
-  server/index.mjs                 241, 47, 508-538, 522, 540, 551, 744, 981, 998, 999
+  server/core.mjs                  1390, 780
+  server/index.mjs                 1010, 1011, 241, 47, 513-543, 527, 545, 556, 749, 993
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
   start.sh                         4
   tools/generate_test_docs.py      357,363,460
 
-UNCOVERED server/core.mjs:1101 (cited by the ADR, no needle covers it)
-UNCOVERED server/core.mjs:762 (cited by the ADR, no needle covers it)
 ok   src-tauri/Cargo.toml:11
 ok   start.sh:4
 ok   start.ps1:8
@@ -105,40 +103,36 @@ ok   tools/generate_test_docs.py:363
 ok   tools/generate_test_docs.py:460
 ok   server/index.mjs:47
 ok   server/index.mjs:241
-ok   server/index.mjs:508
-ok   server/index.mjs:522
-ok   server/index.mjs:540
-ok   server/index.mjs:551
-ok   server/index.mjs:744
-ok   server/index.mjs:981
-ok   server/index.mjs:998
-ok   server/index.mjs:999
-STALE server/core.mjs:776 (the ADR no longer cites it)
-STALE server/core.mjs:1186 (the ADR no longer cites it)
-ok   server/index.mjs:508-538 (cancelRun extent)
-ok   apps/studio/app/page.tsx:116 (the workbench footer text -- covered by the ATS-101 port audit)
-ok   apps/studio/lib/api.ts:14 (the API base URL -- covered by the ATS-101 port audit)
+ok   server/index.mjs:513
+ok   server/index.mjs:527
+ok   server/index.mjs:545
+ok   server/index.mjs:556
+ok   server/index.mjs:749
+ok   server/index.mjs:993
+ok   server/index.mjs:1010
+ok   server/index.mjs:1011
+ok   server/core.mjs:780
+ok   server/core.mjs:1390
+ok   server/index.mjs:513-543 (cancelRun extent)
+ok   apps/studio/app/page.tsx:133 (the workbench footer text -- covered by the ATS-101 port audit)
+ok   apps/studio/lib/api.ts:26 (the API base URL -- covered by the ATS-101 port audit)
 ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
 ok   src-tauri/src/lib.rs:19 (the ATS_PORT environment default -- covered by the ATS-101 port audit)
 
-RESULT: MISMATCH
-   server/core.mjs:1101 is cited by the ADR but no needle covers it
-   server/core.mjs:762 is cited by the ADR but no needle covers it
-   server/core.mjs:776 is not cited by the ADR any more
-   server/core.mjs:1186 is not cited by the ADR any more
-  FAIL  tools/check_adr_citations.py
+RESULT: OK
+  PASS  tools/check_adr_citations.py
 
 --- 3. the hardcoded default port list in 16 §3.1 matches the source ---
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : D:\ICHOR
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-49-6085594711e0\worktree
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
-  apps/studio/app/page.tsx:116  <footer className="bottom-bar"><span><span className="online"/> LOCAL RUNNER · 127.0.0.1:4577</span><span>Git ...
-  apps/studio/lib/api.ts:23  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
+  apps/studio/app/page.tsx:133  <footer className="bottom-bar"><span><span className="online"/> LOCAL RUNNER · 127.0.0.1:4577</span><span>Git ...
+  apps/studio/lib/api.ts:26  const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
   apps/studio/public/fallback.html:3  </style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</spa...
   server/index.mjs:47  const PORT=Number(process.env.ATS_PORT||4577);
-  server/index.mjs:551  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
+  server/index.mjs:556  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
   src-tauri/src/lib.rs:19  .env("ATS_PORT","4577")
 total = 6
 
@@ -146,13 +140,13 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:6409  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:6475  "input": "Host=evil.example:4577",
-  tests/test-cases.json:7949  "input": "同 LAN 他机尝试访问 4577",
+  tests/test-cases.json:6838  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:6904  "input": "Host=evil.example:4577",
+  tests/test-cases.json:8411  "input": "同 LAN 他机尝试访问 4577",
   tools/generate_test_docs.py:357  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
   tools/generate_test_docs.py:363  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
   tools/generate_test_docs.py:460  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
-  tools/update_wbs_ats216.py:91  '（Next 工作台按端口解析 API 基址，apps/studio/lib/api.ts 硬编码 4577 是 ATS-101 已登记的约束，浏览器检查的 Bridge 因此跑在默认端口上；便携 U...
+  tools/update_wbs_ats216.py:101  '（Next 工作台按端口解析 API 基址，apps/studio/lib/api.ts 硬编码 4577 是 ATS-101 已登记的约束，浏览器检查的 Bridge 因此跑在默认端口上；便携 U...
   test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)
 total = 11
 
@@ -168,7 +162,7 @@ total = 11
   docs/16-BASELINE-ADR.md:98  Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-ATS-Token`；`/api/session` 由 Origin allowlist...
   docs/16-BASELINE-ADR.md:122  1. **默认端口 4577 在发布源码中被硬编码在 6 处**（不含文档与测试数据）。改端口须同步全部，否则 UI 与 CSP 会指向错误端口：
   docs/16-BASELINE-ADR.md:126  | 1 | `server/index.mjs:47` | 默认值 `process.env.ATS_PORT\|\|4577` |
-  docs/16-BASELINE-ADR.md:129  | 4 | `apps/studio/app/page.tsx:116` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
+  docs/16-BASELINE-ADR.md:129  | 4 | `apps/studio/app/page.tsx:133` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
   docs/16-BASELINE-ADR.md:130  | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
   docs/16-BASELINE-ADR.md:144  2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
   docs/16-BASELINE-ADR.md:344  - **ATS-103 已实测静态导出与 Bridge 的接口面接缝**（`docs/22-FRONTEND-EXPORT.md`）：`next build` 成功产出 `apps/studio/ou...
@@ -186,7 +180,7 @@ total = 11
   docs/22-FRONTEND-EXPORT.md:208  **白名单跨源**（把导出页放在 `127.0.0.1:3000`，Bridge 在 4577）：
   docs/22-FRONTEND-EXPORT.md:215  **跨源这一遍有且只有一条断言变红，而且它变红是设计使然，不是缺陷**：变红的是「页面的 API 请求去页面自身 origin 隐含的 host」。这条断言**按构造就是同源判别器**——页面在 `l...
   docs/22-FRONTEND-EXPORT.md:239  | **B2** 基址写死**且** bundle 里留一个**无关的** `location.port` 比较 | 可执行判别（静态启发式**抓不到**它） | 静态启发式**仍然绿**（25/25...
-  docs/28-QUALITY-OVERVIEW.md:168  > 浏览器实测的一个约束：Next 工作台按**端口**解析 API 基址（`apps/studio/lib/api.ts` 硬编码 4577，这是 ATS-101 已登记的约束），因此浏览器检查的 ...
+  docs/28-QUALITY-OVERVIEW.md:200  > 浏览器实测的一个约束：Next 工作台按**端口**解析 API 基址（`apps/studio/lib/api.ts` 硬编码 4577，这是 ATS-101 已登记的约束），因此浏览器检查的 ...
   README.md:9  3. 浏览器打开 <http://127.0.0.1:4577/fallback.html>。这是**已测试的零依赖便携 UI**。
   README.md:24  完成构建后，打开 <http://127.0.0.1:4577/>，将使用正式 Next.js 工作台（Monaco 编辑器 + 流程投影）。开发模式：开一个终端运行 `npm start`，另一个运...
   README.md:30  先执行 `npm --prefix apps/studio install`；在本机安装 `rustup` 和 Tauri CLI，然后在项目根目录运行 `npx tauri dev`（或通过 npm...
@@ -194,8 +188,8 @@ total = 11
   tools/ats101-probes/README.md:140  端口 `4577`），因此 `tools/ats101-probes/` 下的端口字面量属于**文档提及**，
   tools/ats101-probes/scenario-d-port-audit.mjs:4  *   The hardcoded default port 4577 must be listed COMPLETELY in
   tools/ats101-probes/scenario-d-port-audit.mjs:19  const PORT = '4577';
-  tools/ats216-probes/browser-check.mjs:110  // hardcodes 4577, the documented ATS-101 constraint), so the browser check
-  tools/ats216-probes/browser-check.mjs:114  const defaultPort = Number(process.env.ATS_PORT || 4577);
+  tools/ats216-probes/browser-check.mjs:126  // hardcodes 4577, the documented ATS-101 constraint), so the browser check
+  tools/ats216-probes/browser-check.mjs:130  const defaultPort = Number(process.env.ATS_PORT || 4577);
   tools/ats216-probes/collect-evidence.sh:95  # hardcodes 4577 -- the ATS-101 constraint), so the browser check needs the
 total = 40
 
@@ -251,7 +245,7 @@ doc-mention files (excl. 16)    : 10
 doc mentions (excl. 16)         : 41
 runtime files missing from §3.1 : (none)
 non-runtime missing from §3.1   : (none)
-runtime positions missing       : apps/studio/lib/api.ts:23
+runtime positions missing       : (none)
 listed but not found at runtime : (none)
 count claimed in 16 §3.1        : 6
 actual runtime occurrence count : 6
@@ -260,13 +254,13 @@ doc files/mentions claimed      : 10 / 41
 doc files/mentions actual       : 10 / 41
 doc mention count matches       : true
 
-RESULT: MISMATCH -- the port list in 16 §3.1 does not match the source.
-  FAIL  tools/ats101-probes/scenario-d-port-audit.mjs
+RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
+  PASS  tools/ats101-probes/scenario-d-port-audit.mjs
 
-RESULT: MISMATCH -- the ATS-301 gate does not pass.
+RESULT: OK -- the WBS helper regression, the ADR citation check and the port audit all pass.
 
 === ATS-501 regression: WBS updater interaction ===
-repo root : /d/ICHOR
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-49-6085594711e0/worktree
 updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats201.py tools/update_wbs_ats202.py tools/update_wbs_ats204.py tools/update_wbs_ats205.py tools/update_wbs_ats206.py tools/update_wbs_ats207.py tools/update_wbs_ats208.py tools/update_wbs_ats209.py tools/update_wbs_ats212.py tools/update_wbs_ats216.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py tools/update_wbs_ats506.py tools/update_wbs_ats512.py tools/update_wbs_ats601.py tools/update_wbs_ats601_rtm.py tools/update_wbs_ats602.py
 updater # : 22 (discovered from tools/update_wbs_*.py)
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -278,11 +272,11 @@ default enc: gbk (what the same interpreter would use without the forcing)
   PASS  tools/update_wbs_ats101.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats101_done.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats102.py leaves the accepted ATS-502 row at 已完成
-  FAIL  tools/update_wbs_ats103.py walked the accepted ATS-502 row back from 已完成 to '未开始'
+  PASS  tools/update_wbs_ats103.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats201.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats202.py leaves the accepted ATS-502 row at 已完成
-  FAIL  tools/update_wbs_ats204.py walked the accepted ATS-502 row back from 已完成 to '未开始'
-  FAIL  tools/update_wbs_ats205.py walked the accepted ATS-502 row back from 已完成 to '未开始'
+  PASS  tools/update_wbs_ats204.py leaves the accepted ATS-502 row at 已完成
+  PASS  tools/update_wbs_ats205.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats206.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats207.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats208.py leaves the accepted ATS-502 row at 已完成
@@ -294,26 +288,11 @@ default enc: gbk (what the same interpreter would use without the forcing)
   PASS  tools/update_wbs_ats501.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats506.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats512.py leaves the accepted ATS-502 row at 已完成
-Traceback (most recent call last):
-  File "<stdin>", line 37, in <module>
-FileNotFoundError: [WinError 2] 指定されたファイルが見つかりません。: 'docs/WBS.xlsx.seed.tmp'
   PASS  tools/update_wbs_ats601.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats601_rtm.py leaves the accepted ATS-502 row at 已完成
-Traceback (most recent call last):
-  File "<stdin>", line 37, in <module>
-FileNotFoundError: [WinError 2] 指定されたファイルが見つかりません。: 'docs/WBS.xlsx.seed.tmp'
   PASS  tools/update_wbs_ats602.py leaves the accepted ATS-502 row at 已完成
 
 --- 2. the updaters, in either order ---
-Traceback (most recent call last):
-  File "D:\ICHOR\tools\update_wbs_ats103.py", line 171, in <module>
-    main()
-  File "D:\ICHOR\tools\update_wbs_ats103.py", line 166, in main
-    tmp.unlink()
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py", line 1147, in unlink
-    os.unlink(self)
-PermissionError: [WinError 32] プロセスはファイルにアクセスできません。別のプロセスが使用中です。: 'D:\\ICHOR\\docs\\WBS.xlsx.tmp'
-  FAIL  an updater exited non-zero in order A
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
@@ -322,36 +301,42 @@ C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-Traceback (most recent call last):
-  File "D:\ICHOR\tools\update_wbs_ats212.py", line 300, in <module>
-    check_parses()
-  File "D:\ICHOR\tools\update_wbs_ats212.py", line 269, in check_parses
-    wb = openpyxl.load_workbook(XLSX, data_only=True)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\reader\excel.py", line 348, in load_workbook
-    reader.read()
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\reader\excel.py", line 303, in read
-    self.read_worksheets()
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\reader\excel.py", line 237, in read_worksheets
-    ws_parser.bind_all()
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py", line 465, in bind_all
-    self.bind_cells()
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py", line 368, in bind_cells
-    for idx, row in self.parser.parse():
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py", line 156, in parse
-    for _, element in it:
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\xml\etree\ElementTree.py", line 1253, in iterator
-    data = source.read(16 * 1024)
-           ^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\zipfile.py", line 982, in read
-    data = self._read1(n)
-           ^^^^^^^^^^^^^^
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\zipfile.py", line 1072, in _read1
-    self._update_crc(data)
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\zipfile.py", line 1000, in _update_crc
-    raise BadZipFile("Bad CRC-32 for file %r" % self.name)
-zipfile.BadZipFile: Bad CRC-32 for file 'xl/worksheets/sheet3.xml'
-  FAIL  an updater exited non-zero in order B
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
@@ -387,98 +372,119 @@ C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-Traceback (most recent call last):
-  File "D:\ICHOR\tools\update_wbs_ats201.py", line 254, in <module>
-    check_parses()
-  File "D:\ICHOR\tools\update_wbs_ats201.py", line 223, in check_parses
-    wb = openpyxl.load_workbook(XLSX, data_only=True)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\reader\excel.py", line 346, in load_workbook
-    reader = ExcelReader(filename, read_only, keep_vba,
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\reader\excel.py", line 123, in __init__
-    self.archive = _validate_archive(fn)
-                   ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\reader\excel.py", line 95, in _validate_archive
-    archive = ZipFile(filename, 'r')
-              ^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\zipfile.py", line 1330, in __init__
-    self._RealGetContents()
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\zipfile.py", line 1397, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-  FAIL  an updater exited non-zero on the first pass
-Traceback (most recent call last):
-  File "D:\ICHOR\tools\update_wbs_ats103.py", line 171, in <module>
-    main()
-  File "D:\ICHOR\tools\update_wbs_ats103.py", line 75, in main
-    parts = {n: zin.read(n) for n in zin.namelist()}
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\ICHOR\tools\update_wbs_ats103.py", line 75, in <dictcomp>
-    parts = {n: zin.read(n) for n in zin.namelist()}
-                ^^^^^^^^^^^
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\zipfile.py", line 1542, in read
-    return fp.read()
-           ^^^^^^^^^
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\zipfile.py", line 968, in read
-    buf += self._read1(self.MAX_N)
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\zipfile.py", line 1072, in _read1
-    self._update_crc(data)
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\zipfile.py", line 1000, in _update_crc
-    raise BadZipFile("Bad CRC-32 for file %r" % self.name)
-zipfile.BadZipFile: Bad CRC-32 for file 'xl/worksheets/sheet1.xml'
-  FAIL  an updater exited non-zero on the second pass
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
   PASS  running the 22 updaters twice changes nothing
 
 --- 4. the derived 总览 totals match the sheet ---
   derived: completed=2 rate=0.187624750499002 remaining=407
-  cached : completed=1 rate=0.187624750499002 (delta 5.551e-17, tolerance 5.0e-16) remaining=407
-  FAIL  B8: sheet says 1, derived 2
+  cached : completed=2 rate=0.187624750499002 (delta 5.551e-17, tolerance 5.0e-16) remaining=407
+  PASS  the cached 总览 values equal the values derived from 开发WBS
 
 --- 5. the marked notes of every task survive ---
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-Traceback (most recent call last):
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\xml\etree\ElementTree.py", line 1721, in feed
-    self.parser.Parse(data, False)
-xml.parsers.expat.ExpatError: not well-formed (invalid token): line 1, column 9541
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "D:\ICHOR\tools\update_wbs_ats201.py", line 254, in <module>
-    check_parses()
-  File "D:\ICHOR\tools\update_wbs_ats201.py", line 223, in check_parses
-    wb = openpyxl.load_workbook(XLSX, data_only=True)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\reader\excel.py", line 348, in load_workbook
-    reader.read()
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\reader\excel.py", line 303, in read
-    self.read_worksheets()
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\reader\excel.py", line 237, in read_worksheets
-    ws_parser.bind_all()
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py", line 465, in bind_all
-    self.bind_cells()
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py", line 368, in bind_cells
-    for idx, row in self.parser.parse():
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py", line 156, in parse
-    for _, element in it:
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\xml\etree\ElementTree.py", line 1251, in iterator
-    yield from pullparser.read_events()
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\xml\etree\ElementTree.py", line 1327, in read_events
-    raise event
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\xml\etree\ElementTree.py", line 1299, in feed
-    self._parser.feed(data)
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\xml\etree\ElementTree.py", line 1723, in feed
-    self._raiseerror(v)
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\xml\etree\ElementTree.py", line 1630, in _raiseerror
-    raise err
-xml.etree.ElementTree.ParseError: not well-formed (invalid token): line 1, column 9541
-  FAIL  an updater exited non-zero
-  baseline markers: {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+  baseline markers: {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-216】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
   current markers : {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-216】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
   PASS  every marked note of the baseline is still in the sheet
 
@@ -491,23 +497,37 @@ C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-Traceback (most recent call last):
-  File "D:\ICHOR\tools\update_wbs_ats204.py", line 258, in <module>
-    patch_workbook()
-  File "D:\ICHOR\tools\update_wbs_ats204.py", line 172, in patch_workbook
-    tmp.unlink()
-  File "C:\Users\seiko\AppData\Local\hermes\hermes-agent\.hermes-runtime\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py", line 1147, in unlink
-    os.unlink(self)
-PermissionError: [WinError 32] プロセスはファイルにアクセスできません。別のプロセスが使用中です。: 'D:\\ICHOR\\docs\\WBS.xlsx.tmp'
-  FAIL  an updater exited non-zero
-Traceback (most recent call last):
-  File "<stdin>", line 17, in <module>
-  File "D:\ICHOR\tools\wbs_common.py", line 507, in read_parts
-    return {k: _text(v) for k, v in inflate_zip_entries(fh.read()).items()}
-                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\ICHOR\tools\wbs_common.py", line 497, in inflate_zip_entries
-    text = zlib.decompress(raw, -zlib.MAX_WBITS).decode('utf-8')
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-zlib.error: Error -5 while decompressing data: incomplete or truncated stream
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  warn(msg)
+C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+  D6: v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT；Next.js 16 静态导出构建已实测通过；锁文件、依赖清单与 CI 构建门禁已交付；Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过，真实 headless Chromium 驱动导出页 7/7 通过（ATS-103）；权威发现已实现（ATS-202：playwright test --list；未可信仓库回退静态索引）；身份映射器已实现（ATS-204：改名/改标题后的 UID 重识别、动态用例的锚点、歧义不误关联）；SQLite 元数据层已实现（ATS-205：WAL、版本迁移与事务；state.json 的镜像）；状态数据迁移 CLI 已实现（ATS-206：安全导入、备份与回滚；数量一致）；数据目录单实例锁与崩溃恢复已实现（ATS-207：原子抢锁、持有者校验、state.json 落盘同步、损坏镜像隔离重建）；执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，事件可按 run+sequence 复演）；证据清单与保留策略已实现（ATS-209：清单带所属运行与整组摘要、内容寻址去重、到期清理只删证据不删 Run 元数据）；项目级环境档案与 runner 环境封口已实现（ATS-212：档案按项目命名空间；只有白名单内的变量可传递；runner 不继承宿主环境）；质量概览模块已实现（ATS-216：失败聚类/Flaky 基础指标，非 AI；失败/重试/取消分开计数，指标与原始结果可核对）；Agent 契约层已实现；远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）；部署式控制面 API 边界骨架已实现（ATS-506：独立进程/端点/凭据，入站拒绝本地路径与本地 Token）；插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）；移动端目标与会话契约已实现（ATS-601：三类目标、会话状态机、能力协商与拒绝规则；无真实设备）；移动端 Flow 导入映射已实现（ATS-602：跨引擎用例模型、映射规则与导入报告；不支持的步骤保留原文并标记，不静默丢弃）。
+  D7: 真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；详见 docs/16-BASELINE-ADR.md；CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md；静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112；Bridge 静态路由只覆盖 /，目录索引与 404 未实现；详见 docs/22-FRONTEND-EXPORT.md；权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；详见 docs/23-AUTHORITATIVE-DISCOVERY.md；跨机器的用例身份不在本任务范围（Project UID 依赖绝对路径）；详见 docs/26-IDENTITY-MAPPER.md；元数据层当前只做 state.json 的镜像，不提供查询 API；详见 docs/06-DATA-DESIGN.md §5；迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；详见 docs/24-STATE-MIGRATION.md；断电只以强杀进程模拟，未做真实掉电；桌面壳不显示占用提示；详见 docs/06-DATA-DESIGN.md §5.7；执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；详见 docs/06-DATA-DESIGN.md §5.4；证据清单未签名（不得宣称 WORM 或防篡改等级），清理掉证据后清单与文件夹不再一致（校验会如实报 missing）；详见 docs/27-EVIDENCE-MANIFEST.md；凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；详见 docs/04-DETAILED-DESIGN.md §5A；质量概览已在真实 Chromium 里实测渲染（两个界面都打开质量概览页、指标与对账表都渲染、两界面数字一致、无 console 错误），但人工可用性（无障碍/键盘/加载态）未评测，属 ATS-111；聚类只到「错误文本归一化后的签名」，不做根因判断；详见 docs/28-QUALITY-OVERVIEW.md；详见 docs/17-AGENT-CONTRACT.md；远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；详见 docs/19-REMOTE-RUNNER-PROTOCOL.md；控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；详见 docs/21-CONTROL-PLANE-API.md；插件宿主与沙箱未实现（ATS-512 只交付契约层）；详见 docs/21-PLUGIN-CONTRACT.md；移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md；移动端执行面仍无任何实现（ATS-602 只交付用例模型与导入映射；真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md。
+  PASS  D6 and D7 still carry every task's contribution
 
-RESULT: MISMATCH -- the WBS updaters do not coexist.
+RESULT: OK -- the 22 WBS updaters coexist, are idempotent, do not undo
+        an accepted review, and the 总览 cache always matches 开发WBS.
