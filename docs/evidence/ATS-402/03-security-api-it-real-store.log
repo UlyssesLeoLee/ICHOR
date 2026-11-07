@@ -1,8 +1,8 @@
 ================================================================================
 ATS-402 evidence log -- the same integration tests with ATS402_REAL_CREDENTIAL_STORE=1 (the real Windows Credential Manager)
 ================================================================================
-commit        : 4fc3355411a0f54e5c5a20bce0da678c8840ddc2
-timestamp     : 2026-11-07T01:51:20Z (UTC)
+commit        : d387d7e8b903da52586e1c1d2ac621eaad46879c
+timestamp     : 2026-11-07T01:54:46Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-06f2e5eaa1c4/worktree
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -10,30 +10,30 @@ stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command       : env ATS402_REAL_CREDENTIAL_STORE=1 node --test tests/security-api.test.mjs
 ================================================================================
 
-✔ IT-SEC-SETUP: start server (484.8884ms)
-✔ IT-SEC-001: the security contract is exposed over HTTP (6.0949ms)
-✔ IT-SEC-002: the security endpoints require a session token (45.9566ms)
-✔ IT-SEC-003: the credential list exposes references only (15.6628ms)
-✔ IT-SEC-004: a secret never reaches the platform state files (776.417ms)
-✔ IT-SEC-005: a duplicate credential name is refused (847.4193ms)
-✔ IT-SEC-006: an invalid credential name is refused (12.8371ms)
-✔ IT-SEC-007: the egress preview shows the real scope (17.4139ms)
-✔ IT-SEC-008: egress without a consent is refused with 403 (26.9394ms)
-✔ IT-SEC-009: the preview -> confirm -> check flow grants egress (63.6125ms)
-✔ IT-SEC-010: a consent cannot be confirmed twice from one preview (66.0227ms)
-✔ IT-SEC-011: a confirmation without a preview is refused (15.6685ms)
-✔ IT-SEC-012: changed content does not match the confirmed consent (57.2868ms)
-✔ IT-SEC-013: a revoked consent refuses egress immediately (91.5086ms)
-✔ IT-SEC-014: a scope that escapes the project root is refused (20.7982ms)
-✔ IT-SEC-015: an unknown project is refused (16.1092ms)
-✔ IT-SEC-016: the consent records are listed and carry no content (1.4941ms)
-✔ IT-SEC-017: the diagnostics endpoint reports the security surface (13.915ms)
-✔ IT-SEC-018: a non-security error keeps its pre-ATS-402 behaviour (16.5998ms)
-✔ IT-AUD-001: a refused egress leaves an audit record (30.0222ms)
-✔ IT-AUD-002: a granted egress leaves an audit record too (78.6674ms)
-✔ IT-AUD-003: the audit records never carry the content (1.4002ms)
-✔ IT-AUD-004: the audit trail survives a bridge restart (797.4183ms)
-✔ IT-SEC-CLEANUP: the bridge exits and the fixture is removed (213.045ms)
+✔ IT-SEC-SETUP: start server (435.6482ms)
+✔ IT-SEC-001: the security contract is exposed over HTTP (1.7311ms)
+✔ IT-SEC-002: the security endpoints require a session token (48.9075ms)
+✔ IT-SEC-003: the credential list exposes references only (15.7867ms)
+✔ IT-SEC-004: a secret never reaches the platform state files (776.5165ms)
+✔ IT-SEC-005: a duplicate credential name is refused (675.695ms)
+✔ IT-SEC-006: an invalid credential name is refused (1.5121ms)
+✔ IT-SEC-007: the egress preview shows the real scope (7.4842ms)
+✔ IT-SEC-008: egress without a consent is refused with 403 (26.5922ms)
+✔ IT-SEC-009: the preview -> confirm -> check flow grants egress (63.2877ms)
+✔ IT-SEC-010: a consent cannot be confirmed twice from one preview (49.6034ms)
+✔ IT-SEC-011: a confirmation without a preview is refused (15.5026ms)
+✔ IT-SEC-012: changed content does not match the confirmed consent (56.45ms)
+✔ IT-SEC-013: a revoked consent refuses egress immediately (94.8561ms)
+✔ IT-SEC-014: a scope that escapes the project root is refused (18.7551ms)
+✔ IT-SEC-015: an unknown project is refused (15.7084ms)
+✔ IT-SEC-016: the consent records are listed and carry no content (14.6188ms)
+✔ IT-SEC-017: the diagnostics endpoint reports the security surface (15.1285ms)
+✔ IT-SEC-018: a non-security error keeps its pre-ATS-402 behaviour (1.7452ms)
+✔ IT-AUD-001: a refused egress leaves an audit record (25.6063ms)
+✔ IT-AUD-002: a granted egress leaves an audit record too (65.551ms)
+✔ IT-AUD-003: the audit records never carry the content (1.2534ms)
+✔ IT-AUD-004: the audit trail survives a bridge restart (716.0487ms)
+✔ IT-SEC-CLEANUP: the bridge exits and the fixture is removed (208.5309ms)
 ℹ tests 24
 ℹ suites 0
 ℹ pass 24
@@ -41,6 +41,6 @@ command       : env ATS402_REAL_CREDENTIAL_STORE=1 node --test tests/security-ap
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 3824.2724
+ℹ duration_ms 3460.9373
 
 --- exit code: 0 ---
