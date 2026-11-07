@@ -1,13 +1,13 @@
 === ATS-103 evidence: mutation evidence ===
-date      : 2026-11-07T02:28:01Z (UTC)
-commit    : 3054795042533098bf96f3e0439df3f0208a9164
+date      : 2026-11-07T02:50:55Z (UTC)
+commit    : 271e50844be865205084e24d48f4b004b2a02309
 node      : v22.23.4
 npm       : 10.9.9
 command   : bash tools/ats103-probes/mutation-evidence.sh
 
 === ATS-103 evidence: mutation evidence ===
-date      : 2026-11-07T02:29:21Z (UTC)
-commit    : 3054795042533098bf96f3e0439df3f0208a9164
+date      : 2026-11-07T02:52:15Z (UTC)
+commit    : 271e50844be865205084e24d48f4b004b2a02309
 node      : v22.23.4
 npm       : 10.9.9
 
@@ -41,12 +41,12 @@ export function GET() { return Response.json({ proxiedByNext: true }); }
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 26ms
+✓ Running next.config.mjs took 28ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1137ms
+✓ Compiled successfully in 1311ms
   Running TypeScript ...
-  Finished TypeScript in 1767ms ...
+  Finished TypeScript in 1875ms ...
   Collecting page data using 5 workers ...
 Error: export const dynamic = "force-static"/export const revalidate not configured on route "/api/session" with "output: export". See more info here: https://nextjs.org/docs/advanced-features/static-html-export
     at Object.<anonymous> (C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\.next\server\app\api\session\route.js:5:3)
@@ -152,15 +152,15 @@ export function GET() { return Response.json({ proxiedByNext: true }); }
 ✓ Running next.config.mjs took 25ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1191ms
+✓ Compiled successfully in 1177ms
   Running TypeScript ...
-  Finished TypeScript in 1835ms ...
+  Finished TypeScript in 1858ms ...
   Collecting page data using 5 workers ...
   Generating static pages using 5 workers (0/4) ...
   Generating static pages using 5 workers (1/4) 
   Generating static pages using 5 workers (2/4) 
   Generating static pages using 5 workers (3/4) 
-✓ Generating static pages using 5 workers (4/4) in 588ms
+✓ Generating static pages using 5 workers (4/4) in 627ms
   Finalizing page optimization ...
 
 Route (app)
@@ -175,9 +175,9 @@ BUILD_EXIT=0
 
 --- the export tree after the build ---
 total 5
-drwxr-xr-x 1 seiko 197610  0 11月  7 11:29 .
-drwxr-xr-x 1 seiko 197610  0 11月  7 11:29 ..
--rw-r--r-- 1 seiko 197610 22 11月  7 11:29 session
+drwxr-xr-x 1 seiko 197610  0 11月  7 11:52 .
+drwxr-xr-x 1 seiko 197610  0 11月  7 11:52 ..
+-rw-r--r-- 1 seiko 197610 22 11月  7 11:52 session
 
 --- the probe against the mutated export ---
 PASS  export directory exists (apps/studio/out)  --  C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\apps\studio\out
@@ -208,22 +208,22 @@ PASS  the collected artefacts include report.json  --  1 report.json entries
   status    : failed
   error     : (none)
   reportWarn: (none)
-  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-sfsFp5\runs\run_1_b3b8a4f8669e980673dfd2c0\results --trace on --workers 1
+  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-uwItri\runs\run_1_683bcd1a40700c00018c92c7\results --trace on --workers 1
   log tail  : 
-    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-sfsFp5\runs\run_1_b3b8a4f8669e980673dfd2c0\results\home-导航入口正常-REQ-002\error-context.md
+    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-uwItri\runs\run_1_683bcd1a40700c00018c92c7\results\home-导航入口正常-REQ-002\error-context.md
 
     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
-    D:\hermes-multica\home\cache\scratch\tmp\ats103-sfsFp5\runs\run_1_b3b8a4f8669e980673dfd2c0\results\home-导航入口正常-REQ-002\trace.zip
+    D:\hermes-multica\home\cache\scratch\tmp\ats103-uwItri\runs\run_1_683bcd1a40700c00018c92c7\results\home-导航入口正常-REQ-002\trace.zip
     Usage:
 
-        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-sfsFp5\runs\run_1_b3b8a4f8669e980673dfd2c0\results\home-导航入口正常-REQ-002\trace.zip
+        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-uwItri\runs\run_1_683bcd1a40700c00018c92c7\results\home-导航入口正常-REQ-002\trace.zip
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
 
   1 failed
     tests\home.spec.ts:22:1 › 导航入口正常 @REQ-002 ──────────────────────────────────────────────────────
-  1 passed (5.9s)
+  1 passed (6.0s)
 
 --- end run detail ---
 
@@ -239,15 +239,15 @@ PROBE_EXIT=1
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 27ms
+✓ Running next.config.mjs took 30ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1132ms
+✓ Compiled successfully in 1504ms
   Running TypeScript ...
-  Finished TypeScript in 1889ms ...
+  Finished TypeScript in 1904ms ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 574ms
+✓ Generating static pages using 4 workers (3/3) in 603ms
   Finalizing page optimization ...
 
 Route (app)
@@ -279,12 +279,12 @@ Claim under test:
 ✓ Running next.config.mjs took 27ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1208ms
+✓ Compiled successfully in 1164ms
   Running TypeScript ...
-  Finished TypeScript in 1859ms ...
+  Finished TypeScript in 1853ms ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 587ms
+✓ Generating static pages using 4 workers (3/3) in 551ms
   Finalizing page optimization ...
 
 Route (app)
@@ -326,15 +326,15 @@ PASS  the collected artefacts include report.json  --  1 report.json entries
   status    : failed
   error     : (none)
   reportWarn: (none)
-  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-YRux9f\runs\run_1_b3b8a4f8669e980673dfd2c0\results --trace on --workers 1
+  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-YewkRx\runs\run_1_683bcd1a40700c00018c92c7\results --trace on --workers 1
   log tail  : 
-    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-YRux9f\runs\run_1_b3b8a4f8669e980673dfd2c0\results\home-导航入口正常-REQ-002\error-context.md
+    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-YewkRx\runs\run_1_683bcd1a40700c00018c92c7\results\home-导航入口正常-REQ-002\error-context.md
 
     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
-    D:\hermes-multica\home\cache\scratch\tmp\ats103-YRux9f\runs\run_1_b3b8a4f8669e980673dfd2c0\results\home-导航入口正常-REQ-002\trace.zip
+    D:\hermes-multica\home\cache\scratch\tmp\ats103-YewkRx\runs\run_1_683bcd1a40700c00018c92c7\results\home-导航入口正常-REQ-002\trace.zip
     Usage:
 
-        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-YRux9f\runs\run_1_b3b8a4f8669e980673dfd2c0\results\home-导航入口正常-REQ-002\trace.zip
+        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-YewkRx\runs\run_1_683bcd1a40700c00018c92c7\results\home-导航入口正常-REQ-002\trace.zip
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -371,29 +371,29 @@ PASS  the page produced no console error and no failed request  --  console erro
   POST /api/projects -> 201
   GET /api/projects -> 200
   GET /api/runs -> 200
-  GET /api/projects -> 200
   GET /api/runs -> 200
+  GET /api/projects -> 200
   GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/tests -> 200
   GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/lineage -> 200
   GET /api/runs -> 200
   POST /api/projects/proj_1_58fa8e223638d85e8cf3368a/run -> 202
   GET /api/runs -> 200
-  GET /api/runs -> 200
   GET /api/projects -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
+  GET /api/runs -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
 --- end ---
 --- bridge stderr ---
-  (node:26332) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+  (node:12832) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 --- end ---
 PASS  the probe executed every registered check  --  8/8 checks executed
@@ -409,15 +409,15 @@ UI_PROBE_EXIT=1
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 25ms
+✓ Running next.config.mjs took 26ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1194ms
+✓ Compiled successfully in 1087ms
   Running TypeScript ...
-  Finished TypeScript in 1826ms ...
+  Finished TypeScript in 1754ms ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 557ms
+✓ Generating static pages using 4 workers (3/3) in 545ms
   Finalizing page optimization ...
 
 Route (app)
@@ -460,12 +460,12 @@ base sends them to localhost.
 ✓ Running next.config.mjs took 26ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1204ms
+✓ Compiled successfully in 1112ms
   Running TypeScript ...
-  Finished TypeScript in 1812ms ...
+  Finished TypeScript in 1767ms ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 575ms
+✓ Generating static pages using 4 workers (3/3) in 543ms
   Finalizing page optimization ...
 
 Route (app)
@@ -507,15 +507,15 @@ PASS  the collected artefacts include report.json  --  1 report.json entries
   status    : failed
   error     : (none)
   reportWarn: (none)
-  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-7yTEHZ\runs\run_1_b3b8a4f8669e980673dfd2c0\results --trace on --workers 1
+  command   : D:\hermes-multica\home\cache\scratch\node22\node-v22.23.4-win-x64\node.exe C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-14-0d254fa57bf5\worktree\examples\sample-playwright\node_modules\@playwright\test\cli.js test --reporter=line,json,html --output D:\hermes-multica\home\cache\scratch\tmp\ats103-rL8naV\runs\run_1_683bcd1a40700c00018c92c7\results --trace on --workers 1
   log tail  : 
-    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-7yTEHZ\runs\run_1_b3b8a4f8669e980673dfd2c0\results\home-导航入口正常-REQ-002\error-context.md
+    Error Context: D:\hermes-multica\home\cache\scratch\tmp\ats103-rL8naV\runs\run_1_683bcd1a40700c00018c92c7\results\home-导航入口正常-REQ-002\error-context.md
 
     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
-    D:\hermes-multica\home\cache\scratch\tmp\ats103-7yTEHZ\runs\run_1_b3b8a4f8669e980673dfd2c0\results\home-导航入口正常-REQ-002\trace.zip
+    D:\hermes-multica\home\cache\scratch\tmp\ats103-rL8naV\runs\run_1_683bcd1a40700c00018c92c7\results\home-导航入口正常-REQ-002\trace.zip
     Usage:
 
-        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-7yTEHZ\runs\run_1_b3b8a4f8669e980673dfd2c0\results\home-导航入口正常-REQ-002\trace.zip
+        npx playwright show-trace D:\hermes-multica\home\cache\scratch\tmp\ats103-rL8naV\runs\run_1_683bcd1a40700c00018c92c7\results\home-导航入口正常-REQ-002\trace.zip
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -551,8 +551,8 @@ PASS  the page produced no console error and no failed request  --  console erro
   POST /api/projects -> 201
   GET /api/projects -> 200
   GET /api/runs -> 200
-  GET /api/projects -> 200
   GET /api/runs -> 200
+  GET /api/projects -> 200
   GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/tests -> 200
   GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/lineage -> 200
   GET /api/runs -> 200
@@ -560,21 +560,20 @@ PASS  the page produced no console error and no failed request  --  console erro
   GET /api/runs -> 200
   GET /api/projects -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_b3b8a4f8669e980673dfd2c0 -> 200
-  GET /api/runs -> 200
+  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
 --- end ---
 --- bridge stderr ---
-  (node:28468) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+  (node:24644) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 --- end ---
 PASS  the probe executed every registered check  --  8/8 checks executed
@@ -592,12 +591,12 @@ UI_PROBE_EXIT=1
 ✓ Running next.config.mjs took 26ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 1229ms
+✓ Compiled successfully in 1132ms
   Running TypeScript ...
-  Finished TypeScript in 1927ms ...
+  Finished TypeScript in 1790ms ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 585ms
+✓ Generating static pages using 4 workers (3/3) in 548ms
   Finalizing page optimization ...
 
 Route (app)
@@ -693,9 +692,9 @@ MUTATION C: the Playwright engine is not installed
 423:CLEAN_REBUILD_EXIT=0
 471:BUILD_EXIT=0
 526:PROBE_EXIT=0
-577:UI_PROBE_EXIT=1
-603:CLEAN_REBUILD_EXIT=0
-658:PROBE_EXIT=1
+576:UI_PROBE_EXIT=1
+602:CLEAN_REBUILD_EXIT=0
+657:PROBE_EXIT=1
 
 --- the source tree and the export were restored ---
 --- git status of the mutated paths (empty == restored) ---
