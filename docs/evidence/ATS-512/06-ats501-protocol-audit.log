@@ -1,9 +1,9 @@
 ================================================================================
 ATS-512 evidence log -- the ATS-501 remote protocol audit still passes (this task consumes it)
 ================================================================================
-commit        : bf36a1fefc0ad9374fae5dacff99a8af3234104b
-timestamp     : 2026-11-05T14:16:30Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-c720363925af/worktree
+commit        : c42f522291c2f6c9ced5c75e5f1df789f4e69744
+timestamp     : 2026-11-07T02:03:01Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-33c4a0ec36ec/worktree
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -12,12 +12,12 @@ command       : node tools/ats501-probes/audit-remote-protocol.mjs
 ================================================================================
 
 === ATS-501 probe: remote protocol contract audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-22-c720363925af\worktree
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-22-33c4a0ec36ec\worktree
 document  : docs\19-REMOTE-RUNNER-PROTOCOL.md
 
-REMOTE_ tokens in the document : 25
-local Bridge error codes found : 21
-REMOTE_ codes in the contract  : 25
+REMOTE_ tokens in the document : 26
+local Bridge error codes found : 20
+REMOTE_ codes in the contract  : 26
 baseline ADRs : 14, ADRs registered here : 9
 ATS-501 row 77: status=待审核 completion=1 remaining=0
 
@@ -132,7 +132,7 @@ ATS-501 row 77: status=待审核 completion=1 remaining=0
   PASS  the implemented-claim matcher ignores a negated claim (negative control)
 
 checks passed : 108/108
-remote codes  : 25
+remote codes  : 26
 threats       : 14
 
 RESULT: OK -- the remote protocol contract is self-consistent and agrees with the WBS row, the requirement badges and the baseline ADR register.

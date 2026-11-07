@@ -1,9 +1,9 @@
 ================================================================================
 ATS-512 evidence log -- the one failing suite test is reproduced on the untouched reference tree
 ================================================================================
-commit        : bf36a1fefc0ad9374fae5dacff99a8af3234104b
-timestamp     : 2026-11-05T14:16:30Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-c720363925af/worktree
+commit        : c42f522291c2f6c9ced5c75e5f1df789f4e69744
+timestamp     : 2026-11-07T02:03:01Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-33c4a0ec36ec/worktree
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -11,35 +11,31 @@ default enc   : gbk (what the same interpreter would use without the forcing)
 command       : bash tools/ats512-probes/prove-baseline-regression.sh
 ================================================================================
 
-reference tree : dev (7660981)
-work tree      : bf36a1f
+reference tree : e2db70cf366354e7a1b3b43a72539ab69b2b8f23 (e2db70c) -- the merge base with dev
+work tree      : c42f522
 
---- the reference tree (dev, WITHOUT any ATS-512 code) ---
-✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (15.971ms)
-ℹ pass 15
-ℹ fail 1
-ℹ skipped 0
-✖ failing tests:
-✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (15.971ms)
+
+--- the reference tree (e2db70cf366354e7a1b3b43a72539ab69b2b8f23, WITHOUT any ATS-512 code) ---
+ℹ pass 17
+ℹ fail 0
+ℹ skipped 1
 
 --- this branch (WITH the ATS-512 code) ---
-✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (2.5604ms)
-ℹ pass 15
-ℹ fail 1
-ℹ skipped 0
-✖ failing tests:
-✖ IT-API-013: the pinned and unpinned success responses have the SAME negotiation shape (2.5604ms)
+ℹ pass 17
+ℹ fail 0
+ℹ skipped 1
 
---- why it fails ---
-examples/sample-playwright/ has no node_modules in this checkout, so the
-Playwright adapter reports the required capabilities as unsupported and the
-negotiation returns 409 instead of 200. The example project's dependencies
-are NOT part of the repository (.gitignore: examples/*/node_modules/), so
-this failure depends on whether the example was installed locally -- not on
-the product code. It is an ATS-301 environment dependency, not an ATS-512
-defect, and it is NOT counted as a PASS.
+--- how to read this ---
+If BOTH trees fail the same test, that failure is pre-existing and is not
+caused by this task; it is recorded, not counted as a PASS.
 
-RESULT: OK -- IT-API-013 fails on the reference tree as well (2 occurrence(s)),
-        so it is pre-existing and not caused by this task.
+If BOTH trees pass, there is nothing to attribute: the suite is green on the
+reference tree as well, and no failure needs an excuse.
+
+If the reference tree passes and this branch fails, that IS a regression
+introduced by this task, and the script reports it as such.
+
+failures -- reference tree: 0, this branch: 0
+RESULT: OK -- the suite is green on BOTH trees: no failure to attribute.
 
 --- exit code: 0 ---
