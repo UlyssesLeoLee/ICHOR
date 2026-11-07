@@ -1,6 +1,6 @@
 === ATS-216 mutation check: the tests must fail when the module is broken ===
-repo    : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-f9d57e1e99db\worktree
-module  : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-f9d57e1e99db\worktree\apps\studio\public\quality.mjs
+repo    : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-cbf8b5c82649\worktree
+module  : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-cbf8b5c82649\worktree\apps\studio\public\quality.mjs
 
 PASS the cancelled run counts as a failure -- killed -- UT KILL / ST KILL
 PASS the flaky case counts as a plain pass -- killed -- UT KILL / ST KILL
@@ -11,7 +11,8 @@ PASS the ANSI colour codes are kept -- killed -- UT KILL / ST survive
 PASS the attempt count ignores the attempts -- killed -- UT KILL / ST KILL
 PASS the cases of a run without a verdict enter the metrics -- killed -- UT KILL / ST survive
 PASS the case identity is reduced to the file and the title -- killed -- UT KILL / ST survive
+PASS the case identity contains the line -- killed -- UT KILL / ST survive
 PASS the displayed counts are not reconciled with the bridge -- killed -- UT KILL / ST survive
-PASS the module is restored byte-for-byte -- 46589 vs 46589 bytes
+PASS the module is restored byte-for-byte -- 49140 vs 49140 bytes
 
-RESULT: 11/11
+RESULT: 12/12

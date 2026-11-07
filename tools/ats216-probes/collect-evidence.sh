@@ -119,6 +119,20 @@ else
   printf '  SKIP  the mutation check needs the real engine for its ST half\n'
 fi
 
+# --- 3d. the identity probe ----------------------------------------------
+step '3d. the identity probe (what the engine guarantees about a case identity)'
+if [ -d "$FIXTURE_NM/@playwright/test" ]; then
+  if node tools/ats216-probes/identity-probe.mjs "$FIXTURE_NM" "$SCRATCH-ident" > "$OUT/10-identity-probe.log" 2>&1; then
+    ok 'tools/ats216-probes/identity-probe.mjs'
+  else
+    bad 'tools/ats216-probes/identity-probe.mjs (see 10-identity-probe.log)'
+  fi
+  tail -n 10 "$OUT/10-identity-probe.log"
+else
+  printf 'SKIPPED: the fixture dependencies are not installed.\n' > "$OUT/10-identity-probe.log"
+  printf '  SKIP  the identity probe needs the real engine\n'
+fi
+
 # --- 4. the Next.js static export build -------------------------------------
 step '4. the Next.js 16 static export build'
 if [ -d apps/studio/node_modules ]; then
