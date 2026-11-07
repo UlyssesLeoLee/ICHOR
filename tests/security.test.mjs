@@ -36,6 +36,13 @@ import {
   scopeDigestOf,
 } from '../server/security/egress-consent.mjs';
 
+import {
+  EGRESS_AUDIT_CAP,
+  EGRESS_AUDIT_CONTRACT_VERSION,
+  createEgressAuditStore,
+  describeEgressAudit,
+} from '../server/security/egress-audit.mjs';
+
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
 /* ------------------------------------------------------------------ */
@@ -415,4 +422,127 @@ test('UT-EGR-018: the consent description lists the flow and the error codes', (
   assert.equal(described.contract, 'egress-consent/v1');
   assert.deepEqual(described.errorCodes, [...EGRESS_ERROR_CODES]);
   assert.ok(described.flow.includes('preview'));
+});
+
+/* ------------------------------------------------------------------ */
+/* egress audit -- unit                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * An in-memory audit store. The records are kept in an array so the test can
+ * assert on what was actually persisted, not only on what was returned.
+ */
+function auditStore(now = () => Date.now()) {
+  const records = [];
+  return {
+    store: createEgressAuditStore({
+      list: async () => records.slice(),
+      persist: async (next) => { records.length = 0; records.push(...next); },
+      now,
+    }),
+    records,
+  };
+}
+
+test('UT-AUD-001: the egress audit contract version is fixed', () => {
+  assert.equal(EGRESS_AUDIT_CONTRACT_VERSION, 'egress-audit/v1');
+});
+
+test('UT-AUD-002: a denied egress leaves a record', async () => {
+  const { store, records } = auditStore();
+  const entry = await store.record({
+    event: 'egress.denied',
+    outcome: 'denied',
+    code: 'EGRESS_CONSENT_REQUIRED',
+    reason: 'no egress consent record',
+    projectId: 'prj_1',
+    kinds: ['file'],
+  });
+  assert.equal(entry.event, 'egress.denied');
+  assert.equal(entry.outcome, 'denied');
+  assert.equal(entry.code, 'EGRESS_CONSENT_REQUIRED');
+  // The record is ON DISK before it is handed back: a record that only exists
+  // in the return value is not an audit trail.
+  assert.equal(records.length, 1);
+  assert.equal(records[0].id, entry.id);
+});
+
+test('UT-AUD-003: a granted egress leaves a record too', async () => {
+  const { store, records } = auditStore();
+  await store.record({
+    event: 'egress.granted',
+    outcome: 'allowed',
+    consentId: 'egr_000000000000000000000000',
+    projectId: 'prj_1',
+    kinds: ['file'],
+    items: [{ kind: 'file', ref: 'tests/a.spec.ts', digest: sha256('a'), bytes: 1 }],
+    scopeDigest: sha256('scope'),
+  });
+  assert.equal(records.length, 1);
+  assert.equal(records[0].event, 'egress.granted');
+  assert.equal(records[0].outcome, 'allowed');
+});
+
+test('UT-AUD-004: an audit record never carries the content', async () => {
+  const { store, records } = auditStore();
+  const secretContent = 'test("the secret is here",()=>{})';
+  const entry = await store.record({
+    event: 'egress.granted',
+    outcome: 'allowed',
+    kinds: ['file'],
+    items: [{
+      kind: 'file',
+      ref: 'tests/a.spec.ts',
+      digest: sha256(secretContent),
+      bytes: Buffer.byteLength(secretContent, 'utf8'),
+      content: secretContent,
+      preview: secretContent,
+    }],
+  });
+  // The content is dropped AT THE BOUNDARY: neither the returned record nor
+  // the persisted one may hold it.
+  const serialised = JSON.stringify(entry) + JSON.stringify(records);
+  assert.ok(!serialised.includes('the secret is here'));
+  assert.ok(!('content' in entry.items[0]));
+  assert.ok(!('preview' in entry.items[0]));
+  // The digest is kept -- it is what lets the trail name the content.
+  assert.equal(entry.items[0].digest, sha256(secretContent));
+});
+
+test('UT-AUD-005: an unknown audit event is refused', async () => {
+  const { store } = auditStore();
+  await assert.rejects(
+    () => store.record({ event: 'egress.maybe', outcome: 'allowed' }),
+    (error) => error.code === 'EGRESS_AUDIT_EVENT_INVALID',
+  );
+});
+
+test('UT-AUD-006: the trail is append-only -- revoking does not erase the past', async () => {
+  const { store, records } = auditStore();
+  await store.record({ event: 'egress.granted', outcome: 'allowed', consentId: 'egr_1' });
+  await store.record({ event: 'consent.revoked', outcome: 'denied', consentId: 'egr_1' });
+  // Both facts survive: the trail records what HAPPENED, not what is true now.
+  assert.equal(records.length, 2);
+  const events = records.map((r) => r.event);
+  assert.ok(events.includes('egress.granted'));
+  assert.ok(events.includes('consent.revoked'));
+});
+
+test('UT-AUD-007: the trail has a cap and drops the oldest records', async () => {
+  const { store, records } = auditStore();
+  for (let i = 0; i < EGRESS_AUDIT_CAP + 5; i += 1) {
+    await store.record({ event: 'egress.granted', outcome: 'allowed', projectId: `prj_${i}` });
+  }
+  assert.equal(records.length, EGRESS_AUDIT_CAP);
+  // The OLDEST are dropped, so the recent history survives.
+  assert.equal(records[0].projectId, 'prj_5');
+  assert.equal(records[records.length - 1].projectId, `prj_${EGRESS_AUDIT_CAP + 4}`);
+});
+
+test('UT-AUD-008: the audit description lists the events and never a secret', () => {
+  const described = describeEgressAudit();
+  assert.equal(described.contract, 'egress-audit/v1');
+  assert.ok(described.events.includes('egress.denied'));
+  assert.ok(described.events.includes('egress.granted'));
+  assert.equal(described.cap, EGRESS_AUDIT_CAP);
 });

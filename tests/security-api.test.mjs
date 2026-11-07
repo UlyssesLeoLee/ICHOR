@@ -59,7 +59,13 @@ fs.writeFileSync(path.join(fixture, 'tests', 'home.spec.ts'), SPEC);
 
 let projectId;
 
-test('IT-SEC-SETUP: start server', async () => {
+/**
+ * Boot the bridge against the isolated data directory and fetch a session
+ * token. It is a function (not inline code) so a test can RESTART the bridge
+ * against the same data directory and prove that a record survives the
+ * restart.
+ */
+async function startBridge() {
   cp = spawn(process.execPath, ['server/index.mjs'], {
     cwd: root,
     env: { ...process.env, ATS_PORT: String(port), ATS_DATA_DIR: path.join(data, 'state') },
@@ -68,6 +74,10 @@ test('IT-SEC-SETUP: start server', async () => {
   await ready();
   token = (await api('/api/session'))[1].token;
   assert.ok(token);
+}
+
+test('IT-SEC-SETUP: start server', async () => {
+  await startBridge();
   const [status, body] = await api('/api/projects', 'POST', { path: fixture });
   assert.equal(status, 201);
   projectId = body.project.id;
@@ -289,6 +299,75 @@ test('IT-SEC-018: a non-security error keeps its pre-ATS-402 behaviour', async (
   assert.equal(status, 500);
   assert.ok(!('details' in body));
   assert.ok(!/CREDENTIAL_|EGRESS_/.test(body.error));
+});
+
+/* ------------------------------------------------------------------ */
+/* the egress audit trail -- IT                                        */
+/* ------------------------------------------------------------------ */
+
+test('IT-AUD-001: a refused egress leaves an audit record', async () => {
+  const inputs = [{ kind: 'file', ref: 'tests/home.spec.ts' }];
+  // No consent: the gate refuses.
+  const [status, body] = await api('/api/security/egress/check', 'POST', { projectId, inputs });
+  assert.equal(status, 403);
+  assert.equal(body.error, 'EGRESS_CONSENT_REQUIRED');
+
+  // The refusal is AUDITED: the trail says the egress was refused and why.
+  const [auditStatus, audit] = await api('/api/security/egress/audit');
+  assert.equal(auditStatus, 200);
+  const denied = audit.audit.find((r) => r.event === 'egress.denied');
+  assert.ok(denied, 'the refused egress must leave a denied record');
+  assert.equal(denied.code, 'EGRESS_CONSENT_REQUIRED');
+  assert.equal(denied.outcome, 'denied');
+  assert.equal(denied.projectId, projectId);
+});
+
+test('IT-AUD-002: a granted egress leaves an audit record too', async () => {
+  const inputs = [{ kind: 'file', ref: 'tests/home.spec.ts' }];
+  const [, preview] = await api('/api/security/egress/preview', 'POST', { projectId, inputs });
+  const [, consent] = await api('/api/security/egress/confirm', 'POST', {
+    projectId, inputs, previewId: preview.preview.previewId,
+  });
+  const [status] = await api('/api/security/egress/check', 'POST', {
+    projectId, inputs, consentId: consent.consent.id,
+  });
+  assert.equal(status, 200);
+
+  const [, audit] = await api('/api/security/egress/audit');
+  const granted = audit.audit.find((r) => r.event === 'egress.granted');
+  assert.ok(granted, 'the allowed egress must leave a granted record');
+  assert.equal(granted.consentId, consent.consent.id);
+  assert.equal(granted.items[0].ref, 'tests/home.spec.ts');
+  assert.match(granted.items[0].digest, /^[0-9a-f]{64}$/);
+});
+
+test('IT-AUD-003: the audit records never carry the content', async () => {
+  const [, audit] = await api('/api/security/egress/audit');
+  const serialised = JSON.stringify(audit.audit);
+  // The SPEC text is the fixture's content. It must not be anywhere in the
+  // trail -- otherwise the audit file would be a second copy of the data.
+  assert.ok(!serialised.includes('home passes'));
+  for (const record of audit.audit) {
+    for (const item of record.items) {
+      assert.ok(!('content' in item), 'an audit item must not carry the content');
+      assert.ok(!('preview' in item));
+    }
+  }
+});
+
+test('IT-AUD-004: the audit trail survives a bridge restart', async () => {
+  const [, before] = await api('/api/security/egress/audit');
+  const count = before.audit.length;
+  assert.ok(count > 0, 'there must be records before the restart');
+
+  // Restart the bridge against the SAME data directory.
+  cp.kill();
+  await new Promise((r) => setTimeout(r, 300));
+  await startBridge();
+
+  const [, after] = await api('/api/security/egress/audit');
+  assert.equal(after.audit.length, count, 'the trail must survive the restart');
+  assert.ok(after.audit.some((r) => r.event === 'egress.denied'));
 });
 
 test('IT-SEC-CLEANUP: the bridge exits and the fixture is removed', async () => {

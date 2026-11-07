@@ -104,6 +104,14 @@ run 11-next-build.log \
   'the Next.js static export builds with the AI data security tab' \
   npm run build:web || fail=1
 
+run 12-tsc.log \
+  'the Next.js workbench type-checks (no type errors)' \
+  npx --prefix apps/studio tsc --noEmit -p apps/studio/tsconfig.json || fail=1
+
+run 13-wbs-ats402-row.log \
+  'the ATS-402 row of the 开发WBS sheet is 待审核 with the ATS-402 note' \
+  python tools/wbs_ats402_row_check.py || fail=1
+
 echo
 if [ "$fail" -eq 0 ]; then
   echo 'RESULT: OK -- every ATS-402 check passed.'

@@ -2,10 +2,13 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import dynamic from 'next/dynamic';
 import {Activity,BookOpen,Box,ChartNoAxesCombined,CheckCircle2,ChevronRight,Clock,Code2,Download,FileCode2,FilePlus2,FileSearch,FolderGit2,GitBranch,GitCommitHorizontal,KeyRound,LayoutDashboard,Layers3,Lock,Network,Play,RefreshCcw,Save,Search,ShieldAlert,Square,Terminal,TestTube2,Trash2,XCircle} from 'lucide-react';
-import {api,downloadArtifact,type Project,type TestDef,type TestCatalog,type Run,type Source,type CredentialRef,type EgressScope,type EgressPreview,type EgressConsent,type SecurityContract} from '../lib/api';
+import {api,downloadArtifact,type Project,type TestDef,type TestCatalog,type Run,type Source,type CredentialRef,type EgressScope,type EgressPreview,type EgressConsent,type SecurityContract,type EgressAuditRecord} from '../lib/api';
+// ATS-216: the QUALITY OVERVIEW module. It lives in `public/` so that the
+// Next workbench and the zero-dependency portable UI import the SAME
+// implementation -- the metrics cannot drift apart between the two UIs.
+import {buildQualityOverview,qualityMetricCards,type QualityOverview} from '../public/quality.mjs';
 const Monaco=dynamic(()=>import('@monaco-editor/react'),{ssr:false});
 type Tab='catalog'|'runs'|'quality'|'trace'|'security'|'architecture';
-// ATS-216: the QUALITY OVERVIEW module. It lives in `public/` so that the
 const label:Record<string,string>={passed:'通过',failed:'失败',running:'运行中',queued:'排队中',cancelling:'停止中',cancelled:'已停止',interrupted:'中断',error:'错误'};
 // ATS-216: the labels of the buckets the overview distinguishes. A CANCELLED
 // run and a FLAKY case get their own words -- they are not "失败" and they
@@ -28,6 +31,7 @@ export default function Studio(){
  const [dialog,setDialog]=useState(false),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const [secContract,setSecContract]=useState<SecurityContract|null>(null),[credentials,setCredentials]=useState<CredentialRef[]>([]);
  const [consents,setConsents]=useState<EgressConsent[]>([]),[preview,setPreview]=useState<EgressPreview|null>(null);
+ const [audit,setAudit]=useState<EgressAuditRecord[]>([]);
  const [keyName,setKeyName]=useState(''),[keySecret,setKeySecret]=useState('');
  const [lineage,setLineage]=useState<{requirements:{uid:string,title:string,status?:string}[],links:{from:string,to:string,type?:string}[]}>({requirements:[],links:[]});
  // ATS-216: the scope of the quality overview. `project` is the default;
@@ -50,11 +54,12 @@ export default function Studio(){
  const currentRun=runDetail && runDetail.projectId===active ? runDetail : projectRuns[0];
  useEffect(()=>{if(currentRun?.id&&tab==='runs')api<{run:Run}>(`/api/runs/${currentRun.id}`).then(r=>setRunDetail(r.run)).catch(()=>{});},[runs,tab,currentRun?.id]);
  const loadSecurity=useCallback(async()=>{try{
-  const [c,k,g]=await Promise.all([
+  const [c,k,g,a]=await Promise.all([
    api<SecurityContract>('/api/security/contract'),
    api<{credentials:CredentialRef[]}>('/api/security/credentials'),
-   api<{consents:EgressConsent[]}>('/api/security/egress/consents')]);
-  setSecContract(c);setCredentials(k.credentials);setConsents(g.consents);
+   api<{consents:EgressConsent[]}>('/api/security/egress/consents'),
+   api<{audit:EgressAuditRecord[]}>('/api/security/egress/audit')]);
+  setSecContract(c);setCredentials(k.credentials);setConsents(g.consents);setAudit(a.audit);
  }catch(e){notify((e as Error).message)}},[]);
  useEffect(()=>{if(tab==='security')loadSecurity();},[tab,loadSecurity]);
  async function openFile(test:TestDef){setSelected(test);try{const s=await api<Source>(`/api/projects/${active}/source?file=${encodeURIComponent(test.file)}`);setSource(s);setDraft(s.content)}catch(e){notify((e as Error).message)}}
@@ -171,6 +176,11 @@ export default function Studio(){
        {consents.map(c=><div className="result-item" key={c.id}><span className={c.state==='granted'?'ok':'bad'}>{c.state==='granted'?<CheckCircle2 size={15}/>:<XCircle size={15}/>}</span><div><b>{c.kinds.join('、')} · {c.itemCount} 项</b><small>{c.state} · {c.expiresAt} 到期 · 摘要 {c.scopeDigest.slice(0,12)}…</small></div>{c.state==='granted'&&<button className="btn danger small" onClick={()=>revokeConsent(c.id)}><Trash2 size={13}/> 撤销</button>}</div>)}
        {!consents.length&&<p className="muted">尚无授权记录。</p>}
       </div></div>
+      <div className="card"><div className="card-title"><ShieldAlert size={16}/> 外传审计</div>
+       <p className="muted">每一次外传判定都会留痕，<b>放行与拒绝都记</b>。记录里只有 ref、字节数与 SHA-256 摘要——<b>不含内容、不含密钥</b>。</p>
+       {audit.map(r=><div className="result-item" key={r.id}><span className={r.outcome==='allowed'?'ok':'bad'}>{r.outcome==='allowed'?<CheckCircle2 size={15}/>:<XCircle size={15}/>}</span><div><b>{r.event}</b><small>{formatTime(r.at)} · {r.kinds.join('、')||'—'} · {r.itemCount} 项 · {r.totalBytes} 字节{r.code?` · ${r.code}`:''}</small>{r.items.map(i=><small key={i.ref} style={{display:'block'}}>{i.ref} · SHA-256 {i.digest.slice(0,12)}…</small>)}</div></div>)}
+       {!audit.length&&<p className="muted">尚无外传记录。</p>}
+      </div>
       <div className="note"><ShieldAlert size={15}/> 未接入模型提供商，因此当前没有任何请求能真正到达模型；本页交付的是凭据存储与外传授权这两道闸门本身。</div>
      </>}
      {tab==='architecture'&&<><div className="section-top"><div><div className="eyebrow">DESIGN BASELINE</div><h1>架构与运行边界</h1><p>Git-native · Evidence-driven · Visual-first</p></div></div><div className="architecture"><div className="arch-card"><FolderGit2/><h3>Git / Playwright</h3><p>已有仓库与测试代码是事实来源</p></div><div className="arch-card"><Activity/><h3>Node Runner Bridge</h3><p>本机子进程启动、停止、结果采集</p></div><div className="arch-card"><Clock/><h3>Execution History</h3><p>本地存储运行日志与不可变证据</p></div><div className="arch-card"><BookOpen/><h3>IPA Traceability</h3><p>需求、脚本与执行结果的映射入口</p></div></div><div className="note"><ShieldAlert size={15}/> 安全限制：仅用于可信的本地项目。Node 子进程不是容器沙箱。暂未加入远程执行、RBAC、密钥保险箱或 AI 自动写回。</div></>}

@@ -23,6 +23,7 @@ import { AdapterError } from './adapters/contract.mjs';
 import { createCredentialStore,credentialIndexPath,describeCredentialStore } from './security/credentials.mjs';
 import { createEgressConsentStore,describeEgressConsent,describeEgressScope } from './security/egress-consent.mjs';
 import { authorizeEgress,readScopedInput } from './security/egress-gate.mjs';
+import { createEgressAuditStore,describeEgressAudit } from './security/egress-audit.mjs';
 // ATS-212: the environment profiles. A profile is a named, project-scoped
 // set of environment variables; the run carries the profile it ran under
 // and the runner receives the SEALED environment (the profile's variables
@@ -285,6 +286,13 @@ const credentialStore=createCredentialStore({indexFile:credentialIndexPath(dataD
 const egressConsentStore=createEgressConsentStore({
   list:async()=>store.egressConsents??[],
   persist:async(records)=>{store.egressConsents=records;saveState(store);},
+});
+// ATS-402: the egress audit trail. Every egress decision -- allowed OR denied
+// -- leaves a record, so "the platform refused it" is a fact somebody can
+// check rather than a claim. The records hold refs and digests, never content.
+const egressAuditStore=createEgressAuditStore({
+  list:async()=>store.egressAudit??[],
+  persist:async(records)=>{store.egressAudit=records;saveState(store);},
 });
 
 /**
@@ -1010,7 +1018,7 @@ const server=http.createServer(async(req,res)=>{
   const report=deduplicationReport(evidenceIndexOf(store));
   return respond(res,200,{...report,storeBytes:storeBytes(storeDirOf(dataDir()))});
  }
- if(p==='/api/diagnostics'&&req.method==='GET')return respond(res,200,{runtime:process.version,server:'Node.js bridge',platform:process.platform,pid:process.pid,environment:'local',limitations:['Local trusted repositories only','No process/container sandbox','No account/RBAC','AI provider not connected','WDIO adapter planned'],agentContract:{version:AGENT_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The agent contract is defined and enforced; no model provider is wired, so no agent request can reach a model.',writePolicy:'Agents produce diffs only; applying a diff, updating expected results and committing are platform-side operations performed after review.'},pluginContract:{version:PLUGIN_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The plugin contract, the permission list and the SDK operation surface are defined and enforced; no plugin host, loader or sandbox exists, so no plugin can be loaded or run.',grantPolicy:'A manifest declares permissions; the host grants them. The effective set is the declared set intersected with the host policy tier.',auditPolicy:'Every SDK call produces an audit event in the host sink, including the denied ones. The plugin cannot suppress it.',evidencePolicy:'The SHA-256 of an evidence reference is computed by the host resolver, never supplied by the plugin.'},credentialStore:{contract:describeCredentialStore(credentialStore).contract,provider:credentialStore.provider(),note:'Secrets live in the OS credential store; the index file holds references only. No endpoint returns a secret.',available:credentialStore.provider()!==null},egressConsent:{contract:describeEgressConsent().contract,note:'Egress requires a granted consent whose scope still matches the content about to be sent; the platform reads the real files and recomputes the digests.'}});
+ if(p==='/api/diagnostics'&&req.method==='GET')return respond(res,200,{runtime:process.version,server:'Node.js bridge',platform:process.platform,pid:process.pid,environment:'local',limitations:['Local trusted repositories only','No process/container sandbox','No account/RBAC','AI provider not connected','WDIO adapter planned'],agentContract:{version:AGENT_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The agent contract is defined and enforced; no model provider is wired, so no agent request can reach a model.',writePolicy:'Agents produce diffs only; applying a diff, updating expected results and committing are platform-side operations performed after review.'},pluginContract:{version:PLUGIN_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The plugin contract, the permission list and the SDK operation surface are defined and enforced; no plugin host, loader or sandbox exists, so no plugin can be loaded or run.',grantPolicy:'A manifest declares permissions; the host grants them. The effective set is the declared set intersected with the host policy tier.',auditPolicy:'Every SDK call produces an audit event in the host sink, including the denied ones. The plugin cannot suppress it.',evidencePolicy:'The SHA-256 of an evidence reference is computed by the host resolver, never supplied by the plugin.'},credentialStore:{contract:describeCredentialStore(credentialStore).contract,provider:credentialStore.provider(),note:'Secrets live in the OS credential store; the index file holds references only. No endpoint returns a secret.',available:credentialStore.provider()!==null},egressConsent:{contract:describeEgressConsent().contract,note:'Egress requires a granted consent whose scope still matches the content about to be sent; the platform reads the real files and recomputes the digests.'},egressAudit:{contract:describeEgressAudit().contract,note:'Every egress decision -- allowed or denied -- is recorded. A record names the refs and their digests; it never carries the content and never carries a secret.'}});
  if(p==='/api/agent/contract'&&req.method==='GET')return respond(res,200,describeAgentContract());
 if(p==='/api/plugins/contract'&&req.method==='GET')return respond(res,200,describePluginContract());
 if(p==='/api/plugins/validate'&&req.method==='POST'){
@@ -1034,7 +1042,7 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
  if(p==='/api/security/contract'&&req.method==='GET'){
   // The contract description. It names the providers and the flow; it never
   // contains a secret and never lists a stored credential's secret.
-  return respond(res,200,{...describeCredentialStore(credentialStore),egressConsent:describeEgressConsent()});
+  return respond(res,200,{...describeCredentialStore(credentialStore),egressConsent:describeEgressConsent(),egressAudit:describeEgressAudit()});
  }
  if(p==='/api/security/credentials'&&req.method==='GET'){
   // The credential REFERENCES. There is no endpoint that returns a secret.
@@ -1072,13 +1080,31 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   const inputs=Array.isArray(b.inputs)?b.inputs:[];
   const scope=await buildScope(project,inputs);
   const consent=await egressConsentStore.confirm({previewId:b.previewId,inputs:scope.items,ttlSeconds:b.ttlSeconds});
+  // The consent itself is audited: the trail says WHICH scope was authorised,
+  // so a later egress can be checked against what the user actually agreed to.
+  await egressAuditStore.record({
+   event:'consent.granted',outcome:'allowed',consentId:consent.id,projectId:project.id,
+   kinds:consent.kinds,items:scope.items,scopeDigest:consent.scopeDigest,
+  });
   return respond(res,201,{consent});
  }
  if(p==='/api/security/egress/consents'&&req.method==='GET'){
   return respond(res,200,{consents:await egressConsentStore.all()});
  }
  const consentRm=p.match(/^\/api\/security\/egress\/consents\/(egr_[0-9a-f]{24})$/);
- if(consentRm&&req.method==='DELETE')return respond(res,200,{consent:await egressConsentStore.revoke(consentRm[1])});
+ if(consentRm&&req.method==='DELETE'){
+  const revoked=await egressConsentStore.revoke(consentRm[1]);
+  await egressAuditStore.record({
+   event:'consent.revoked',outcome:'denied',code:'EGRESS_CONSENT_REVOKED',reason:'the user revoked the egress consent',
+   consentId:revoked.id,projectId:null,kinds:revoked.kinds,items:[],scopeDigest:revoked.scopeDigest,
+  });
+  return respond(res,200,{consent:revoked});
+ }
+ if(p==='/api/security/egress/audit'&&req.method==='GET'){
+  // The audit trail. Every record names refs and digests; none carries the
+  // content and none carries a secret.
+  return respond(res,200,{audit:await egressAuditStore.all()});
+ }
  if(p==='/api/security/egress/check'&&req.method==='POST'){
   // The gate itself: it answers "may these inputs leave the machine?".
   // It is the same code path the platform uses before a real egress.
@@ -1087,7 +1113,20 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   const inputs=Array.isArray(b.inputs)?b.inputs:[];
   const consent=b.consentId?await egressConsentStore.find(b.consentId):null;
   const verdict=authorizeEgress({project,inputs,consent,consentStore:egressConsentStore});
-  if(!verdict.allowed)return respond(res,403,{error:verdict.code,reason:verdict.reason});
+  if(!verdict.allowed){
+   // A REFUSAL is audited too. The gate refused, and the trail says so: the
+   // refs it was about to send, the code that refused it, and the reason.
+   await egressAuditStore.record({
+    event:'egress.denied',outcome:'denied',code:verdict.code,reason:verdict.reason,
+    consentId:consent?.id??null,projectId:project.id,
+    kinds:[...new Set(inputs.map(i=>i?.kind).filter(Boolean))],items:[],
+   });
+   return respond(res,403,{error:verdict.code,reason:verdict.reason});
+  }
+  await egressAuditStore.record({
+   event:'egress.granted',outcome:'allowed',consentId:consent?.id??null,projectId:project.id,
+   kinds:verdict.scope.kinds,items:verdict.scope.items,scopeDigest:verdict.scope.scopeDigest,
+  });
   return respond(res,200,{allowed:true,scope:verdict.scope});
  }
  if(p.startsWith('/api/'))return err(res,404,'NOT_FOUND');

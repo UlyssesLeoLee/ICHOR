@@ -39,6 +39,7 @@ import { fileURLToPath } from 'node:url';
 import { createCredentialStore, loadCredentialIndex } from '../../server/security/credentials.mjs';
 import { createEgressConsentStore } from '../../server/security/egress-consent.mjs';
 import { authorizeEgress, readScopedInput } from '../../server/security/egress-gate.mjs';
+import { createEgressAuditStore } from '../../server/security/egress-audit.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const TMP = process.env.ATS_PROBE_WORKDIR || path.join(os.tmpdir(), 'ats402-probes');
@@ -373,6 +374,81 @@ section('signal 3 NEGATIVE CONTROL: a gate that always allows must be detected')
   check('the detector catches a gate that always allows', verdict.allowed === true,
     'the control produced an allowed verdict where the real gate refused -- the '
     + 'check above is therefore meaningful');
+}
+
+/* ================================================================== */
+/* signal 4: the egress audit trail                                    */
+/* ================================================================== */
+
+section('signal 4: runtime -- every egress decision leaves a record');
+{
+  const auditRecords = [];
+  const auditStore = createEgressAuditStore({
+    list: async () => auditRecords.slice(),
+    persist: async (next) => { auditRecords.length = 0; auditRecords.push(...next); },
+  });
+
+  // The refusal is audited -- with the code that refused it.
+  await auditStore.record({
+    event: 'egress.denied',
+    outcome: 'denied',
+    code: 'EGRESS_CONSENT_REQUIRED',
+    reason: 'no egress consent record',
+    projectId: project.id,
+    kinds: ['file'],
+  });
+  check('a refused egress leaves a record', auditRecords.length === 1);
+  check('the record names the refusal code',
+    auditRecords[0].code === 'EGRESS_CONSENT_REQUIRED', auditRecords[0].code);
+  check('the record was persisted, not only returned',
+    auditRecords[0].id === (await auditStore.find(auditRecords[0].id)).id);
+
+  // The grant is audited too.
+  await auditStore.record({
+    event: 'egress.granted',
+    outcome: 'allowed',
+    consentId: consent.id,
+    projectId: project.id,
+    kinds: ['file'],
+    items: resolved.map((item) => ({
+      kind: item.kind, ref: item.ref, digest: item.digest, bytes: item.bytes,
+    })),
+    scopeDigest: consent.scopeDigest,
+  });
+  check('a granted egress leaves a record too', auditRecords.length === 2);
+  const granted = auditRecords.find((r) => r.event === 'egress.granted');
+  check('the granted record names the consent', granted.consentId === consent.id);
+  check('the granted record names the ref', granted.items[0].ref === 'tests/probe.spec.ts');
+
+  // The audit trail must not become a second copy of the data.
+  const serialised = JSON.stringify(auditRecords);
+  check('the audit trail does not carry the content',
+    !serialised.includes("test('probe'"), 'the fixture source must not appear in the trail');
+  check('the audit items carry no content field',
+    granted.items.every((item) => !('content' in item) && !('preview' in item)));
+
+  // The trail is append-only: the "was allowed" fact survives the revoke.
+  await auditStore.record({
+    event: 'consent.revoked', outcome: 'denied', consentId: consent.id,
+  });
+  check('the trail keeps the earlier grant after a revoke',
+    auditRecords.some((r) => r.event === 'egress.granted')
+    && auditRecords.some((r) => r.event === 'consent.revoked'));
+}
+
+section('signal 4 NEGATIVE CONTROL: an audit store that drops the record must be detected');
+{
+  const dropped = [];
+  const droppingStore = createEgressAuditStore({
+    list: async () => dropped.slice(),
+    // A store that PERSISTS NOTHING: the record is returned but never lands.
+    persist: async () => {},
+  });
+  await droppingStore.record({ event: 'egress.denied', outcome: 'denied' });
+  check('the detector catches an audit store that persists nothing',
+    dropped.length === 0,
+    'the control kept no record where the real store keeps one -- the check '
+    + 'above is therefore meaningful');
 }
 
 /* ================================================================== */
