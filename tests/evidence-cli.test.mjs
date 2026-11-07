@@ -247,3 +247,66 @@ test('CLI-EVD-019: the verification reports a manifest that points outside the r
   assert.equal(r.status, 1);
   assert.match(r.stdout, /refused: \.\.\/\.\.\/state\.json/);
 });
+
+test('CLI-EVD-020: the cleaning does not follow a junction out of the run folder (J1)', () => {
+  // The run folder is the runner's output directory: an interrupted run
+  // never gets a manifest from the bridge, so whatever is in there is
+  // whatever the runner left. A junction inside it can point at the data
+  // directory, and the cleaning must not follow it.
+  const dir = tmp();
+  const expired = 'run_1_0000000000000000000000a1';
+  const kept = 'run_1_0000000000000000000000b2';
+  fs.mkdirSync(path.join(dir, 'runs', expired), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'runs', kept), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'runs', kept, 'events.jsonl'), '{"seq":1}\n');
+  fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify({
+    schema: 1,
+    projects: [],
+    runs: [
+      { id: expired, status: 'interrupted', createdAt: '2020-01-01T00:00:00.000Z', finishedAt: '2020-01-01T00:00:00.000Z' },
+      { id: kept, status: 'passed', createdAt: new Date().toISOString(), finishedAt: new Date().toISOString() },
+    ],
+  }));
+  // A junction in the expired run's folder that points at the data
+  // directory: `lnk/state.json` is the state file of the very directory
+  // the cleaning is running on.
+  fs.symlinkSync(dir, path.join(dir, 'runs', expired, 'lnk'), 'junction');
+  fs.writeFileSync(path.join(dir, 'runs', expired, 'manifest.json'), JSON.stringify({
+    version: 2,
+    runId: expired,
+    artifacts: [
+      { file: 'lnk/state.json', size: 2, sha256: 'ab'.repeat(32) },
+      { file: `lnk/runs/${kept}/events.jsonl`, size: 9, sha256: 'cd'.repeat(32) },
+    ],
+  }));
+  const r = cli('clean', '--data-dir', dir, '--days', '30', '--yes');
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(fs.existsSync(path.join(dir, 'state.json')), true, 'the state file must not be removed');
+  assert.equal(
+    fs.existsSync(path.join(dir, 'runs', kept, 'events.jsonl')),
+    true,
+    'the event log of a run that is not expired must not be removed'
+  );
+  // The refusal is visible: an operator has to be able to see it.
+  assert.match(r.stdout, /refused: lnk\/state\.json/);
+  assert.match(r.stdout, /refused: lnk\/runs\//);
+});
+
+test('CLI-EVD-021: a second cleaning does not erase the record of the first (M1)', () => {
+  const { dir, runId, folder } = makeDataDir();
+  const first = cli('clean', '--data-dir', dir, '--days', '30', '--yes');
+  assert.equal(first.status, 0, first.stderr);
+  // A file that appears after the first cleaning.
+  fs.writeFileSync(path.join(folder, 'late-note.txt'), 'added after the first cleaning');
+  const second = cli('clean', '--data-dir', dir, '--days', '30', '--yes');
+  assert.equal(second.status, 0, second.stderr);
+  // The record of the first cleaning is still there: the file it removed
+  // is still explained, so the verification does not report it as a
+  // tamper.
+  const marker = JSON.parse(fs.readFileSync(path.join(folder, 'evidence-cleaned.json'), 'utf8'));
+  assert.deepEqual(marker.removed.sort(), ['late-note.txt', 'report.json']);
+  const verify = cli('verify', '--data-dir', dir);
+  assert.equal(verify.status, 0, `a cleaned run must not be reported as a tamper: ${verify.stdout}`);
+  assert.doesNotMatch(verify.stdout, /does NOT match its manifest/);
+  assert.match(verify.stdout, new RegExp(runId));
+});
