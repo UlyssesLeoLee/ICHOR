@@ -1,8 +1,8 @@
 ================================================================================
 ATS-512 evidence log -- plugin contract API integration tests (tests/plugins-api.test.mjs)
 ================================================================================
-commit        : d927ae09ecc0057495d6db02c90d82e8d3332279
-timestamp     : 2026-11-07T02:09:53Z (UTC)
+commit        : 1b38a99148f74dc09451faa77d403b9e7d79d5ae
+timestamp     : 2026-11-07T02:34:17Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-22-33c4a0ec36ec/worktree
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -11,23 +11,23 @@ default enc   : gbk (what the same interpreter would use without the forcing)
 command       : node --test tests/plugins-api.test.mjs
 ================================================================================
 
-✔ IT-PLG-SETUP: start server (391.9247ms)
-✔ IT-PLG-001: the plugin contract is exposed over HTTP (17.4678ms)
-✔ IT-PLG-002: the plugin endpoints need a session token (2.0002ms)
-✔ IT-PLG-003: a valid manifest is accepted and the granted set is reported (12.2825ms)
-✔ IT-PLG-004: the tier is the ceiling -- the same manifest grants more under a higher tier (18.0444ms)
-✔ IT-PLG-005: a manifest requesting a forbidden permission is a 400 with the code (14.3252ms)
-✔ IT-PLG-006: a manifest requesting an unknown permission is a 400 with the code (15.9135ms)
-✔ IT-PLG-007: an unsupported manifest version is a 400 with the code (1.9667ms)
-✔ IT-PLG-008: an unknown capability is a 400 with the code (1.5003ms)
-✔ IT-PLG-009: a runner without the four required capabilities is a 400 (11.4087ms)
-✔ IT-PLG-010: the error response carries no local filesystem path (3.0059ms)
-✔ IT-PLG-011: the validation endpoint does not load or run anything (13.3542ms)
-✔ IT-PLG-012: the diagnostics endpoint reports the plugin contract status (15.4035ms)
-✔ IT-PLG-013: a non-plugin error keeps its pre-ATS-512 behaviour (19.1651ms)
-✔ IT-PLG-014: a tier named after a prototype member is a 400, not a crash (76.1625ms)
-✔ IT-PLG-015: the error body of an unknown tier leaks no internal detail (4.025ms)
-✔ IT-PLG-CLEANUP: stop and cleanup (4.5638ms)
+✔ IT-PLG-SETUP: start server (355.2123ms)
+✔ IT-PLG-001: the plugin contract is exposed over HTTP (4.1286ms)
+✔ IT-PLG-002: the plugin endpoints need a session token (2.5564ms)
+✔ IT-PLG-003: a valid manifest is accepted and the granted set is reported (5.4795ms)
+✔ IT-PLG-004: the tier is the ceiling -- the same manifest grants more under a higher tier (20.0674ms)
+✔ IT-PLG-005: a manifest requesting a forbidden permission is a 400 with the code (2.0204ms)
+✔ IT-PLG-006: a manifest requesting an unknown permission is a 400 with the code (15.6995ms)
+✔ IT-PLG-007: an unsupported manifest version is a 400 with the code (15.9098ms)
+✔ IT-PLG-008: an unknown capability is a 400 with the code (15.7835ms)
+✔ IT-PLG-009: a runner without the four required capabilities is a 400 (15.667ms)
+✔ IT-PLG-010: the error response carries no local filesystem path (2.5285ms)
+✔ IT-PLG-011: the validation endpoint does not load or run anything (1.8231ms)
+✔ IT-PLG-012: the diagnostics endpoint reports the plugin contract status (10.4008ms)
+✔ IT-PLG-013: a non-plugin error keeps its pre-ATS-512 behaviour (15.9991ms)
+✔ IT-PLG-014: a tier named after a prototype member is a 400, not a crash (61.4112ms)
+✔ IT-PLG-015: the error body of an unknown tier leaks no internal detail (15.4551ms)
+✔ IT-PLG-CLEANUP: stop and cleanup (2.339ms)
 ℹ tests 17
 ℹ suites 0
 ℹ pass 17
@@ -35,6 +35,6 @@ command       : node --test tests/plugins-api.test.mjs
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 706.2441
+ℹ duration_ms 647.5351
 
 --- exit code: 0 ---
