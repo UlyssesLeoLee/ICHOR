@@ -28,17 +28,20 @@ WBS 的完成定义是一句话：
 | 组 | 成员状态 | 含义 | 其用例如何计入 |
 |---|---|---|---|
 | `verdict` | `passed` `failed` | 运行跑完了，引擎给出了判定 | **计入**通过/失败/重试用例桶 |
-| `inconclusive` | `cancelled` `error` `interrupted` | 运行**没有以它自己的方式结束** | **不计入**任何判定桶，单列为 inconclusive |
+| `inconclusive` | `cancelled` `error` `interrupted` + 模块不认识的状态 | 运行**没有以它自己的方式结束** | **不计入**任何判定桶，单列为 inconclusive |
 | `inFlight` | `queued` `running` `cancelling` | 还在跑，summary 本来就不完整 | 同上 |
+
+模块不认识的运行状态进 `unknown` 桶——一个它不认识的状态是它没有的事实，而什么都不声称的桶是它唯一安全的地方。`runs.unknown` 单独计数，`runs.inconclusive` 是**派生**的：所有没有得出结论的运行（取消、中断、启动失败、未知状态）之和。
 
 ### 2.2 为什么取消不能算失败
 
 一个被用户停掉的运行**没有对被测代码的质量做出任何判断**。把它算成失败，是让代码为人的决定背锅；把它算成通过，是把一次没跑完的运行藏起来。因此它有自己的桶，并且：
 
 - **不进入运行通过率的分母**（分母只有 `verdict` 组）；
-- **它的用例不进入任何判定桶**，单列为 inconclusive。
+- **它的用例不进入任何判定桶**，单列为 inconclusive；
+- **它的用例不进入 attempt 桶、重试计数与跨运行视图**（§5.2.1）。
 
-实测（`tools/ats216-probes/st-ats216.mjs`）：真实 Bridge 上真实 `POST /stop` 一个运行，终态是 `cancelled`，它被计为 cancelled 而不是 failed。
+实测（`tools/ats216-probes/st-ats216.mjs`）：真实 Bridge 上真实 `POST /stop` 一个运行，终态是 `cancelled`，它被计为 cancelled 而不是 failed；它的 attempt 数单列为 `cases.inconclusiveAttempts`，不计入 `cases.attempts`。
 
 ### 2.3 只有一套分组映射
 
@@ -67,6 +70,8 @@ WBS 的完成定义是一句话：
 - 它的**初次尝试**（`failed`）连同**它自己的错误**仍然保留在 attempt 列表里（ATS-208 的「重试不覆盖初次尝试」）；
 - 重试次数单独计数：`cases.retried`（需要过重试的用例数）与 `cases.retries`（重试的总次数）。
 
+**重试指标只统计出结论的运行。** 未出结论的运行（取消/中断/启动失败）里的重试不计入这两个数——重试说明的是引擎在这次运行里的行为，不是被测代码的质量（§5.2.1）。它们的重试数单列为 `cases.inconclusiveRetried`。
+
 实测：真实 Playwright + `retries: 1`，用例先失败后通过 → 桶是 `flaky`，`attempts = [failed, passed]`，初次尝试没有被覆盖。
 
 ### 3.2 未知状态不猜测
@@ -87,6 +92,8 @@ WBS 的完成定义是一句话：
 4. uuid → `<uuid>`、十六进制 → `<hex>`、引号文本 → `<str>`、数字 → `<n>`。
 
 同样的错误文本永远得到同样的签名；两个文本只有归一化后相等才共享签名。**没有模型参与，也不可能有**——模块在浏览器里跑，没有网络。
+
+**一个签名不等于一个缺陷。** 两个共享签名的失败共享的是错误文本的**首行**；首行以下的 Expected/Received、定位器与调用栈不在签名里，因此「不相关的用例的 `toHaveText` 失败」会聚成一类。聚类保留了每个用例的**原始错误**，读者可以越过签名继续看——聚类是把**相似的症状**归堆，不是根因分析（§8 边界 2 与 6）。
 
 ### 4.2 签名的三条规则
 
@@ -147,7 +154,7 @@ WBS 的完成定义是一句话：
 
 ## 6. 可证伪性（变异测试）
 
-「测试通过」只有在**错的实现会让它变红**时才有意义。因此对模块做了 7 个变异，每一个都必须被 UT 或 ST 抓住：
+「测试通过」只有在**错的实现会让它变红**时才有意义。因此对模块做了 10 个变异，每一个都必须被 UT 或 ST 抓住：
 
 | 变异 | 抓住它的 |
 |---|---|
@@ -158,6 +165,9 @@ WBS 的完成定义是一句话：
 | 丢弃重试计数 | UT + ST |
 | 保留 ANSI 颜色码 | UT |
 | 忽略 attempt 数 | UT + ST |
+| 未出结论的运行的用例进入判定指标 | UT |
+| 用例身份退回「文件 + 标题」 | UT |
+| 显示的数不再与 Bridge 的计数器对账 | UT |
 
 **没有一个变异同时逃过 UT 和 ST。**
 
@@ -169,7 +179,9 @@ WBS 的完成定义是一句话：
 
 实现放在 `apps/studio/public/quality.mjs`：**一份**，两个界面各自 import。便携 UI 因此改为 ES module（`<script type="module">`）。
 
-实测（`tools/ats216-probes/browser-check.mjs`，真实 Chromium）：便携 UI 与 Next 工作台都打开了质量概览页，四个指标卡都渲染出来，对账表逐行显示「一致」，两个界面显示**同一组数字**，无 console 错误、无 page 错误。
+实测（`tools/ats216-probes/browser-check.mjs`，真实 Chromium）：便携 UI 与 Next 工作台都打开了质量概览页，四个指标卡都渲染出来，对账表逐行显示「一致」，**「原始结果」面板列出每个数字的来源用例与运行**，两个界面显示**同一组数字**，无 console 错误、无 page 错误。
+
+浏览器实测跑在**两个项目**上：只有一个项目时「全部项目」与「当前项目」走的是同一批运行，一个偷偷按当前项目过滤的范围看上去仍然是对的。实测在「全部项目」范围下，两个界面的数字都与模块对全部运行的计算一致（BC-7a / BC-7b）。
 
 **Bridge 的 MIME 表必须新增 `.mjs`**（`server/index.mjs`）：浏览器**拒绝**以非 JavaScript 类型执行 module，缺这一项便携 UI 的质量概览会**静默加载失败**——界面看起来正常，只是没有数据。实测：`GET /quality.mjs` → `Content-Type: text/javascript; charset=utf-8`（ST-216-5b）。
 
@@ -179,8 +191,8 @@ WBS 的完成定义是一句话：
 
 **仓库级回归数字会随 `dev` 漂移**，因此本文不写死它：实测值见
 `docs/evidence/ATS-216/02-node-test-full.log`（本分支交付树上的那一轮）。
-本任务**自身的**套件是固定的：39 例 UT + 25 项 ST + 14 项浏览器实测 +
-8 项变异检查。
+本任务**自身的**套件是固定的：53 例 UT + 30 项 ST + 22 项浏览器实测 +
+11 项变异检查（10 个变异，每一个都必须被抓住）。
 
 已知边界：
 
@@ -198,10 +210,10 @@ WBS 的完成定义是一句话：
 | 路径 | 类型 | 内容 |
 |---|---|---|
 | `apps/studio/public/quality.mjs` | 新增 | 质量概览模块（唯一实现，JSDoc 类型推导） |
-| `tests/quality-overview.test.mjs` | 新增 | Node UT 39 例 |
-| `tools/ats216-probes/st-ats216.mjs` | 新增 | 系统测试（真实 Bridge + 真实 Playwright），25 项检查 |
-| `tools/ats216-probes/browser-check.mjs` | 新增 | 浏览器实测（真实 Chromium 打开两个界面的质量概览），14 项检查 |
-| `tools/ats216-probes/mutation-check.mjs` | 新增 | 变异检查（7 个变异必须被抓住），8 项检查 |
+| `tests/quality-overview.test.mjs` | 新增 | Node UT 53 例 |
+| `tools/ats216-probes/st-ats216.mjs` | 新增 | 系统测试（真实 Bridge + 真实 Playwright），30 项检查 |
+| `tools/ats216-probes/browser-check.mjs` | 新增 | 浏览器实测（真实 Chromium 打开两个界面的质量概览），22 项检查 |
+| `tools/ats216-probes/mutation-check.mjs` | 新增 | 变异检查（10 个变异必须被抓住），11 项检查 |
 | `tools/ats216-probes/collect-evidence.sh` | 新增 | 证据收集脚本（一次跑完全部证据步骤） |
 | `tools/update_wbs_ats216.py` | 新增 | WBS 行更新脚本（标记 `【ATS-216】`） |
 | `tools/wbs_common.py` | 修改 | 共享工作簿的标记登记与叙述片段：新增 `【ATS-216】` |
