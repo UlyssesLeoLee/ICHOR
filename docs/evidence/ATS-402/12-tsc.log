@@ -1,0 +1,16 @@
+================================================================================
+ATS-402 evidence log -- the Next.js workbench type-checks (no type errors)
+================================================================================
+commit        : 4fc3355411a0f54e5c5a20bce0da678c8840ddc2
+timestamp     : 2026-11-07T01:51:20Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-06f2e5eaa1c4/worktree
+node          : v24.19.0
+python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command       : npx --prefix apps/studio tsc --noEmit -p apps/studio/tsconfig.json
+================================================================================
+
+npm notice run @ai-test-studio/ui@0.1.0 npx
+npm notice run tsc --noEmit -p apps/studio/tsconfig.json
+
+--- exit code: 0 ---

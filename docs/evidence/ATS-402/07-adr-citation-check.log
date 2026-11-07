@@ -1,0 +1,81 @@
+================================================================================
+ATS-402 evidence log -- every file:line citation in the baseline ADR still resolves
+================================================================================
+commit        : 4fc3355411a0f54e5c5a20bce0da678c8840ddc2
+timestamp     : 2026-11-07T01:51:20Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-06f2e5eaa1c4/worktree
+node          : v24.19.0
+python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command       : python tools/check_adr_citations.py
+================================================================================
+
+--- citations enumerated from the ADR ---
+  apps/studio/app/page.tsx         179
+  apps/studio/lib/api.ts           35
+  apps/studio/public/fallback.html 3
+  server/core.mjs                  1190, 780
+  server/index.mjs                 1104, 1133, 1134, 249, 55, 564-594, 578, 596, 607, 800
+  src-tauri/Cargo.toml             11
+  src-tauri/src/lib.rs             19
+  start.ps1                        8-9
+  start.sh                         4
+  tools/generate_test_docs.py      390,396,513
+
+UNCOVERED server/index.mjs:1104 (cited by the ADR, no needle covers it)
+UNCOVERED server/index.mjs:1133 (cited by the ADR, no needle covers it)
+UNCOVERED server/index.mjs:1134 (cited by the ADR, no needle covers it)
+UNCOVERED server/index.mjs:249 (cited by the ADR, no needle covers it)
+UNCOVERED server/index.mjs:55 (cited by the ADR, no needle covers it)
+UNCOVERED server/index.mjs:564-594 (cited by the ADR, no range covers it)
+UNCOVERED server/index.mjs:578 (cited by the ADR, no needle covers it)
+UNCOVERED server/index.mjs:596 (cited by the ADR, no needle covers it)
+UNCOVERED server/index.mjs:607 (cited by the ADR, no needle covers it)
+UNCOVERED server/index.mjs:800 (cited by the ADR, no needle covers it)
+ok   src-tauri/Cargo.toml:11
+ok   start.sh:4
+ok   start.ps1:8
+ok   start.ps1:9
+ok   tools/generate_test_docs.py:390
+ok   tools/generate_test_docs.py:396
+ok   tools/generate_test_docs.py:513
+STALE server/index.mjs:56 (the ADR no longer cites it)
+STALE server/index.mjs:250 (the ADR no longer cites it)
+ok   server/index.mjs:572
+ok   server/index.mjs:586
+STALE server/index.mjs:604 (the ADR no longer cites it)
+STALE server/index.mjs:615 (the ADR no longer cites it)
+STALE server/index.mjs:808 (the ADR no longer cites it)
+STALE server/index.mjs:1143 (the ADR no longer cites it)
+STALE server/index.mjs:1172 (the ADR no longer cites it)
+STALE server/index.mjs:1173 (the ADR no longer cites it)
+ok   server/core.mjs:780
+ok   server/core.mjs:1190
+WRONG server/index.mjs:564-594 (not the cancelRun extent)
+ok   apps/studio/app/page.tsx:179 (the workbench footer text -- covered by the ATS-101 port audit)
+ok   apps/studio/lib/api.ts:35 (the API base URL -- covered by the ATS-101 port audit)
+ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
+ok   src-tauri/src/lib.rs:19 (the ATS_PORT environment default -- covered by the ATS-101 port audit)
+
+RESULT: MISMATCH
+   server/index.mjs:1104 is cited by the ADR but no needle covers it
+   server/index.mjs:1133 is cited by the ADR but no needle covers it
+   server/index.mjs:1134 is cited by the ADR but no needle covers it
+   server/index.mjs:249 is cited by the ADR but no needle covers it
+   server/index.mjs:55 is cited by the ADR but no needle covers it
+   server/index.mjs:564-594 is cited by the ADR but no range covers it
+   server/index.mjs:578 is cited by the ADR but no needle covers it
+   server/index.mjs:596 is cited by the ADR but no needle covers it
+   server/index.mjs:607 is cited by the ADR but no needle covers it
+   server/index.mjs:800 is cited by the ADR but no needle covers it
+   server/index.mjs:56 is not cited by the ADR any more
+   server/index.mjs:250 is not cited by the ADR any more
+   server/index.mjs:604 is not cited by the ADR any more
+   server/index.mjs:615 is not cited by the ADR any more
+   server/index.mjs:808 is not cited by the ADR any more
+   server/index.mjs:1143 is not cited by the ADR any more
+   server/index.mjs:1172 is not cited by the ADR any more
+   server/index.mjs:1173 is not cited by the ADR any more
+   server/index.mjs:564-594 is not the cancelRun extent
+
+--- exit code: 1 ---

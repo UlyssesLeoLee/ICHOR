@@ -1,0 +1,71 @@
+================================================================================
+ATS-402 evidence log -- the security boundary probe (static analysis + real credential store + egress gate, with negative controls)
+================================================================================
+commit        : 4fc3355411a0f54e5c5a20bce0da678c8840ddc2
+timestamp     : 2026-11-07T01:51:20Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-06f2e5eaa1c4/worktree
+node          : v24.19.0
+python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command       : node tools/ats402-probes/probe-security-boundary.mjs
+================================================================================
+
+
+--- signal 1: static analysis -- no secret reaches a file, an argv or a log ---
+  [PASS] server/security/credentials.mjs carries no forbidden pattern
+  [PASS] server/security/egress-consent.mjs carries no forbidden pattern
+  [PASS] server/security/egress-gate.mjs carries no forbidden pattern
+  [PASS] server/security/wincred.ps1 carries no forbidden pattern
+
+--- signal 1 NEGATIVE CONTROL: the detector is not vacuously true ---
+  [PASS] the negative control produced a broken copy per rule -- 4 copies for 4 rules
+  [PASS] the detector alarms on a secret written to a file -- the secret is written to a file
+  [PASS] the detector alarms on a secret passed as a process argument -- the secret is passed as a process argument
+  [PASS] the detector alarms on a secret written to stderr -- the secret is written to stderr
+  [PASS] the detector alarms on a secret logged -- the secret is logged
+
+--- signal 2: runtime -- the secret lands in the OS credential store, not on disk ---
+  [PASS] the OS credential store is available on this machine -- provider=windows-credential-manager
+  [PASS] the credential reference carries no secret field
+  [PASS] the fingerprint is 8 hex characters
+  [PASS] the index file does not contain the secret
+  [PASS] the index file does not contain a fragment of the secret
+  [PASS] the secret is read back byte-exactly -- length=21 expected=21
+  [PASS] the NEGATIVE CONTROL (a plaintext fallback) is detected -- the detector found the secret in the index -- so the PASS above is meaningful
+  [PASS] the credential is gone from the reference index after removal
+
+--- signal 3: runtime -- nothing leaves without an informed consent ---
+  [PASS] without a consent the egress is refused
+  [PASS] the refusal names the reason -- EGRESS_CONSENT_REQUIRED
+  [PASS] no content was returned with the refusal
+  [PASS] the platform recomputes the digest from the real file -- a1025d04c8074ded
+  [PASS] the consent is granted after the preview
+  [PASS] with a matching consent the egress is allowed
+  [PASS] changed content is refused
+  [PASS] the refusal names the scope mismatch -- EGRESS_CONSENT_SCOPE_MISMATCH
+  [PASS] a scope outside the project root is refused -- EGRESS_GATE_SCOPE_INVALID
+  [PASS] a revoked consent is refused
+  [PASS] the refusal names the revocation -- EGRESS_CONSENT_REVOKED
+
+--- signal 3 NEGATIVE CONTROL: a gate that always allows must be detected ---
+  [PASS] the detector catches a gate that always allows -- the control produced an allowed verdict where the real gate refused -- the check above is therefore meaningful
+
+--- signal 4: runtime -- every egress decision leaves a record ---
+  [PASS] a refused egress leaves a record
+  [PASS] the record names the refusal code -- EGRESS_CONSENT_REQUIRED
+  [PASS] the record was persisted, not only returned
+  [PASS] a granted egress leaves a record too
+  [PASS] the granted record names the consent
+  [PASS] the granted record names the ref
+  [PASS] the audit trail does not carry the content -- the fixture source must not appear in the trail
+  [PASS] the audit items carry no content field
+  [PASS] the trail keeps the earlier grant after a revoke
+
+--- signal 4 NEGATIVE CONTROL: an audit store that drops the record must be detected ---
+  [PASS] the detector catches an audit store that persists nothing -- the control kept no record where the real store keeps one -- the check above is therefore meaningful
+
+--- verdict ---
+checks: 39, failures: 0
+PASS: the credential store keeps secrets out of the file system, and the egress gate refuses everything that has no informed consent.
+
+--- exit code: 0 ---

@@ -172,8 +172,8 @@ RANGES = [
 PORT_AUDITED = {
     # RUNTIME port hardcodings: the audit validates each of these positions
     # against the source.
-    'apps/studio/lib/api.ts': {35: 'the API base URL'},
-    'apps/studio/app/page.tsx': {179: 'the workbench footer text'},
+    'apps/studio/lib/api.ts': {38: 'the API base URL'},
+    'apps/studio/app/page.tsx': {189: 'the workbench footer text'},
     'apps/studio/public/fallback.html': {3: 'the portable UI footer text'},
     'src-tauri/src/lib.rs': {19: 'the ATS_PORT environment default'},
 }
