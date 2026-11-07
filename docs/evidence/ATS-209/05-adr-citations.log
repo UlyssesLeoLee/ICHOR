@@ -1,6 +1,6 @@
 === the ADR citation check ===
 tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-8222c3c90bd2/worktree
-commit : 804559d00ae8f39f2b8b6c1d9558350039602410
+commit : 7b2a5302d81171df96791ee228ae9b0fd584629d
 
 --- citations enumerated from the ADR ---
   apps/studio/app/page.tsx         116
