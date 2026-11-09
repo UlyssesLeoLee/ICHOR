@@ -1,14 +1,14 @@
-✔ ST-ATS-203-001: a parameterised loop with a template title is reported as indeterminable (8.8109ms)
-✔ ST-ATS-203-002: a parameterised loop with a literal title is indexed once, and the engine refuses it (518.7499ms)
-✔ ST-ATS-203-003: the same title in two files is reported as ambiguous, not merged (5.1557ms)
-✔ ST-ATS-203-004: the same describe with the same title is reported as ambiguous (492.6665ms)
-✔ ST-ATS-203-005: the same title under two different describes is reported as ambiguous (3.0069ms)
-✔ ST-ATS-203-006: the symmetric project matrix gives every case two spec ids (513.5401ms)
-✔ ST-ATS-203-007: the asymmetric project matrix gives the case counts of 2 and 1 (501.035ms)
-✔ ST-ATS-203-008: the determinism of a repeated discovery (2.5719ms)
-✔ ST-ATS-203-009: nested describes are indexed with distinct UIDs (2.3351ms)
-✔ ST-ATS-203-010: an ordinary case keeps its UID while the dynamic one next to it does not (2.7792ms)
-✔ ST-ATS-203-011: the index reports the cases in the order of the source (2.1112ms)
+✔ ST-ATS-203-001: a parameterised loop with a template title is reported as indeterminable (8.3679ms)
+✔ ST-ATS-203-002: a parameterised loop with a literal title is indexed once, and the engine refuses it (573.4455ms)
+✔ ST-ATS-203-003: the same title in two files is reported as ambiguous, not merged (5.593ms)
+✔ ST-ATS-203-004: the same describe with the same title is reported as ambiguous (534.8273ms)
+✔ ST-ATS-203-005: the same title under two different describes is reported as ambiguous (3.6395ms)
+✔ ST-ATS-203-006: the symmetric project matrix gives every case two spec ids (552.225ms)
+✔ ST-ATS-203-007: the asymmetric project matrix gives the case counts of 2 and 1 (512.2938ms)
+✔ ST-ATS-203-008: the determinism of a repeated discovery (2.6072ms)
+✔ ST-ATS-203-009: nested describes are indexed with distinct UIDs (2.1167ms)
+✔ ST-ATS-203-010: an ordinary case keeps its UID while the dynamic one next to it does not (2.795ms)
+✔ ST-ATS-203-011: the index reports the cases in the order of the source (2.6276ms)
 ℹ tests 11
 ℹ suites 0
 ℹ pass 11
@@ -16,4 +16,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 2177.4799
+ℹ duration_ms 2329.5765

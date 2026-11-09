@@ -1,11 +1,11 @@
-✔ ST-ATS203-SETUP: start the bridge (357.0606ms)
-✔ ST-ATS203-001: an untrusted project gets the static index, and the dynamic case says it cannot decide (146.5133ms)
-✔ ST-ATS203-002: a trusted project gets the authoritative index, and the rendered cases come through (728.7639ms)
-✔ ST-ATS203-003: the parameterised same title is refused by the engine and the warning carries the reason (733.7735ms)
-✔ ST-ATS203-004: the symmetric project matrix gives every case two spec ids (722.04ms)
-✔ ST-ATS203-005: the asymmetric project matrix gives the case counts of 2 and 1 (819.5662ms)
-✔ ST-ATS203-006: the same title in two files is two cases, and the verdict is carried (849.6959ms)
-✔ ST-ATS203-CLEANUP: stop and cleanup (20.2223ms)
+✔ ST-ATS203-SETUP: start the bridge (423.3296ms)
+✔ ST-ATS203-001: an untrusted project gets the static index, and the dynamic case says it cannot decide (163.3809ms)
+✔ ST-ATS203-002: a trusted project gets the authoritative index, and the rendered cases come through (772.7918ms)
+✔ ST-ATS203-003: the parameterised same title is refused by the engine and the warning carries the reason (782.5531ms)
+✔ ST-ATS203-004: the symmetric project matrix gives every case two spec ids (801.6691ms)
+✔ ST-ATS203-005: the asymmetric project matrix gives the case counts of 2 and 1 (816.8145ms)
+✔ ST-ATS203-006: the same title in two files is two cases, and the verdict is carried (943.1961ms)
+✔ ST-ATS203-CLEANUP: stop and cleanup (19.4408ms)
 ℹ tests 8
 ℹ suites 0
 ℹ pass 8
@@ -13,4 +13,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 4490.1938
+ℹ duration_ms 4855.8125

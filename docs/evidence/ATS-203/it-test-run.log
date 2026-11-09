@@ -1,12 +1,12 @@
-✔ IT-ATS203-001: the authoritative index sees the rendered cases, and the static index says it cannot decide (509.8547ms)
-✔ IT-ATS203-002: the parameterised same title is refused by the engine and reported as such (492.5172ms)
-✔ IT-ATS203-003: the same describe with the same title is refused by the engine and reported as ambiguous (494.5889ms)
-✔ IT-ATS203-004: the same title in two files is two cases in the authoritative index (504.2011ms)
-✔ IT-ATS203-005: the same title under two different describes is two decidable cases (497.5472ms)
-✔ IT-ATS203-006: the symmetric project matrix gives every case two spec ids (507.6556ms)
-✔ IT-ATS203-007: the asymmetric project matrix gives the case counts of 2 and 1 (528.1709ms)
-✔ IT-ATS203-008: a forEach loop renders one case per item (508.5002ms)
-✔ IT-ATS203-009: the UID of an ordinary case does not move when the index switches (509.13ms)
+✔ IT-ATS203-001: the authoritative index sees the rendered cases, and the static index says it cannot decide (551.9856ms)
+✔ IT-ATS203-002: the parameterised same title is refused by the engine and reported as such (583.6169ms)
+✔ IT-ATS203-003: the same describe with the same title is refused by the engine and reported as ambiguous (542.1504ms)
+✔ IT-ATS203-004: the same title in two files is two cases in the authoritative index (537.6733ms)
+✔ IT-ATS203-005: the same title under two different describes is two decidable cases (523.4376ms)
+✔ IT-ATS203-006: the symmetric project matrix gives every case two spec ids (547.237ms)
+✔ IT-ATS203-007: the asymmetric project matrix gives the case counts of 2 and 1 (577.0097ms)
+✔ IT-ATS203-008: a forEach loop renders one case per item (533.6146ms)
+✔ IT-ATS203-009: the UID of an ordinary case does not move when the index switches (550.6152ms)
 ℹ tests 9
 ℹ suites 0
 ℹ pass 9
@@ -14,4 +14,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 4694.898
+ℹ duration_ms 5102.7721

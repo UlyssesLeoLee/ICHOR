@@ -5,34 +5,34 @@
 == baseline: pass=11 fail=0
 applied M1-ambiguity-off
 == mutant M1-ambiguity-off: pass=6 fail=5
-   ✖ ST-ATS-203-001: a parameterised loop with a template title is reported as indeterminable (10.1552ms)
-   ✖ ST-ATS-203-003: the same title in two files is reported as ambiguous, not merged (5.7466ms)
-   ✖ ST-ATS-203-004: the same describe with the same title is reported as ambiguous (4.1468ms)
-   ✖ ST-ATS-203-005: the same title under two different describes is reported as ambiguous (3.838ms)
-   ✖ ST-ATS-203-010: an ordinary case keeps its UID while the dynamic one next to it does not (3.154ms)
+   ✖ ST-ATS-203-001: a parameterised loop with a template title is reported as indeterminable (5.902ms)
+   ✖ ST-ATS-203-003: the same title in two files is reported as ambiguous, not merged (4.177ms)
+   ✖ ST-ATS-203-004: the same describe with the same title is reported as ambiguous (2.8557ms)
+   ✖ ST-ATS-203-005: the same title under two different describes is reported as ambiguous (3.016ms)
+   ✖ ST-ATS-203-010: an ordinary case keeps its UID while the dynamic one next to it does not (2.7223ms)
 
 applied M2-template-titles-dropped
 == mutant M2-template-titles-dropped: pass=9 fail=2
-   ✖ ST-ATS-203-001: a parameterised loop with a template title is reported as indeterminable (5.8173ms)
-   ✖ ST-ATS-203-010: an ordinary case keeps its UID while the dynamic one next to it does not (5.7041ms)
+   ✖ ST-ATS-203-001: a parameterised loop with a template title is reported as indeterminable (6.496ms)
+   ✖ ST-ATS-203-010: an ordinary case keeps its UID while the dynamic one next to it does not (2.9916ms)
 
 applied M3-index-returns-nothing
 == mutant M3-index-returns-nothing: pass=0 fail=11
-   ✖ ST-ATS-203-001: a parameterised loop with a template title is reported as indeterminable (6.4638ms)
-   ✖ ST-ATS-203-002: a parameterised loop with a literal title is indexed once, and the engine refuses it (3.4278ms)
-   ✖ ST-ATS-203-003: the same title in two files is reported as ambiguous, not merged (3.65ms)
-   ✖ ST-ATS-203-004: the same describe with the same title is reported as ambiguous (3.5808ms)
-   ✖ ST-ATS-203-005: the same title under two different describes is reported as ambiguous (3.3704ms)
-   ✖ ST-ATS-203-006: the symmetric project matrix gives every case two spec ids (3.1354ms)
-   ✖ ST-ATS-203-007: the asymmetric project matrix gives the case counts of 2 and 1 (3.4639ms)
-   ✖ ST-ATS-203-008: the determinism of a repeated discovery (3.4297ms)
-   ✖ ST-ATS-203-009: nested describes are indexed with distinct UIDs (3.9931ms)
-   ✖ ST-ATS-203-010: an ordinary case keeps its UID while the dynamic one next to it does not (2.7051ms)
-   ✖ ST-ATS-203-011: the index reports the cases in the order of the source (3.1542ms)
+   ✖ ST-ATS-203-001: a parameterised loop with a template title is reported as indeterminable (6.4031ms)
+   ✖ ST-ATS-203-002: a parameterised loop with a literal title is indexed once, and the engine refuses it (3.0146ms)
+   ✖ ST-ATS-203-003: the same title in two files is reported as ambiguous, not merged (3.0033ms)
+   ✖ ST-ATS-203-004: the same describe with the same title is reported as ambiguous (2.4244ms)
+   ✖ ST-ATS-203-005: the same title under two different describes is reported as ambiguous (2.3742ms)
+   ✖ ST-ATS-203-006: the symmetric project matrix gives every case two spec ids (2.6342ms)
+   ✖ ST-ATS-203-007: the asymmetric project matrix gives the case counts of 2 and 1 (2.6165ms)
+   ✖ ST-ATS-203-008: the determinism of a repeated discovery (3.064ms)
+   ✖ ST-ATS-203-009: nested describes are indexed with distinct UIDs (2.5987ms)
+   ✖ ST-ATS-203-010: an ordinary case keeps its UID while the dynamic one next to it does not (3.1345ms)
+   ✖ ST-ATS-203-011: the index reports the cases in the order of the source (3.4136ms)
 
 applied M4-template-claimed-stable
 == mutant M4-template-claimed-stable: pass=9 fail=2
-   ✖ ST-ATS-203-001: a parameterised loop with a template title is reported as indeterminable (6.5999ms)
-   ✖ ST-ATS-203-010: an ordinary case keeps its UID while the dynamic one next to it does not (4.087ms)
+   ✖ ST-ATS-203-001: a parameterised loop with a template title is reported as indeterminable (6.8428ms)
+   ✖ ST-ATS-203-010: an ordinary case keeps its UID while the dynamic one next to it does not (3.0673ms)
 
 RESULT: OK -- the baseline passed and every mutant was caught

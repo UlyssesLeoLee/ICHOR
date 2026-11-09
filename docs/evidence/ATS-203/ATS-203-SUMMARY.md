@@ -126,4 +126,6 @@ ST `tests/ats203-index-api.test.mjs`（基线 8 例，含 SETUP/CLEANUP）：M1 
 2. **没有在真实 macOS / Linux 上跑。** 全部实测在 Windows 11 + Node 上完成。
 3. **夹具的 Playwright 是 junction 接进来的，不是 `npm install` 出来的。** 引擎版本是真实的 1.64.1，但依赖树来自 `examples/sample-playwright/node_modules`。若该目录不存在，需要真实 Playwright 的用例会**跳过并写明原因**，不会报成通过。
 4. **`server/` 的产品代码改动只有两处**（`server/uid.mjs` 的模板判定、`server/core.mjs` 的 warning 计数），没有触碰 ATS-202 的权威发现实现，也没有触碰 ATS-204 的身份映射器。UID 重识别（改名/改标题后的 UID 找回）仍属 ATS-204。
-5. **全量测试的并发环境噪声。** `npm test` 会并行启动多个 Bridge；本轮的全量日志里若有与 ATS-203 无关的偶发失败，以 `full-test-suite.log` 的实际输出为准，本文档不预先声明全绿。
+5. **全量测试的并发环境噪声。** `npm test` 会并行启动多个 Bridge，多个 agent 也在同一台机器上跑。**实测到过一次与本任务无关的偶发失败**：某一轮全量跑出 30 个失败，横跨 `plugins-api.test.mjs`（16 个）、`preflight-it`、`mobile-import-it`、`evidence-cli`、`migrate-state`、`instance-lock` 等**与 ATS-203 毫无关系的文件**，症状是 Bridge 起不来（ECONNREFUSED、端口占用）与 25 秒的启动超时。同一棵树立刻重跑：**1573 pass / 0 fail / 17 skip**。ATS-203 自己的三层在两轮里都是全绿，且单独跑与并行跑都全绿。
+   `docs/evidence/ATS-203/full-test-suite.log` 保留的是**第二轮（干净的那轮）**的输出；第一轮那 30 个偶发失败不留在证据里，是因为它测的是机器负载而不是本任务的交付物——但这件事必须写在这里，不能让复核者以为全量永远一次就绿。
+6. **本轮全量的 17 项跳过全是既有的环境性跳过**，逐条原因都写在日志里：示例工程没有 `node_modules`（11 项）、未设 `ATS402_REAL_CREDENTIAL_STORE=1`（4 项）、真实 Playwright 安装不可达（2 项）。**没有一项属于 ATS-203**——ATS-203 需要真实 Playwright 的用例在 `examples/sample-playwright/node_modules` 可达时是**实跑的**（1.64.1），不是跳过。

@@ -5,20 +5,20 @@
 == baseline: pass=8 fail=0
 applied M1-ambiguity-off
 == mutant M1-ambiguity-off: pass=6 fail=2
-   ✖ ST-ATS203-001: an untrusted project gets the static index, and the dynamic case says it cannot decide (145.2355ms)
-   ✖ ST-ATS203-006: the same title in two files is two cases, and the verdict is carried (180.2834ms)
+   ✖ ST-ATS203-001: an untrusted project gets the static index, and the dynamic case says it cannot decide (145.2352ms)
+   ✖ ST-ATS203-006: the same title in two files is two cases, and the verdict is carried (204.2481ms)
 
 applied M2-template-titles-dropped
 == mutant M2-template-titles-dropped: pass=7 fail=1
-   ✖ ST-ATS203-001: an untrusted project gets the static index, and the dynamic case says it cannot decide (160.3241ms)
+   ✖ ST-ATS203-001: an untrusted project gets the static index, and the dynamic case says it cannot decide (152.0852ms)
 
 applied M3-index-returns-nothing
 == mutant M3-index-returns-nothing: pass=6 fail=2
-   ✖ ST-ATS203-001: an untrusted project gets the static index, and the dynamic case says it cannot decide (160.8974ms)
-   ✖ ST-ATS203-006: the same title in two files is two cases, and the verdict is carried (194.1855ms)
+   ✖ ST-ATS203-001: an untrusted project gets the static index, and the dynamic case says it cannot decide (161.9908ms)
+   ✖ ST-ATS203-006: the same title in two files is two cases, and the verdict is carried (179.424ms)
 
 applied M4-template-claimed-stable
 == mutant M4-template-claimed-stable: pass=7 fail=1
-   ✖ ST-ATS203-001: an untrusted project gets the static index, and the dynamic case says it cannot decide (165.3924ms)
+   ✖ ST-ATS203-001: an untrusted project gets the static index, and the dynamic case says it cannot decide (162.4464ms)
 
 RESULT: OK -- the baseline passed and every mutant was caught
