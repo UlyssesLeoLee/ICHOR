@@ -1,0 +1,4 @@
+$ node --check server/index.mjs
+
+
+--- exit: 0 ---

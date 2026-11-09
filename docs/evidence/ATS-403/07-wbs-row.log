@@ -1,0 +1,7 @@
+$ python tools/update_wbs_ats403.py
+
+overview: 已完成=2 完成率=0.24950099800399206 剩余人日=376.0
+updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-523214e38fd6\worktree\docs\WBS.xlsx
+totals: {'completed': 2, 'sum_estimate': 501.0, 'sum_remaining': 376.0, 'completion_rate': 0.24950099800399206}
+
+--- exit: 0 ---
