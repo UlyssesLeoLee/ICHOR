@@ -62,3 +62,11 @@ docs/evidence/ATS-103/06-mutation-evidence.log.body
 # not a deliverable. The evidence the delivery keeps lives in
 # docs/evidence/ATS-208/.
 .work/
+
+# The ATS-203 mutation probe's working copies. The probe snapshots the tree
+# under test into `base/` and then copies it once per mutant, so these are
+# regenerated scratch trees, not deliverable source. The probe itself
+# (tools/ats203-probes/run-mutants.sh, tools/ats203-probes/mutants.py) and
+# its OUTPUT (docs/evidence/ATS-203/mutants-output.log) are the deliverables.
+tools/ats203-probes/base/
+tools/ats203-probes/m-*/

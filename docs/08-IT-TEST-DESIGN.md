@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：184；已执行通过：170；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：192；已执行通过：178；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -106,6 +106,15 @@
 |IT-DSC-API-006|FR-021|正常|信任跨重启保留|重启 Bridge 后再读|trust 仍为 trusted|node --test|PASS|
 |IT-DSC-API-007|FR-021|安全|撤销信任后回退|POST trust {trust: untrusted}|trust=untrusted 且索引回到 static|node --test|PASS|
 |IT-DSC-CLEANUP|NFR-005|清理|临时夹与进程清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
+|IT-ATS203-001|FR-021|边界|参数化循环的模板标题在静态索引里不可判定|真实 Playwright 1.64.1；for 循环 test(`支付 - ${method}`)|静态索引只给 1 条模板标题，uidStable=false、uidSource=provisional、ambiguity.reason=dynamic-template-title；权威索引给出 3 条渲染用例且各有稳定 UID；consistency 报告两者不一致|node --test tests/ats203-index-it.test.mjs|PASS|
+|IT-ATS203-002|FR-021|异常|参数化同名用例被引擎拒绝并如实报告|for 循环里两次同名字面量标题|静态索引 1 条稳定条目；权威发现 outcome=PLAYWRIGHT_LIST_FAILED，warning 与 errors 带引擎自己的 duplicate test title|node --test tests/ats203-index-it.test.mjs|PASS|
+|IT-ATS203-003|FR-021|异常|同 describe 同名两次被引擎拒绝并报告为歧义|两个 test.describe('结算') 各含同名用例|静态索引 2 条 provisional、ambiguity.reason=identical-title-and-body；权威发现错误含 duplicate test title "结算 › 提交订单"|node --test tests/ats203-index-it.test.mjs|PASS|
+|IT-ATS203-004|FR-021|正常|跨文件同名在权威索引里是可判定的|两个文件各含同名用例但 describe 不同|静态索引 2 条不可判定；权威索引 2 条 uidStable=true 且 UID 互不相同，各自保留 describe 路径|node --test tests/ats203-index-it.test.mjs|PASS|
+|IT-ATS203-005|FR-021|正常|不同 describe 下的同名用例在权威索引里可判定|一个文件内两个 describe 各含同名用例|静态索引不可判定；权威索引 2 条 uidStable=true 且 UID 互不相同|node --test tests/ats203-index-it.test.mjs|PASS|
+|IT-ATS203-006|FR-021|正常|对称项目矩阵给出每条用例两个 spec id|playwright.config.ts 的 projects 为 chromium 与 firefox|权威索引每条用例 specIds=2 且两个 spec id 互不相同；静态索引不带 spec id；两索引对同一逻辑用例给出相同 UID|node --test tests/ats203-index-it.test.mjs|PASS|
+|IT-ATS203-007|FR-021|正常|非对称项目矩阵给出 2 与 1 的用例数|projects 为 all 与 only-a(testMatch)|case a 的 specIds=2，case b 的 specIds=1；两者 uidStable=true；两索引 UID 一致|node --test tests/ats203-index-it.test.mjs|PASS|
+|IT-ATS203-008|FR-021|正常|forEach 写法与 for 写法等价|数组 forEach 里 test(`case ${name}`)|静态索引 1 条模板且不可判定；权威索引 3 条渲染用例且 uidStable=true|node --test tests/ats203-index-it.test.mjs|PASS|
+|IT-ATS203-009|FR-021|正常|切换索引不改变普通用例的 UID|先静态后权威读同一个项目|普通用例的 UID 相同且 uidStable=true|node --test tests/ats203-index-it.test.mjs|PASS|
 |IT-ENV-SETUP|NFR-011|正常|Bridge 启动以承载环境档案接口|隔离 ATS_DATA_DIR 与随机端口启动 server/index.mjs|/api/health=200 且拿到会话令牌|node --test|PASS|
 |IT-ENV-001|FR-027|正常|登记一个项目|POST /api/projects 指向临时工程|201 且返回项目 id|node --test|PASS|
 |IT-ENV-002|FR-027|安全|建立档案且响应只含变量名|POST 项目 /env 含 BASE_URL 与 TENANT|响应含 uid/name/environment；variables 为名称数组；不含值|node --test|PASS|

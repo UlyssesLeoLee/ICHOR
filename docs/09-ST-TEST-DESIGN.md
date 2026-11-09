@@ -1,6 +1,6 @@
 # ATS-ST-001 システムテスト設計書
 
-> 设计总数：33；已执行通过：9；待执行/未实现：24。**PENDING 不是测试通过**。
+> 设计总数：39；已执行通过：15；待执行/未实现：24。**PENDING 不是测试通过**。
 
 系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。
 
@@ -41,6 +41,12 @@
 |ST-028|FR-016|功能|质量概览：指标与原始结果可核对|同一批真实运行的 summary 与用例列表|逐项对账全部一致；对账结论由模块与探针独立复算两次|node tools/ats216-probes/st-ats216.mjs|PASS|
 |ST-029|FR-016|功能|两个界面共用同一份质量指标实现|便携 UI 与 Next 工作台|两者都 import 同一模块；Bridge 以 JavaScript MIME 提供该模块|node tools/ats216-probes/st-ats216.mjs|PASS|
 |ST-030|FR-016|可靠性|质量指标的实现被破坏时测试变红|对模块做 7 个变异（取消算失败、flaky 算通过、对账恒真、聚类常量、丢重试计数、留 ANSI 码、忽略 attempt 数）|每个变异都被 UT 或 ST 抓住，无一漏网|node tools/ats216-probes/mutation-check.mjs|PASS|
+|ST-ATS203-001|FR-021|边界|经 HTTP：未可信项目的动态用例在索引里标明不可判定|真实 Bridge + 真实 Playwright 1.64.1；for 循环 test(`范围检查 - ${n}`)|discovery=static；模板条目 uidStable=false、uidSource=provisional、ambiguity.reason=dynamic-template-title；普通用例 uidStable=true；warning 单独计数该模板并说明用例数量不可判定|node --test tests/ats203-index-api.test.mjs|PASS|
+|ST-ATS203-002|FR-021|正常|经 HTTP：可信项目的渲染用例进入目录|授予信任后重读同一项目|discovery=authoritative，outcome=OK，CLI 版本 1.64.1；目录里是 4 条渲染后的用例，渲染用例 uidStable=true 且 UID 互不相同；consistency 报告两索引不一致|node --test tests/ats203-index-api.test.mjs|PASS|
+|ST-ATS203-003|FR-021|异常|经 HTTP：参数化同名用例的引擎拒绝理由被带到响应里|for 循环里两次同名字面量标题|discovery=static（回退），outcome=PLAYWRIGHT_LIST_FAILED，attempted=true；warning 与 errors[0].message 都带引擎自己的 duplicate test title|node --test tests/ats203-index-api.test.mjs|PASS|
+|ST-ATS203-004|FR-021|正常|经 HTTP：对称项目矩阵的每条用例带两个 spec id|projects 为 chromium 与 firefox|目录里每条用例 specIds=2 且两个 spec id 互不相同，uidStable=true|node --test tests/ats203-index-api.test.mjs|PASS|
+|ST-ATS203-005|FR-021|正常|经 HTTP：非对称项目矩阵给出 2 与 1|projects 为 all 与 only-a(testMatch)|case a 的 specIds=2，case b 的 specIds=1，两者 uidStable=true|node --test tests/ats203-index-api.test.mjs|PASS|
+|ST-ATS203-006|FR-021|正常|经 HTTP：跨文件同名的判定随索引切换而改变|两个文件各含同名用例但 describe 不同|未可信时 2 条不可判定且 ambiguity.reason=identical-title-and-body，warning 计数 2；可信后 2 条 uidStable=true 且 UID 互不相同|node --test tests/ats203-index-api.test.mjs|PASS|
 
 ## 进入与退出条件
 
