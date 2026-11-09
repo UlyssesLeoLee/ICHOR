@@ -16,13 +16,13 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 
 | 验收项 | 结论 | 证据 |
 |---|---|---|
-| Next.js 16 静态导出构建 | **PASS** | `next build`（Next.js **16.4.5**，Turbopack）**构建成功**（编译/类型检查/静态页的用时数字随机器与负载浮动，**以日志为准**，见 `docs/evidence/ATS-103/02-next-static-export-build.log`）；产物 `apps/studio/out/`（`index.html` **14056 字节**、`404.html`、`_next/static/**`）；构建后工作区**不脏** |
+| Next.js 16 静态导出构建 | **PASS** | `next build`（Next.js **16.4.5**，Turbopack）**构建成功**（编译/类型检查/静态页的用时数字随机器与负载浮动，**以日志为准**，见 `docs/evidence/ATS-103/02-next-static-export-build.log`）；产物 `apps/studio/out/`（`index.html` **14576 字节**、`404.html`、`_next/static/**`）；构建后工作区**不脏** |
 | 导出产物的自洽性 | **PASS** | `index.html` 引用的 **9 个**资源全部存在于磁盘；导出目录的**真实文件树**里没有任何服务端路由产物（**声明了 `force-static` 的 handler 会被预渲染进 `out/api/**`，由这条断言拦截**，见 §2） |
 | 导出页在运行时解析 API 基址 | **PASS** | **可执行判别**：导出页按主机名 `localhost` 打开，浏览器**实际**把 API 请求发往 `localhost:<port>`（运行时解析得到的是同源相对路径；构建期烘焙的绝对基址会发往数字地址）。静态启发式（bundle 里有对 `location.port` 的比较）是**必要不充分**的辅助信号，见 §2.1 |
-| Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（**14056 字节**），带 CSP（`connect-src` 含 `http://127.0.0.1:4577`）；带哈希的 chunk 亦可取回（HTTP 200） |
+| Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（**14576 字节**），带 CSP（`connect-src` 含 `http://127.0.0.1:4577`）；带哈希的 chunk 亦可取回（HTTP 200） |
 | Bridge 会话操作 | **PASS** | `GET /api/session` 返回 token；**异源 Origin → 403**、**无 token → 401** |
 | Bridge 项目操作 | **PASS** | `POST /api/projects` → 201；`GET /api/projects` → 200；`GET /api/projects/{id}/tests` → 2 个用例 |
-| Bridge 运行操作 | **PASS** | `POST /api/projects/{id}/run` → **202**，随后到达终态 `failed`，**真实结果 1 PASS / 1 FAIL / 共 2 例**，采集 **28 个**证据产物（含 `report.json`、HTML 报告、每例 `trace.zip`）；API 报告的 summary 与磁盘上的 `report.json` **逐项一致** |
+| Bridge 运行操作 | **PASS** | `POST /api/projects/{id}/run` → **202**，随后到达终态 `failed`，**真实结果 1 PASS / 1 FAIL / 共 2 例**，采集 **27 个**证据产物（含 `report.json`、HTML 报告、每例 `trace.zip`）；API 报告的 summary 与磁盘上的 `report.json` **逐项一致** |
 | **ST：真实浏览器驱动导出的 UI** | **PASS** | headless Chromium 打开导出的页面，页面自身的 `/api/session` → 200；点「添加项目」→ toast「项目添加成功」、目录列出 2 个用例；点「运行全部」→ 202 → 终态 `failed`（2 例 / 27 产物）；**console error 0 条、无失败请求**；同源与白名单跨源（`127.0.0.1:3000`）**两种来源下都是 8/8 全绿、退出码 0**（同源断言可执行判别、跨源断言正确性，见 §3.3.1） |
 
 **本次交付没有改动产品代码。** `apps/studio/next.config.mjs`、`app/page.tsx`、`lib/api.ts` 与 `server/index.mjs` 全部保持 ATS-102 交付时的状态——实测证明这套配置**已经**满足本任务的完成定义（静态导出可用、路由可用、Bridge 三类操作可用）。本任务交付的是**可复跑的验证脚本 + 证据 + 结论文档**，以及两处**它发现的真实缺陷**（见 §4）。
@@ -50,7 +50,7 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 2. **导出目录的真实文件树里没有服务端路由产物。** 这一层才是真正的保证，**它拦得住上面那两种形状**——尤其是声明了 `force-static` 的那一种。验证脚本遍历 `apps/studio/out` 的**每一个文件与目录**，而不是去检查 Next 从不写出的两个路径（`out/app/api`、`out/.next/server`）——后者是永远不会失败的空转断言。断言本身：
 
    ```
-   PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
+   PASS  the export contains no server-side API route output  --  30 exported entries, none of them a server route
    ```
 
    变异 A′（声明 `force-static` 的 handler）实测让**这一条**变红：
@@ -159,14 +159,14 @@ Route (app)
 ```
 $ node tools/ats103-probes/verify-export-and-proxy.mjs
 PASS  export directory exists (apps/studio/out)
-PASS  export contains index.html  --  14056 bytes
+PASS  export contains index.html  --  14576 bytes
 PASS  export contains 404.html
 PASS  export contains _next/static assets
-PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
+PASS  the export contains no server-side API route output  --  30 exported entries, none of them a server route
 PASS  every asset referenced by index.html exists on disk (9 assets)
 PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
 PASS  bridge boots and answers /api/health
-PASS  bridge serves the exported index.html at /  --  HTTP 200, 14056 bytes
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 14576 bytes
 PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
 PASS  the bridge serves the exported chunk /_next/static/chunks/04p_vbrqf_cr7.js  --  HTTP 200
 PASS  GET /api/session returns a token
@@ -179,7 +179,7 @@ PASS  POST /api/projects/{id}/run is accepted (202)  --  HTTP 202
 PASS  the accepted run reaches a passed/failed terminal state  --  status=failed
 PASS  the terminal run reports a per-case result set  --  2 cases
 PASS  the terminal run summary matches the on-disk report.json  --  summary and report.json agree (1/1/0/0/2)
-PASS  the terminal run collected artefacts  --  28 artefacts
+PASS  the terminal run collected artefacts  --  27 artefacts
 PASS  the collected artefacts include report.json  --  1 report.json entries
 PASS  GET /api/runs lists the run history  --  1 runs
 PASS  the probe executed every registered check  --  25/25 checks executed
@@ -274,7 +274,7 @@ $ bash tools/ats103-probes/mutation-evidence.sh
 | `首页响应正常 @REQ-001` | **passed** | `page.setContent` + `toHaveText('hello')` |
 | `导航入口正常 @REQ-002` | **failed** | 故意断言不匹配，`element(s) not found` |
 
-采集到的 28 个证据产物包含：`report.json`、HTML 报告（`html/index.html`）、每例的 `trace.zip`、以及 `results/**/error-context.md`。
+采集到的 27 个证据产物包含：`report.json`、HTML 报告（`html/index.html`）、每例的 `trace.zip`、以及 `results/**/error-context.md`。
 
 > 这次运行同时**实测确认了 ATS-101 的阻断项 B-01 已不复现**：Bridge 传给 CLI 的参数向量是 `--reporter=line,json,html --output <dir> --trace on --workers 1`，全部是 `playwright test --help` 声明过的选项（ATS-301 的探针式构造），真实运行产出了真实 summary 与真实产物——这正是 B-01 修复后的应有形态。
 

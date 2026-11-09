@@ -1,16 +1,16 @@
 === ATS-103 evidence: ST: a real browser drives the exported UI ===
-date      : 2026-11-09T09:18:36Z (UTC)
-commit    : 99876de3cdf9dea4bbadf01036bf72fc046a9259
+date      : 2026-11-09T13:56:11Z (UTC)
+commit    : 49a8aea83c80a1b98f7004909c410697a7466a8b
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats103-probes/ui-smoke.mjs
 
 PASS  the exported page loads in a real browser  --  HTTP 200, http://localhost:4577/
 PASS  the page's own session call succeeds  --  GET /api/session -> 200, GET /api/session -> 200
-PASS  the page's API requests go to the host its own location implies  --  page location host: localhost:4577; API request hosts: localhost:4577
+PASS  the page's API requests go to the host the product's base resolution implies  --  page location host: localhost:4577; API request hosts: localhost:4577; expected host: localhost:4577
 PASS  adding a project through the UI registers it and lists the catalog  --  toast=项目添加成功：未修改原仓库, catalog items=2
 PASS  running through the UI reaches a terminal state  --  toast=已提交到本地 Playwright Runner, status=failed
-PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 28 artefacts
+PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 27 artefacts
 PASS  the page produced no console error and no failed request  --  console errors: none; failed requests: none
 
 --- API calls the page made ---
@@ -22,31 +22,31 @@ PASS  the page produced no console error and no failed request  --  console erro
   POST /api/projects -> 201
   GET /api/projects -> 200
   GET /api/runs -> 200
-  GET /api/projects/proj_1_3410b5847b1bebdb91a2b7f9/tests -> 200
-  GET /api/projects/proj_1_3410b5847b1bebdb91a2b7f9/lineage -> 200
+  GET /api/projects/proj_1_3b38deae516a7631124ec38f/tests -> 200
+  GET /api/projects/proj_1_3b38deae516a7631124ec38f/lineage -> 200
   GET /api/projects -> 200
   GET /api/runs -> 200
   GET /api/runs -> 200
-  POST /api/projects/proj_1_3410b5847b1bebdb91a2b7f9/run -> 202
+  POST /api/projects/proj_1_3b38deae516a7631124ec38f/run -> 202
   GET /api/runs -> 200
   GET /api/projects -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
-  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
-  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
+  GET /api/runs/run_1_19c76a9b0b7229573e549e73 -> 200
+  GET /api/runs/run_1_19c76a9b0b7229573e549e73 -> 200
+  GET /api/runs/run_1_19c76a9b0b7229573e549e73 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
+  GET /api/runs/run_1_19c76a9b0b7229573e549e73 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
+  GET /api/runs/run_1_19c76a9b0b7229573e549e73 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
+  GET /api/runs/run_1_19c76a9b0b7229573e549e73 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
+  GET /api/runs/run_1_19c76a9b0b7229573e549e73 -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
+  GET /api/runs/run_1_19c76a9b0b7229573e549e73 -> 200
 --- end ---
 --- bridge stderr ---
-  (node:13808) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+  (node:18384) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 --- end ---
 PASS  the probe executed every registered check  --  8/8 checks executed
