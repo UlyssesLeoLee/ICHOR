@@ -1,6 +1,6 @@
 === ATS-106 evidence: WBS tooling tests and line coverage ===
-date        : 2026-11-06T10:32:40Z (UTC)
-commit      : f15876e4754b5109295e6986eaab3d6a0131d8a4
+date        : 2026-11-09T07:42:05Z (UTC)
+commit      : 889950a11fc37e7ac7873c317e361b0fa7c239d6
 node        : v24.19.0
 python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -19,17 +19,24 @@ PASS 【ATS-103】 is idempotent
 PASS 【ATS-106】 is idempotent
 PASS 【ATS-201】 is idempotent
 PASS 【ATS-202】 is idempotent
+PASS 【ATS-203】 is idempotent
+PASS 【ATS-204】 is idempotent
 PASS 【ATS-205】 is idempotent
 PASS 【ATS-206】 is idempotent
 PASS 【ATS-207】 is idempotent
 PASS 【ATS-208】 is idempotent
+PASS 【ATS-209】 is idempotent
 PASS 【ATS-212】 is idempotent
+PASS 【ATS-216】 is idempotent
 PASS 【ATS-301】 is idempotent
 PASS 【ATS-401】 is idempotent
+PASS 【ATS-402】 is idempotent
 PASS 【ATS-501】 is idempotent
+PASS 【ATS-502】 is idempotent
 PASS 【ATS-506】 is idempotent
 PASS 【ATS-512】 is idempotent
 PASS 【ATS-601】 is idempotent
+PASS 【ATS-602】 is idempotent
 PASS at least one updater declares a marker
 PASS update_wbs_ats101.py declares exactly one marker
 PASS 【ATS-101】 (from update_wbs_ats101.py) is registered in MARKERS
@@ -43,6 +50,10 @@ PASS update_wbs_ats201.py declares exactly one marker
 PASS 【ATS-201】 (from update_wbs_ats201.py) is registered in MARKERS
 PASS update_wbs_ats202.py declares exactly one marker
 PASS 【ATS-202】 (from update_wbs_ats202.py) is registered in MARKERS
+PASS update_wbs_ats203.py declares exactly one marker
+PASS 【ATS-203】 (from update_wbs_ats203.py) is registered in MARKERS
+PASS update_wbs_ats204.py declares exactly one marker
+PASS 【ATS-204】 (from update_wbs_ats204.py) is registered in MARKERS
 PASS update_wbs_ats205.py declares exactly one marker
 PASS 【ATS-205】 (from update_wbs_ats205.py) is registered in MARKERS
 PASS update_wbs_ats206.py declares exactly one marker
@@ -51,20 +62,30 @@ PASS update_wbs_ats207.py declares exactly one marker
 PASS 【ATS-207】 (from update_wbs_ats207.py) is registered in MARKERS
 PASS update_wbs_ats208.py declares exactly one marker
 PASS 【ATS-208】 (from update_wbs_ats208.py) is registered in MARKERS
+PASS update_wbs_ats209.py declares exactly one marker
+PASS 【ATS-209】 (from update_wbs_ats209.py) is registered in MARKERS
 PASS update_wbs_ats212.py declares exactly one marker
 PASS 【ATS-212】 (from update_wbs_ats212.py) is registered in MARKERS
+PASS update_wbs_ats216.py declares exactly one marker
+PASS 【ATS-216】 (from update_wbs_ats216.py) is registered in MARKERS
 PASS update_wbs_ats301.py declares exactly one marker
 PASS 【ATS-301】 (from update_wbs_ats301.py) is registered in MARKERS
 PASS update_wbs_ats401.py declares exactly one marker
 PASS 【ATS-401】 (from update_wbs_ats401.py) is registered in MARKERS
+PASS update_wbs_ats402.py declares exactly one marker
+PASS 【ATS-402】 (from update_wbs_ats402.py) is registered in MARKERS
 PASS update_wbs_ats501.py declares exactly one marker
 PASS 【ATS-501】 (from update_wbs_ats501.py) is registered in MARKERS
+PASS update_wbs_ats502.py declares exactly one marker
+PASS 【ATS-502】 (from update_wbs_ats502.py) is registered in MARKERS
 PASS update_wbs_ats506.py declares exactly one marker
 PASS 【ATS-506】 (from update_wbs_ats506.py) is registered in MARKERS
 PASS update_wbs_ats512.py declares exactly one marker
 PASS 【ATS-512】 (from update_wbs_ats512.py) is registered in MARKERS
 PASS update_wbs_ats601.py declares exactly one marker
 PASS 【ATS-601】 (from update_wbs_ats601.py) is registered in MARKERS
+PASS update_wbs_ats602.py declares exactly one marker
+PASS 【ATS-602】 (from update_wbs_ats602.py) is registered in MARKERS
 PASS the declared markers are exactly MARKERS
 
 all checks passed
@@ -76,8 +97,8 @@ Name                               Stmts   Miss  Cover
 tools\test_update_wbs_ats106.py      109      0   100%
 tools\test_wbs_common.py              70     70     0%
 tools\update_wbs_ats106.py            65      1    98%
-tools\wbs_common.py                  233      6    97%
+tools\wbs_common.py                  241      7    97%
 ------------------------------------------------------
-TOTAL                               3608   3114    14%
-18 passed in 1.62s
+TOTAL                               4368   3841    12%
+19 passed in 1.12s
 exit code   : 0
