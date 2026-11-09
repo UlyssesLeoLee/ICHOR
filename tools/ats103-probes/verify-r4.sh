@@ -122,8 +122,13 @@ if [ -d examples/sample-playwright ]; then
     # "the symmetric project matrix gives every case two spec ids" fails
     # (measured: 1.64.1 -> 11/11 pass, 1.65.0 -> 10/11 fail). The install
     # therefore pins the version the rest of the repository measures against.
+    #
+    # `--no-save` matters: without it npm records the pin in the fixture's
+    # TRACKED package.json (rewriting the range to ^1.64.1), which dirties
+    # the tree the verification is measuring. With it the installed tree is
+    # pinned and package.json is left exactly as committed.
     if [ -f node_modules/@playwright/test/package.json ]; then
-      npm install --no-audit --no-fund "@playwright/test@$PW_VERSION" \
+      npm install --no-audit --no-fund --no-save "@playwright/test@$PW_VERSION" \
         > /dev/null 2>&1
       rc=$?
     fi
