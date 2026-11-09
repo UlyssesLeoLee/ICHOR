@@ -47,10 +47,77 @@ export function probePlaywrightCli(projectRoot) {
 }
 
 /**
+ * ATS-106: the argument safety baseline (docs/26-RUNNER-PREFLIGHT.md §3).
+ *
+ * The test file filter is the ONLY user input that can reach the argument
+ * vector. Playwright reads a positional argument as a case-insensitive
+ * regular expression over the test file paths, and a `path:line` suffix as a
+ * line filter -- so a filter is accepted only when it is a plain relative
+ * path: no leading `-` (it would be read as an option), no `..` segment, no
+ * absolute path or `:`, no regular expression metacharacter except `.`, no
+ * control character.
+ */
+const FILTER_METACHARACTERS = /[\^$*+?()[\]{}|]/;
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
+
+function refuse(code, reason) {
+  const error = new Error(code);
+  error.code = code;
+  error.reason = reason;
+  return error;
+}
+
+export function assertSafeTestFilter(file) {
+  const bad = (reason) => refuse('INVALID_TEST_FILTER', reason);
+  if (typeof file !== 'string' || file.length === 0 || file.length > 500) throw bad('the filter must be a string of 1 to 500 characters');
+  if (CONTROL_CHARACTERS.test(file)) throw bad('the filter contains a control character');
+  const filter = file.replace(/\\/g, '/');
+  if (filter.startsWith('-')) throw bad('the filter starts with "-" and would be read as a CLI option');
+  if (filter.startsWith('/') || filter.includes(':')) throw bad('the filter is absolute or carries a ":" (line filter / drive letter)');
+  if (filter.split('/').includes('..')) throw bad('the filter contains a ".." segment');
+  if (FILTER_METACHARACTERS.test(filter)) throw bad('the filter contains a regular expression metacharacter');
+  return filter;
+}
+
+/**
+ * The whole vector, checked before it leaves this module: exactly the CLI,
+ * `test`, the four options the Bridge itself emits (each at most once, with
+ * its fixed value) and at most one safe filter. Anything else -- `--config`,
+ * `--project`, `--grep`, a second positional -- is refused, so a future
+ * change that wires user input into the vector is stopped here.
+ */
+export function assertSafePlaywrightArgv(args, { cli }) {
+  const bad = (reason) => refuse('UNSAFE_CLI_ARGUMENT', reason);
+  if (!Array.isArray(args) || args.length < 2) throw bad('the vector is too short');
+  if (args.some((a) => typeof a !== 'string' || CONTROL_CHARACTERS.test(a))) throw bad('an argument is not a string or contains a control character');
+  if (args[0] !== cli) throw bad('the first argument is not the project-local CLI');
+  if (args[1] !== 'test') throw bad('the second argument is not "test"');
+  const seen = new Set();
+  const once = (name) => { if (seen.has(name)) throw bad(`the option ${name} appears twice`); seen.add(name); };
+  let positional = 0;
+  for (let i = 2; i < args.length; i += 1) {
+    const a = args[i];
+    if (a === '--reporter=line,json,html') once('--reporter');
+    else if (a === '--output') { once('--output'); i += 1; if (!path.isAbsolute(args[i] ?? '')) throw bad('--output must be followed by an absolute path'); }
+    else if (a === '--trace') { once('--trace'); i += 1; if (args[i] !== 'on') throw bad('--trace must be "on"'); }
+    else if (a === '--workers') { once('--workers'); i += 1; if (args[i] !== '1') throw bad('--workers must be "1"'); }
+    else if (a.startsWith('-')) throw bad(`the option ${a.split('=')[0]} is not allowed`);
+    else {
+      positional += 1;
+      if (positional > 1) throw bad('more than one test filter');
+      try { assertSafeTestFilter(a); } catch (e) { throw bad(`unsafe test filter: ${e.reason}`); }
+    }
+  }
+  return args;
+}
+
+/**
  * Build the CLI argument vector from the probed option set.
  *
  * Only options the installed CLI accepts are passed. Options that take a
- * value are passed as two argv entries; boolean flags as one.
+ * value are passed as two argv entries; boolean flags as one. The test file
+ * filter and the finished vector go through the ATS-106 assertions above.
  */
 export function buildPlaywrightArgs({ cli, options, outputDir, testFile }) {
   const has = (name) => options.includes(name);
@@ -59,8 +126,8 @@ export function buildPlaywrightArgs({ cli, options, outputDir, testFile }) {
   if (has('output')) args.push('--output', path.join(outputDir, 'results'));
   if (has('trace')) args.push('--trace', 'on');
   if (has('workers')) args.push('--workers', '1');
-  if (testFile) args.push(testFile);
-  return args;
+  if (testFile) args.push(assertSafeTestFilter(testFile));
+  return assertSafePlaywrightArgv(args, { cli });
 }
 
 /**
