@@ -1,6 +1,6 @@
 === ATS-103 evidence: ADR citation check ===
-date      : 2026-11-09T13:56:11Z (UTC)
-commit    : 49a8aea83c80a1b98f7004909c410697a7466a8b
+date      : 2026-11-09T14:25:19Z (UTC)
+commit    : 4e46aeafa0526cb017fe6d93cd581e0a4955f873
 node      : v22.23.4
 npm       : 10.9.9
 command   : python tools/check_adr_citations.py
@@ -15,7 +15,7 @@ command   : python tools/check_adr_citations.py
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
   start.sh                         4
-  tools/generate_test_docs.py      416,422,541
+  tools/generate_test_docs.py      416,422,550
 
 ok   src-tauri/Cargo.toml:11
 ok   start.sh:4
@@ -23,7 +23,7 @@ ok   start.ps1:8
 ok   start.ps1:9
 ok   tools/generate_test_docs.py:416
 ok   tools/generate_test_docs.py:422
-ok   tools/generate_test_docs.py:541
+ok   tools/generate_test_docs.py:550
 ok   server/index.mjs:66
 ok   server/index.mjs:262
 ok   server/index.mjs:722
