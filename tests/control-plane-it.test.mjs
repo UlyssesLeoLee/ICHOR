@@ -8,7 +8,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
-import { spawn } from 'node:child_process';
+import https from 'node:https';
+import tls from 'node:tls';
+import { spawn, spawnSync } from 'node:child_process';
 
 const root = path.resolve(import.meta.dirname, '..');
 const example = path.resolve(root, 'examples/sample-playwright');
@@ -204,6 +206,23 @@ test('IT-CP-012: the local Bridge still registers projects by path, and the cont
   }
 });
 
+test('IT-CP-014: an embedded local token or a variable path is refused and never read back', async () => {
+  const before = (await cpCall('GET', '/cp/v1/projects', { token: CP_TOKEN_A })).json.projects.length;
+  for (const displayName of [`Bearer ${localToken}`, `x-ats-token=${localToken}`, `tok ${localToken}`]) {
+    const r = await cpCall('POST', '/cp/v1/projects', { token: CP_TOKEN_A, body: { displayName } });
+    assert.equal(r.status, 422, displayName.slice(0, 12));
+    assert.equal(r.json.error, 'REMOTE_SECRET_INLINE_FORBIDDEN');
+  }
+  for (const displayName of ['$USERPROFILE/x', '$env:USERPROFILE\\x', 'D:work', '\\Users\\x']) {
+    const r = await cpCall('POST', '/cp/v1/projects', { token: CP_TOKEN_A, body: { displayName } });
+    assert.equal(r.status, 422, displayName);
+    assert.equal(r.json.error, 'REMOTE_PATH_FORBIDDEN');
+  }
+  const list = await cpCall('GET', '/cp/v1/projects', { token: CP_TOKEN_A });
+  assert.equal(list.json.projects.length, before);
+  assert.ok(!list.text.includes(localToken));
+});
+
 test('IT-CP-011: no control-plane response contains the local data directory, a local project path or the local session token', () => {
   assert.ok(cpResponses.length >= 30, `only ${cpResponses.length} responses collected`);
   const needles = [data, data.replace(/\\/g, '/'), JSON.stringify(data).slice(1, -1), localToken, localProjectRoot, JSON.stringify(localProjectRoot).slice(1, -1), example, os.homedir()];
@@ -222,6 +241,47 @@ test('IT-CP-013: the control plane refuses to share the local Bridge port', asyn
   const code = await exited(child);
   assert.equal(code, 2);
   assert.match(stderr, /ATS_CP_PORT/);
+});
+
+const openssl = spawnSync('openssl', ['version'], { encoding: 'utf8' });
+test('IT-CP-015: with a certificate the control plane serves TLS 1.3 only', { skip: openssl.status === 0 ? false : 'openssl is not available on this machine' }, async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats506-tls-'));
+  const certFile = path.join(dir, 'c.pem');
+  const keyFile = path.join(dir, 'k.pem');
+  let child;
+  try {
+    const gen = spawnSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', keyFile, '-out', certFile, '-days', '1', '-subj', '/CN=localhost'], { encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } });
+    assert.equal(gen.status, 0, gen.stderr);
+    const port = 41000 + Math.floor(Math.random() * 5000);
+    child = spawn(process.execPath, ['server/control-plane/main.mjs'], { cwd: root, env: { ...process.env, ATS_PORT: String(bridgePort), ATS_CP_PORT: String(port), ATS_CP_TLS_CERT: certFile, ATS_CP_TLS_KEY: keyFile, ATS_CP_AUTH: 'none' }, stdio: 'ignore' });
+    let up = false;
+    for (let i = 0; i < 200 && !up; i++) {
+      up = await new Promise((resolve) => {
+        const s = tls.connect({ port, host: '127.0.0.1', rejectUnauthorized: false }, () => { s.end(); resolve(true); });
+        s.on('error', () => resolve(false));
+      });
+      if (!up) await new Promise((r) => setTimeout(r, 50));
+    }
+    assert.ok(up, 'the TLS control plane did not boot');
+    const handshake = (version) => new Promise((resolve) => {
+      const s = tls.connect({ port, host: '127.0.0.1', rejectUnauthorized: false, minVersion: version, maxVersion: version }, () => { const p = s.getProtocol(); s.end(); resolve(p); });
+      s.on('error', (e) => resolve(`refused:${e.code}`));
+    });
+    assert.equal(await handshake('TLSv1.3'), 'TLSv1.3');
+    assert.match(await handshake('TLSv1.2'), /^refused:/);
+    const health = await new Promise((resolve, reject) => {
+      https.get({ port, host: '127.0.0.1', path: '/cp/v1/health', rejectUnauthorized: false }, (res) => {
+        let text = '';
+        res.on('data', (c) => { text += c; });
+        res.on('end', () => resolve({ status: res.statusCode, json: JSON.parse(text) }));
+      }).on('error', reject);
+    });
+    assert.equal(health.status, 200);
+    assert.equal(health.json.plane, 'control-plane');
+  } finally {
+    if (child) { const done = exited(child); child.kill(); await done; }
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('IT-CP-CLEANUP: child processes and the temporary data directory are removed', async () => {

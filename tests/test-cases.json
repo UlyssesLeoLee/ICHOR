@@ -4587,6 +4587,50 @@
     "level": "UT"
   },
   {
+    "id": "UT-CP-031",
+    "req": "NFR-002",
+    "category": "安全",
+    "title": "本地 Token 在任意位置都被识别",
+    "input": "Bearer/x-ats-token=/tok/0x 前缀、查询串、大小写、括号包裹；49/64/96 位、40 位 SHA 夹在文本中",
+    "expected": "独立的 48 位十六进制片段命中，其它长度不命中；键、值、嵌套均适用",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-CP-032",
+    "req": "FR-028",
+    "category": "安全",
+    "title": "环境变量形态全部被识别",
+    "input": "$USERPROFILE、$APPDATA、${HOME}、$env:NAME、%NAME%；100%、%E4%B8%AD、$5、a$",
+    "expected": "前者 env_path，后者 null",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-CP-033",
+    "req": "FR-028",
+    "category": "安全",
+    "title": "盘符相对、根相对、家目录用户形态被拒",
+    "input": "D:work、\\Users\\x、Users\\x\\y、~root/x、~；a/b、ns:name、TCP/IP、~approx",
+    "expected": "前者对应规则名，后者 null",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-CP-034",
+    "req": "NFR-002",
+    "category": "安全",
+    "title": "嵌入 Token 与变量路径入站被拒且出站不回显",
+    "input": "POST 嵌入 Token 与变量路径、查询串；存储被注入嵌入 Token 后读取",
+    "expected": "422 REMOTE_SECRET_INLINE_FORBIDDEN / REMOTE_PATH_FORBIDDEN；出站 500 REMOTE_INTERNAL，响应不含该 Token",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
     "id": "ATS-206-UT-001",
     "req": "NFR-010",
     "category": "正常",
@@ -9268,6 +9312,28 @@
     "title": "控制面拒绝与本地 Bridge 共用端口",
     "input": "ATS_CP_PORT 等于 ATS_PORT 启动控制面",
     "expected": "退出码 2，stderr 点名 ATS_CP_PORT",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-CP-014",
+    "req": "NFR-002",
+    "category": "安全",
+    "title": "嵌入的本地 Token 与变量路径被拒且不会被读回",
+    "input": "以真实本地会话 Token 构造 Bearer/x-ats-token=/tok 前缀与 $USERPROFILE 等 displayName，再读列表",
+    "expected": "422 且列表数量不变、响应不含本地 Token",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-CP-015",
+    "req": "NFR-002",
+    "category": "安全",
+    "title": "配置证书时控制面只提供 TLS 1.3",
+    "input": "openssl 生成自签证书启动控制面，分别以 TLSv1.3/TLSv1.2 握手并 GET /cp/v1/health",
+    "expected": "TLSv1.3 成功、TLSv1.2 被拒、health 200；无 openssl 时跳过并记录",
     "evidence": "node --test",
     "status": "PASS",
     "level": "IT"

@@ -51,7 +51,7 @@
 | tools/ats501-probes/ | 検証スクリプト | ATS-501 远程协议契约的机读校验、负向夹具与 WBS 更新脚本的共存回归（见 `docs/evidence/ATS-501/`） |
 | tools/ats502-probes/ | 検証スクリプト | ATS-502 调度内核的机读契约校验（46 项）、负控变异夹具（20 项）与第 1 轮复核反例回归探针（P1~P8 / H1~H5，同一脚本在被驳回树上 13/13 命中、修复后 0/13）（见 `docs/evidence/ATS-502/`） |
 | tools/ats103-probes/ | 検証スクリプト | ATS-103 静态导出 → Bridge → 会话/项目/运行 全链的可重跑验证脚本：25 项 HTTP/运行时检查 + 真实 headless Chromium 的 8 项 UI 驱动检查 + 五变异证据（见 `docs/evidence/ATS-103/`） |
-| tools/ats506-probes/ | 検証スクリプト | ATS-506 控制面边界的负向夹具（8 个守护变异必须被对应用例捕获）与证据收集脚本（见 `docs/evidence/ATS-506/`） |
+| tools/ats506-probes/ | 検証スクリプト | ATS-506 控制面边界的负向夹具（11 个守护变异必须被对应用例捕获）与证据收集脚本（见 `docs/evidence/ATS-506/`） |
 | tools/ats402-probes/ | 検証スクリプト | ATS-402 AI 数据安全边界的仓库内可重跑探针（秘密不进文件/argv/日志的静态检查、真实系统凭据库回读、外传闸门判定、外传审计留痕，每项均带负控，见 `docs/evidence/ATS-402/`） |
 | tools/ats512-probes/ | 検証スクリプト | ATS-512 插件权限边界的仓库内可重跑探针（超权拒绝、审计不可抑制、证据不可伪造，含负控，见 `docs/evidence/ATS-512/`） |
 | tools/ats216-probes/ | 検証スクリプト | ATS-216 质量概览的可重跑探针（真实 Bridge + 真实 Playwright 的系统测试、变异检查、证据收集脚本，见 `docs/evidence/ATS-216/`） |
