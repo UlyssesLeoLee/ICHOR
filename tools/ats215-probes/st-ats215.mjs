@@ -55,6 +55,16 @@ if (!repoArg || !scratchArg || !nodeModulesArg) {
 }
 const repo = path.resolve(repoArg);
 
+/* The acceptance criterion of ATS-215, as the WBS states it:
+ * 「从失败用例 2 次点击内找到 Trace」.
+ *
+ * The number comes from the WBS and NOT from the module under test: a
+ * module that inflated its own click budget must not be able to satisfy
+ * the probe. The module's budget is checked separately (ST-4), so the two
+ * claims cannot be confused for each other.
+ */
+const TRACE_CLICK_BUDGET_CRITERION = 2;
+
 fs.mkdirSync(scratchArg, { recursive: true });
 const scratch = fs.mkdtempSync(path.join(path.resolve(scratchArg), 'ats215-'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -241,24 +251,37 @@ try {
       portableRow ? portableRow.slice(0, 160) : 'the entry of the trace was not found');
 
     /* --- ST-9: THE ACCEPTANCE CRITERION, counted in the browser ---------- */
-    // Click #1: the failing case in the failure list.
-    // Click #2: the "下载 Trace" button of that case.
+    // The clicks are COUNTED by instrumenting the page: every real mouse
+    // click on the failure list and on the Trace button is recorded, so the
+    // number the probe reports is the number of clicks that actually
+    // happened -- not a number the probe wrote down in advance.
     const before = await page.$$('#e-failures button[data-trace]');
     check('ST-9 the portable UI offers a Trace button for the failing case',
       before.length === 1, `${before.length} button(s)`);
-    const clicks = [];
-    clicks.push('click the failing case in the failure list');
+    await page.evaluate(() => {
+      window.__ats215Clicks = [];
+      document.addEventListener('click', (e) => {
+        const el = e.target instanceof Element ? e.target.closest('[data-trace]') : null;
+        if (el) window.__ats215Clicks.push('click the Trace button of that case');
+        else if (e.target instanceof Element) window.__ats215Clicks.push('click the failing case in the failure list');
+      }, true);
+    });
     if (before[0]) {
-      await before[0].click();
-      clicks.push('click the Trace button of that case');
+      // Click #1: the failing case in the failure list. The portable UI
+      // renders the trace button IN the failure row, so the case is
+      // selected by clicking the row itself.
+      const caseRow = await page.$('#e-failures p');
+      if (caseRow) await caseRow.click();
       await sleep(1200);
     }
     const download = await Promise.all([
       page.waitForEvent('download', { timeout: 15000 }).catch(() => null),
       before[0] ? before[0].click().catch(() => {}) : Promise.resolve(),
     ]).then((r) => r[0]);
+    const clicks = await page.evaluate(() => window.__ats215Clicks || []);
     check('ST-9 the Trace is reached in TWO clicks from the failure list',
-      clicks.length === 2, `${clicks.length} click(s): ${clicks.join(' -> ')}`);
+      clicks.length === TRACE_CLICK_BUDGET_CRITERION,
+      `${clicks.length} real click(s) recorded: ${clicks.join(' -> ')}`);
     check('ST-9 clicking the Trace really downloads it', Boolean(download),
       download ? download.suggestedFilename() : 'no download event');
 
@@ -314,27 +337,41 @@ try {
       nextDigest.includes(failure.trace.sha256.slice(0, 12)));
 
     /* --- ST-9 in the Next workbench too --------------------------------- */
-    const nextClicks = [];
+    // The clicks are counted by instrumenting the page, exactly as in the
+    // portable UI: the number reported is the number of clicks that
+    // actually happened.
+    await page.evaluate(() => {
+      window.__ats215Clicks = [];
+      document.addEventListener('click', (e) => {
+        const el = e.target instanceof Element ? e.target.closest('button') : null;
+        const label = el ? (el.textContent || '') : '';
+        if (label.includes('下载 Trace')) window.__ats215Clicks.push('click the Trace button of that case');
+        else if (e.target instanceof Element) window.__ats215Clicks.push('click the failing case in the failure list');
+      }, true);
+    });
     const failureItem = await page.$('.file-item');
-    nextClicks.push('click the failing case in the failure list');
     if (failureItem) {
       await failureItem.click();
       await sleep(500);
       const traceButton = await page.$('button:has-text("下载 Trace")');
-      nextClicks.push('click the Trace button of that case');
       if (traceButton) {
         const download = await Promise.all([
           page.waitForEvent('download', { timeout: 15000 }).catch(() => null),
           traceButton.click().catch(() => {}),
         ]).then((r) => r[0]);
+        const nextClicks = await page.evaluate(() => window.__ats215Clicks || []);
         check('ST-9 the Next workbench reaches the Trace in TWO clicks',
-          nextClicks.length === 2, `${nextClicks.length} click(s): ${nextClicks.join(' -> ')}`);
+          nextClicks.length === TRACE_CLICK_BUDGET_CRITERION,
+          `${nextClicks.length} real click(s) recorded: ${nextClicks.join(' -> ')}`);
         check('ST-9 the Next workbench really downloads the Trace', Boolean(download),
           download ? download.suggestedFilename() : 'no download event');
       } else {
         check('ST-9 the Next workbench reaches the Trace in TWO clicks', false,
           'no download button was rendered');
       }
+    } else {
+      check('ST-9 the Next workbench reaches the Trace in TWO clicks', false,
+        'no failing case was rendered in the failure list');
     }
 
     check('ST-12 the Next workbench has no console error', consoleErrors.length === 0,
