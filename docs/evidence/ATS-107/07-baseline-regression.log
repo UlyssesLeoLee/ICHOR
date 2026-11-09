@@ -1,16 +1,16 @@
 === ATS-107 evidence: baseline regression: npm test / node --check / port audit / ADR citations / dependency manifest ===
-date        : 2026-11-09T14:37:15Z (UTC)
-commit      : 91940d3ef5aaa91773029ac730395d0df0181f27
+date        : 2026-11-09T15:00:02Z (UTC)
+commit      : 86037fd87a993454cf65b56dbfda3b664513d5a4
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command     : node --test --test-concurrency=2 tests/*.test.mjs; node --check server/index.mjs; node tools/ats101-probes/scenario-d-port-audit.mjs; python tools/check_adr_citations.py; node tools/gen_dep_manifest.mjs --check
 
 --- npm test suite: node --test --test-concurrency=2 tests/*.test.mjs ---
-✖ ST-ATS203-002: a trusted project gets the authoritative index, and the rendered cases come through (951.1337ms)
-✖ ST-ATS203-004: the symmetric project matrix gives every case two spec ids (977.2442ms)
-✖ IT-ATS203-006: the symmetric project matrix gives every case two spec ids (660.3176ms)
-✖ ST-ATS-203-006: the symmetric project matrix gives every case two spec ids (654.4478ms)
+✖ ST-ATS203-002: a trusted project gets the authoritative index, and the rendered cases come through (772.9992ms)
+✖ ST-ATS203-004: the symmetric project matrix gives every case two spec ids (740.5136ms)
+✖ IT-ATS203-006: the symmetric project matrix gives every case two spec ids (556.7391ms)
+✖ ST-ATS-203-006: the symmetric project matrix gives every case two spec ids (569.2903ms)
 ℹ tests 1592
 ℹ suites 0
 ℹ pass 1579
@@ -19,11 +19,13 @@ command     : node --test --test-concurrency=2 tests/*.test.mjs; node --check se
 ℹ skipped 9
 ℹ todo 0
 ✖ failing tests:
-✖ ST-ATS203-002: a trusted project gets the authoritative index, and the rendered cases come through (951.1337ms)
-✖ ST-ATS203-004: the symmetric project matrix gives every case two spec ids (977.2442ms)
-✖ IT-ATS203-006: the symmetric project matrix gives every case two spec ids (660.3176ms)
-✖ ST-ATS-203-006: the symmetric project matrix gives every case two spec ids (654.4478ms)
+✖ ST-ATS203-002: a trusted project gets the authoritative index, and the rendered cases come through (772.9992ms)
+✖ ST-ATS203-004: the symmetric project matrix gives every case two spec ids (740.5136ms)
+✖ IT-ATS203-006: the symmetric project matrix gives every case two spec ids (556.7391ms)
+✖ ST-ATS-203-006: the symmetric project matrix gives every case two spec ids (569.2903ms)
 exit code   : 1
+
+NOTE: 4 ATS-203 failures (ST-ATS203-002, ST-ATS203-004, IT-ATS203-006, ST-ATS-203-006) are PRE-EXISTING, not caused by ATS-107. They were reproduced with the ATS-107 changes stashed, i.e. on the baseline content of 0e34299 (28 tests, 24 pass, the same 4 fail). They belong to ATS-203 (the authoritative-discovery index) and are not in this task's scope.
 
 --- node --check ---
 OK

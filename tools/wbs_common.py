@@ -135,7 +135,10 @@ NARRATIVE_FRAGMENTS = {
         'D6': '执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，'
               '事件可按 run+sequence 复演）',
         'D7': '执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；'
-              '详见 docs/06-DATA-DESIGN.md §5.4',
+              '该缺口已由 ATS-107 补上（真实 Chromium 上跑通 Run/Test/Attempt 与事件序号模型），'
+              '但 ATS-107 只覆盖两条离线用例，联网用例、可中断长用例与多次重复执行仍未实测；'
+              '详见 docs/06-DATA-DESIGN.md §5.4；'
+              '详见 docs/31-REAL-BROWSER-FIXTURE.md',
     },
     '【ATS-212】': {
         'D6': '项目级环境档案与 runner 环境封口已实现（ATS-212：档案按项目命名空间；'

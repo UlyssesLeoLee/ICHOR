@@ -15,6 +15,8 @@ v0.1 的**代码能力基线成立**：Node Bridge 的项目登记、静态索�
 
 **要件分类口径（§2.1/§2.2）**：42 条要件中 **9 条有真实执行证据**，**3 条（FR-009/011/014）仅有测试双桩证据、真实链路被 B-01/B-03 阻断**，其余为待实测或仅设计。
 
+> **状态更新（ATS-106 修复 B-01 之后 / ATS-107 交付时）**：本节表格记录的是 **B-01 修复前**的基线，作为缺陷成因的证据保留。修复后的实测结论是——**FR-009（启动全部测试）与 FR-014（JSON/HTML/Trace 归档）的真实链路已由 ATS-107 通过产品源码验证**（真实 Chromium 上 1 PASS 1 FAIL，`report.json` 与真实 `trace.zip` 均已归档，逐条判定、计数器与错误信息均与独立的 Playwright CLI 直跑一致；详见 `docs/31-REAL-BROWSER-FIXTURE.md`、`docs/evidence/ATS-107/`）。**FR-011（停止运行）仍只有双桩证据**：B-03 的停止语义卡死缺陷未修，且 B-01/B-03 要求同批修复与回归（§4 B-03），本票未触及。
+
 Tauri 编译失败已定位到**四个互相独立的成因**（§4 B-02）：msvc 链缺 **MSVC C++ 构建工具工作负载**（环境问题）；**仓库缺少 `src-tauri/icons/icon.ico`**（仓库内容缺陷，全新 clone 永远无法满足，仅装 MSVC 不能修复）；gnu 链的编译器与运行时库不匹配；gnu 链 cdylib 的导出序号超出 PE 上限。**成因清单尚未穷尽**：在补齐 `.ico` 并换成带完整运行时的 MinGW GCC 后，`cargo check`（类型检查，**不链接最终产物**）通过，但 `cargo build` 在链接 cdylib 时仍失败（`ld.exe: error: export ordinal too large: 90774`）。msvc 链的最终链接在本机无法验证，因此 **B-02 的成因清单在 msvc 链 `cargo build` 通过之前不视为穷尽**。
 
 ## 2. 实现状态基线（已实现／待实测／未实现）
@@ -168,6 +170,8 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 > 每项缺陷均给出**仓库内可重跑的复现脚本**（`tools/ats101-probes/`）与实际输出。
 
 ### B-01（严重 / P0）Playwright CLI 参数向量含不存在的选项，真实浏览器执行 100% 失败
+
+> **状态（截至 ATS-107 交付）**：B-01 的**代码缺陷已由 ATS-106 修复**（`docs/26-RUNNER-PREFLIGHT.md`），本节以下的分析保留为**缺陷成因与复现方式的记录**。修复后**真实浏览器 PASS/FAIL 已由 ATS-107 通过产品源码验证**（真实 Chromium 上 1 PASS 1 FAIL，逐条判定、计数器与错误信息均与独立的 Playwright CLI 直跑一致；详见 `docs/31-REAL-BROWSER-FIXTURE.md`、`docs/evidence/ATS-107/`）。**CANCEL 语义仍未验证**（B-03 未修）。
 
 - **位置**：`server/core.mjs:1381` `safeRunArgs()`
 - **现状**：传入 `--screenshot only-on-failure --video retain-on-failure`。但 `playwright test` CLI **没有** `--screenshot` 与 `--video` 选项（截图/视频是 `playwright.config.ts` 的 `use` 选项，不是 CLI 选项）。实测 `playwright test --help` 输出中无此二者。
@@ -383,7 +387,7 @@ GNU_BUILD_EXIT=101
 以下项目**未执行或未完成**，不得计入通过：
 
 1. **24 项 ST 全部未执行**（ST-001~024），原因：ST-001~024 需要真实 UI/浏览器/Windows/Tauri 环境，其中依赖真实运行结果的部分被 B-01 阻断，Tauri 部分被 B-02 阻断。
-2. **真实浏览器 PASS/FAIL/CANCEL 未通过产品源码验证**——B-01 修复前不可能通过；对照实验只在沙箱副本中验证了「去掉两个选项即可工作」，**产品源码未修改**，不得据此宣称产品已具备该能力。
+2. **真实浏览器 CANCEL 未通过产品源码验证**。**PASS/FAIL 已由 ATS-107 通过产品源码验证**（真实 Chromium 上 1 PASS 1 FAIL，逐条判定、计数器与错误信息均与独立的 Playwright CLI 直跑一致，详见 `docs/31-REAL-BROWSER-FIXTURE.md` 与 `docs/evidence/ATS-107/`）；**CANCEL 语义仍未验证**——B-03（停止语义卡死）与 B-01 的耦合要求二者同批修复与回归（§4 B-03），本票未触及。ATS-107 只覆盖两条离线用例，真实站点的联网用例、可中断长用例（ST-010）与多次重复执行（ST-012）仍未实测。
 3. **Tauri Windows 构建未验证**（B-02）。msvc 链的**最终链接**（`cargo build`）本机无法验证；gnu 链的 `cargo build` 在 `.ico` 补齐后仍因 cdylib 导出序号超限而失败。**B-02 的成因清单在 msvc 链 `cargo build` 通过之前不视为穷尽**。
 4. **macOS/Linux 便携 UI 未验证**（仅 Windows 11 实测）。
 5. **性能指标未实测**（NFR-006：500 用例 3 秒目标无基线）。

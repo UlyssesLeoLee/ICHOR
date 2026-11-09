@@ -1,6 +1,6 @@
 === ATS-107 evidence: WBS updater coexistence regression (discovers tools/update_wbs_ats107.py) ===
-date        : 2026-11-09T14:37:15Z (UTC)
-commit      : 91940d3ef5aaa91773029ac730395d0df0181f27
+date        : 2026-11-09T15:00:02Z (UTC)
+commit      : 86037fd87a993454cf65b56dbfda3b664513d5a4
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -258,7 +258,7 @@ C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl
   warn(msg)
 C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-  baseline markers: {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-106】': 1, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-203】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-215】': 1, '【ATS-216】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-402】': 1, '【ATS-403】': 1, '【ATS-501】': 11, '【ATS-502】': 1, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
+  baseline markers: {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-106】': 1, '【ATS-107】': 1, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-203】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-215】': 1, '【ATS-216】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-402】': 1, '【ATS-403】': 1, '【ATS-501】': 11, '【ATS-502】': 1, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
   current markers : {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-106】': 1, '【ATS-107】': 1, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-203】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-215】': 1, '【ATS-216】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-402】': 1, '【ATS-403】': 1, '【ATS-501】': 11, '【ATS-502】': 1, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
   PASS  every marked note of the baseline is still in the sheet
 
