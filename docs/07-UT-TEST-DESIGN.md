@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：696；已执行通过：680；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：701；已执行通过：685；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -669,6 +669,11 @@
 |UT-MOB-309|FR-032|正常|线性语法的 title 也开启一个场景|线性声明用 title:|读出一个场景|node --test|PASS|
 |UT-MOB-310|FR-032|异常|线性语法里没有场景也被报告|只有 app 的线性声明|报 no scenario|node --test|PASS|
 |UT-MOB-311|FR-032|正常|读取器的标量类型被读|一个普通的 YAML 声明|读出一个场景|node --test|PASS|
+|UT-MOB-312|FR-032|安全|移动端用例丢掉的 @TC- token 被 Web 用例声明后注册表不再发回|移动端场景去掉 @TC-600 且 Web 用例声明 @TC-600|Web 用例 tc-600/explicit，移动端场景 derived 并报告 explicit-uid-claimed-by-another-case，目录无重复 UID，cell 里 tc-600 只指向 Web 用例|node --test|PASS|
+|UT-MOB-313|FR-032|安全|丢掉的 token 无论哪个引擎声明都被保留|Web 丢 @TC-650 移动端声明；移动端 Login 丢 @TC-500 同文件 Other 声明|声明方 explicit，丢弃方 derived 并报告注册表冲突，目录无重复 UID|node --test|PASS|
+|UT-MOB-314|FR-032|安全|复制场景后修改原场景不产生重复 UID|Login 复制为 Login copy 并给原 Login 加一步|副本经注册表保留旧 UID，原场景 derived-body 得新 UID，单文件导入同样判定|node --test|PASS|
+|UT-MOB-315|FR-032|安全|可信路径删除用例后同指纹新用例不继承旧 UID|权威目录：删除 Web beta 与场景 Logout，再新增同正文/同步骤的新用例；改标题|新用例的 UID 与被删的不同且非 registry，合并后的 cell 不含被删条目，改标题后一个 uid 一条条目且为新标题|node --test|PASS|
+|UT-MOB-316|FR-032|正常|注册表合并不改写输入且 Web 解析器尊重已声明的 token|mergeMobileRegistry 传入已有条目与新位置；resolveIdentities 传 claimedExplicitUids|输入条目不变、返回副本带别名、范围内无人认领的条目被删；Web 解析器拒绝注册表命中并报告 explicit-uid-claimed-by-another-case|node --test|PASS|
 |UT-CRD-001|FR-027|正常|put 写凭据库、索引只存引用|注入内存凭据库的 put/resolve|秘密只在凭据库，索引无明文，resolve 取回一致|node --test|PASS|
 |UT-CRD-002|FR-027|安全|三个同名 put 并发只成功一个|三个并发 put 同名（后端有延迟）|1 个成功、2 个 CREDENTIAL_DUPLICATE；凭据库仅 1 条|node --test|PASS|
 |UT-CRD-003|FR-027|正常|三个不同名 put 并发都保留引用|三个并发 put 不同名|三条引用都在索引里，凭据库 3 条|node --test|PASS|

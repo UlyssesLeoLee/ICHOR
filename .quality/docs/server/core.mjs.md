@@ -2,7 +2,7 @@
 
 Source: `server/core.mjs`
 
-Source-SHA256: `baacd433f122a4cc8c356cb6af502644b16fc48cb77534987623a48b51e2b688`
+Source-SHA256: `703bf6c70f8b809542046a8e35ee6b1e9011f30742ee5590bc01c3cf4e650d5f`
 
 ## Responsibility
 
@@ -109,7 +109,23 @@ The Bridge's shared core. This design covers the two sections ATS-207 owns. The 
 - The Bridge never starts on a state it could not parse.
 - The mirror is derived data. The state file is never rebuilt from it automatically.
 
+### Catalogue identity merge (ATS-602)
+
+The catalogue of a project holds the cases of both engines, and its registry cell is ONE cell.
+
+- **`discoverMobile(project)`**: maps the Flow files of the project (`mapProjectFlows`) and returns `{mapped, files, imports, unsupported, errors}`. It does NOT resolve identities: the catalogue resolves them once, over the whole catalogue, so the live registry is read exactly once per discovery and never mutated by a preliminary pass.
+- **Explicit token census** (`explicitTokenCensus(webCases, mobileCases)`): one pass over every title of both engines yields `{duplicated, claimed}`: the tokens more than one case declares, and the tokens any case declares. Both resolvers receive both sets (`duplicateExplicitUids`, `claimedExplicitUids`), so a token declared anywhere in the catalogue is reserved everywhere in it.
+- **Static path** (`discoverStatic`): unchanged shape. The mobile cases are resolved first, then handed to `resolveIdentities` as `extraCandidates`, so one merge and one pruning (scope = spec files plus Flow files) produce the cell.
+- **Authoritative path** (`authoritativeCatalog`, exported for tests): the cell the authoritative resolver returns is already pruned over the spec files. The mobile entries are merged into THAT cell with `mergeMobileRegistry(resolvedCell.entries, mobileResolved, new Set(flowFiles))`: existing entries are updated by uid (newest position wins), new ones added, and entries of Flow files that no mobile case claims are dropped. The previous cell is never used as the base, so an entry the authoritative resolver pruned does not come back.
+
+Invariants:
+
+- No two cases of a catalogue share a uid, on either path.
+- A case deleted from a file that the discovery covered does not hand its uid to a later case with the same fingerprint, on either path.
+
 ## Change Notes
+
+ATS-602 round 3 (review findings N1, N2-cross, N3): the catalogue identity merge above. `discoverMobile` no longer returns a `registry` (unused); `authoritativeCatalog` is exported; `mergeRegistryCells` is replaced by `mergeMobileRegistry` over the pruned cell.
 
 ATS-207 hardens the lock that ATS-201/ATS-206 introduced.
 

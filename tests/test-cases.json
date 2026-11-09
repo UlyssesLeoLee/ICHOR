@@ -7271,6 +7271,61 @@
     "level": "UT"
   },
   {
+    "id": "UT-MOB-312",
+    "req": "FR-032",
+    "category": "安全",
+    "title": "移动端用例丢掉的 @TC- token 被 Web 用例声明后注册表不再发回",
+    "input": "移动端场景去掉 @TC-600 且 Web 用例声明 @TC-600",
+    "expected": "Web 用例 tc-600/explicit，移动端场景 derived 并报告 explicit-uid-claimed-by-another-case，目录无重复 UID，cell 里 tc-600 只指向 Web 用例",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-313",
+    "req": "FR-032",
+    "category": "安全",
+    "title": "丢掉的 token 无论哪个引擎声明都被保留",
+    "input": "Web 丢 @TC-650 移动端声明；移动端 Login 丢 @TC-500 同文件 Other 声明",
+    "expected": "声明方 explicit，丢弃方 derived 并报告注册表冲突，目录无重复 UID",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-314",
+    "req": "FR-032",
+    "category": "安全",
+    "title": "复制场景后修改原场景不产生重复 UID",
+    "input": "Login 复制为 Login copy 并给原 Login 加一步",
+    "expected": "副本经注册表保留旧 UID，原场景 derived-body 得新 UID，单文件导入同样判定",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-315",
+    "req": "FR-032",
+    "category": "安全",
+    "title": "可信路径删除用例后同指纹新用例不继承旧 UID",
+    "input": "权威目录：删除 Web beta 与场景 Logout，再新增同正文/同步骤的新用例；改标题",
+    "expected": "新用例的 UID 与被删的不同且非 registry，合并后的 cell 不含被删条目，改标题后一个 uid 一条条目且为新标题",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-316",
+    "req": "FR-032",
+    "category": "正常",
+    "title": "注册表合并不改写输入且 Web 解析器尊重已声明的 token",
+    "input": "mergeMobileRegistry 传入已有条目与新位置；resolveIdentities 传 claimedExplicitUids",
+    "expected": "输入条目不变、返回副本带别名、范围内无人认领的条目被删；Web 解析器拒绝注册表命中并报告 explicit-uid-claimed-by-another-case",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
     "id": "UT-CRD-001",
     "req": "FR-027",
     "category": "正常",
@@ -9334,6 +9389,39 @@
     "title": "可信项目保留移动端用例",
     "input": "把项目标记为可信后重新读目录",
     "expected": "discovery=authoritative 且移动端用例与 mobile 段都在",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-ATS602-API-012",
+    "req": "FR-032",
+    "category": "安全",
+    "title": "经 HTTP：移动端丢掉的 @TC- token 被 Web 用例声明后不再发回",
+    "input": "两次读目录之间移动端去掉 @TC-600、Web 用例声明 @TC-600",
+    "expected": "每次读目录都无重复 UID，Web tc-600/explicit，移动端 derived 并报告注册表冲突",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-ATS602-API-013",
+    "req": "FR-032",
+    "category": "安全",
+    "title": "经 HTTP：复制场景后修改原场景 UID 保持不同",
+    "input": "两次读目录之间复制 Checkout 并给原场景加一步",
+    "expected": "每次读目录都无重复 UID，副本 registry 保留旧 UID，原场景 derived-body",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-ATS602-API-014",
+    "req": "FR-032",
+    "category": "安全",
+    "title": "经 HTTP：可信项目删除用例后同指纹新用例不继承旧 UID",
+    "input": "可信项目三次读目录：删 beta 与 Logout，再新增同正文/同步骤的新用例（无真实 Playwright 时跳过并记录原因）",
+    "expected": "三次都是 discovery=authoritative 且无重复 UID，新用例 UID 与被删的不同且非 registry",
     "evidence": "node --test",
     "status": "PASS",
     "level": "IT"
