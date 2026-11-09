@@ -1,0 +1,63 @@
+=== ATS-502 evidence: scheduling core unit tests ===
+date        : 2026-11-09T06:15:46Z (UTC)
+commit      : b40a70b76c4ec584c1928293e16aa8be98225e65
+node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+default enc : gbk (what the same interpreter would use without the forcing)
+command     : node --test tests/queue.test.mjs
+
+✔ UT-QUEUE-001: every rejection code is a REMOTE_ code with a HTTP status (1.1678ms)
+✔ UT-QUEUE-002: the request digest is stable against key order (0.4775ms)
+✔ UT-QUEUE-010: dispatch without an idempotency key is rejected (0.5ms)
+✔ UT-QUEUE-011: the same key with the same body returns the first result (1.3241ms)
+✔ UT-QUEUE-012: the same key with a different body is a conflict (0.1904ms)
+✔ UT-QUEUE-013: the idempotency key is scoped to the tenant (0.1518ms)
+✔ UT-QUEUE-020: dispatch rejects a non-40-hex git sha (0.1244ms)
+✔ UT-QUEUE-021: dispatch requires a tenant and a project uid (0.139ms)
+✔ UT-QUEUE-030: a node is bound to exactly one tenant (0.147ms)
+✔ UT-QUEUE-031: a client-supplied tenant that differs from the binding is rejected (0.3577ms)
+✔ UT-QUEUE-032: a node cannot see a job of another tenant (0.1656ms)
+✔ UT-QUEUE-040: a job leased by one node cannot be leased by another (0.219ms)
+✔ UT-QUEUE-041: re-leasing by the same node is idempotent and keeps one lease (0.1485ms)
+✔ UT-QUEUE-042: after a lease expires the job returns to the queue and can be re-dispatched (0.1957ms)
+✔ UT-QUEUE-043: a stale node cannot report the result after the job was re-dispatched (0.3444ms)
+✔ UT-QUEUE-044: releasing a node returns its leased jobs to the queue (0.1381ms)
+✔ UT-QUEUE-045: the retry budget is finite (0.2231ms)
+✔ UT-QUEUE-050: a heartbeat renews the lease (0.1793ms)
+✔ UT-QUEUE-051: a heartbeat after the lease expired is refused and the job is recoverable (0.1437ms)
+✔ UT-QUEUE-052: a heartbeat seq must not go backwards (0.1235ms)
+✔ UT-QUEUE-053: a job past its deadline becomes interrupted instead of being re-dispatched (0.1478ms)
+✔ UT-QUEUE-054: the sweep requeues expired leases and interrupts overdue jobs (0.576ms)
+✔ UT-QUEUE-055: a result after the deadline is refused (0.1901ms)
+✔ UT-QUEUE-060: replaying a result returns the first result and does not change the state (0.1817ms)
+✔ UT-QUEUE-061: the same result key with a different body is a conflict (0.1478ms)
+✔ UT-QUEUE-062: a terminal job ignores a further terminal report (0.1331ms)
+✔ UT-QUEUE-063: cancel is idempotent and terminal jobs stay terminal (0.1777ms)
+✔ UT-QUEUE-064: ack moves a leased job to running, and a replayed ack is a no-op (0.1878ms)
+✔ UT-QUEUE-080 (P1): a RUNNING job whose node goes silent is requeued by the sweep (0.1908ms)
+✔ UT-QUEUE-081 (P2): releasing a node requeues its RUNNING jobs too (0.133ms)
+✔ UT-QUEUE-082 (P3): a RUNNING job past its deadline becomes interrupted (0.149ms)
+✔ UT-QUEUE-083 (P4): an ack that arrives after the lease expired is refused (0.1679ms)
+✔ UT-QUEUE-084 (P5): a late result from an expired attempt is refused after the same node re-leases (0.1829ms)
+✔ UT-QUEUE-085 (P6): a stale node reporting on a finished job is refused, not replayed (0.1491ms)
+✔ UT-QUEUE-086 (P7): the lease duration is capped by the server (0.1483ms)
+✔ UT-QUEUE-087 (P8): a result refused after the deadline stays refused when it is replayed (0.2187ms)
+✔ UT-QUEUE-090: ack, heartbeat and result all refuse a missing leaseId (0.1736ms)
+✔ UT-QUEUE-091: a foreign leaseId is refused even for the right node (0.1068ms)
+✔ UT-QUEUE-092: an idempotency key of another lease attempt is refused (0.1443ms)
+✔ UT-QUEUE-093: the lease duration is clamped to the server range on both ends (0.2082ms)
+✔ UT-QUEUE-094: listing jobs without a tenant is refused (0.1718ms)
+✔ UT-QUEUE-095: reading a job of another tenant returns null (0.1106ms)
+✔ UT-QUEUE-070: the queue survives a restart (6.3059ms)
+✔ UT-QUEUE-071: the snapshot counts every job state (0.219ms)
+✔ UT-QUEUE-072: every state the queue can produce is a terminal state or a known one (0.1814ms)
+ℹ tests 45
+ℹ suites 0
+ℹ pass 45
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 118.9129
+exit code   : 0

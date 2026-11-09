@@ -73,23 +73,44 @@ MARKER = '【ATS-203】'
 # downgraded by a re-run of this script.
 TERMINAL_STATUSES = ('已完成', '已取消')
 
-# The note of the ATS-203 row. It says WHAT was delivered and WHAT was not:
-# the indexing regression DATASET is delivered and measured; the indexing
-# implementation itself needed no change, and the identity re-recognition
-# belongs to ATS-204.
+# The note of the ATS-203 row. It says WHAT was delivered and WHAT was not.
+#
+# IMPORTANT: this note states MEASURED facts, not intentions. The previous
+# version of this note claimed the static indexer "marks parameterized cases
+# as dynamic". Measurement contradicts that:
+#
+#   * a `test.each(...)` block yields ZERO tests -- there is no such API in
+#     Playwright, so there is nothing to mark;
+#   * a `for (const x of [...]) test(`x - ${x}`)` loop yields ONE entry whose
+#     title is the literal template string (`支付 - ${method}`), reported as
+#     `uidStable: true, uidSource: 'derived'` -- a false-stable entry.
+#
+# The only thing that mentions dynamics is a blanket `warning` string that is
+# the same for every project; it is not per-case handling. So the note says
+# exactly that, and names the open defect instead of claiming it is handled.
 NOTE = (
     '动态/参数化/项目矩阵索引回归数据集已交付（数据集，非发现实现）：'
     'tests/ats203-regression-dataset.test.mjs 共 8 个回归场景 + 1 个清理用例，'
-    '覆盖参数化（test.each / forEach 生成的用例）、同一项目被索引两次、'
-    '跨文件同名标题、describe 路径变化、嵌套 describe、'
-    '以及参数化与常规用例混合。'
-    '静态索引对参数化用例的处置是「发现但标记为动态」，如实报告限制而不是猜测。'
+    '覆盖参数化写法、同一项目被索引两次、跨文件同名标题、'
+    'describe 路径变化、嵌套 describe，以及参数化与常规用例混合。'
     '跨文件同名标题由文件路径区分，UID 唯一；同一用例在多次发现中 UID 稳定不变。'
     '重复 describe 名 + 同名标题的情形被标为需人工复核（歧义报告），不是静默合并。'
     '同一项目两次索引产出相同测试集与相同 UID。'
     '本项只交付索引结果是否正确或是否明确标为不可判定；'
     '发现机制沿用 ATS-202 的权威发现，未另起一套实现；'
     'UID 重识别与歧义提示属 ATS-204，本项未越界。'
+    '**未解决（已知缺陷，待整改）**：静态索引对参数化写法没有逐例处置——'
+    '「test.each(...)」这种写法在 Playwright 里并不存在，静态索引给出 0 条；'
+    '「for (const x of [...]) test(`...${x}`)」这种循环写法只给出 1 条，'
+    '标题是模板原文（实测「支付 - ${method}」），且被报成 uidStable=true、'
+    'uidSource=derived，也就是一条「假稳定」条目。'
+    '静态索引只附带一句与项目无关的通用提示'
+    '（「静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试不在其中」），'
+    '它不是逐例处置，不能当作「已标记为动态」。'
+    '权威索引（playwright test --list）能看到循环生成的 3 条，'
+    '静态与权威的结果在这一类用例上不一致。'
+    '该缺陷的处置方案（把这类条目标为不可判定，或在静态索引里识别循环并拒绝给出 UID）'
+    '待定，因此本行的完成度不覆盖这一点。'
     '本机实测 9/9 通过，全量 node --test tests/*.test.mjs 1304 通过 / 2 跳过 / 0 失败，'
     '证据 docs/evidence/ATS-203/。'
 )

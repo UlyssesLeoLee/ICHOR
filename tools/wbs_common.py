@@ -43,8 +43,8 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # order they run in.
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
            '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-216】',
-           '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-501】', '【ATS-506】', '【ATS-512】', '【ATS-601】',
-           '【ATS-602】')
+           '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
+           '【ATS-601】', '【ATS-602】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -190,9 +190,15 @@ NARRATIVE_FRAGMENTS = {
     },
     '【ATS-203】': {
         'D6': '索引回归数据集已交付（ATS-203：参数化/重复项目/同名标题/嵌套 describe；'
-              '静态索引对参数化标记为动态，不猜测）',
+              '静态索引对参数化写法无逐例处置：test.each 给 0 条、循环写法给 1 条模板原文的'
+              '假稳定条目——已知缺陷待整改）',
         'D7': '参数化用例的权威发现仍依赖 ATS-202 的 playwright test --list；'
-              'UID 重识别与歧义提示属 ATS-204',
+              'UID 重识别与歧义提示属 ATS-204；静态与权威索引在循环生成用例上不一致',
+    },
+    '【ATS-502】': {
+        'D6': '远程调度内核已实现（队列/租约/心跳/幂等键/重试，含租约 fencing 与 running 态回收）',
+        'D7': '远程节点协议、签名与工作树隔离仍未实现（ATS-503/504）；'
+              '详见 docs/29-REMOTE-SCHEDULING.md',
     },
 }
 
