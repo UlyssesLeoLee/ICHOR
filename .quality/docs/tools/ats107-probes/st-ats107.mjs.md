@@ -2,7 +2,7 @@
 
 Source: `tools/ats107-probes/st-ats107.mjs`
 
-Source-SHA256: `10298aebe9d00034b0801b68c780a4b051160fbe2eb6ff9e5e9708343c4098a8`
+Source-SHA256: `fc09c33c411485ac58ac047f25de0205f4a6c56111d0db72558cde49b451bff5`
 
 ## Responsibility
 
@@ -77,9 +77,11 @@ A failure therefore says which of the three diverged, and the message names it.
 
 - **The probe reads the CLI's report with its OWN walker**, not with the Bridge's `parseReport`. If the probe used the product's parser, a bug in that parser would hide itself: both sides would agree because they read the report the same (wrong) way. The probe therefore walks the raw JSON itself and compares the raw facts.
 
-- **The error message comparison is a CONTAINMENT check, not an equality check.** The engine's error text contains ANSI escape sequences and a call log; the Bridge stores `r.error.message` verbatim, but a future product change (e.g. stripping ANSI) would break a strict equality. What the criterion actually requires is that the engine's own error text reaches the reader, so the probe checks that the **assertion text the engine reported is present** in the Bridge's copy. The probe additionally reports both strings' lengths and their ANSI-stripped forms, so a reviewer can see the difference.
+- **The error message comparison is an EQUALITY check on the ANSI-stripped text, and the two sides are paired by TITLE.** The criterion is 「错误信息与 CLI 一致」, and a truncated message is not "consistent with the CLI" -- it is a part of it. So both sides are stripped of ANSI FIRST and the resulting texts must then be the SAME text; the probe reports the first offset at which they diverge, together with both lengths. Pairing by title (rather than "the first failing case on each side") matters as soon as more than one case fails. The probe additionally prints both texts in full, so a reviewer can read them side by side.
 
-- **A missing browser is a SKIP, not a PASS.** If the engine's browser is not installed, the probe says so and exits non-zero, and the collector records it as SKIPPED with the reason. The criterion is about a real browser; a machine without one has not met it.
+- **A missing browser is a FAIL, not a PASS.** If the engine's browser is not installed, the probe reports the failed check and exits non-zero. The criterion is about a real browser; a machine without one has not met it, and the collector records the run as a failure with the reason.
+
+- **The "real browser" check reads the BROWSER CONTEXT, not the presence of a trace.** A `trace.zip` alone proves nothing: a fixture whose specs never take a `page` still writes one, and the test-runner's own trace inside it mentions the browser name in fields unrelated to a browser. The evidence is the `<n>-trace.trace` member the engine writes per browser context, whose first `context-options` event names the browser that was actually launched. `tools/ats107-probes/lib/trace.mjs` implements this, and `no-browser-control.mjs` proves it rejects the no-browser fixture.
 
 - **The probe never mutates the repository.** Everything it writes goes to the scratch directory.
 

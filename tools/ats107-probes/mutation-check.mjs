@@ -24,7 +24,7 @@
  */
 import {
   compareVerdicts, compareError, compareExpectations, compareCounters,
-  cliCounts, verdictToStatus,
+  cliCounts,
 } from './compare.mjs';
 
 let passed = 0;
@@ -36,8 +36,7 @@ const check = (id, ok, detail = '') => {
 };
 
 /* --- the honest result, as the CLI and the Bridge both reported it ------- */
-const EXPECTED_TEXT = 'ATS-107 FAIL — this text is intentionally absent';
-const CLI_ERROR = `Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#target')\nExpected: "${EXPECTED_TEXT}"\nReceived: "ATS-107 PASS"`;
+const CLI_ERROR = `Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#target')\nExpected: "ATS-107 FAIL — this text is intentionally absent"\nReceived: "ATS-107 PASS"`;
 
 const cliCases = [
   {
@@ -86,16 +85,11 @@ const clone = (v) => JSON.parse(JSON.stringify(v));
   check('the honest result is accepted by the verdict comparison',
     compareVerdicts(cliCases, s.cases).length === 0);
   check('the honest result is accepted by the error comparison',
-    compareError(cliErrorOf(cliCases), CLI_ERROR, EXPECTED_TEXT).length === 0);
+    compareError(cliCases, s.cases).length === 0);
   check('the honest result is accepted by the expectation comparison',
     compareExpectations(s.cases, expected).length === 0);
   check('the honest result is accepted by the counter comparison',
     compareCounters(s, cliCounts(cliCases)).length === 0);
-}
-
-/** The CLI's error message, taken from the CLI's own case. */
-function cliErrorOf(cases) {
-  return cases.find((c) => verdictToStatus(c.engineStatus) === 'failed')?.error ?? '';
 }
 
 /* --- the mutations: every one of them must be CAUGHT --------------------- */
@@ -126,12 +120,12 @@ const mutations = [
   {
     id: 'M4 the Bridge drops the error message',
     apply: (b) => { b.summary.cases[0].error = ''; },
-    detect: (b) => compareError(CLI_ERROR, b.summary.cases[0].error, EXPECTED_TEXT).length > 0,
+    detect: (b) => compareError(cliCases, b.summary.cases).length > 0,
   },
   {
     id: 'M5 the Bridge rewrites the error message into its own wording',
     apply: (b) => { b.summary.cases[0].error = 'the case failed'; },
-    detect: (b) => compareError(CLI_ERROR, b.summary.cases[0].error, EXPECTED_TEXT).length > 0,
+    detect: (b) => compareError(cliCases, b.summary.cases).length > 0,
   },
   {
     id: 'M6 the Bridge reports the right counts but the wrong per-case verdicts',
@@ -159,6 +153,42 @@ const mutations = [
     id: 'M10 the Bridge reports a wrong total',
     apply: (b) => { b.summary.total = 3; },
     detect: (b) => compareCounters(b.summary, cliCounts(cliCases)).length > 0,
+  },
+  {
+    // M11 is the TRUNCATION defect: the Bridge keeps the first line and the
+    // assertion text but drops the rest (Received:, the timeout, the call
+    // log). A CONTAINMENT comparison accepts this -- the kept parts are
+    // contained in the CLI's message -- so it is the mutation that proves
+    // the error comparison has to be an EQUALITY comparison.
+    id: 'M11 the Bridge truncates the error message (keeps the first line and the assertion text)',
+    apply: (b) => {
+      b.summary.cases[0].error = CLI_ERROR
+        .split('\n')
+        .filter((l, i) => i === 0 || l.includes('Expected:'))
+        .join('\n');
+    },
+    detect: (b) => compareError(cliCases, b.summary.cases).length > 0,
+  },
+  {
+    // M12 is the ANSI variant of the truncation: the Bridge drops the text
+    // but keeps the escape sequences around it. Stripping ANSI FIRST must
+    // not turn this into a pass.
+    id: 'M12 the Bridge truncates the error message behind ANSI escape sequences',
+    apply: (b) => {
+      b.summary.cases[0].error = `\u001b[31m${CLI_ERROR.split('\n')[0]}\u001b[39m`;
+    },
+    detect: (b) => compareError(cliCases, b.summary.cases).length > 0,
+  },
+  {
+    // M13 is the PAIRING defect: the Bridge's failing case carries ANOTHER
+    // case's error message. Comparing "the first failing case" on each side
+    // would compare the right pair only by luck; pairing by title must
+    // notice that the error belongs to a different case.
+    id: 'M13 the Bridge attaches a different case\'s error message',
+    apply: (b) => {
+      b.summary.cases[0].error = 'Error: a completely different failure\n\nExpected: "something else"';
+    },
+    detect: (b) => compareError(cliCases, b.summary.cases).length > 0,
   },
 ];
 

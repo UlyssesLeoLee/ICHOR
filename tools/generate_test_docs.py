@@ -575,12 +575,32 @@ ST=[
 # REAL fixture (examples/real-browser-fixture), so the PASS and the FAIL come
 # from a real Chromium and the "consistent with the CLI" half is a comparison
 # against an independent CLI run.
+#
+# ST-042..044 are NOT product coverage: they check the probe and the fixture
+# itself. They therefore carry the 关联要件 column `TOOL` (a tool self-check)
+# instead of an FR, so the RTM does not claim FR-009 coverage for a check
+# that never touches the product's behaviour. ST-045 is the product-mutation
+# control: it does touch the product (a mutated COPY of it), but what it
+# establishes is that the probe has teeth -- so it is a self-check too.
 ST+=[
 ('ST-039','FR-009','功能','真实浏览器至少 1 PASS 1 FAIL','examples/real-browser-fixture：一条离线通过用例 + 一条故意失败用例，@playwright/test 1.65.0 精确固定，lockfile 入库','真实 Chromium 上跑出至少 1 条 PASS 与 1 条 FAIL；Bridge 报 1 passed / 1 failed','node tools/ats107-probes/st-ats107.mjs','PASS'),
 ('ST-040','FR-009','功能','结果与 CLI 一致','同一夹具分别经 Playwright CLI 直跑与经 Bridge 跑','两条用例的逐条判定与 CLI 完全相同；计数器一致','node tools/ats107-probes/st-ats107.mjs','PASS'),
-('ST-041','FR-014','功能','错误信息与 CLI 一致','故意失败的用例','Bridge 报出的失败原因就是引擎自己的错误信息（含引擎写的断言文本），Bridge 不丢弃也不改写','node tools/ats107-probes/st-ats107.mjs','PASS'),
-('ST-042','FR-009','可靠性','对账逻辑非恒真','把 Bridge 应报的结果做 10 种变异（改判定、换序、丢错误、丢用例、改计数器等）','每种变异都必须被对账逻辑抓住；未变异的真实结果必须被接受','node tools/ats107-probes/mutation-check.mjs','PASS'),
-('ST-043','FR-009','功能','夹具依赖由 lockfile 固定','examples/real-browser-fixture/package.json + package-lock.json','版本为精确固定（无 ^/~）；lockfile 已入库；npm ci 装出的版本与固定值一致','node tools/ats107-probes/st-ats107.mjs','PASS'),
+('ST-041','FR-014','功能','错误信息与 CLI 一致','故意失败的用例','Bridge 报出的失败原因与 CLI 的错误信息逐字相同（去 ANSI 后全文相等），不是它的一部分','node tools/ats107-probes/st-ats107.mjs','PASS'),
+('ST-042','TOOL','可靠性','对账逻辑非恒真（探针自检）','把 Bridge 应报的结果做 13 种变异（改判定、换序、丢错误、丢用例、改计数器、截断错误信息等）','每种变异都必须被对账逻辑抓住；未变异的真实结果必须被接受','node tools/ats107-probes/mutation-check.mjs','PASS'),
+('ST-043','TOOL','功能','夹具依赖由 lockfile 固定（夹具自检）','examples/real-browser-fixture/package.json + package-lock.json','版本为精确固定（无 ^/~）；lockfile 已入库；npm ci 装出的版本与固定值一致','node tools/ats107-probes/st-ats107.mjs','PASS'),
+('ST-044','TOOL','可靠性','「真实浏览器」检查能拦住不启动浏览器的夹具（探针自检）','把夹具的两条用例改成不取 page（因此不启动浏览器）','真实夹具被接受；变异夹具被拒绝（trace 里没有浏览器上下文）','node tools/ats107-probes/no-browser-control.mjs','PASS'),
+('ST-045','TOOL','可靠性','产品截断错误信息时被探针抓住（产品变异负控）','在产品源码副本上截断 Bridge 报出的错误信息','探针在 ST-5 上失败；未变异的产品仍通过','node tools/ats107-probes/product-mutation-control.sh','PASS'),
+]
+
+# ATS-107: the INTEGRATION view of the same criterion. The ST block above
+# reads the engine's report with the probe's OWN walker; these cases read the
+# Bridge's own API answers, so a bug in the product's projection cannot hide
+# behind the engine's report. The fixture is a REAL Playwright project with a
+# REAL Chromium, installed from the committed lockfile.
+IT+=[
+('IT-ATS107-001','FR-009','功能','Bridge 经 HTTP 跑真实夹具并报 1 PASS 1 FAIL','真实 Bridge + examples/real-browser-fixture（npm ci 装出的固定版本引擎）','summary 报 passed=1、failed=1、total=2','node --test tests/ats107-real-browser-it.test.mjs','PASS'),
+('IT-ATS107-002','FR-009','功能','该次运行真的启动了 Chromium','同上；读运行目录里的 trace.zip','trace.zip 里有 <n>-trace.trace，其 context-options 事件的 browserName 为 chromium','node --test tests/ats107-real-browser-it.test.mjs','PASS'),
+('IT-ATS107-003','FR-014','功能','失败用例的错误信息是引擎自己的全文','同上；读 summary 里失败用例的 error','去 ANSI 后含引擎的断言文本，且含 Received: 与 Call log:（截断的消息不含）','node --test tests/ats107-real-browser-it.test.mjs','PASS'),
 ]
 
 # ATS-506 control-plane cases (tests/control-plane.test.mjs, tests/control-plane-it.test.mjs).
@@ -1080,6 +1100,14 @@ for i in range(1,31):
  # requirements are still PENDING.
  implemented=i<=20 or i in (21,27)
  rtm.append((fid,manual.get(fid,'P1/P2'),'、'.join(cases) or 'TBD', '部分实现' if fid in ['FR-004','FR-008','FR-014','FR-020'] else 'IMPLEMENTED' if implemented else 'DESIGNED'))
+# The rows whose 关联要件 is `TOOL` are SELF-CHECKS of the test tooling and
+# the fixture -- they are not product coverage, so they are listed on their
+# own row instead of being counted towards any FR. Without this the RTM
+# would claim FR-009 coverage for checks that never touch the product's
+# behaviour.
+tool_rows=[x for x in UT+IT+ST if x[1]=='TOOL']
+if tool_rows:
+ rtm.append(('TOOL','工具自检（不计入要件覆盖）','、'.join(x[0] for x in tool_rows) or 'TBD','SELF-CHECK'))
 for i in range(31,36):
  fid=f'FR-{i:03d}';cases=[x[0] for x in UT+IT+ST if x[1]==fid]
  # The mobile requirements (S6): the contract layers are implemented, the

@@ -50,7 +50,7 @@
   {
     "requirement": "FR-009",
     "design": "B04",
-    "tests": "UT-RUN-001、IT-RUN-001、IT-RUN-002、IT-RUN-003、IT-RUN-MOCK-SETUP、ST-008、ST-039、ST-040、ST-042、ST-043",
+    "tests": "UT-RUN-001、IT-RUN-001、IT-RUN-002、IT-RUN-003、IT-RUN-MOCK-SETUP、IT-ATS107-001、IT-ATS107-002、ST-008、ST-039、ST-040",
     "status": "IMPLEMENTED"
   },
   {
@@ -80,7 +80,7 @@
   {
     "requirement": "FR-014",
     "design": "B05",
-    "tests": "IT-RUN-MOCK-001、ST-011、ST-041、ST-034、ST-037、ST-038",
+    "tests": "IT-RUN-MOCK-001、IT-ATS107-003、ST-011、ST-041、ST-034、ST-037、ST-038",
     "status": "部分实现"
   },
   {
@@ -178,6 +178,12 @@
     "design": "P2 RBAC",
     "tests": "TBD",
     "status": "DESIGNED"
+  },
+  {
+    "requirement": "TOOL",
+    "design": "工具自检（不计入要件覆盖）",
+    "tests": "ST-042、ST-043、ST-044、ST-045",
+    "status": "SELF-CHECK"
   },
   {
     "requirement": "FR-031",
