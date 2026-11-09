@@ -30,6 +30,9 @@ node tools/ats103-probes/ui-smoke.mjs --port 4600
 # 五个变异（会临时改动产品源码并在结束时还原）
 bash tools/ats103-probes/mutation-evidence.sh
 
+# 四份克隆验证日志（交付分支与合并后的 dev，各 CRLF / LF 两份）
+bash tools/ats103-probes/collect-r4-logs.sh
+
 # 一键重新生成本目录对应的证据日志
 bash tools/ats103-probes/collect-evidence.sh
 ```
