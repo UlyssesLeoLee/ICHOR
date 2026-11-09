@@ -41,9 +41,10 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-204】', '【ATS-205】',
-           '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-216】', '【ATS-301】',
-           '【ATS-401】', '【ATS-402】', '【ATS-501】', '【ATS-506】', '【ATS-512】', '【ATS-601】', '【ATS-602】')
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
+           '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-216】',
+           '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-501】', '【ATS-506】', '【ATS-512】', '【ATS-601】',
+           '【ATS-602】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -186,6 +187,12 @@ NARRATIVE_FRAGMENTS = {
               '不支持的步骤保留原文并标记，不静默丢弃）',
         'D7': '移动端执行面仍无任何实现（ATS-602 只交付用例模型与导入映射；'
               '真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md',
+    },
+    '【ATS-203】': {
+        'D6': '索引回归数据集已交付（ATS-203：参数化/重复项目/同名标题/嵌套 describe；'
+              '静态索引对参数化标记为动态，不猜测）',
+        'D7': '参数化用例的权威发现仍依赖 ATS-202 的 playwright test --list；'
+              'UID 重识别与歧义提示属 ATS-204',
     },
 }
 
