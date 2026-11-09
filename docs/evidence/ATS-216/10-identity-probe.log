@@ -31,4 +31,4 @@ PASS Q6 the engine runs the same title path in two files -- 4 spec(s)
 PASS therefore (describe path, title) is unique within one file -- the engine guarantees it, so the line separates nothing more
 
 RESULT: 7/7
-scratch: C:\Users\seiko\AppData\Local\Temp\multica-task-2436323363\ats216-dev-ev-ident
+scratch: D:\hermes-multica\home\cache\scratch\ats216-id2
