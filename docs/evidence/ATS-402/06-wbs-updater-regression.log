@@ -1,20 +1,20 @@
 ================================================================================
 ATS-402 evidence log -- the WBS updaters coexist, are idempotent and keep every task note
 ================================================================================
-commit        : ce67195e4ccb850a6783509049a9a8b0ea1235cc
-timestamp     : 2026-11-07T02:03:49Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-06f2e5eaa1c4/worktree
+commit        : d2a2f589d194631b198e6e2f7728a1c5e3f9168c
+timestamp     : 2026-11-09T04:44:02Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree
 node          : v24.19.0
-python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+python        : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command       : bash tools/ats501-probes/check-wbs-updaters.sh
 ================================================================================
 
 === ATS-501 regression: WBS updater interaction ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-06f2e5eaa1c4/worktree
-updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats201.py tools/update_wbs_ats202.py tools/update_wbs_ats204.py tools/update_wbs_ats205.py tools/update_wbs_ats206.py tools/update_wbs_ats207.py tools/update_wbs_ats208.py tools/update_wbs_ats209.py tools/update_wbs_ats212.py tools/update_wbs_ats216.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats402.py tools/update_wbs_ats501.py tools/update_wbs_ats506.py tools/update_wbs_ats512.py tools/update_wbs_ats601.py tools/update_wbs_ats601_rtm.py tools/update_wbs_ats602.py
-updater # : 23 (discovered from tools/update_wbs_*.py)
-python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree
+updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats201.py tools/update_wbs_ats202.py tools/update_wbs_ats203.py tools/update_wbs_ats204.py tools/update_wbs_ats205.py tools/update_wbs_ats206.py tools/update_wbs_ats207.py tools/update_wbs_ats208.py tools/update_wbs_ats209.py tools/update_wbs_ats212.py tools/update_wbs_ats216.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats402.py tools/update_wbs_ats501.py tools/update_wbs_ats506.py tools/update_wbs_ats512.py tools/update_wbs_ats601.py tools/update_wbs_ats601_rtm.py tools/update_wbs_ats602.py
+updater # : 24 (discovered from tools/update_wbs_*.py)
+python    : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 default enc: gbk (what the same interpreter would use without the forcing)
 
@@ -26,6 +26,7 @@ default enc: gbk (what the same interpreter would use without the forcing)
   PASS  tools/update_wbs_ats103.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats201.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats202.py leaves the accepted ATS-502 row at 已完成
+  PASS  tools/update_wbs_ats203.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats204.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats205.py leaves the accepted ATS-502 row at 已完成
   PASS  tools/update_wbs_ats206.py leaves the accepted ATS-502 row at 已完成
@@ -45,243 +46,243 @@ default enc: gbk (what the same interpreter would use without the forcing)
   PASS  tools/update_wbs_ats602.py leaves the accepted ATS-502 row at 已完成
 
 --- 2. the updaters, in either order ---
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-  PASS  the 23 updaters produce the same sheet in either order
+  PASS  the 24 updaters produce the same sheet in either order
 
 --- 3. idempotency ---
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-  PASS  running the 23 updaters twice changes nothing
+  PASS  running the 24 updaters twice changes nothing
 
 --- 4. the derived 总览 totals match the sheet ---
-  derived: completed=2 rate=0.197604790419162 remaining=402
-  cached : completed=2 rate=0.197604790419162 (delta 3.331e-16, tolerance 5.0e-16) remaining=402
+  derived: completed=2 rate=0.205588822355289 remaining=398
+  cached : completed=2 rate=0.205588822355289 (delta 4.163e-16, tolerance 5.0e-16) remaining=398
   PASS  the cached 总览 values equal the values derived from 开发WBS
 
 --- 5. the marked notes of every task survive ---
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-  baseline markers: {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-216】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-402】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
-  current markers : {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-216】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-402】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
+  baseline markers: {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-203】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-216】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-402】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
+  current markers : {'【ATS-102】': 5, '【ATS-103】': 3, '【ATS-101】': 5, '【ATS-201】': 1, '【ATS-202】': 1, '【ATS-203】': 1, '【ATS-204】': 1, '【ATS-205】': 1, '【ATS-206】': 1, '【ATS-207】': 1, '【ATS-208】': 1, '【ATS-209】': 1, '【ATS-212】': 1, '【ATS-216】': 1, '【ATS-301】': 1, '【ATS-401】': 1, '【ATS-402】': 1, '【ATS-501】': 11, '【ATS-506】': 1, '【ATS-512】': 1, '【ATS-601】': 1, '【ATS-602】': 1}
   PASS  every marked note of the baseline is still in the sheet
 
 --- 6. the shared D6/D7 cells keep every task's text ---
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
   warn(msg)
-C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
   warn(msg)
-  D6: v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT；Next.js 16 静态导出构建已实测通过；锁文件、依赖清单与 CI 构建门禁已交付；Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过，真实 headless Chromium 驱动导出页 7/7 通过（ATS-103）；权威发现已实现（ATS-202：playwright test --list；未可信仓库回退静态索引）；身份映射器已实现（ATS-204：改名/改标题后的 UID 重识别、动态用例的锚点、歧义不误关联）；SQLite 元数据层已实现（ATS-205：WAL、版本迁移与事务；state.json 的镜像）；状态数据迁移 CLI 已实现（ATS-206：安全导入、备份与回滚；数量一致）；数据目录单实例锁与崩溃恢复已实现（ATS-207：原子抢锁、持有者校验、state.json 落盘同步、损坏镜像隔离重建）；执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，事件可按 run+sequence 复演）；证据清单与保留策略已实现（ATS-209：清单带所属运行与整组摘要、内容寻址去重、到期清理只删证据不删 Run 元数据）；项目级环境档案与 runner 环境封口已实现（ATS-212：档案按项目命名空间；只有白名单内的变量可传递；runner 不继承宿主环境）；质量概览模块已实现（ATS-216：失败聚类/Flaky 基础指标，非 AI；失败/重试/取消分开计数，指标与原始结果可核对）；Agent 契约层已实现；AI 数据安全两道闸门已实现（ATS-402：密钥入系统凭据库且磁盘只留引用；外传须先展示范围并取得知情授权，放行与拒绝都进审计）；远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）；部署式控制面 API 边界骨架已实现（ATS-506：独立进程/端点/凭据，入站拒绝本地路径与本地 Token）；插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）；移动端目标与会话契约已实现（ATS-601：三类目标、会话状态机、能力协商与拒绝规则；无真实设备）；移动端 Flow 导入映射已实现（ATS-602：跨引擎用例模型、映射规则与导入报告；不支持的步骤保留原文并标记，不静默丢弃）。
-  D7: 真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；详见 docs/16-BASELINE-ADR.md；CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md；静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112；Bridge 静态路由只覆盖 /，目录索引与 404 未实现；详见 docs/22-FRONTEND-EXPORT.md；权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；详见 docs/23-AUTHORITATIVE-DISCOVERY.md；跨机器的用例身份不在本任务范围（Project UID 依赖绝对路径）；详见 docs/26-IDENTITY-MAPPER.md；元数据层当前只做 state.json 的镜像，不提供查询 API；详见 docs/06-DATA-DESIGN.md §5；迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；详见 docs/24-STATE-MIGRATION.md；断电只以强杀进程模拟，未做真实掉电；桌面壳不显示占用提示；详见 docs/06-DATA-DESIGN.md §5.7；执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；详见 docs/06-DATA-DESIGN.md §5.4；证据清单未签名（不得宣称 WORM 或防篡改等级），清理掉证据后清单与文件夹不再一致（校验会如实报 missing）；详见 docs/27-EVIDENCE-MANIFEST.md；凭据形态的变量被拒绝并指向凭据存储（该存储已由 ATS-402 交付）；详见 docs/04-DETAILED-DESIGN.md §5A；质量概览已在真实 Chromium 里实测渲染（两个界面都打开质量概览页、指标与对账表都渲染、两界面数字一致、无 console 错误），但人工可用性（无障碍/键盘/加载态）未评测，属 ATS-111；聚类只到「错误文本归一化后的签名」，不做根因判断；详见 docs/28-QUALITY-OVERVIEW.md；详见 docs/17-AGENT-CONTRACT.md；模型提供商未接入（仓库无外发路径，ATS-403）；macOS/Linux 凭据库后端未在真机实测；Tauri 壳内凭据存取未验证；外传审计未做外部防篡改；ST-031/032/033 仍为 PENDING；详见 docs/23-AI-DATA-SECURITY.md；远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；详见 docs/19-REMOTE-RUNNER-PROTOCOL.md；控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；详见 docs/21-CONTROL-PLANE-API.md；插件宿主与沙箱未实现（ATS-512 只交付契约层）；详见 docs/21-PLUGIN-CONTRACT.md；移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md；移动端执行面仍无任何实现（ATS-602 只交付用例模型与导入映射；真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md。
+  D6: v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT；Next.js 16 静态导出构建已实测通过；锁文件、依赖清单与 CI 构建门禁已交付；Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过，真实 headless Chromium 驱动导出页 7/7 通过（ATS-103）；权威发现已实现（ATS-202：playwright test --list；未可信仓库回退静态索引）；索引回归数据集已交付（ATS-203：参数化/重复项目/同名标题/嵌套 describe；静态索引对参数化标记为动态，不猜测）；身份映射器已实现（ATS-204：改名/改标题后的 UID 重识别、动态用例的锚点、歧义不误关联）；SQLite 元数据层已实现（ATS-205：WAL、版本迁移与事务；state.json 的镜像）；状态数据迁移 CLI 已实现（ATS-206：安全导入、备份与回滚；数量一致）；数据目录单实例锁与崩溃恢复已实现（ATS-207：原子抢锁、持有者校验、state.json 落盘同步、损坏镜像隔离重建）；执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，事件可按 run+sequence 复演）；证据清单与保留策略已实现（ATS-209：清单带所属运行与整组摘要、内容寻址去重、到期清理只删证据不删 Run 元数据）；项目级环境档案与 runner 环境封口已实现（ATS-212：档案按项目命名空间；只有白名单内的变量可传递；runner 不继承宿主环境）；质量概览模块已实现（ATS-216：失败聚类/Flaky 基础指标，非 AI；失败/重试/取消分开计数，指标与原始结果可核对）；Agent 契约层已实现；AI 数据安全三道闸门已实现（ATS-402：密钥入系统凭据库且磁盘只留引用；外传须先展示范围并取得知情授权，放行与拒绝都进审计）；远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）；部署式控制面 API 边界骨架已实现（ATS-506：独立进程/端点/凭据，入站拒绝本地路径与本地 Token）；插件契约层已实现（权限清单与 Runner SDK，含宿主持有的权威提案记录；插件宿主未实现）；移动端目标与会话契约已实现（ATS-601：三类目标、会话状态机、能力协商与拒绝规则；无真实设备）；移动端 Flow 导入映射已实现（ATS-602：跨引擎用例模型、映射规则与导入报告；不支持的步骤保留原文并标记，不静默丢弃）。
+  D7: 真实浏览器 Playwright ST 未执行（受 B-01 阻断）；Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）；详见 docs/16-BASELINE-ADR.md；CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md；静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112；Bridge 静态路由只覆盖 /，目录索引与 404 未实现；详见 docs/22-FRONTEND-EXPORT.md；权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；详见 docs/23-AUTHORITATIVE-DISCOVERY.md；参数化用例的权威发现仍依赖 ATS-202 的 playwright test --list；UID 重识别与歧义提示属 ATS-204；跨机器的用例身份不在本任务范围（Project UID 依赖绝对路径）；详见 docs/26-IDENTITY-MAPPER.md；元数据层当前只做 state.json 的镜像，不提供查询 API；详见 docs/06-DATA-DESIGN.md §5；迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；详见 docs/24-STATE-MIGRATION.md；断电只以强杀进程模拟，未做真实掉电；桌面壳不显示占用提示；详见 docs/06-DATA-DESIGN.md §5.7；执行模型的真实浏览器 ST 未执行（夹具为 CLI 替身，只建模报告形状）；详见 docs/06-DATA-DESIGN.md §5.4；证据清单未签名（不得宣称 WORM 或防篡改等级），清理掉证据后清单与文件夹不再一致（校验会如实报 missing）；详见 docs/27-EVIDENCE-MANIFEST.md；凭据形态的变量被拒绝并指向凭据存储（该存储已由 ATS-402 交付）；详见 docs/04-DETAILED-DESIGN.md §5A；质量概览已在真实 Chromium 里实测渲染（两个界面都打开质量概览页、指标与对账表都渲染、两界面数字一致、无 console 错误），但人工可用性（无障碍/键盘/加载态）未评测，属 ATS-111；聚类只到「错误文本归一化后的签名」，不做根因判断；详见 docs/28-QUALITY-OVERVIEW.md；详见 docs/17-AGENT-CONTRACT.md；模型提供商未接入（仓库无外发路径，ATS-403）；macOS/Linux 凭据库后端未在真机实测；Tauri 壳内凭据存取未验证；外传审计未做外部防篡改；ST-032 仍为 PENDING（缺外发路径），ST-031/033 已执行；详见 docs/23-AI-DATA-SECURITY.md；远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；详见 docs/19-REMOTE-RUNNER-PROTOCOL.md；控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；详见 docs/21-CONTROL-PLANE-API.md；插件宿主与沙箱未实现（ATS-512 只交付契约层；同进程插件仍可自行 import，ATS-403 之前无保证）；详见 docs/21-PLUGIN-CONTRACT.md；移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md；移动端执行面仍无任何实现（ATS-602 只交付用例模型与导入映射；真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md。
   PASS  D6 and D7 still carry every task's contribution
 
-RESULT: OK -- the 23 WBS updaters coexist, are idempotent, do not undo
+RESULT: OK -- the 24 WBS updaters coexist, are idempotent, do not undo
         an accepted review, and the 总览 cache always matches 开发WBS.
 
 --- exit code: 0 ---

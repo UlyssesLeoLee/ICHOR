@@ -1102,10 +1102,10 @@ test('UT-PLG-061-C: nested-only sha256 tampering with shallow-copy host is rejec
     projects: [PROJECT],
   });
   const proposal = await sdk.reportOutcome(PROJECT, RUN_UID, { summary: 'ok', evidenceRefs: ['e1'] });
-  const tampered = structuredClone(proposal);
-  tampered.evidenceRefs[0].sha256 = 'f'.repeat(64);
+  // Tamper the returned object in-place (not a clone) to detect aliasing defects
+  proposal.evidenceRefs[0].sha256 = 'f'.repeat(64);
   assert.equal(
-    codeOf(() => reviewPluginProposal(tampered, { reviewer: 'alice', decision: 'approved', host })),
+    codeOf(() => reviewPluginProposal(proposal, { reviewer: 'alice', decision: 'approved', host })),
     'PLUGIN_PROPOSAL_INVALID',
   );
 });
@@ -1119,10 +1119,10 @@ test('UT-PLG-061-D: nested-only ref tampering with by-ref host is rejected', asy
     projects: [PROJECT],
   });
   const proposal = await sdk.reportOutcome(PROJECT, RUN_UID, { summary: 'ok', evidenceRefs: ['e1'] });
-  const tampered = structuredClone(proposal);
-  tampered.evidenceRefs[0].ref = 'someone-elses-e1';
+  // Tamper the returned object in-place (not a clone) to detect aliasing defects
+  proposal.evidenceRefs[0].ref = 'someone-elses-e1';
   assert.equal(
-    codeOf(() => reviewPluginProposal(tampered, { reviewer: 'alice', decision: 'approved', host })),
+    codeOf(() => reviewPluginProposal(proposal, { reviewer: 'alice', decision: 'approved', host })),
     'PLUGIN_PROPOSAL_INVALID',
   );
 });

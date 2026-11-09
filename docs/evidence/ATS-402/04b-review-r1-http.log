@@ -1,0 +1,29 @@
+================================================================================
+ATS-402 evidence log -- review round 1 probe r1-http.mjs (H1-H8, C1, C2) against this tree
+================================================================================
+commit        : d2a2f589d194631b198e6e2f7728a1c5e3f9168c
+timestamp     : 2026-11-09T05:16:26Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree
+node          : v24.19.0
+python        : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command       : env ATS402_REAL_CREDENTIAL_STORE=1 node tools/ats402-probes/review-r1/r1-http.mjs /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree D:/tmp/ats402/ats402-review-r1/http
+================================================================================
+
+OK    H1 requirement: preview->confirm->check must end in 200 -- preview=200 confirm=201 check=200 {"allowed":true,"scope":{"kinds":["requirement"],"count":1,"totalBytes":46,"items":[{"kind":"requirement","ref":"requirements.json","digest":"f3fa684f9f0a222a96bc7a40ba958371d4b78b411fbda929d8c3c7cc10f8905e","bytes":46}],"scopeDigest":"26e173ed1eb125ee4e84b633cd5169b5b955599a2473fd962fb0a02d00c8a5a1"}}
+OK    H8 requirement preview/confirm reads a file outside the root via junction -- preview=400 bytes=undefined (outside file is 23 bytes) confirm=undefined
+OK    H2 run: preview->confirm->check must end in 200 -- run=202 run_1_c9ef72f3eebba248fc4bb210 preview=200 confirm=201 check=200 {"allowed":true,"scope":{"kinds":["run"],"count":1,"totalBytes":74,"items":[{"kind":"run","ref":"run_1_c9ef72f3eebba248fc4bb210","digest":"b2e78345a1efc22d4e66935a5cffb3e619dd0ef7dbdc3a96edc90ee7b378eb05","bytes":74}],"scopeDigest":"97fa3fde4063683a872cf557200e6ab6f8ff95b3fdd46a123f197b0b743212db"}} audit 3->4
+OK    H3-dotdot out-of-root egress with a valid consent is refused but leaves no audit record -- check=400 {"error":"EGRESS_GATE_SCOPE_INVALID","reason":"the egress scope could not be resolved inside the project"} audit 5->6
+OK    H3-junction out-of-root egress with a valid consent is refused but leaves no audit record -- check=400 {"error":"EGRESS_GATE_SCOPE_INVALID","reason":"the egress scope could not be resolved inside the project"} audit 6->7
+OK    H3-absolute out-of-root egress with a valid consent is refused but leaves no audit record -- check=400 {"error":"EGRESS_GATE_SCOPE_INVALID","reason":"the egress scope could not be resolved inside the project"} audit 7->8
+OK    H3-mixed out-of-root egress with a valid consent is refused but leaves no audit record -- check=400 {"error":"EGRESS_GATE_SCOPE_INVALID","reason":"the egress scope could not be resolved inside the project"} audit 8->9
+OK    H4 egress.denied record names no ref (code comment says it records the refs it was about to send) -- check=403 items=[{"kind":"file","ref":"tests/home.spec.ts","digest":null,"bytes":0}] itemCount=1
+OK    H5 500 refused checks evict an earlier egress.granted record from the trail -- grant=200 eag_c7edc8670cf64fa980a06008 present after flood=true trail=506
+OK    H6 expired consent still listed as state=granted (UI counts it as active and offers revoke) -- list.state=expired check=403 EGRESS_CONSENT_EXPIRED
+NONBLOCK H7 project A consent authorises the same ref+content in project B -- check(B, consentOf A)=200 true
+OK    C1 credential backend failure -> HTTP 500 and an undeclared error code -- status=503 body={"error":"CREDENTIAL_STORE_FAILED"} declared=true
+OK    C2 reference cannot be removed once the OS-store entry is gone -- put=201 cmdkey=0 delete=200 {"credential":{"id":"cred_c32320c1b7eb43f2b64d956d","name":"r1-stuck","purpose":"ai-provider","provider":"windows-credential-manager","fingerprint":"a6b50b73","createdAt":"2026-11-09T05:16:46.273Z","updatedAt":"2026-11-09T05:16:46.273Z"}} stillListed=false
+
+RESULT: OK (13 checks)
+
+--- exit code: 0 ---

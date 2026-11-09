@@ -86,6 +86,8 @@ NOTE = (
     '引擎一律报 duplicate test title 拒绝运行；不同名 describe+同名用例、'
     '同一标题路径出现在两个文件，引擎正常运行并由 describe 路径/文件区分），'
     '因此在一个文件内「describe 路径+标题」这一对已经是唯一的，键用的是 describe 路径；'
+    '升级前存下的运行摘要不带 describe 路径与 case key，按「文件+标题」成键，'
+    '与升级后的运行各自成条（同一批用例在升级前后是两个条目，而不是一条历史）；'
     '对账除了逐 run 与 Bridge 计数器比对，还比对「界面显示的数」与 Bridge 报告的计数器'
     '（verdict 组各运行的 Σ summary.<bucket> 对上 cases.<bucket>，Σ summary.executions 对上 attempt 数），'
     '并检查每个运行恰好落在一个运行桶里；显示的数与 Bridge 的数来自两个地方，模块算错时对账会变红；'

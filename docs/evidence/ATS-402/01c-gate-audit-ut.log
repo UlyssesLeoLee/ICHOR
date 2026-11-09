@@ -1,0 +1,37 @@
+================================================================================
+ATS-402 evidence log -- the egress gate, the audit trail caps and the consent listing (tests/security-gate.test.mjs)
+================================================================================
+commit        : d2a2f589d194631b198e6e2f7728a1c5e3f9168c
+timestamp     : 2026-11-09T04:44:02Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree
+node          : v24.19.0
+python        : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command       : node --test tests/security-gate.test.mjs
+================================================================================
+
+✔ UT-GATE-001: file, requirement and run resolve through ONE resolver (5.556ms)
+✔ UT-GATE-002: escapes are SCOPE_INVALID: ../, absolute, drive letter, out of .aitest (0.2604ms)
+✔ UT-GATE-003: a junction/symlink to outside the project is SCOPE_INVALID for file AND requirement (1.5776ms)
+✔ UT-GATE-004: malformed inputs are INPUT_INVALID / PROJECT_UNKNOWN (2.1496ms)
+✔ UT-GATE-005: isSubpath and describeRequestedRefs (0.2758ms)
+✔ UT-GATE-006: no consent -> refused before any file is read (0.3121ms)
+✔ UT-GATE-007: a valid consent allows exactly the confirmed scope (file + requirement + run) (4.7053ms)
+✔ UT-GATE-008: with a VALID consent, scope failures are refusals (not throws) carrying a code (2.3176ms)
+✔ UT-GATE-009: changed content no longer matches the confirmed scope (2.4395ms)
+✔ UT-GATE-010: a consent store without check() is a programming error; one without checkConsent() still works (2.238ms)
+✔ UT-CON-001: the listing reflects expiry as `expired`; find() keeps the raw record (1.5109ms)
+✔ UT-CON-002: the scope digest separates fields (no kind/ref/digest concatenation ambiguity) (0.2354ms)
+✔ UT-AUD-009: a flood of one class never evicts another class (denials, consents, grants) (14.6837ms)
+✔ UT-AUD-010: the grant class has its own cap and drops its own oldest (4.7485ms)
+✔ UT-AUD-011: a refusal item with no digest is recorded as digest:null and bytes:0 (0.2894ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 187.7134
+
+--- exit code: 0 ---
