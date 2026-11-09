@@ -19,6 +19,10 @@ Unit tests with `node:test` in `tests/control-plane.test.mjs` (catalog IDs UT-CP
 | TC-005 | `classifyField` on `path`, `Project_Root`, `repository-url`, `cloneUrl`, `token`, `X-ATS-Token`, `apiKey`, `displayName` (UT-CP-005) | path/repository fields -> `REMOTE_PATH_FORBIDDEN`; credential fields -> `REMOTE_SECRET_INLINE_FORBIDDEN`; `displayName` -> `null` | `tests/control-plane.test.mjs` |
 | TC-006 | `isLocalSessionTokenShape` on 48-hex, 48-hex upper case, 40-hex, 64-hex, 47-hex, non-hex; `inspectValue({note: <48-hex>})` (UT-CP-006) | true only for 48 hex; body finding `REMOTE_SECRET_INLINE_FORBIDDEN` kind `local_session_token_shape` | `tests/control-plane.test.mjs` |
 | TC-007 | `inspectValue` on a 33-level nested object with default depth, and on a 32-level one (UT-CP-007) | first -> `REMOTE_POLICY_REJECTED` kind `depth_exceeded`; second -> `null` | `tests/control-plane.test.mjs` |
+| TC-008 | `isLocalSessionTokenShape` / `inspectValue` on `Bearer <48hex>`, `x-ats-token=<48hex>`, `tok <48hex>`, `0x<48hex>`, `k=<48hex>&z=1`, a 48-hex object key; negatives: 49-hex, 64-hex SHA-256, 96-hex, 40-hex SHA inside text (UT-CP-031) | embedded 48-hex runs -> token shape `REMOTE_SECRET_INLINE_FORBIDDEN`; longer or shorter runs -> `null` | `tests/control-plane.test.mjs` |
+| TC-009 | `detectLocalPath` on `$USERPROFILE/x`, `$APPDATA`, `${HOME}/x`, `$env:USERPROFILE\x`, `%USERPROFILE%`, `%APPDATA%\x`; negatives `100%`, `%E4%B8%AD`, `$5`, `a$` (UT-CP-032) | `env_path` for the positives, `null` for the negatives | `tests/control-plane.test.mjs` |
+| TC-010 | `detectLocalPath` on `D:work`, `\Users\x`, `Users\x\y`, `~root/x`, `data\proj\x`; negatives `a/b`, `ns:name`, `TCP/IP`, `Fix:/x` (UT-CP-033) | `windows_drive_path`, `windows_rooted_path`, `home_relative_path`; `null` for the negatives | `tests/control-plane.test.mjs` |
+| TC-011 | in-process HTTP: POST `displayName` `Bearer <48hex>` and `$USERPROFILE/x`; a stored value forced to `Bearer <48hex>` is blocked by egress (UT-CP-034) | 422 `REMOTE_SECRET_INLINE_FORBIDDEN` / `REMOTE_PATH_FORBIDDEN`; egress gives 500 `REMOTE_INTERNAL` | `tests/control-plane.test.mjs` |
 
 ## Boundary & Failure Cases
 
