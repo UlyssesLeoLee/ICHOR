@@ -1,0 +1,40 @@
+﻿  Discovered 0 test(s) from parameterized describe
+  Warning: 静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试不在其中。
+  Discovered 1 test(s) from forEach loop
+  Warning: 静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试不在其中。
+  Found 2 tests with title "可以登录"
+  First discovery: 1 test(s)
+  UID: tc_1_d_9f95a169c178e32d
+  Second discovery UID: tc_1_d_9f95a169c178e32d
+  Discovered 2 test(s)
+  Warning: 静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试不在其中。 2 个用例的 UID 为临时值（标题重复且无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。
+  ✓ Ambiguity properly reported in warning
+  First discovery: 1 test(s)
+  Tests: [{"title":"成功登录","uid":"tc_1_d_24ab725cc7cfe363"}]
+  Second discovery: 1 test(s)
+  Tests: [{"title":"成功登录","uid":"tc_1_d_24ab725cc7cfe363"}]
+  Discovered 3 test(s)
+    - 添加单个商品 (UID: tc_1_d_6f2dc5f4ca3b3de3)
+    - 添加多个商品 (UID: tc_1_d_4426215b71dc299f)
+    - 清空所有商品 (UID: tc_1_d_0b3d2ad2caa7babb)
+  Discovered 2 test(s)
+    - 格式检查
+    - 边界值
+  Found 2 regular (non-parameterized) tests
+✔ ST-ATS-203-001: parameterized tests with test.each are discovered (5.6987ms)
+✔ ST-ATS-203-002: parameterized tests with forEach are discovered (3.4087ms)
+✔ ST-ATS-203-003: same title in different files is correctly indexed (4.5189ms)
+✔ ST-ATS-203-004: UID is stable when describe path remains constant (4.6007ms)
+✔ ST-ATS-203-005: duplicate describe names with same title are handled (3.0092ms)
+✔ ST-ATS-203-006: same project discovered twice produces same UIDs (3.4784ms)
+✔ ST-ATS-203-007: nested describes are correctly indexed (3.2183ms)
+✔ ST-ATS-203-008: mixed parameterized and regular tests are discovered (2.7483ms)
+✔ cleanup: remove temporary test projects (13.4107ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 152.6913
