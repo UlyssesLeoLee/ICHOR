@@ -89,7 +89,7 @@ FR-021（`--list` 权威发现）、FR-022（AST 受控反写）、FR-023（WDIO
 
 **权限边界是机制而非约定**：契约层的源码只 import `node:crypto` 与 `node:path` 且不含任何 I/O 调用（由静态检查 + 11 项负控守护；**不是**「物理上无法」——真正的隔离属平台侧 ATS-403）；写入与提交类能力在请求层一律被拒；提案的 `approval` 恒为 `pending`。
 
-**这一节不改变 FR-024/025 的能力状态**：仓库中**没有**接入模型提供商，也**没有**把模型输出写入仓库、更新 expected result 或创建 Git commit 的代码路径。契约层是这两条要件的**前置依赖**，不是它们本身。详见 `docs/17-AGENT-CONTRACT.md` 与 `docs/evidence/ATS-401/`。
+**这一节不改变 FR-024/025 的能力状态**：契约层是这两条要件的**前置依赖**，不是它们本身。模型提供商适配器（ATS-403）与 API Key 存储、外传知情授权（ATS-402）**已实现**，但**模型输出仍不写入仓库**——仓库中**没有**把模型输出写入仓库、更新 expected result 或创建 Git commit 的代码路径；且**未用真实模型与真实密钥端到端验证**（只有注入 `fetch` 的确定性验证）。详见 `docs/17-AGENT-CONTRACT.md`、`docs/30-MODEL-ADAPTER.md` 与 `docs/evidence/ATS-401/`。
 
 ## 3. 接口约束清单（以实测为准）
 
@@ -123,8 +123,8 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 
    | # | 位置（file:line） | 作用 |
    |---|---|---|
-   | 1 | `server/index.mjs:59` | 默认值 `process.env.ATS_PORT\|\|4577` |
-   | 2 | `server/index.mjs:634` | CSP `connect-src` |
+   | 1 | `server/index.mjs:66` | 默认值 `process.env.ATS_PORT\|\|4577` |
+   | 2 | `server/index.mjs:666` | CSP `connect-src` |
    | 3 | `apps/studio/lib/api.ts:38` | API Base |
    | 4 | `apps/studio/app/page.tsx:189` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
    | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |

@@ -39,11 +39,12 @@
 | 29-REMOTE-SCHEDULING.md | 远程调度内核 | ATS-502：Job 队列/租约/心跳/幂等键/重试的实现与实测证据（ADR-024~034）；含租约 fencing、`running` 态回收与服务端租约上限；节点协议与执行仍未实现 |
 | 21-CONTROL-PLANE-API.md | 控制面 API・边界分离 | ATS-506：部署式控制面 API（`/cp/v1`）与桌面本地 API 的进程/端点/凭据/错误码分离、入站与出站边界规则、启动配置、桌面侧调用边界与实测证据 |
 | 21-PLUGIN-CONTRACT.md | 插件契約 | ATS-512 插件契约 v1：插件 Manifest、封闭权限清单、宿主策略档位、Runner SDK 操作面、审计与证据边界、**宿主持有的权威提案记录**、文件与项目两层作用域、协议样例（ADR-024~028；契约层已实现，插件宿主与沙箱未实现） |
-| 23-AI-DATA-SECURITY.md | AI 数据安全 | ATS-402：AI API Key 存储与数据外传知情授权（系统凭据库 + 引用式落盘、preview→confirm→grant 三步授权、平台侧复算内容摘要、放行与拒绝都进外传审计、错误码与实测证据；模型提供商未接入） |
+| 23-AI-DATA-SECURITY.md | AI 数据安全 | ATS-402：AI API Key 存储与数据外传知情授权（系统凭据库 + 引用式落盘、preview→confirm→grant 三步授权、平台侧复算内容摘要、放行与拒绝都进外传审计、错误码与实测证据；模型提供商接入见 ATS-403） |
+| 30-MODEL-ADAPTER.md | 模型 API 适配层 | ATS-403：可替换模型 API 适配器与错误回退（两种兼容协议、协议/传输/提供商/回退/编排五层分离、稳定的 AI_* 错误码与表驱动状态映射、可配置的回退顺序、密钥只在发请求时从凭据库取、外传闸门前置、失败不污染工作区；**未用真实模型与真实密钥端到端验证**） |
 | 25-MOBILE-APP-TESTING.md | 移动端测试执行面 | S6 / v0.5.0：移动端目标抽象（设备/模拟器/远端会话）、Flow→TestDefinition 映射、Android Runner 与证据归档、能力矩阵与 iOS/Maestro 边界（ATS-601~606；ATS-601 的目标与会话**契约层**已实现并经 UT 实测，其余仍为 DESIGNED，仓库内无真实移动端执行） |
 | 26-RUNNER-PREFLIGHT.md | Runner 预检与参数安全基线 | ATS-106：Playwright CLI 运行前环境检测（CLI/版本/Node/依赖/浏览器/配置）的错误码与修复提示、请求体白名单、过滤参数校验与整条参数向量自检、不经 shell |
 | dependencies/ | 依賴清單 | ATS-102 生成的依赖清单（机读 JSON + 人读 MD），由 lockfile 派生，可机读校验 |
-| evidence/ | 実行証跡 | ATS-101/ATS-102/ATS-103/ATS-201/ATS-202/ATS-205/ATS-301/ATS-401/ATS-402/ATS-501/ATS-502/ATS-506/ATS-512/ATS-208/ATS-216 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界、构建门禁与可重现性、UID 规范、权威发现契约、协议契约校验、前端静态导出与 Bridge API 契约、控制面边界、插件权限边界、执行模型与事件复演、AI 数据安全：凭据存储与外传知情授权） |
+| evidence/ | 実行証跡 | ATS-101/ATS-102/ATS-103/ATS-201/ATS-202/ATS-205/ATS-301/ATS-401/ATS-402/ATS-403/ATS-501/ATS-502/ATS-506/ATS-512/ATS-208/ATS-216 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界、构建门禁与可重现性、UID 规范、权威发现契约、协议契约校验、前端静态导出与 Bridge API 契约、控制面边界、插件权限边界、执行模型与事件复演、AI 数据安全：凭据存储与外传知情授权、模型 API 适配层：协议翻译/错误分类/回退/密钥来源/工作区不变性） |
 | tools/ats101-probes/ | 再現スクリプト | ATS-101 全部阻断项与约束清单的仓库内可重跑复现脚本（见 `docs/evidence/ATS-101/`） |
 | tools/ats201-probes/ | 再現スクリプト | ATS-201 稳定 UID 规范的可重跑验证脚本，含真实 Playwright 报告契约测试（见 `docs/evidence/ATS-201/`） |
 | tools/ats202-probes/ | 再現スクリプト | ATS-202 权威发现的真实 Playwright `--list` 契约测量（33 项断言，含「`--list` 会执行项目代码」这条安全事实，见 `docs/evidence/ATS-202/`） |
