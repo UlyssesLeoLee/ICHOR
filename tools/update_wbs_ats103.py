@@ -114,6 +114,8 @@ def main():
                    '五个变异划出各条断言的真实边界：声明了 force-static 的路由 handler 会被预渲染进 '
                    'out/api/** 并由文件树断言拦下，烘焙基址会被可执行判别（页面按主机名 localhost 打开，'
                    '记录 API 请求实际去的 host）变红。'
+                   '非默认端口上真实 UI 不可用（导出页仍指向默认端口），'
+                   '该结论由 05c-ui-smoke-non-default-port.log 背书。'
                    '此外合入 dev 后发现并修掉一处产品缺陷：server/index.mjs 的 CORS 段给白名单内的 '
                    'Origin 设了 Allow-Methods/Allow-Headers/Vary 却没有设 Access-Control-Allow-Origin，'
                    '浏览器因此拦掉全部跨源响应；修法是把该头设回该 Origin，回归用例 IT-SEC-002B '

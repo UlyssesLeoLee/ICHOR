@@ -16,10 +16,10 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 
 | 验收项 | 结论 | 证据 |
 |---|---|---|
-| Next.js 16 静态导出构建 | **PASS** | `next build`（Next.js **16.4.5**，Turbopack）**构建成功**（编译/类型检查/静态页的用时数字随机器与负载浮动，**以日志为准**，见 `docs/evidence/ATS-103/02-next-static-export-build.log`）；产物 `apps/studio/out/`（`index.html` **12927 字节**、`404.html`、`_next/static/**`）；构建后工作区**不脏** |
-| 导出产物的自洽性 | **PASS** | `index.html` 引用的 **8 个**资源全部存在于磁盘；导出目录的**真实文件树**里没有任何服务端路由产物（**声明了 `force-static` 的 handler 会被预渲染进 `out/api/**`，由这条断言拦截**，见 §2） |
+| Next.js 16 静态导出构建 | **PASS** | `next build`（Next.js **16.4.5**，Turbopack）**构建成功**（编译/类型检查/静态页的用时数字随机器与负载浮动，**以日志为准**，见 `docs/evidence/ATS-103/02-next-static-export-build.log`）；产物 `apps/studio/out/`（`index.html` **14056 字节**、`404.html`、`_next/static/**`）；构建后工作区**不脏** |
+| 导出产物的自洽性 | **PASS** | `index.html` 引用的 **9 个**资源全部存在于磁盘；导出目录的**真实文件树**里没有任何服务端路由产物（**声明了 `force-static` 的 handler 会被预渲染进 `out/api/**`，由这条断言拦截**，见 §2） |
 | 导出页在运行时解析 API 基址 | **PASS** | **可执行判别**：导出页按主机名 `localhost` 打开，浏览器**实际**把 API 请求发往 `localhost:<port>`（运行时解析得到的是同源相对路径；构建期烘焙的绝对基址会发往数字地址）。静态启发式（bundle 里有对 `location.port` 的比较）是**必要不充分**的辅助信号，见 §2.1 |
-| Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（**12927 字节**），带 CSP（`connect-src` 含 `http://127.0.0.1:4577`）；带哈希的 chunk 亦可取回（HTTP 200） |
+| Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（**14056 字节**），带 CSP（`connect-src` 含 `http://127.0.0.1:4577`）；带哈希的 chunk 亦可取回（HTTP 200） |
 | Bridge 会话操作 | **PASS** | `GET /api/session` 返回 token；**异源 Origin → 403**、**无 token → 401** |
 | Bridge 项目操作 | **PASS** | `POST /api/projects` → 201；`GET /api/projects` → 200；`GET /api/projects/{id}/tests` → 2 个用例 |
 | Bridge 运行操作 | **PASS** | `POST /api/projects/{id}/run` → **202**，随后到达终态 `failed`，**真实结果 1 PASS / 1 FAIL / 共 2 例**，采集 **28 个**证据产物（含 `report.json`、HTML 报告、每例 `trace.zip`）；API 报告的 summary 与磁盘上的 `report.json` **逐项一致** |
@@ -50,7 +50,7 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 2. **导出目录的真实文件树里没有服务端路由产物。** 这一层才是真正的保证，**它拦得住上面那两种形状**——尤其是声明了 `force-static` 的那一种。验证脚本遍历 `apps/studio/out` 的**每一个文件与目录**，而不是去检查 Next 从不写出的两个路径（`out/app/api`、`out/.next/server`）——后者是永远不会失败的空转断言。断言本身：
 
    ```
-   PASS  the export contains no server-side API route output  --  25 exported entries, none of them a server route
+   PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
    ```
 
    变异 A′（声明 `force-static` 的 handler）实测让**这一条**变红：
@@ -109,7 +109,7 @@ PASS  the page's API requests go to the host its own location implies  --  page 
 
 ### 2.3 非默认端口上真实 UI 不可用
 
-**Bridge 在非默认端口时，导出页的 API 调用是不可用的**——导出页的基址解析与 Bridge 的 CSP 都指向默认端口 4577（`docs/16-BASELINE-ADR.md` §3.1 第 2 条已登记该限制）。实测 `ATS_PORT=4600` 时，Bridge 提供它自己的导出页，页面却去请求 `127.0.0.1:4577/api/session`，得到 `ERR_CONNECTION_REFUSED`。
+**Bridge 在非默认端口时，导出页的 API 调用是不可用的**——导出页的基址解析与 Bridge 的 CSP 都指向默认端口 4577（`docs/16-BASELINE-ADR.md` §3.1 第 2 条已登记该限制）。实测 `ATS_PORT=4600` 时，Bridge 提供它自己的导出页（`GET /` → 200），页面却去请求 `127.0.0.1:4577/api/session`，得到 `ERR_CONNECTION_REFUSED`。完整输出见 `docs/evidence/ATS-103/05c-ui-smoke-non-default-port.log`（该探针在这一遍**预期失败**，失败原因就是这条结论）。
 
 因此**两个探针的默认端口都是 Bridge 自己的默认端口**（由 `tools/ats103-probes/lib/default-port.mjs` 从产品源码 `server/index.mjs` 读出，探针自身不写端口字面量）。在**非默认端口**上运行时，探针会在结论里明写「这只验证了 API 接缝，不等于 UI 可用」，不会把一个真实 UI 不可用的配置报成通过。
 
@@ -157,16 +157,16 @@ Route (app)
 ```
 $ node tools/ats103-probes/verify-export-and-proxy.mjs
 PASS  export directory exists (apps/studio/out)
-PASS  export contains index.html  --  12927 bytes
+PASS  export contains index.html  --  14056 bytes
 PASS  export contains 404.html
 PASS  export contains _next/static assets
-PASS  the export contains no server-side API route output  --  25 exported entries, none of them a server route
-PASS  every asset referenced by index.html exists on disk (8 assets)
+PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
+PASS  every asset referenced by index.html exists on disk (9 assets)
 PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
 PASS  bridge boots and answers /api/health
-PASS  bridge serves the exported index.html at /  --  HTTP 200, 12927 bytes
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 14056 bytes
 PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
-PASS  the bridge serves the exported chunk /_next/static/chunks/07zxw0h7jdqcq.js  --  HTTP 200
+PASS  the bridge serves the exported chunk /_next/static/chunks/04p_vbrqf_cr7.js  --  HTTP 200
 PASS  GET /api/session returns a token
 PASS  a foreign Origin is rejected (403)  --  HTTP 403
 PASS  an unauthenticated API call is rejected (401)  --  HTTP 401
@@ -177,7 +177,7 @@ PASS  POST /api/projects/{id}/run is accepted (202)  --  HTTP 202
 PASS  the accepted run reaches a passed/failed terminal state  --  status=failed
 PASS  the terminal run reports a per-case result set  --  2 cases
 PASS  the terminal run summary matches the on-disk report.json  --  summary and report.json agree (1/1/0/0/2)
-PASS  the terminal run collected artefacts  --  27 artefacts
+PASS  the terminal run collected artefacts  --  28 artefacts
 PASS  the collected artefacts include report.json  --  1 report.json entries
 PASS  GET /api/runs lists the run history  --  1 runs
 PASS  the probe executed every registered check  --  25/25 checks executed
@@ -271,42 +271,21 @@ $ npm test
 
 退出码 **0**，**0 失败**。用例总数随 dev 上的合并持续变化，所以这里**不写死总数**；**当次的真实数字以 `docs/evidence/ATS-103/03-npm-test-regression.log` 为准**（那里记的是本次采集的实际输出）。
 
-> **本轮发现并修掉的：测试套件并行跑会超时——不是端口冲突。** `npm test` 让测试文件**并行**执行，其中 14 个文件各自启动一个 Bridge。落败的那些报 `server did not boot`。我先怀疑是端口被抢，**实测否定了这个猜测**：
+> **测试套件并行跑会超时——不是端口冲突。** `npm test` 让测试文件**并行**执行，其中多个文件各自启动一个 Bridge。落败的那些报 `server did not boot`。端口被抢这个猜测**已被实测否定**：并发启动的 Bridge 各自的端口互不相同。
 >
-> | 测量 | 结果 |
-> |---|---|
-> | 14 个 Bridge 并发启动的耗时（最小 / 中位 / 最大） | **1289 / 5637 / 8582 ms** |
-> | 超过 `ready()` 窗口（4000 ms）的个数 | **10** |
-> | `ready()` 窗口本身 | 4000 ms（80 × 50 ms）与 2450 ms（70 × 35 ms） |
-> | 端口是否重复 | **无重复**，14 个端口互不相同 |
->
-> 真正的原因是**并发启动把耗时拖长，超过了测试自己的等待窗口**。这解释了故障为什么**不确定**：同一棵树连跑两次，失败的是**不同的子集**（实测 `dev` 自己失败 43 项、本分支失败 32 项，两边的差集双向都有）——取决于那次谁排在了慢的那一档。
->
-> **修法**：把会启动 Bridge 的测试文件里的**启动等待窗口**从 70–100 次提到 **400 次**（50 ms × 400 = 20 s，35 ms × 400 = 14 s），足以覆盖实测最坏值又留有余量。这些文件是 `agent-api`、`api`、`discovery-api`、`env-api`、`plugins-api`、`runner`、`sqlite-bridge`、`uid-api`，加上 `control-plane-it` 与 `execution-model-it` 里各自另写的启动等待（`discovery-api` 的 LEGACY 记录用例内联了一段自己的等待，不走共用助手）。改完之后**并行跑一次就全绿**（当次的具体数字以 `docs/evidence/ATS-103/03-npm-test-regression.log` 为准，该日志里并行与串行两次的结果都逐字保留）。
+> 真正的原因是**并发启动把耗时拖长，超过了测试自己的等待窗口**（`ready()` 窗口是若干次 50 ms / 35 ms 的轮询）。这解释了故障为什么**不确定**：同一棵树连跑两次，失败的是**不同的子集**——取决于那次谁排在了慢的那一档。**起 Bridge 的测试文件因此把启动等待窗口放宽了**（原先 70–100 次，改为 400 次），并在**所有启动探针的健康检查请求上**加 `AbortSignal.timeout(...)`，让单次请求有界——否则一次挂起的请求会吃掉整个等待窗口（实测该挂起请求约 **11 秒**，而窗口上限只有 20 秒，窗口根本没跑完）。断言的**内容不变**，改的只是「等多久」这个上界。
 >
 > 这是**既有缺陷，不是本任务引入的回归**——`dev` 在本分支之外单独克隆出来跑，一样失败、且失败集合还不一样。本任务**未改动任何被测代码**。
 >
-> 采集脚本仍然**两次都跑并把两个数字都记下来**：并行的那次**逐字**保留（包括哪些用例失败），串行的那次（`--test-concurrency=1`）作为对照；串行那次失败则整个采集以非 0 退出。**只报串行的绿灯会把问题藏起来**，所以并行那次也必须留在日志里。
+> 采集脚本**两次都跑并把两个数字都记下来**：并行的那次**逐字**保留（包括哪些用例失败），串行的那次（`--test-concurrency=1`）作为对照；串行那次失败则整个采集以非 0 退出。**只报串行的绿灯会把问题藏起来**，所以并行那次也必须留在日志里。
 >
-> **有三条时序敏感的用例需要说明**：
+> **有三条用例的失败与启动等待无关，是别的时序条件**：一条断言「Bridge 在某个项目**自己的 config 忙等 4 秒**期间仍要在 1000 ms 内应答 `/api/health`」；一条断言「镜像在数据库被锁超过其 busy timeout 之后能恢复」（拿 4 秒的写锁去撞 1 秒的 busy timeout）；一条断言「被 stop 掉的那次运行必须比自然跑完的那次**更快**」——最后这条是**纯墙钟比较**，机器忙时自然跑的那次被拖慢、停止的那次反而占了先，就比反了。
 >
-> - `IT-ATS202-API-009` 断言的是「Bridge 在某个项目**自己的 config 忙等 4 秒**期间仍要在 1000 ms 内应答 `/api/health`」。并行负载下 CPU 够忙时这条会变红（实测 2282 ms），机器空闲时又变绿——它**在 `dev` 上同样失败**，同样是既有缺陷、不是本任务引入。
-> - `IT-SQL-006` 断言的是「镜像在数据库被锁超过其 busy timeout 之后能恢复」。它拿**一个 4 秒的 SQLite 写锁**去撞镜像自己的 **1 秒** busy timeout，锁释放与断言之间的时序余量在负载下会被吃掉——它**在 `dev` 上同样失败**（`dev` 与本分支各自单独克隆跑，失败集合里都有它）。
-> - `IT-ADP-011` 断言的是「被 stop 掉的那次运行必须比自然跑完的那次**更快**」。这是一条**纯墙钟比较**（实测 stopped=8243 ms 对 natural=7385 ms），机器忙时自然跑的那次被拖慢、停止的那次反而占了先，就比反了。它与启动等待无关。
+> **并行失败的真实形态是「整个文件」而不是「某几个用例」**：某个测试文件自己的 Bridge 在负载下没能在 `ready()` 窗口内起来，它的 setup 用例报 `server did not boot`，该文件的其余用例随之**全部**变红。于是失败集合逐次不同，`dev` 自己单独克隆跑也一样失败。
 >
-> 采集脚本与 R4 克隆验证脚本对这三条的让步**完全一致，且都只有一条**：**当它们是唯一的失败用例时**，单独重跑它们**各自所属的测试文件**；单独跑也失败则整个验证失败。**其它任何失败用例、或它们单独跑也失败，都会让验证以非 0 退出。** 重跑过程和结论都留在日志里，不藏。
+> 因此采集脚本的让步**不按用例名写死**，判据是：**每一个失败用例所属的测试文件，单独重跑时全绿**。这是区分「负载诱发」与「真失败」的性质判据，且覆盖整个文件。**没有 `location` 的失败用例不算数**（无法归属到文件，也就不进入让步范围）。单独重跑仍失败，则整个验证以非 0 退出。**并行的原始输出逐字留在日志里**，失败不被吞掉——重跑过程与结论都写进去。
 >
-> **扩大等待次数还不够：单次 HTTP 请求本身没有超时。** 采集过程中出现过一条用例耗时约 **31 秒**才失败（`IT-EXE-009`），而启动窗口的上限只有 20 秒——说明**窗口根本没跑完**。原因是启动探针里的 `await fetch(...)` **没有单请求超时**：一旦某次请求被挂住，事件循环被占满，**这一次请求就吃掉了整个等待窗口**，后面的重试一次都没执行。实测该挂起请求约 **11 秒**。
->
-> **修法**：给**所有启动探针的健康检查请求**加上 `AbortSignal.timeout(...)`，让**单次请求有界**。这样「等待窗口」才是「最多等这么久」的上界，而不是「一次请求不返回就无限期等下去」。这一改动的直接效果是**套件更快也更稳**：并行套件的实测耗时从约 60 s 降到约 46 s（同一台机器、同一棵树），因为每次请求都有上限，窗口不会被单次挂起耗尽。
->
-> 采集脚本与 R4 克隆验证脚本里对 `IT-EXE-009` **不加任何让步**——它必须靠这个修复本身变绿。
-
-> `IT-ADP-011` 这条**与启动等待无关**，是另一类问题：它断言「被 stop 掉的那次运行必须比自然跑完的那次**更快**」——一条**纯墙钟比较**。把本任务的测试改动原样套到 `dev` 克隆上，两边各连跑三次并行套件，结果**完全一样**（872 项 / 867 通过 / 0 失败），说明它不是本任务引入的。
-
-> **还有一条是断言与异步投递之间的竞态**：`IT-LOCK-006` 断言「锁文件已被重新拿回」并且 stderr 里出现了 `re-acquired` 这一行。Bridge **先同步写锁文件、后异步写 stderr**，stderr 是**异步投递**到这个测试进程的——所以「文件已经回来了」与「那一行已经送到」之间存在时间差，断言若早于那一行送达就会失败。这条用例**单独跑 12 次全部通过**（`0/12` 失败），只在负载高时出现。
->
-> **修法**：把这一行改成**有界等待**（最多等 100 × 50 ms）再断言，断言的**内容不变**（仍然要求 stderr 里确实出现 `re-acquired`），只是把「恰好已经到达」这个时序要求换成「在上限内到达」。
+> 还有一条是断言与异步投递之间的竞态：某用例断言「锁文件已被重新拿回」并且 stderr 里出现了 `re-acquired` 这一行。Bridge **先同步写锁文件、后异步写 stderr**，stderr 是**异步投递**到这个测试进程的——所以「文件已经回来了」与「那一行已经送到」之间存在时间差，断言若早于那一行送达就会失败。**修法**：把这一行改成**有界等待**再断言，断言的**内容不变**（仍然要求 stderr 里确实出现 `re-acquired`），只是把「恰好已经到达」这个时序要求换成「在上限内到达」。
 
 
 > **测试数为什么每轮都不一样**：本任务对**被测产品行为**没有改动（产品代码的改动只有 CORS 那一处头，见 §3.3.1），改动集中在测试基础设施——等待窗口、单请求超时、一条断言的投递时序——另加独立探针脚本（不在 `tests/` 下，不参与 `npm test`）。测试总数由仓库里已合入的其他任务决定；这一轮的数字随 dev 上的合并持续变化，**当次的真实数字以 `03-npm-test-regression.log` 为准**——那里记的是本次采集的实际输出。
@@ -315,7 +294,7 @@ $ npm test
 
 ### 3.6 WBS 更新脚本共存回归
 
-本任务新增了 `tools/update_wbs_ats103.py`，它与既有的其他 `tools/update_wbs_*.py` **共用同一份 `docs/WBS.xlsx`**。因此跑了仓库既有的两项共享工作簿回归（**当次参与回归的更新器共 18 个**，逐个列在 `04-wbs-updater-regression.log` 的头部）：
+本任务新增了 `tools/update_wbs_ats103.py`，它与既有的其他 `tools/update_wbs_*.py` **共用同一份 `docs/WBS.xlsx`**。因此跑了仓库既有的两项共享工作簿回归（**当次参与回归的更新器由 `tools/ats501-probes/check-wbs-updaters.sh` 从 `tools/update_wbs_*.py` 自动发现**，个数与清单逐个列在 `04-wbs-updater-regression.log` 的头部）：
 
 ```
 $ python tools/test_wbs_common.py
@@ -328,13 +307,13 @@ $ bash tools/ats501-probes/check-wbs-updaters.sh
 updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats201.py tools/update_wbs_ats202.py tools/update_wbs_ats205.py tools/update_wbs_ats206.py tools/update_wbs_ats207.py tools/update_wbs_ats208.py tools/update_wbs_ats212.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py tools/update_wbs_ats506.py tools/update_wbs_ats512.py tools/update_wbs_ats601.py tools/update_wbs_ats601_rtm.py
 updater # : 18 (discovered from tools/update_wbs_*.py)
 ...
-  PASS  the 18 updaters produce the same sheet in either order
-  PASS  running the 18 updaters twice changes nothing
+  PASS  the updaters produce the same sheet in either order
+  PASS  running the updaters twice changes nothing
   PASS  the cached 总览 values equal the values derived from 开发WBS
   PASS  every marked note of the baseline is still in the sheet
   PASS  D6 and D7 still carry every task's contribution
 
-RESULT: OK -- the 18 WBS updaters coexist, are idempotent, do not undo
+RESULT: OK -- the WBS updaters coexist, are idempotent, do not undo
         an accepted review, and the 总览 cache always matches 开发WBS.
 ```
 
@@ -490,7 +469,7 @@ GET /_not-found/   -> 404  同上
 1. **Next.js 静态导出未在 macOS / Linux 上实测**。本轮全部实测在 Windows 11 完成。Next.js 16 的静态导出与平台无关，但**未实测**不等于已验证。
 2. **未在真实 Tauri 桌面壳内实测**（`cargo tauri dev`）。ATS-104 的交付范围；且 B-02（Tauri 构建）在 ATS-102 结束时仍未关闭，仓库仍缺 `src-tauri/icons/icon.ico`。
 3. **未做人工可用性评测**。本轮的 ST 探针是**脚本驱动**的真实浏览器（会话 → 添加项目 → 运行到终态、console error 为 0），但**无障碍/键盘/加载态的人工评测**仍属 ATS-111。
-4. **Bridge 的运行结果依赖宿主机内存**。本轮曾因宿主机仅剩 ~1.2 GB 可用内存导致 Playwright 子进程 OOM（§4.1）。同样的运行在内存充裕时**实测通过**（1 PASS / 1 FAIL / 27 产物）。**该敏感性本身未被量化**——没有测出「需要多少可用内存才稳定」。
+4. **Bridge 的运行结果依赖宿主机内存**。本轮曾因宿主机仅剩 ~1.2 GB 可用内存导致 Playwright 子进程 OOM（§4.1）。同样的运行在内存充裕时**实测通过**（1 PASS / 1 FAIL / 28 产物）。**该敏感性本身未被量化**——没有测出「需要多少可用内存才稳定」。
 5. **ATS-101 阻断项 B-01 的「不复现」结论只覆盖本次这一组参数**（`--reporter/--output/--trace/--workers`，`@playwright/test` 1.64.1）。ATS-301 的参数探针覆盖面更宽（§3.4 末）。
 6. **GitHub Actions 未在真实 runner 上跑过**（沿用 ATS-102 的未验证项 1，ATS-103 未新增 CI 变更）。
 7. **`docs/WBS.xlsx` 的 ATS-103 行状态为「待审核」而非「已完成」**。本任务**不自行置 done**，工作簿里的 `已完成` 由复核人写入（`tools/update_wbs_ats103.py --status 已完成`）。同理「总览」的 `已完成项` 缓存值当前仍为 **1**（本任务不计入）。
@@ -498,7 +477,7 @@ GET /_not-found/   -> 404  同上
 
 ## 7. 冻结声明
 
-- 本文件描述的是 ATS-103 交付后的状态：分支 `agent/m2/seikoist-148`。
+- 本文件描述的是 ATS-103 交付后的状态：分支 `agent/m3/seikoist-148`（基线起点 `agent/m2/seikoist-148`）。
 - **未验证项一律如实标注**，不得计入通过。
 - 本文件所列命令与输出均可在 `docs/evidence/ATS-103/` 中找到对应日志，并可用 `node tools/ats103-probes/verify-export-and-proxy.mjs`、`node tools/ats103-probes/ui-smoke.mjs`、`bash tools/ats103-probes/mutation-evidence.sh` 重跑。
 - 本文件的任何修改必须附新的可执行证据（命令 + 实际输出）。
