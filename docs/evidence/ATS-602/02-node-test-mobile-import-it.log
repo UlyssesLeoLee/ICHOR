@@ -1,28 +1,29 @@
 === ATS-602 evidence: the mobile Flow import (integration tests) ===
-tree : 4b93cbec2d74d7f31d035e8d621cf976af3e6431
-date : 2026-11-09T06:31:19Z
+tree : c51c4f30584927222e50a5d067a09e9c68b48891
+date : 2026-11-09T08:49:30Z
 
-✔ IT-ATS602-API-SETUP: start the bridge (593.9858ms)
-✔ IT-ATS602-API-001: the mobile cases are in the catalogue the API serves (88.2917ms)
-✔ IT-ATS602-API-002: the mobile case carries its steps and its engine (73.3642ms)
-✔ IT-ATS602-API-003: the import report is served with the catalogue (91.522ms)
-✔ IT-ATS602-API-004: the warning says that steps were not supported (105.4403ms)
-✔ IT-ATS602-API-005: the two syntaxes produce the SAME kind of case (101.3027ms)
-✔ IT-ATS602-API-006: the uid of a mobile case survives a restart of the bridge (952.5822ms)
-✔ IT-ATS602-API-007: the uids of the mobile cases are distinct from the web ones (78.3079ms)
-✔ IT-ATS602-API-008: a project without a Flow has no mobile cases (168.266ms)
-✔ IT-ATS602-API-009: a retitled mobile case keeps its uid over HTTP (268.6344ms)
-✔ IT-ATS602-API-010: a @TC- token that a web case and a mobile case claim binds to neither (170.2906ms)
-✔ IT-ATS602-API-011: a trusted project keeps its mobile cases (910.2309ms)
-✔ IT-ATS602-API-012: a token a mobile case drops and a web case declares is not re-issued over HTTP (N2-cross) (343.2618ms)
-✔ IT-ATS602-API-013: copying a scenario and editing the original keeps the uids distinct over HTTP (N3) (286.9749ms)
-✔ IT-ATS602-API-014: a trusted project does not hand a deleted uid to a new case with the same body (N1) (6884.8102ms)
-✔ IT-ATS602-API-CLEANUP: stop the bridge and remove the fixture (604.5465ms)
-ℹ tests 16
+✔ IT-ATS602-API-SETUP: start the bridge (1405.8373ms)
+✔ IT-ATS602-API-001: the mobile cases are in the catalogue the API serves (267.1678ms)
+✔ IT-ATS602-API-002: the mobile case carries its steps and its engine (271.4363ms)
+✔ IT-ATS602-API-003: the import report is served with the catalogue (221.4229ms)
+✔ IT-ATS602-API-004: the warning says that steps were not supported (213.5597ms)
+✔ IT-ATS602-API-005: the two syntaxes produce the SAME kind of case (239.7583ms)
+✔ IT-ATS602-API-006: the uid of a mobile case survives a restart of the bridge (2211.1603ms)
+✔ IT-ATS602-API-007: the uids of the mobile cases are distinct from the web ones (249.969ms)
+✔ IT-ATS602-API-008: a project without a Flow has no mobile cases (584.8696ms)
+✔ IT-ATS602-API-009: a retitled mobile case keeps its uid over HTTP (510.8266ms)
+✔ IT-ATS602-API-010: a @TC- token that a web case and a mobile case claim binds to neither (294.1909ms)
+✔ IT-ATS602-API-011: a trusted project keeps its mobile cases (1619.7276ms)
+✔ IT-ATS602-API-012: a token a mobile case drops and a web case declares is not re-issued over HTTP (N2-cross) (305.7684ms)
+✔ IT-ATS602-API-013: copying a scenario and editing the original keeps the uids distinct over HTTP (N3) (306.336ms)
+✔ IT-ATS602-API-014: a trusted project does not hand a deleted uid to a new case with the same body (N1) (2177.6896ms)
+✔ IT-ATS602-API-015: a trusted project applies the @TC- token rules across both engines (T1 / T3) (2578.2561ms)
+✔ IT-ATS602-API-CLEANUP: stop the bridge and remove the fixture (394.0543ms)
+ℹ tests 17
 ℹ suites 0
-ℹ pass 16
+ℹ pass 17
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 14491.0302
+ℹ duration_ms 19779.0925
