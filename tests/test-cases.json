@@ -10208,6 +10208,61 @@
     "level": "ST"
   },
   {
+    "id": "ST-039",
+    "req": "FR-009",
+    "category": "功能",
+    "title": "真实浏览器至少 1 PASS 1 FAIL",
+    "input": "examples/real-browser-fixture：一条离线通过用例 + 一条故意失败用例，@playwright/test 1.65.0 精确固定，lockfile 入库",
+    "expected": "真实 Chromium 上跑出至少 1 条 PASS 与 1 条 FAIL；Bridge 报 1 passed / 1 failed",
+    "evidence": "node tools/ats107-probes/st-ats107.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-040",
+    "req": "FR-009",
+    "category": "功能",
+    "title": "结果与 CLI 一致",
+    "input": "同一夹具分别经 Playwright CLI 直跑与经 Bridge 跑",
+    "expected": "两条用例的逐条判定与 CLI 完全相同；计数器一致",
+    "evidence": "node tools/ats107-probes/st-ats107.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-041",
+    "req": "FR-014",
+    "category": "功能",
+    "title": "错误信息与 CLI 一致",
+    "input": "故意失败的用例",
+    "expected": "Bridge 报出的失败原因就是引擎自己的错误信息（含引擎写的断言文本），Bridge 不丢弃也不改写",
+    "evidence": "node tools/ats107-probes/st-ats107.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-042",
+    "req": "FR-009",
+    "category": "可靠性",
+    "title": "对账逻辑非恒真",
+    "input": "把 Bridge 应报的结果做 10 种变异（改判定、换序、丢错误、丢用例、改计数器等）",
+    "expected": "每种变异都必须被对账逻辑抓住；未变异的真实结果必须被接受",
+    "evidence": "node tools/ats107-probes/mutation-check.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-043",
+    "req": "FR-009",
+    "category": "功能",
+    "title": "夹具依赖由 lockfile 固定",
+    "input": "examples/real-browser-fixture/package.json + package-lock.json",
+    "expected": "版本为精确固定（无 ^/~）；lockfile 已入库；npm ci 装出的版本与固定值一致",
+    "evidence": "node tools/ats107-probes/st-ats107.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
     "id": "ST-025",
     "req": "NFR-010",
     "category": "单实例",

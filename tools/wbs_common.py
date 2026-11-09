@@ -41,7 +41,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-106】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-106】', '【ATS-107】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
            '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-215】', '【ATS-216】',
            '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-403】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
            '【ATS-601】', '【ATS-602】')
@@ -65,7 +65,13 @@ NARRATIVE = {
         ),
     },
     'D7': {
-        'base': '真实浏览器 Playwright ST 未执行（受 B-01 阻断）；'
+        # B-01 (the fatal Playwright CLI argument defect) was fixed by
+        # ATS-106, and ATS-107 then executed the real browser chain, so the
+        # old "the real browser ST was never executed" claim is no longer
+        # true. The cell is rebuilt from the base and every task's fragment,
+        # so the old sentence simply stops being part of the base.
+        'base': '真实浏览器 Playwright ST 已开始实测（B-01 已由 ATS-106 修复，'
+                'ATS-107 起在真实 Chromium 上执行）；'
                 'Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、'
                 '仓库缺 icons/icon.ico，且成因清单尚未穷尽）',
         'stale': (
@@ -176,6 +182,13 @@ NARRATIVE_FRAGMENTS = {
               '两界面数字一致、无 console 错误），但人工可用性（无障碍/键盘/加载态）未评测，属 ATS-111；'
               '聚类只到「错误文本归一化后的签名」，不做根因判断；'
               '详见 docs/28-QUALITY-OVERVIEW.md',
+    },
+    '【ATS-107】': {
+        'D6': '真实浏览器 PASS/FAIL 测试仓库已交付（ATS-107：独立工程夹具，@playwright/test 精确固定'
+              '且 lockfile 入库，真实 Chromium 上 1 PASS 1 FAIL，逐条结果与错误信息均与 CLI 直跑一致）',
+        'D7': '真实浏览器链路已实测（ATS-107），但覆盖面仅限该夹具的两条离线用例；'
+              '真实站点的联网用例、可中断长用例（ST-010）与多次重复执行（ST-012）仍未实测；'
+              '详见 docs/31-REAL-BROWSER-FIXTURE.md',
     },
     '【ATS-501】': {
         'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',

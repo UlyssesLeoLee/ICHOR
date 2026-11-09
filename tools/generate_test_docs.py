@@ -563,6 +563,26 @@ ST=[
 ('ST-033','NFR-009','隐私','无授权的外传请求被拒','清空授权后触发外传','请求被拒并给出 EGRESS_CONSENT_REQUIRED','node tools/ats402-probes/ui-e2e.mjs 结果 + 接口日志（docs/evidence/ATS-402/ui/）','PASS'),
 ]
 
+# ATS-107: the REAL BROWSER PASS/FAIL REPOSITORY.
+#
+# The segment is appended here, after the ST list, so that adding it does not
+# move the lines docs/16-BASELINE-ADR.md and tools/check_adr_citations.py cite
+# by position -- the same convention the ATS-506 block below follows.
+#
+# ST-039..041 are the acceptance criterion of ATS-107 itself:
+#   「Chromium 上至少 1 PASS 1 FAIL；结果和错误信息与 CLI 一致」
+# The probe drives the REAL Bridge and the REAL Playwright CLI against the
+# REAL fixture (examples/real-browser-fixture), so the PASS and the FAIL come
+# from a real Chromium and the "consistent with the CLI" half is a comparison
+# against an independent CLI run.
+ST+=[
+('ST-039','FR-009','功能','真实浏览器至少 1 PASS 1 FAIL','examples/real-browser-fixture：一条离线通过用例 + 一条故意失败用例，@playwright/test 1.65.0 精确固定，lockfile 入库','真实 Chromium 上跑出至少 1 条 PASS 与 1 条 FAIL；Bridge 报 1 passed / 1 failed','node tools/ats107-probes/st-ats107.mjs','PASS'),
+('ST-040','FR-009','功能','结果与 CLI 一致','同一夹具分别经 Playwright CLI 直跑与经 Bridge 跑','两条用例的逐条判定与 CLI 完全相同；计数器一致','node tools/ats107-probes/st-ats107.mjs','PASS'),
+('ST-041','FR-014','功能','错误信息与 CLI 一致','故意失败的用例','Bridge 报出的失败原因就是引擎自己的错误信息（含引擎写的断言文本），Bridge 不丢弃也不改写','node tools/ats107-probes/st-ats107.mjs','PASS'),
+('ST-042','FR-009','可靠性','对账逻辑非恒真','把 Bridge 应报的结果做 10 种变异（改判定、换序、丢错误、丢用例、改计数器等）','每种变异都必须被对账逻辑抓住；未变异的真实结果必须被接受','node tools/ats107-probes/mutation-check.mjs','PASS'),
+('ST-043','FR-009','功能','夹具依赖由 lockfile 固定','examples/real-browser-fixture/package.json + package-lock.json','版本为精确固定（无 ^/~）；lockfile 已入库；npm ci 装出的版本与固定值一致','node tools/ats107-probes/st-ats107.mjs','PASS'),
+]
+
 # ATS-506 control-plane cases (tests/control-plane.test.mjs, tests/control-plane-it.test.mjs).
 # They are appended here, after the ST list, so that adding them does not move the
 # lines docs/16-BASELINE-ADR.md and tools/check_adr_citations.py cite by position.
