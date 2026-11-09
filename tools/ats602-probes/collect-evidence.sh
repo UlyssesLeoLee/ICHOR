@@ -13,6 +13,8 @@ TREE="${1:-.}"
 cd "$TREE" || exit 1
 
 export TMPDIR="${TMPDIR:-/tmp}"
+# The Python steps print Chinese; the console code page must not mangle it.
+export PYTHONUTF8=1
 mkdir -p "$TMPDIR"
 
 EV="docs/evidence/ATS-602"
@@ -135,12 +137,21 @@ hdr() {
 } > "$EV/04-coverage-mobile-import.log" 2>&1
 
 # --- 05: the full regression ----------------------------------------------
+#
+# The suite is the same `tests/*.test.mjs` that `npm test` runs. The runner
+# is told how many files to run AT ONCE: left to its default (one per CPU)
+# it starts every file together, and on a machine that is already busy the
+# runner itself dies of "Zone Allocation failed - process out of memory"
+# before a single test runs. A bounded concurrency changes the pace, not
+# the tests; the log says which value was used.
+CONCURRENCY="${ATS602_TEST_CONCURRENCY:-2}"
 {
   echo "=== ATS-602 evidence: the full regression (every test file) ==="
   echo "tree : $COMMIT"
   echo "date : $STAMP"
+  echo "runner: node --test --test-concurrency=$CONCURRENCY tests/*.test.mjs"
   echo
-  npm test 2>&1
+  node --test --test-concurrency="$CONCURRENCY" tests/*.test.mjs 2>&1
 } > "$EV/05-node-test-full.log" 2>&1
 
 # --- 06: the quality gates -------------------------------------------------
