@@ -1,0 +1,32 @@
+=== ATS-603 evidence ===
+tree:    1f51ad300164ea6c3b46a5aa7cf81b9790ce85d3
+branch:  dev
+when:    2026-11-09T14:09:38Z
+node:    v24.19.0
+===
+
+== adb version ==
+Android Debug Bridge version 1.0.41
+Version 35.0.2-12147458
+Installed as C:\Users\seiko\AppData\Local\Android\Sdk\platform-tools\adb.exe
+Running on Windows 10.0.26300
+
+== devices ==
+List of devices attached
+emulator-5554          device product:sdk_gphone64_x86_64 model:sdk_gphone64_x86_64 device:emu64xa transport_id:7
+
+
+== device properties ==
+ro.build.version.release = 15
+ro.build.version.sdk = 35
+ro.product.model = sdk_gphone64_x86_64
+
+== screen ==
+Physical size: 1080x2400
+
+== emulator acceleration ==
+Warning: Quick Boot / Snapshots not supported on this machine. A CPU with EPT + UG features is currently needed. We will address this in a future release.
+accel:
+0
+WHPX(10.0.26300) is installed and usable.
+accel

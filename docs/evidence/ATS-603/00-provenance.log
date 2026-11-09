@@ -1,0 +1,13 @@
+=== ATS-603 evidence ===
+tree:    bd21cca4eec4e01c1b39dd2611c73e5a1b886c46
+branch:  dev
+when:    2026-11-09T14:48:29Z
+node:    v24.19.0
+sdk:     C:\Users\seiko\AppData\Local\Android\Sdk
+device:  emulator-5554 (Android 15 / API 35, Pixel_6_API_35, WHPX)
+===
+
+本目录的日志全部采自上面这棵树（合并回 dev 之后的树）。
+每一份日志的头部都写明它所描述的树，因此每份日志都能被核对到那一次提交。
+
+见 README.md 的分项说明。

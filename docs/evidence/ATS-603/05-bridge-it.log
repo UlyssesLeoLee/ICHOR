@@ -1,0 +1,21 @@
+=== ATS-603 evidence ===
+tree: bd21cca4eec4e01c1b39dd2611c73e5a1b886c46 | branch: dev | when: 2026-11-09T14:35:54Z
+cmd: node --test tests/android-bridge-it.test.mjs
+--- output ---
+IT-ATS603-030 catalogue: ["a web case","Smoke flow"]
+IT-ATS603-030 negotiated: "android"
+IT-ATS603-030 run: run_1_dd52b12fc3395e816f9f0b9c
+IT-ATS603-030 status: passed summary={"passed":1,"failed":0,"skipped":0,"flaky":0,"total":1,"executions":1,"cases":[{"title":"Smoke flow","file":null,"status":"passed","scope":[],"line":null,"column":null,"caseKey":"Smoke flow","outcome":"expected","duration":0,"error":"","attemptsCount":1,"attachments":[],"attempts":[{"status":"passed","expectedStatus":"passed","outcome":"expected","retry":0,"duration":0,"error":""}]}]} error=
+IT-ATS603-030 summary: {"passed":1,"failed":0,"skipped":0,"flaky":0,"total":1,"executions":1,"cases":[{"title":"Smoke flow","file":null,"status":"passed","scope":[],"line":null,"column":null,"caseKey":"Smoke flow","outcome":"expected","duration":0,"error":"","attemptsCount":1,"attachments":[],"attempts":[{"status":"passed","expectedStatus":"passed","outcome":"expected","retry":0,"duration":0,"error":""}]}]}
+✔ IT-ATS603-030: the Bridge runs a mobile case on the device and reports it (15415.8788ms)
+IT-ATS603-031 runners: ["playwright","wdio","mobile","android"]
+✔ IT-ATS603-031: the capability matrix reports the android runner (624.1333ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19242.6037
+--- exit: 0 ---
