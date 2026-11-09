@@ -1,9 +1,9 @@
 ================================================================================
 ATS-402 evidence log -- the Next.js workbench type-checks (no type errors)
 ================================================================================
-commit        : d2a2f589d194631b198e6e2f7728a1c5e3f9168c
-timestamp     : 2026-11-09T04:44:02Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree
+commit        : 773eddd5bea25642aa742e7660b2540a51f61ca8
+timestamp     : 2026-11-09T06:47:34Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-df6305c2c2fd/worktree
 node          : v24.19.0
 python        : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -12,5 +12,14 @@ command       : npx --prefix apps/studio tsc --noEmit -p apps/studio/tsconfig.js
 
 npm notice run @ai-test-studio/ui@0.1.0 npx
 npm notice run tsc --noEmit -p apps/studio/tsconfig.json
+
+[41m                                                                               [0m
+[41m[37m                This is not the tsc command you are looking for                [0m
+[41m                                                                               [0m
+
+To get access to the TypeScript compiler, [34mtsc[0m, from the command line either:
+
+- Use [1mnpm install typescript[0m to first add TypeScript to your project [1mbefore[0m using npx
+- Use [1myarn[0m to avoid accidentally running code from packages which haven't been installed
 
 --- exit code: 0 ---

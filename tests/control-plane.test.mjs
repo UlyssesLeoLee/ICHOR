@@ -1,5 +1,5 @@
 // ATS-506 unit tests: the deployable control-plane API (/cp/v1) and its
-// boundary against the desktop local Bridge. Catalog: UT-CP-001..030 in
+// boundary against the desktop local Bridge. Catalog: UT-CP-001..034 in
 // tools/generate_test_docs.py; design: docs/21-CONTROL-PLANE-API.md.
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -556,5 +556,50 @@ test('UT-CP-030: the contract endpoint describes the boundary', async () => {
   assert.equal(r.json.credential.localCredentialAccepted, false);
   assert.equal(r.json.resourceReference, 'opaque_uid_only');
   assertRemoteError(await call(port, 'GET', '/cp/v1/contract'), 401, 'REMOTE_UNAUTHENTICATED');
+  server.close();
+});
+
+// --- review round 1 regression cases (UT-CP-031..034) ----------------------
+
+test('UT-CP-031: the local session token is recognised at any position; other digest lengths are not', () => {
+  const embedded = [`Bearer ${HEX48}`, `x-ats-token=${HEX48}`, `tok ${HEX48}`, `0x${HEX48}`, `k=${HEX48}&z=1`, `${HEX48}\n`, `(${HEX48})`, HEX48.toUpperCase(), `Bearer ${HEX48.toUpperCase()}`];
+  for (const v of embedded) assert.equal(isLocalSessionTokenShape(v), true, v);
+  const other = ['a'.repeat(49), 'a'.repeat(64), 'a'.repeat(96), `sha ${'a'.repeat(40)} here`, `${'a'.repeat(47)}-${'b'.repeat(47)}`, 'g'.repeat(60), `x${'z'.repeat(48)}`];
+  for (const v of other) assert.equal(isLocalSessionTokenShape(v), false, v);
+  assert.deepEqual(inspectValue({ note: `Bearer ${HEX48}` }), { code: 'REMOTE_SECRET_INLINE_FORBIDDEN', kind: 'local_session_token_shape', pointer: '/note' });
+  assert.equal(inspectValue({ [`x-ats-token=${HEX48}`]: 1 }).code, 'REMOTE_SECRET_INLINE_FORBIDDEN');
+  assert.equal(inspectValue({ list: [{ deep: `tok ${HEX48}` }] }, { fieldNames: false }).pointer, '/list/0/deep');
+  assert.equal(inspectValue({ sha: 'a'.repeat(64) }), null);
+});
+
+test('UT-CP-032: every environment-variable form is a local path form; plain text is not', () => {
+  for (const v of ['$USERPROFILE/x', '$APPDATA', '${HOME}/x', '${USERPROFILE}', '$env:USERPROFILE\\x', '$HOME', '%USERPROFILE%', '%APPDATA%\\x', 'cd %TEMP%/y', 'dir=$PWD']) {
+    assert.equal(detectLocalPath(v), 'env_path', v);
+  }
+  for (const v of ['100%', '%E4%B8%AD', '$5', 'a$', 'price 20%', '50% off, 60% more', '%']) assert.equal(detectLocalPath(v), null, v);
+});
+
+test('UT-CP-033: drive-relative, rooted and home-user Windows/POSIX forms are refused; relative segments are not', () => {
+  const expected = { 'D:work': 'windows_drive_path', '\\Users\\x': 'windows_rooted_path', 'Users\\x\\y': 'windows_rooted_path', 'data\\proj\\x': 'windows_rooted_path', '~root/x': 'home_relative_path', '~alice\\x': 'home_relative_path', '~': 'home_relative_path' };
+  for (const [v, rule] of Object.entries(expected)) assert.equal(detectLocalPath(v), rule, v);
+  for (const v of ['a/b', 'ns:name', 'TCP/IP', 'Fix:/x', '~approx', 'Login / Logout']) assert.equal(detectLocalPath(v), null, v);
+});
+
+test('UT-CP-034: embedded tokens and variable paths are refused on the way in and never echoed on the way out', async () => {
+  const { app, server, port } = await startApp();
+  for (const displayName of [`Bearer ${HEX48}`, `x-ats-token=${HEX48}`, `tok ${HEX48}`]) {
+    assertRemoteError(await call(port, 'POST', '/cp/v1/projects', { token: TOKEN_A, body: { displayName } }), 422, 'REMOTE_SECRET_INLINE_FORBIDDEN');
+  }
+  for (const displayName of ['$USERPROFILE/x', '$env:USERPROFILE\\x', 'D:work', '\\Users\\x', '~root/x']) {
+    assertRemoteError(await call(port, 'POST', '/cp/v1/projects', { token: TOKEN_A, body: { displayName } }), 422, 'REMOTE_PATH_FORBIDDEN');
+  }
+  assertRemoteError(await call(port, 'GET', `/cp/v1/projects?k=${HEX48}`, { token: TOKEN_A }), 422, 'REMOTE_SECRET_INLINE_FORBIDDEN');
+  assertRemoteError(await call(port, 'GET', `/cp/v1/projects?k=${encodeURIComponent('$APPDATA')}`, { token: TOKEN_A }), 422, 'REMOTE_PATH_FORBIDDEN');
+  assert.equal((await call(port, 'GET', '/cp/v1/projects', { token: TOKEN_A })).json.projects.length, 0);
+  const uid = (await call(port, 'POST', '/cp/v1/projects', { token: TOKEN_A, body: { displayName: 'clean' } })).json.project.projectUid;
+  app.store.get('ten_a').get(uid).displayName = `Bearer ${HEX48}`;
+  const r = await call(port, 'GET', '/cp/v1/projects', { token: TOKEN_A });
+  assertRemoteError(r, 500, 'REMOTE_INTERNAL');
+  assert.ok(!r.text.includes(HEX48));
   server.close();
 });

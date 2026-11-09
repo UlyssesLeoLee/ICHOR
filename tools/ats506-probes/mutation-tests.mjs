@@ -86,6 +86,27 @@ const MUTATIONS = [
     replace: "if (segment === '.' || segment === '..') continue;",
     expect: 'UT-CP-019',
   },
+  {
+    id: 'M9', guard: 'UT-CP-031 embedded local token',
+    file: 'server/control-plane/boundary.mjs',
+    needle: 'const TOKEN_RUN = /(?<![0-9a-fA-F])[0-9a-fA-F]{48}(?![0-9a-fA-F])/;',
+    replace: 'const TOKEN_RUN = /^[0-9a-fA-F]{48}$/;',
+    expect: 'UT-CP-031',
+  },
+  {
+    id: 'M10', guard: 'UT-CP-032 environment-variable forms',
+    file: 'server/control-plane/boundary.mjs',
+    needle: "['env_path', /\\$\\{?[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_]{2,}%/],",
+    replace: "['env_path', /\\$HOME\\b|\\$\\{HOME\\}/],",
+    expect: 'UT-CP-032',
+  },
+  {
+    id: 'M11', guard: 'UT-CP-033 rooted Windows path',
+    file: 'server/control-plane/boundary.mjs',
+    needle: "  ['windows_rooted_path', /^\\\\[^\\\\]/],\n  ['windows_rooted_path', /[A-Za-z0-9._-]\\\\[A-Za-z0-9._-]/],\n",
+    replace: '',
+    expect: 'UT-CP-033',
+  },
 ];
 
 function copyTree(dest) {
