@@ -1,0 +1,35 @@
+=== ATS-602 evidence: the round-2 review probes (N1 / N2-cross / N3) ===
+tree : a4102186c25a1d4d69e2ecdc161cec76f44f01c5
+date : 2026-11-09T06:17:45Z
+
+--- the in-process probe (node r2.mjs) ---
+N2-mobile OK :: [["mobile","Login","tc_1_d_c2fe4b42050b51f1","derived"],["mobile","Other @TC-500","tc-500","explicit"]] duplicates=[]
+N2-cross OK :: [["static","web case @TC-600","tc-600","explicit"],["mobile","Login","tc_1_d_85b02626bbf0c62b","derived"]] duplicates=[]
+N2-cross-rev OK :: [["static","web case","tc_1_d_37a2e16f68429889","derived"],["mobile","Login @TC-650","tc-650","explicit"]] duplicates=[]
+N2-web-control no duplicate :: [["static","login","tc_1_d_473d9e914205574a","derived"],["static","other @TC-700","tc-700","explicit"]]
+N3-mobile OK :: [["mobile","Login","tc_1_d_0c1ece2a409d94ee","derived-body"],["mobile","Login copy","tc_1_d_36463b97ade60cbc","registry"]] duplicates=[]
+N3-web-control no duplicate :: [["static","login","tc_1_d_8b88906dc18c971a","derived-body"],["static","login copy","tc_1_d_44cdf723b8d6c484","registry"]]
+RESULT: OK
+
+--- the reader probe (node r2-reader.mjs) ---
+R1 deeper non-key line in env OK :: unaccounted=[] env={"USER":"bob"} steps=[[5,"tapOn"],[6,"tapOn"]]
+R2 colon step after env OK :: unaccounted=[] env={"USER":"bob"} steps=[[5,"tapOn"]]
+R3 inline steps list OK :: unaccounted=[] env={} steps=[[3,"launchApp"],[3,"tapOn"],[3,"takeScreenshot"]]
+R4 tags then env then steps OK :: unaccounted=[] env={"A":"1"} steps=[[6,"launchApp"],[7,"assertVisible"]]
+R5 yaml null steps + commands OK :: unaccounted=[] env={} steps=[[5,"tapOn"]]
+RESULT: OK
+
+--- the end-to-end probe (node r2-e2e.mjs, the real Bridge over HTTP, mode=trusted) ---
+mode=trusted discovery=authoritative/authoritative/authoritative tests=4/2/4
+N1-web OK :: deleted beta=tc_1_d_60c77d525b710379/derived; later new gamma=tc_1_d_cc556406adc06d49/derived
+N1-mobile OK :: deleted Logout=tc_1_d_cda398c960305b9c/derived; later new scenario=tc_1_d_e63108c4145a1dd5/derived
+N3-http OK :: [["Checkout","tc_1_d_8c3e519eb0265e9d","derived-body"],["Checkout copy","tc_1_d_0acb5e0bf5e13280","registry"]] duplicates=[]
+RESULT: OK
+
+--- the end-to-end probe (node r2-e2e.mjs, the real Bridge over HTTP, mode=untrusted) ---
+mode=untrusted discovery=static/static/static tests=4/2/4
+N1-web OK :: deleted beta=tc_1_d_4457f758a8832e3c/derived; later new gamma=tc_1_d_3a42a410c05842ce/derived
+N1-mobile OK :: deleted Logout=tc_1_d_e4104d396fa5fc63/derived; later new scenario=tc_1_d_2bda7e8846d132e0/derived
+N3-http OK :: [["Checkout","tc_1_d_37c33bf2fffb9f09","derived-body"],["Checkout copy","tc_1_d_17d1b91a1520f6b8","registry"]] duplicates=[]
+RESULT: OK
+

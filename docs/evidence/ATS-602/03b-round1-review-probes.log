@@ -1,6 +1,6 @@
 === ATS-602 evidence: the round-1 review probes (the 14 counter-examples) ===
-tree : 50a6e77602e7b03b38aee0497e57822d6a91378c
-date : 2026-11-07T01:28:52Z
+tree : a4102186c25a1d4d69e2ecdc161cec76f44f01c5
+date : 2026-11-09T06:17:45Z
 
 --- the in-process probe (node r1.mjs) ---
 E1a OK :: findFlowFiles = ["flows/smoke/login.yaml","flows/top.yaml","tests/mobile/android/pay.flow"] (expected to include flows/smoke/login.yaml and tests/mobile/android/pay.flow)
@@ -15,15 +15,15 @@ E8 OK :: env={"USER":"bob"} unaccounted step lines=[]
 E9 OK :: launch.args={"appId":"com.example.app","arg1":"clearState"} tap.args={"text":"First","arg1":"Second"} warnings=2
 E10 OK :: args={"text":"Login"} warnings=1
 E11a OK :: mobile registry entries persisted by the catalogue = 1
-E11b OK :: retitle: tc_1_d_46b2733e4fc22399/derived -> tc_1_d_46b2733e4fc22399/registry (docs/25 §4.3 says registry keeps it)
-E11c OK :: comment line added on top: tc_1_d_46b2733e4fc22399 -> tc_1_d_46b2733e4fc22399
-E12 OK :: catalogue uids=[["static","tcp_1_da89673d914b6e24_1","provisional",false],["mobile","tcp_1_a98e63eb6123a029_1","provisional",false],["mobile","tcp_1_87703753488ae694_1","provisional",false],["mobile","tcp_1_eb26c962ba7a683b_2","provisional",false]] duplicates=[]
+E11b OK :: retitle: tc_1_d_313ecd45aa23dce5/derived -> tc_1_d_313ecd45aa23dce5/registry (docs/25 §4.3 says registry keeps it)
+E11c OK :: comment line added on top: tc_1_d_313ecd45aa23dce5 -> tc_1_d_313ecd45aa23dce5
+E12 OK :: catalogue uids=[["static","tcp_1_ad5f02d93be21f60_1","provisional",false],["mobile","tcp_1_968a5eb62166ec52_1","provisional",false],["mobile","tcp_1_cadfe593d63c62cf_1","provisional",false],["mobile","tcp_1_5a9942634bb3f801_2","provisional",false]] duplicates=[]
 E13 OK :: android=tc_1_d_e9d539dc9382c1aa/derived ios=tc_1_d_cba532d9f775dd1c/derived
-E13c OK :: catalogue mobile uids=[["flows/android.yaml","tc_1_d_6558c7f5f080dd77","derived"],["flows/ios.yaml","tc_1_d_36c5f4337acb369c","derived"]]
+E13c OK :: catalogue mobile uids=[["flows/android.yaml","tc_1_d_ae71a887a0b61f48","derived"],["flows/ios.yaml","tc_1_d_3810697088270455","derived"]]
 RESULT: OK
 
 --- the end-to-end probe (node r1-e2e.mjs, the real Bridge over HTTP) ---
-E12-http OK :: discovery=static uids=[["static","tcp_1_bd2b373a19b1ca6b_1"],["mobile","tc_1_d_f194598898592a8e"],["mobile","tcp_1_da2743819074b210_1"]] duplicates=[]
-E11-http OK :: retitle over HTTP: tc_1_d_f194598898592a8e/derived -> tc_1_d_f194598898592a8e/registry
+E12-http OK :: discovery=static uids=[["static","tcp_1_c607dd6acc56d163_1"],["mobile","tc_1_d_4d050d6128d624c9"],["mobile","tcp_1_7fa86ee182e6572e_1"]] duplicates=[]
+E11-http OK :: retitle over HTTP: tc_1_d_4d050d6128d624c9/derived -> tc_1_d_4d050d6128d624c9/registry
 E14-http OK :: trust POST=200; discovery=authoritative outcome=OK mobile cases=2 mobile section=present (untrusted catalogue had 2)
 RESULT: OK

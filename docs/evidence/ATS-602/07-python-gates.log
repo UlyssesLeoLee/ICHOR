@@ -1,16 +1,35 @@
 === ATS-602 evidence: the python gates (WBS helpers, updaters, test-doc generator) ===
-tree : 50a6e77602e7b03b38aee0497e57822d6a91378c
-date : 2026-11-07T01:28:52Z
+tree : a4102186c25a1d4d69e2ecdc161cec76f44f01c5
+date : 2026-11-09T06:17:45Z
 
-..........................................                               [100%]
+..F.......................................                               [100%]
+================================== FAILURES ===================================
+______________________ test_tc003_ids_unique_and_levels _______________________
+
+generated = {'docs/07-UT-TEST-DESIGN.md': '# ATS-UT-001 単体テスト設計書\n\n> 设计总数：701；已执行通过：685；待执行/未实现：16。**PENDING 不是测试通过**。\n\n单体测试关注核... `review-required`；此检查由 P1 实现。\n- 关联必须采用稳定 Requirement UID、TestCase UID，而不是测试标题或文件路径；样例 traceability 当前属于演示形式。\n', ...}
+
+    def test_tc003_ids_unique_and_levels(generated):
+        cases = json.loads(generated['tests/test-cases.json'])
+        ids = [c['id'] for c in cases]
+>       assert len(ids) == len(set(ids))
+E       AssertionError: assert 916 == 911
+E        +  where 916 = len(['UT-CORE-001', 'UT-CORE-002', 'UT-SEC-001', 'UT-CORE-003', 'UT-CORE-004', 'UT-RUN-001', ...])
+E        +  and   911 = len({'ATS-206-UT-001', 'ATS-206-UT-002', 'ATS-206-UT-003', 'ATS-206-UT-010', 'ATS-206-UT-011', 'ATS-206-UT-012', ...})
+E        +    where {'ATS-206-UT-001', 'ATS-206-UT-002', 'ATS-206-UT-003', 'ATS-206-UT-010', 'ATS-206-UT-011', 'ATS-206-UT-012', ...} = set(['UT-CORE-001', 'UT-CORE-002', 'UT-SEC-001', 'UT-CORE-003', 'UT-CORE-004', 'UT-RUN-001', ...])
+
+tools\test_generate_test_docs.py:57: AssertionError
+---------------------------- Captured stdout setup ----------------------------
+test rows: 701 182 33 RTM 48
 ============================== warnings summary ===============================
 tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
-  C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
+  C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Unknown extension is not supported and will be removed
     warn(msg)
 
 tools/test_update_wbs_ats207.py::test_tc007_openpyxl_loads_the_result
-  C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
+  C:\Users\seiko\AppData\Roaming\Python\Python312\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Conditional Formatting extension is not supported and will be removed
     warn(msg)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-42 passed, 2 warnings in 1.01s
+=========================== short test summary info ===========================
+FAILED tools/test_generate_test_docs.py::test_tc003_ids_unique_and_levels - A...
+1 failed, 41 passed, 2 warnings in 1.15s
