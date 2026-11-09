@@ -1,0 +1,36 @@
+### dataset   : tests/ats203-index-it.test.mjs
+### playwright: D:/ICHOR/examples/sample-playwright/node_modules
+
+### baseline (no mutation)
+== baseline: pass=9 fail=0
+applied M1-ambiguity-off
+== mutant M1-ambiguity-off: pass=4 fail=5
+   ✖ IT-ATS203-001: the authoritative index sees the rendered cases, and the static index says it cannot decide (525.5908ms)
+   ✖ IT-ATS203-003: the same describe with the same title is refused by the engine and reported as ambiguous (2.6196ms)
+   ✖ IT-ATS203-004: the same title in two files is two cases in the authoritative index (2.3047ms)
+   ✖ IT-ATS203-005: the same title under two different describes is two decidable cases (2.1418ms)
+   ✖ IT-ATS203-008: a forEach loop renders one case per item (2.5299ms)
+
+applied M2-template-titles-dropped
+== mutant M2-template-titles-dropped: pass=7 fail=2
+   ✖ IT-ATS203-001: the authoritative index sees the rendered cases, and the static index says it cannot decide (659.2846ms)
+   ✖ IT-ATS203-008: a forEach loop renders one case per item (5.1805ms)
+
+applied M3-index-returns-nothing
+== mutant M3-index-returns-nothing: pass=0 fail=9
+   ✖ IT-ATS203-001: the authoritative index sees the rendered cases, and the static index says it cannot decide (560.2317ms)
+   ✖ IT-ATS203-002: the parameterised same title is refused by the engine and reported as such (2.4714ms)
+   ✖ IT-ATS203-003: the same describe with the same title is refused by the engine and reported as ambiguous (2.2656ms)
+   ✖ IT-ATS203-004: the same title in two files is two cases in the authoritative index (2.439ms)
+   ✖ IT-ATS203-005: the same title under two different describes is two decidable cases (2.0826ms)
+   ✖ IT-ATS203-006: the symmetric project matrix gives every case two spec ids (2.3671ms)
+   ✖ IT-ATS203-007: the asymmetric project matrix gives the case counts of 2 and 1 (2.2982ms)
+   ✖ IT-ATS203-008: a forEach loop renders one case per item (2.5544ms)
+   ✖ IT-ATS203-009: the UID of an ordinary case does not move when the index switches (603.3086ms)
+
+applied M4-template-claimed-stable
+== mutant M4-template-claimed-stable: pass=7 fail=2
+   ✖ IT-ATS203-001: the authoritative index sees the rendered cases, and the static index says it cannot decide (832.72ms)
+   ✖ IT-ATS203-008: a forEach loop renders one case per item (4.5898ms)
+
+RESULT: OK -- the baseline passed and every mutant was caught
