@@ -1,21 +1,17 @@
 npm notice run @ai-test-studio/ui@0.1.0 build
 npm notice run next build
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 25ms
+✓ Running next.config.mjs took 23ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 176ms
+✓ Compiled successfully in 671ms
   Running TypeScript ...
-  Finished TypeScript in 1043ms ...
-  Collecting page data using 4 workers ...
-  Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 426ms
-  Finalizing page optimization ...
+Persisting failed during shutdown: Unable to write SST file 00000039.sst
 
-Route (app)
-┌ ○ /
-└ ○ /_not-found
+Caused by:
+    0: Failed to write small value block
+    1: Failed to write block data
+    2: failed to write to file `\\?\D:\ICHOR\apps\studio\.next\cache\turbopack\v16.4.5-4e5335a0\00000039.sst`: ディスクに十分な空き領域がありません。 (os error 112)
+  Finished TypeScript in 2.1s ...
 
-
-○  (Static)  prerendered as static content
-
+> Build error occurred
