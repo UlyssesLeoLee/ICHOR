@@ -2,7 +2,16 @@
 
 Source: `examples/real-browser-fixture/`
 
-Source-SHA256: `PENDING`
+Source-SHA256: `037988968f75c2831c25db8668f0373db4522b2ecf56620a2f1c07f3c5debb0e`
+
+This is the **tree digest** of the seven committed files of this directory, as computed by the repository's own `tools/tree_digest.mjs` over the export of the committed tree:
+
+```
+git archive HEAD examples/real-browser-fixture | tar -x -C <dir>
+node tools/tree_digest.mjs <dir>/examples/real-browser-fixture
+```
+
+The recipe (normalises CRLF to LF for text files, keeps binary files byte-for-byte, sorts the per-file lines by relative path and hashes the joined result) is documented in `tools/tree_digest.mjs` itself, so the number above can be recomputed by a third party without trusting this document.
 
 ## Test Strategy
 

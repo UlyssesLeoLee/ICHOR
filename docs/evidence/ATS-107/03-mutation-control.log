@@ -1,0 +1,24 @@
+=== ATS-107 evidence: 10 mutations of the Bridge's own result projection; every one must be caught, and the honest result must be accepted (ST-042) ===
+date        : 2026-11-09T14:37:15Z (UTC)
+commit      : 91940d3ef5aaa91773029ac730395d0df0181f27
+node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command     : node tools/ats107-probes/mutation-check.mjs
+
+PASS the honest result is accepted by the verdict comparison
+PASS the honest result is accepted by the error comparison
+PASS the honest result is accepted by the expectation comparison
+PASS the honest result is accepted by the counter comparison
+PASS the mutation is caught -- M1 the Bridge counts the failing case as passed -- the comparison noticed
+PASS the mutation is caught -- M2 the Bridge reports 2 passed / 0 failed -- the comparison noticed
+PASS the mutation is caught -- M3 the Bridge swaps the two cases' verdicts -- the comparison noticed
+PASS the mutation is caught -- M4 the Bridge drops the error message -- the comparison noticed
+PASS the mutation is caught -- M5 the Bridge rewrites the error message into its own wording -- the comparison noticed
+PASS the mutation is caught -- M6 the Bridge reports the right counts but the wrong per-case verdicts -- the comparison noticed
+PASS the mutation is caught -- M7 the Bridge's verdicts differ from the fixture's declared expectations -- the comparison noticed
+PASS the mutation is caught -- M8 the Bridge loses a case entirely -- the comparison noticed
+PASS the mutation is caught -- M9 the Bridge reports a case that the CLI did not run -- the comparison noticed
+PASS the mutation is caught -- M10 the Bridge reports a wrong total -- the comparison noticed
+RESULT: 14/14
+exit code   : 0

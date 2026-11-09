@@ -1,0 +1,111 @@
+=== ATS-107 evidence: the ATS-107 fixture: exact pin, committed lockfile, chromium, offline specs ===
+date        : 2026-11-09T14:37:15Z (UTC)
+commit      : 91940d3ef5aaa91773029ac730395d0df0181f27
+node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command     : cat examples/real-browser-fixture/package.json; git ls-files examples/real-browser-fixture/; cat examples/real-browser-fixture/playwright.config.ts; cat examples/real-browser-fixture/tests/expected.json
+
+--- package.json (the version must be an EXACT pin) ---
+{
+  "name": "ats107-real-browser-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ATS-107 真实浏览器测试仓库：一条 PASS、一条 FAIL，依赖由 lockfile 固定。",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0"
+  }
+}
+
+--- the files that are COMMITTED (the lockfile is the deliverable) ---
+examples/real-browser-fixture/package-lock.json
+examples/real-browser-fixture/package.json
+examples/real-browser-fixture/playwright.config.ts
+examples/real-browser-fixture/tests/constants.ts
+examples/real-browser-fixture/tests/expected.json
+examples/real-browser-fixture/tests/failing.spec.ts
+examples/real-browser-fixture/tests/passing.spec.ts
+
+--- playwright.config.ts (chromium is explicit; retries: 0) ---
+import { defineConfig } from '@playwright/test';
+
+/**
+ * ATS-107 真实浏览器夹具的配置。
+ *
+ * 验收口径是「Chromium 上至少 1 PASS 1 FAIL」，因此浏览器被**显式钉死**为
+ * chromium：留空时由引擎默认值决定，那样这条口径就没有被证明。
+ *
+ * `retries: 0` 同样是有意为之：一次重试会把那条故意的失败变成 flaky 用例，
+ * 而 flaky 是第四种状态，探针对账的计数器就不再是「1 通过 1 失败」。
+ */
+export default defineConfig({
+  testDir: './tests',
+  use: { browserName: 'chromium' },
+  timeout: 20000,
+  retries: 0,
+});
+
+--- tests/expected.json (the fixture's own contract, as data) ---
+{
+  "_comment": "ATS-107 真实浏览器夹具的期望结论。这是夹具自己的契约：夹具的行为变了，这个文件必须一起变，否则探针会失败，而不是悄悄接受新的行为。",
+  "browser": "chromium",
+  "engine": "@playwright/test",
+  "engineVersion": "1.65.0",
+  "expectedFailureText": "ATS-107 FAIL — this text is intentionally absent",
+  "cases": [
+    {
+      "title": "ATS-107 passing case renders the offline page",
+      "file": "tests/passing.spec.ts",
+      "status": "passed"
+    },
+    {
+      "title": "ATS-107 failing case asserts a text that is absent",
+      "file": "tests/failing.spec.ts",
+      "status": "failed"
+    }
+  ],
+  "summary": {
+    "passed": 1,
+    "failed": 1,
+    "skipped": 0,
+    "flaky": 0,
+    "total": 2
+  }
+}
+
+--- the two specs (both offline: page.setContent, no network) ---
+import { test, expect } from '@playwright/test';
+import { PASSING_TITLE } from './constants';
+
+/**
+ * ATS-107 真实浏览器夹具 —— 故意通过的用例。
+ *
+ * 这条用例在**离线**的页面上断言一个自己刚刚写进去的文本：它不需要网络，
+ * 也不依赖任何外部服务，所以它的结论只取决于「引擎真的跑起来了吗」。
+ *
+ * 它存在的意义是给出验收口径里的那个 PASS：一条 PASS 如果不是因为引擎
+ * 判定通过而出现，Chromium 上「至少 1 PASS 1 FAIL」这条口径就没有被证明。
+ */
+test(PASSING_TITLE, async ({ page }) => {
+  await page.setContent('<main id="target">ATS-107 PASS</main>');
+  await expect(page.locator('#target')).toHaveText('ATS-107 PASS');
+});
+
+import { test, expect } from '@playwright/test';
+import { EXPECTED_FAILURE_TEXT, FAILING_TITLE } from './constants';
+
+/**
+ * ATS-107 真实浏览器夹具 —— 故意失败的用例。
+ *
+ * 这条用例断言一个页面上**并不存在**的文本，于是引擎会用自己的断言错误
+ * 把它判为失败。这条用例存在的意义是给出验收口径里的那个 FAIL，以及
+ * **引擎自己的错误信息**：探针要证明 Bridge 报出来的失败原因，就是引擎
+ * 报出来的那一条，而不是 Bridge 自己重写的一句。
+ */
+test(FAILING_TITLE, async ({ page }) => {
+  await page.setContent('<main id="target">ATS-107 PASS</main>');
+  await expect(page.locator('#target')).toHaveText(EXPECTED_FAILURE_TEXT);
+});

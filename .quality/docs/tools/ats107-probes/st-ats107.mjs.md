@@ -2,7 +2,7 @@
 
 Source: `tools/ats107-probes/st-ats107.mjs`
 
-Source-SHA256: `PENDING`
+Source-SHA256: `10298aebe9d00034b0801b68c780a4b051160fbe2eb6ff9e5e9708343c4098a8`
 
 ## Responsibility
 

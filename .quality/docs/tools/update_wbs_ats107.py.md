@@ -2,7 +2,7 @@
 
 Source: `tools/update_wbs_ats107.py`
 
-Source-SHA256: `PENDING`
+Source-SHA256: `afa635fc4705ed2a9805803497342a447a668624da798b0487bd78f8e4f8deaa`
 
 ## Responsibility
 
