@@ -132,6 +132,8 @@ e4a122958250d0cb77c1c85296dd9ca8ed994c1cc1d65c560f1699ab9f92e6b0  docs/evidence/
 995b492e30075d5732d986a74b029bf24539cf97870635cfc55c6489ebf92a72  docs/evidence/ATS-103/07-port-audit.log
 481c90b1fc1527d322213e3d7462c0a1d4d11fcd502292861f1132a52625a018  docs/evidence/ATS-103/08-adr-citations.log
 43455b883db7dbba9fc02a1d727fb78604436a19cae99a0d7adfc2c375f44c0a  docs/evidence/ATS-103/09-ci-build-gate.log
+bcdae3e1f17c487993077de0b600d04c533e232ac66db807225e68b532fbc82f  docs/evidence/ATS-103/10-r4-branch-clone-verification-crlf.log
+16570e1fdd52707c78362901271607c5c26b3505d9f4e259fa50142b5bf6b51d  docs/evidence/ATS-103/10-r4-branch-clone-verification-lf.log
 a879946600c2b11a8ffb15e0a3f7e0c76372fea15cb3d45b94d2483cbd144dee  docs/evidence/ATS-103/10-r4-clone-verification-crlf.log
 5573522870684f391441c9eac532728f7907592954ea737e3d84410520ad28a8  docs/evidence/ATS-103/10-r4-clone-verification-lf.log
 e90b3470b8ff87e2b181378a781d075deffec978802ca59e7a06320b92a73af6  docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log
@@ -633,7 +635,7 @@ ab92b2b7c3ab7afb120ec4309d76b1356ee84efe9406cad49938dfedcafee142  tools/ats103-p
 c49e69a8ba9462e361a28c66d80ca0f05e7581ea4a7578796725d3de5740cc1a  tools/ats103-probes/mutation-evidence.sh
 ddb1d3a40d8b2b2f6801207d5e046ccef8bb746f2d0eec1f3450eb49c684fb05  tools/ats103-probes/ui-smoke.mjs
 416d0ad02db18842ec8af0096513b940c2e692867788f20450797b000b69e444  tools/ats103-probes/verify-export-and-proxy.mjs
-639fa5fba5f97e4c46f696433872d5705e8b41fc11ad7766b0cee85535153b0f  tools/ats103-probes/verify-r4.sh
+39c9f030fa0730d895f0ef2c727c0cc7eff662c98a7e0172e90da0362ad2ec0d  tools/ats103-probes/verify-r4.sh
 6cdd4822b97bc6b4364d1324267de0a68281be58a033e7c4c2e9a03624e93927  tools/ats106-probes/collect-evidence.sh
 084e6bb64a884f0052d8f1dc28aea72c80a08c4014bddba12e2d6dbe8432c38a  tools/ats106-probes/mutation-tests.mjs
 5e391e40ece241d3b2449098bb6886f2d38ec72d1aa942ca2a8c7821a8e7d2d0  tools/ats201-probes/api-surface.mjs
