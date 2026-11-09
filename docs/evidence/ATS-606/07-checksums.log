@@ -1,13 +1,11 @@
 === ATS-606 evidence: the checksum manifest ===
-tree : 2c32e44468a033d87d065346e5636a66b9a6a9e2
-date : 2026-11-09T14:07:28Z
+tree : a0523718feec894fc7159242d083704bb927a2e0
+date : 2026-11-09T15:07:12Z
 
-manifest entries : 848
-digest mismatches: 2
-    docs/25-MOBILE-APP-TESTING.md d51070835fd51ca06db0ef2072fd91fe97ab10f07a8407f8d3e5fe1144fdac0b != 1ff576c7c404e2883fdddb921221ff075a597e66d426464b0f749066d9f94a38
-    tools/wbs_common.py 469984b95319dd179fde43ec62974a95fd9dfc6953017f33a7137e132221a9d9 != da9871d6ac2560fce0212d7969fb505d79aa29e8b5c888dab1b36bdc5b9882d7
-tracked-not-listed: 5 ['tools/ats606-probes/collect-evidence.sh', 'tools/ats606-probes/maestro-command-fixtures.json', 'tools/ats606-probes/probe-ios-driver-support.mjs', 'tools/ats606-probes/probe-maestro-compat.mjs', 'tools/update_wbs_ats606.py']
+manifest entries : 872
+digest mismatches: 0
+tracked-not-listed: 0 []
 listed-not-tracked: 0 []
-RESULT: MISMATCH
+RESULT: OK
 
 exit : 0
