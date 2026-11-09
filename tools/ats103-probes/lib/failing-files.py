@@ -23,7 +23,13 @@ LOCATION = re.compile(r"location: '([^']+\.test\.mjs):\d+:\d+'")
 
 
 def failing_files(log_text):
-    """Return the sorted file names that own at least one failing case."""
+    """Return the sorted test paths that own at least one failing case.
+
+    The paths are relative to the repository root (`tests/<name>.test.mjs`)
+    because that is what `node --test` accepts: a bare file name is not
+    resolvable from the repository root and the runner answers
+    "Could not find '<name>'".
+    """
     files = set()
     for block in re.split(r'\nnot ok ', log_text)[1:]:
         match = LOCATION.search(block)
@@ -33,7 +39,7 @@ def failing_files(log_text):
             continue
         path = match.group(1).replace('\\', '/')
         files.add(path[path.rfind('/') + 1:])
-    return sorted(files)
+    return sorted('tests/' + name for name in files)
 
 
 def main(argv):
