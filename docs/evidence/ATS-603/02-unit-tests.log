@@ -1,0 +1,56 @@
+=== ATS-603 evidence ===
+tree: bd21cca4eec4e01c1b39dd2611c73e5a1b886c46 | branch: dev | when: 2026-11-09T14:34:34Z
+cmd: node --test tests/android-runner.test.mjs tests/android-adapter.test.mjs
+--- output ---
+✔ UT-ATS603-050: the android runner is a FOURTH adapter in the SAME registry (1.3696ms)
+✔ UT-ATS603-051: the android adapter passes the SAME assertAdapter check (0.5293ms)
+✔ UT-ATS603-052: the android adapter is NOT chosen for a project without mobile cases (41.3294ms)
+✔ UT-ATS603-053: the android adapter IS chosen for a project with mobile cases (8.4581ms)
+✔ UT-ATS603-054: the device layer follows the SESSION, not the target (0.8351ms)
+✔ UT-ATS603-055: the adapter refuses to start without a registered session (0.7996ms)
+✔ UT-ATS603-060: start() returns a handle the BRIDGE can use (9.0909ms)
+✔ UT-ATS603-061: a failing case ends the run with a NON-ZERO exit code (5010.7332ms)
+✔ UT-ATS603-062: the adapter discovers the mobile cases of the project (6.8969ms)
+✔ UT-ATS603-063: the adapter describes itself honestly (0.9418ms)
+✔ UT-ATS603-064: negotiateWithDevice keeps the engine gap and the device gap apart (5.3186ms)
+✔ UT-ATS603-065: the adapter refuses a run without an evidence root (4.1045ms)
+✔ UT-ATS603-001: the ADB transport never builds a shell string (1.0509ms)
+✔ UT-ATS603-002: a value that looks like a command stays one argument (0.1666ms)
+✔ UT-ATS603-003: the failure vocabulary of the transport is closed (0.5164ms)
+✔ UT-ATS603-010: the hierarchy is parsed into a tree with the attributes (0.5901ms)
+✔ UT-ATS603-011: the bounds are read into a rectangle, and a malformed one is an error (1.1501ms)
+✔ UT-ATS603-012: a hierarchy that cannot be read is an ERROR, not a half-read tree (0.203ms)
+✔ UT-ATS603-013: the XML entities are decoded, and an unknown one is an error (0.9983ms)
+✔ UT-ATS603-014: the walk visits parents before children (0.2471ms)
+✔ UT-ATS603-015: an element is found by text, by id and by content description (0.3169ms)
+✔ UT-ATS603-016: the summary of a tree names the visible elements (0.399ms)
+✔ UT-ATS603-020: the launch step brings the app to the foreground (1.9616ms)
+✔ UT-ATS603-021: the launch step REFUSES an app the project did not register (0.324ms)
+✔ UT-ATS603-022: the tap step locates the element and taps its centre (0.5739ms)
+✔ UT-ATS603-023: a MISSING element is its own failure class and carries the hierarchy (0.2302ms)
+✔ UT-ATS603-024: a FAILING assertion is a different class from a missing element (0.2473ms)
+✔ UT-ATS603-025: the assertion PASSES when the element is visible (0.1771ms)
+✔ UT-ATS603-026: a LOST session is its own class (0.3171ms)
+✔ UT-ATS603-027: a DRIVER error is its own class and carries the stderr (0.1942ms)
+✔ UT-ATS603-028: the four failure classes are DISTINCT -- no generic "execution failed" (0.0897ms)
+✔ UT-ATS603-029: the screenshot step writes a PNG and reports its size (2.3652ms)
+✔ UT-ATS603-030: a screenshot that is not a PNG is a DRIVER error (1.3371ms)
+✔ UT-ATS603-031: a screenshot of the WRONG size is a DRIVER error (1.6957ms)
+✔ UT-ATS603-032: the screenshot name cannot escape the evidence root (0.1278ms)
+✔ UT-ATS603-040: a step whose capability is missing is NOT attempted (0.4683ms)
+✔ UT-ATS603-041: the run stops at the first failed step (0.3199ms)
+✔ UT-ATS603-042: the whole case passes when every step passes (0.3347ms)
+✔ UT-ATS603-043: the target of a failure is NAMED, never generic (0.0928ms)
+✔ UT-ATS603-045: a TRANSIENT hierarchy failure is retried, not fatal (0.2656ms)
+✔ UT-ATS603-046: a hierarchy that NEVER reads is a DRIVER error, not a missing element (51.7809ms)
+✔ UT-ATS603-047: the FOREGROUND app is read from mFocusedApp, not from mCurrentFocus (0.3673ms)
+✔ UT-ATS603-044: a step of an unknown kind is SKIPPED, not crashed on (0.1115ms)
+ℹ tests 43
+ℹ suites 0
+ℹ pass 43
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5209.6406
+--- exit: 0 ---

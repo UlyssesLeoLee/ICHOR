@@ -260,9 +260,14 @@ test('UT-REG-001: the registry knows every runner', () => {
   const kinds = listRunners().map((r) => r.kind);
   // ATS-601 added the mobile runner: it is a THIRD adapter in the SAME
   // registry, not a parallel one.
-  assert.deepEqual(kinds, ['playwright', 'wdio', 'mobile']);
+  // ATS-603 added the android runner: the Android DRIVER. It is a FOURTH
+  // adapter, registered under its OWN kind, because the ATS-601 contract
+  // skeleton and the driver are different things -- the skeleton refuses
+  // to start, the driver drives a device.
+  assert.deepEqual(kinds, ['playwright', 'wdio', 'mobile', 'android']);
   assert.equal(getAdapter('playwright').kind, 'playwright');
   assert.equal(getAdapter('mobile').kind, 'mobile');
+  assert.equal(getAdapter('android').kind, 'android');
 });
 
 test('UT-REG-002: getAdapter rejects an unknown runner', () => {
@@ -276,7 +281,9 @@ test('UT-REG-002: getAdapter rejects an unknown runner', () => {
 
 test('UT-REG-003: the capability matrix reports every runner for a project', () => {
   const matrix = capabilityMatrix(pwProject);
-  assert.equal(matrix.length, 3);
+  // Four runners: playwright, wdio, the ATS-601 mobile CONTRACT and the
+  // ATS-603 android DRIVER.
+  assert.equal(matrix.length, 4);
   for (const entry of matrix) {
     assert.ok(Array.isArray(entry.capabilities));
     assert.ok(entry.capabilities.length > 0);
@@ -299,10 +306,12 @@ test('UT-REG-005: selectAdapter explains why every runner was rejected', () => {
     assert.fail('should have thrown');
   } catch (e) {
     assert.equal(e.code, 'NO_RUNNER_SUPPORTS_REQUEST');
-    // Every runner that was tried is reported, including the mobile one:
+    // Every runner that was tried is reported, including the mobile ones:
     // a caller that cannot satisfy the request must be able to see that
     // the mobile runner was considered and why it was not chosen.
-    assert.equal(e.details.rejected.length, 3);
+    // Four runners: playwright, wdio, the ATS-601 mobile CONTRACT and the
+    // ATS-603 android DRIVER.
+    assert.equal(e.details.rejected.length, 4);
     for (const r of e.details.rejected) {
       assert.ok(r.missing.length > 0);
       assert.ok(r.missing[0].reason.length > 0);

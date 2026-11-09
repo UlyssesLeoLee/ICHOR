@@ -44,7 +44,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-106】', '【ATS-107】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
            '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-215】', '【ATS-216】',
            '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-403】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
-           '【ATS-601】', '【ATS-602】')
+           '【ATS-601】', '【ATS-602】', '【ATS-603】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -217,14 +217,23 @@ NARRATIVE_FRAGMENTS = {
     '【ATS-601】': {
         'D6': '移动端目标与会话契约已实现（ATS-601：三类目标、会话状态机、能力协商与拒绝规则；'
               '无真实设备）',
-        'D7': '移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；'
+        'D7': '移动端目标与会话契约已实现（ATS-601：契约层本身不碰设备）；'
+              '真实 Android 执行由 ATS-603 的 Android Runner 承担；'
               '详见 docs/25-MOBILE-APP-TESTING.md',
     },
     '【ATS-602】': {
         'D6': '移动端 Flow 导入映射已实现（ATS-602：跨引擎用例模型、映射规则与导入报告；'
               '不支持的步骤保留原文并标记，不静默丢弃）',
-        'D7': '移动端执行面仍无任何实现（ATS-602 只交付用例模型与导入映射；'
-              '真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md',
+        'D7': '移动端 Flow 导入映射已实现（ATS-602：映射层不涉及任何设备）；'
+              '真实 Android 执行已由 ATS-603 实测；'
+              '详见 docs/25-MOBILE-APP-TESTING.md',
+    },
+    '【ATS-603】': {
+        'D6': 'Android Runner 已在真实模拟器上实测通过（ATS-603：启动/点按/断言/截图四类步骤；'
+              '失败区分会话掉线/元素找不到/断言不成立/驱动报错）',
+        'D7': '移动端证据归档与跨引擎统一查询仍未实现（ATS-604）；'
+              '能力矩阵与环境声明属 ATS-605；iOS 与 Maestro 边界属 ATS-606；'
+              '本机无 iOS 环境、无 Android 真机连接',
     },
     '【ATS-203】': {
         'D6': '索引回归数据集已交付（ATS-203：参数化循环/模板标题/重名/describe 路径/'

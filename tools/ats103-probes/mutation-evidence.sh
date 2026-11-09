@@ -33,6 +33,38 @@ API_TS="apps/studio/lib/api.ts"
 BACKUP="${TMPDIR:-/tmp}/ats103-api.ts.bak.$$"
 
 cp "$API_TS" "$BACKUP"
+
+# The Bridge's default port, read from the product source (the probes must
+# not carry their own copy of the port).
+PORT="$(node tools/ats103-probes/lib/default-port.mjs --print)"
+
+# Wait until the default port can actually be BOUND.
+#
+# A probe that finds the port busy refuses to run -- it would talk to a
+# DIFFERENT server -- and that refusal is correct. But on Windows a process
+# that was killed with TerminateProcess (what the probes' child.kill() does)
+# leaves its listening socket behind as a ZOMBONE: netstat still shows it as
+# LISTENING, its owning PID is 0, and the port stays un-bindable for a
+# moment. A step that starts right after the previous one therefore sees a
+# busy port that nobody owns, and every check in it turns red for that
+# reason alone -- the evidence then describes the port, not the mutation.
+#
+# So every step WAITS for the port (bounded, and an error if it does not
+# become free), instead of racing the previous step's cleanup.
+wait_for_port() {
+  local label="$1"
+  if ! node tools/ats103-probes/lib/port-free.mjs --wait --timeout 20000; then
+    echo "the default port is still in use before $label -- refusing to continue" >&2
+    echo "the port is still in use before $label -- refusing to continue" >> "$LOG"
+    PORT_BLOCKED=1
+    return 1
+  fi
+  echo "--- the default port was free before $label ---" >> "$LOG"
+  return 0
+}
+
+PORT_BLOCKED=0
+
 restore() {
   cp "$BACKUP" "$API_TS"
   rm -f "$BACKUP"
@@ -126,6 +158,7 @@ echo "" >> "$LOG"
   echo "(the build refused the route, so there is no export to probe;"
   echo " the refusal IS the finding this shape proves)"
 } >> "$LOG"
+wait_for_port "mutation A" || exit 1
 node tools/ats103-probes/verify-export-and-proxy.mjs >> "$LOG" 2>&1
 echo "PROBE_EXIT=$?" >> "$LOG"
 echo "" >> "$LOG"
@@ -170,6 +203,7 @@ echo "" >> "$LOG"
   echo ""
   echo "--- the probe against the mutated export ---"
 } >> "$LOG"
+wait_for_port "mutation A'" || exit 1
 node tools/ats103-probes/verify-export-and-proxy.mjs >> "$LOG" 2>&1
 echo "PROBE_EXIT=$?" >> "$LOG"
 echo "" >> "$LOG"
@@ -276,6 +310,7 @@ echo "" >> "$LOG"
   echo "--- the HTTP probe against the mutated export ---"
   echo "(the static heuristic must turn RED here: no location.port comparison)"
 } >> "$LOG"
+wait_for_port "mutation B" || exit 1
 node tools/ats103-probes/verify-export-and-proxy.mjs >> "$LOG" 2>&1
 echo "PROBE_EXIT=$?" >> "$LOG"
 echo "" >> "$LOG"
@@ -283,6 +318,7 @@ echo "" >> "$LOG"
   echo "--- the EXECUTED discriminator against the mutated export ---"
   echo "(this one must turn RED too: the API requests leave for the numeric address)"
 } >> "$LOG"
+wait_for_port "mutation B (the browser probe)" || exit 1
 node tools/ats103-probes/ui-smoke.mjs >> "$LOG" 2>&1
 echo "UI_PROBE_EXIT=$?" >> "$LOG"
 echo "" >> "$LOG"
@@ -400,6 +436,7 @@ echo "" >> "$LOG"
   echo "--- the HTTP probe against the mutated export ---"
   echo "(the static heuristic is expected to stay GREEN here -- that is the bound)"
 } >> "$LOG"
+wait_for_port "mutation B2" || exit 1
 node tools/ats103-probes/verify-export-and-proxy.mjs >> "$LOG" 2>&1
 echo "PROBE_EXIT=$?" >> "$LOG"
 echo "" >> "$LOG"
@@ -407,6 +444,7 @@ echo "" >> "$LOG"
   echo "--- the EXECUTED discriminator against the mutated export ---"
   echo "(this one must turn RED: the API requests leave for the numeric address)"
 } >> "$LOG"
+wait_for_port "mutation B2 (the browser probe)" || exit 1
 node tools/ats103-probes/ui-smoke.mjs >> "$LOG" 2>&1
 echo "UI_PROBE_EXIT=$?" >> "$LOG"
 echo "" >> "$LOG"
@@ -446,6 +484,7 @@ FIXTURE_NM="examples/sample-playwright/node_modules"
 # committed by accident.
 STASH="${TMPDIR:-/tmp}/ats103-fixture-node_modules.$$"
 mv "$FIXTURE_NM" "$STASH"
+wait_for_port "mutation C" || exit 1
 node tools/ats103-probes/verify-export-and-proxy.mjs >> "$LOG" 2>&1
 echo "PROBE_EXIT=$?" >> "$LOG"
 mv "$STASH" "$FIXTURE_NM"
@@ -483,5 +522,14 @@ echo "mutation evidence written to $LOG"
 # non-zero in that case, and the collector records that exit code.
 if [ "${MUTATIONS_FAILED:-0}" -ne 0 ]; then
   echo "at least one mutation did not apply -- the evidence is NOT trustworthy"
+  exit 1
+fi
+
+# A step that could not get the default port makes the log untrustworthy in
+# the same way: the probe would have reported "the port is already in use"
+# for every check, which says nothing about the mutation. The script exits
+# non-zero so the collector records the failure.
+if [ "${PORT_BLOCKED:-0}" -ne 0 ]; then
+  echo "the default port was still in use before a step -- the evidence is NOT trustworthy"
   exit 1
 fi

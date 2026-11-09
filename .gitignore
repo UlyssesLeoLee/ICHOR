@@ -80,3 +80,9 @@ docs/evidence/ATS-103/06-mutation-evidence.log.body
 # its OUTPUT (docs/evidence/ATS-203/mutants-output.log) are the deliverables.
 tools/ats203-probes/base/
 tools/ats203-probes/m-*/
+
+# The ATS-603 smoke fixture's BUILD OUTPUT. The APK is a binary produced by
+# tools/ats603-probes/build-smoke-app.sh from the Java source next to it;
+# it is regenerated, not authored. The source, the build script and the
+# evidence that the APK works are the deliverables.
+tools/ats603-probes/build/

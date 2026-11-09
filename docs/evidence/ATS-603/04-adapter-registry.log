@@ -1,0 +1,80 @@
+=== ATS-603 evidence ===
+tree: 1f51ad300164ea6c3b46a5aa7cf81b9790ce85d3 | branch: dev | when: 2026-11-09T14:12:06Z
+cmd: node -e <the android adapter against a project WITH a mobile Flow>
+--- output ---
+describe: {
+  "kind": "android",
+  "contractVersion": 1,
+  "deviceContractVersion": 1,
+  "designStatus": "DRIVER",
+  "note": "the Android driver is attached to emulator-5554 and drives it through adb",
+  "targetKind": "local-emulator",
+  "sessionId": "ses_local_emulator-5554",
+  "adbPath": "C:\\Users\\seiko\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe",
+  "device": {
+    "serial": "emulator-5554",
+    "model": "sdk_gphone64_x86_64",
+    "sdk": null
+  }
+}
+
+capabilities (a project WITH a mobile Flow):
+  discover -> supported [the adapter enumerates the mobile Flow cases of the project through the ATS-602 catalogue; the project holds 1 mobile case(s); the device emulator-5554 is attached and answered adb]
+  start -> supported [the adapter drives the device through the Android driver (launchApp / tapOn / assertVisible / takeScreenshot); the project holds 1 mobile case(s); the device emulator-5554 is attached and answered adb]
+  stop -> supported [the adapter aborts the in-flight run and releases the device session; the project holds 1 mobile case(s); the device emulator-5554 is attached and answered adb]
+  collect -> supported [the adapter maps the step results onto the common result model (passed/failed/skipped); the project holds 1 mobile case(s); the device emulator-5554 is attached and answered adb]
+  filterByFile -> supported [the adapter selects the mobile cases of one Flow file; the project holds 1 mobile case(s); the device emulator-5554 is attached and answered adb]
+  filterByTestUid -> supported [the adapter selects one mobile case by its ATS-201/ATS-602 UID; the project holds 1 mobile case(s); the device emulator-5554 is attached and answered adb]
+  structuredReport -> supported [the adapter writes a JSON result file with the step results; the project holds 1 mobile case(s); the device emulator-5554 is attached and answered adb]
+  htmlReport -> unsupported [the Android runner produces no HTML report; the result model and the evidence are the deliverable]
+  trace -> unsupported [the Android runner produces no engine trace; the view hierarchy attached to every step is the equivalent evidence]
+  screenshot -> supported [the adapter captures the screen with the device screenshot command and writes the PNG into the evidence root; the project holds 1 mobile case(s); the device emulator-5554 is attached and answered adb]
+  video -> supported [the adapter records the screen with the device screen recorder; the project holds 1 mobile case(s); the device emulator-5554 is attached and answered adb]
+  cancel -> supported [the adapter keeps the run handle, so a cancel request can stop the run; the project holds 1 mobile case(s); the device emulator-5554 is attached and answered adb]
+  nativeBrowser -> unsupported [the Android runner drives an Android device, not a browser]
+  cliContract -> supported [the adapter drives the adb client at C:\Users\seiko\AppData\Local\Android\Sdk\platform-tools\adb.exe with an argument vector (never a shell string); the device emulator-5554 is attached and answered adb]
+
+discover: {
+  "tests": [
+    {
+      "uidSource": null,
+      "uidStable": true,
+      "file": "flows/smoke.yaml",
+      "title": "Smoke flow",
+      "line": 3,
+      "source": "mobile",
+      "engine": "mobile",
+      "level": "ST",
+      "appId": "com.ichor.smoke",
+      "tags": [],
+      "steps": [
+        {
+          "kind": "launchApp",
+          "args": {
+            "appId": "com.ichor.smoke"
+          },
+          "assertion": null,
+          "line": 5,
+          "raw": "- launchApp:"
+        },
+        {
+          "kind": "tapOn",
+          "args": {
+            "text": "Open Details"
+          },
+          "assertion": null,
+          "line": 7,
+          "raw": "- tapOn: \"Open Details\""
+        }
+      ],
+      "unsupportedCount": 0,
+      "runner": "android"
+    }
+  ],
+  "files": [
+    "flows/smoke.yaml"
+  ],
+  "warning": null,
+  "runner": "android"
+}
+--- exit: 0 ---

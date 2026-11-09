@@ -13,11 +13,27 @@ import { assertAdapter, negotiate, requireCapability, AdapterError } from './con
 import { createPlaywrightAdapter } from './playwright.mjs';
 import { createWdioAdapter } from './wdio.mjs';
 import { createMobileAdapter } from './mobile.mjs';
+import { createAndroidAdapter } from './android-adapter.mjs';
 
-/** The runners this build knows about, in preference order. */
+/**
+ * The runners this build knows about, in preference order.
+ *
+ * The mobile runner is registered TWICE, and the two registrations are
+ * DIFFERENT THINGS:
+ *
+ *   * `mobile`     -- the CONTRACT of ATS-601. It has no driver, so every
+ *                    capability is unsupported with a reason. It is the
+ *                    skeleton the Android runner grows out of.
+ *   * `android`    -- the DRIVER of ATS-603: the same contract, with a
+ *                    real device behind it.
+ *
+ * They are separate entries because they have different TRUTHFULNESS: a
+ * machine with an emulator attached can run a mobile case, and a machine
+ * without one cannot. The registry must be able to say that.
+ */
 export function createRegistry() {
   const registry = new Map();
-  for (const factory of [createPlaywrightAdapter, createWdioAdapter, createMobileAdapter]) {
+  for (const factory of [createPlaywrightAdapter, createWdioAdapter, createMobileAdapter, createAndroidAdapter]) {
     const adapter = assertAdapter(factory());
     registry.set(adapter.kind, adapter);
   }

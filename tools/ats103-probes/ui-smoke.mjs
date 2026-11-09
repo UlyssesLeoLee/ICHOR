@@ -13,9 +13,10 @@
  *
  *   1. the page loads and the UI's OWN session call succeeds (the page
  *      asks the Bridge for a token and uses it);
- *   2. the page's API requests go to the host its OWN LOCATION implies
- *      (the executable discriminator for "the API base is resolved at
- *      runtime" -- see the note below);
+ *   2. the page's API requests go to the host the page's own origin
+ *      IMPLIES for that origin (the executable discriminator for "the API
+ *      base is resolved at runtime" in the same-origin run -- see the note
+ *      below);
  *   3. adding a project through the UI registers it and the catalog shows
  *      the fixture's test cases;
  *   4. running through the UI reaches a terminal state, and the run the UI
@@ -47,6 +48,25 @@
  * is baked. Only this executed discriminator turns red under BOTH
  * mutation B and mutation B2.
  *
+ * The cross-origin run
+ * --------------------
+ * The discriminator above is a SAME-ORIGIN discriminator by construction:
+ * it distinguishes "relative base" from "absolute base", and only the
+ * same-origin page can tell them apart, because only there do the two
+ * resolve to DIFFERENT hosts.
+ *
+ * On a cross-origin page the two are indistinguishable BY CONSTRUCTION --
+ * the absolute base IS the correct target there -- so the cross-origin run
+ * asserts something else: that the requests go to the ABSOLUTE base's host.
+ * That is a CORRECTNESS check, not a discriminator: the product is
+ * expected to use the absolute base on any origin that is not the
+ * Bridge's own port, and a correct run must therefore be GREEN.
+ *
+ * The exit code is the conclusion in BOTH runs. A run whose exit code
+ * says FAILED but whose detail explains that the behaviour is correct
+ * makes the exit code useless to whoever re-runs the probe, so the
+ * cross-origin run must reach RESULT: OK and exit 0.
+ *
  * The port (ATS-103 review round 1, finding C5)
  * ---------------------------------------------
  * The default is the Bridge's own default port. The script refuses a
@@ -71,12 +91,12 @@
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defaultPort } from './lib/default-port.mjs';
 import { absoluteApiBaseHost } from './lib/api-base.mjs';
+import { stopChildAndReleasePort, waitForPortFree } from './lib/port-free.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const argv = process.argv.slice(2);
@@ -119,7 +139,7 @@ const EXPECTED_CHECKS = 8;
 const EXPECTED_NAMES = [
   'the exported page loads in a real browser',
   "the page's own session call succeeds",
-  "the page's API requests go to the host its own location implies",
+  "the page's API requests go to the host the product's base resolution implies",
   'adding a project through the UI registers it and lists the catalog',
   'running through the UI reaches a terminal state',
   'the UI started the run the Bridge reports',
@@ -153,15 +173,6 @@ async function waitReady(port) {
   return false;
 }
 
-function portIsFree(port) {
-  return new Promise((resolve) => {
-    const srv = net.createServer();
-    srv.once('error', () => resolve(false));
-    srv.once('listening', () => srv.close(() => resolve(true)));
-    srv.listen(port, '127.0.0.1');
-  });
-}
-
 async function main() {
   const fixture = path.join(REPO_ROOT, 'examples', 'sample-playwright');
   if (!fs.existsSync(path.join(fixture, 'node_modules'))) {
@@ -178,7 +189,16 @@ async function main() {
     process.exit(1);
   }
 
-  if (!(await portIsFree(PORT))) {
+  // The port has to be bindable. On Windows a process that was killed with
+  // TerminateProcess leaves its listening socket behind as a ZOMBONE
+  // (netstat still shows it as LISTENING, its owning PID is 0) for a
+  // moment, so a probe that starts right after the previous one can find
+  // the port un-bindable although nobody is listening on it. The port is
+  // therefore WAITED FOR, not merely checked once: a genuinely busy port
+  // is still refused (the probe fails closed), but a port that is only
+  // waiting to be reaped becomes usable.
+  const portWaited = await waitForPortFree(PORT, 10000);
+  if (portWaited === null) {
     console.error(`port ${PORT} is already in use -- the probe would talk to a DIFFERENT server.`);
     process.exit(1);
   }
@@ -256,42 +276,59 @@ async function main() {
     const sessionOk = sessionCalls.some((c) => c.endsWith('-> 200'));
     check("the page's own session call succeeds", sessionOk, sessionCalls.length ? sessionCalls.join(', ') : 'the page made no /api/session call');
 
-    // 2. THE RUNTIME-BASE DISCRIMINATOR (executed, not inferred).
+    // 2. WHERE THE PAGE'S API REQUESTS WENT.
     //
-    //    The page was opened by NAME (`localhost`). The product resolves the
-    //    API base to a RELATIVE path when the page is on the Bridge's own
-    //    port, so the browser resolves the request against the page's own
-    //    origin and it goes to `localhost:<port>`. A base baked in at build
-    //    time is ABSOLUTE, so the request goes to the numeric address
-    //    instead. Every API request the page made must have gone to the
-    //    host the page's own location implies.
+    //    What the correct target host is depends on the page's own origin.
+    //    The product's own rule (apps/studio/lib/api.ts) is: the base is
+    //    RELATIVE when the page sits on the default port, and ABSOLUTE
+    //    otherwise -- because a relative base cannot work from another
+    //    origin. The probe asserts the target that rule implies for the
+    //    origin the page was actually opened on:
     //
-    //    This is checked against the EXECUTED requests, so it cannot be
-    //    satisfied by a bundle that merely mentions a port comparison.
+    //      same origin   -- the page is on the Bridge's own port, so the
+    //                       product resolves the base to a RELATIVE path
+    //                       and the browser resolves it against the page's
+    //                       own origin: the requests must go to the host
+    //                       the page's own location implies
+    //                       (`localhost:<port>`). This is the EXECUTED
+    //                       DISCRIMINATOR: a base baked in at build time
+    //                       is ABSOLUTE and would go to the numeric
+    //                       address instead, so the two are
+    //                       distinguishable, and the check is made
+    //                       against the EXECUTED requests -- it cannot
+    //                       be satisfied by a bundle that merely mentions
+    //                       a port comparison.
     //
-    //    The host the page's OWN location implies. In the same-origin run
-    //    the page is at `localhost:<port>`, so that is the host a RELATIVE
-    //    base resolves against. The check therefore compares the executed
-    //    request hosts against THAT host.
+    //      cross origin  -- the page is on another origin, where a
+    //                       relative base cannot work at all, so the
+    //                       product falls back to the ABSOLUTE base and
+    //                       the requests must go to THAT host. This is a
+    //                       CORRECTNESS check, not a discriminator: the
+    //                       absolute base is the correct target on any
+    //                       origin that is not the Bridge's own port, and
+    //                       a correct run is therefore GREEN.
     //
-    //    The check is the SAME-ORIGIN discriminator by construction. In the
-    //    cross-origin run the page sits on another origin, where a relative
-    //    base cannot work at all: the product falls back to the absolute
-    //    base there, so its requests go to the absolute base's host and this
-    //    check reports red. That is the product behaving correctly, and the
-    //    detail line below says so explicitly instead of naming a host the
-    //    page was not on.
-    const offHost = apiHosts.filter((h) => h !== LOCATION_HOST);
-    const pageLocationHost = new URL(pageUrl).host;
+    //    The exit code is the conclusion in every run. A run that reported
+    //    FAILED while its detail said the behaviour was correct would
+    //    make the exit code unusable to whoever re-runs the probe: the
+    //    exit code has to distinguish a real defect from a correct
+    //    configuration.
+    const pageLocation = new URL(pageUrl);
+    const pageLocationHost = pageLocation.host;
+    // The product's rule, expressed over the origin the page was opened
+    // on: the base is relative iff the page's own port is the default
+    // port. The default port is the Bridge's own (read from the product
+    // source), so no port literal is written here.
+    const relativeBase = (pageLocation.port || '80') === String(DEFAULT_PORT);
+    const expectedHost = relativeBase ? pageLocationHost : BAKED_BASE_HOST;
+    const offHost = apiHosts.filter((h) => h !== expectedHost);
     const detail = apiHosts.length
-      ? `page location host: ${pageLocationHost}; API request hosts: ${[...new Set(apiHosts)].join(', ')}`
+      ? `page location host: ${pageLocationHost}; API request hosts: ${[...new Set(apiHosts)].join(', ')}; expected host: ${expectedHost}`
       : 'the page made no API request to inspect';
     check(
-      "the page's API requests go to the host its own location implies",
+      "the page's API requests go to the host the product's base resolution implies",
       apiHosts.length > 0 && offHost.length === 0,
-      PAGE_ORIGIN
-        ? `${detail}; this check is the same-origin discriminator -- the page is on another origin, so the product uses the absolute base (${BAKED_BASE_HOST}) and the request correctly goes there`
-        : detail,
+      detail,
     );
 
     const toast = async () => ((await page.locator('.toast').count()) ? await page.locator('.toast').innerText() : '(no toast)');
@@ -377,7 +414,12 @@ async function main() {
     if (staticServer) staticServer.close();
   } finally {
     if (browser) await browser.close();
-    bridge.kill();
+    // The Bridge spawns the Playwright driver and its browser, so ending
+    // only the Bridge would leave those running. The whole tree is ended,
+    // and the port is WAITED FOR afterwards: on Windows a killed process
+    // leaves its listening socket behind as a zombie for a moment, and the
+    // next probe would otherwise find the port busy.
+    await stopChildAndReleasePort(bridge, PORT);
     try { fs.rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
   }
   return finish();
