@@ -39,7 +39,7 @@ function mkHost(extra = {}) {
       readRequirements: async (pid) => { calls.push(['readRequirements', pid]); return { pid }; },
       readRunEvidence: async (pid, r) => { calls.push(['readRunEvidence', pid, r]); return { runUid: r, artifacts: [] }; },
       resolveEvidenceDigest: async (pid, r, ref) => { calls.push(['resolveEvidenceDigest', pid, r, ref]); return okDigest; },
-      submitProposal: async (p) => { proposals.set(p.proposalId, { ...p }); },
+      submitProposal: async (p) => { proposals.set(p.proposalId, structuredClone(p)); },
       getProposal: (id) => proposals.get(id),
       ...extra,
     },

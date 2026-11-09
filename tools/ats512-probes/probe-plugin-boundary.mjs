@@ -95,7 +95,7 @@ function makeHost(overrides = {}) {
       readRequirements: async (projectId) => ({ projectId, requirements: [] }),
       readRunEvidence: async (projectId, runUid) => ({ projectId, runUid, artifacts: [] }),
       resolveEvidenceDigest: async (projectId, runUid, ref) => 'd'.repeat(64),
-      submitProposal: async (proposal) => { proposals.set(proposal.proposalId, { ...proposal }); },
+      submitProposal: async (proposal) => { proposals.set(proposal.proposalId, structuredClone(proposal)); },
       getProposal: (proposalId) => proposals.get(proposalId),
       ...overrides,
     },
