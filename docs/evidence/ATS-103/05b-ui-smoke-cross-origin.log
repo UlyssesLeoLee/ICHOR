@@ -1,6 +1,6 @@
 === ATS-103 evidence: ST: the exported UI from a whitelisted cross-origin ===
-date      : 2026-11-07T02:50:55Z (UTC)
-commit    : 271e50844be865205084e24d48f4b004b2a02309
+date      : 2026-11-09T09:18:36Z (UTC)
+commit    : 99876de3cdf9dea4bbadf01036bf72fc046a9259
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats103-probes/ui-smoke.mjs --page-origin http://127.0.0.1:3000
@@ -24,29 +24,29 @@ PASS  the page produced no console error and no failed request  --  console erro
   GET /api/runs -> 200
   GET /api/runs -> 200
   GET /api/projects -> 200
-  GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/tests -> 200
-  GET /api/projects/proj_1_58fa8e223638d85e8cf3368a/lineage -> 200
+  GET /api/projects/proj_1_3410b5847b1bebdb91a2b7f9/tests -> 200
+  GET /api/projects/proj_1_3410b5847b1bebdb91a2b7f9/lineage -> 200
   GET /api/runs -> 200
-  POST /api/projects/proj_1_58fa8e223638d85e8cf3368a/run -> 202
+  POST /api/projects/proj_1_3410b5847b1bebdb91a2b7f9/run -> 202
   GET /api/runs -> 200
   GET /api/runs -> 200
   GET /api/projects -> 200
-  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
-  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
-  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
+  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
+  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
+  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
+  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
+  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
+  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
+  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
   GET /api/runs -> 200
-  GET /api/runs/run_1_683bcd1a40700c00018c92c7 -> 200
+  GET /api/runs/run_1_f7ac29c9d5054a51536fd07c -> 200
 --- end ---
 --- bridge stderr ---
-  (node:14292) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+  (node:21260) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 --- end ---
 PASS  the probe executed every registered check  --  8/8 checks executed
