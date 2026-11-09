@@ -1,0 +1,43 @@
+PASS the Bridge starts
+PASS ST-1 a real run finished -- failed
+PASS ST-1 the real run has one passing and one failing case -- {"passed":1,"failed":1}
+PASS ST-6 the workbench endpoint answers 200 -- 200
+PASS ST-6 the material carries the run, the artifacts and the cases -- artifacts=27 cases=2
+PASS ST-2 the failing case is on the workbench -- 1 failure(s)
+PASS ST-2 the failing case's Trace is located
+PASS ST-3 the located Trace is one of the run's archived artifacts -- results/home-导航入口正常-REQ-002/trace.zip
+PASS ST-4 the click path from the failure list to the Trace is TWO clicks -- clicks=2 budget=2
+PASS ST-4 the workbench reports the budget of two -- 2
+PASS ST-5 the located Trace exists on disk -- C:\tmp\multica-task-2883163478\ats215-st3\ats215-p2e99q\data\runs\run_1_6609deeb63dff0d841592a21\results\home-导航入口正常-REQ-002\trace.zip
+PASS ST-5 the bytes on disk hash to the digest the workbench shows -- disk=b85b48cf7ed69ee9 workbench=b85b48cf7ed69ee9
+PASS ST-5 the workbench shows the modification time of the attachment -- 2026-11-09T09:01:01.691Z
+PASS ST-10 the Trace downloads through the artifact endpoint -- http=200 bytes=8531 expected=8531
+PASS ST-10 the downloaded bytes hash to the archived digest
+PASS ST-7 the portable UI has an evidence workbench tab
+PASS ST-7 the portable UI shows the failing case -- 导航入口正常 @REQ-002
+PASS ST-7 the portable UI shows the Trace file of the failing case -- results/home-导航入口正常-REQ-002/trace.zip
+PASS ST-7 the portable UI shows the archived digest of the Trace -- b85b48cf7ed6
+PASS ST-7 the portable UI shows the click budget -- the click path is rendered
+PASS ST-7 the portable UI shows the modification time of the attachment -- 
+    导航入口正常 @REQ-002home.spec.ts:22 · failed
+    Trace：results/home-导航入口正常-REQ-002/trace.zip · 9 KB · 2026/11/9 18:01:01 · b85b48cf7ed69ee9de3f7ee4ef3214294bea3
+PASS ST-9 the portable UI offers a Trace button for the failing case -- 1 button(s)
+PASS ST-9 the Trace is reached in TWO clicks from the failure list -- 2 click(s): click the failing case in the failure list -> click the Trace button of that case
+PASS ST-9 clicking the Trace really downloads it -- trace.zip
+PASS ST-12 the portable UI has no console error
+PASS ST-12 the portable UI has no page error
+PASS ST-8 the Next workbench has an evidence workbench button
+PASS ST-8 the Next workbench shows the failing case -- 导航入口正常 @REQ-002
+PASS ST-8 the Next workbench shows the Trace file of the failing case -- results/home-导航入口正常-REQ-002/trace.zip
+PASS ST-8 the Next workbench shows the archived digest of the Trace -- b85b48cf7ed6
+PASS ST-8 the Next workbench shows the modification time of the attachment -- row=导航入口正常 @REQ-002home.spec.ts:22failedresults/home-导航入口正常-REQ-002/trace.zip9 KBb85b48cf7ed6…完整摘要见 title2026/11/9 18:01:01 
+PASS ST-8 both interfaces show the same archived digest
+PASS ST-9 the Next workbench reaches the Trace in TWO clicks -- 2 click(s): click the failing case in the failure list -> click the Trace button of that case
+PASS ST-9 the Next workbench really downloads the Trace -- trace.zip
+PASS ST-12 the Next workbench has no console error
+PASS ST-12 the Next workbench has no page error
+PASS ST-11 the tampering is detected -- [{"file":"html/data/fa014e9fd4092a623b6d9cdf07e7812358ca48ec.zip","expected":"b85b48cf7ed69ee9de3f7ee4ef3214294bea35fca54b8fd4c3f27837e8aefe57","actual":"6ec845
+PASS ST-11 the workbench still shows the ARCHIVED digest, not a recomputed one -- archived=b85b48cf7ed69ee9
+PASS ST-11 the verification says the archive does not match
+PASS ST-11 the archive is intact again after the restore
+RESULT: 40/40
