@@ -31,7 +31,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 import { createAdbTransport, resolveAdbPath } from '../server/adapters/android-adb.mjs';
 import { MOBILE_FAILURE, STEP_STATUS, createAndroidDriver } from '../server/adapters/android-runner.mjs';
@@ -114,12 +114,27 @@ function realDriver(capabilities = MOBILE_CAPABILITIES) {
   });
 }
 
-/** Install the fixture on the device. */
+/**
+ * Install the fixture on the device.
+ *
+ * The package is UNINSTALLED first: the fixture is signed with a local
+ * debug key, and a rebuild with a different key produces a different
+ * signature -- `adb install -r` then refuses with
+ * "INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package ... signatures do
+ * not match". The uninstall makes the install independent of whatever
+ * was on the device before.
+ */
 function installFixture() {
-  execFileSync(availability.adbPath, ['-s', availability.device.serial, 'install', '-r', '-t', APK], {
-    encoding: 'utf8',
-    timeout: 120000,
+  const uninstall = spawnSync(avail.adbPath, ['-s', avail.serial, 'uninstall', PACKAGE], {
+    encoding: 'utf8', timeout: 60000,
   });
+  const install = spawnSync(avail.adbPath, ['-s', avail.serial, 'install', '-r', '-t', APK], {
+    encoding: 'utf8', timeout: 120000,
+  });
+  if (install.status !== 0) {
+    throw new Error(`the smoke fixture could not be installed: ${install.stdout} ${install.stderr}`);
+  }
+  void uninstall;
 }
 
 /** Force the app to the front, so the test starts from a known state. */
