@@ -187,10 +187,10 @@ preview（用户看到的范围）、confirm（用户同意的范围）与 check
 | 文件 | 行 % | 分支 % | 函数 % |
 |---|---|---|---|
 | `credentials.mjs` | **97.57** | 92.26 | 97.01 |
-| `egress-audit.mjs` | **98.97** | 86.36 | 92.86 |
+| `egress-audit.mjs` | **98.98** | 86.96 | 92.86 |
 | `egress-consent.mjs` | **92.16** | 83.33 | 90.48 |
 | `egress-gate.mjs` | **98.44** | 96.39 | 100.00 |
-| 合计 | **96.50** | 90.68 | 95.50 |
+| 合计 | **96.51** | 90.73 | 95.50 |
 
 `buildEgressScope` 不再是死代码：它是 `resolveEgressInputs` 的薄封装，被 `server/index.mjs`
 的 preview / confirm 使用（UT-GATE-001）。

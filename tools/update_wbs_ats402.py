@@ -66,7 +66,7 @@ NOTE = (
     '越权外传因此既被拦截也被留痕。授权列表的状态反映过期（expired）。'
     '实测：UT 76 项全通过（tests/security.test.mjs 41 + security-credentials.test.mjs 20 + '
     'security-gate.test.mjs 15，进程内、注入后端）；server/security 四个文件行覆盖率均大于 90%'
-    '（credentials 97.57、egress-audit 98.97、egress-consent 92.16、egress-gate 98.44）；'
+    '（credentials 97.57、egress-audit 98.98、egress-consent 92.16、egress-gate 98.44）；'
     'IT 32 项（ATS402_REAL_CREDENTIAL_STORE=1 时 32 项全通过，'
     '未设该标志时 4 项真实凭据库用例如实标为 SKIPPED，'
     'node --test tests/security-api.test.mjs）；评审第 1 轮的三份反例探针在本树上全部 RESULT: OK；'
