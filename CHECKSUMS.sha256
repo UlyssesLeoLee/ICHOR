@@ -85,7 +85,7 @@ ae90a5e6681eb63d3f814e011a89a322e518e6312e3c3eca72d1b6a54d5935dd  docs/19-REMOTE
 f5475cc08d25a908e74b17e2e04bf3b8bd19c2ab03ca6ec56dd436c61dda2cbc  docs/20-PARALLEL-ORCHESTRATION.md
 240490606dfa7ab993066a5faf321d66e66986ab2772b82f7c85a2db8bcf251a  docs/21-CONTROL-PLANE-API.md
 405636dc677af9694e23859c478d2c2c03f39332c08a9061d1481483e0dc3d81  docs/21-PLUGIN-CONTRACT.md
-6c90f026146104111b2862a6ab768d0a2ecc6f4d22704ed540f0d20f035360f0  docs/22-FRONTEND-EXPORT.md
+abe3328efd049c2aa561d4abf398065bf03720b215a7862a5cc91f099a36b9e7  docs/22-FRONTEND-EXPORT.md
 98bb0945cef3cd84b4203f14cb4a4e5bfd07e3093e3e39076f66a2773a4d5ef6  docs/23-AI-DATA-SECURITY.md
 45c86fd193f6c9ab24e0eac6c07d85ab04297729754e429533608024cf10870c  docs/23-AUTHORITATIVE-DISCOVERY.md
 d6ef1f959b3cc525dcf828f997c398c912acf18da57894067ed1b1d6a0961670  docs/24-EXECUTION-MODEL.md
@@ -134,8 +134,8 @@ fe4b8b85cbbebd58e4da031a538f8fc3b1de1060c1296e7a07e70833b7491545  docs/evidence/
 41b736fe2bb3bf5ef454aec258b9eaf1a9d3a9deb40428790b20f79a4eb558e5  docs/evidence/ATS-103/09-ci-build-gate.log
 bcdae3e1f17c487993077de0b600d04c533e232ac66db807225e68b532fbc82f  docs/evidence/ATS-103/10-r4-branch-clone-verification-crlf.log
 16570e1fdd52707c78362901271607c5c26b3505d9f4e259fa50142b5bf6b51d  docs/evidence/ATS-103/10-r4-branch-clone-verification-lf.log
-d600596f8cbb74762e93cb45cb265672478331a821bd811f8f59009485a5b689  docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log
-cc1a720d76de8acefaf4a231a0dcae9f291a21e12046aa29fbe0b4e9d465ac3a  docs/evidence/ATS-103/11-r4-dev-clone-verification-lf.log
+ff11e733d6281763a336173ebf46aea0ee0d1aadd2a53ed824472dc8a5331af5  docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log
+dd377f9b72bde5788492644c9169e806f98cefd0b8a725b218c7a6d4e4784f2a  docs/evidence/ATS-103/11-r4-dev-clone-verification-lf.log
 5211f88666cf8369c0cd9275e8ea249a98e737c98b0e503ce9878d96985d7dad  docs/evidence/ATS-106/01-preflight-ut.log
 8fc86a38d97f0c3d2330f9f176fa93eb279834411298b2e96570d7f5e6e4bbf4  docs/evidence/ATS-106/02-preflight-it.log
 c6d96ca9acb6a49fded1070c2c4dfea381f3209be61997d683c3fe905158fd5e  docs/evidence/ATS-106/03-real-cli-contract.log
@@ -637,8 +637,9 @@ e036dc8a3471f2251ee185421f929ebafda11bb67ca8eba026198edc64128ba3  tools/ats102-e
 dc61e125d440f132ce11da257506c3a5858343e8f36c04534c394b0f8aa107c7  tools/ats102-probes/collect-final-gate.sh
 be614feb948e9854a87456d6858ea911678a08aa6ae828b609e5ad6bb73f32d9  tools/ats102-probes/diff-install-trees.py
 c5255732136d46114fee70a40755e9498f67cdab4f77ff80551bc6ecc240342e  tools/ats102-probes/test-tree-digest-eol.mjs
-d35d88cefd8141d7c085eec6deb50d870d0459a8bac7b64ce993976c93a0dfb7  tools/ats103-probes/README.md
+ee189f7951ae671f063a535eb2a9cc321459db3fed8887c7dadf23ec46c79901  tools/ats103-probes/README.md
 0a92d7d5bf6b5a57392e9540375140b65e8709f1c9cd0b13ecc10b2dccdda469  tools/ats103-probes/collect-evidence.sh
+897ba4762ab2eba183b48cd87d7f04f835004530ad5971819cf3ce606c1fc9de  tools/ats103-probes/collect-r4-logs.sh
 ab92b2b7c3ab7afb120ec4309d76b1356ee84efe9406cad49938dfedcafee142  tools/ats103-probes/lib/api-base.mjs
 038b740a46332e142f7e072444d2b9fa9e6cc8d65c9703af40d18013e78bad0b  tools/ats103-probes/lib/default-port.mjs
 40704c83fd471dc0094d20975727e97a5247a938e09444d4b577ca3d024ae9e5  tools/ats103-probes/lib/failing-files.py
