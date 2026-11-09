@@ -26,7 +26,7 @@
 | n8n | https://github.com/n8n-io/n8n/blob/master/LICENSE.md | 工作流执行历史 UX | Sustainable Use License，非宽松开源 |
 | 日本 IPA | https://www.ipa.go.jp/publish/secbooks20130304.html | 共通フレーム2013 | 本项目参考工程方法，不宣称获得 IPA 官方认证 |
 | 日本 IPA | https://www.ipa.go.jp/archive/digital/iot-en-ci/jyouryuu/hikinou/ent03-b.html | 非機能要求グレード | 按本项目情境设定 NFR 指标 |
-| Maestro（mobile.dev） | https://docs.maestro.dev/maestro-cli | 移动端 Flow 化用例、元素检查器、设备管理模式 | Apache-2.0（CLI）；**仅借鉴管理模式，不引入依赖、不承诺语法兼容**；Studio 为独立产品 |
+| Maestro（mobile.dev） | https://docs.maestro.dev/api-reference/commands | 移动端 Flow 化用例、元素检查器、设备管理模式 | Apache-2.0（CLI）；**仅借鉴管理模式，不引入依赖、不承诺语法兼容**；Studio 为独立产品。**ATS-606 实查**：CLI 2.12.1 接受 55 条命令（官方索引页列 48 条，差的 7 条是 `inputRandom*` 家族，官方把它们写在 `inputText` 页里）；本平台的逐条判定见 docs/25 §8.5 |
 
 ## 当前代码的许可证声明
 

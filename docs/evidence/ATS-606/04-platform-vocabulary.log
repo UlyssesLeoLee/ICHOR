@@ -1,0 +1,21 @@
+=== ATS-606 evidence: the platform vocabulary (ATS-601 / ATS-602) ===
+tree : 7d9eb55c413312b802f1bb051240cbcd45d3a016
+date : 2026-11-09T16:25:57Z
+
+--- ATS-601: the step kinds and the capabilities each one needs ---
+  launchApp       any: ['app.install', 'app.launch'], all: []
+  tapOn           any: [], all: ['ui.tap', 'ui.hierarchy']
+  assertVisible   any: [], all: ['ui.hierarchy']
+  takeScreenshot  any: [], all: ['screen.capture']
+  recordScreen    any: [], all: ['screen.record']
+  readLogs        any: [], all: ['log.read']
+
+--- ATS-601: the capability vocabulary ---
+
+--- ATS-602: the semantic table (kind -> the spellings it accepts) ---
+  launchApp       'launchApp', 'launch'
+  tapOn           'tapOn', 'tap'
+  assertVisible   'assertVisible', 'assert'
+  takeScreenshot  'takeScreenshot', 'screenshot'
+  recordScreen    'recordScreen', 'record'
+  readLogs        'readLogs', 'logs'
