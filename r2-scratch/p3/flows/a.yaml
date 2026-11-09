@@ -1,4 +1,0 @@
----
-- name: "Login @TC-650"
-  steps:
-    - tapOn: "Login"
