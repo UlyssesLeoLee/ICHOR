@@ -7,7 +7,7 @@ PASS BC-1 the portable UI has no page error on load
 PASS BC-2a the portable UI shows the quality tab -- 1 button(s)
 PASS BC-2b the portable UI renders the quality metrics -- 4 metric card(s)
 PASS BC-2c the portable UI shows the failed case count -- 通过 / 1 / 用例级 · 不含重试 / 失败 / 1 / 用例级 · 可核对原始结果 / 重试后通过 / 0 / 用例级 · 0 次重试 / 未出结论 / 0 / 运行级 · 已取消/中断/启动失败 · 不计入失败
-PASS BC-3 the portable UI reports the reconciliation -- 核对项	期望	实得	结论 / run run_1_fd39a738e909c7fb0305c81c: summary.passed matches the case list	1	1	一致 / run run_1_fd39a738e909c7fb0305c81c: summary.failed matches the case list	1	1	一致 / run run_1_fd39a738e909c7fb0305c81c: summary.flaky matches the case list	0	0	一致
+PASS BC-3 the portable UI reports the reconciliation -- 核对项	期望	实得	结论 / run run_1_175d1c21e93c608bdf19a7fd: summary.passed matches the case list	1	1	一致 / run run_1_175d1c21e93c608bdf19a7fd: summary.failed matches the case list	1	1	一致 / run run_1_175d1c21e93c608bdf19a7fd: summary.flaky matches the case list	0	0	一致
 PASS BC-7a the portable UI 「全部项目」 covers EVERY project -- UI(全部) 通过/失败=2/2; module(全部)=2/2; module(第一个项目)=1/1
 PASS BC-8a the portable UI renders the raw items behind every number -- 通过 2 · 2 项原始结果 / 失败 2 · 2 项原始结果 / 重试后通过 0 · 0 项原始结果
 PASS BC-8b the portable UI offers an expandable list for every metric -- 5 expandable list(s) for 4 card(s)
@@ -20,5 +20,5 @@ PASS BC-7b the Next workbench 「全部项目」 shows the same numbers as the p
 PASS BC-8c the Next workbench renders the raw items behind every number -- 用例级 · 可核对原始结果 / 指标与原始结果核对
 PASS BC-8d the Next workbench offers an expandable list for every metric -- 5 expandable list(s) for 4 card(s)
 PASS BC-6c the Next workbench has no console error
-scratch: C:\tmp\multica-task-2436323363\ats216-evidence-r3\bc216-iPJh5n
+scratch: C:\Users\seiko\AppData\Local\Temp\multica-task-2436323363\ats216-dev-ev\bc216-WYrs1z
 RESULT: 22/22
