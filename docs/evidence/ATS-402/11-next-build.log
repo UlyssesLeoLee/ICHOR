@@ -1,8 +1,8 @@
 ================================================================================
 ATS-402 evidence log -- the Next.js static export builds with the AI data security tab
 ================================================================================
-commit        : 86fc0d62863ef7159bc705044a4cd1f7c3470681
-timestamp     : 2026-11-09T04:33:14Z (UTC)
+commit        : d2a2f589d194631b198e6e2f7728a1c5e3f9168c
+timestamp     : 2026-11-09T04:44:02Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree
 node          : v24.19.0
 python        : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
@@ -15,15 +15,15 @@ npm notice run npm --prefix apps/studio run build
 npm notice run @ai-test-studio/ui@0.1.0 build
 npm notice run next build
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 22ms
+✓ Running next.config.mjs took 35ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 187ms
+✓ Compiled successfully in 459ms
   Running TypeScript ...
-  Finished TypeScript in 1211ms ...
+  Finished TypeScript in 1595ms ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 477ms
+✓ Generating static pages using 4 workers (3/3) in 545ms
   Finalizing page optimization ...
 
 Route (app)
