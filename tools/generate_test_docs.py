@@ -624,6 +624,7 @@ IT+=[
 ('IT-ATS602-API-012','FR-032','安全','经 HTTP：移动端丢掉的 @TC- token 被 Web 用例声明后不再发回','两次读目录之间移动端去掉 @TC-600、Web 用例声明 @TC-600','每次读目录都无重复 UID，Web tc-600/explicit，移动端 derived 并报告注册表冲突','node --test','PASS'),
 ('IT-ATS602-API-013','FR-032','安全','经 HTTP：复制场景后修改原场景 UID 保持不同','两次读目录之间复制 Checkout 并给原场景加一步','每次读目录都无重复 UID，副本 registry 保留旧 UID，原场景 derived-body','node --test','PASS'),
 ('IT-ATS602-API-014','FR-032','安全','经 HTTP：可信项目删除用例后同指纹新用例不继承旧 UID','可信项目三次读目录：删 beta 与 Logout，再新增同正文/同步骤的新用例（无真实 Playwright 时跳过并记录原因）','三次都是 discovery=authoritative 且无重复 UID，新用例 UID 与被删的不同且非 registry','node --test','PASS'),
+('IT-ATS602-API-015','FR-032','安全','经 HTTP：可信项目上的 @TC- token 规则跨引擎成立','两个可信项目（真实 Playwright，无则跳过并记录原因）：Web 去掉 @TC-650 同时场景声明；Web 与场景同时声明 @TC-100','都是 discovery=authoritative 且无重复 UID；场景持有 tc-650、Web 用例派生并报告 explicit-uid-claimed-by-another-case；tc-100 无人绑定，两方报告 duplicate-explicit-uid','node --test','PASS'),
 ('IT-CP-CLEANUP','NFR-005','清理','控制面 IT 子进程与夹清理','结束 IT suite','两个子进程退出，临时目录删除','node --test','PASS'),
 # --- ATS-205: the bridge writes the metadata mirror at runtime ---
 ('IT-SQL-001','NFR-010','正常','Bridge 启动并创建元数据数据库','隔离 ATS_DATA_DIR 启动 server/index.mjs','数据目录出现 metadata.db','node --test','PASS'),
@@ -929,6 +930,8 @@ UT+=[
 ('UT-MOB-314','FR-032','安全','复制场景后修改原场景不产生重复 UID','Login 复制为 Login copy 并给原 Login 加一步','副本经注册表保留旧 UID，原场景 derived-body 得新 UID，单文件导入同样判定','node --test','PASS'),
 ('UT-MOB-315','FR-032','安全','可信路径删除用例后同指纹新用例不继承旧 UID','权威目录：删除 Web beta 与场景 Logout，再新增同正文/同步骤的新用例；改标题','新用例的 UID 与被删的不同且非 registry，合并后的 cell 不含被删条目，改标题后一个 uid 一条条目且为新标题','node --test','PASS'),
 ('UT-MOB-316','FR-032','正常','注册表合并不改写输入且 Web 解析器尊重已声明的 token','mergeMobileRegistry 传入已有条目与新位置；resolveIdentities 传 claimedExplicitUids','输入条目不变、返回副本带别名、范围内无人认领的条目被删；Web 解析器拒绝注册表命中并报告 explicit-uid-claimed-by-another-case','node --test','PASS'),
+('UT-MOB-317','FR-032','安全','可信路径：Web 用例丢掉的 token 被移动端场景声明后不经注册表发回','authoritativeCatalog 三次发现：Web 带 @TC-650、场景无 token；Web 去掉、场景声明；再反向','无重复 UID；场景按显式持有 tc-650，Web 用例改走派生并报告 explicit-uid-claimed-by-another-case；告警含注册表不一致；cell 中 tc-650 唯一并指向 Flow 文件；反向同理且传入的 cell 不被改写','node --test','PASS'),
+('UT-MOB-318','FR-032','异常','可信路径：Web 用例与移动端场景同时声明同一 token 时两方都不绑定','authoritativeCatalog 一次发现：Web @TC-100 与场景 @TC-100；再走静态路径对照；只有 Web 声明的对照','两方都是 provisional、uidStable=false、duplicate-explicit-uid 并带 explicitUid；告警计 2 个；cell 不记录 tc-100；静态路径同样判定；只有 Web 声明时 Web 绑定','node --test','PASS'),
 ]
 
 # ATS-402 round 2: credential store with an injected vault, the single scope

@@ -1203,13 +1203,6 @@ export function authoritativeCatalog(project, registry, trust, decision, listed)
   const bodies = readBodies(project.root, files);
   const projectUid = projectUidOf(project);
   const projectRegistry = (registry && registry.projects && registry.projects[projectUid]) || { version: UID_SCHEME_VERSION, entries: [] };
-  const resolved = resolveAuthoritativeIdentities({
-    projectUid,
-    cases: listed.tests,
-    bodies,
-    registry: projectRegistry,
-    scope: new Set(files)
-  });
 
   // ATS-602: the MOBILE cases join the authoritative catalogue too.
   //
@@ -1225,15 +1218,30 @@ export function authoritativeCatalog(project, registry, trust, decision, listed)
   // would LOSE its mobile cases -- they would not be moved to another
   // section, they would simply be gone, and the catalogue would not even
   // say so.
+  //
+  // The Flow files are mapped BEFORE the web cases are resolved, because
+  // the census of the `@TC-` tokens has to be known to BOTH resolvers: it
+  // is taken over both engines, so that a token a web case and a mobile
+  // case both claim belongs to neither, and a token either engine claims
+  // is reserved in the other. The authoritative resolver gets the same
+  // census as `resolveIdentities` gets on the static path -- without it, a
+  // token that moved from a web case to a scenario would come back to the
+  // web case through the registry, and two cases would share one uid.
   const mobile = discoverMobile(project);
   const mobileScope = new Set([...files, ...mobile.files]);
-  // The census of the `@TC-` tokens is taken over BOTH engines, so that a
-  // token a web case and a mobile case both claim belongs to neither, and
-  // a token either engine claims is reserved in the other.
   const census = explicitTokenCensus(
     listed.tests.map((t) => ({ title: t.title })),
     mobile.mapped,
   );
+  const resolved = resolveAuthoritativeIdentities({
+    projectUid,
+    cases: listed.tests,
+    bodies,
+    registry: projectRegistry,
+    scope: new Set(files),
+    duplicateExplicitUids: census.duplicated,
+    claimedExplicitUids: census.claimed,
+  });
   const mobileResolved = resolveMobileIdentities({
     projectUid,
     cases: mobile.mapped,
@@ -1284,10 +1292,17 @@ export function authoritativeCatalog(project, registry, trust, decision, listed)
   // ATS-204: the cases whose anchor could not decide them -- a template
   // that gained or lost a render, so the ordinals may have moved.
   const shifted = tests.filter(t => t.ambiguity?.reason === 'render-shift-possible').length;
+  // ATS-602: a case whose registry entry disagreed with this discovery (a
+  // registry hit refused because another case declares the token) is
+  // reported here as it is on the static path: the uid is usable, but the
+  // memory of the past cases is inconsistent and a reader has to know.
+  const REPORTED_ELSEWHERE = new Set(['identical-title', 'identical-title-and-body', 'duplicate-explicit-uid', 'render-shift-possible']);
+  const conflicts = tests.filter(t => t.ambiguity && !REPORTED_ELSEWHERE.has(t.ambiguity.reason));
 
   let warning = `权威索引来自 playwright test --list（CLI ${listed.version || '?'}）：动态与参数化用例已包含在内。`;
   if (ambiguous) warning += ` ${ambiguous} 个用例的 UID 为临时值（标题与 describe 路径都无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
   if (duplicatedExplicit) warning += ` ${duplicatedExplicit} 个用例标注了同一个 @TC-xxx，这些用例都没有绑定到该 UID，需要人工消歧。`;
+  if (conflicts.length) warning += ` ${conflicts.length} 个用例的注册表记录与本次发现不一致（${[...new Set(conflicts.map(t => t.ambiguity.reason))].join('、')}），其 UID 由本次发现派生，需要人工复核。`;
   if (shifted) warning += ` ${shifted} 个用例的模板渲染数发生了变化（${[...new Set(tests.filter(t => t.ambiguity?.reason === 'render-shift-possible').map(t => t.ambiguity.previousCount + '→' + t.ambiguity.currentCount))].join('、')}），锚点次序可能已经位移，这些用例的 UID 由本次发现派生，需要人工复核。`;
   if (outside) warning += ` ${outside} 个用例位于项目根目录之外，已被排除。`;
   if (!consistency.agrees) warning += ` 与静态索引的差异：${consistency.onlyAuthoritative.length} 个用例仅权威索引可见，${consistency.onlyStatic.length} 个用例仅静态索引可见。`;

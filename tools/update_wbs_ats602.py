@@ -86,7 +86,7 @@ NOTE = (
     '映射器在装载时校验该词表，新增步骤种类若不在 ATS-601 词表内会直接报错。'
     '导入的移动端用例进入统一用例目录（discoverStatic 的 mobile 段），'
     '与 Web 用例同为 TestDefinition，且与 Web 用例共用同一个注册表 cell。'
-    '可信项目走权威目录时移动端用例同样在目录内。'
+    '可信项目走权威目录时移动端用例同样在目录内，@TC- token 的跨引擎保留与重复判定在静态与权威两条目录路径上都成立。'
     '不支持的步骤保留原文（raw）、行号（line）、判定原因（reason）与建议替代（suggestion），'
     '并进入导入报告（buildImportReport / formatImportReport）；'
     '模型外的参数、步骤选项与别名冲突保留并告警，不丢弃；'

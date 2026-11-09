@@ -121,15 +121,18 @@ The catalogue of a project holds the cases of both engines, and its registry cel
 - **`discoverMobile(project)`**: maps the Flow files of the project (`mapProjectFlows`) and returns `{mapped, files, imports, unsupported, errors}`. It does NOT resolve identities: the catalogue resolves them once, over the whole catalogue, so the live registry is read exactly once per discovery and never mutated by a preliminary pass.
 - **Explicit token census** (`explicitTokenCensus(webCases, mobileCases)`): one pass over every title of both engines yields `{duplicated, claimed}`: the tokens more than one case declares, and the tokens any case declares. Both resolvers receive both sets (`duplicateExplicitUids`, `claimedExplicitUids`), so a token declared anywhere in the catalogue is reserved everywhere in it.
 - **Static path** (`discoverStatic`): unchanged shape. The mobile cases are resolved first, then handed to `resolveIdentities` as `extraCandidates`, so one merge and one pruning (scope = spec files plus Flow files) produce the cell.
-- **Authoritative path** (`authoritativeCatalog`, exported for tests): the cell the authoritative resolver returns is already pruned over the spec files. The mobile entries are merged into THAT cell with `mergeMobileRegistry(resolvedCell.entries, mobileResolved, new Set(flowFiles))`: existing entries are updated by uid (newest position wins), new ones added, and entries of Flow files that no mobile case claims are dropped. The previous cell is never used as the base, so an entry the authoritative resolver pruned does not come back.
+- **Authoritative path** (`authoritativeCatalog`, exported for tests): the mobile Flow files are mapped FIRST and the census is taken over the listed web cases plus the mapped mobile cases; `resolveAuthoritativeIdentities` receives `duplicateExplicitUids` and `claimedExplicitUids` exactly as `resolveIdentities` does on the static path, so a registry hit never issues a token another case declares and a token two cases declare is bound by neither, on the trusted path as on the static one. A refused registry hit is reported in the warning (`注册表记录与本次发现不一致`) as it is on the static path. The cell the authoritative resolver returns is already pruned over the spec files. The mobile entries are merged into THAT cell with `mergeMobileRegistry(resolvedCell.entries, mobileResolved, new Set(flowFiles))`: existing entries are updated by uid (newest position wins), new ones added, and entries of Flow files that no mobile case claims are dropped. The previous cell is never used as the base, so an entry the authoritative resolver pruned does not come back.
 
 Invariants:
 
 - No two cases of a catalogue share a uid, on either path.
 - A case deleted from a file that the discovery covered does not hand its uid to a later case with the same fingerprint, on either path.
+- A `@TC-` token declared by any case of the catalogue is reserved for that case, and a token declared by two cases is bound by neither, on either path.
 - `safeRunArgs(project, testFile, output)` returns the vector of `buildPlaywrightArgs({ cli, options, outputDir: output, testFile })`; it throws `PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT` without a CLI and `INVALID_TEST_FILTER` / `INVALID_SOURCE_FILE` / `PATH_OUTSIDE_PROJECT` for a bad filter.
 
 ## Change Notes
+
+ATS-602 round 4 (review findings T1 / T3, trusted path): `authoritativeCatalog` takes the census before resolving the listed cases and passes `duplicateExplicitUids` / `claimedExplicitUids` to `resolveAuthoritativeIdentities`; the trusted warning reports refused registry hits. See `.quality/docs/server/discovery/authoritative.mjs.md`.
 
 ATS-602 round 3 (review findings N1, N2-cross, N3): the catalogue identity merge above. `discoverMobile` no longer returns a `registry` (unused); `authoritativeCatalog` is exported; `mergeRegistryCells` is replaced by `mergeMobileRegistry` over the pruned cell.
 

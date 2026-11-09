@@ -538,6 +538,74 @@ test('IT-ATS602-API-014: a trusted project does not hand a deleted uid to a new 
   assert.notEqual(fresh.uidSource, 'registry');
 });
 
+test('IT-ATS602-API-015: a trusted project applies the @TC- token rules across both engines (T1 / T3)', { skip: installed ? false : 'no real Playwright' }, async () => {
+  // The same rules IT-012 checks on the static path, over the REAL
+  // authoritative index of a trusted project: (a) a token that moves from a
+  // web case to a scenario is not re-issued to the web case through the
+  // registry (T1); (b) a token both engines declare is bound by neither (T3).
+  const HEAD = "import { test, expect } from '@playwright/test';\n";
+
+  // (a) T1: the web case drops @TC-650 while the scenario declares it.
+  {
+    const { dir, write } = newProjectDir('t1-trusted', {
+      'tests/a.spec.ts': HEAD + "test('web case @TC-650', async () => { const w = 1; expect(w).toBe(1); });\n",
+      'flows/a.yaml': '---\n- name: Login\n  steps:\n    - tapOn: "Login"\n',
+    });
+    fs.symlinkSync(path.join(PW_DIR, 'node_modules'), path.join(dir, 'node_modules'), 'junction');
+    const r = await api('/api/projects', 'POST', { path: dir });
+    assert.equal(r[0], 201);
+    const pid = r[1].project.id;
+    const grant = await api(`/api/projects/${pid}/trust`, 'POST', { trust: 'trusted', reason: 'T1 over the authoritative path' });
+    assert.equal(grant[0], 200);
+
+    const [, c1] = await api(`/api/projects/${pid}/tests`);
+    assert.equal(c1.discovery, 'authoritative');
+    assertNoDuplicateUids(c1);
+    assert.equal(c1.tests.find((t) => t.source === 'authoritative').uid, 'tc-650');
+
+    write('tests/a.spec.ts', HEAD + "test('web case', async () => { const w = 1; expect(w).toBe(1); });\n");
+    write('flows/a.yaml', '---\n- name: "Login @TC-650"\n  steps:\n    - tapOn: "Login"\n');
+    const [, c2] = await api(`/api/projects/${pid}/tests`);
+    assert.equal(c2.discovery, 'authoritative');
+    assertNoDuplicateUids(c2);
+    const web = c2.tests.find((t) => t.source === 'authoritative');
+    const mobile = c2.tests.find((t) => t.source === 'mobile');
+    assert.equal(mobile.uid, 'tc-650');
+    assert.equal(mobile.uidSource, 'explicit', 'the scenario holds the token it declares');
+    assert.notEqual(web.uid, 'tc-650', 'the web case does not get the token back through the registry');
+    assert.equal(web.uidSource, 'derived');
+    assert.equal(web.uidStable, true);
+    assert.equal(web.ambiguity?.reason, 'explicit-uid-claimed-by-another-case');
+    assert.match(c2.warning, /注册表记录与本次发现不一致/);
+  }
+
+  // (b) T3: a web case and a scenario both declare @TC-100.
+  {
+    const { dir } = newProjectDir('t3-trusted', {
+      'tests/a.spec.ts': HEAD + "test('web login @TC-100', async () => { const w = 1; expect(w).toBe(1); });\n",
+      'flows/a.yaml': '---\n- name: "mobile login @TC-100"\n  steps:\n    - tapOn: "x"\n',
+    });
+    fs.symlinkSync(path.join(PW_DIR, 'node_modules'), path.join(dir, 'node_modules'), 'junction');
+    const r = await api('/api/projects', 'POST', { path: dir });
+    assert.equal(r[0], 201);
+    const pid = r[1].project.id;
+    const grant = await api(`/api/projects/${pid}/trust`, 'POST', { trust: 'trusted', reason: 'T3 over the authoritative path' });
+    assert.equal(grant[0], 200);
+
+    const [, c] = await api(`/api/projects/${pid}/tests`);
+    assert.equal(c.discovery, 'authoritative');
+    assertNoDuplicateUids(c);
+    assert.equal(c.tests.length, 2);
+    for (const t of c.tests) {
+      assert.notEqual(t.uid, 'tc-100', `${t.source} does not bind tc-100`);
+      assert.equal(t.uidSource, 'provisional', `${t.source} is provisional`);
+      assert.equal(t.uidStable, false);
+      assert.equal(t.ambiguity?.reason, 'duplicate-explicit-uid', `${t.source} reports the duplicate`);
+    }
+    assert.match(c.warning, /2 个用例标注了同一个 @TC-xxx/);
+  }
+});
+
 test('IT-ATS602-API-CLEANUP: stop the bridge and remove the fixture', async () => {
   cp.kill();
   await new Promise((r) => setTimeout(r, 200));
