@@ -281,6 +281,21 @@ export function extractCallbackBody(content, afterTitle, maxLength = 200000) {
 /** The modifiers a test call may carry. */
 const CALL_MODIFIERS = new Set(['only', 'skip', 'fixme']);
 
+/**
+ * True for a template literal that carries a `${...}` interpolation.
+ *
+ * A template with an interpolation renders to a title the static index
+ * cannot know (ATS-203): the scanner reads the TEMPLATE, while the case
+ * that really runs carries the RENDERED title. The scanner therefore cannot
+ * claim that title, and the case is reported as indeterminable instead of
+ * being given a derived UID that points at a title nobody will ever run.
+ *
+ * The pattern is deliberately about the PLACEHOLDER, not about the
+ * surrounding template: a template without one (`` test(`plain`) ``)
+ * renders to itself and is an ordinary literal title.
+ */
+const TEMPLATE_PLACEHOLDER_RE = /\$\{/;
+
 /** True for the characters an identifier may start with. */
 const IDENT_START_RE = /[A-Za-z_$]/;
 /** True for the characters an identifier may continue with. */
@@ -346,6 +361,12 @@ function decodeEscapes(raw) {
  * A template literal is read as it is WRITTEN: the scanner cannot know what
  * a template renders to, and the template is what the static index reports.
  *
+ * `template` says the literal was a BACKTICK template, and `placeholder`
+ * says it carries a `${...}` interpolation. A template WITHOUT an
+ * interpolation (`` test(`plain title`) ``) renders to itself, so it is an
+ * ordinary literal title; a template WITH one renders to a title the static
+ * index cannot know (ATS-203).
+ *
  * Returns null when there is no literal at `i`.
  */
 export function readTitleLiteral(src, i) {
@@ -353,12 +374,13 @@ export function readTitleLiteral(src, i) {
   if (quote === '`') {
     const end = skipTemplate(src, i);
     if (end <= i + 1) return null;
-    return { value: src.slice(i + 1, end - 1), end };
+    const value = src.slice(i + 1, end - 1);
+    return { value, end, template: true, placeholder: TEMPLATE_PLACEHOLDER_RE.test(value) };
   }
   if (quote !== '"' && quote !== "'") return null;
   const end = skipQuoted(src, i, quote);
   if (end <= i + 1) return null;
-  return { value: decodeEscapes(src.slice(i + 1, end - 1)), end };
+  return { value: decodeEscapes(src.slice(i + 1, end - 1)), end, template: false, placeholder: false };
 }
 
 /**
@@ -407,6 +429,11 @@ function readTestCall(src, wordStart, wordEnd, newlines) {
   if (!literal) return null;
   return {
     title: literal.value,
+    // ATS-203: the title is a TEMPLATE with an interpolation, so the case
+    // that really runs carries a RENDERED title that the static index
+    // cannot know. The scanner reports the template, and the identity
+    // resolver refuses to claim it (see `dynamic-template-title`).
+    placeholder: Boolean(literal.placeholder),
     // The line of the CALL, not of the title. A Playwright report numbers
     // the call, and a call whose title sits on the next line has to be
     // found at the position the CLI reports -- otherwise the case is not
@@ -474,7 +501,15 @@ export function scanTestCases(content) {
   const cases = [];
   for (const call of findTestCalls(src)) {
     const body = extractCallbackBody(src, call.afterTitle);
-    cases.push({ title: call.title, line: call.line, bodyText: body.text });
+    cases.push({
+      title: call.title,
+      line: call.line,
+      bodyText: body.text,
+      // ATS-203: the title is a template with an interpolation, so the case
+      // that really runs carries a RENDERED title. The static index cannot
+      // know it, so the case is reported as indeterminable.
+      placeholder: Boolean(call.placeholder),
+    });
   }
   return cases;
 }
@@ -580,7 +615,13 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
     ...d,
     titleKey: normalizeTitleKey(d.title),
     bodyKey: bodyKeyOf(d.bodyText ?? null),
-    explicitUid: extractExplicitUid(d.title)
+    explicitUid: extractExplicitUid(d.title),
+    // ATS-203: the title is a TEMPLATE with an interpolation. The case
+    // that really runs carries a RENDERED title, so this title does not
+    // identify a case: one template can render any number of cases. The
+    // case is therefore NOT allowed to claim a stable UID (see the
+    // `dynamic-template-title` branch below).
+    placeholder: Boolean(d.placeholder)
   }));
 
   const titleCounts = new Map();
@@ -639,6 +680,31 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
         };
       }
       return { ...it, uid: it.explicitUid, uidSource: 'explicit', uidStable: true, matched: null, basis: 'explicit' };
+    }
+    /*
+     * ATS-203: a TEMPLATE title does not identify a case.
+     *
+     * The scanner read the template, but the case that really runs carries
+     * the RENDERED title, and one template renders any number of cases. So
+     * neither the title key nor the body fingerprint may claim this case:
+     * a derived UID here would be STABLE and would point at a title that
+     * no case will ever report -- a stable identifier for a case that does
+     * not exist.
+     *
+     * The case therefore falls through to the provisional identifier and is
+     * REPORTED as `dynamic-template-title` (below). The explicit `@TC-xxx`
+     * annotation above still wins: the author wrote the token down, and the
+     * author is the only one who can say which rendered case it means.
+     */
+    if (it.placeholder) {
+      return {
+        ...it,
+        uid: null,
+        uidSource: 'provisional',
+        uidStable: false,
+        matched: null,
+        basis: null,
+      };
     }
     const match = matchRegistry(it, { registryByBody, bodyCounts, reserved });
     if (match.uid) {
@@ -714,21 +780,29 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
 
   // Provisional identifiers and the ambiguity report.
   //
-  // Three kinds of ambiguity are reported, none of them silently dropped:
+  // Four kinds of ambiguity are reported, none of them silently dropped:
   //   * a duplicated EXPLICIT annotation -- the author wrote the same uid on
   //     two cases;
   //   * identical titles (and bodies) -- the case cannot be pinned down;
-  //   * a registry conflict -- the memory of the past cases does not decide.
+  //   * a registry conflict -- the memory of the past cases does not decide;
+  //   * a TEMPLATE title (ATS-203) -- the case that runs carries a rendered
+  //     title, so this one does not identify a case at all.
   const ambiguousGroups = new Map();
   for (const c of candidates) {
     if (c.uid) continue;
-    const key = c.duplicateExplicit ? `explicit:${c.duplicateExplicit}` : c.titleKey;
+    // A template title is its OWN group: two different templates are two
+    // different problems, and grouping them by title key would report a
+    // "duplicate title" that never happened.
+    const key = c.duplicateExplicit
+      ? `explicit:${c.duplicateExplicit}`
+      : (c.placeholder ? `template:${c.file}:${c.line}` : c.titleKey);
     if (!ambiguousGroups.has(key)) ambiguousGroups.set(key, []);
     ambiguousGroups.get(key).push(c);
   }
   for (const [key, group] of ambiguousGroups) {
     group.sort((a, b) => (a.file === b.file ? a.line - b.line : a.file < b.file ? -1 : 1));
     const duplicateExplicit = group[0]?.duplicateExplicit ?? null;
+    const placeholder = Boolean(group[0]?.placeholder);
     group.forEach((c, index) => {
       c.uid = provisionalTestUid(projectUid, c.file, c.title, c.line, index + 1);
       c.uidSource = 'provisional';
@@ -737,8 +811,11 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
         key,
         reason: duplicateExplicit
           ? 'duplicate-explicit-uid'
-          : (c.bodyKey ? 'identical-title-and-body' : 'identical-title'),
+          : placeholder
+            ? 'dynamic-template-title'
+            : (c.bodyKey ? 'identical-title-and-body' : 'identical-title'),
         ...(duplicateExplicit ? { explicitUid: duplicateExplicit } : {}),
+        ...(placeholder ? { template: c.title } : {}),
         candidates: group.map((g) => ({ file: g.file, title: g.title, line: g.line }))
       };
     });

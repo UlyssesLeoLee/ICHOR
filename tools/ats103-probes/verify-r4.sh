@@ -26,6 +26,16 @@ FAILED=0
 OUT_DIR="${TEMP:-/tmp}/r4-$LABEL"
 mkdir -p "$OUT_DIR"
 
+# The Playwright version the repository measures against. It is READ from the
+# repo's own source of truth (tools/ats101-probes/lib/fixture.mjs) rather than
+# repeated here, so the two cannot drift apart.
+PW_VERSION="$(sed -n "s/.*PLAYWRIGHT_VERSION = '\([^']*\)'.*/\1/p" \
+  tools/ats101-probes/lib/fixture.mjs | head -1)"
+if [ -z "$PW_VERSION" ]; then
+  echo "could not read PLAYWRIGHT_VERSION from tools/ats101-probes/lib/fixture.mjs" >&2
+  exit 1
+fi
+
 step() {
   # step <description> <command...>
   local desc="$1"; shift
@@ -42,6 +52,7 @@ step() {
 echo "--- node / npm ---"
 node --version
 npm --version
+echo "playwright  : @playwright/test@$PW_VERSION (pinned; read from tools/ats101-probes/lib/fixture.mjs)"
 echo ""
 
 step "1. verify_checksums.py" python tools/verify_checksums.py
@@ -97,6 +108,28 @@ if [ -d examples/sample-playwright ]; then
       # The fixture's lock file is gitignored, so a clean clone has none and
       # `npm ci` cannot run. `npm install` creates it.
       npm install --no-audit --no-fund > /dev/null 2>&1
+      rc=$?
+    fi
+    # The fixture declares `"@playwright/test": "^1.58.0"`, so an unpinned
+    # install floats to the newest 1.x. The repo's own convention is the
+    # pinned 1.64.1 (tools/ats101-probes/lib/fixture.mjs and every
+    # tools/ats2*-probes script use PLAYWRIGHT_VERSION = '1.64.1'), and the
+    # ATS-203 evidence was collected against exactly that version.
+    #
+    # The float is not cosmetic: with @playwright/test 1.65.0 the real
+    # `playwright test --list` output for a two-project matrix yields ONE
+    # spec id per case instead of two, and ATS-203's
+    # "the symmetric project matrix gives every case two spec ids" fails
+    # (measured: 1.64.1 -> 11/11 pass, 1.65.0 -> 10/11 fail). The install
+    # therefore pins the version the rest of the repository measures against.
+    #
+    # `--no-save` matters: without it npm records the pin in the fixture's
+    # TRACKED package.json (rewriting the range to ^1.64.1), which dirties
+    # the tree the verification is measuring. With it the installed tree is
+    # pinned and package.json is left exactly as committed.
+    if [ -f node_modules/@playwright/test/package.json ]; then
+      npm install --no-audit --no-fund --no-save "@playwright/test@$PW_VERSION" \
+        > /dev/null 2>&1
       rc=$?
     fi
     exit "$rc"
