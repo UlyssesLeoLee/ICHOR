@@ -43,3 +43,21 @@ export function defaultPort() {
 export function defaultPortString() {
   return String(defaultPort());
 }
+
+// --- the command line form -------------------------------------------------
+//
+//   node tools/ats103-probes/lib/default-port.mjs --print
+//
+// Prints the Bridge's default port, so a shell script can use it without
+// carrying its own copy of the number.
+
+import { pathToFileURL } from 'node:url';
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (process.argv.includes('--print')) {
+    console.log(defaultPortString());
+  } else {
+    console.error('usage: node tools/ats103-probes/lib/default-port.mjs --print');
+    process.exit(2);
+  }
+}
