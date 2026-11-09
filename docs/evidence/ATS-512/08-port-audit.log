@@ -1,8 +1,8 @@
 ================================================================================
 ATS-512 evidence log -- the ATS-101 hardcoded-port audit
 ================================================================================
-commit        : bb95e79d7bb39f14962928c09a123eda896d4ecb
-timestamp     : 2026-11-07T02:48:30Z (UTC)
+commit        : 0151a126ccf729ed50ab1a5f1b51df593e2bb1f6
+timestamp     : 2026-11-09T05:26:58Z (UTC)
 repo root     : /d/ICHOR
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -28,13 +28,13 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:7487  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:7553  "input": "Host=evil.example:4577",
-  tests/test-cases.json:9302  "input": "同 LAN 他机尝试访问 4577",
+  tests/test-cases.json:7872  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:7938  "input": "Host=evil.example:4577",
+  tests/test-cases.json:9775  "input": "同 LAN 他机尝试访问 4577",
   tools/generate_test_docs.py:416  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
   tools/generate_test_docs.py:422  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
   tools/generate_test_docs.py:541  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
-  tools/update_wbs_ats216.py:101  '（Next 工作台按端口解析 API 基址，apps/studio/lib/api.ts 硬编码 4577 是 ATS-101 已登记的约束，浏览器检查的 Bridge 因此跑在默认端口上；便携 U...
+  tools/update_wbs_ats216.py:114  '（Next 工作台按端口解析 API 基址，apps/studio/lib/api.ts 硬编码 4577 是 ATS-101 已登记的约束，浏览器检查的 Bridge 因此跑在默认端口上；便携 U...
   test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)
 total = 11
 
@@ -68,7 +68,7 @@ total = 11
   docs/22-FRONTEND-EXPORT.md:208  **白名单跨源**（把导出页放在 `127.0.0.1:3000`，Bridge 在 4577）：
   docs/22-FRONTEND-EXPORT.md:215  **跨源这一遍有且只有一条断言变红，而且它变红是设计使然，不是缺陷**：变红的是「页面的 API 请求去页面自身 origin 隐含的 host」。这条断言**按构造就是同源判别器**——页面在 `l...
   docs/22-FRONTEND-EXPORT.md:239  | **B2** 基址写死**且** bundle 里留一个**无关的** `location.port` 比较 | 可执行判别（静态启发式**抓不到**它） | 静态启发式**仍然绿**（25/25...
-  docs/28-QUALITY-OVERVIEW.md:200  > 浏览器实测的一个约束：Next 工作台按**端口**解析 API 基址（`apps/studio/lib/api.ts` 硬编码 4577，这是 ATS-101 已登记的约束），因此浏览器检查的 ...
+  docs/28-QUALITY-OVERVIEW.md:217  > 浏览器实测的一个约束：Next 工作台按**端口**解析 API 基址（`apps/studio/lib/api.ts` 硬编码 4577，这是 ATS-101 已登记的约束），因此浏览器检查的 ...
   README.md:9  3. 浏览器打开 <http://127.0.0.1:4577/fallback.html>。这是**已测试的零依赖便携 UI**。
   README.md:24  完成构建后，打开 <http://127.0.0.1:4577/>，将使用正式 Next.js 工作台（Monaco 编辑器 + 流程投影）。开发模式：开一个终端运行 `npm start`，另一个运...
   README.md:30  先执行 `npm --prefix apps/studio install`；在本机安装 `rustup` 和 Tauri CLI，然后在项目根目录运行 `npx tauri dev`（或通过 npm...

@@ -1,8 +1,8 @@
 ================================================================================
 ATS-512 evidence log -- the round-1 review's 11 counterexamples no longer reproduce
 ================================================================================
-commit        : bb95e79d7bb39f14962928c09a123eda896d4ecb
-timestamp     : 2026-11-07T02:48:30Z (UTC)
+commit        : 0151a126ccf729ed50ab1a5f1b51df593e2bb1f6
+timestamp     : 2026-11-09T05:26:58Z (UTC)
 repo root     : /d/ICHOR
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -29,7 +29,7 @@ no     CE8 authorize fail-open: constructor=false __proto__=false toString=false
         claimed: unknown operation -> allowed:false
 no     CE9 tier prototype keys: toString -> PLUGIN_MANIFEST_INVALID; constructor(empty) -> PLUGIN_MANIFEST_INVALID; nope -> PLUGIN_MANIFEST_INVALID
         claimed: unknown tier -> PLUGIN_MANIFEST_INVALID
-no     CE10 proposalId collision: two SDK instances -> plgprop_evil_fac1caef-4843-4c5a-b9fc-8d5719dc4e3d, plgprop_evil_c71596a6-e758-4f6c-835c-102b1a818dd5
+no     CE10 proposalId collision: two SDK instances -> plgprop_evil_b09a1f00-7942-4854-8d8b-b1384e775f53, plgprop_evil_3abbc10c-2c62-4175-8140-0766955913a3
         claimed: the proposal id is globally unique
 no     CE11 seq != sink count: first call UNCODED(Error: sink down) (read already performed), sink holds seq=[1]
         claimed: the sequence advances only after the sink accepted the event
