@@ -1,0 +1,105 @@
+ATS-216 第 4 轮 + 复核通过后的 WBS 状态同步（本分支树上的实测）
+
+分支：agent/m3/seikoist-175-a79f4ad8927d
+基线：335c806（chore(agent): baseline — uncommitted work from the local directory）
+提交：b8ab831（改动）、b6edd25（CHECKSUMS）、9e5faaf（merge dev）、
+      7f67a01（合并后 CHECKSUMS）
+合入 dev：ef80c3c（merge(ATS-216): 第 4 轮整改与复核通过后的 WBS 状态同步合入 dev）
+
+════════════════════════════════════════════════════════════════
+1. WBS 第 37 行 T 栏：逐词检索工作簿单元格（不是靠推断）
+════════════════════════════════════════════════════════════════
+
+检索词                              命中
+升级前存下的运行摘要                  是
+不带 describe 路径与 case key        是
+各自成条                            是
+两个条目，而不是一条历史               是
+
+上下文（读工作簿得到）：
+
+  ……因此在一个文件内「describe 路径+标题」这一对已经是唯一的，键用的是
+  describe 路径；升级前存下的运行摘要不带 describe 路径与 case key，按
+  「文件+标题」成键，与升级后的运行各自成条（同一批用例在升级前后是两个条目，
+  而不是一条历史）；对账除了逐 run 与 Bridge 计数器比对……
+
+════════════════════════════════════════════════════════════════
+2. WBS 第 37 行的状态：复核通过后由「待审核」改为「已完成」
+════════════════════════════════════════════════════════════════
+
+Opus 第 4 轮结论里写明：「WBS 第 37 行仍是「待审核」：本次复核不修改工作簿，
+状态由执行人或协调人按 PASS 结论更新。」
+
+  命令：python tools/update_wbs_ats216.py --status 已完成
+  输出：
+    overview: 已完成=2 完成率=0.22155688622754488 剩余人日=390.0
+    CHANGED (first run applied the update)
+    IDEMPOTENT: a second run leaves row ATS-216 byte-identical
+    verify: ATS-216 row 37 状态=已完成 完成率=1 剩余人日=0 marker×1
+    verify: openpyxl loads the workbook in the normal and the data_only mode
+
+  总览「已完成项」缓存值随之由 1 改为 2（该值由表格重算，不是写死的）。
+
+════════════════════════════════════════════════════════════════
+3. 终态保护：复核是一道单向门
+════════════════════════════════════════════════════════════════
+
+上一版的 update_wbs_ats216.py 无条件把该行写成「待审核」，所以任何一次
+re-run 都会悄悄撤销验收。这与 tools/update_wbs_ats101.py / _ats103.py /
+_ats502.py 的行为不一致（那三个都有终态保护）。本轮补上，保护条件相同：
+只保护「已完成」且自身数字自洽（完成率=1、剩余人日=0）的行。
+
+用例 A —— 已验收的行不被改回：
+  种子：第 37 行 = 已完成 / 完成率=1 / 剩余人日=0
+  运行：python tools/update_wbs_ats216.py          （默认 status=待审核）
+  输出：
+    IDEMPOTENT: row ATS-216 unchanged
+    IDEMPOTENT: a second run leaves row ATS-216 byte-identical
+    verify: ATS-216 row 37 状态=已完成 完成率=1 剩余人日=0 marker×1
+  结论：状态仍是「已完成」，没有被改回「待审核」。
+
+用例 B —— 自相矛盾的行仍会被纠正（不是验收，是陈旧残留）：
+  种子：第 37 行 = 已完成 / 完成率=0 / 剩余人日=4
+  运行：python tools/update_wbs_ats216.py          （默认 status=待审核）
+  输出：
+    CHANGED (first run applied the update)
+    verify: ATS-216 row 37 状态=待审核 完成率=1 剩余人日=0 marker×1
+  结论：「已完成」却与自己的数字矛盾的行不享有终态保护，会被纠正。
+
+════════════════════════════════════════════════════════════════
+4. 合并 dev 后的逐格核对
+════════════════════════════════════════════════════════════════
+
+dev 在本分支基线（61cf531）之后被多个 agent 推进了很多（ATS-402/512/602/
+203/502 等），所以先把 dev 合进来，再在合并后的树上重做本任务的改动。
+
+合并后逐格比较「合并后的工作簿」与「dev 的工作簿」的 95 行 ATS 任务：
+
+  行集合相同：是（95 = 95）
+  状态/完成率/剩余人日不同的格子：只有 1 处
+    ATS-216  N  待审核 -> 已完成
+  其余 94 行逐格相同。
+
+  合并后的总览：B8=2  B9=0.221556886227545  B10=390
+  dev 的总览：  B8=1  B9=0.221556886227545  B10=390
+  合并后的 ATS-216 T 栏含「升级前存下的运行摘要」：是
+  合并后的 ATS-216 T 栏含「参数化的同名用例」（dev 带来的那一行）：是
+
+冲突处理：
+  * docs/evidence/ATS-502/*、tools/ats502-probes/*  取 dev 那一侧
+    （这些属于 ATS-502 自己的 lane，本分支上那一份是已过时的基线快照）
+  * docs/WBS.xlsx  以 dev 的版本为基础，再用 tools/update_wbs_ats216.py
+    施加 ATS-216 的行改动（二进制必冲突，仓库既有做法）
+  * tools/update_wbs_ats216.py、tools/wbs_common.py  自动合并，本任务的
+    改动（终态保护、T 栏那句）都保留
+
+════════════════════════════════════════════════════════════════
+5. 合入 dev 后的复核
+════════════════════════════════════════════════════════════════
+
+  dev tip：7058819（含本任务的合并提交 ef80c3c）
+  ATS-216 第 37 行：N=已完成 O=1 P=0，T 栏含「升级前存下的运行摘要」
+  总览 B8 = 2
+  python tools/verify_checksums.py  ->  digest mismatches: 0 / RESULT: OK
+  bash tools/ats301-probes/check-ats301-gate.sh  ->  RESULT: OK
+  bash tools/ats501-probes/check-wbs-updaters.sh ->  RESULT: OK（25 个更新器）

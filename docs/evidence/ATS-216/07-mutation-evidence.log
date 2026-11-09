@@ -1,6 +1,6 @@
 === ATS-216 mutation check: the tests must fail when the module is broken ===
-repo    : D:\ICHOR
-module  : D:\ICHOR\apps\studio\public\quality.mjs
+repo    : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-a79f4ad8927d\worktree
+module  : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-a79f4ad8927d\worktree\apps\studio\public\quality.mjs
 
 PASS the cancelled run counts as a failure -- killed -- UT KILL / ST KILL
 PASS the flaky case counts as a plain pass -- killed -- UT KILL / ST KILL

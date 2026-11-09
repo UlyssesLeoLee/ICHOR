@@ -1,5 +1,5 @@
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /d/ICHOR
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-a79f4ad8927d/worktree
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 node      : v24.19.0
@@ -16,6 +16,7 @@ PASS 【ATS-102】 is idempotent
 PASS 【ATS-103】 is idempotent
 PASS 【ATS-201】 is idempotent
 PASS 【ATS-202】 is idempotent
+PASS 【ATS-203】 is idempotent
 PASS 【ATS-204】 is idempotent
 PASS 【ATS-205】 is idempotent
 PASS 【ATS-206】 is idempotent
@@ -28,6 +29,7 @@ PASS 【ATS-301】 is idempotent
 PASS 【ATS-401】 is idempotent
 PASS 【ATS-402】 is idempotent
 PASS 【ATS-501】 is idempotent
+PASS 【ATS-502】 is idempotent
 PASS 【ATS-506】 is idempotent
 PASS 【ATS-512】 is idempotent
 PASS 【ATS-601】 is idempotent
@@ -43,6 +45,8 @@ PASS update_wbs_ats201.py declares exactly one marker
 PASS 【ATS-201】 (from update_wbs_ats201.py) is registered in MARKERS
 PASS update_wbs_ats202.py declares exactly one marker
 PASS 【ATS-202】 (from update_wbs_ats202.py) is registered in MARKERS
+PASS update_wbs_ats203.py declares exactly one marker
+PASS 【ATS-203】 (from update_wbs_ats203.py) is registered in MARKERS
 PASS update_wbs_ats204.py declares exactly one marker
 PASS 【ATS-204】 (from update_wbs_ats204.py) is registered in MARKERS
 PASS update_wbs_ats205.py declares exactly one marker
@@ -67,6 +71,8 @@ PASS update_wbs_ats402.py declares exactly one marker
 PASS 【ATS-402】 (from update_wbs_ats402.py) is registered in MARKERS
 PASS update_wbs_ats501.py declares exactly one marker
 PASS 【ATS-501】 (from update_wbs_ats501.py) is registered in MARKERS
+PASS update_wbs_ats502.py declares exactly one marker
+PASS 【ATS-502】 (from update_wbs_ats502.py) is registered in MARKERS
 PASS update_wbs_ats506.py declares exactly one marker
 PASS 【ATS-506】 (from update_wbs_ats506.py) is registered in MARKERS
 PASS update_wbs_ats512.py declares exactly one marker
@@ -85,7 +91,7 @@ all checks passed
   apps/studio/app/page.tsx         189
   apps/studio/lib/api.ts           38
   apps/studio/public/fallback.html 3
-  server/core.mjs                  1390, 780
+  server/core.mjs                  1359, 781
   server/index.mjs                 1143, 1172, 1173, 250, 56, 572-602, 586, 604, 615, 808
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
@@ -110,8 +116,8 @@ ok   server/index.mjs:808
 ok   server/index.mjs:1143
 ok   server/index.mjs:1172
 ok   server/index.mjs:1173
-ok   server/core.mjs:780
-ok   server/core.mjs:1390
+ok   server/core.mjs:781
+ok   server/core.mjs:1359
 ok   server/index.mjs:572-602 (cancelRun extent)
 ok   apps/studio/app/page.tsx:189 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:38 (the API base URL -- covered by the ATS-101 port audit)
@@ -123,7 +129,7 @@ RESULT: OK
 
 --- 3. the hardcoded default port list in 16 §3.1 matches the source ---
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : D:\ICHOR
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-a79f4ad8927d\worktree
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
@@ -139,13 +145,13 @@ total = 6
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:7487  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:7553  "input": "Host=evil.example:4577",
-  tests/test-cases.json:9302  "input": "同 LAN 他机尝试访问 4577",
+  tests/test-cases.json:7927  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:7993  "input": "Host=evil.example:4577",
+  tests/test-cases.json:9863  "input": "同 LAN 他机尝试访问 4577",
   tools/generate_test_docs.py:416  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
   tools/generate_test_docs.py:422  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
   tools/generate_test_docs.py:541  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
-  tools/update_wbs_ats216.py:112  '（Next 工作台按端口解析 API 基址，apps/studio/lib/api.ts 硬编码 4577 是 ATS-101 已登记的约束，浏览器检查的 Bridge 因此跑在默认端口上；便携 U...
+  tools/update_wbs_ats216.py:131  '（Next 工作台按端口解析 API 基址，apps/studio/lib/api.ts 硬编码 4577 是 ATS-101 已登记的约束，浏览器检查的 Bridge 因此跑在默认端口上；便携 U...
   test-cases.xlsx:0  3 occurrence(s) in the xlsx container: xl/worksheets/sheet3.xml (2), xl/worksheets/sheet4.xml (1)
 total = 11
 
@@ -179,7 +185,10 @@ total = 11
   docs/22-FRONTEND-EXPORT.md:208  **白名单跨源**（把导出页放在 `127.0.0.1:3000`，Bridge 在 4577）：
   docs/22-FRONTEND-EXPORT.md:215  **跨源这一遍有且只有一条断言变红，而且它变红是设计使然，不是缺陷**：变红的是「页面的 API 请求去页面自身 origin 隐含的 host」。这条断言**按构造就是同源判别器**——页面在 `l...
   docs/22-FRONTEND-EXPORT.md:239  | **B2** 基址写死**且** bundle 里留一个**无关的** `location.port` 比较 | 可执行判别（静态启发式**抓不到**它） | 静态启发式**仍然绿**（25/25...
-  docs/28-QUALITY-OVERVIEW.md:216  > 浏览器实测的一个约束：Next 工作台按**端口**解析 API 基址（`apps/studio/lib/api.ts` 硬编码 4577，这是 ATS-101 已登记的约束），因此浏览器检查的 ...
+  docs/28-QUALITY-OVERVIEW.md:217  > 浏览器实测的一个约束：Next 工作台按**端口**解析 API 基址（`apps/studio/lib/api.ts` 硬编码 4577，这是 ATS-101 已登记的约束），因此浏览器检查的 ...
+  docs/29-REMOTE-SCHEDULING.md:54  | 默认端口 | 4577 | 4580（`ATS_SCHEDULER_PORT`） |
+  docs/29-REMOTE-SCHEDULING.md:59  - **HB-1**：调度服务**不 import** 本地 Bridge，也不发起任何指向 `127.0.0.1:4577`
+  docs/29-REMOTE-SCHEDULING.md:74  | 本地桌面 Bridge | 4577 | `ATS_PORT` | `docs/16-BASELINE-ADR.md` §3.1 |
   README.md:9  3. 浏览器打开 <http://127.0.0.1:4577/fallback.html>。这是**已测试的零依赖便携 UI**。
   README.md:24  完成构建后，打开 <http://127.0.0.1:4577/>，将使用正式 Next.js 工作台（Monaco 编辑器 + 流程投影）。开发模式：开一个终端运行 `npm start`，另一个运...
   README.md:30  先执行 `npm --prefix apps/studio install`；在本机安装 `rustup` 和 Tauri CLI，然后在项目根目录运行 `npx tauri dev`（或通过 npm...
@@ -190,7 +199,8 @@ total = 11
   tools/ats216-probes/browser-check.mjs:126  // hardcodes 4577, the documented ATS-101 constraint), so the browser check
   tools/ats216-probes/browser-check.mjs:130  const defaultPort = Number(process.env.ATS_PORT || 4577);
   tools/ats216-probes/collect-evidence.sh:95  # hardcodes 4577 -- the ATS-101 constraint), so the browser check needs the
-total = 40
+  tools/ats502-probes/audit-scheduling-core.mjs:348  check('the scheduler does not call the local Bridge over the network', !/127\.0\.0\.1:4577|localhost...
+total = 44
 
 --- distinct RUNTIME files ---
   apps/studio/app/page.tsx
@@ -208,9 +218,11 @@ total = 40
   docs/12-DEPLOY-OPERATIONS.md (4)
   docs/22-FRONTEND-EXPORT.md (24)
   docs/28-QUALITY-OVERVIEW.md (1)
+  docs/29-REMOTE-SCHEDULING.md (3)
   tools/ats216-probes/browser-check.mjs (2)
   tools/ats216-probes/collect-evidence.sh (1)
-files = 10, mentions = 41
+  tools/ats502-probes/audit-scheduling-core.mjs (2)
+files = 12, mentions = 46
 
 --- files listed in 16 §3.1 (port list) ---
   README.md
@@ -224,6 +236,7 @@ files = 10, mentions = 41
   docs/12-DEPLOY-OPERATIONS.md
   docs/22-FRONTEND-EXPORT.md
   docs/28-QUALITY-OVERVIEW.md
+  docs/29-REMOTE-SCHEDULING.md
   server/index.mjs
   src-tauri/src/lib.rs
   start.ps1
@@ -233,6 +246,7 @@ files = 10, mentions = 41
   tools/ats101-probes/scenario-d-port-audit.mjs
   tools/ats216-probes/browser-check.mjs
   tools/ats216-probes/collect-evidence.sh
+  tools/ats502-probes/audit-scheduling-core.mjs
   tools/generate_test_docs.py
   tools/update_wbs_ats216.py
 
@@ -240,8 +254,8 @@ files = 10, mentions = 41
 runtime occurrences in source   : 6
 distinct runtime files          : 5
 non-runtime data files          : 6
-doc-mention files (excl. 16)    : 10
-doc mentions (excl. 16)         : 41
+doc-mention files (excl. 16)    : 12
+doc mentions (excl. 16)         : 46
 runtime files missing from §3.1 : (none)
 non-runtime missing from §3.1   : (none)
 runtime positions missing       : (none)
@@ -249,8 +263,8 @@ listed but not found at runtime : (none)
 count claimed in 16 §3.1        : 6
 actual runtime occurrence count : 6
 count matches source            : true
-doc files/mentions claimed      : 10 / 41
-doc files/mentions actual       : 10 / 41
+doc files/mentions claimed      : 12 / 46
+doc files/mentions actual       : 12 / 46
 doc mention count matches       : true
 
 RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
