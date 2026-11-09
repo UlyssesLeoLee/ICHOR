@@ -49,6 +49,19 @@ for spec in "${RUNS[@]}"; do
     continue
   fi
 
+  # `git clone -c core.autocrlf=false` does NOT put the setting in the NEW
+  # clone's own config: the -c flag configures the clone PROCESS, and the
+  # new clone inherits the machine's default instead. The checkout is then
+  # CRLF, so the "LF clone" would silently be a second CRLF clone and the
+  # comparison would prove nothing. The setting is therefore written into
+  # the clone's own config and the checkout is refreshed.
+  if [ "$label" = "branch-lf" ] || [ "$label" = "dev-lf" ]; then
+    git -C "$clone" config core.autocrlf false
+    git -C "$clone" rm -r --cached . > /dev/null 2>&1
+    git -C "$clone" reset --hard > /dev/null 2>&1
+    echo "    the clone's core.autocrlf is now $(git -C "$clone" config --get core.autocrlf)"
+  fi
+
   echo "=== $label : running verify-r4.sh ==="
   if bash tools/ats103-probes/verify-r4.sh "$clone" "$label" > "$OUT/$logfile" 2>&1; then
     echo "    $logfile : all steps green"
