@@ -1,0 +1,43 @@
+=== ATS-502 evidence: scheduling core contract audit ===
+date        : 2026-11-05T12:38:14Z (UTC)
+commit      : 545c2e75ae2e3535c23fc25b208f7d7f51746133
+node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+default enc : gbk (what the same interpreter would use without the forcing)
+command     : node tools/ats502-probes/audit-scheduling-core.mjs
+
+PASS  protocol constraint block is present
+PASS  every frozen rejection code exists in the implementation
+PASS  the implementation invents no rejection code
+PASS  every rejection code has the frozen HTTP status and retryability
+PASS  the rejection table is not empty
+PASS  every REMOTE_ token in the implementation is a declared rejection code
+PASS  every error code the queue raises is declared
+PASS  the queue raises more than one kind of code
+PASS  every job state the queue produces is a known state
+PASS  the lease state is present
+PASS  the terminal states are exactly the protocol terminal set
+PASS  the dispatch operation requires an idempotency key
+PASS  the ack operation requires an idempotency key
+PASS  the result operation requires an idempotency key
+PASS  the cancel operation requires an idempotency key
+PASS  the dispatch path computes a request digest
+PASS  the digest is order-independent
+PASS  the scheduler does not import the local Bridge
+PASS  the scheduler does not import the local Bridge under any spelling
+PASS  the scheduler does not call the local Bridge over the network
+PASS  the scheduler does not read a Runner filesystem
+PASS  the scheduler does not carry a local absolute path
+PASS  the ATS-502 row exists in 开发WBS
+PASS  the ATS-502 status is one of the workbook statuses
+PASS  the ATS-502 completion rate is a number in [0,1]
+PASS  the ATS-502 remaining days are consistent with the rate
+PASS  the ATS-502 row carries the acceptance criteria of this task
+PASS  the ATS-502 row names ATS-501 as its prerequisite
+PASS  the ATS-502 verification method is UT,IT
+PASS  the ATS-502 risk cell records the idempotency / consistency risk
+
+30/30 checks passed
+RESULT: OK
+exit code   : 0
