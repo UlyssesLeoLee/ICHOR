@@ -370,6 +370,164 @@ test('IT-AUD-004: the audit trail survives a bridge restart', async () => {
   assert.ok(after.audit.some((r) => r.event === 'egress.denied'));
 });
 
+// ---------------------------------------------------------------------------
+// Round 2: one scope resolver for preview/confirm/check; every refusal is
+// audited; expiry is visible in the listing; credential writes are serialised.
+// ---------------------------------------------------------------------------
+
+const outside = path.join(data, 'outside');
+fs.mkdirSync(outside, { recursive: true });
+fs.writeFileSync(path.join(outside, 'secret.txt'), 'TOP-SECRET-OUTSIDE');
+fs.mkdirSync(path.join(fixture, '.aitest'), { recursive: true });
+fs.writeFileSync(path.join(fixture, '.aitest', 'requirements.json'), '{"requirements":[]}');
+let junctionOk = true;
+try {
+  fs.symlinkSync(outside, path.join(fixture, 'jn'), 'junction');
+  fs.symlinkSync(outside, path.join(fixture, '.aitest', 'jn'), 'junction');
+} catch { junctionOk = false; }
+
+const auditCount = async () => (await api('/api/security/egress/audit'))[1].audit.length;
+
+/** preview -> confirm over HTTP; returns the consent. */
+async function grant(inputs, ttlSeconds) {
+  const [ps, preview] = await api('/api/security/egress/preview', 'POST', { projectId, inputs });
+  assert.equal(ps, 200, JSON.stringify(preview));
+  const [cs, consent] = await api('/api/security/egress/confirm', 'POST', {
+    projectId, inputs, previewId: preview.preview.previewId, ...(ttlSeconds ? { ttlSeconds } : {}),
+  });
+  assert.equal(cs, 201, JSON.stringify(consent));
+  return consent.consent;
+}
+
+test('IT-SEC-019: a requirement input goes preview -> confirm -> check to 200', async () => {
+  const inputs = [{ kind: 'requirement', ref: 'requirements.json' }];
+  const consent = await grant(inputs);
+  const [status, body] = await api('/api/security/egress/check', 'POST', { projectId, inputs, consentId: consent.id });
+  assert.equal(status, 200, JSON.stringify(body));
+  assert.equal(body.scope.items[0].ref, 'requirements.json');
+  // The default ref resolves to the same document.
+  const [s2] = await api('/api/security/egress/check', 'POST', { projectId, inputs: [{ kind: 'requirement' }], consentId: consent.id });
+  assert.equal(s2, 200);
+});
+
+test('IT-SEC-020: a run input goes preview -> confirm -> check to 200', async () => {
+  const [rs, rb] = await api(`/api/projects/${projectId}/run`, 'POST', {});
+  assert.ok(rs === 202 || rs === 201, JSON.stringify(rb));
+  const runId = rb.run.id;
+  for (let i = 0; i < 100; i++) {
+    const [, g] = await api(`/api/runs/${runId}`);
+    if (g?.run && !['running', 'queued', 'cancelling'].includes(g.run.status)) break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  const inputs = [{ kind: 'run', ref: runId }];
+  const consent = await grant(inputs);
+  const [status, body] = await api('/api/security/egress/check', 'POST', { projectId, inputs, consentId: consent.id });
+  assert.equal(status, 200, JSON.stringify(body));
+  assert.equal(body.scope.items[0].kind, 'run');
+  // An unknown run id is refused (and audited), not a 500.
+  const before = await auditCount();
+  const [ns, nb] = await api('/api/security/egress/check', 'POST', { projectId, inputs: [{ kind: 'run', ref: 'run_unknown' }], consentId: consent.id });
+  assert.equal(ns, 400);
+  assert.equal(nb.error, 'EGRESS_GATE_INPUT_INVALID');
+  assert.equal(await auditCount(), before + 1);
+});
+
+test('IT-SEC-021: with a VALID consent, every out-of-scope /check is refused AND audited', async () => {
+  const good = { kind: 'file', ref: 'tests/home.spec.ts' };
+  const consent = await grant([good]);
+  const cases = [
+    ['parent traversal', [{ kind: 'file', ref: '../outside/secret.txt' }]],
+    ['absolute path', [{ kind: 'file', ref: 'C:/Windows/win.ini' }]],
+    ['mixed good + escaping', [good, { kind: 'file', ref: '../outside/secret.txt' }]],
+  ];
+  if (junctionOk) cases.push(['junction escape', [{ kind: 'file', ref: 'jn/secret.txt' }]]);
+  for (const [label, inputs] of cases) {
+    const before = await auditCount();
+    const [status, body] = await api('/api/security/egress/check', 'POST', { projectId, inputs, consentId: consent.id });
+    assert.equal(status, 400, `${label}: ${JSON.stringify(body)}`);
+    assert.equal(body.error, 'EGRESS_GATE_SCOPE_INVALID', label);
+    const [, trail] = await api('/api/security/egress/audit');
+    assert.equal(trail.audit.length, before + 1, `${label}: the refusal must add exactly one audit record`);
+    const newest = trail.audit[0];
+    assert.equal(newest.event, 'egress.denied', label);
+    assert.equal(newest.code, 'EGRESS_GATE_SCOPE_INVALID', label);
+    assert.deepEqual(newest.items.map((i) => i.ref), inputs.map((i) => i.ref), `${label}: the denial names the requested refs`);
+    assert.ok(newest.items.every((i) => i.digest === null && i.bytes === 0), `${label}: no file was read`);
+    assert.ok(!JSON.stringify(trail).includes('TOP-SECRET-OUTSIDE'), 'the outside content must never reach the audit');
+  }
+});
+
+test('IT-SEC-022: a requirement path through a junction, or out of .aitest, is refused', async () => {
+  if (junctionOk) {
+    const [status, body] = await api('/api/security/egress/preview', 'POST', {
+      projectId, inputs: [{ kind: 'requirement', ref: 'jn/secret.txt' }],
+    });
+    assert.equal(status, 400);
+    assert.equal(body.error, 'EGRESS_GATE_SCOPE_INVALID');
+  }
+  const [s2, b2] = await api('/api/security/egress/preview', 'POST', {
+    projectId, inputs: [{ kind: 'requirement', ref: '../tests/home.spec.ts' }],
+  });
+  assert.equal(s2, 400, 'a requirement must stay inside .aitest');
+  assert.equal(b2.error, 'EGRESS_GATE_SCOPE_INVALID');
+});
+
+test('IT-SEC-023: an expired consent is listed as expired and refused by /check', async () => {
+  const inputs = [{ kind: 'file', ref: 'tests/home.spec.ts' }];
+  const consent = await grant(inputs, 1);
+  await new Promise((r) => setTimeout(r, 1300));
+  const [, list] = await api('/api/security/egress/consents');
+  assert.equal(list.consents.find((c) => c.id === consent.id).state, 'expired');
+  const before = await auditCount();
+  const [status, body] = await api('/api/security/egress/check', 'POST', { projectId, inputs, consentId: consent.id });
+  assert.equal(status, 403);
+  assert.equal(body.error, 'EGRESS_CONSENT_EXPIRED');
+  assert.equal(await auditCount(), before + 1);
+});
+
+test('IT-SEC-024: /check for an unknown project, or with no inputs, is refused and audited', async () => {
+  const before = await auditCount();
+  const [status, body] = await api('/api/security/egress/check', 'POST', {
+    projectId: 'proj_000000000000000000000000', inputs: [{ kind: 'file', ref: 'tests/home.spec.ts' }],
+  });
+  assert.equal(status, 400);
+  assert.equal(body.error, 'EGRESS_GATE_PROJECT_UNKNOWN');
+  assert.equal(await auditCount(), before + 1);
+  const [s2, b2] = await api('/api/security/egress/check', 'POST', { projectId, inputs: [] });
+  assert.equal(s2, 400);
+  assert.equal(b2.error, 'EGRESS_GATE_INPUT_INVALID');
+  assert.equal(await auditCount(), before + 2);
+});
+
+test('IT-SEC-025: concurrent credential writes keep the index and the vault consistent', { skip: !REAL_STORE && 'needs ATS402_REAL_CREDENTIAL_STORE=1' }, async () => {
+  const results = await Promise.all([1, 2, 3].map((i) => api('/api/security/credentials', 'POST', { name: 'race-key', secret: `sk-race-${i}` })));
+  assert.equal(results.filter(([s]) => s === 201).length, 1, 'exactly one of three same-name writes may win');
+  assert.equal(results.filter(([s, b]) => s === 400 && b.error === 'CREDENTIAL_DUPLICATE').length, 2);
+  const [, list] = await api('/api/security/credentials');
+  const mine = list.credentials.filter((c) => c.name === 'race-key');
+  assert.equal(mine.length, 1);
+  const [ds] = await api(`/api/security/credentials/${mine[0].id}`, 'DELETE');
+  assert.equal(ds, 200);
+});
+
+test('IT-SEC-026: a reference whose vault entry vanished can be deleted; a failed write is 503', { skip: !REAL_STORE && 'needs ATS402_REAL_CREDENTIAL_STORE=1' }, async () => {
+  const [s, b] = await api('/api/security/credentials', 'POST', { name: 'vanish-key', secret: 'sk-vanish-1' });
+  assert.equal(s, 201);
+  const { spawnSync } = await import('node:child_process');
+  spawnSync('cmdkey', [`/delete:ATS:ai-test-studio:${b.credential.id}`], { windowsHide: true });
+  const [ds, db] = await api(`/api/security/credentials/${b.credential.id}`, 'DELETE');
+  assert.equal(ds, 200, JSON.stringify(db));
+  const [, list] = await api('/api/security/credentials');
+  assert.ok(!list.credentials.some((c) => c.id === b.credential.id));
+  // A write the vault refuses (blob over the Credential Manager limit) is a
+  // 503 CREDENTIAL_STORE_FAILED, not a 500, and leaves no reference behind.
+  const [fs_, fb] = await api('/api/security/credentials', 'POST', { name: 'huge-key', secret: 'x'.repeat(3000) });
+  assert.equal(fs_, 503, JSON.stringify(fb));
+  assert.equal(fb.error, 'CREDENTIAL_STORE_FAILED');
+  const [, after] = await api('/api/security/credentials');
+  assert.ok(!after.credentials.some((c) => c.name === 'huge-key'));
+});
+
 test('IT-SEC-CLEANUP: the bridge exits and the fixture is removed', async () => {
   cp.kill();
   await new Promise((r) => setTimeout(r, 200));

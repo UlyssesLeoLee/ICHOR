@@ -61,6 +61,19 @@ function fail(code, message, details) {
 }
 
 /**
+ * 深冻结对象及其嵌套属性，使之不可改动。
+ */
+function deepFreeze(obj) {
+  Object.freeze(obj);
+  for (const value of Object.values(obj)) {
+    if (isPlainObject(value) || Array.isArray(value)) {
+      deepFreeze(value);
+    }
+  }
+  return obj;
+}
+
+/**
  * 提案记录里必须与宿主权威记录逐字段一致的那些字段。
  *
  * `approval` 与 `createdAt` 不在其中：前者是评审**结果**，评审前后会变；
@@ -594,9 +607,11 @@ export function createPluginSdk({ manifest, host, scope, projects, tier, pluginI
       // The proposal and its evidence digests go into the HOST's authoritative
       // record -- straight from the SDK, never through the plugin. The host
       // is what a reviewer later compares against.
+      // The host gets a deep-frozen copy; the plugin gets a separate unfrozen copy.
+      const hostRecord = deepFreeze(structuredClone(proposal));
       let submissionFailure = null;
       try {
-        await host.submitProposal(proposal);
+        await host.submitProposal(hostRecord);
       } catch (error) {
         submissionFailure = error;
       }
@@ -624,7 +639,7 @@ export function createPluginSdk({ manifest, host, scope, projects, tier, pluginI
         evidenceDigests: resolved.map((entry) => ({ ref: entry.ref, sha256: entry.sha256 })),
         approval: 'pending',
       });
-      return proposal;
+      return structuredClone(proposal);
     },
   };
 
@@ -739,7 +754,7 @@ export function reviewPluginProposal(proposal, { reviewer, decision, note, host 
   }
   assertMatchesHostRecord(proposal, record);
   return {
-    ...proposal,
+    ...structuredClone(record),
     approval: decision,
     reviewedBy: reviewer,
     reviewedAt: new Date().toISOString(),

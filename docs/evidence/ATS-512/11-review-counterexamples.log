@@ -1,8 +1,8 @@
 ================================================================================
 ATS-512 evidence log -- the round-1 review's 11 counterexamples no longer reproduce
 ================================================================================
-commit        : bb95e79d7bb39f14962928c09a123eda896d4ecb
-timestamp     : 2026-11-07T02:48:30Z (UTC)
+commit        : a227c8e7296f5cfbd7f60c630be58270cdf814ff
+timestamp     : 2026-11-09T05:43:37Z (UTC)
 repo root     : /d/ICHOR
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -23,13 +23,13 @@ no     CE5 cross-project reads: host received projectId=proj_OTHER_TENANT in 0/3
         claimed: the host binds the allowed projects; the SDK refuses the others
 no     CE6 forged/evidence-less proposal approvable: reviewPluginProposal(forged, evidenceRefs:[]) -> PLUGIN_PROPOSAL_INVALID, approval=undefined
         claimed: the host holds the authoritative record; a proposal it does not hold is refused
-no     CE7 tampered proposal self-approved: after tamper, review by plugin:evil -> PLUGIN_PROPOSAL_INVALID; audit records digest=true, proposalId=true
-        claimed: the review compares the proposal with the HOST record; the audit trail names the proposal and its digests
+no     CE7 tampered proposal nested fields only: after nested-only tamper on shallow host, review by alice -> PLUGIN_PROPOSAL_INVALID; audit records digest=true, proposalId=true
+        claimed: the review compares the proposal with the HOST record; SDK-level deep copy prevents aliasing defects
 no     CE8 authorize fail-open: constructor=false __proto__=false toString=false hasOwnProperty=false nonexistent=false
         claimed: unknown operation -> allowed:false
 no     CE9 tier prototype keys: toString -> PLUGIN_MANIFEST_INVALID; constructor(empty) -> PLUGIN_MANIFEST_INVALID; nope -> PLUGIN_MANIFEST_INVALID
         claimed: unknown tier -> PLUGIN_MANIFEST_INVALID
-no     CE10 proposalId collision: two SDK instances -> plgprop_evil_fac1caef-4843-4c5a-b9fc-8d5719dc4e3d, plgprop_evil_c71596a6-e758-4f6c-835c-102b1a818dd5
+no     CE10 proposalId collision: two SDK instances -> plgprop_evil_7e1bfdd7-7c34-4ee2-b252-8aa61f734b7c, plgprop_evil_69cdd155-6176-4c73-9a19-b3a892427173
         claimed: the proposal id is globally unique
 no     CE11 seq != sink count: first call UNCODED(Error: sink down) (read already performed), sink holds seq=[1]
         claimed: the sequence advances only after the sink accepted the event

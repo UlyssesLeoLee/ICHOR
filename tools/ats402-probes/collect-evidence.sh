@@ -59,6 +59,14 @@ run 01-security-ut.log \
   'the credential store and egress consent unit tests (tests/security.test.mjs)' \
   node --test tests/security.test.mjs || fail=1
 
+run 01b-credentials-ut.log   'the credential store with an injected vault and injected Windows/macOS/Linux spawn doubles (tests/security-credentials.test.mjs)'   node --test tests/security-credentials.test.mjs || fail=1
+
+run 01c-gate-audit-ut.log   'the egress gate, the audit trail caps and the consent listing (tests/security-gate.test.mjs)'   node --test tests/security-gate.test.mjs || fail=1
+
+# Coverage of server/security/** from the IN-PROCESS tests only: no bridge
+# subprocess is involved, so the figures do not depend on child-process coverage.
+run 01d-security-coverage.log   'line/branch/function coverage of server/security/** (in-process tests; each file must be strictly above 90% line coverage)'   node --test --experimental-test-coverage --test-coverage-include='server/security/**' tests/security.test.mjs tests/security-credentials.test.mjs tests/security-gate.test.mjs || fail=1
+
 # The integration tests are run TWICE: once without the real credential
 # store (the two credential-writing cases are then SKIPPED) and once with it
 # (they run against the REAL Windows Credential Manager). Both logs are kept,
@@ -75,6 +83,17 @@ run 03-security-api-it-real-store.log \
 run 04-security-boundary-probe.log \
   'the security boundary probe (static analysis + real credential store + egress gate, with negative controls)' \
   node tools/ats402-probes/probe-security-boundary.mjs || fail=1
+
+# The three counterexample probes of the round-1 review, run against THIS tree.
+# H7 and I3 are NONBLOCK and do not count towards RESULT.
+SCRATCH="${TEMP:-/tmp}/ats402-review-r1"
+run 04b-review-r1-http.log   'review round 1 probe r1-http.mjs (H1-H8, C1, C2) against this tree'   env ATS402_REAL_CREDENTIAL_STORE=1 node tools/ats402-probes/review-r1/r1-http.mjs "$ROOT" "$SCRATCH/http" || fail=1
+run 04c-review-r1-inproc.log   'review round 1 probe r1-inproc.mjs (I1, I2) against this tree'   node tools/ats402-probes/review-r1/r1-inproc.mjs "$ROOT" "$SCRATCH/inproc" || fail=1
+run 04d-review-r1-race-http.log   'review round 1 probe r1-race-http.mjs (I1 over real HTTP + the real credential store) against this tree'   env ATS402_REAL_CREDENTIAL_STORE=1 node tools/ats402-probes/review-r1/r1-race-http.mjs "$ROOT" "$SCRATCH/race" || fail=1
+
+# The AI data security tab in a real browser (Edge, headless): ST-031 / ST-033
+# and the executable half of ST-032. Needs the UI's fixed Bridge port to be free and apps/studio/out to be built.
+run 04e-ui-e2e.log   'the AI data security tab driven in a real browser (screenshots + trace in docs/evidence/ATS-402/ui/)'   env ATS402_REAL_CREDENTIAL_STORE=1 node tools/ats402-probes/ui-e2e.mjs "$OUT/ui" || fail=1
 
 run 05-full-test-suite.log \
   'the whole node --test suite (tests/*.test.mjs)' \
