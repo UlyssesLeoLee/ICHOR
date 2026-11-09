@@ -91,7 +91,7 @@ ae90a5e6681eb63d3f814e011a89a322e518e6312e3c3eca72d1b6a54d5935dd  docs/19-REMOTE
 f5475cc08d25a908e74b17e2e04bf3b8bd19c2ab03ca6ec56dd436c61dda2cbc  docs/20-PARALLEL-ORCHESTRATION.md
 240490606dfa7ab993066a5faf321d66e66986ab2772b82f7c85a2db8bcf251a  docs/21-CONTROL-PLANE-API.md
 405636dc677af9694e23859c478d2c2c03f39332c08a9061d1481483e0dc3d81  docs/21-PLUGIN-CONTRACT.md
-436c87d7cf6c0231d93566dcd9ca11816943218b69fa10c1f0fb9fa6378e2b84  docs/22-FRONTEND-EXPORT.md
+2b641f8285e3ea25f6ed79a3e719343d12c403673c82c28a7b0454d1cff21646  docs/22-FRONTEND-EXPORT.md
 98bb0945cef3cd84b4203f14cb4a4e5bfd07e3093e3e39076f66a2773a4d5ef6  docs/23-AI-DATA-SECURITY.md
 45c86fd193f6c9ab24e0eac6c07d85ab04297729754e429533608024cf10870c  docs/23-AUTHORITATIVE-DISCOVERY.md
 d6ef1f959b3cc525dcf828f997c398c912acf18da57894067ed1b1d6a0961670  docs/24-EXECUTION-MODEL.md
@@ -139,10 +139,10 @@ a29732e2639f0cd03908d75bb5a4f14cb25eff4302df4e9a8d9f859a4a49b6ca  docs/evidence/
 68c892d1d48d3b1bbd500fe8b15b075b85f6ae2532ceb1b56af04f16a27cf738  docs/evidence/ATS-103/07-port-audit.log
 0c66b7664d064b1a5676c6158aa1f05804dab2144340d39db9f8bc85780b7235  docs/evidence/ATS-103/08-adr-citations.log
 5bb93155fcf9732d921d41be12fa4d88064074cfc0e79d63c78a264b1a43001f  docs/evidence/ATS-103/09-ci-build-gate.log
-24f60ccc8ccd5b3d9376f450e456b04a89e24d88a1e59916a0d6232ede1ae6a8  docs/evidence/ATS-103/10-r4-branch-clone-verification-crlf.log
-0161367ddab003c2f10f0403ddf02947dac772cd921da2437573c63f37d2d6a7  docs/evidence/ATS-103/10-r4-branch-clone-verification-lf.log
-5ef13bd7dce9b7a82c88a0b02429af624454abfb7b1e797dedeedceba934c308  docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log
-e77ee7f1d398a241157d0b636a414bd1c569f4b002189a4b27a655103be17f8d  docs/evidence/ATS-103/11-r4-dev-clone-verification-lf.log
+439fca2bb2cb81a3cf321a021041ea294fea99bc3c87d2a5953eac48454e0516  docs/evidence/ATS-103/10-r4-branch-clone-verification-crlf.log
+c32cbe3db77d2da32d12dc5cfd527fbef5c03f112c11697bffc0c988bacf2839  docs/evidence/ATS-103/10-r4-branch-clone-verification-lf.log
+97a740279a5718e101cf71ee8a90e8bc7c90a13994ed4028f9084b4a160a3e7a  docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log
+96a3b3a7075f27ff5a84bd62d522c8892f4898e22543293fe801fd78e61d2373  docs/evidence/ATS-103/11-r4-dev-clone-verification-lf.log
 5211f88666cf8369c0cd9275e8ea249a98e737c98b0e503ce9878d96985d7dad  docs/evidence/ATS-106/01-preflight-ut.log
 8fc86a38d97f0c3d2330f9f176fa93eb279834411298b2e96570d7f5e6e4bbf4  docs/evidence/ATS-106/02-preflight-it.log
 c6d96ca9acb6a49fded1070c2c4dfea381f3209be61997d683c3fe905158fd5e  docs/evidence/ATS-106/03-real-cli-contract.log

@@ -371,11 +371,21 @@ $ python tools/check_adr_citations.py
 
 ### 3.9 在**克隆出来的**交付分支上复跑
 
-上面的各项都是在工作区跑的。门禁与校验脚本面对的是**已提交**的文件，所以它们在**两份克隆**里各跑一遍：一份按 Windows 默认检出（CRLF），一份用 `git -c core.autocrlf=false clone` 检出（LF）。两份克隆都指向**同一个提交**。
+上面的各项都是在工作区跑的。门禁与校验脚本面对的是**已提交**的文件，所以它们在**两份克隆**里各跑一遍：一份按 Windows 默认检出（CRLF），一份用 `core.autocrlf=false` 检出（LF）。两份克隆都指向**同一个提交**。
 
 ```
 $ bash tools/ats103-probes/verify-r4.sh <clone-dir> <label>
 ```
+
+**「LF 克隆」必须真的是 LF 检出，否则这组对比等于没做。** `git clone -c core.autocrlf=false` **不会**把该设置写进新克隆自己的配置——`-c` 配置的是克隆**进程**，新克隆沿用机器默认值（Windows 上是 `true`），于是那份「LF 克隆」其实仍是 CRLF 检出。实测两份克隆的工作区字节数可以分开：CRLF 克隆里那个文件有 **118** 个 CR 字节，LF 克隆里是 **0**。因此克隆之后必须显式写配置并重置检出：
+
+```bash
+git -C <clone> config core.autocrlf false
+git -C <clone> rm -r --cached .
+git -C <clone> reset --hard
+```
+
+四份日志的头部各自记着它自己的 commit 与 `core.autocrlf` 取值（`true` / `false`），可以直接核对。
 
 两份克隆的结论**逐项相同**：
 

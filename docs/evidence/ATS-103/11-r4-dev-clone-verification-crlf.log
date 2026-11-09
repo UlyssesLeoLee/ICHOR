@@ -1,6 +1,6 @@
-=== dev-crlf ===
-clone      : D:/hermes-multica/home/cache/scratch/tmp/r4v-dev-crlf
-commit     : 311c4b19f652d75d53eb414115e6d74506d4e606
+=== dev-clone-crlf ===
+clone      : D:/hermes-multica/home/cache/scratch/tmp/devv-crlf
+commit     : 31fb8fd8c46f955c581b4699139646c903171858
 branch     : dev
 autocrlf   : true
 
@@ -10,7 +10,7 @@ v22.23.4
 playwright  : @playwright/test@1.64.1 (pinned; read from tools/ats101-probes/lib/fixture.mjs)
 
 --- 1. verify_checksums.py ---
-manifest entries : 912
+manifest entries : 913
 digest mismatches: 0
 tracked-not-listed: 0 []
 listed-not-tracked: 0 []
@@ -69,4 +69,4 @@ STEP_EXIT=0
 # skipped 20
 STEP_EXIT=0
 
-=== end of dev-crlf (overall: OK) ===
+=== end of dev-clone-crlf (overall: OK) ===
