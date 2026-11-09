@@ -31,8 +31,8 @@
 | FR-011 | 停止运行 | Windows taskkill / Unix SIGTERM 请求停止子进程 | P0 | IMPLEMENTED (best effort) |
 | FR-012 | 运行历史 | 不覆盖旧记录；记录 ID/commit/timestamp/status | P0 | IMPLEMENTED（ATS-208：执行模型统一，重试用例计一次且保留全部 attempt） |
 | FR-013 | 执行日志 | 前端能够轮询本地 stdout/stderr，显示错误 | P0 | IMPLEMENTED |
-| FR-014 | JSON/HTML 与 Trace | 尽力启用原生 reporter/trace/screenshot/video 并按 Run 隔离 | P0 | IMPLEMENTED (requires Playwright) |
-| FR-015 | 文件证据下载 | 路径验证，保留 SHA-256 和相对位置；拒绝路径跳转 | P0 | IMPLEMENTED（ATS-209：清单带所属运行与整组摘要，篡改可检出并指名文件） |
+| FR-014 | JSON/HTML 与 Trace | 尽力启用原生 reporter/trace/screenshot/video 并按 Run 隔离 | P0 | IMPLEMENTED (requires Playwright)（ATS-215：失败用例的 Trace 2 次点击内可达，附件显示归档摘要与时间） |
+| FR-015 | 文件证据下载 | 路径验证，保留 SHA-256 和相对位置；拒绝路径跳转 | P0 | IMPLEMENTED（ATS-209：清单带所属运行与整组摘要，篡改可检出并指名文件）（ATS-215：附件路径规整为 run 目录下的相对位置，越出 run 目录的路径被丢弃并计数；越界下载仍被拒绝） |
 | FR-016 | 报告摘要 | 解析 status、duration、cases、error 供可视化展示 | P0 | IMPLEMENTED（ATS-216：质量概览模块；失败/重试/取消分开计数，指标与原始结果逐项对账，对账同时核对界面显示的数与 Bridge 报告的计数器；失败聚类为确定性归一化，非 AI） |
 | FR-017 | 需求关系读取 | 读取 .aitest/requirements.json 和 traceability.json | P0 | IMPLEMENTED (read-only) |
 | FR-018 | 执行事件审计 | 同一次运行生成事件顺序号与 JSONL | P0 | IMPLEMENTED（ATS-208：序号无空洞，事件可按 run+sequence 复演为 run 的状态） |
@@ -41,8 +41,8 @@
 | FR-021 | 完整 Playwright --list 发现 | 根据权威运行时发现动态测试与参数化用例 | P1 | IMPLEMENTED (v0.2.0, ATS-202；未可信仓库回退静态索引) |
 | FR-022 | Graph Editor 受控反写 | 仅可视化子集能写回 AST；复杂代码原位保留 | P1 | DESIGNED |
 | FR-023 | WDIO Tauri Runner | 统一 Run/Test/Attempt schema，驱动桌面 E2E | P1 | DESIGNED |
-| FR-024 | AI 生成 | 需求→测试意图→脚本候选→审查后写入 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |
-| FR-025 | AI 诊断 | 失败归类、差异建议，不能自动修改断言或提交 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |
+| FR-024 | AI 生成 | 需求→测试意图→脚本候选→审查后写入 | P1 | PARTIAL（契约层 ATS-401 + 模型 API 适配层 ATS-403 已实现：两种兼容协议、可配置提供商与错误回退链；**未用真实模型端到端验证**，模型输出仍不写入仓库，见 17-AGENT-CONTRACT 与 30-MODEL-ADAPTER） |
+| FR-025 | AI 诊断 | 失败归类、差异建议，不能自动修改断言或提交 | P1 | PARTIAL（契约层 ATS-401 + 适配层 ATS-403 已实现；**未用真实模型端到端验证**，模型输出仍不写入仓库，见 17-AGENT-CONTRACT 与 30-MODEL-ADAPTER） |
 | FR-026 | 图谱血缘与覆盖缺口 | Requirement→Script→Run→Evidence 可查询和影响分析 | P1 | DESIGNED |
 | FR-027 | 多环境/密钥存储 | 单独安全凭据存储，配置不进入 Git | P1 | **已实现（ATS-402）**：密钥入系统凭据库（Windows Credential Manager 已实测；macOS Keychain / Linux Secret Service **代码已写、未实测**），磁盘上只留引用；另有 ATS-212 的项目级环境档案 API、变量白名单与封口的 runner 环境，档案不进 Git |
 | FR-028 | CI/CD 与远程执行 | RunnerAdapter/Queue/工作区隔离 | P2 | DESIGNED |
@@ -63,7 +63,7 @@
 | NFR-001 | 可用性 | 用户项目操作不要求平台云账号；断网仍可检索已登记项目 | P0 | 基础具备 |
 | NFR-002 | 安全 | API 仅 bind 127.0.0.1；token+Origin 拒绝跨站 API 请求 | P0 | 部分具备；无 OS 级身份 |
 | NFR-003 | 安全 | 拒绝 `../`、symlink 越界、非测试文件编辑及任意附件路径 | P0 | 已实现 |
-| NFR-004 | 数据完整性 | 已生成 Evidence 附件记录 SHA-256；每次运行独立目录 | P0 | 已实现（ATS-209：证据清单可校验、内容寻址去重、到期清理只删证据不删 Run 元数据） |
+| NFR-004 | 数据完整性 | 已生成 Evidence 附件记录 SHA-256；每次运行独立目录 | P0 | 已实现（ATS-209：证据清单可校验、内容寻址去重、到期清理只删证据不删 Run 元数据）（ATS-215：工作台显示的是**归档时**清单记录的 SHA-256，不是现在重算的摘要；归档后被改动的文件仍显示归档值，并由校验结果另行报出 changed/missing） |
 | NFR-005 | 维护性 | npm 项目零迁移；Node bridge 与 Next/Tauri UI 解耦 | P0 | 已实现 |
 | NFR-006 | 性能 | 普通仓库 500 用例索引目标 3 秒内（非环境实测） | P1 | 待 ST 测量 |
 | NFR-007 | 可移植性 | Windows/macOS/Linux Web 便携版；Tauri 各 OS 构建另验 | P1 | 部分 |

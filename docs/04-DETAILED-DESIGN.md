@@ -43,6 +43,30 @@ HTTP/1.1 200
 ```
 
 ```http
+GET /api/runs/:id/workbench
+X-ATS-Token: <local token>
+
+HTTP/1.1 200
+{"run":{"id":"run_1_...","uid":"...","status":"failed","gitCommit":"...","runner":"playwright",
+        "startedAt":"...","finishedAt":"...","engineVersion":"1.65.0"},
+ "artifacts":[{"file":"results/<case>/trace.zip","size":8048,"sha256":"<64 hex>",
+               "modifiedAt":"2026-11-07T03:00:09.393Z"}],
+ "cases":[{"title":"...","file":"home.spec.ts","line":22,"status":"failed","duration":5155,
+           "error":"...","attemptsCount":1,"scope":[],"caseKey":"...",
+           "attachments":[{"name":"trace","contentType":"application/zip",
+                          "file":"results/<case>/trace.zip"}]}],
+ "verification":{"verified":true,"ok":true,"checked":28,"missing":[],"changed":[],
+                 "reason":null}}
+```
+
+这个接口是**只读**的，交出的是**事实**而不是视图：视图由共享模块
+`apps/studio/public/evidence-workbench.mjs` 计算（两个界面都导入它）。
+`artifacts[].sha256` 是 ATS-209 的清单在**归档时**记录的摘要，不是现在重算的摘要；
+`modifiedAt` 是文件自身的修改时间（清单不记录时间）。
+`verification` 是 ATS-209 的校验结果：`verified` 是篡改判定，`ok` 是「清单读得出」，
+两者不是一回事（没有清单 ≠ 清单里什么都没有）。
+
+```http
 GET /api/projects/:id/env
 X-ATS-Token: <local token>
 
@@ -374,4 +398,4 @@ interface AgentProposal { id:string; role:'planner'|'generator'|'triage'|'healer
 
 **Agent 契约 v1 的实现状态（ATS-401，S4/v0.4.0）**：`server/agent.mjs` 实现了 Agent 请求与提案的契约层——作用域（`scope`）、预算（`budget`）、输入出处（`inputs` 的 kind/ref/digest/content）、角色与能力白名单、提案收敛规则与评审状态机。契约层的权限边界是**机制**而非约定：契约层的源码只 import `node:crypto` 与 `node:path`、且不含任何 I/O 调用（由静态检查守护，**不是**「物理上无法」——真正的隔离属平台侧 ATS-403）；写入与提交类能力在请求层一律被拒；提案的 `approval` 恒为 `pending` 且提案人不得自审；diff 头部里出现的每一个路径都必须落在 `scope.outputs` 内且为测试脚本文件，rename/copy/binary/mode change 一律拒绝。
 
-**未实现**：模型提供商接入（ATS-403）、API Key 存储与外传知情授权（ATS-402）、提案落地（应用 diff / 更新 expected / Git 提交）。仓库中**没有**把模型输出写入仓库的代码路径。详见 `docs/17-AGENT-CONTRACT.md`。
+**未实现**：提案落地（应用 diff / 更新 expected / Git 提交）。仓库中**没有**把模型输出写入仓库的代码路径。API Key 存储与外传知情授权（ATS-402）、可替换模型 API 适配器与错误回退（ATS-403）**已实现**：适配层把「协议转换 / 传输 / 提供商 / 回退链 / 编排」分成五层，支持两种兼容协议，密钥只在发请求时从凭据库取，没有外传授权就不发请求；但**未用真实模型与真实密钥端到端验证**，且模型输出仍不写入仓库。详见 `docs/17-AGENT-CONTRACT.md` 与 `docs/30-MODEL-ADAPTER.md`。

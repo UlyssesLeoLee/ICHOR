@@ -24,6 +24,13 @@ import { createCredentialStore,credentialIndexPath,describeCredentialStore } fro
 import { createEgressConsentStore,describeEgressConsent,describeEgressScope } from './security/egress-consent.mjs';
 import { authorizeEgress,buildEgressScope,describeRequestedRefs } from './security/egress-gate.mjs';
 import { createEgressAuditStore,describeEgressAudit } from './security/egress-audit.mjs';
+// ATS-403: the model API adapter layer. The protocols, the transport, the
+// providers and the fallback chain live in `server/ai/`; this import only
+// wires them into the Bridge's API surface.
+import {
+ AI_ADAPTER_CONTRACT_VERSION, AI_ERROR_CODES, AI_PROTOCOLS, AI_STATUS_FOR_CODE,
+ aiError, createModelService, describeAiAdapter, explainAiError,
+} from './ai/index.mjs';
 // ATS-106: the run preflight and the test filter check (docs/26-RUNNER-PREFLIGHT.md).
 import { preflightPlaywright } from './adapters/playwright-preflight.mjs';
 import { assertSafeTestFilter } from './adapters/playwright-cli.mjs';
@@ -296,9 +303,34 @@ const egressConsentStore=createEgressConsentStore({
 // -- leaves a record, so "the platform refused it" is a fact somebody can
 // check rather than a claim. The records hold refs and digests, never content.
 const egressAuditStore=createEgressAuditStore({
-  list:async()=>store.egressAudit??[],
-  persist:async(records)=>{store.egressAudit=records;saveState(store);},
+ list:async()=>store.egressAudit??[],
+ persist:async(records)=>{store.egressAudit=records;saveState(store);},
 });
+
+// --- ATS-403: the model API adapter layer ---------------------------------
+// The provider CONFIGURATIONS live in the platform state; they carry a
+// credential REFERENCE, never a secret. The secret is resolved from the
+// credential store at the moment a request is sent.
+if(!Array.isArray(store.aiProviders))store.aiProviders=[];
+// The model service wires the egress gate (ATS-402), the credential store
+// (ATS-402) and the fallback chain (ATS-403) together.
+const modelService=createModelService({
+ credentialStore,
+ consentStore:egressConsentStore,
+ auditStore:egressAuditStore,
+ getProject:(id)=>getProject(id),
+ runResolver:egressRunResolver,
+});
+
+/**
+ * The provider configurations, in the order the fallback chain tries them.
+ *
+ * The list is the **fallback order**: the first provider is tried first, and
+ * the next one is used when the previous one fails with a retryable error.
+ */
+function aiProviders(){
+ return (store.aiProviders??[]).map((entry)=>({id:entry.id,protocol:entry.protocol,config:entry.config??{}}));
+}
 
 /**
  * 解析一次外传的范围：**由平台侧读真实文件并复算摘要**。
@@ -448,6 +480,87 @@ function writeEvent(run,type,data={}){
  *     possible the run says so explicitly instead of pretending it has no
  *     cases.
  */
+/**
+ * ATS-215: make the attachment paths of the cases RELATIVE to the run
+ * folder.
+ *
+ * The engine writes the absolute path of every file it produced, on the
+ * machine that ran the test. That path is meaningless to a reader of the
+ * archive -- the run folder moves with the data directory, and the
+ * download endpoint takes a RELATIVE path.
+ *
+ * A path outside the run folder is DROPPED and the drop is recorded on
+ * the case (`attachmentsOutsideRun`). It is not evidence of this run: the
+ * download endpoint refuses such a path (`PATH_OUTSIDE_RUN`), so keeping
+ * it would put a link in the interface that cannot be opened. The count is
+ * reported so the reader knows the case has attachments that are not
+ * part of the archive -- an empty list that silently means "dropped" would
+ * be a lie.
+ *
+ * @param {object[]} cases the cases of the run
+ * @param {string} folder the run folder
+ */
+function relativizeAttachments(cases,folder){
+ const root=path.resolve(folder);
+ for(const c of cases??[]){
+  const list=Array.isArray(c.attachments)?c.attachments:[];
+  const kept=[];let outside=0;
+  for(const a of list){
+   if(!a||typeof a.path!=='string'||!a.path)continue;
+   const full=path.resolve(root,a.path);
+   const relative=path.relative(root,full).replace(/\\/g,'/');
+   // A path that escapes the run folder (`..`) is not kept.
+   if(relative.startsWith('..')||path.isAbsolute(relative)){outside++;continue;}
+   kept.push({...a,file:relative});
+  }
+  c.attachments=kept;
+  if(outside)c.attachmentsOutsideRun=outside;
+ }
+}
+/**
+ * ATS-215: the MATERIAL of the evidence workbench of a run.
+ *
+ * It is a READ, and it returns the FACTS, not the view: the run, its
+ * artifacts (with their ARCHIVED digest and their modification time), its
+ * cases (with the attachments the engine named) and the ATS-209
+ * verification result.
+ *
+ * The VIEW is computed by the shared module
+ * (`apps/studio/public/evidence-workbench.mjs`), which both user
+ * interfaces import. The server does NOT compute a second view: two
+ * implementations of "where is this case's trace" would be two answers,
+ * and they would drift. This endpoint therefore hands over the raw facts
+ * and lets the one module do the locating -- the same arrangement
+ * ATS-216's quality overview uses.
+ *
+ * @param {object} run the run record
+ * @param {object} [options]
+ * @param {object} [options.verification] the ATS-209 verification result
+ * @returns {object} the material
+ */
+function evidenceWorkbenchMaterial(run,options={}){
+ const folder=runDir(run.id);
+ // The artifacts with their TIMES. The manifest carries the digest and
+ // the size; the time comes from the file itself, because the manifest
+ // does not record one (and inventing a timestamp in the manifest would
+ // be a claim about when the file was archived, which is not what the
+ // reader is asking for).
+ const artifacts=(run.artifacts??[]).map(a=>{
+  let modifiedAt=null;
+  try{modifiedAt=fs.statSync(path.join(folder,a.file)).mtime.toISOString();}catch{/* the file is gone*/}
+  return {...a,modifiedAt};
+ });
+ return {
+  run:{
+   id:run.id,uid:run.uid??null,status:run.status??null,gitCommit:run.gitCommit??null,
+   runner:run.runner??null,startedAt:run.startedAt??null,finishedAt:run.finishedAt??null,
+   createdAt:run.createdAt??null,engineVersion:run.engineVersion??null,
+  },
+  artifacts,
+  cases:Array.isArray(run.summary?.cases)?run.summary.cases:[],
+  verification:options.verification??null,
+ };
+}
 function collectRunResults(run){
  const folder=runDir(run.id);
  const adapter=run.runner?getAdapter(run.runner):null;
@@ -466,6 +579,18 @@ function collectRunResults(run){
  }else{
   run.summaryCollected=true;
  }
+ // ATS-215: the attachment paths of the engine are ABSOLUTE and name the
+ // machine that ran the test. The evidence workbench needs them RELATIVE
+ // to the run folder: the run folder is what survives (it moves with the
+ // data directory), and a relative path is what the artifact download
+ // endpoint accepts.
+ //
+ // A path that cannot be made relative -- one that points OUTSIDE the run
+ // folder -- is DROPPED, and the drop is reported on the case. Such a
+ // path is not evidence of this run: the download endpoint would refuse
+ // it anyway (`PATH_OUTSIDE_RUN`), so keeping it would be a link that
+ // cannot be opened.
+ relativizeAttachments(run.summary.cases,folder);
  // The report names the test files relative to the Playwright rootDir, the
  // registry stores them relative to the project root. The project root is
  // needed to reconcile the two spellings.
@@ -580,7 +705,13 @@ function finishRun(run,code,signal){
   }
   const cp=handle.child;
   writeEvent(run,EVENT_TYPE.STARTED,{pid:cp.pid,runner:run.runner});
-  run.status=RUN_STATUS.RUNNING;run.pid=cp.pid;run.startedAt=now();run.command=[handle.command,...handle.args];jobs.set(run.id,{child:cp,handle});saveState(store);
+  run.status=RUN_STATUS.RUNNING;run.pid=cp.pid;run.startedAt=now();run.command=[handle.command,...handle.args];
+  // ATS-215: the engine's version travels with the run. The Trace Viewer
+  // is a separate program whose version must match the one that wrote the
+  // trace, so a reader who opens a trace must be able to tell which
+  // viewer it needs. The version is the one the adapter PROBED.
+  if(handle.engineVersion)run.engineVersion=handle.engineVersion;
+  jobs.set(run.id,{child:cp,handle});saveState(store);
   for(const stream of [cp.stdout,cp.stderr])stream.on('data',buf=>{
    const str=buf.toString('utf8');run.log=compactLog((run.log||'')+str);
    fs.appendFileSync(path.join(folder,'stdout.log'),str);
@@ -1016,6 +1147,21 @@ const server=http.createServer(async(req,res)=>{
    if(!result.manifest)return err(res,404,'MANIFEST_NOT_FOUND',{reason:result.reason});
    return respond(res,200,{runId:r.id,manifest:result.manifest});
   }
+  // ATS-215: the MATERIAL of the EVIDENCE WORKBENCH of a run.
+  //
+  // It is a READ: the run, its artifacts (with their ARCHIVED digest and
+  // their modification time), its cases (with the attachments the engine
+  // named) and the ATS-209 verification result. The VIEW is computed by
+  // the shared module both interfaces import, so there is only ever ONE
+  // implementation of "where is this case's trace".
+  if(action==='workbench'&&req.method==='GET'){
+   const verification=verifyEvidence(runDir(r.id));
+   const material=evidenceWorkbenchMaterial(r,{verification:{
+    verified:verification.verified,ok:verification.ok,checked:verification.checked,
+    missing:verification.missing,changed:verification.changed,reason:verification.reason??null,
+   }});
+   return respond(res,200,material);
+  }
  }
  // ATS-209: the RETENTION policy of the whole data directory.
  //
@@ -1043,7 +1189,7 @@ const server=http.createServer(async(req,res)=>{
   const report=deduplicationReport(evidenceIndexOf(store));
   return respond(res,200,{...report,storeBytes:storeBytes(storeDirOf(dataDir()))});
  }
- if(p==='/api/diagnostics'&&req.method==='GET')return respond(res,200,{runtime:process.version,server:'Node.js bridge',platform:process.platform,pid:process.pid,environment:'local',limitations:['Local trusted repositories only','No process/container sandbox','No account/RBAC','AI provider not connected','WDIO adapter planned'],agentContract:{version:AGENT_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The agent contract is defined and enforced; no model provider is wired, so no agent request can reach a model.',writePolicy:'Agents produce diffs only; applying a diff, updating expected results and committing are platform-side operations performed after review.'},pluginContract:{version:PLUGIN_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The plugin contract, the permission list and the SDK operation surface are defined and enforced; no plugin host, loader or sandbox exists, so no plugin can be loaded or run.',grantPolicy:'A manifest declares permissions; the host grants them. The effective set is the declared set intersected with the host policy tier.',auditPolicy:'Every SDK call that performs an operation produces an audit event in the host sink, including the denied ones and the ones whose host read failed. The plugin cannot suppress it.',evidencePolicy:'The SHA-256 of an evidence reference is computed by the host resolver, never supplied by the plugin.',proposalPolicy:'The host holds the authoritative proposal record. A proposal the host does not hold, or one whose fields or evidence digests differ from the host record, cannot be reviewed.'},credentialStore:{contract:describeCredentialStore(credentialStore).contract,provider:credentialStore.provider(),note:'Secrets live in the OS credential store; the index file holds references only. No endpoint returns a secret.',available:credentialStore.provider()!==null},egressConsent:{contract:describeEgressConsent().contract,note:'Egress requires a granted consent whose scope still matches the content about to be sent; the platform reads the real files and recomputes the digests.'},egressAudit:{contract:describeEgressAudit().contract,note:'Every egress decision -- allowed or denied -- is recorded. A record names the refs and their digests; it never carries the content and never carries a secret.'}});
+ if(p==='/api/diagnostics'&&req.method==='GET')return respond(res,200,{runtime:process.version,server:'Node.js bridge',platform:process.platform,pid:process.pid,environment:'local',limitations:['Local trusted repositories only','No process/container sandbox','No account/RBAC','AI provider not connected by default (configure one under /api/ai/providers)','WDIO adapter planned'],agentContract:{version:AGENT_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The agent contract is defined and enforced; the model adapter layer (ATS-403) can reach a configured provider, but no provider is wired by default, so no agent request reaches a model until one is configured.',writePolicy:'Agents produce diffs only; applying a diff, updating expected results and committing are platform-side operations performed after review.'},aiAdapter:{contract:AI_ADAPTER_CONTRACT_VERSION,protocols:[...AI_PROTOCOLS],providers:aiProviders().map(e=>e.id),fallbackOrder:aiProviders().map(e=>e.id),note:'The model API adapter layer is implemented: two compatible protocols, a configurable provider list and an error fallback chain. A provider configuration carries a credential reference only; the secret is read from the credential store when the request is sent. Without a granted egress consent no request leaves the machine.',secretPolicy:'A provider configuration may not carry a plaintext key.'},pluginContract:{version:PLUGIN_CONTRACT_VERSION,status:'CONTRACT_ONLY',note:'The plugin contract, the permission list and the SDK operation surface are defined and enforced; no plugin host, loader or sandbox exists, so no plugin can be loaded or run.',grantPolicy:'A manifest declares permissions; the host grants them. The effective set is the declared set intersected with the host policy tier.',auditPolicy:'Every SDK call that performs an operation produces an audit event in the host sink, including the denied ones and the ones whose host read failed. The plugin cannot suppress it.',evidencePolicy:'The SHA-256 of an evidence reference is computed by the host resolver, never supplied by the plugin.',proposalPolicy:'The host holds the authoritative proposal record. A proposal the host does not hold, or one whose fields or evidence digests differ from the host record, cannot be reviewed.'},credentialStore:{contract:describeCredentialStore(credentialStore).contract,provider:credentialStore.provider(),note:'Secrets live in the OS credential store; the index file holds references only. No endpoint returns a secret.',available:credentialStore.provider()!==null},egressConsent:{contract:describeEgressConsent().contract,note:'Egress requires a granted consent whose scope still matches the content about to be sent; the platform reads the real files and recomputes the digests.'},egressAudit:{contract:describeEgressAudit().contract,note:'Every egress decision -- allowed or denied -- is recorded. A record names the refs and their digests; it never carries the content and never carries a secret.'}});
  if(p==='/api/agent/contract'&&req.method==='GET')return respond(res,200,describeAgentContract());
 if(p==='/api/plugins/contract'&&req.method==='GET')return respond(res,200,describePluginContract());
 if(p==='/api/plugins/validate'&&req.method==='POST'){
@@ -1154,6 +1300,72 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   });
   return respond(res,200,{allowed:true,scope:verdict.scope});
  }
+ // --- ATS-403: the model API adapter layer --------------------------------
+ if(p==='/api/ai/contract'&&req.method==='GET'){
+  // The contract description of the adapter layer. It never contains a
+  // secret, an endpoint credential or a local path.
+  return respond(res,200,{version:AI_ADAPTER_CONTRACT_VERSION,...describeAiAdapter()});
+ }
+ if(p==='/api/ai/providers'&&req.method==='GET'){
+  // The CONFIGURED providers, in fallback order. A provider configuration
+  // carries a credential REFERENCE, never a secret.
+  return respond(res,200,{providers:aiProviders().map((entry)=>({id:entry.id,protocol:entry.protocol,config:entry.config})),fallbackOrder:aiProviders().map((entry)=>entry.id)});
+ }
+ if(p==='/api/ai/providers'&&req.method==='POST'){
+  // Configure a provider. The configuration may only carry a credential
+  // REFERENCE: a plaintext key in the configuration would end up in
+  // state.json, which is a file on disk.
+  const b=await body(req);
+  const id=typeof b.id==='string'?b.id.trim():'';
+  if(!id)throw new Error('AI_PROVIDER_CONFIG_INVALID');
+  const protocol=typeof b.protocol==='string'?b.protocol:'';
+  if(!AI_PROTOCOLS.includes(protocol))throw new Error('AI_PROVIDER_CONFIG_INVALID');
+  const config=b.config===undefined||b.config===null?{}:b.config;
+  if(typeof config!=='object'||Array.isArray(config))throw new Error('AI_PROVIDER_CONFIG_INVALID');
+  // A secret in the configuration is refused BEFORE it is written anywhere.
+  if(config.apiKey!==undefined||config.secret!==undefined)throw new Error('AI_PROVIDER_CONFIG_INVALID');
+  const entry={id,protocol,config};
+  const existing=store.aiProviders.findIndex((e)=>e.id===id);
+  if(existing>=0)store.aiProviders[existing]=entry;else store.aiProviders.push(entry);
+  saveState(store);
+  return respond(res,201,{provider:entry});
+ }
+ const aiProviderRm=p.match(/^\/api\/ai\/providers\/([A-Za-z0-9._-]{1,64})$/);
+ if(aiProviderRm&&req.method==='DELETE'){
+  const before=store.aiProviders.length;
+  store.aiProviders=store.aiProviders.filter((e)=>e.id!==aiProviderRm[1]);
+  if(store.aiProviders.length===before)throw new Error('AI_PROVIDER_CONFIG_INVALID');
+  saveState(store);
+  return respond(res,200,{removed:aiProviderRm[1]});
+ }
+ if(p==='/api/ai/complete'&&req.method==='POST'){
+  // ONE model call. The egress gate runs first: without a granted consent
+  // whose scope still matches the content, no file is read, no secret is
+  // resolved and NO request leaves the machine. A timeout or a rate limit
+  // leaves the working tree byte-identical.
+  const b=await body(req);
+  const inputs=Array.isArray(b.inputs)?b.inputs:[];
+  const providers=b.providers===undefined?aiProviders():(Array.isArray(b.providers)?b.providers:[]);
+  const request=b.request===undefined||b.request===null?{}:b.request;
+  const result=await modelService.complete({
+   projectId:b.projectId,inputs,consentId:b.consentId,providers,request,
+   deadlineAt:typeof b.deadlineAt==='number'?b.deadlineAt:undefined,
+  });
+  return respond(res,200,{provider:result.provider,text:result.text,attempts:result.attempts});
+ }
+ if(p==='/api/ai/egress/check'&&req.method==='POST'){
+  // The gate on its own: "may these inputs leave the machine?". Same code
+  // path the service uses before a real egress, and every decision -- allowed
+  // OR denied -- is audited.
+  const b=await body(req);
+  const inputs=Array.isArray(b.inputs)?b.inputs:[];
+  const verdict=await modelService.authorize({projectId:b.projectId,inputs,consentId:b.consentId});
+  if(!verdict.allowed){
+   const status=AI_STATUS_FOR_CODE.AI_EGRESS_DENIED??403;
+   return respond(res,status,{allowed:false,error:'AI_EGRESS_DENIED',cause:verdict.code,reason:verdict.reason});
+  }
+  return respond(res,200,{allowed:true,scope:verdict.scope});
+ }
  if(p.startsWith('/api/'))return err(res,404,'NOT_FOUND');
  return staticFile(req,res,p);
  }catch(e){const message=e instanceof Error?e.message:String(e);const code=e&&e.code?e.code:'';
@@ -1194,6 +1406,16 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
    const status=/NOT_FOUND/.test(code)?404:/UNAVAILABLE|FAILED/.test(code)?503:400;
    return respond(res,status,{error:code||message});
   }
+ // ATS-403: the model adapter layer. `AI_*` codes are client- or provider-
+ // errors depending on the code, so the status comes from the code table
+ // rather than from a message pattern. The scope of this mapping is AI_* ONLY:
+ // every other error keeps its pre-ATS-403 behaviour byte for byte.
+ const isAiError=/^AI_/.test(code);
+ if(isAiError){
+  const status=AI_STATUS_FOR_CODE[code]??502;
+  const details=e&&e.details&&typeof e.details==='object'?{details:e.details}:{};
+  return respond(res,status,{error:code||message,explanation:explainAiError(code),...details});
+ }
  const status=/NOT_FOUND/.test(message)?404:/CONFLICT|ALREADY/.test(message)?409:/OUTSIDE|INVALID|REQUIRED|STALE|TOO_LARGE|NOT_INSTALLED/.test(message)?400:500;
  return err(res,status,message);}
 });

@@ -2,13 +2,17 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import dynamic from 'next/dynamic';
 import {Activity,BookOpen,Box,ChartNoAxesCombined,CheckCircle2,ChevronRight,Clock,Code2,Download,FileCode2,FilePlus2,FileSearch,FolderGit2,GitBranch,GitCommitHorizontal,KeyRound,LayoutDashboard,Layers3,Lock,Network,Play,RefreshCcw,Save,Search,ShieldAlert,Square,Terminal,TestTube2,Trash2,XCircle} from 'lucide-react';
-import {api,downloadArtifact,type Project,type TestDef,type TestCatalog,type Run,type Source,type CredentialRef,type EgressScope,type EgressPreview,type EgressConsent,type SecurityContract,type EgressAuditRecord} from '../lib/api';
+import {api,downloadArtifact,type Project,type TestDef,type TestCatalog,type Run,type Source,type CredentialRef,type EgressScope,type EgressPreview,type EgressConsent,type SecurityContract,type EgressAuditRecord,type EvidenceMaterial} from '../lib/api';
 // ATS-216: the QUALITY OVERVIEW module. It lives in `public/` so that the
 // Next workbench and the zero-dependency portable UI import the SAME
 // implementation -- the metrics cannot drift apart between the two UIs.
 import {buildQualityOverview,qualityMetricCards,type QualityOverview} from '../public/quality.mjs';
+// ATS-215: the EVIDENCE WORKBENCH module. The SAME module the portable UI
+// imports, so the two interfaces locate a trace the same way and cannot
+// drift apart.
+import {buildWorkbench,formatBytes as ebFormatBytes,formatTime as ebFormatTime,shortDigest,kindLabel,type WorkbenchView} from '../public/evidence-workbench.mjs';
 const Monaco=dynamic(()=>import('@monaco-editor/react'),{ssr:false});
-type Tab='catalog'|'runs'|'quality'|'trace'|'security'|'architecture';
+type Tab='catalog'|'runs'|'quality'|'evidence'|'trace'|'security'|'architecture';
 const label:Record<string,string>={passed:'通过',failed:'失败',running:'运行中',queued:'排队中',cancelling:'停止中',cancelled:'已停止',interrupted:'中断',error:'错误'};
 // ATS-216: the labels of the buckets the overview distinguishes. A CANCELLED
 // run and a FLAKY case get their own words -- they are not "失败" and they
@@ -37,6 +41,11 @@ export default function Studio(){
  // ATS-216: the scope of the quality overview. `project` is the default;
  // `all` spans every project, `run` is a single run.
  const [qualityScope,setQualityScope]=useState<'project'|'all'|'run'>('project'),[qualityRunId,setQualityRunId]=useState('');
+ // ATS-215: the evidence workbench. `evidenceRunId` is the run whose
+ // evidence is on the screen; `evidenceMaterial` is the FACTS the bridge
+ // hands over, and the VIEW is computed by the shared module -- the same
+ // module the portable UI imports.
+ const [evidenceRunId,setEvidenceRunId]=useState(''),[evidenceMaterial,setEvidenceMaterial]=useState<EvidenceMaterial|null>(null),[evidenceSelected,setEvidenceSelected]=useState(0);
  const notify=(s:string)=>{setMessage(s);setTimeout(()=>setMessage(''),5500)};
  const refresh=useCallback(async()=>{try{
   const [p,r]=await Promise.all([api<{projects:Project[]}>('/api/projects'),api<{runs:Run[]}>('/api/runs')]);setProjects(p.projects);setRuns(r.runs);
@@ -99,11 +108,29 @@ export default function Studio(){
    setPreview(null);await loadSecurity();notify('已记录知情授权');
   }catch(e){notify((e as Error).message)}finally{setBusy(false)}}
  async function revokeConsent(id:string){try{await api(`/api/security/egress/consents/${id}`,'DELETE');await loadSecurity();notify('授权已撤销，立即生效')}catch(e){notify((e as Error).message)}}
+ // ATS-215: the EVIDENCE WORKBENCH. The view is computed by the SHARED
+ // module, so the Next workbench and the portable UI locate a trace the
+ // same way -- there is one implementation, not two.
+ const evidenceView:WorkbenchView|null=useMemo(()=>{
+  if(!evidenceMaterial)return null;
+  return buildWorkbench(evidenceMaterial.run,evidenceMaterial.artifacts,evidenceMaterial.cases,{verification:evidenceMaterial.verification??undefined});
+ },[evidenceMaterial]);
+ // The workbench follows the runs of the current project; the selected
+ // run is the first one that has evidence.
+ useEffect(()=>{if(tab!=='evidence')return;
+  if(!evidenceRunId&&projectRuns.length)setEvidenceRunId(projectRuns[0].id);
+ },[tab,projectRuns,evidenceRunId]);
+ useEffect(()=>{if(tab!=='evidence'||!evidenceRunId)return;
+  let cancelled=false;
+  api<EvidenceMaterial>(`/api/runs/${evidenceRunId}/workbench`).then(m=>{if(!cancelled){setEvidenceMaterial(m);setEvidenceSelected(0);}}).catch(e=>{if(!cancelled)notify((e as Error).message);});
+  return()=>{cancelled=true;};
+ },[tab,evidenceRunId]);
  return <div className="app-shell">
   <aside className="rail"><div className="mark"><TestTube2 size={23}/></div>
    <button title="测试目录" className={tab==='catalog'?'rail-btn active':'rail-btn'} onClick={()=>setTab('catalog')}><Layers3 size={20}/></button>
    <button title="执行中心" className={tab==='runs'?'rail-btn active':'rail-btn'} onClick={()=>setTab('runs')}><Activity size={20}/></button>
    <button title="质量概览" className={tab==='quality'?'rail-btn active':'rail-btn'} onClick={()=>setTab('quality')}><ChartNoAxesCombined size={20}/></button>
+   <button title="证据工作台" className={tab==='evidence'?'rail-btn active':'rail-btn'} onClick={()=>setTab('evidence')}><FolderGit2 size={20}/></button>
    <button title="需求追踪" className={tab==='trace'?'rail-btn active':'rail-btn'} onClick={()=>setTab('trace')}><Network size={20}/></button>
    <button title="AI 数据安全" className={tab==='security'?'rail-btn active':'rail-btn'} onClick={()=>setTab('security')}><Lock size={20}/></button>
    <button title="架构和限制" className={tab==='architecture'?'rail-btn active':'rail-btn'} onClick={()=>setTab('architecture')}><Box size={20}/></button>
@@ -117,13 +144,20 @@ export default function Studio(){
     <button className="btn secondary" onClick={()=>setDialog(true)}><FilePlus2 size={15}/> 添加项目</button>
    </section>
    <section className="workspace">
-    <aside className="sidebar"><div className="sidebar-head"><div className="eyebrow">EXPLORER</div><h3>{tab==='catalog'?'测试资产':tab==='runs'?'运行记录':tab==='quality'?'质量概览':tab==='trace'?'需求列表':'模块概览'}</h3></div>
+    <aside className="sidebar"><div className="sidebar-head"><div className="eyebrow">EXPLORER</div><h3>{tab==='catalog'?'测试资产':tab==='runs'?'运行记录':tab==='quality'?'质量概览':tab==='evidence'?'证据工作台':tab==='trace'?'需求列表':'模块概览'}</h3></div>
      {tab==='catalog'&&<><div className="search"><Search size={15}/><input placeholder="查找脚本或测试用例" value={filter} onChange={e=>setFilter(e.target.value)}/></div>
      <div className="file-list">{shown.map(t=><button key={t.id} className={'file-item '+(selected?.id===t.id?'selected':'')} onClick={()=>openFile(t)}><FileCode2 size={16}/><span><b>{t.title}</b><small>{t.file}:{t.line}</small><small className="uid-tag">{t.uid}{t.uidStable?'':' ⚠'}</small></span><ChevronRight size={14}/></button>)}{!shown.length&&<div className="empty-small">暂无测试用例<br/>请导入已有 Playwright 项目</div>}</div></>}
      {tab==='runs'&&<div className="file-list">{projectRuns.map(r=><button className={'run-item '+(currentRun?.id===r.id?'selected':'')} key={r.id} onClick={()=>setRunDetail(r)}><span className={'status-dot '+r.status}/><span><b>{r.file||'全部测试'}</b><small>{formatTime(r.createdAt)}</small><small className="uid-tag">{r.uid}</small></span><small>{label[r.status]||r.status}</small></button>)}</div>}
      {tab==='quality'&&<><div className="search" style={{padding:'0 12px 10px'}}><select value={qualityScope} onChange={e=>{setQualityScope(e.target.value as 'project'|'all'|'run');if(e.target.value==='run'&&!qualityRunId)setQualityRunId(projectRuns[0]?.id||'');}} className="project-select" style={{fontSize:13,minWidth:0,width:'100%'}}><option value="project">当前项目</option><option value="all">全部项目</option><option value="run">单次运行</option></select></div>
      {qualityScope==='run'&&<div className="file-list">{projectRuns.map(r=><button key={r.id} className={'run-item '+(qualityRunId===r.id?'selected':'')} onClick={()=>setQualityRunId(r.id)}><span className={'status-dot '+r.status}/><span><b>{r.file||'全部测试'}</b><small>{formatTime(r.createdAt)}</small></span><small>{label[r.status]||r.status}</small></button>)}</div>}
      <div className="sidebar-hint">失败、重试与取消分开计数。质量概览页的「原始结果」列出每个数字的来源用例与 attempt。</div></> }
+     {/* ATS-215: the evidence workbench's explorer. The FAILURE list is
+         here on purpose: the acceptance criterion is that the trace is
+         reachable from a failing case within two clicks, so the failing
+         case and the trace button must be on the same screen. */}
+     {tab==='evidence'&&<><div className="search" style={{padding:'0 12px 10px'}}><select value={evidenceRunId} onChange={e=>setEvidenceRunId(e.target.value)} className="project-select" style={{fontSize:13,minWidth:0,width:'100%'}}><option value="">选择运行</option>{projectRuns.map(r=><option key={r.id} value={r.id}>{label[r.status]||r.status} · {r.file||'全部测试'} · {formatTime(r.createdAt)}</option>)}</select></div>
+     <div className="file-list">{(evidenceView?.failures??[]).map((f,i)=><button key={i} className={'file-item '+(evidenceSelected===i?'selected':'')} onClick={()=>setEvidenceSelected(i)}><XCircle size={16}/><span><b>{f.title}</b><small>{f.file}{f.line?':'+f.line:''}</small><small className="uid-tag">{f.traceLocated?`${f.clickPath.clicks} 次点击可达 Trace`:f.traceReason}</small></span><ChevronRight size={14}/></button>)}{!(evidenceView?.failures??[]).length&&<div className="empty-small">该运行没有失败用例<br/>选择另一次运行查看证据</div>}</div>
+     <div className="sidebar-hint">失败用例 → 点击 Trace，2 次点击内可达。附件显示归档时的 SHA-256 与文件时间。</div></>}
      {tab==='trace'&&<div className="file-list">{lineage.requirements.map(r=><div key={r.uid} className="file-item"><BookOpen size={16}/><span><b>{r.title}</b><small>{r.uid}</small></span></div>)}{!lineage.requirements.length&&<div className="empty-small">项目 .aitest/requirements.json<br/>可加载需求与关联关系</div>}</div>}
      {tab==='security'&&<div className="sidebar-hint">密钥存系统凭据库；外传前先展示范围并确认。</div>}
      {tab==='architecture'&&<div className="sidebar-hint">Git 是唯一脚本来源；SQLite 和远程执行留到后续迭代。v0.1 存储为本地 JSON。</div>}
@@ -160,6 +194,36 @@ export default function Studio(){
        <div className="card evidence"><div className="card-title"><Activity size={16}/> 重试与不稳定用例</div>{overview.tests.flaky?overview.tests.list.filter(t=>t.flaky).map(t=><div key={t.key} className="result-item"><span className="bad"><RefreshCcw size={16}/></span><div><b>{t.title}</b><small>{t.file} · {t.runs} 次运行 · 失败 {t.failedRuns} / 重试 {t.flakyRuns} / 通过 {t.passedRuns}</small></div></div>):<p className="muted">没有重试过或时好时坏的用例。</p>}</div></div>
       <div className="card"><div className="card-title"><Terminal size={16}/> 运行分布</div><table><thead><tr><th>运行状态</th><th>数量</th><th>含义</th></tr></thead><tbody>{[['passed',overview.runs.passed],['failed',overview.runs.failed],['cancelled',overview.runs.cancelled],['error',overview.runs.error],['interrupted',overview.runs.interrupted],['unknown',overview.runs.unknown],['inFlight',overview.runs.inFlight]].map(([k,v])=><tr key={String(k)}><td>{runBucketLabel[String(k)]||bucketLabel[String(k)]||String(k)}</td><td>{String(v)}</td><td>{k==='inFlight'?'尚未结束，不计入任何比率':['passed','failed'].includes(String(k))?'计入运行通过率':'未得出结论，不计入失败'}</td></tr>)}</tbody></table></div>
      </>}
+     {tab==='evidence'&&<><div className="section-top"><div><div className="eyebrow">EVIDENCE WORKBENCH</div><h1>证据工作台</h1><p>从失败用例 2 次点击内找到 Trace；附件显示归档时的 SHA-256 与文件时间。</p></div><div className="button-group"><button className="btn secondary" onClick={()=>{if(evidenceRunId)api<EvidenceMaterial>(`/api/runs/${evidenceRunId}/workbench`).then(setEvidenceMaterial).catch(e=>notify((e as Error).message));}}><RefreshCcw size={15}/> 刷新</button></div></div>
+      {!evidenceView?<div className="welcome"><Activity size={32}/><h2>尚无证据</h2><p>选择一次已有证据的运行，查看失败用例的 Trace、附件哈希与时间。</p></div>:<>
+      <div className="metric-row"><div className="metric"><span>失败用例</span><strong>{evidenceView.failureCount}</strong><small>定位到 Trace {evidenceView.totals.locatedTraces} 个</small></div><div className="metric"><span>证据文件</span><strong>{evidenceView.totals.count}</strong><small>{ebFormatBytes(evidenceView.totals.bytes)}</small></div><div className="metric"><span>点击预算</span><strong className="small-value">{evidenceView.clickBudget} 次</strong><small>失败用例 → Trace</small></div><div className="metric"><span>归档校验</span><strong className="small-value">{evidenceView.verification?(evidenceView.verification.verified?'一致':'不一致'):'未校验'}</strong><small>{evidenceView.verification?`${evidenceView.verification.checked} 个文件`:'无清单'}</small></div></div>
+      {evidenceView.verification&&!evidenceView.verification.verified&&<div className="note"><ShieldAlert size={15}/>证据与清单不一致：{evidenceView.verification.missing.length?`缺失 ${evidenceView.verification.missing.length} 个`:''}{evidenceView.verification.changed.length?` 改动 ${evidenceView.verification.changed.length} 个`:''}。请以磁盘上的文件为准。</div>}
+      {evidenceView.failures.length?<div className="card"><div className="card-title"><FolderGit2 size={16}/> 失败用例与 Trace（{evidenceView.failures.length}）</div>
+       <table><thead><tr><th>用例</th><th>状态</th><th>Trace</th><th>哈希（归档）</th><th>时间</th><th>操作</th></tr></thead><tbody>
+        {evidenceView.failures.map((f,i)=><tr key={i} className={evidenceSelected===i?'selected-row':''} onClick={()=>setEvidenceSelected(i)}>
+         <td><b>{f.title}</b><br/><small className="muted">{f.file}{f.line?':'+f.line:''}</small></td>
+         <td><span className={f.status==='failed'?'bad':'warn'}>{f.status}</span></td>
+         <td>{f.trace?<><code className="mono">{f.trace.file}</code><br/><small className="muted">{ebFormatBytes(f.trace.size)}</small></>:<span className="bad">{f.traceReason}</span>}</td>
+         <td>{f.trace?.sha256?<><code className="mono" title={f.trace.sha256}>{shortDigest(f.trace.sha256)}</code><br/><small className="muted" title={f.trace.sha256}>完整摘要见 title</small></>:'—'}</td>
+         <td><small>{ebFormatTime(f.trace?.modifiedAt??null)}</small></td>
+         <td>{f.trace?<button className="btn primary small" onClick={e=>{e.stopPropagation();downloadArtifact(evidenceRunId,f.trace!.file).catch(err2=>notify((err2 as Error).message));}}><Download size={13}/> 下载 Trace</button>:<span className="muted">无 Trace</span>}</td>
+        </tr>)}
+       </tbody></table>
+       <div className="panel-foot">点击路径：{(evidenceView.failures[evidenceSelected]?.clickPath.steps??[]).map((s,i)=><span key={i}>{i?' → ':''}{s.label}</span>)} · 共 {(evidenceView.failures[evidenceSelected]?.clickPath.clicks??0)} 次点击（预算 {evidenceView.clickBudget} 次）</div>
+      </div>:<div className="welcome"><CheckCircle2 size={32}/><h2>该运行没有失败用例</h2><p>证据清单仍然完整可查，见下方附件列表。</p></div>}
+      {evidenceView.failures[evidenceSelected]?.attachments.length?<div className="card"><div className="card-title"><Download size={16}/> 选中用例的附件</div>
+       <table><thead><tr><th>文件</th><th>类型</th><th>大小</th><th>SHA-256</th><th>时间</th></tr></thead><tbody>
+        {evidenceView.failures[evidenceSelected].attachments.map(a=><tr key={a.file}><td><code className="mono">{a.file}</code></td><td>{kindLabel((a as {kind?:string}).kind??'')}</td><td>{ebFormatBytes(a.size)}</td><td><code className="mono" title={a.sha256??''}>{shortDigest(a.sha256)}</code></td><td><small>{ebFormatTime(a.modifiedAt)}</small></td></tr>)}
+       </tbody></table>
+       <div className="panel-foot">哈希是归档时清单记录的摘要（ATS-209），不是现在重算的摘要；上方的「归档校验」说明它是否仍与磁盘上的文件一致。</div>
+      </div>:null}
+      <div className="card"><div className="card-title"><Layers3 size={16}/> 本次运行的全部证据（{evidenceView.attachments.length}）</div>
+       <table><thead><tr><th>文件</th><th>大小</th><th>SHA-256</th><th>时间</th></tr></thead><tbody>
+        {evidenceView.attachments.map(a=><tr key={a.file}><td><code className="mono">{a.file}</code></td><td>{ebFormatBytes(a.size)}</td><td><code className="mono" title={a.sha256??''}>{shortDigest(a.sha256)}</code></td><td><small>{ebFormatTime(a.modifiedAt)}</small></td></tr>)}
+       </tbody></table>
+      </div>
+      <div className="note"><ShieldAlert size={15}/>Trace Viewer 是独立的程序（npx playwright show-trace），其版本须与产生该 trace 的引擎一致{evidenceView.engineVersion?`（本次运行引擎版本 ${evidenceView.engineVersion}）`:'（本次运行未记录引擎版本）'}。本工作台只负责定位与校验，不代为打开 trace。</div>
+      </>}</>}
      {tab==='trace'&&<><div className="section-top"><div><div className="eyebrow">QUALITY LINEAGE</div><h1>需求与测试追踪</h1><p>Requirement → Script → Execution → Evidence 的可查询映射。</p></div></div><div className="card"><div className="card-title"><Network size={17}/> 关联矩阵</div><table><thead><tr><th>需求编号</th><th>需求名称</th><th>关联用例</th><th>覆盖情况</th></tr></thead><tbody>{lineage.requirements.map(req=>{const targets=lineage.links.filter(x=>x.from===req.uid).map(x=>x.to);return <tr key={req.uid}><td>{req.uid}</td><td>{req.title}</td><td>{targets.join(', ')||'—'}</td><td>{targets.length?'已建立关联':'待补充'}</td></tr>})}</tbody></table>{!lineage.requirements.length&&<p className="muted">在项目中建立 .aitest/requirements.json 和 traceability.json 后可显示需求关系。</p>}</div></>}
      {tab==='security'&&<><div className="section-top"><div><div className="eyebrow">AI DATA SECURITY</div><h1>AI 数据安全</h1><p>密钥存入系统凭据库；任何项目内容外传前先展示范围并由你确认。</p></div><button className="btn secondary" onClick={loadSecurity}><RefreshCcw size={15}/> 刷新</button></div>
       <div className="metric-row"><div className="metric"><span>凭据库</span><strong className="small-value">{secContract?.provider||'不可用'}</strong><small>{secContract?'系统凭据库已就绪':'本机没有系统凭据库'}</small></div><div className="metric"><span>已存密钥</span><strong>{credentials.length}</strong><small>本地只保留引用</small></div><div className="metric"><span>有效授权</span><strong>{consents.filter(c=>c.state==='granted').length}</strong><small>到期自动失效</small></div><div className="metric"><span>外传策略</span><strong className="small-value">默认拒绝</strong><small>无授权不外传</small></div></div>
