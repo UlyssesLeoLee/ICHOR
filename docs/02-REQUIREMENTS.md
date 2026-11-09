@@ -52,7 +52,7 @@
 | FR-032 | 移动端用例模型 | 移动端 Flow 可映射到统一 TestDefinition；不支持的步骤保留原文并标记，不静默丢弃 | P1 | PARTIAL（S6 / ATS-602：映射层与导入报告已实现并经 UT/IT 实测；真实设备上的 Flow 执行仍 DESIGNED） |
 | FR-033 | Android 设备执行 | 在真实 Android 模拟器上跑通一条 Flow；启动/点按/断言/截图实测通过；失败暴露驱动错误 | P1 | DESIGNED（S6 / ATS-603） |
 | FR-034 | 移动端证据归档 | 移动端截图/录屏/日志/层级树进统一 Evidence，与 Web/Tauri 引擎可一起查询 | P1 | DESIGNED（S6 / ATS-604） |
-| FR-035 | iOS 与 Maestro 兼容边界 | iOS 支持范围逐条写明；Maestro Flow 语法兼容性逐条判定并给出结论 | P2 | DESIGNED（S6 / ATS-606） |
+| FR-035 | iOS 与 Maestro 兼容边界 | iOS 支持范围逐条写明；Maestro Flow 语法兼容性逐条判定并给出结论 | P2 | PARTIAL（S6 / ATS-606：iOS 支持范围表、Maestro 命令逐条兼容性判定表与不承诺清单已冻结，判定依据可机读复核（Maestro CLI 2.12.1 的命令清单与 iOS 驱动实现 + 本平台词表）；**未做任何 iOS 实测**——本机无 macOS/Xcode/模拟器/真机，iOS 执行能力本身仍 DESIGNED） |
 
 ## 3. 非功能要件（非機能要件）
 
