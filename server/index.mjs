@@ -301,13 +301,28 @@ const egressAuditStore=createEgressAuditStore({
  * 这是 ATS-401 契约层留下的缺口的落点（`docs/17-AGENT-CONTRACT.md` §6）：
  * 契约层的 `digest` 由请求方提供，只能证明「二者自洽」；这里的摘要由
  * 本机文件系统给出，于是「`ref` 确实对应那份源内容」才成立。
+ *
+ * 范围解析**只有一份实现**（`server/security/egress-gate.mjs` 的
+ * `resolveEgressInputs`）：preview（用户看到的范围）、confirm（用户同意的
+ * 范围）与 check（闸门放行的范围）三处都经由它，所以三者不可能漂移：
+ *
+ *   - `file` / `evidence`：`<项目根>/<ref>`；
+ *   - `requirement`      ：`<项目根>/.aitest/<ref>`（缺省 `requirements.json`）；
+ *   - `run`              ：由下面的 `egressRunResolver` 给出；
+ *
+ * 落在文件系统上的输入一律先 realpath 再做根内判定（junction/符号链接越界
+ * 即拒绝）。run 的内容是平台自己的运行记录摘要，不来自请求方。
+ *
+ * 解析失败不在这里吞掉：闸门（`/api/security/egress/check`）把它当作一次
+ * **拒绝**写进外传审计，记录请求方给出的 kind/ref（不读文件、没有摘要）；
+ * preview/confirm 则把同一个错误码作为 400 返回给调用方。
+ *
  */
 function egressRunResolver(ref){
   const run=getRun(ref);
   const content=JSON.stringify({runId:run.id,status:run.status,summary:run.summary??null});
   return {kind:'run',ref,digest:crypto.createHash('sha256').update(content,'utf8').digest('hex'),content};
 }
-// preview, confirm and check ALL resolve the scope through this one function.
 function buildScope(project,inputs){
   return buildEgressScope({project,inputs,runResolver:egressRunResolver});
 }
@@ -1091,15 +1106,12 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   return respond(res,200,{audit:await egressAuditStore.all()});
  }
  if(p==='/api/security/egress/check'&&req.method==='POST'){
-  // The gate itself: it answers "may these inputs leave the machine?".
-  // It is the same code path the platform uses before a real egress.
-  // EVERY refusal is audited -- including a scope the gate could not resolve
-  // (a path outside the project, an unknown project, a malformed input) --
-  // with the refs the request named. No file is read for a refusal record.
+  // The gate itself ("may these inputs leave the machine?"): the same code path the platform uses before a real egress.
+  // EVERY refusal is audited, including a scope the gate could not resolve; no file is read for a refusal record.
+  // An unregistered project is a refusal too (400 EGRESS_GATE_PROJECT_UNKNOWN), unlike preview/confirm (404).
   const b=await body(req);
   const inputs=Array.isArray(b.inputs)?b.inputs:[];
-  const consent=typeof b.consentId==='string'?await egressConsentStore.find(b.consentId):null;
-  const deny=async(code,reason,project)=>{
+  const consent=typeof b.consentId==='string'?await egressConsentStore.find(b.consentId):null;const deny=async(code,reason,project)=>{
    await egressAuditStore.record({
     event:'egress.denied',outcome:'denied',code,reason,
     consentId:consent?.id??null,projectId:project?.id??null,

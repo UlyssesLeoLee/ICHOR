@@ -44,7 +44,7 @@
 | FR-024 | AI 生成 | 需求→测试意图→脚本候选→审查后写入 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |
 | FR-025 | AI 诊断 | 失败归类、差异建议，不能自动修改断言或提交 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |
 | FR-026 | 图谱血缘与覆盖缺口 | Requirement→Script→Run→Evidence 可查询和影响分析 | P1 | DESIGNED |
-| FR-027 | 多环境/密钥存储 | 单独安全凭据存储，配置不进入 Git | P1 | **已实现（ATS-402）**：密钥入系统凭据库（Windows Credential Manager / macOS Keychain / Linux Secret Service），磁盘上只留引用；另有 ATS-212 的项目级环境档案 API、变量白名单与封口的 runner 环境，档案不进 Git |
+| FR-027 | 多环境/密钥存储 | 单独安全凭据存储，配置不进入 Git | P1 | **已实现（ATS-402）**：密钥入系统凭据库（Windows Credential Manager 已实测；macOS Keychain / Linux Secret Service **代码已写、未实测**），磁盘上只留引用；另有 ATS-212 的项目级环境档案 API、变量白名单与封口的 runner 环境，档案不进 Git |
 | FR-028 | CI/CD 与远程执行 | RunnerAdapter/Queue/工作区隔离 | P2 | DESIGNED |
 | FR-029 | Agent 自主探索 | 异常流程候选、人工验证后固化 | P2 | DESIGNED |
 | FR-030 | 团队多用户 | RBAC、审计、团队项目与云数据同步 | P2 | DESIGNED |

@@ -15,7 +15,8 @@
  *
  * and writes screenshots plus a Playwright trace under <out>.
  *
- * Usage:
+ * The Bridge is started on the port the UI is built for (see below), which
+ * must be free. Usage:
  *   ATS402_REAL_CREDENTIAL_STORE=1 node tools/ats402-probes/ui-e2e.mjs <outDir>
  * Optional: ATS402_PLAYWRIGHT_CORE=<dir of playwright-core>, ATS402_BROWSER_CHANNEL=msedge
  *
@@ -43,12 +44,14 @@ const check = (id, name, ok, detail = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${id}  ${name}${detail ? ` -- ${detail}` : ''}`);
 };
 
-// The UI talks to the Bridge on port 4577 (apps/studio/lib/api.ts), so that is
-// the port this run needs. It must be free.
-const port = 4577;
+// The UI talks to the Bridge on a fixed port that apps/studio/lib/api.ts
+// declares; read it from there so the port is defined in one place only.
+const uiApi = fs.readFileSync(path.join(repo, 'apps', 'studio', 'lib', 'api.ts'), 'utf8');
+const port = Number(/http:\/\/127\.0\.0\.1:(\d+)/.exec(uiApi)?.[1]);
+if (!Number.isInteger(port)) throw new Error('cannot read the Bridge port from apps/studio/lib/api.ts');
 await new Promise((resolve, reject) => {
   const s = net.createServer();
-  s.once('error', () => reject(new Error('port 4577 is in use; stop the running Bridge first')));
+  s.once('error', () => reject(new Error(`port ${port} is in use; stop the running Bridge first`)));
   s.listen(port, '127.0.0.1', () => s.close(() => resolve()));
 });
 const scratch = fs.mkdtempSync(path.join(process.env.TEMP || os.tmpdir(), 'ats402-ui-'));
