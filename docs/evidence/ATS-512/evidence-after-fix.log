@@ -1,0 +1,16 @@
+no     R2-1[shallow] nested digest tamper approved: review -> PLUGIN_PROPOSAL_INVALID; host record now says sha256=aaaaaaaa… ref=trace.zip
+        claimed: sdk.mjs:26-29 / doc §2.4: the review compares with the HOST record; digest tamper -> PLUGIN_PROPOSAL_INVALID
+no     R2-1[byRef] nested digest tamper approved: review -> PLUGIN_PROPOSAL_INVALID; host record now says sha256=aaaaaaaa… ref=trace.zip
+        claimed: sdk.mjs:26-29 / doc §2.4: the review compares with the HOST record; digest tamper -> PLUGIN_PROPOSAL_INVALID
+no     R2-1[deep] nested digest tamper approved: review -> PLUGIN_PROPOSAL_INVALID; host record now says sha256=aaaaaaaa… ref=trace.zip
+        claimed: sdk.mjs:26-29 / doc §2.4: the review compares with the HOST record; digest tamper -> PLUGIN_PROPOSAL_INVALID
+no     R2-2[byRef] tamper + self-approval: self-review by plugin:evil after tamper -> PLUGIN_PROPOSAL_INVALID
+        claimed: sdk.mjs:13-14 "插件不经手这份权威记录"; ADR-027 producer may not self-review
+no     R2-3 SDK hands host and plugin the same object: submitted===returned: false; frozen: false; evidenceRefs[0] frozen: false
+        claimed: proposal goes to the host "straight from the SDK, never through the plugin"
+HOLDS  R2-4 conflicting double review: alice approved -> NO_ERROR; bob rejected -> NO_ERROR; host record approval=pending
+        claimed: sdk.mjs:708/735 "only a pending proposal can be reviewed"
+no     R2-5[deep] post-approval digest rewrite: after approval, plugin edits its copy -> approved.evidenceRefs[0].sha256=aaaaaaaa…; host record=aaaaaaaa…
+        claimed: review result reflects the host-held evidence; "host deep-copies on submit" alone suffices
+
+1 counterexample(s) reproduced

@@ -1,0 +1,112 @@
+✔ UT-PLG-001: the contract and manifest versions are fixed (1.4527ms)
+✔ UT-PLG-002: a valid manifest is normalised (1.0493ms)
+✔ UT-PLG-003: an unsupported manifest version is rejected (0.1286ms)
+✔ UT-PLG-004: malformed manifest fields are rejected (0.2678ms)
+✔ UT-PLG-005: a forbidden permission is rejected whatever the tier is (0.1774ms)
+✔ UT-PLG-006: a permission outside the vocabulary is rejected (0.0938ms)
+✔ UT-PLG-007: a duplicate permission is rejected (0.0763ms)
+✔ UT-PLG-008: a capability outside the ATS-301 vocabulary is rejected (0.0686ms)
+✔ UT-PLG-009: a runner plugin must declare the four required capabilities (0.0792ms)
+✔ UT-PLG-010: a non-runner plugin needs no capabilities (0.0692ms)
+✔ UT-PLG-011: the effective permission set is the declared set intersected with the tier (0.184ms)
+✔ UT-PLG-012: a permission above the tier is denied, not granted (0.2146ms)
+✔ UT-PLG-013: the tier is the ceiling -- a plugin cannot raise it by declaring (0.0959ms)
+✔ UT-PLG-014: a forbidden permission is reported as forbidden, not as above-tier (0.0689ms)
+✔ UT-PLG-015: an unknown permission is reported as unknown (0.0421ms)
+✔ UT-PLG-016: every tier grants a subset of the permission vocabulary (0.1515ms)
+✔ UT-PLG-017: no tier grants a forbidden permission (0.061ms)
+✔ UT-PLG-018: an operation is authorised only when its permission is granted (0.1443ms)
+✔ UT-PLG-019: an unknown operation is not authorised (0.0641ms)
+✔ UT-PLG-020: describe needs no permission (0.0501ms)
+✔ UT-PLG-021: the SDK exposes exactly the declared surface (0.4575ms)
+✔ UT-PLG-022: the SDK is frozen -- a plugin cannot add a method to it (0.3898ms)
+✔ UT-PLG-023: describe reports the granted and the denied permissions (1.6923ms)
+✔ UT-PLG-024: an operation above the tier is refused (0.3025ms)
+✔ UT-PLG-025: a DENIED call is audited (0.2759ms)
+✔ UT-PLG-026: the audit sequence is monotonic and matches the sink (0.4759ms)
+✔ UT-PLG-027: the plugin cannot choose its own audit sequence (0.631ms)
+✔ UT-PLG-028: reading a file outside the host-granted scope is refused (0.1719ms)
+✔ UT-PLG-029: with no scope at all nothing is readable (0.1231ms)
+✔ UT-PLG-030: a manifest cannot widen its own scope (0.1095ms)
+✔ UT-PLG-031: an outcome without evidence is refused (0.3183ms)
+✔ UT-PLG-032: an outcome carries the digest the HOST computed (0.6245ms)
+✔ UT-PLG-033: a plugin-supplied digest is not accepted (0.222ms)
+✔ UT-PLG-034: an outcome is a proposal with approval=pending (0.1854ms)
+✔ UT-PLG-035: an outcome cannot set the run status directly (0.1152ms)
+✔ UT-PLG-036: reporting an outcome is audited (0.1455ms)
+✔ UT-PLG-037: the producer may not review its own proposal (0.279ms)
+✔ UT-PLG-038: the self-review check is not an exact string comparison (0.1946ms)
+✔ UT-PLG-039: an independent reviewer can approve (0.2605ms)
+✔ UT-PLG-040: only a pending proposal can be reviewed (0.1832ms)
+✔ UT-PLG-041: an invalid review decision is refused (0.1382ms)
+✔ UT-PLG-042: the contract description is complete and honest (0.223ms)
+✔ UT-PLG-043: every SDK operation names a permission that exists in the vocabulary (0.0766ms)
+✔ UT-PLG-044: the description does not claim the plugin host exists (0.0427ms)
+✔ UT-PLG-045: the contract description lists every error code the modules can raise (0.9088ms)
+✔ UT-PLG-046: the SDK construction rejects an incomplete host (0.1524ms)
+✔ UT-PLG-047: a plugin cannot read outside the scope even with the permission (0.181ms)
+✔ UT-PLG-048: an absolute path is refused even when it is inside the scope prefix (0.1147ms)
+✔ UT-PLG-049: the host grants the scope, the manifest does not (0.1201ms)
+✔ UT-PLG-050: the SDK never touches the file system itself (0.3426ms)
+✔ UT-PLG-051: a forbidden permission never appears in a granted set (0.1182ms)
+✔ UT-PLG-052: the temporary fixture is empty -- the SDK wrote nothing (0.1834ms)
+✔ UT-PLG-053: describe() is audited like every other SDK call (0.1253ms)
+✔ UT-PLG-054: an attempt to report an outcome without evidence is audited (0.1975ms)
+✔ UT-PLG-055: every refused read is audited -- bad runUid, unresolvable digest, bad status (0.325ms)
+✔ UT-PLG-056: a host read that FAILS is audited too (0.2728ms)
+✔ UT-PLG-057: the SDK refuses to be built without a proposal store (0.1246ms)
+✔ UT-PLG-058: the proposal is handed to the HOST, together with its digests (0.1877ms)
+✔ UT-PLG-059: the audit trail records the proposal id and every evidence digest (0.252ms)
+✔ UT-PLG-060: a proposal the HOST does not hold cannot be reviewed (0.0975ms)
+✔ UT-PLG-061: a TAMPERED proposal cannot be reviewed (0.1643ms)
+✔ UT-PLG-061-A: nested-only sha256 tampering with deep-copy host is rejected (0.1553ms)
+✔ UT-PLG-061-B: nested-only ref tampering with deep-copy host is rejected (0.1498ms)
+✔ UT-PLG-061-C: nested-only sha256 tampering with shallow-copy host is rejected (0.8507ms)
+✔ UT-PLG-061-D: nested-only ref tampering with by-ref host is rejected (0.2458ms)
+✔ UT-PLG-061-E: adding evidence entry is rejected (0.1526ms)
+✔ UT-PLG-061-F: removing evidence entry is rejected (0.1429ms)
+✔ UT-PLG-061-G: replacing evidence entry with non-object is rejected (0.161ms)
+✔ UT-PLG-061-POST-APPROVAL: post-approval mutations do not affect the approved result (0.2029ms)
+✔ UT-PLG-061-IDENTITY: SDK returns distinct objects, host record is frozen (0.1523ms)
+✔ UT-PLG-062: a review without the host record store is refused (0.1271ms)
+✔ UT-PLG-063: the proposal id is globally unique across SDK instances (0.2038ms)
+✔ UT-PLG-064: a project outside the host-granted list is refused and audited (0.219ms)
+✔ UT-PLG-065: with no granted project every operation is refused (0.103ms)
+✔ UT-PLG-066: the granted projects are part of the SDK description (0.0668ms)
+✔ UT-PLG-067: an operation named after a prototype member is not authorised (0.0579ms)
+✔ UT-PLG-068: a tier named after a prototype member is rejected (0.0815ms)
+✔ UT-PLG-069: authorizePluginCall refuses an unknown operation with its own code (0.102ms)
+✔ UT-PLG-070: the audit sequence does not advance when the sink rejects the event (0.2157ms)
+✔ UT-PLG-071: a host that refuses the proposal record is audited and reported (0.169ms)
+✔ UT-PLG-072: readRequirements returns the host answer and is audited (0.124ms)
+✔ UT-PLG-073: readRequirements without the permission is refused and audited (0.1202ms)
+✔ UT-PLG-074: readRunEvidence returns the host answer and is audited (0.1586ms)
+✔ UT-PLG-075: readRunEvidence with a bad runUid is refused and audited (0.1534ms)
+✔ UT-PLG-076: an outcome with too many evidence references is refused (0.1679ms)
+✔ UT-PLG-077: an outcome with a bad shape is refused (0.1604ms)
+✔ UT-PLG-078: an outcome for a run outside the granted projects is refused (0.1048ms)
+ℹ tests 87
+ℹ suites 0
+ℹ pass 87
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 142.2193
+ℹ start of coverage report
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ file            | line % | branch % | funcs % | uncovered lines
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ server          |        |          |         | 
+ℹ  adapters       |        |          |         | 
+ℹ   contract.mjs  |  60.81 |   100.00 |    0.00 | 77-81 95-111 159-176 187-205 214-225 240-254 261-272 287-308 315-321 325-327 334-335 347-354 368-376 395-406 417-422 442-445 453-458 465-472
+ℹ  env            |        |          |         | 
+ℹ   profiles.mjs  |  62.24 |   100.00 |    0.00 | 194-195 209-211 215-217 241-303 335-360 384-435 446-447 464-488 500-519
+ℹ   whitelist.mjs |  65.38 |   100.00 |    0.00 | 95-97 108-119 130-135 145-166 180-208
+ℹ  plugins        |        |          |         | 
+ℹ   contract.mjs  |  95.44 |    77.68 |  100.00 | 218-219 321-322 324-325 330-331 333-334 337-338 358-359 361-362 366-367 392-393
+ℹ   sdk.mjs       |  91.87 |    82.72 |  100.00 | 106-110 167-168 171-172 174-175 179-180 182-183 185-186 190-191 206-207 209-210 214-215 231-232 234-235 392-398 433-434 513-518 566-567 650-651 654-655 715-716 718-719 734-735 743-744 751-754
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ all files       |  77.72 |    81.05 |   60.49 | 
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ end of coverage report
