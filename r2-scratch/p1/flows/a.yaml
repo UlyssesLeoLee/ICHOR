@@ -1,0 +1,7 @@
+---
+- name: Login
+  steps:
+    - tapOn: "Login"
+- name: "Other @TC-500"
+  steps:
+    - tapOn: "Other"
