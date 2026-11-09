@@ -1,6 +1,6 @@
 === ATS-606 evidence: the environment ===
-tree : 7d9eb55c413312b802f1bb051240cbcd45d3a016
-date : 2026-11-09T16:25:57Z
+tree : a683fc5c2a9d362f1ab211157c4fc3e1eb396fd5
+date : 2026-11-09T17:12:51Z
 
 --- the host ---
 MINGW64_NT-10.0-26300 seikoist002 3.6.9-b4195d69.x86_64 2026-06-06 17:49 UTC x86_64 Msys
