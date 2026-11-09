@@ -1,8 +1,8 @@
 === ATS-106 evidence: guard mutations on a temporary copy (each must be caught) ===
-date        : 2026-11-09T07:42:05Z (UTC)
-commit      : 889950a11fc37e7ac7873c317e361b0fa7c239d6
+date        : 2026-11-09T10:18:33Z (UTC)
+commit      : e91128a393f563dd695a0d90ac3d7ce5b4d95630
 node        : v24.19.0
-python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command     : node tools/ats106-probes/mutation-tests.mjs
 
@@ -13,6 +13,8 @@ M4 CAUGHT   preflight: dependency resolution -> tests/preflight.test.mjs exit=1 
 M5 CAUGHT   route: request field whitelist -> tests/preflight-it.test.mjs exit=1 failing: IT-PF-005: fields outside the run request whitelist are refused, no run is created | IT-PF-006: an option-shaped or regex-shaped filter is refused, no run is created | IT-PF-007: traversal is still refused by the source path check
 M6 CAUGHT   startRun: preflight gate before spawn -> tests/preflight-it.test.mjs exit=1 failing: IT-PF-001: an unsupported version ends the run in error before spawn | IT-PF-002: a missing Playwright dependency ends the run in error before spawn | IT-PF-003: a config deleted after registration ends the run in error before spawn
 M7 CAUGHT   route: filter check (400 instead of a run) -> tests/preflight-it.test.mjs exit=1 failing: IT-PF-006: an option-shaped or regex-shaped filter is refused, no run is created | IT-PF-006: an option-shaped or regex-shaped filter is refused, no run is created
+M8 CAUGHT   preflight: a missing local CLI blocks (IT-PF-008) -> tests/preflight-it.test.mjs exit=1 failing: IT-PF-008: a project without a local CLI ends the run in error before spawn | IT-PF-008: a project without a local CLI ends the run in error before spawn
+M9 CAUGHT   preflight: the whole >=N[.M[.P]] floor is compared (UT-PF-007b) -> tests/preflight.test.mjs exit=1 failing: UT-PF-007b: the whole >=N[.M[.P]] floor is compared, not only the major | UT-PF-007b: the whole >=N[.M[.P]] floor is compared, not only the major
 
-7/7 mutants caught
+9/9 mutants caught
 exit code   : 0

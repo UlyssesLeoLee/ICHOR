@@ -4,31 +4,35 @@
 
 | 日志 | 内容 | 结果 |
 |---|---|---|
-| `01-preflight-ut.log` | `tests/preflight.test.mjs`：UT-PF-001..015、UT-ARG-001..009、UT-CORE-106-001..002，并带覆盖率 | 26/26 通过 |
-| `02-preflight-it.log` | `tests/preflight-it.test.mjs`：真实 Bridge 进程 + 会留标记文件的测试替身 CLI（IT-PF-SETUP..007） | 8/8 通过 |
+| `01-preflight-ut.log` | `tests/preflight.test.mjs`：UT-PF-001..015（含 UT-PF-007b）、UT-ARG-001..009、UT-CORE-106-001..002，并带覆盖率 | 27/27 通过 |
+| `02-preflight-it.log` | `tests/preflight-it.test.mjs`：真实 Bridge 进程 + 会留标记文件的测试替身 CLI（IT-PF-SETUP..008） | 9/9 通过 |
 | `03-real-cli-contract.log` | `tests/preflight-real.test.mjs`：真实 `@playwright/test` 1.64.1。CT-PF-001 对真实安装做预检；CT-ARG-001 由真实 CLI 与真实 Chromium 执行 Bridge 构造的参数向量 | 2/2 通过 |
-| `04-guard-mutations.log` | `tools/ats106-probes/mutation-tests.mjs`：在临时副本上逐个删除 7 处防护，对应测试必须失败 | 7/7 被捕获 |
+| `04-guard-mutations.log` | `tools/ats106-probes/mutation-tests.mjs`：在临时副本上逐个删除 9 处防护，对应测试必须失败 | 9/9 被捕获 |
 | `05-python-tools.log` | `tools/test_wbs_common.py` + pytest（19 例），带覆盖率 | 通过 |
-| `06-wbs-updater-regression.log` | 26 个 WBS 更新脚本共存回归 | RESULT: OK |
+| `06-wbs-updater-regression.log` | 28 个 WBS 更新脚本共存回归 | RESULT: OK |
 | `07-wbs-state.log` | `docs/WBS.xlsx` 中 ATS-106 行（第 11 行）与总览 | 状态 `待审核`，完成率 1，剩余 0 |
-| `08-baseline-regression.log` | 全量套件 `node --test --test-concurrency=1 tests/*.test.mjs`、`node --check`、端口审计、ADR 行号引用、依赖清单 | 1469 条：1452 通过、2 失败、15 跳过；其余检查均为 OK。2 项失败见下 |
+| `08-baseline-regression.log` | 全量套件 `node --test --test-concurrency=1 tests/*.test.mjs`、`node --check`、端口审计、ADR 行号引用、依赖清单 | 1573 条：1558 通过、0 失败、15 跳过；其余检查均为 OK |
 | `09-uqh-verify.log` | UQH `verify --base dev` 与各变更文件的行覆盖率 | 见下 |
 
 ## 生成提交
 
-实现最初在分支 `agent/opus/seikoist-149-0413f9e2f0ae` 上完成，并以三方合并合入 `dev@b93d2da`（合并提交 `ce9526f`，分支 `agent/fable/seikoist-149`）。全部日志都在合并后的树上重新生成：
+实现最初在分支 `agent/opus/seikoist-149-0413f9e2f0ae` 上完成，并以三方合并合入 `dev@b93d2da`（合并提交 `ce9526f`，分支 `agent/fable/seikoist-149`）。
 
-- 日志 01–08 生成于 `889950a`（合并提交之后只有 ADR 行号引用与 `.quality` Source-SHA256 元数据的更新）；
+本轮返工在分支 `agent/m3/seikoist-149` 上进行：先把最新的 `dev` 合进来（合并提交 `31cde09`），再改代码与文档，最后在**该返工提交之后**重新采集全部日志：
+
+- 日志 01–08 生成于 `6602200`（返工提交 `e91128a` 与文档同步提交 `6602200` 之后）；
 - 日志 09 生成于同一棵源码树（提交号见日志头部）。
 
-全量套件串行执行（`ATS106_TEST_CONCURRENCY=1`），并设置了 `ATS_REAL_PLAYWRIGHT_PROJECT`，因此 CT-PF-001 与 CT-ARG-001 在套件内也针对真实安装执行。
+全量套件串行执行（`ATS106_TEST_CONCURRENCY=1`），并设置了 `ATS_REAL_PLAYWRIGHT_PROJECT=D:/ICHOR/examples/sample-playwright`，因此 CT-PF-001 与 CT-ARG-001 在套件内也针对真实安装执行。
 
-### 08 中的 2 项失败
+### 15 项跳过
 
-- `tests/migrate-state.test.mjs` ATS-206-UT-082：被测的 `migrate_state.mjs apply` 子进程以 `2147483651`（`0x80000003`）退出。该用例在同一棵树上单独重跑两次均通过（92/92），在未合并的 `dev@b93d2da` 上也通过。ATS-106 未改动 `tools/migrate_state.mjs` 及其测试。
-- `tests/sqlite-bridge.test.mjs`：套件内失败，单独重跑 7/7 通过，`dev@b93d2da` 上也通过。ATS-106 未改动 SQLite 层。
+跳过不是通过，也不是失败；每项都带原因，且都与 ATS-106 无关：
 
-两项都是本机在长套件后段的负载/内存压力下的子进程偶发失败，不是 ATS-106 的回归；如实保留日志，不重跑套件以掩盖它。
+- `IT-ADP-005` / `005B` / `005C` / `008` / `011` / `IT-API-013B`：`examples/sample-playwright has no node_modules`（本工作树的示例工程未安装依赖；`D:/ICHOR` 的检出已装，故真实 CLI 契约测试另在日志 03 中针对 `D:/ICHOR/examples/sample-playwright` 实测）；
+- `IT-ADP-006` / `007` / `009` / `011B`：`examples/sample-wdio has no node_modules`；
+- `IT-ADP-010`：`the fixtures have no node_modules`；
+- `IT-SEC-004` / `005` / `025` / `026`：`needs ATS402_REAL_CREDENTIAL_STORE=***`（属 ATS-402 的真实凭据库用例）。
 
 ## 覆盖率
 
