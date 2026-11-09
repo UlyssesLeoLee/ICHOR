@@ -80,9 +80,19 @@ header 02b-review-probes.log "review round 1 counter-examples (P1-P8 / H1-H5) on
 {
   echo "--- the REJECTED tree (agent/m2/seikoist-218 @ 8130e35) ---"
   echo ""
-  REJECTED_TREE="$(mktemp -d)"
+  # The scratch directory is used by TWO programs that want DIFFERENT forms
+  # of the same path: `tar` is an MSYS program and wants the /tmp/... form,
+  # while `node` is a native Windows program and wants C:\...\...
+  # `mktemp -d` is not used here: it follows $TMPDIR, which on this machine
+  # points into a directory tree that `tar` cannot open. The scratch
+  # directory is therefore created INSIDE the repo, where both forms are
+  # trivially derivable.
+  REJECTED_TREE="$ROOT/.ats502-rejected-tree"
+  REJECTED_TREE_WIN="$(cygpath -w "$REJECTED_TREE" 2>/dev/null || echo "$REJECTED_TREE")"
+  rm -rf "$REJECTED_TREE"
+  mkdir -p "$REJECTED_TREE"
   git archive 8130e35 server/queue.mjs server/scheduler.mjs | tar -x -C "$REJECTED_TREE"
-  node tools/ats502-probes/review-probes.mjs "$REJECTED_TREE" 2>&1
+  node tools/ats502-probes/review-probes.mjs "$REJECTED_TREE_WIN" 2>&1
   echo ""
   echo "--- THIS tree ($(git rev-parse HEAD)) ---"
   echo ""
