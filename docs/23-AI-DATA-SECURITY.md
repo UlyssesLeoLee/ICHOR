@@ -261,7 +261,7 @@ Playwright 驱动 `apps/studio/out` 里的「AI 数据安全」页签：**18 项
 
 ### 5.6 覆盖与构建
 
-- 全量套件：`npm test`（`05-full-test-suite.log`）。
+- 全量套件：`npm test` **1349 项 / 1334 通过 / 0 失败 / 15 跳过**（`05-full-test-suite.log`）。15 项跳过是需要真实浏览器、真实凭据库或未安装依赖的示例工程的用例，与本任务的安全面无关。
 - 类型检查：`npx tsc --noEmit`（`apps/studio`）无错，见 `12-tsc.log`。
 - `next build` 成功产出 `apps/studio/out`，含「AI 数据安全」页签（`11-next-build.log`）。
 - 门禁：ATS-101 端口审计、ADR 引用校验、ATS-501 协议审计、WBS 更新器共存回归、

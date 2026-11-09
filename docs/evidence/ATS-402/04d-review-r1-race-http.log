@@ -1,0 +1,16 @@
+================================================================================
+ATS-402 evidence log -- review round 1 probe r1-race-http.mjs (I1 over real HTTP + the real credential store) against this tree
+================================================================================
+commit        : 86fc0d62863ef7159bc705044a4cd1f7c3470681
+timestamp     : 2026-11-09T04:33:14Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree
+node          : v24.19.0
+python        : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command       : env ATS402_REAL_CREDENTIAL_STORE=1 node tools/ats402-probes/review-r1/r1-race-http.mjs /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree D:/tmp/ats402/ats402-review-r1/race
+================================================================================
+
+OK    I1-http three concurrent POST /api/security/credentials -- statuses=201,201,201 index=3 osStoreEntries=3 orphaned=0
+cleanup: removed 3 OS-store entries; remaining new=0
+
+--- exit code: 0 ---

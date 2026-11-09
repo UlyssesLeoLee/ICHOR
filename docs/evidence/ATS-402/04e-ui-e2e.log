@@ -1,0 +1,34 @@
+================================================================================
+ATS-402 evidence log -- the AI data security tab driven in a real browser (screenshots + trace in docs/evidence/ATS-402/ui/)
+================================================================================
+commit        : 86fc0d62863ef7159bc705044a4cd1f7c3470681
+timestamp     : 2026-11-09T04:33:14Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree
+node          : v24.19.0
+python        : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command       : env ATS402_REAL_CREDENTIAL_STORE=1 node tools/ats402-probes/ui-e2e.mjs docs/evidence/ATS-402/ui
+================================================================================
+
+PASS  UI-LOAD  the studio loads in a real browser -- title="AI Test Studio"
+PASS  UI-TAB  the "AI 数据安全" tab renders its three cards
+PASS  ST-031a  the saved key is listed by reference (name, fingerprint), and the password field is cleared
+PASS  ST-031b  the secret is in NO file under the platform data directory or fixture
+PASS  ST-031c  the secret is not rendered anywhere in the page
+PASS  ST-031d  deleting the key through the UI clears the reference
+PASS  ST-033a  egress with no consent is refused (403 EGRESS_CONSENT_REQUIRED) -- 403 EGRESS_CONSENT_REQUIRED
+PASS  ST-032a  the preview shows the real scope BEFORE any consent exists (ref, bytes, SHA-256) -- 待确认的范围 1 项 · 43 字节 · 种类 file tests/home.spec.ts file · 43 字节 · SHA-256 d332a97e4873a911… 确认并授权
+PASS  ST-032b  no consent exists yet when the preview is shown
+PASS  ST-032c  confirming records one granted consent and shows a revoke button
+PASS  ST-032d  with the consent the same egress is allowed (200) -- 200
+PASS  ST-033b  after revoking in the UI the same egress is refused (403 EGRESS_CONSENT_REVOKED) -- 403 EGRESS_CONSENT_REVOKED
+PASS  ST-033c  the revoked consent has no revoke button any more
+PASS  ST-033d  a path outside the project is refused even with a valid consent -- 400 EGRESS_GATE_SCOPE_INVALID
+PASS  ST-033e  the audit card shows egress.denied rows, including the escaping ref, without any file content
+PASS  UI-EXPIRED  an expired consent is shown as `expired`, with no revoke button, and is not counted as active -- active 2 -> 1
+PASS  ST-033f  the expired consent is refused (403 EGRESS_CONSENT_EXPIRED) -- 403 EGRESS_CONSENT_EXPIRED
+PASS  UI-NOERR  the page raised no uncaught error
+
+RESULT: OK (18/18 checks passed)
+
+--- exit code: 0 ---
