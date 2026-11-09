@@ -1,0 +1,27 @@
+=== ATS-216 review round 3: the reviewer's own probes on the merged dev tip ===
+dev tip : a3fba352a78ada30c486fec2fa6b7839a980b48e
+date    : 2026-11-07T03:37:48Z
+node    : v24.19.0
+playwright: 1.64.1
+
+--- round 1 probe (r1-quality.mjs) ---
+OK   A1a cancelled-run case is not a cross-run failure (tests.flaky=0, T.failedRuns=0) -- tests.flaky=0 T={runs:1,failedRuns:0,passedRuns:1,flaky:false}
+OK   A1b retries of a cancelled run are not counted as retries (cases.retried=0, retries=0) -- cases.retried=0 cases.retries=0 cases.flaky=0 cases.inconclusive=1
+OK   A1c failed attempts of a cancelled run are not in the attempt buckets (attempts.failed=0) -- attempts={"total":1,"passed":1,"failed":0}
+OK   A2 an unknown run status is counted as inconclusive, or the mismatch is reported -- runs.total=1 bucketSum=0 runs.inconclusive=1 consistent=true
+OK   A3 a classification mutant (flaky->passed) turns at least one reconciliation check red -- mutant counts passed=1 flaky=0; global checks 14, red 2; per-run red: []
+INFO B0 real run facts -- statuses=["failed","failed"] run1 cases=[{"title":"可以登录","scope":["管理员"],"status":"failed"},{"title":"可以登录","scope":["访客"],"status":"passed"}]
+INFO B0 identifying fields on the stored cases -- keys=[["title","file","status","scope","line","column","caseKey","outcome","duration","error","attemptsCount"],["title","file","status","scope","line","column","caseKey","outcome","duration","error","attemptsCount"]]
+OK   B1a two different tests are not silently merged (tests.total=2, or the collision is reported) -- tests.total=2 list=[{"title":"可以登录","runs":2,"failedRuns":2,"passedRuns":0,"flaky":false},{"title":"可以登录","runs":2,"failedRuns":0,"passedRuns":2,"flaky":false}]
+OK   B1b a test that fails in EVERY run is not reported as flaky (tests.flaky=0) -- tests.flaky=0 flakyRate=0 (cases: passed=2 failed=2 flaky=0)
+INFO B2 real POST /stop on win32 (Playwright) -- status=cancelled cases=0 summaryCollected=false
+INFO C0 project B run -- status=failed passed=1 failed=1
+OK   C1 portable UI 「全部项目」 shows the metrics of ALL projects (失败 card = module over all runs) -- UI 通过/失败=3/3; module all-runs=3/3; module project-A-only=2/2; pageErrors=0
+INFO C2 refs rendered in the portable UI -- cases.buckets/refs ids present: true
+scratch: C:\Users\seiko\AppData\Local\Temp\multica-task-2436323363\r1-dev2\r1-ZlbZW6
+RESULT: 8/8 OK
+
+--- round 2 probe (r2-line.mjs) ---
+L0 control (file unchanged): run statuses=["passed","failed"] case lines=[[4],[4]] tests.total=1 tests.flaky=1 list=[{"title":"提交订单","scope":["结算"],"line":4,"runs":2,"passedRuns":1,"failedRuns":1,"flaky":true}]
+L1 one comment line added above the test: run statuses=["passed","failed"] case lines=[[4],[5]] tests.total=1 tests.flaky=1 list=[{"title":"提交订单","scope":["结算"],"line":4,"runs":2,"passedRuns":1,"failedRuns":1,"flaky":true}]
+scratch: C:\Users\seiko\AppData\Local\Temp\multica-task-2436323363\r2-dev2\r2-ckeKnL
