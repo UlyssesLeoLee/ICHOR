@@ -1,0 +1,71 @@
+=== ATS-103 evidence: ST: the exported UI on a non-default port (the real UI cannot work there) ===
+date      : 2026-11-09T09:18:36Z (UTC)
+commit    : 99876de3cdf9dea4bbadf01036bf72fc046a9259
+node      : v22.23.4
+npm       : 10.9.9
+command   : node tools/ats103-probes/ui-smoke.mjs --port 4600
+
+PASS  the exported page loads in a real browser  --  HTTP 200, http://localhost:4600/
+FAIL  the page's own session call succeeds  --  the page made no /api/session call
+FAIL  the page's API requests go to the host its own location implies  --  page location host: localhost:4600; API request hosts: 127.0.0.1:4577
+FAIL  adding a project through the UI registers it and lists the catalog  --  toast=(no toast), catalog items=0
+FAIL  running through the UI reaches a terminal state  --  toast=(not started), status=(exception) locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: /运行全部/ })[22m
+[2m    - locator resolved to <button disabled class="btn secondary">…</button>[22m
+[2m  - attempting click action[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is not enabled[22m
+[2m    - retrying click action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is not enabled[22m
+[2m    - retrying click action[22m
+[2m      - waiting 100ms[22m
+[2m    58 × waiting for element to be visible, enabled and stable[22m
+[2m       - element is not enabled[22m
+[2m     - retrying click action[22m
+[2m       - waiting 500ms[22m
+
+FAIL  the UI started the run the Bridge reports  --  the Bridge reports no run
+FAIL  the page produced no console error and no failed request  --  console errors: Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Access to fetch at 'http://127.0.0.1:4577/api/session' from origin 'http://localhost:4600' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. | Failed to load resource: net::ERR_FAILED | Access to fetch at 'http://127.0.0.1:4577/api/session' from origin 'http://localhost:4600' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. | Failed to load resource: net::ERR_FAILED; failed requests: GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_FAILED | GET http://127.0.0.1:4577/api/session net::ERR_FAILED
+
+--- API calls the page made ---
+--- end ---
+--- bridge stderr ---
+  (node:26768) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+--- end ---
+PASS  the probe executed every registered check  --  8/8 checks executed
+
+RESULT: FAILED -- 2/8 checks passed.
+  FAILED: the page's own session call succeeds  the page made no /api/session call
+  FAILED: the page's API requests go to the host its own location implies  page location host: localhost:4600; API request hosts: 127.0.0.1:4577
+  FAILED: adding a project through the UI registers it and lists the catalog  toast=(no toast), catalog items=0
+  FAILED: running through the UI reaches a terminal state  toast=(not started), status=(exception) locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: /运行全部/ })[22m
+[2m    - locator resolved to <button disabled class="btn secondary">…</button>[22m
+[2m  - attempting click action[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is not enabled[22m
+[2m    - retrying click action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is not enabled[22m
+[2m    - retrying click action[22m
+[2m      - waiting 100ms[22m
+[2m    58 × waiting for element to be visible, enabled and stable[22m
+[2m       - element is not enabled[22m
+[2m     - retrying click action[22m
+[2m       - waiting 500ms[22m
+
+  FAILED: the UI started the run the Bridge reports  the Bridge reports no run
+  FAILED: the page produced no console error and no failed request  console errors: Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Failed to load resource: net::ERR_CONNECTION_REFUSED | Access to fetch at 'http://127.0.0.1:4577/api/session' from origin 'http://localhost:4600' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. | Failed to load resource: net::ERR_FAILED | Access to fetch at 'http://127.0.0.1:4577/api/session' from origin 'http://localhost:4600' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. | Failed to load resource: net::ERR_FAILED; failed requests: GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_CONNECTION_REFUSED | GET http://127.0.0.1:4577/api/session net::ERR_FAILED | GET http://127.0.0.1:4577/api/session net::ERR_FAILED
+
+NOTE: the probe ran on port 4600, NOT the default. On a non-default
+      port the REAL UI is unusable (the exported page resolves the API
+      base to the default port; the Bridge CSP allows only the default
+      port -- docs/16-BASELINE-ADR.md §3.1 item 2), so a passing run here
+      describes the API seam only, NOT a working UI.
+PROBE_EXIT=1

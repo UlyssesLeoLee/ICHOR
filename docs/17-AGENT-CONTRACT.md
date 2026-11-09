@@ -10,7 +10,7 @@
 
 | 属于 ATS-401（本次已实现） | 不属于 ATS-401（后续任务） |
 |---|---|
-| Agent 请求的形状与校验（作用域、预算、输入出处） | 模型提供商实现与错误回退（ATS-403） |
+| Agent 请求的形状与校验（作用域、预算、输入出处） | 模型提供商实现与错误回退（ATS-403，**已交付**：`docs/30-MODEL-ADAPTER.md`） |
 | 角色与能力白名单 | API Key 存储与数据外传知情授权（ATS-402） |
 | 提案（proposal）的形状、收敛规则与评审状态机 | 提案落地：应用 diff、更新 expected、Git 提交 |
 | 提案评审（提案人不得自审） | 自主探索候选用例（ATS-514 / FR-029） |
@@ -123,10 +123,10 @@
 
 ### 2.4 ModelProvider 与 AgentAdapter
 
-- `createModelProvider({ id, complete })`：**只定义形状**。`complete(request, ctx)` 接收构造好的 provider 请求（指令与输入内容分列，`ctx.deadlineAt` 为绝对截止时间戳），返回 `{ text }`。ATS-403 负责实现具体提供商与错误回退。
+- `createModelProvider({ id, complete })`：**只定义形状**。`complete(request, ctx)` 接收构造好的 provider 请求（指令与输入内容分列，`ctx.deadlineAt` 为绝对截止时间戳），返回 `{ text }`。ATS-403 已实现具体提供商与错误回退（`server/ai/`）：两种兼容协议、稳定错误码、只在可恢复错误上换提供商、密钥只从凭据库取。
 - `createAgentAdapter({ adapterId, role, capabilities, provider })`：执行一次契约调用，顺序为 **校验请求（含复算输入摘要）→ 校验角色匹配 → 校验能力 → 按 `egress.kinds` 筛选外传输入 → 校验输入字节预算 → 调用 provider（受截止时间约束）→ 校验输出字节预算 → 解析 JSON → 收敛为待审提案**。
 - **截止时间是被强制施加的**：`AbortController` 的 `signal` 与 `ctx.deadlineAt` 一起交给 provider，`Promise.race` 保证 provider 挂起时本次调用也在 `deadlineMs` 到达时以 `AGENT_BUDGET_EXCEEDED` 结束（不是事后检查）。
-- **`maxSteps` 目前只做上限校验，未被施加**：一次 `execute()` 就是一步（`usage.steps` 恒为 1），多步循环属 ATS-403。
+- **`maxSteps` 现在被施加了**：ATS-403 的 `executeSteps()` 把步数落成硬约束（步数用尽即 `AI_STEPS_EXCEEDED`），但**多步循环本身仍未实现**——`server/agent.mjs` 的一次 `execute()` 仍是一步（`usage.steps` 恒为 1）。
 
 ## 3. 权限边界的实现方式
 
@@ -280,14 +280,14 @@ E 节不是形式主义：它发现并修掉了一个**恒真的检查**——�
 
 | 项 | 归属 | 说明 |
 |---|---|---|
-| 模型提供商实现、重试与回退 | ATS-403 | 本次只定义 `ModelProvider` 形状 |
+| 模型提供商实现、重试与回退 | ATS-403 | **已交付**（`docs/30-MODEL-ADAPTER.md`）：本文件只定义 `ModelProvider` 形状 |
 | API Key 存储、数据外传知情授权 | ATS-402 | 本次的 `egress.kinds` 只是一个契约槽位，**未绑定任何真实授权记录**；未声明外传时输入不外传 |
 | 提案落地（应用 diff / 更新 expected / 提交 Git） | 平台侧受控流程 | 契约层不提供 apply 能力，仓库中亦无对应代码路径 |
 | Reviewer 界面与 diff 审阅 UI | P1 | 契约层提供状态机，界面未实现 |
 | 自主探索候选用例（FR-029） | ATS-514 | 不在本次范围 |
-| 运行时隔离（模块沙箱 / 只读挂载 / 子进程沙箱） | ATS-403 | 机制 1 是**静态检查**，不是运行时隔离。契约层源码当前不含 I/O 调用，但 Node 运行时并不阻止这些能力 |
+| 运行时隔离（模块沙箱 / 只读挂载 / 子进程沙箱） | 未实现 | ATS-403 交付的是**模型 API 适配层**，**不是**运行时隔离。机制 1 仍是**静态检查**，不是运行时隔离：契约层源码当前不含 I/O 调用，但 Node 运行时并不阻止这些能力 |
 | 「`ref` 对应真实源内容」的构造 | ATS-402 / 平台侧 | 本层只保证「摘要与内容自洽」且「`ref` 在作用域内」。平台侧读取真实文件并计算摘要的代码路径尚未实现 |
-| `maxSteps` 的实际施加 | ATS-403 | 本次只校验上限；一次 `execute()` 为一步。多步循环未实现 |
+| `maxSteps` 的实际施加 | 部分交付 | ATS-403 的适配层已把步数落成硬约束（`AI_STEPS_EXCEEDED`），但**多步循环未实现**：契约层一次 `execute()` 仍是一步 |
 | 符号链接的路径校验 | 平台侧 | 路径校验是纯词法的，不解析符号链接。落地时平台侧必须做 realpath |
 | `projectId` 与已登记项目的绑定 | 平台侧 | `/api/agent/validate` 不校验 `projectId`/`root` 是否属于已登记项目 |
 | 评审人身份的**认证** | 平台侧 | 自审检查是字符串层面的规范化比较，不是身份认证。评审人身份须来自登录态 |

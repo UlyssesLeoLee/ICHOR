@@ -41,8 +41,8 @@
 | FR-021 | 完整 Playwright --list 发现 | 根据权威运行时发现动态测试与参数化用例 | P1 | IMPLEMENTED (v0.2.0, ATS-202；未可信仓库回退静态索引) |
 | FR-022 | Graph Editor 受控反写 | 仅可视化子集能写回 AST；复杂代码原位保留 | P1 | DESIGNED |
 | FR-023 | WDIO Tauri Runner | 统一 Run/Test/Attempt schema，驱动桌面 E2E | P1 | DESIGNED |
-| FR-024 | AI 生成 | 需求→测试意图→脚本候选→审查后写入 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |
-| FR-025 | AI 诊断 | 失败归类、差异建议，不能自动修改断言或提交 | P1 | DESIGNED（契约层已实现，见 17-AGENT-CONTRACT） |
+| FR-024 | AI 生成 | 需求→测试意图→脚本候选→审查后写入 | P1 | PARTIAL（契约层 ATS-401 + 模型 API 适配层 ATS-403 已实现：两种兼容协议、可配置提供商与错误回退链；**未用真实模型端到端验证**，模型输出仍不写入仓库，见 17-AGENT-CONTRACT 与 30-MODEL-ADAPTER） |
+| FR-025 | AI 诊断 | 失败归类、差异建议，不能自动修改断言或提交 | P1 | PARTIAL（契约层 ATS-401 + 适配层 ATS-403 已实现；**未用真实模型端到端验证**，模型输出仍不写入仓库，见 17-AGENT-CONTRACT 与 30-MODEL-ADAPTER） |
 | FR-026 | 图谱血缘与覆盖缺口 | Requirement→Script→Run→Evidence 可查询和影响分析 | P1 | DESIGNED |
 | FR-027 | 多环境/密钥存储 | 单独安全凭据存储，配置不进入 Git | P1 | **已实现（ATS-402）**：密钥入系统凭据库（Windows Credential Manager 已实测；macOS Keychain / Linux Secret Service **代码已写、未实测**），磁盘上只留引用；另有 ATS-212 的项目级环境档案 API、变量白名单与封口的 runner 环境，档案不进 Git |
 | FR-028 | CI/CD 与远程执行 | RunnerAdapter/Queue/工作区隔离 | P2 | DESIGNED |

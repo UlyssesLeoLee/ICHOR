@@ -25,7 +25,7 @@
 - **ADR-003 代码/图模型**：任意 TypeScript 只保证原始代码可编辑。P0 非破坏性正则语义投影为只读；P1 改用 TypeScript AST 支持受控子集。理由：复杂闭包、循环、fixture 不存在可逆通用 DSL。状态：PARTIAL。
 - **ADR-004 事件与证据**：ExecutionEvent 必须追加，Run/Attempt 不覆盖旧结果；每次输出保留源 commit、环境、manifest、哈希。v0.1 有 JSONL + manifest SHA-256。状态：PARTIAL。
 - **ADR-005 局部受控操作**：本地 HTTP 仅绑定 loopback，Origin allowlist + token。只允许可信项目，以进程形式运行，不声称容器级安全。状态：IMPLEMENTED with limitations。
-- **ADR-006 AI 安全**：Planner/Generator/Healer 与 Reviewer 分离；未经审阅不得落 Git commit、更新 expected result 或关闭 defect。状态：DESIGNED。
+- **ADR-006 AI 安全**：Planner/Generator/Healer 与 Reviewer 分离；未经审阅不得落 Git commit、更新 expected result 或关闭 defect。状态：PARTIAL——角色分离与「只产出待审提案」的契约层已实现（ATS-401），模型 API 适配层与外传/密钥闸门已实现（ATS-402/ATS-403），但**未用真实模型端到端验证**，提案落地（落 Git commit / 更新 expected）仍未实现。
 - **ADR-007 UI 基线**：Next.js 16 静态导出 + Tauri 2 壳，开发验证另备零依赖 HTML；不要求 SSR。状态：源码已提供，离线未编译 UI/Tauri。
 - **ADR-008 许可**：自研代码 MIT；第三方依赖分别审查。Windmill/ComfyUI/n8n/Plane 仅参考交互，避免直接复制受限制代码。状态：ACCEPTED。
 
