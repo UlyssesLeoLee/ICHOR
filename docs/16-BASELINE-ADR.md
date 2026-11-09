@@ -307,7 +307,7 @@ GNU_BUILD_EXIT=101
 
 ### B-03（严重 / P0）重启后 Run 卡在 `cancelling`，永久占用同项目运行锁且 API 无法解除
 
-- **位置**：`server/index.mjs:262`（启动恢复）、`server/index.mjs:722-758`（`cancelRun`）、`server/index.mjs:958`（并发判定）
+- **位置**：`server/index.mjs:262`（启动恢复）、`server/index.mjs:722-752`（`cancelRun`）、`server/index.mjs:958`（并发判定）
 - **根因**：启动恢复只把 `queued`/`running` 标记为 `interrupted`，**遗漏 `cancelling`**（`server/index.mjs:262`：`if(['queued','running','cancelling'].includes(run.status))`）。而 `cancelRun()` 在找不到活动 job 时抛 `RUN_NOT_ACTIVE`，因此这条 Run 既不会被恢复，也无法通过 `/stop` 解除。
 - **复现脚本**：`tools/ats101-probes/scenario-c-b03-cancelling-lock.mjs`，三种方式独立复现：  - **C1 自然竞态（产品源码未修改）**：启动真实 Run → `POST /stop` 返回 200 `{"status":"cancelling"}` → `taskkill /F` 硬杀 Bridge（取消流程来不及完成）→ 重启；
   - **C2 自然竞态（活着的 Playwright 子进程）**：在 **B-01 已修复的沙箱副本**上跑同一次竞态，此时子进程是一个真实的 Playwright 慢用例；

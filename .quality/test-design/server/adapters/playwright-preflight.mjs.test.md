@@ -19,6 +19,7 @@ Source-SHA256: `9111f594988f83359bf53d13c185a2e8c2b497adced977df08aa36210073ed42
 | UT-PF-005 | Version `1.58.0` and `1.99.99` | no version error (inclusive lower bound, exclusive upper bound) | `tests/preflight.test.mjs` |
 | UT-PF-006 | CLI package without `package.json`; version `banana`; `package.json` that is not JSON | warning `PLAYWRIGHT_VERSION_UNKNOWN`, `ok=true` | `tests/preflight.test.mjs` |
 | UT-PF-007 | `engines.node` `>=24` with Bridge node `22.1.0`; `>=20` with `22.1.0` | first: error `PLAYWRIGHT_NODE_UNSUPPORTED`; second: no error | `tests/preflight.test.mjs` |
+| UT-PF-007b | `engines.node` `>=22.5` and `>=22.1.1` with Bridge node `22.1.0`; `>=22.1.0`, `>=22`, `>=22.0.0` with `22.1.0`; `^20 \|\| ^22`, `>20`, `>=18 <22`, `20 \|\| 22`, `*` | first two: error `PLAYWRIGHT_NODE_UNSUPPORTED` with `detail.required` and `detail.node`; the next three: no error; the last five: the `node` check is `skipped` and no error | `tests/preflight.test.mjs` |
 | UT-PF-008 | `@playwright/test` declares `playwright`, which is absent; `playwright` present but its `playwright-core` absent | error `PLAYWRIGHT_DEPENDENCY_MISSING` naming the missing package | `tests/preflight.test.mjs` |
 | UT-PF-009 | Dependencies present but `playwright-core/browsers.json` missing | warning `PLAYWRIGHT_BROWSERS_UNVERIFIED` | `tests/preflight.test.mjs` |
 | UT-PF-010 | Registry without any browser; a browser folder without `INSTALLATION_COMPLETE` | warning `PLAYWRIGHT_BROWSERS_NOT_INSTALLED` listing the missing browsers; `ok=true` | `tests/preflight.test.mjs` |
@@ -32,6 +33,8 @@ Source-SHA256: `9111f594988f83359bf53d13c185a2e8c2b497adced977df08aa36210073ed42
 ## Boundary & Failure Cases
 
 Lower bound inclusive, upper bound exclusive; an unparseable version is a warning and never treated as compatible-and-verified; a dependency whose `package.json` is not exported (`ERR_PACKAGE_PATH_NOT_EXPORTED`) counts as present; a relative `PLAYWRIGHT_BROWSERS_PATH` is resolved against the project root.
+
+The `engines.node` floor is read as a COMPLETE `>=N[.M[.P]]` lower bound and compared segment by segment against the Bridge's Node version, a missing segment counting as `0`; every other spelling of the field states no single lower bound and the check is `skipped` rather than passed.
 
 ## Regression Scope
 
