@@ -101,7 +101,7 @@ all checks passed
   apps/studio/lib/api.ts           50
   apps/studio/public/fallback.html 3
   server/core.mjs                  1381, 781
-  server/index.mjs                 1380, 1419, 1420, 262, 66, 722-758, 736, 754, 765, 958
+  server/index.mjs                 1380, 1419, 1420, 262, 66, 722-752, 736, 754, 765, 958
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
@@ -127,7 +127,7 @@ ok   server/index.mjs:1419
 ok   server/index.mjs:1420
 ok   server/core.mjs:781
 ok   server/core.mjs:1381
-ok   server/index.mjs:722-758 (cancelRun extent)
+ok   server/index.mjs:722-752 (cancelRun extent)
 ok   apps/studio/app/page.tsx:253 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:50 (the API base URL -- covered by the ATS-101 port audit)
 ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
