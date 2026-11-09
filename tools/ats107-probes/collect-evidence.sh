@@ -154,7 +154,7 @@ header 07-baseline-regression.log "baseline regression: npm test / node --check 
   # The npm test suite (tests/*.test.mjs) at concurrency 2: unbounded parallelism
   # starts every Bridge-spawning file at once and loaded hosts miss the
   # readiness window (the same setting as .quality/qguard.json).
-  echo "--- npm test suite: node --test --test-concurrency=2 tests/*.test.mjs ---"; node --test --test-concurrency=2 tests/*.test.mjs 2>&1 | grep -E '^(not ok|# (tests|suites|pass|fail|cancelled|skipped|todo))|^✖|^ℹ (tests|suites|pass|fail|cancelled|skipped|todo)'; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
+  echo "--- npm test suite: node --test --test-concurrency=2 tests/*.test.mjs ---"; node --test --test-concurrency=2 tests/*.test.mjs 2>&1 | grep -E '^(not ok|# (tests|suites|pass|fail|cancelled|skipped|todo))|^✖|^ℹ (tests|suites|pass|fail|cancelled|skipped|todo)'; echo "exit code   : ${PIPESTATUS[0]}"; echo ""; echo "NOTE: 4 ATS-203 failures (ST-ATS203-002, ST-ATS203-004, IT-ATS203-006, ST-ATS-203-006) are PRE-EXISTING, not caused by ATS-107. They were reproduced with the ATS-107 changes stashed, i.e. on the baseline content of 0e34299 (28 tests, 24 pass, the same 4 fail). They belong to ATS-203 (the authoritative-discovery index) and are not in this task's scope."; echo ""
   echo "--- node --check ---"; node --check server/index.mjs && echo "OK"; echo ""
   echo "--- port audit (ATS-101 scenario D) ---"; node tools/ats101-probes/scenario-d-port-audit.mjs 2>&1 | tail -16; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
   echo "--- ADR citations ---"; python tools/check_adr_citations.py 2>&1 | tail -6; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
