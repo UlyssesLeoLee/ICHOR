@@ -28,7 +28,7 @@ const report=process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;
 fs.writeFileSync(report,JSON.stringify({suites:[{file:'tests/ok.spec.ts',specs:[{title:'ok',tests:[{status:'expected',results:[{duration:1,status:'passed'}]}]}]}]}));
 `;
 
-function project(name, { version = '1.64.1', playwright = true } = {}) {
+function project(name, { version = '1.64.1', playwright = true, cli = true } = {}) {
   const dir = path.join(tmp, name);
   write(path.join(dir, 'package.json'), '{}');
   write(path.join(dir, 'playwright.config.ts'), 'export default {}');
@@ -36,8 +36,8 @@ function project(name, { version = '1.64.1', playwright = true } = {}) {
   write(path.join(dir, 'tests', 'a+b.spec.ts'), "test('ab',()=>{})");
   write(path.join(dir, '-x.spec.ts'), "test('x',()=>{})");
   const nm = path.join(dir, 'node_modules');
-  write(path.join(nm, '@playwright', 'test', 'cli.js'), CLI);
-  json(path.join(nm, '@playwright', 'test', 'package.json'), { name: '@playwright/test', version, engines: { node: '>=18' }, dependencies: { playwright: version } });
+  if (cli) write(path.join(nm, '@playwright', 'test', 'cli.js'), CLI);
+  if (cli) json(path.join(nm, '@playwright', 'test', 'package.json'), { name: '@playwright/test', version, engines: { node: '>=18' }, dependencies: { playwright: version } });
   if (playwright) {
     json(path.join(nm, 'playwright', 'package.json'), { name: 'playwright', version, dependencies: { 'playwright-core': version } });
     json(path.join(nm, 'playwright-core', 'package.json'), { name: 'playwright-core', version });
@@ -46,7 +46,13 @@ function project(name, { version = '1.64.1', playwright = true } = {}) {
   return dir;
 }
 write(path.join(tmp, 'outside.spec.ts'), "test('outside',()=>{})");
-const projects = { old: project('old', { version: '1.40.0' }), nodeps: project('nodeps', { playwright: false }), noconfig: project('noconfig'), good: project('good') };
+const projects = {
+  old: project('old', { version: '1.40.0' }),
+  nodeps: project('nodeps', { playwright: false }),
+  noconfig: project('noconfig'),
+  nocli: project('nocli', { cli: false }),
+  good: project('good'),
+};
 
 let bridge;
 let token;
@@ -66,7 +72,7 @@ async function settled(id) {
 const ran = (dir) => fs.existsSync(path.join(dir, 'ENGINE_RAN'));
 const runCount = async () => (await call('/api/runs'))[1].runs.length;
 
-test('IT-PF-SETUP: a Bridge with four registered projects', async () => {
+test('IT-PF-SETUP: a Bridge with five registered projects', async () => {
   bridge = spawn(process.execPath, ['server/index.mjs'], { cwd: root, env: { ...process.env, ATS_PORT: String(port), ATS_DATA_DIR: data }, stdio: 'ignore' });
   for (let i = 0; i < 100; i += 1) {
     try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) break; } catch { /* not up yet */ }
@@ -159,6 +165,27 @@ test('IT-PF-007: traversal is still refused by the source path check', async () 
   const [status, answer] = await call(`/api/projects/${ids.good}/run`, 'POST', { file: '../outside.spec.ts' });
   assert.equal(status, 400);
   assert.equal(answer.error, 'PATH_OUTSIDE_PROJECT');
+});
+
+test('IT-PF-008: a project without a local CLI ends the run in error before spawn', async () => {
+  const run = await refusedByPreflight('nocli', 'PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT');
+  // The code names the missing installation and the way to fix it.
+  assert.deepEqual(run.preflight.errors[0].detail.candidates, [
+    'node_modules/@playwright/test/cli.js',
+    'node_modules/playwright/cli.js',
+    'node_modules/playwright-core/cli.js',
+  ]);
+  assert.match(run.preflight.errors[0].hint, /npm install/);
+  // Every check that needs the CLI is skipped, not silently passed.
+  assert.deepEqual(
+    run.preflight.checks.filter((c) => c.status === 'skipped').map((c) => c.name),
+    ['version', 'node', 'dependencies', 'browsers'],
+  );
+  assert.equal(run.preflight.checks.find((c) => c.name === 'cli').status, 'failed');
+  // The engine was not launched: no process, no command, no marker file.
+  assert.equal(run.pid, undefined);
+  assert.equal(run.command, undefined);
+  assert.equal(ran(projects.nocli), false, 'the engine must not have been spawned');
 });
 
 test.after(() => {

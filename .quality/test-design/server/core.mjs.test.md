@@ -2,7 +2,7 @@
 
 Source: `server/core.mjs`
 
-Source-SHA256: `38e25f836d865a51252b5b84bbf9d635209a0221dc9274c7212df3e1e388b945`
+Source-SHA256: `2b4a7665b09702983205d025537c7ecb4dace4a785ae835a7b75f56647c305b9`
 
 ## Test Strategy
 

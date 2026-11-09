@@ -17,6 +17,8 @@ const MUTANTS = [
   { id: 'M5', file: 'server/index.mjs', from: "if(rejected.length)return err(res,400,'RUN_PARAMETER_NOT_ALLOWED',{rejected});", to: '', test: 'tests/preflight-it.test.mjs', guard: 'route: request field whitelist' },
   { id: 'M6', file: 'server/index.mjs', from: 'if(!preflight.ok){', to: 'if(false){', test: 'tests/preflight-it.test.mjs', guard: 'startRun: preflight gate before spawn' },
   { id: 'M7', file: 'server/index.mjs', from: 'if(file){readSource(project,file);assertSafeTestFilter(file);}', to: 'if(file){readSource(project,file);}', test: 'tests/preflight-it.test.mjs', guard: 'route: filter check (400 instead of a run)' },
+  { id: 'M8', file: 'server/adapters/playwright-preflight.mjs', from: "fail('cli', PREFLIGHT_CODE.NOT_INSTALLED, { candidates: [...PLAYWRIGHT_CLI_CANDIDATES] });", to: "pass('cli');", test: 'tests/preflight-it.test.mjs', guard: 'preflight: a missing local CLI blocks (IT-PF-008)' },
+  { id: 'M9', file: 'server/adapters/playwright-preflight.mjs', from: 'const required = [Number(floor[1]), Number(floor[2] || 0), Number(floor[3] || 0)];', to: 'const required = [Number(floor[1]), 0, 0];', test: 'tests/preflight.test.mjs', guard: 'preflight: the whole >=N[.M[.P]] floor is compared (UT-PF-007b)' },
 ];
 
 function copyTree(dest) {

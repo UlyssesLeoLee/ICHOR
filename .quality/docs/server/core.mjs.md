@@ -2,7 +2,7 @@
 
 Source: `server/core.mjs`
 
-Source-SHA256: `38e25f836d865a51252b5b84bbf9d635209a0221dc9274c7212df3e1e388b945`
+Source-SHA256: `2b4a7665b09702983205d025537c7ecb4dace4a785ae835a7b75f56647c305b9`
 
 ## Responsibility
 
@@ -113,6 +113,7 @@ Pure functions and local processing of the Bridge. ATS-106 changes `safeRunArgs(
 - `state.json` is never zero-length or partial after a crash of the writer.
 - The Bridge never starts on a state it could not parse.
 - The mirror is derived data. The state file is never rebuilt from it automatically.
+- `safeRunArgs(project, testFile, output)` returns the vector of `buildPlaywrightArgs({ cli, options, outputDir: output, testFile })`; it throws `PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT` without a CLI and `INVALID_TEST_FILTER` / `INVALID_SOURCE_FILE` / `PATH_OUTSIDE_PROJECT` for a bad filter.
 
 ### Catalogue identity merge (ATS-602)
 
@@ -128,7 +129,6 @@ Invariants:
 - No two cases of a catalogue share a uid, on either path.
 - A case deleted from a file that the discovery covered does not hand its uid to a later case with the same fingerprint, on either path.
 - A `@TC-` token declared by any case of the catalogue is reserved for that case, and a token declared by two cases is bound by neither, on either path.
-- `safeRunArgs(project, testFile, output)` returns the vector of `buildPlaywrightArgs({ cli, options, outputDir: output, testFile })`; it throws `PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT` without a CLI and `INVALID_TEST_FILTER` / `INVALID_SOURCE_FILE` / `PATH_OUTSIDE_PROJECT` for a bad filter.
 
 ## Change Notes
 
