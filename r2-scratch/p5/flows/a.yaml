@@ -1,0 +1,10 @@
+---
+- name: Login
+  steps:
+    - launchApp: {appId: x}
+    - tapOn: "Login"
+    - assertVisible: "Welcome"
+- name: Login copy
+  steps:
+    - launchApp: {appId: x}
+    - tapOn: "Login"
