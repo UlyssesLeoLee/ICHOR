@@ -16,7 +16,8 @@ import { resolveAuthoritativeIdentities } from './discovery/authoritative.mjs';
 import { compareDiscoveries, readBodies, staticCasesWithScope, DISCOVERY } from './discovery/index.mjs';
 // ATS-602: the mobile Flow import. A Flow file declares cases like a spec
 // file declares cases, so the mobile cases join the SAME catalogue.
-import { importProjectFlows, mapProjectFlows, resolveProjectMobileUids } from './discovery/mobile-flow-import.mjs';
+import { mapProjectFlows, resolveProjectMobileUids } from './discovery/mobile-flow-import.mjs';
+import { mergeMobileRegistry } from './discovery/mobile-import.mjs';
 import { TRUST, trustOf } from './discovery/trust.mjs';
 // ATS-208: the unified Run/Test/Attempt/ExecutionEvent model. The report
 // parsing, the attempt building and the status vocabulary live THERE, so
@@ -835,51 +836,49 @@ export function walkTests(root,rel='',depth=0,acc=[]) {
  * `discoverStatic`. The mobile cases are MAPPED here; the UIDs are
  * decided over the whole catalogue.
  */
-export function discoverMobile(project, registry, projectUid) {
-  const imported = importProjectFlows(project.root, { projectUid, registry });
-  const mapped = imported.cases.map((c) => ({
-    file: c.file,
-    title: c.title,
-    line: c.line,
-    // The step fingerprint of the case: the body the registry remembers
-    // it by.
-    bodyKey: c.bodyKey ?? null,
-    titleKey: c.titleKey ?? null,
-    uid: c.uid,
-    uidSource: c.uidSource,
-    uidStable: c.uidStable,
-    uidBasis: c.uidBasis,
-    appId: c.appId,
-    tags: c.tags,
-    steps: c.steps,
-    unsupportedCount: c.unsupportedCount,
-    ...(c.ambiguity ? { ambiguity: c.ambiguity } : {}),
-  }));
+export function discoverMobile(project) {
+  // The Flow files are MAPPED here and nothing more: the identities are
+  // resolved by the catalogue, once, over the whole catalogue (the web
+  // cases and the mobile ones at once). A preliminary resolution here
+  // would read the live registry a second time and decide the identities
+  // without the web cases -- the catalogue is the only place that knows
+  // both engines.
+  const mapped = mapProjectFlows(project.root);
   return {
-    mapped,
-    files: imported.files,
-    imports: imported.results.map((r) => r.report),
-    unsupported: imported.unsupported,
-    errors: imported.errors,
-    registry: imported.registry,
+    mapped: mapped.cases.map((c) => ({
+      file: c.file,
+      title: c.title,
+      line: c.line,
+      appId: c.appId,
+      tags: c.tags,
+      steps: c.steps,
+      unsupportedCount: c.unsupportedCount,
+    })),
+    files: mapped.files,
+    imports: mapped.results.map((r) => r.report),
+    unsupported: mapped.unsupported,
+    errors: mapped.errors,
   };
 }
 
 /**
- * ATS-602: the `@TC-` tokens that more than one case of the catalogue
- * claims.
+ * ATS-602: the census of the `@TC-` tokens of the catalogue.
  *
  * The catalogue holds the cases of BOTH engines: the web ones and the
- * mobile ones. A token names ONE case, so a token that two cases claim --
- * a web case and a mobile case, or two cases of the same engine -- belongs
- * to NEITHER of them. The catalogue has to know that before it resolves
- * the identities, because the resolution is what gives the token to a
- * case.
+ * mobile ones. A token names ONE case, so the census is taken over the
+ * WHOLE catalogue -- the two engines are one catalogue and not two -- and
+ * it answers two questions the resolvers need BEFORE they give any token
+ * to any case:
  *
- * The token is counted over the WHOLE catalogue, so the two engines are
- * one catalogue and not two.
+ *   * `duplicated`: the tokens more than one case claims (a web case and a
+ *     mobile case, or two cases of the same engine). Such a token belongs
+ *     to NEITHER of them.
+ *   * `claimed`: the tokens ANY case claims. The registry may remember a
+ *     token under the body of a case that has since dropped it; handing
+ *     it back to that case would give two cases one uid. So every claimed
+ *     token is RESERVED for the case that declares it, in both resolvers.
  */
-function duplicatedExplicitTokens(webCases, mobileCases) {
+function explicitTokenCensus(webCases, mobileCases) {
   const owners = new Map();
   const claim = (title) => {
     const token = extractExplicitUid(title);
@@ -888,53 +887,11 @@ function duplicatedExplicitTokens(webCases, mobileCases) {
   };
   for (const c of webCases ?? []) claim(c.title);
   for (const c of mobileCases ?? []) claim(c.title);
-  const out = new Set();
+  const duplicated = new Set();
   for (const [token, count] of owners) {
-    if (count > 1) out.add(token);
+    if (count > 1) duplicated.add(token);
   }
-  return out;
-}
-
-/**
- * ATS-602: the registry cell of a project, with BOTH engines' entries.
- *
- * The registry is the memory of the cases of a project, and the project
- * has cases of two engines: the web ones and the mobile ones. They share
- * ONE cell, so:
- *
- *   * neither side prunes the entries of the other (the pruning rule is
- *     "an entry whose file was part of THIS discovery and no resolved
- *     case claims its uid is dropped" -- and a mobile entry is not part
- *     of the web discovery);
- *   * a case that moves from one engine to the other keeps its identity,
- *     because the registry still knows it.
- *
- * The entries are merged BY UID: two entries with the same uid describe
- * the same case, and the newest position wins.
- */
-function mergeRegistryCells(baseCell, resolvedCell, mobileCases, projectUid) {
-  const byUid = new Map();
-  const add = (entry) => {
-    if (!entry) return;
-    if (!entry.uid) { byUid.set(`#${byUid.size}`, entry); return; }
-    if (!byUid.has(entry.uid)) byUid.set(entry.uid, entry);
-  };
-  for (const e of baseCell?.entries ?? []) add(e);
-  for (const e of resolvedCell?.entries ?? []) add(e);
-  for (const c of mobileCases) {
-    if (!c.uid) continue;
-    add({
-      uid: c.uid,
-      uidSource: c.uidSource,
-      titleKey: c.titleKey,
-      bodyKey: c.bodyKey,
-      file: c.file,
-      title: c.title,
-      line: c.line,
-      aliases: [],
-    });
-  }
-  return { version: UID_SCHEME_VERSION, entries: [...byUid.values()] };
+  return { duplicated, claimed: new Set(owners.keys()) };
 }
 
 /**
@@ -942,15 +899,18 @@ function mergeRegistryCells(baseCell, resolvedCell, mobileCases, projectUid) {
  *
  * The mobile cases are resolved with the SAME rules as the web ones, and
  * over the same registry cell -- the two engines share ONE registry, so a
- * case that moves from one engine to the other keeps its identity.
+ * case that moves from one engine to the other keeps its identity. The
+ * census of the catalogue's tokens is handed in, so that a token a web
+ * case declares is reserved here as well.
  */
-function resolveMobileIdentities({ projectUid, cases, registry, scope, duplicateExplicitUids }) {
+function resolveMobileIdentities({ projectUid, cases, registry, scope, census }) {
   const resolved = resolveProjectMobileUids({
     cases,
     projectUid,
     registry,
     scope,
-    duplicateExplicitUids,
+    duplicateExplicitUids: census.duplicated,
+    claimedExplicitUids: census.claimed,
   });
   return resolved.cases;
 }
@@ -967,7 +927,7 @@ export function discoverStatic(project, registry) {
  // they are TestDefinitions with a `source` that says where they came
  // from. They are NOT a second kind of case: the UID rules, the registry
  // and every lookup by file/line work on them unchanged.
- const mobile=discoverMobile(project,registry,projectUid);
+ const mobile=discoverMobile(project);
  // The scope of this discovery is the set of files it covered. The registry
  // only prunes entries whose file is INSIDE the scope: a file that is not part
  // of this discovery says nothing about the cases inside it, and pruning its
@@ -980,21 +940,23 @@ export function discoverStatic(project, registry) {
  // belongs to NEITHER of them, exactly as it would if two web cases
  // claimed it.
  //
- // So the duplicate tokens are found FIRST -- over both engines -- and then
- // handed to both resolvers.
- const duplicateExplicitUids=duplicatedExplicitTokens(discovered,mobile.mapped);
+ // So the census of the tokens is taken FIRST -- over both engines -- and
+ // then handed to both resolvers: the duplicated tokens belong to nobody,
+ // and every claimed token is reserved for the case that declares it.
+ const census=explicitTokenCensus(discovered,mobile.mapped);
  // The mobile cases are resolved FIRST, over the registry cell, so that
  // their entries are known before the web ones are merged in. The two
  // engines share ONE cell: the registry is the memory of the cases of the
  // project, and a case that moves from one engine to the other has to keep
  // its identity.
- const mobileResolved=resolveMobileIdentities({projectUid,cases:mobile.mapped,registry,scope,duplicateExplicitUids});
+ const mobileResolved=resolveMobileIdentities({projectUid,cases:mobile.mapped,registry,scope,census});
  const resolved=resolveIdentities({
    projectUid,
    discovered,
    registry,
    scope,
-   duplicateExplicitUids,
+   duplicateExplicitUids:census.duplicated,
+   claimedExplicitUids:census.claimed,
    // The mobile cases go into the SAME cell, so that neither side prunes
    // or overwrites the entries of the other.
    extraCandidates:mobileResolved.map(t=>({
@@ -1217,7 +1179,7 @@ export async function discoverTestsAsync(project, state, registry, options = {})
  * The authoritative answer: the catalogue of the CLI's own case list, with
  * the UIDs resolved and the agreement with the static index measured.
  */
-function authoritativeCatalog(project, registry, trust, decision, listed) {
+export function authoritativeCatalog(project, registry, trust, decision, listed) {
   if (!listed.ok) {
     const base = staticCatalog(project, registry, trust, { ...decision, mode: 'fallback', wantsAuthoritative: false });
     const detail = listed.errors && listed.errors.length ? ` — ${listed.errors[0].message}` : '';
@@ -1263,11 +1225,12 @@ function authoritativeCatalog(project, registry, trust, decision, listed) {
   // would LOSE its mobile cases -- they would not be moved to another
   // section, they would simply be gone, and the catalogue would not even
   // say so.
-  const mobile = discoverMobile(project, registry, projectUid);
+  const mobile = discoverMobile(project);
   const mobileScope = new Set([...files, ...mobile.files]);
-  // The duplicate `@TC-` tokens are counted over BOTH engines, so that a
-  // token a web case and a mobile case both claim belongs to neither.
-  const duplicateExplicitUids = duplicatedExplicitTokens(
+  // The census of the `@TC-` tokens is taken over BOTH engines, so that a
+  // token a web case and a mobile case both claim belongs to neither, and
+  // a token either engine claims is reserved in the other.
+  const census = explicitTokenCensus(
     listed.tests.map((t) => ({ title: t.title })),
     mobile.mapped,
   );
@@ -1276,11 +1239,17 @@ function authoritativeCatalog(project, registry, trust, decision, listed) {
     cases: mobile.mapped,
     registry,
     scope: mobileScope,
-    duplicateExplicitUids,
+    census,
   });
-  // The mobile entries go into the SAME registry cell as the web ones, so
-  // that neither side prunes or overwrites the entries of the other.
-  const mergedRegistry = mergeRegistryCells(projectRegistry, resolved.registry, mobileResolved, projectUid);
+  // The mobile entries go into the SAME registry cell as the web ones. The
+  // base is the cell the authoritative resolver has just produced -- it is
+  // already PRUNED over the spec files, and an entry it dropped must stay
+  // dropped: a deleted case whose entry came back would hand its uid to the
+  // next case with the same body. The mobile entries are merged into that
+  // cell by uid (the newest position wins) and pruned with the Flow files
+  // as the scope, so each engine prunes its own files and neither prunes
+  // the other's.
+  const mergedRegistry = mergeMobileRegistry(resolved.registry?.entries ?? [], mobileResolved, new Set(mobile.files));
 
   const tests = [
     ...resolved.items.map(t => ({

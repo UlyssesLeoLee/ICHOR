@@ -40,6 +40,7 @@ import {
   importFlow,
   normaliseCommand,
   stepKindOf,
+  resolveProjectMobileUids,
 } from '../server/discovery/mobile-import.mjs';
 import { importFlowFile, importProjectFlows, isFlowFile, IMPORT_ERROR } from '../server/discovery/mobile-flow-import.mjs';
 import { MOBILE_STEP_KINDS } from '../server/adapters/mobile-target.mjs';
@@ -50,7 +51,7 @@ import { discoverStatic } from '../server/core.mjs';
 // was delivered first, and a missing export would make the whole file
 // fail to load instead of the ONE test failing.
 const { staticCatalog } = await import('../server/core.mjs');
-import { emptyRegistry } from '../server/uid.mjs';
+import { bodyKeyOf, emptyRegistry } from '../server/uid.mjs';
 
 const PROJECT_UID = 'proj_1_0123456789abcdef01234567';
 
@@ -1138,4 +1139,315 @@ test('UT-MOB-262: an unsupported step is counted in the catalogue warning', () =
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+/* ------------------------------------------------------------------ */
+/* The round-2 review counter-examples (N1 / N2-cross / N3)           */
+/* ------------------------------------------------------------------ */
+
+// The three defects of the round-2 review are edit SEQUENCES: a token that
+// moves from one case to another, a scenario that is copied and then
+// edited, a case that is deleted and then re-created under a new name.
+// Every test here carries the registry cell forward between discoveries
+// exactly as the Bridge does, and asserts after EVERY discovery that no
+// two cases of the catalogue share a uid.
+//
+// The functions the trusted-path tests need are imported dynamically, so
+// that this file also RUNS on the tree the review rejected -- there the
+// tests fail, they do not crash the file.
+const coreModule = await import('../server/core.mjs');
+const mobileImportModule = await import('../server/discovery/mobile-import.mjs');
+const { resolveIdentities } = await import('../server/uid.mjs');
+const { staticCasesWithScope } = await import('../server/discovery/index.mjs');
+
+const WEB_HEAD = "import { test } from '@playwright/test';\n";
+
+/** The uids that more than one case of a catalogue carries. */
+function duplicateUids(catalog) {
+  const uids = catalog.tests.map((t) => t.uid);
+  return [...new Set(uids.filter((u, i) => uids.indexOf(u) !== i))];
+}
+
+/**
+ * A project whose discoveries carry the registry forward, as the Bridge
+ * does: the cell the catalogue reports is written back and read by the
+ * next discovery.
+ */
+function carriedProject(files) {
+  const root = tempProject(files);
+  const project = { root, id: PROJECT_UID, uid: PROJECT_UID, name: 'fixture' };
+  let registry = emptyRegistry();
+  const write = (rel, body) => {
+    const full = path.join(root, rel);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, body, 'utf8');
+  };
+  return {
+    root,
+    project,
+    write,
+    cell: () => registry.projects[PROJECT_UID],
+    discover() {
+      const catalog = discoverStatic(project, registry);
+      const cell = catalog.registry?.projects?.[PROJECT_UID];
+      registry = { version: 1, projects: { ...(cell ? { [PROJECT_UID]: cell } : {}) } };
+      assert.deepEqual(duplicateUids(catalog), [], 'no two cases of the catalogue share a uid');
+      return catalog;
+    },
+    // The TRUSTED path: the authoritative catalogue, built from a listing.
+    // The listing is synthetic -- the static scanner over the real spec
+    // files, in the shape `playwright test --list` is parsed into -- so
+    // that the path can be exercised without a Playwright install. What is
+    // under test is the merge of the registry cell, which is the same
+    // whatever produced the listing.
+    discoverTrusted() {
+      const files = fs.readdirSync(path.join(root, 'tests')).filter((f) => f.endsWith('.spec.ts')).map((f) => `tests/${f}`).sort();
+      const listed = {
+        ok: true,
+        files,
+        tests: staticCasesWithScope(root, files).map((c, i) => ({ ...c, projects: [{ name: '', specId: null }], reportOrder: i })),
+        skipped: [],
+        cli: 'synthetic', version: '0', rootDir: root, durationMs: 0, errors: [],
+      };
+      const catalog = coreModule.authoritativeCatalog(project, registry, { trust: 'trusted', reason: '' }, { wantsAuthoritative: true, mode: 'default', forced: false }, listed);
+      assert.equal(catalog.discovery, 'authoritative');
+      const cell = catalog.registry?.projects?.[PROJECT_UID];
+      registry = { version: 1, projects: { ...(cell ? { [PROJECT_UID]: cell } : {}) } };
+      assert.deepEqual(duplicateUids(catalog), [], 'no two cases of the catalogue share a uid');
+      return catalog;
+    },
+    dispose() { fs.rmSync(root, { recursive: true, force: true }); },
+  };
+}
+
+test('UT-MOB-312: a @TC- token a mobile case drops and a web case declares is not re-issued (N2-cross)', () => {
+  // Discovery 1: the scenario carries @TC-600. Discovery 2: the scenario
+  // drops it and a WEB case declares it. The registry still remembers the
+  // scenario's steps under tc-600 -- but the token now belongs to the web
+  // case, so the registry must NOT hand it back to the scenario.
+  const p = carriedProject({
+    'tests/a.spec.ts': WEB_HEAD + "test('web case', async () => { const w = 1; });\n",
+    'flows/a.yaml': '---\n- name: "Login @TC-600"\n  steps:\n    - tapOn: "Login"\n',
+  });
+  try {
+    const first = p.discover();
+    assert.equal(first.tests.find((t) => t.source === 'mobile').uid, 'tc-600');
+
+    p.write('tests/a.spec.ts', WEB_HEAD + "test('web case @TC-600', async () => { const w = 1; });\n");
+    p.write('flows/a.yaml', '---\n- name: Login\n  steps:\n    - tapOn: "Login"\n');
+    const second = p.discover();
+    const web = second.tests.find((t) => t.source === 'static');
+    const mobile = second.tests.find((t) => t.source === 'mobile');
+    assert.equal(web.uid, 'tc-600');
+    assert.equal(web.uidSource, 'explicit', 'the web case holds the token it declares');
+    assert.notEqual(mobile.uid, 'tc-600', 'the scenario does not get the token back through the registry');
+    assert.equal(mobile.uidSource, 'derived', 'it walks on down the ladder');
+    assert.equal(mobile.uidStable, true);
+    // The refused registry hit is REPORTED, not silently dropped.
+    assert.equal(mobile.ambiguity?.reason, 'explicit-uid-claimed-by-another-case');
+    assert.deepEqual(mobile.ambiguity.candidates, [{ uid: 'tc-600' }]);
+    assert.match(second.warning, /注册表记录与本次发现不一致/);
+    // The cell holds tc-600 once, and it points at the web case.
+    const owners = p.cell().entries.filter((e) => e.uid === 'tc-600');
+    assert.equal(owners.length, 1);
+    assert.equal(owners[0].file, 'tests/a.spec.ts');
+  } finally {
+    p.dispose();
+  }
+});
+
+test('UT-MOB-313: a dropped token is reserved whichever engine declares it (N2 reverse and same engine)', () => {
+  // (a) The other direction: a WEB case drops @TC-650 and a mobile
+  // scenario declares it.
+  const a = carriedProject({
+    'tests/a.spec.ts': WEB_HEAD + "test('web case @TC-650', async () => { const w = 1; });\n",
+    'flows/a.yaml': '---\n- name: Login\n  steps:\n    - tapOn: "Login"\n',
+  });
+  try {
+    a.discover();
+    a.write('tests/a.spec.ts', WEB_HEAD + "test('web case', async () => { const w = 1; });\n");
+    a.write('flows/a.yaml', '---\n- name: "Login @TC-650"\n  steps:\n    - tapOn: "Login"\n');
+    const second = a.discover();
+    const web = second.tests.find((t) => t.source === 'static');
+    const mobile = second.tests.find((t) => t.source === 'mobile');
+    assert.equal(mobile.uid, 'tc-650');
+    assert.equal(mobile.uidSource, 'explicit');
+    assert.notEqual(web.uid, 'tc-650');
+    assert.equal(web.uidSource, 'derived');
+    assert.equal(web.ambiguity?.reason, 'explicit-uid-claimed-by-another-case');
+  } finally {
+    a.dispose();
+  }
+
+  // (b) The same engine: scenario `Login` drops @TC-500 and scenario
+  // `Other` declares it. The reservation is a RULE of the resolver, not
+  // a side effect of an earlier pass over the registry.
+  const b = carriedProject({
+    'flows/a.yaml': '---\n- name: "Login @TC-500"\n  steps:\n    - tapOn: "Login"\n- name: Other\n  steps:\n    - tapOn: "Other"\n',
+  });
+  try {
+    b.discover();
+    b.write('flows/a.yaml', '---\n- name: Login\n  steps:\n    - tapOn: "Login"\n- name: "Other @TC-500"\n  steps:\n    - tapOn: "Other"\n');
+    const second = b.discover();
+    const login = second.tests.find((t) => t.title === 'Login');
+    const other = second.tests.find((t) => t.title === 'Other @TC-500');
+    assert.equal(other.uid, 'tc-500');
+    assert.equal(other.uidSource, 'explicit');
+    assert.notEqual(login.uid, 'tc-500');
+    assert.equal(login.uidSource, 'derived');
+    assert.equal(login.ambiguity?.reason, 'explicit-uid-claimed-by-another-case', 'the refused hit is reported');
+    // And the resolver alone, given the OLD registry and no second pass,
+    // decides the same way.
+    const direct = resolveProjectMobileUids({
+      cases: [
+        { file: 'flows/a.yaml', title: 'Login', line: 2, steps: [{ kind: 'tapOn', args: { text: 'Login' }, assertion: null }] },
+        { file: 'flows/a.yaml', title: 'Other @TC-500', line: 5, steps: [{ kind: 'tapOn', args: { text: 'Other' }, assertion: null }] },
+      ],
+      projectUid: PROJECT_UID,
+      registry: { version: 1, projects: { [PROJECT_UID]: { version: 1, entries: [
+        { uid: 'tc-500', uidSource: 'explicit', title: 'Login @TC-500', titleKey: 'login', file: 'flows/a.yaml', line: 2, bodyKey: bodyKeyOfCase({ steps: [{ kind: 'tapOn', args: { text: 'Login' }, assertion: null }] }) },
+      ] } } },
+      scope: new Set(['flows/a.yaml']),
+    });
+    assert.deepEqual(direct.cases.map((c) => c.uid === 'tc-500'), [false, true]);
+  } finally {
+    b.dispose();
+  }
+});
+
+test('UT-MOB-314: copying a scenario and then editing the original does not duplicate the uid (N3)', () => {
+  // Discovery 1: `Login`. Discovery 2: `Login` gains a step, and
+  // `Login copy` is added with the ORIGINAL steps. The original derives
+  // its old uid from its unchanged position and title; the copy is found
+  // by the registry under the old steps. One of them has to give way,
+  // and the rule is the web one: the registry claim keeps the uid, the
+  // edited original gets a new one from its new body.
+  const p = carriedProject({
+    'flows/a.yaml': '---\n- name: Login\n  steps:\n    - launchApp: {appId: x}\n    - tapOn: "Login"\n',
+  });
+  try {
+    const first = p.discover();
+    const old = first.tests.find((t) => t.source === 'mobile').uid;
+
+    p.write('flows/a.yaml', '---\n- name: Login\n  steps:\n    - launchApp: {appId: x}\n    - tapOn: "Login"\n    - assertVisible: "Welcome"\n- name: Login copy\n  steps:\n    - launchApp: {appId: x}\n    - tapOn: "Login"\n');
+    const second = p.discover();
+    const login = second.tests.find((t) => t.title === 'Login');
+    const copy = second.tests.find((t) => t.title === 'Login copy');
+    assert.equal(copy.uid, old, 'the copy keeps the uid the registry remembers for those steps');
+    assert.equal(copy.uidSource, 'registry');
+    assert.notEqual(login.uid, old, 'the edited original does not share it');
+    assert.equal(login.uidSource, 'derived-body');
+    assert.equal(login.uidStable, true);
+    assert.equal(login.ambiguity, undefined, 'a resolved collision is not an ambiguity');
+    // The cell holds both, once each.
+    const cell = p.cell();
+    assert.equal(cell.entries.filter((e) => e.uid === old).length, 1);
+    assert.equal(cell.entries.filter((e) => e.uid === login.uid).length, 1);
+
+    // The SINGLE-FILE import path takes the same decision.
+    const one = importFlowFile(p.root, 'flows/a.yaml', { projectUid: PROJECT_UID, registry: { version: 1, projects: { [PROJECT_UID]: first.registry.projects[PROJECT_UID] } } });
+    const uids = one.cases.map((c) => c.uid);
+    assert.equal(new Set(uids).size, uids.length, 'no two cases of the file share a uid');
+    assert.equal(one.cases.find((c) => c.title === 'Login copy').uidSource, 'registry');
+    assert.equal(one.cases.find((c) => c.title === 'Login').uidSource, 'derived-body');
+  } finally {
+    p.dispose();
+  }
+});
+
+test('UT-MOB-315: the trusted path does not hand a deleted uid to a new case with the same body (N1)', () => {
+  // Discovery 1: web `alpha`, `beta`; scenarios `Login`, `Logout`.
+  // Discovery 2: `beta` and `Logout` are DELETED. Discovery 3: a NEW web
+  // test and a NEW scenario re-use the deleted bodies. The pruning rule
+  // ("keeping it would let a stale uid be handed out later") has to hold
+  // on the authoritative path exactly as it holds on the static one.
+  const BETA_BODY = 'async () => { const b = 2; }';
+  const p = carriedProject({
+    'tests/a.spec.ts': WEB_HEAD + `test('alpha', async () => { const a = 1; });\ntest('beta', ${BETA_BODY});\n`,
+    'flows/login.yaml': 'appId: x\n---\n- name: Login\n  steps:\n    - launchApp\n    - tapOn: "Login"\n- name: Logout\n  steps:\n    - launchApp\n    - tapOn: "Logout"\n',
+  });
+  try {
+    const c1 = p.discoverTrusted();
+    assert.equal(c1.tests.length, 4);
+    const beta = c1.tests.find((t) => t.title === 'beta');
+    const logout = c1.tests.find((t) => t.title === 'Logout');
+
+    p.write('tests/a.spec.ts', WEB_HEAD + "test('alpha', async () => { const a = 1; });\n");
+    p.write('flows/login.yaml', 'appId: x\n---\n- name: Login\n  steps:\n    - launchApp\n    - tapOn: "Login"\n');
+    const c2 = p.discoverTrusted();
+    assert.equal(c2.tests.length, 2);
+    // The deleted cases are PRUNED from the cell: their files were part of
+    // this discovery and nobody claims their uids any more.
+    const uids2 = p.cell().entries.map((e) => e.uid);
+    assert.ok(!uids2.includes(beta.uid), 'the deleted web case is pruned from the merged cell');
+    assert.ok(!uids2.includes(logout.uid), 'the deleted scenario is pruned from the merged cell');
+
+    p.write('tests/a.spec.ts', WEB_HEAD + `test('alpha', async () => { const a = 1; });\ntest('gamma is a new test', ${BETA_BODY});\n`);
+    p.write('flows/login.yaml', 'appId: x\n---\n- name: Login\n  steps:\n    - launchApp\n    - tapOn: "Login"\n- name: A brand new scenario\n  steps:\n    - launchApp\n    - tapOn: "Logout"\n');
+    const c3 = p.discoverTrusted();
+    const gamma = c3.tests.find((t) => t.title === 'gamma is a new test');
+    const fresh = c3.tests.find((t) => t.title === 'A brand new scenario');
+    assert.notEqual(gamma.uid, beta.uid, 'a new web case does not inherit the uid of a deleted one');
+    assert.notEqual(gamma.uidSource, 'registry');
+    assert.notEqual(fresh.uid, logout.uid, 'a new scenario does not inherit the uid of a deleted one');
+    assert.notEqual(fresh.uidSource, 'registry');
+
+    // The NEWEST entry wins: a retitled scenario keeps its uid, and the
+    // cell holds ONE entry for it, with the new title -- the old copy from
+    // the previous cell does not cover the update.
+    const login = c3.tests.find((t) => t.title === 'Login');
+    p.write('flows/login.yaml', 'appId: x\n---\n- name: Sign in\n  steps:\n    - launchApp\n    - tapOn: "Login"\n- name: A brand new scenario\n  steps:\n    - launchApp\n    - tapOn: "Logout"\n');
+    const c4 = p.discoverTrusted();
+    const signIn = c4.tests.find((t) => t.title === 'Sign in');
+    assert.equal(signIn.uid, login.uid, 'the retitled scenario keeps its uid on the trusted path');
+    assert.equal(signIn.uidSource, 'registry');
+    const entries = p.cell().entries.filter((e) => e.uid === login.uid);
+    assert.equal(entries.length, 1, 'one entry per uid');
+    assert.equal(entries[0].title, 'Sign in', 'and it carries the newest title');
+  } finally {
+    p.dispose();
+  }
+});
+
+test('UT-MOB-316: the registry merge copies instead of mutating, and the web resolver honours the claimed tokens', () => {
+  // (a) `mergeMobileRegistry` leaves the entries it was given untouched
+  // and returns updated COPIES: the live registry of the Bridge is read by
+  // two resolvers in one discovery, and both have to see the same memory.
+  const { mergeMobileRegistry } = mobileImportModule;
+  assert.equal(typeof mergeMobileRegistry, 'function', 'the merge is exported');
+  const existing = { uid: 'tc_1_d_0000000000000001', uidSource: 'derived', titleKey: 'old', bodyKey: 'B', file: 'flows/a.yaml', title: 'Old', line: 2, aliases: [] };
+  const stale = { uid: 'tc_1_d_0000000000000002', uidSource: 'derived', titleKey: 'gone', bodyKey: 'G', file: 'flows/a.yaml', title: 'Gone', line: 9, aliases: [] };
+  const outside = { uid: 'tc_1_d_0000000000000003', uidSource: 'derived', titleKey: 'web', bodyKey: 'W', file: 'tests/a.spec.ts', title: 'web', line: 1, aliases: [] };
+  const before = JSON.stringify([existing, stale, outside]);
+  const merged = mergeMobileRegistry([existing, stale, outside], [
+    { uid: 'tc_1_d_0000000000000001', uidSource: 'registry', titleKey: 'new', bodyKey: 'B', file: 'flows/b.yaml', title: 'New', line: 5 },
+  ], new Set(['flows/a.yaml', 'flows/b.yaml']));
+  assert.equal(JSON.stringify([existing, stale, outside]), before, 'the input entries are not mutated');
+  const updated = merged.entries.find((e) => e.uid === 'tc_1_d_0000000000000001');
+  assert.notEqual(updated, existing, 'the result carries a copy');
+  assert.equal(updated.file, 'flows/b.yaml');
+  assert.equal(updated.title, 'New');
+  assert.deepEqual(updated.aliases, [{ file: 'flows/a.yaml', title: 'Old' }], 'the old position is kept as an alias');
+  assert.ok(!merged.entries.some((e) => e.uid === 'tc_1_d_0000000000000002'), 'an in-scope entry nobody claims is pruned');
+  assert.ok(merged.entries.some((e) => e.uid === 'tc_1_d_0000000000000003'), 'an entry outside the scope is kept');
+
+  // (b) The WEB resolver: a uid the registry would hand to a case that does
+  // not declare it is refused when the catalogue says another case claims
+  // it -- and reported. Without the claim, the registry hit stands.
+  const body = 'async () => { const z = 26; }';
+  const registry = { version: 1, projects: { [PROJECT_UID]: { version: 1, entries: [
+    { uid: 'tc-900', uidSource: 'explicit', titleKey: 'login', bodyKey: bodyKeyOf(body), file: 'tests/a.spec.ts', title: 'login @TC-900', line: 2, aliases: [] },
+  ] } } };
+  const discovered = [{ file: 'tests/a.spec.ts', title: 'login', line: 2, bodyText: body }];
+  const plain = resolveIdentities({ projectUid: PROJECT_UID, discovered, registry, scope: new Set(['tests/a.spec.ts']) });
+  assert.equal(plain.items[0].uid, 'tc-900', 'without a claim the registry hit stands');
+  assert.equal(plain.items[0].uidSource, 'registry');
+  const claimed = resolveIdentities({ projectUid: PROJECT_UID, discovered, registry, scope: new Set(['tests/a.spec.ts']), claimedExplicitUids: new Set(['tc-900']) });
+  assert.notEqual(claimed.items[0].uid, 'tc-900', 'a claimed token is not handed out by the registry');
+  assert.equal(claimed.items[0].uidSource, 'derived');
+  assert.equal(claimed.items[0].ambiguity?.reason, 'explicit-uid-claimed-by-another-case');
+  assert.deepEqual(claimed.items[0].ambiguity.candidates, [{ uid: 'tc-900' }]);
+  // A non-Set value adds nothing.
+  const loose = resolveIdentities({ projectUid: PROJECT_UID, discovered, registry, scope: new Set(['tests/a.spec.ts']), claimedExplicitUids: ['tc-900'] });
+  assert.equal(loose.items[0].uid, 'tc-900');
 });

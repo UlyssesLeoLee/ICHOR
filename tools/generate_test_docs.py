@@ -183,9 +183,9 @@ UT=[
 ('UT-PLG-076','FR-028','边界','证据引用过多被拒','65 条 evidenceRefs','报 PLUGIN_PROPOSAL_INVALID','node --test','PASS'),
 ('UT-PLG-077','FR-028','异常','形状不合法的结论被拒','outcome 不是对象 / summary 为空 / 引用不是字符串','报 PLUGIN_PROPOSAL_INVALID','node --test','PASS'),
 ('UT-PLG-078','FR-028','安全','跨项目上报结论被拒','projectId 不在授予列表里','报 PLUGIN_SCOPE_INVALID 并进审计','node --test','PASS'),
-('UT-SEC-001','FR-027','正常','凭据存储契约版本固定','查询 credential-store/v1','contract 固定','node --test','PASS'),
-('UT-SEC-002','FR-027','安全','密钥进凭据库而不落盘','写入一个密钥后检查索引文件','索引文件不含秘密与其片段','node --test','PASS'),
-('UT-SEC-003','FR-027','安全','引用带指纹但无密钥字段','读取一个凭据引用','有 8 位指纹，无 secret 字段','node --test','PASS'),
+('UT-SEC-016','FR-027','正常','凭据存储契约版本固定','查询 credential-store/v1','contract 固定','node --test','PASS'),
+('UT-SEC-017','FR-027','安全','密钥进凭据库而不落盘','写入一个密钥后检查索引文件','索引文件不含秘密与其片段','node --test','PASS'),
+('UT-SEC-018','FR-027','安全','引用带指纹但无密钥字段','读取一个凭据引用','有 8 位指纹，无 secret 字段','node --test','PASS'),
 ('UT-SEC-004','FR-027','正常','密钥字节精确回读','写入后读回','内容完全一致','node --test','PASS'),
 ('UT-SEC-005','FR-027','异常','未知凭据 id','读取不存在的 id','报 CREDENTIAL_NOT_FOUND','node --test','PASS'),
 ('UT-SEC-006','FR-027','异常','非法名称/秘密/用途','空名、含路径分隔符、空秘密、未知用途','分别报 CREDENTIAL_NAME_INVALID / CREDENTIAL_INVALID','node --test','PASS'),
@@ -453,8 +453,8 @@ IT=[
 ('IT-PLG-015','NFR-002','安全','未知档位的错误体不泄漏内部细节','tier=toString','响应体不含 JS 内部错误文本，也不含本机路径','node --test','PASS'),
 ('IT-PLG-CLEANUP','NFR-005','清理','插件 API 子进程与夹清理','结束 IT suite','释放进程及临时目录','node --test','PASS'),
 ('IT-SEC-SETUP','NFR-011','正常','安全面 API 的 bridge 启动','隔离 ATS_DATA_DIR 与随机端口','/api/health=200 并取得 token','node --test','PASS'),
-('IT-SEC-001','FR-027','正常','安全契约经 API 暴露','GET /api/security/contract','200 + credential-store/v1 + egress-consent/v1','node --test','PASS'),
-('IT-SEC-002','NFR-002','安全','安全端点需要会话 token','不带 X-ATS-Token 访问三个端点','均 401 INVALID_SESSION','node --test','PASS'),
+('IT-SEC-027','FR-027','正常','安全契约经 API 暴露','GET /api/security/contract','200 + credential-store/v1 + egress-consent/v1','node --test','PASS'),
+('IT-SEC-028','NFR-002','安全','安全端点需要会话 token','不带 X-ATS-Token 访问三个端点','均 401 INVALID_SESSION','node --test','PASS'),
 ('IT-SEC-003','FR-027','安全','凭据清单只含引用','GET /api/security/credentials','每条引用无 secret 字段，指纹 8 位','node --test','PASS'),
 ('IT-SEC-004','FR-027','安全','秘密不出现在平台状态文件','写真实凭据库后扫描数据目录','目录内任何文件都不含秘密','node --test (real store)','PASS'),
 ('IT-SEC-005','FR-027','异常','重名被拒','同名写入两次','400 CREDENTIAL_DUPLICATE','node --test (real store)','PASS'),
@@ -549,9 +549,9 @@ ST=[
 ('ST-022','FR-020','兼容性','Tauri Windows 开发构建','Windows+Rust+WebView2','桌面窗口打开，bridge 连接成功','编译+运行记录','PENDING'),
 ('ST-023','NFR-009','隐私','数据不自动离开本地','操作工作台并抓包','未主动请求 AI/SaaS endpoints','网络流量','PENDING'),
 ('ST-024','NFR-011','运行维护','错误信息可用于故障定位','停掉 server、损坏 state、缺 browser','明确错误而非模拟成功','录屏与日志','PENDING'),
-('ST-031','FR-027','隐私','密钥入库后不出现在本机可读文件','在真实 Windows 上存入密钥后扫描数据目录与凭据索引','秘密只存在于系统凭据库；索引只有引用与指纹','ui-e2e.mjs 结果 + 截图 + trace（docs/evidence/ATS-402/ui/）','PASS'),
+('ST-031','FR-027','隐私','密钥入库后不出现在本机可读文件','在真实 Windows 上存入密钥后扫描数据目录与凭据索引','秘密只存在于系统凭据库；索引只有引用与指纹','node tools/ats402-probes/ui-e2e.mjs 结果 + 截图 + trace（docs/evidence/ATS-402/ui/）','PASS'),
 ('ST-032','FR-027','隐私','首次外传前必须展示范围并确认','在 UI 上选择项目内容并触发外传','先出现范围清单（文件、字节数、摘要），未确认则不外传','录屏+网络抓包（缺外发路径，见 docs/23 §8；UI 预览→确认段已由 ui-e2e.mjs 的 ST-032a~d 执行）','PENDING'),
-('ST-033','NFR-009','隐私','无授权的外传请求被拒','清空授权后触发外传','请求被拒并给出 EGRESS_CONSENT_REQUIRED','ui-e2e.mjs 结果 + 接口日志（docs/evidence/ATS-402/ui/）','PASS'),
+('ST-033','NFR-009','隐私','无授权的外传请求被拒','清空授权后触发外传','请求被拒并给出 EGRESS_CONSENT_REQUIRED','node tools/ats402-probes/ui-e2e.mjs 结果 + 接口日志（docs/evidence/ATS-402/ui/）','PASS'),
 ]
 
 # ATS-506 control-plane cases (tests/control-plane.test.mjs, tests/control-plane-it.test.mjs).
@@ -615,6 +615,9 @@ IT+=[
 ('IT-ATS602-API-009','FR-032','正常','改标题后移动端用例的 UID 不变','经 HTTP 改写 Flow 的场景标题','UID 不变且 uidSource=registry','node --test','PASS'),
 ('IT-ATS602-API-010','FR-032','安全','重复的 @TC- token 跨引擎由双方都不绑定','web 用例与移动端用例声明同一个 @TC-100','目录里没有重复 UID，双方都标 duplicate-explicit-uid','node --test','PASS'),
 ('IT-ATS602-API-011','FR-032','正常','可信项目保留移动端用例','把项目标记为可信后重新读目录','discovery=authoritative 且移动端用例与 mobile 段都在','node --test','PASS'),
+('IT-ATS602-API-012','FR-032','安全','经 HTTP：移动端丢掉的 @TC- token 被 Web 用例声明后不再发回','两次读目录之间移动端去掉 @TC-600、Web 用例声明 @TC-600','每次读目录都无重复 UID，Web tc-600/explicit，移动端 derived 并报告注册表冲突','node --test','PASS'),
+('IT-ATS602-API-013','FR-032','安全','经 HTTP：复制场景后修改原场景 UID 保持不同','两次读目录之间复制 Checkout 并给原场景加一步','每次读目录都无重复 UID，副本 registry 保留旧 UID，原场景 derived-body','node --test','PASS'),
+('IT-ATS602-API-014','FR-032','安全','经 HTTP：可信项目删除用例后同指纹新用例不继承旧 UID','可信项目三次读目录：删 beta 与 Logout，再新增同正文/同步骤的新用例（无真实 Playwright 时跳过并记录原因）','三次都是 discovery=authoritative 且无重复 UID，新用例 UID 与被删的不同且非 registry','node --test','PASS'),
 ('IT-CP-CLEANUP','NFR-005','清理','控制面 IT 子进程与夹清理','结束 IT suite','两个子进程退出，临时目录删除','node --test','PASS'),
 # --- ATS-205: the bridge writes the metadata mirror at runtime ---
 ('IT-SQL-001','NFR-010','正常','Bridge 启动并创建元数据数据库','隔离 ATS_DATA_DIR 启动 server/index.mjs','数据目录出现 metadata.db','node --test','PASS'),
@@ -915,6 +918,11 @@ UT+=[
 ('UT-MOB-309','FR-032','正常','线性语法的 title 也开启一个场景','线性声明用 title:','读出一个场景','node --test','PASS'),
 ('UT-MOB-310','FR-032','异常','线性语法里没有场景也被报告','只有 app 的线性声明','报 no scenario','node --test','PASS'),
 ('UT-MOB-311','FR-032','正常','读取器的标量类型被读','一个普通的 YAML 声明','读出一个场景','node --test','PASS'),
+('UT-MOB-312','FR-032','安全','移动端用例丢掉的 @TC- token 被 Web 用例声明后注册表不再发回','移动端场景去掉 @TC-600 且 Web 用例声明 @TC-600','Web 用例 tc-600/explicit，移动端场景 derived 并报告 explicit-uid-claimed-by-another-case，目录无重复 UID，cell 里 tc-600 只指向 Web 用例','node --test','PASS'),
+('UT-MOB-313','FR-032','安全','丢掉的 token 无论哪个引擎声明都被保留','Web 丢 @TC-650 移动端声明；移动端 Login 丢 @TC-500 同文件 Other 声明','声明方 explicit，丢弃方 derived 并报告注册表冲突，目录无重复 UID','node --test','PASS'),
+('UT-MOB-314','FR-032','安全','复制场景后修改原场景不产生重复 UID','Login 复制为 Login copy 并给原 Login 加一步','副本经注册表保留旧 UID，原场景 derived-body 得新 UID，单文件导入同样判定','node --test','PASS'),
+('UT-MOB-315','FR-032','安全','可信路径删除用例后同指纹新用例不继承旧 UID','权威目录：删除 Web beta 与场景 Logout，再新增同正文/同步骤的新用例；改标题','新用例的 UID 与被删的不同且非 registry，合并后的 cell 不含被删条目，改标题后一个 uid 一条条目且为新标题','node --test','PASS'),
+('UT-MOB-316','FR-032','正常','注册表合并不改写输入且 Web 解析器尊重已声明的 token','mergeMobileRegistry 传入已有条目与新位置；resolveIdentities 传 claimedExplicitUids','输入条目不变、返回副本带别名、范围内无人认领的条目被删；Web 解析器拒绝注册表命中并报告 explicit-uid-claimed-by-another-case','node --test','PASS'),
 ]
 
 # ATS-402 round 2: credential store with an injected vault, the single scope
@@ -964,8 +972,8 @@ IT+=[
 ('IT-SEC-022', 'FR-027', '安全', 'requirement 经 junction 或出 .aitest 被拒', 'junction、../tests', '400 SCOPE_INVALID', 'node --test', 'PASS'),
 ('IT-SEC-023', 'FR-027', '正常', '过期授权在列表中为 expired，/check 被拒并审计', 'ttlSeconds=1', 'state=expired；403 EGRESS_CONSENT_EXPIRED；审计+1', 'node --test', 'PASS'),
 ('IT-SEC-024', 'FR-027', '异常', '未知项目或空输入的 /check 被拒并审计', '未知 projectId；inputs=[]', '400；审计各 +1', 'node --test', 'PASS'),
-('IT-SEC-025', 'FR-027', '安全', '并发写凭据保持索引与凭据库一致（真实凭据库）', '三个并发同名 POST', '1 个 201、2 个 CREDENTIAL_DUPLICATE；索引 1 条', 'ATS402_REAL_CREDENTIAL_STORE=1', 'PASS'),
-('IT-SEC-026', 'FR-027', '异常', '凭据库条目消失后可删除；写失败为 503（真实凭据库）', 'cmdkey 删除后 DELETE；3000 字节密钥', '200 且引用清掉；503 CREDENTIAL_STORE_FAILED', 'ATS402_REAL_CREDENTIAL_STORE=1', 'PASS'),
+('IT-SEC-025', 'FR-027', '安全', '并发写凭据保持索引与凭据库一致（真实凭据库）', '三个并发同名 POST', '1 个 201、2 个 CREDENTIAL_DUPLICATE；索引 1 条', 'node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)', 'PASS'),
+('IT-SEC-026', 'FR-027', '异常', '凭据库条目消失后可删除；写失败为 503（真实凭据库）', 'cmdkey 删除后 DELETE；3000 字节密钥', '200 且引用清掉；503 CREDENTIAL_STORE_FAILED', 'node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)', 'PASS'),
 ]
 
 def emit(file,title,purpose,cases):
