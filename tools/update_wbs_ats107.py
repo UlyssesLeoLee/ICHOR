@@ -46,8 +46,11 @@ NOTE = ('真实浏览器 PASS/FAIL 测试仓库与回归夹具已交付：exampl
         '@playwright/test 1.65.0 精确固定且 lockfile 入库，夹具离线（一条 PASS、一条故意 FAIL，'
         'browserName 显式为 chromium、retries=0）；'
         'tools/ats107-probes/st-ats107.mjs 用真实 Bridge 跑同一夹具，并与独立的 Playwright CLI 直跑'
-        '逐条对账（判定、计数器、错误信息三项均须一致），错误信息须保留引擎自写的断言文本；'
-        '对账逻辑抽到 compare.mjs，并以 mutation-check.mjs 做 10 种变异负控，证明该对账非恒真；'
+        '逐条对账（判定、计数器、错误信息三项均须一致），错误信息按去 ANSI 后的全文相等对账、'
+        '失败用例按标题配对；「真实浏览器」以 trace 里的浏览器上下文（browserName=chromium）为准，'
+        '不只看 trace.zip 是否存在；对账逻辑抽到 compare.mjs，以 mutation-check.mjs 做 13 种变异负控，'
+        '并以 no-browser-control.mjs 与 product-mutation-control.sh 在真实链路上做第二层负控；'
+        '结合测试见 tests/ats107-real-browser-it.test.mjs；'
         '证据见 docs/evidence/ATS-107/，设计见 docs/31-REAL-BROWSER-FIXTURE.md')
 
 
