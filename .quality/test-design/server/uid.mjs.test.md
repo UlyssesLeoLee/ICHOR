@@ -2,7 +2,7 @@
 
 Source: `server/uid.mjs`
 
-Source-SHA256: `pending-until-implementation`
+Source-SHA256: `eba3765cd0c69692f179aa3451875d6bf4a18447ce21933edc5893fba4846ff0`
 
 ## Test Strategy
 

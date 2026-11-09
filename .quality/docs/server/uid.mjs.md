@@ -2,7 +2,7 @@
 
 Source: `server/uid.mjs`
 
-Source-SHA256: `pending-until-implementation`
+Source-SHA256: `eba3765cd0c69692f179aa3451875d6bf4a18447ce21933edc5893fba4846ff0`
 
 ## Responsibility
 
@@ -30,6 +30,10 @@ A refused match is reported on the case as `registryConflict` / `ambiguity.reaso
 
 `duplicateExplicitUids` and `extraCandidates` are unchanged.
 
+### `mergeRegistry(reg, candidates, scope)` (internal)
+
+One entry per uid. An entry is found by body key and position as before; when the uid is remembered under ANOTHER body (an explicit token that moved to a case with a different body), that entry is **updated** to the new body and position instead of a second entry being appended. The body index is re-bucketed accordingly.
+
 ### `pruneRegistry(entries, candidates, scope)`
 
 Unchanged. It is the pruning rule of every registry merge in the platform: an entry is dropped only when its file is inside `scope` and no candidate claims its uid; the newest entry per uid wins.
@@ -41,4 +45,4 @@ Unchanged. It is the pruning rule of every registry merge in the platform: an en
 
 ## Change Notes
 
-ATS-602 round 3 (review finding N2-cross): `resolveIdentities` gains the optional `claimedExplicitUids`. Nothing else in the module changes.
+ATS-602 round 3 (review finding N2-cross): `resolveIdentities` gains the optional `claimedExplicitUids`; `mergeRegistry` keeps one entry per uid when a uid is remembered under another body. Nothing else in the module changes.

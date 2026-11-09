@@ -12,8 +12,8 @@
 >     由 ATS-601 实现，UT-MOB-001..094 共 99 例实测；那是**假目标 + 假会话**上的
 >     契约测试，**不是真实设备实测**；
 >   * §4 的**用例模型与导入映射层**（Flow 解析、语义映射、不支持步骤的保留、
->     导入报告、UID 规则）——由 ATS-602 实现，UT-MOB-200..311 共 80 例 +
->     IT-ATS602-API-001..011 共 11 例实测；那是**文本夹具**上的映射测试，
+>     导入报告、UID 规则）——由 ATS-602 实现，UT-MOB-200..316 共 85 例 +
+>     IT-ATS602-API-001..014 共 14 例实测；那是**文本夹具**上的映射测试，
 >     **不涉及任何设备**。
 >
 > 契约层已实现 ≠ 移动端能跑；用例模型已实现 ≠ Flow 能在设备上跑。
@@ -254,7 +254,7 @@ idle ──────────▶ created ──────────▶
 > **实现状态（ATS-602 交付）**：本节的**用例模型与导入映射层**已在
 > `server/discovery/mobile-flow.mjs`（解析）、`server/discovery/mobile-import.mjs`
 > （语义映射与 UID）与 `server/discovery/mobile-flow-import.mjs`（文件级入口）
-> 实现，并经 UT-MOB-200..311 共 80 例 + IT-ATS602-API-001..011 共 11 例实测。
+> 实现，并经 UT-MOB-200..316 共 85 例 + IT-ATS602-API-001..014 共 14 例实测。
 > 那是**文本夹具**上的映射测试，**不涉及任何设备、SDK 或驱动**。
 > 仓库内**仍无真实设备执行**——那属 ATS-603（Android Runner）与 ATS-604（证据归档）。
 > 下文标注 **已实现** 的是映射层；标注 **未实现** 的是真实执行面。
@@ -627,8 +627,8 @@ Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）�
 - **已验证（ATS-602 的用例模型与导入映射层）**：§4 的 Flow 解析、语义映射、
   不支持步骤的保留与标记、导入报告、UID 规则（位置为基线、改标题经注册表认回）
   已由 `server/discovery/mobile-flow.mjs`、`server/discovery/mobile-import.mjs`、
-  `server/discovery/mobile-flow-import.mjs` 实现，并经 UT-MOB-200..311 共 80 例 +
-  IT-ATS602-API-001..011 共 11 例实测（证据 `docs/evidence/ATS-602/`）。
+  `server/discovery/mobile-flow-import.mjs` 实现，并经 UT-MOB-200..316 共 85 例 +
+  IT-ATS602-API-001..014 共 14 例实测（证据 `docs/evidence/ATS-602/`）。
   **这是文本夹具上的映射测试**，验证的是「映射按设计工作」，**不是**设备行为。
 - **未验证（真实移动端执行面）**：§5~§8 的全部内容仍是设计判断，**未在本仓库做过任何
   移动端实测**。没有真实设备、没有真实模拟器、没有 ADB 调用、没有移动端证据。
@@ -677,7 +677,10 @@ Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）�
 | `server/discovery/mobile-import.mjs` | 语义映射器：语义表、参数规范化、不支持步骤的保留与标记、UID 阶梯、导入报告 |
 | `server/discovery/mobile-flow-import.mjs` | 文件级入口：约定目录的发现、路径校验、单文件与全项目导入 |
 | `server/paths.mjs` | `sha` 与 `isSubpath` 的新家（拆出以断开 ATS-602 引入的循环依赖） |
-| `tests/mobile-import.test.mjs` | UT-MOB-200..311（80 例）：解析、映射、不支持步骤的保留、UID 稳定性、目录集成、第 1 轮复核的 14 个反例 |
-| `tests/mobile-import-it.test.mjs` | IT-ATS602-API-001..011（11 例）：真实 HTTP 下的目录、导入报告、UID 跨重启稳定、改标题经注册表认回、重复 `@TC-` 跨引擎、可信项目保留移动端用例 |
+| `tests/mobile-import.test.mjs` | UT-MOB-200..316（85 例）：解析、映射、不支持步骤的保留、UID 稳定性、目录集成、复核的 14 个反例与 3 个编辑序列（跨引擎保留 token、复制后编辑、删除后同指纹新用例） |
+| `tests/mobile-import-it.test.mjs` | IT-ATS602-API-001..014（14 例）：真实 HTTP 下的目录、导入报告、UID 跨重启稳定、改标题经注册表认回、重复 `@TC-` 跨引擎、可信项目保留移动端用例、丢掉的 token 不经注册表发回、复制后编辑不重复、可信项目删除后不复用 UID |
+| `tools/ats602-probes/probe-round1-counterexamples.mjs`、`probe-round1-counterexamples-e2e.mjs` | 复核探针（逐字节保留）：14 个反例，进程内与真实 Bridge 两种 |
+| `tools/ats602-probes/probe-round2-counterexamples.mjs`、`probe-round2-counterexamples-e2e.mjs`、`probe-round2-reader.mjs` | 复核探针（逐字节保留）：N1/N2-cross/N3 三个编辑序列，进程内、真实 Bridge（trusted 与 untrusted 两种模式）与读取器边界 |
+| `tools/ats602-probes/collect-evidence.sh` | 证据采集脚本：11 份日志写入 `docs/evidence/ATS-602/`，每份头部写明所描述的树 |
 | `tools/ats602-probes/probe-mobile-import.mjs` | 契约探针：把映射规则并排展示给人读 |
 | `tools/update_wbs_ats602.py` | WBS 行的同步脚本（只写 ATS-602 行） |

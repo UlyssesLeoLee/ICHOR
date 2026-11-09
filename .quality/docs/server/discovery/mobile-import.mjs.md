@@ -2,7 +2,7 @@
 
 Source: `server/discovery/mobile-import.mjs`
 
-Source-SHA256: `pending-until-implementation`
+Source-SHA256: `40f7b280cfb5293118a2114e54ddb941aecfd2d53943e3ac97aabe89081c5a2e`
 
 ## Responsibility
 
