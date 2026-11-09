@@ -9284,6 +9284,39 @@
     "level": "IT"
   },
   {
+    "id": "IT-ATS107-001",
+    "req": "FR-009",
+    "category": "功能",
+    "title": "Bridge 经 HTTP 跑真实夹具并报 1 PASS 1 FAIL",
+    "input": "真实 Bridge + examples/real-browser-fixture（npm ci 装出的固定版本引擎）",
+    "expected": "summary 报 passed=1、failed=1、total=2",
+    "evidence": "node --test tests/ats107-real-browser-it.test.mjs",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-ATS107-002",
+    "req": "FR-009",
+    "category": "功能",
+    "title": "该次运行真的启动了 Chromium",
+    "input": "同上；读运行目录里的 trace.zip",
+    "expected": "trace.zip 里有 <n>-trace.trace，其 context-options 事件的 browserName 为 chromium",
+    "evidence": "node --test tests/ats107-real-browser-it.test.mjs",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-ATS107-003",
+    "req": "FR-014",
+    "category": "功能",
+    "title": "失败用例的错误信息是引擎自己的全文",
+    "input": "同上；读 summary 里失败用例的 error",
+    "expected": "去 ANSI 后含引擎的断言文本，且含 Received: 与 Call log:（截断的消息不含）",
+    "evidence": "node --test tests/ats107-real-browser-it.test.mjs",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
     "id": "IT-CP-SETUP",
     "req": "NFR-011",
     "category": "正常",
@@ -10235,17 +10268,17 @@
     "category": "功能",
     "title": "错误信息与 CLI 一致",
     "input": "故意失败的用例",
-    "expected": "Bridge 报出的失败原因就是引擎自己的错误信息（含引擎写的断言文本），Bridge 不丢弃也不改写",
+    "expected": "Bridge 报出的失败原因与 CLI 的错误信息逐字相同（去 ANSI 后全文相等），不是它的一部分",
     "evidence": "node tools/ats107-probes/st-ats107.mjs",
     "status": "PASS",
     "level": "ST"
   },
   {
     "id": "ST-042",
-    "req": "FR-009",
+    "req": "TOOL",
     "category": "可靠性",
-    "title": "对账逻辑非恒真",
-    "input": "把 Bridge 应报的结果做 10 种变异（改判定、换序、丢错误、丢用例、改计数器等）",
+    "title": "对账逻辑非恒真（探针自检）",
+    "input": "把 Bridge 应报的结果做 13 种变异（改判定、换序、丢错误、丢用例、改计数器、截断错误信息等）",
     "expected": "每种变异都必须被对账逻辑抓住；未变异的真实结果必须被接受",
     "evidence": "node tools/ats107-probes/mutation-check.mjs",
     "status": "PASS",
@@ -10253,12 +10286,34 @@
   },
   {
     "id": "ST-043",
-    "req": "FR-009",
+    "req": "TOOL",
     "category": "功能",
-    "title": "夹具依赖由 lockfile 固定",
+    "title": "夹具依赖由 lockfile 固定（夹具自检）",
     "input": "examples/real-browser-fixture/package.json + package-lock.json",
     "expected": "版本为精确固定（无 ^/~）；lockfile 已入库；npm ci 装出的版本与固定值一致",
     "evidence": "node tools/ats107-probes/st-ats107.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-044",
+    "req": "TOOL",
+    "category": "可靠性",
+    "title": "「真实浏览器」检查能拦住不启动浏览器的夹具（探针自检）",
+    "input": "把夹具的两条用例改成不取 page（因此不启动浏览器）",
+    "expected": "真实夹具被接受；变异夹具被拒绝（trace 里没有浏览器上下文）",
+    "evidence": "node tools/ats107-probes/no-browser-control.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-045",
+    "req": "TOOL",
+    "category": "可靠性",
+    "title": "产品截断错误信息时被探针抓住（产品变异负控）",
+    "input": "在产品源码副本上截断 Bridge 报出的错误信息",
+    "expected": "探针在 ST-5 上失败；未变异的产品仍通过",
+    "evidence": "node tools/ats107-probes/product-mutation-control.sh",
     "status": "PASS",
     "level": "ST"
   },

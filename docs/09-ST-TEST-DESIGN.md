@@ -1,6 +1,6 @@
 # ATS-ST-001 システムテスト設計書
 
-> 设计总数：49；已执行通过：25；待执行/未实现：24。**PENDING 不是测试通过**。
+> 设计总数：51；已执行通过：27；待执行/未实现：24。**PENDING 不是测试通过**。
 
 系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。
 
@@ -37,9 +37,11 @@
 |ST-033|NFR-009|隐私|无授权的外传请求被拒|清空授权后触发外传|请求被拒并给出 EGRESS_CONSENT_REQUIRED|node tools/ats402-probes/ui-e2e.mjs 结果 + 接口日志（docs/evidence/ATS-402/ui/）|PASS|
 |ST-039|FR-009|功能|真实浏览器至少 1 PASS 1 FAIL|examples/real-browser-fixture：一条离线通过用例 + 一条故意失败用例，@playwright/test 1.65.0 精确固定，lockfile 入库|真实 Chromium 上跑出至少 1 条 PASS 与 1 条 FAIL；Bridge 报 1 passed / 1 failed|node tools/ats107-probes/st-ats107.mjs|PASS|
 |ST-040|FR-009|功能|结果与 CLI 一致|同一夹具分别经 Playwright CLI 直跑与经 Bridge 跑|两条用例的逐条判定与 CLI 完全相同；计数器一致|node tools/ats107-probes/st-ats107.mjs|PASS|
-|ST-041|FR-014|功能|错误信息与 CLI 一致|故意失败的用例|Bridge 报出的失败原因就是引擎自己的错误信息（含引擎写的断言文本），Bridge 不丢弃也不改写|node tools/ats107-probes/st-ats107.mjs|PASS|
-|ST-042|FR-009|可靠性|对账逻辑非恒真|把 Bridge 应报的结果做 10 种变异（改判定、换序、丢错误、丢用例、改计数器等）|每种变异都必须被对账逻辑抓住；未变异的真实结果必须被接受|node tools/ats107-probes/mutation-check.mjs|PASS|
-|ST-043|FR-009|功能|夹具依赖由 lockfile 固定|examples/real-browser-fixture/package.json + package-lock.json|版本为精确固定（无 ^/~）；lockfile 已入库；npm ci 装出的版本与固定值一致|node tools/ats107-probes/st-ats107.mjs|PASS|
+|ST-041|FR-014|功能|错误信息与 CLI 一致|故意失败的用例|Bridge 报出的失败原因与 CLI 的错误信息逐字相同（去 ANSI 后全文相等），不是它的一部分|node tools/ats107-probes/st-ats107.mjs|PASS|
+|ST-042|TOOL|可靠性|对账逻辑非恒真（探针自检）|把 Bridge 应报的结果做 13 种变异（改判定、换序、丢错误、丢用例、改计数器、截断错误信息等）|每种变异都必须被对账逻辑抓住；未变异的真实结果必须被接受|node tools/ats107-probes/mutation-check.mjs|PASS|
+|ST-043|TOOL|功能|夹具依赖由 lockfile 固定（夹具自检）|examples/real-browser-fixture/package.json + package-lock.json|版本为精确固定（无 ^/~）；lockfile 已入库；npm ci 装出的版本与固定值一致|node tools/ats107-probes/st-ats107.mjs|PASS|
+|ST-044|TOOL|可靠性|「真实浏览器」检查能拦住不启动浏览器的夹具（探针自检）|把夹具的两条用例改成不取 page（因此不启动浏览器）|真实夹具被接受；变异夹具被拒绝（trace 里没有浏览器上下文）|node tools/ats107-probes/no-browser-control.mjs|PASS|
+|ST-045|TOOL|可靠性|产品截断错误信息时被探针抓住（产品变异负控）|在产品源码副本上截断 Bridge 报出的错误信息|探针在 ST-5 上失败；未变异的产品仍通过|node tools/ats107-probes/product-mutation-control.sh|PASS|
 |ST-025|NFR-010|单实例|同一数据目录只允许一个 Bridge|真实 Bridge：A 服务时启动 B；两个 Bridge 同时启动|B 退出码 1 并报持有者；同时启动恰一个服务|node tools/ats207-probes/st-ats207.mjs|PASS|
 |ST-026|NFR-010|恢复|崩溃后损坏文件的处理|零长度 state.json；损坏的 metadata.db|前者拒绝启动且文件不变；后者隔离并由 state.json 重建，历史完整|node tools/ats207-probes/st-ats207.mjs|PASS|
 |ST-027|FR-016|功能|质量概览：失败/重试/取消分开计数|真实 Bridge + 真实 Playwright：一次真实失败运行、一次真实重试后通过、一次真实停止|失败计入失败桶、重试用例计入 flaky 桶、停止的运行计入 cancelled 且不计入失败与通过率|node tools/ats216-probes/st-ats216.mjs|PASS|

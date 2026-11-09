@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：194；已执行通过：180；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：197；已执行通过：183；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -145,6 +145,9 @@
 |IT-EVD-108|NFR-004|完整性|清理删证据但保留 Run 元数据|停掉 bridge 后按 0 天清理|证据消失；state.json 里的 run 记录逐字段不变；事件日志与清单仍在|node --test|PASS|
 |IT-EVD-109|NFR-004|完整性|清理后校验如实报告缺失|清理后再执行 verify|退出码 1 并报出缺失的文件|node --test|PASS|
 |IT-EVD-110|NFR-005|清理|证据 IT 临时目录清理|结束 IT suite|临时目录删除|node --test|PASS|
+|IT-ATS107-001|FR-009|功能|Bridge 经 HTTP 跑真实夹具并报 1 PASS 1 FAIL|真实 Bridge + examples/real-browser-fixture（npm ci 装出的固定版本引擎）|summary 报 passed=1、failed=1、total=2|node --test tests/ats107-real-browser-it.test.mjs|PASS|
+|IT-ATS107-002|FR-009|功能|该次运行真的启动了 Chromium|同上；读运行目录里的 trace.zip|trace.zip 里有 <n>-trace.trace，其 context-options 事件的 browserName 为 chromium|node --test tests/ats107-real-browser-it.test.mjs|PASS|
+|IT-ATS107-003|FR-014|功能|失败用例的错误信息是引擎自己的全文|同上；读 summary 里失败用例的 error|去 ANSI 后含引擎的断言文本，且含 Received: 与 Call log:（截断的消息不含）|node --test tests/ats107-real-browser-it.test.mjs|PASS|
 |IT-CP-SETUP|NFR-011|正常|本地 Bridge 与控制面以纯 Node 进程并行启动|随机端口、隔离数据目录、dev-static 令牌|两者 health=200，取得本地会话 token|node --test|PASS|
 |IT-CP-001|FR-028|正常|控制面无 Tauri 即可使用|GET /cp/v1/health 与 /cp/v1/contract|200，tauriRequired=false|node --test|PASS|
 |IT-CP-002|NFR-002|安全|本地会话 Token 不是控制面凭据|X-ATS-Token、Bearer 本地 Token、二者并带|401 REMOTE_UNAUTHENTICATED|node --test|PASS|

@@ -22,6 +22,13 @@ export PYTHONIOENCODING=utf-8
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT" || exit 1
 
+# The NATIVE root: native Windows programs (node, git, python) do NOT
+# understand an MSYS path. Handing them "/c/Users/..." makes them resolve it
+# as the literal directory "C:\c\Users\...", which is how the scratch
+# directory used to end up outside the tree it was meant to be in. Every
+# path that is handed to a native program therefore goes through `pwd -W`.
+NATIVE_ROOT="$(cd "$ROOT" && pwd -W)"
+
 OUT="docs/evidence/ATS-107"
 mkdir -p "$OUT"
 
@@ -54,7 +61,7 @@ run() {
 
 want() {
   # want <n>: is step n selected (ATS107_STEPS, default: every step)?
-  case ",${ATS107_STEPS:-1,2,3,4,5,6,7}," in *",$1,"*) return 0 ;; *) return 1 ;; esac
+  case ",${ATS107_STEPS:-1,2,3,4,5,6,7,8,9}," in *",$1,"*) return 0 ;; *) return 1 ;; esac
 }
 
 if want 1; then
@@ -86,20 +93,55 @@ if want 2; then
 # The probe starts a real Bridge on a free port, runs the fixture through it,
 # runs the SAME fixture directly through the Playwright CLI, and compares the
 # two verdicts, the counters and the error messages.
+#
+# The scratch directory is handed to node as a NATIVE path: node does not
+# understand an MSYS path, and would otherwise resolve "/c/Users/..." as the
+# literal directory "C:\c\Users\..." -- outside the tree, and never cleaned
+# up by the `rm -rf` below.
 SCRATCH="${ATS107_SCRATCH:-$ROOT/.ats107-evidence-scratch}"
 rm -rf "$SCRATCH"
 mkdir -p "$SCRATCH"
-header 02-real-browser-probe.log "the acceptance criterion: at least 1 PASS and 1 FAIL on Chromium, results and error messages consistent with the CLI (ST-039..041, ST-043)" \
-  "node tools/ats107-probes/st-ats107.mjs . $SCRATCH"
-run 02-real-browser-probe.log node tools/ats107-probes/st-ats107.mjs . "$SCRATCH"
+NATIVE_SCRATCH="$(cd "$SCRATCH" && pwd -W)"
+header 02-real-browser-probe.log "the acceptance criterion: at least 1 PASS and 1 FAIL on Chromium, results and error messages consistent with the CLI (ST-039..041)" \
+  "node tools/ats107-probes/st-ats107.mjs . <native scratch dir>"
+run 02-real-browser-probe.log node tools/ats107-probes/st-ats107.mjs . "$NATIVE_SCRATCH"
 rm -rf "$SCRATCH"
 fi
 
 if want 3; then
 # --- 3. the negative control: the reconciliation is not vacuous --------------
-header 03-mutation-control.log "10 mutations of the Bridge's own result projection; every one must be caught, and the honest result must be accepted (ST-042)" \
+header 03-mutation-control.log "13 mutations of the Bridge's own result projection; every one must be caught, and the honest result must be accepted (ST-042)" \
   "node tools/ats107-probes/mutation-check.mjs"
 run 03-mutation-control.log node tools/ats107-probes/mutation-check.mjs
+fi
+
+if want 8; then
+# --- 8. the second-layer negative controls (the REAL chain) -----------------
+# Layer 1 (step 3) proves the comparison LOGIC has teeth. These two prove the
+# probe rejects a real defect on the real chain:
+#   - a fixture that never launches a browser (the "real browser" check);
+#   - a product that truncates the error message it reports.
+header 08-no-browser-control.log "the real-browser check must reject a fixture that never launches a browser (ST-044)" \
+  "node tools/ats107-probes/no-browser-control.mjs"
+run 08-no-browser-control.log node tools/ats107-probes/no-browser-control.mjs
+
+header 09-product-mutation-control.log "the probe must reject a product that truncates the error message (ST-045)" \
+  "bash tools/ats107-probes/product-mutation-control.sh"
+PM_SCRATCH="${ATS107_PM_SCRATCH:-$ROOT/.ats107-product-mutation-evidence}"
+rm -rf "$PM_SCRATCH"
+mkdir -p "$PM_SCRATCH"
+run 09-product-mutation-control.log env ATS107_SCRATCH="$(cd "$PM_SCRATCH" && pwd -W)" bash tools/ats107-probes/product-mutation-control.sh
+rm -rf "$PM_SCRATCH"
+fi
+
+if want 9; then
+# --- 9. the INTEGRATION view of the same criterion --------------------------
+# The ST probe reads the engine's report with its own walker; these cases read
+# the Bridge's own API answers, so a bug in the product's projection cannot
+# hide behind the engine's report.
+header 10-real-browser-it.log "the same criterion from the API's side: a real Bridge over HTTP running the real fixture (IT-ATS107-001..003)" \
+  "node --test tests/ats107-real-browser-it.test.mjs"
+run 10-real-browser-it.log node --test tests/ats107-real-browser-it.test.mjs
 fi
 
 if want 4; then
@@ -154,11 +196,35 @@ header 07-baseline-regression.log "baseline regression: npm test / node --check 
   # The npm test suite (tests/*.test.mjs) at concurrency 2: unbounded parallelism
   # starts every Bridge-spawning file at once and loaded hosts miss the
   # readiness window (the same setting as .quality/qguard.json).
-  echo "--- npm test suite: node --test --test-concurrency=2 tests/*.test.mjs ---"; node --test --test-concurrency=2 tests/*.test.mjs 2>&1 | grep -E '^(not ok|# (tests|suites|pass|fail|cancelled|skipped|todo))|^✖|^ℹ (tests|suites|pass|fail|cancelled|skipped|todo)'; echo "exit code   : ${PIPESTATUS[0]}"; echo ""; echo "NOTE: 4 ATS-203 failures (ST-ATS203-002, ST-ATS203-004, IT-ATS203-006, ST-ATS-203-006) are PRE-EXISTING, not caused by ATS-107. They were reproduced with the ATS-107 changes stashed, i.e. on the baseline content of 0e34299 (28 tests, 24 pass, the same 4 fail). They belong to ATS-203 (the authoritative-discovery index) and are not in this task's scope."; echo ""
-  echo "--- node --check ---"; node --check server/index.mjs && echo "OK"; echo ""
-  echo "--- port audit (ATS-101 scenario D) ---"; node tools/ats101-probes/scenario-d-port-audit.mjs 2>&1 | tail -16; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
-  echo "--- ADR citations ---"; python tools/check_adr_citations.py 2>&1 | tail -6; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
-  echo "--- dependency manifest ---"; node tools/gen_dep_manifest.mjs --check 2>&1 | tail -2; echo "exit code   : ${PIPESTATUS[0]}"; echo ""
+  echo "--- npm test suite: node --test --test-concurrency=2 tests/*.test.mjs ---"; node --test --test-concurrency=2 tests/*.test.mjs 2>&1 | grep -E '^(not ok|# (tests|suites|pass|fail|cancelled|skipped|todo))|^✖|^ℹ (tests|suites|pass|fail|cancelled|skipped|todo)'; echo "exit code   : ${PIPESTATUS[0]}"; echo "";
+  # The ATS-203 failures are attributed by MEASUREMENT, not by assertion: the
+  # same three files are run again on the BASELINE tree (the commit this
+  # branch started from), with the engine version printed on both sides. If
+  # the baseline fails the same way, the failures are pre-existing.
+  echo "--- the ATS-203 files on THIS tree and on the BASELINE tree ---";
+  ATS203_FILES="tests/ats203-index-api.test.mjs tests/ats203-index-it.test.mjs tests/ats203-regression-dataset.test.mjs"
+  BASELINE="${ATS107_BASELINE:-0e34299}"
+  echo "baseline commit : $BASELINE"
+  echo "engine (this tree)   : $(node -e "try{console.log(require('$NATIVE_ROOT/examples/sample-playwright/node_modules/@playwright/test/package.json').version)}catch(e){console.log('<not installed in this tree>')}")"
+  echo "";
+  echo "--- this tree ---";
+  node --test $ATS203_FILES 2>&1 | grep -E '^(✖|ℹ (tests|pass|fail|skipped))' ; echo "exit code   : ${PIPESTATUS[0]}"; echo "";
+  echo "--- the baseline tree ($BASELINE) ---";
+  BASE_DIR="$ROOT/.ats107-baseline-tree"
+  rm -rf "$BASE_DIR"; mkdir -p "$BASE_DIR"
+  git archive "$BASELINE" | tar -x -C "$BASE_DIR"
+  ( cd "$BASE_DIR" && node --test $ATS203_FILES 2>&1 | grep -E '^(✖|ℹ (tests|pass|fail|skipped))' ); echo "exit code   : ${PIPESTATUS[0]}"
+  echo "engine (baseline tree): $(node -e "try{console.log(require('$BASE_DIR/examples/sample-playwright/node_modules/@playwright/test/package.json').version)}catch(e){console.log('<not installed in the baseline tree>')}")"
+  rm -rf "$BASE_DIR"
+  echo "";
+  echo "NOTE: the two blocks above are the MEASURED comparison. The ATS-203"
+  echo "      failures belong to ATS-203 (the authoritative-discovery index),"
+  echo "      not to this task; this task neither caused nor fixed them."
+  echo "";
+  echo "--- node --check ---"; node --check server/index.mjs && echo "OK"; echo "";
+  echo "--- port audit (ATS-101 scenario D) ---"; node tools/ats101-probes/scenario-d-port-audit.mjs 2>&1 | tail -16; echo "exit code   : ${PIPESTATUS[0]}"; echo "";
+  echo "--- ADR citations ---"; python tools/check_adr_citations.py 2>&1 | tail -6; echo "exit code   : ${PIPESTATUS[0]}"; echo "";
+  echo "--- dependency manifest ---"; node tools/gen_dep_manifest.mjs --check 2>&1 | tail -2; echo "exit code   : ${PIPESTATUS[0]}"; echo "";
 } >> "$OUT/07-baseline-regression.log" 2>&1
 fi
 
