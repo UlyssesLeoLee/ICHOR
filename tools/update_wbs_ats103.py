@@ -106,7 +106,7 @@ def main():
         'ATS-103': '交付物为验证与证据，另含一处 CORS 修复：tools/ats103-probes/verify-export-and-proxy.mjs '
                    '25/25 项通过（静态导出产物自洽、导出目录无服务端路由产物、'
                    'Bridge 在 / 提供该导出并带 connect-src CSP、会话/项目/运行三类操作实测成功、'
-                   '真实运行 1 PASS/1 FAIL 共 2 例并采集 27 个产物）；'
+                   '真实运行 1 PASS/1 FAIL 共 2 例并采集 28 个产物）；'
                    'tools/ats103-probes/ui-smoke.mjs 在真实 headless Chromium 里驱动导出的那一页 8/8 通过'
                    '（会话→添加项目→运行到终态，console error 为 0）。'
                    '「API 代理」在 output:export 下的真实形态是导出页到 Bridge 的跨源直连'

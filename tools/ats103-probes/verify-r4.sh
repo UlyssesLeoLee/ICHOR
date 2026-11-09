@@ -77,12 +77,31 @@ fi
 # PLAYWRIGHT_NOT_INSTALLED and the probe reports a failure that says nothing
 # about the export.
 if [ -d examples/sample-playwright ]; then
-  npm --prefix examples/sample-playwright ci --no-audit --no-fund > /dev/null 2>&1
+  # `npm --prefix <dir> install` REWRITES <dir>/package.json: it resolves the
+  # prefix against the parent project and adds the parent's package as a
+  # `file:` dependency. Measured on this tree:
+  #
+  #   npm --prefix examples/sample-playwright install
+  #     -> examples/sample-playwright/package.json gains
+  #        "dependencies": {"ai-test-studio": "file:../.."}
+  #
+  # That is a TRACKED file, so the install dirties the tree the verification is
+  # measuring -- and the dirty tree is what the manifest check then rejects.
+  # Running npm with the fixture as the working directory installs the same
+  # packages and leaves package.json untouched, so the cwd is used here.
+  (
+    cd examples/sample-playwright || exit 1
+    npm ci --no-audit --no-fund > /dev/null 2>&1
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+      # The fixture's lock file is gitignored, so a clean clone has none and
+      # `npm ci` cannot run. `npm install` creates it.
+      npm install --no-audit --no-fund > /dev/null 2>&1
+      rc=$?
+    fi
+    exit "$rc"
+  )
   EX_RC=$?
-  if [ "$EX_RC" -ne 0 ]; then
-    npm --prefix examples/sample-playwright install --no-audit --no-fund > /dev/null 2>&1
-    EX_RC=$?
-  fi
   echo "STEP_EXIT=$EX_RC"
   if [ "$EX_RC" -ne 0 ]; then
     FAILED=1

@@ -22,7 +22,7 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 | Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（**14056 字节**），带 CSP（`connect-src` 含 `http://127.0.0.1:4577`）；带哈希的 chunk 亦可取回（HTTP 200） |
 | Bridge 会话操作 | **PASS** | `GET /api/session` 返回 token；**异源 Origin → 403**、**无 token → 401** |
 | Bridge 项目操作 | **PASS** | `POST /api/projects` → 201；`GET /api/projects` → 200；`GET /api/projects/{id}/tests` → 2 个用例 |
-| Bridge 运行操作 | **PASS** | `POST /api/projects/{id}/run` → **202**，随后到达终态 `failed`，**真实结果 1 PASS / 1 FAIL / 共 2 例**，采集 **27 个**证据产物（含 `report.json`、HTML 报告、每例 `trace.zip`）；API 报告的 summary 与磁盘上的 `report.json` **逐项一致** |
+| Bridge 运行操作 | **PASS** | `POST /api/projects/{id}/run` → **202**，随后到达终态 `failed`，**真实结果 1 PASS / 1 FAIL / 共 2 例**，采集 **28 个**证据产物（含 `report.json`、HTML 报告、每例 `trace.zip`）；API 报告的 summary 与磁盘上的 `report.json` **逐项一致** |
 | **ST：真实浏览器驱动导出的 UI** | **PASS** | headless Chromium 打开导出的页面，页面自身的 `/api/session` → 200；点「添加项目」→ toast「项目添加成功」、目录列出 2 个用例；点「运行全部」→ 202 → 终态 `failed`（2 例 / 28 产物）；**console error 0 条、无失败请求**；同源与白名单跨源（`127.0.0.1:3000`）**两种来源的 UI 流程都跑通**（跨源那一遍只有「基址解析」这条断言不适用，见 §3.3.1） |
 
 **本次交付没有改动产品代码。** `apps/studio/next.config.mjs`、`app/page.tsx`、`lib/api.ts` 与 `server/index.mjs` 全部保持 ATS-102 交付时的状态——实测证明这套配置**已经**满足本任务的完成定义（静态导出可用、路由可用、Bridge 三类操作可用）。本任务交付的是**可复跑的验证脚本 + 证据 + 结论文档**，以及两处**它发现的真实缺陷**（见 §4）。
@@ -177,7 +177,7 @@ PASS  POST /api/projects/{id}/run is accepted (202)  --  HTTP 202
 PASS  the accepted run reaches a passed/failed terminal state  --  status=failed
 PASS  the terminal run reports a per-case result set  --  2 cases
 PASS  the terminal run summary matches the on-disk report.json  --  summary and report.json agree (1/1/0/0/2)
-PASS  the terminal run collected artefacts  --  27 artefacts
+PASS  the terminal run collected artefacts  --  28 artefacts
 PASS  the collected artefacts include report.json  --  1 report.json entries
 PASS  GET /api/runs lists the run history  --  1 runs
 PASS  the probe executed every registered check  --  25/25 checks executed
@@ -198,7 +198,7 @@ PASS  the page's own session call succeeds  --  GET /api/session -> 200, GET /ap
 PASS  the page's API requests go to the host its own location implies  --  page location host: localhost:4577; API request hosts: localhost:4577
 PASS  adding a project through the UI registers it and lists the catalog  --  toast=项目添加成功：未修改原仓库, catalog items=2
 PASS  running through the UI reaches a terminal state  --  toast=已提交到本地 Playwright Runner, status=failed
-PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 27 artefacts
+PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 28 artefacts
 PASS  the page produced no console error and no failed request  --  console errors: none; failed requests: none
 PASS  the probe executed every registered check  --  8/8 checks executed
 
@@ -256,7 +256,7 @@ $ bash tools/ats103-probes/mutation-evidence.sh
 | `首页响应正常 @REQ-001` | **passed** | `page.setContent` + `toHaveText('hello')` |
 | `导航入口正常 @REQ-002` | **failed** | 故意断言不匹配，`element(s) not found` |
 
-采集到的 27 个证据产物包含：`report.json`、HTML 报告（`html/index.html`）、每例的 `trace.zip`、以及 `results/**/error-context.md`。
+采集到的 28 个证据产物包含：`report.json`、HTML 报告（`html/index.html`）、每例的 `trace.zip`、以及 `results/**/error-context.md`。
 
 > 这次运行同时**实测确认了 ATS-101 的阻断项 B-01 已不复现**：Bridge 传给 CLI 的参数向量是 `--reporter=line,json,html --output <dir> --trace on --workers 1`，全部是 `playwright test --help` 声明过的选项（ATS-301 的探针式构造），真实运行产出了真实 summary 与真实产物——这正是 B-01 修复后的应有形态。
 
@@ -469,7 +469,7 @@ GET /_not-found/   -> 404  同上
 1. **Next.js 静态导出未在 macOS / Linux 上实测**。本轮全部实测在 Windows 11 完成。Next.js 16 的静态导出与平台无关，但**未实测**不等于已验证。
 2. **未在真实 Tauri 桌面壳内实测**（`cargo tauri dev`）。ATS-104 的交付范围；且 B-02（Tauri 构建）在 ATS-102 结束时仍未关闭，仓库仍缺 `src-tauri/icons/icon.ico`。
 3. **未做人工可用性评测**。本轮的 ST 探针是**脚本驱动**的真实浏览器（会话 → 添加项目 → 运行到终态、console error 为 0），但**无障碍/键盘/加载态的人工评测**仍属 ATS-111。
-4. **Bridge 的运行结果依赖宿主机内存**。本轮曾因宿主机仅剩 ~1.2 GB 可用内存导致 Playwright 子进程 OOM（§4.1）。同样的运行在内存充裕时**实测通过**（1 PASS / 1 FAIL / 27 产物）。**该敏感性本身未被量化**——没有测出「需要多少可用内存才稳定」。
+4. **Bridge 的运行结果依赖宿主机内存**。本轮曾因宿主机仅剩 ~1.2 GB 可用内存导致 Playwright 子进程 OOM（§4.1）。同样的运行在内存充裕时**实测通过**（1 PASS / 1 FAIL / 28 产物）。**该敏感性本身未被量化**——没有测出「需要多少可用内存才稳定」。
 5. **ATS-101 阻断项 B-01 的「不复现」结论只覆盖本次这一组参数**（`--reporter/--output/--trace/--workers`，`@playwright/test` 1.64.1）。ATS-301 的参数探针覆盖面更宽（§3.4 末）。
 6. **GitHub Actions 未在真实 runner 上跑过**（沿用 ATS-102 的未验证项 1，ATS-103 未新增 CI 变更）。
 7. **`docs/WBS.xlsx` 的 ATS-103 行状态为「待审核」而非「已完成」**。本任务**不自行置 done**，工作簿里的 `已完成` 由复核人写入（`tools/update_wbs_ats103.py --status 已完成`）。同理「总览」的 `已完成项` 缓存值当前仍为 **1**（本任务不计入）。
@@ -477,7 +477,7 @@ GET /_not-found/   -> 404  同上
 
 ## 7. 冻结声明
 
-- 本文件描述的是 ATS-103 交付后的状态：分支 `agent/m2/seikoist-148`。
+- 本文件描述的是 ATS-103 交付后的状态：分支 `agent/m3/seikoist-148`（基线起点 `agent/m2/seikoist-148`）。
 - **未验证项一律如实标注**，不得计入通过。
 - 本文件所列命令与输出均可在 `docs/evidence/ATS-103/` 中找到对应日志，并可用 `node tools/ats103-probes/verify-export-and-proxy.mjs`、`node tools/ats103-probes/ui-smoke.mjs`、`bash tools/ats103-probes/mutation-evidence.sh` 重跑。
 - 本文件的任何修改必须附新的可执行证据（命令 + 实际输出）。

@@ -1,6 +1,6 @@
 === ATS-103 evidence: ADR citation check ===
-date      : 2026-11-09T07:17:34Z (UTC)
-commit    : 950aa6d38a660b2630607241905d9e31217d1393
+date      : 2026-11-09T09:18:36Z (UTC)
+commit    : 99876de3cdf9dea4bbadf01036bf72fc046a9259
 node      : v22.23.4
 npm       : 10.9.9
 command   : python tools/check_adr_citations.py
@@ -10,7 +10,7 @@ command   : python tools/check_adr_citations.py
   apps/studio/lib/api.ts           38
   apps/studio/public/fallback.html 3
   server/core.mjs                  1359, 781
-  server/index.mjs                 1143, 1172, 1173, 250, 56, 572-602, 586, 604, 615, 808
+  server/index.mjs                 1168, 1197, 1198, 255, 59, 591-621, 605, 623, 634, 827
   src-tauri/Cargo.toml             11
   src-tauri/src/lib.rs             19
   start.ps1                        8-9
@@ -24,19 +24,19 @@ ok   start.ps1:9
 ok   tools/generate_test_docs.py:416
 ok   tools/generate_test_docs.py:422
 ok   tools/generate_test_docs.py:541
-ok   server/index.mjs:56
-ok   server/index.mjs:250
-ok   server/index.mjs:572
-ok   server/index.mjs:586
-ok   server/index.mjs:604
-ok   server/index.mjs:615
-ok   server/index.mjs:808
-ok   server/index.mjs:1143
-ok   server/index.mjs:1172
-ok   server/index.mjs:1173
+ok   server/index.mjs:59
+ok   server/index.mjs:255
+ok   server/index.mjs:591
+ok   server/index.mjs:605
+ok   server/index.mjs:623
+ok   server/index.mjs:634
+ok   server/index.mjs:827
+ok   server/index.mjs:1168
+ok   server/index.mjs:1197
+ok   server/index.mjs:1198
 ok   server/core.mjs:781
 ok   server/core.mjs:1359
-ok   server/index.mjs:572-602 (cancelRun extent)
+ok   server/index.mjs:591-621 (cancelRun extent)
 ok   apps/studio/app/page.tsx:189 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:38 (the API base URL -- covered by the ATS-101 port audit)
 ok   apps/studio/public/fallback.html:3 (the portable UI footer text -- covered by the ATS-101 port audit)
