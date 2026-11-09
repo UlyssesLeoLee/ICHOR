@@ -182,14 +182,15 @@ P0 实现是单项目至多一个并发 run；不同项目可同时执行。`run
 
 ```text
 node <project>/node_modules/@playwright/test/cli.js test
-  --reporter=line,json,html
-  --output <ATS_DATA_DIR>/runs/<run>/results
-  --trace on --screenshot only-on-failure
-  --video retain-on-failure --workers 1
+  [--reporter=line,json,html]
+  [--output <ATS_DATA_DIR>/runs/<run>/results]
+  [--trace on] [--workers 1]
   [testFile]
 ```
 
-环境 `PLAYWRIGHT_JSON_OUTPUT_FILE=<run>/report.json`、`PLAYWRIGHT_HTML_OUTPUT_DIR=<run>/html`、`PLAYWRIGHT_HTML_OPEN=never`。CLI 仅取自项目本地路径，不经 `npm exec`/`npx` 自动下载。Reporter 配置可能与目标工程现有 reporter 规则交互，ST 必须使用真实项目验证；不保证任意自定义项目可零配置运行。
+每个选项只在**已安装 CLI 的 `--help` 声明了它**时才传入（ATS-301，`docs/18-RUNNER-ADAPTER-CONTRACT.md`）；`--help` 读不出选项时使用上述四个选项的保守集合。CLI 没有 `--screenshot`/`--video` 选项，截图与视频由被测项目自己的 `use` 配置决定。环境 `PLAYWRIGHT_JSON_OUTPUT_FILE=<run>/report.json`、`PLAYWRIGHT_HTML_OUTPUT_DIR=<run>/html`、`PLAYWRIGHT_HTML_OPEN=never`，其余为 ATS-212 的封口环境。CLI 仅取自项目本地路径，不经 `npm exec`/`npx` 自动下载。
+
+**运行前预检与参数安全基线（ATS-106）**：spawn 之前先做环境预检（配置、本地 CLI、版本 `>=1.58.0 <2.0.0`、Node 版本、Playwright 依赖、浏览器），阻断项使 run 以确定的错误码进入 `error` 且引擎不被拉起；`testFile` 必须通过过滤参数校验，整条向量在返回前按白名单自检；运行请求体只接受 `file`/`capabilities`/`runner`/`env`。细则见 `docs/26-RUNNER-PREFLIGHT.md`。Reporter 配置可能与目标工程现有 reporter 规则交互，ST 必须使用真实项目验证；不保证任意自定义项目可零配置运行。
 
 ## 5. 测试发现及脚本 ID
 
@@ -334,6 +335,12 @@ JSON report 中取 suite/spec/test/results，生成 `summary.total,passed,failed
 | `PATH_OUTSIDE_PROJECT` | 越界或符号链接 | 400 | 阻断、提示安全错误 |
 | `STALE_EDIT_CONFLICT` | 源文件被外部更改 | 409（当前实现） | 提示重新加载并比较 |
 | `PLAYWRIGHT_NOT_INSTALLED...` | 没有项目本地 CLI | 202 Run status=error | 提示项目中安装依赖 |
+| `PLAYWRIGHT_VERSION_UNSUPPORTED` | 预检：CLI 版本不在 `>=1.58.0 <2.0.0` | 202 Run status=error | 显示 `errorHint`（安装受支持版本） |
+| `PLAYWRIGHT_NODE_UNSUPPORTED` | 预检：Node 低于 CLI 的 `engines.node` | 202 Run status=error | 显示 `errorHint` |
+| `PLAYWRIGHT_DEPENDENCY_MISSING` | 预检：Playwright 依赖链不完整 | 202 Run status=error | 显示 `errorHint`（`npm ci`） |
+| `PLAYWRIGHT_CONFIG_REQUIRED`（运行时） | 预检：登记后配置文件被删除 | 202 Run status=error | 显示 `errorHint` |
+| `RUN_PARAMETER_NOT_ALLOWED` | 运行请求体含白名单外字段 | 400 | 拒绝并附 `rejected` 数组 |
+| `INVALID_TEST_FILTER` | 过滤参数像选项、含 `:`/正则元字符/控制字符/`..` | 400 | 阻断 |
 | `PROJECT_ALREADY_RUNNING` | 同项目并发 | 409 | 禁止重复启动 |
 | `INVALID_SESSION` | 没有或错误 token | 401 | 重新访问本地会话 |
 | `ORIGIN_NOT_ALLOWED` | 跨站 | 403 | 阻断 |

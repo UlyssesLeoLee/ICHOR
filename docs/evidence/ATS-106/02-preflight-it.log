@@ -1,0 +1,25 @@
+=== ATS-106 evidence: real Bridge + marker CLIs (IT-PF-SETUP..007) ===
+date        : 2026-11-06T10:32:40Z (UTC)
+commit      : f15876e4754b5109295e6986eaab3d6a0131d8a4
+node        : v24.19.0
+python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command     : node --test --test-reporter=spec tests/preflight-it.test.mjs
+
+✔ IT-PF-SETUP: a Bridge with four registered projects (1142.1891ms)
+✔ IT-PF-001: an unsupported version ends the run in error before spawn (237.6993ms)
+✔ IT-PF-002: a missing Playwright dependency ends the run in error before spawn (233.2922ms)
+✔ IT-PF-003: a config deleted after registration ends the run in error before spawn (430.8387ms)
+✔ IT-PF-004: a complete installation runs, and the preflight is recorded (350.7163ms)
+✔ IT-PF-005: fields outside the run request whitelist are refused, no run is created (78.6985ms)
+✔ IT-PF-006: an option-shaped or regex-shaped filter is refused, no run is created (46.9319ms)
+✔ IT-PF-007: traversal is still refused by the source path check (15.3969ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2686.5519
+exit code   : 0

@@ -2,7 +2,7 @@
 
 Source: `server/index.mjs`
 
-Source-SHA256: `316ad963a76d3cbc81e455b6cb708e92fe6374946d0d21c2e506e9129984cde1`
+Source-SHA256: `60e7f6ea4fa3a1774f05118ba422482b1c1aa8b8ed76e5c7592a5b9e20263f47`
 
 ## Responsibility
 
@@ -16,6 +16,8 @@ The Bridge process: HTTP API, run orchestration and the start-up recovery. This 
 
 The run recovery itself (interrupted runs, event-log reconciliation) is ATS-208's and is unchanged.
 
+The local Bridge HTTP server. ATS-106 touches two places only: the run route `POST /api/projects/:id/run` (request body field whitelist; the `file` filter goes through `assertSafeTestFilter` after `readSource`) and the run lifecycle `startRun()` (Playwright preflight between `run.queued` and `adapter.start()`).
+
 ## Dependencies
 
 - Upstream, from `server/core.mjs`:
@@ -27,6 +29,9 @@ The run recovery itself (interrupted runs, event-log reconciliation) is ATS-208'
   - `ATS_LOCK_WAIT_MS`: how long a starting Bridge waits for a busy lock. Default 0, which means refuse at once.
   - `ATS_LOCK_VERIFY_MS`: the holder-check interval. Default 5000 ms, floor 50.
 - Downstream: `src-tauri/src/lib.rs` starts this process. `tests/instance-lock-it.test.mjs`, `tests/migrate-regressions.test.mjs` (UT-MIG-REG-014/015) and `tools/ats207-probes/st-ats207.mjs` drive it as a real process.
+
+- Upstream (new): `preflightPlaywright` from `server/adapters/playwright-preflight.mjs`, `assertSafeTestFilter` from `server/adapters/playwright-cli.mjs`.
+- Downstream: the run API consumers (`apps/studio`, `apps/studio/public/fallback.html`), `tests/preflight-it.test.mjs`.
 
 ## Public Contract
 
@@ -59,6 +64,10 @@ Start-up order. Every step runs before the HTTP server listens.
 
 Exit codes: 0 on a normal stop; 1 for a refused start (lock held, damaged state, any start-up error) and for a lost lock.
 
+- `POST /api/projects/:id/run` accepts only `file`, `capabilities`, `runner`, `env`; any other key gives `400 { error: 'RUN_PARAMETER_NOT_ALLOWED', rejected: [...] }` before a run is created. An unsafe `file` gives `400 INVALID_TEST_FILTER`.
+- `startRun()` for runner `playwright`: the preflight report is stored on `run.preflight`; when it is not ok the run gets a `run.error` event with `{ error, hint, preflight }`, `status='error'`, `error=<first blocking code>`, `errorHint`, `finishedAt`, and the engine is NOT spawned (no `pid`, no `command`). The HTTP answer stays `202 { run }`.
+- Other runners are not preflighted.
+
 ## Change Notes
 
 ATS-207 adds the following:
@@ -70,3 +79,5 @@ ATS-207 adds the following:
 The refusal message keeps the phrases the existing regression tests and the ATS-201 probes match.
 
 The Tauri shell (`src-tauri/src/lib.rs`) discards the Bridge's stderr and does not use a single-instance plugin. A second desktop window therefore gets its Bridge refused by this check and connects to the first Bridge's port. Showing the refusal in the desktop UI is not part of this change.
+
+ATS-106 adds the whitelist, the filter check and the preflight gate; nothing else in the file changes.

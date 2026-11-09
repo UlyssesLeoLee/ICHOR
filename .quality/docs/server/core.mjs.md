@@ -14,6 +14,8 @@ The Bridge's shared core. This design covers the two sections ATS-207 owns. The 
    - A damaged `state.json` is reported instead of being replaced with an empty state.
    - A damaged SQLite metadata mirror (`metadata.db`, ATS-205) is quarantined at start-up and rebuilt from `state.json`.
 
+Pure functions and local processing of the Bridge. ATS-106 changes `safeRunArgs()` only (the v0.1-compatible vector helper next to `resolvePlaywright`): it passes the output directory under the parameter name `buildPlaywrightArgs` expects (`outputDir`), so the helper no longer throws a `TypeError` when the CLI declares `--output`, and its vector is subject to the ATS-106 assertions. The static discovery section (`walkTests` / `discoverStatic`, ATS-202) is not touched.
+
 ## Dependencies
 
 - Upstream:
@@ -24,6 +26,9 @@ The Bridge's shared core. This design covers the two sections ATS-207 owns. The 
   - `server/index.mjs`: start-up lock, periodic holder check, state load, temp-file clean-up, mirror check.
   - `server/migration/apply.mjs`, `tools/migrate_state.mjs`, `tools/migrate_uids.mjs`: the same lock with the same error code.
   - `tests/instance-lock.test.mjs`, `tests/instance-lock-it.test.mjs`, `tests/migrate-regressions.test.mjs`.
+
+- Upstream: `buildPlaywrightArgs` / `probePlaywrightCli` from `server/adapters/playwright-cli.mjs`.
+- Downstream: callers of `safeRunArgs` (`tests/preflight.test.mjs`).
 
 ## Public Contract
 
@@ -122,6 +127,7 @@ Invariants:
 
 - No two cases of a catalogue share a uid, on either path.
 - A case deleted from a file that the discovery covered does not hand its uid to a later case with the same fingerprint, on either path.
+- `safeRunArgs(project, testFile, output)` returns the vector of `buildPlaywrightArgs({ cli, options, outputDir: output, testFile })`; it throws `PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT` without a CLI and `INVALID_TEST_FILTER` / `INVALID_SOURCE_FILE` / `PATH_OUTSIDE_PROJECT` for a bad filter.
 
 ## Change Notes
 
@@ -135,3 +141,5 @@ ATS-207 hardens the lock that ATS-201/ATS-206 introduced.
   - a `saveState` without fsync, whose temp file was shared by every writer;
   - `loadState` crashing with a raw `SyntaxError` / `TypeError` on a damaged file.
 - **Out of scope:** the migration backup and rollback (`state.json.bak`, the journal) remain ATS-206's. The Tauri shell's own single-instance window handling is not part of this module.
+
+ATS-106 fixes the `output`/`outputDir` parameter mismatch in `safeRunArgs`.

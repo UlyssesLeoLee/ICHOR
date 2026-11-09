@@ -17,6 +17,8 @@ The tests use `node --test`.
 
 **Regression suite.** The existing `tests/migrate-regressions.test.mjs` (UT-MIG-REG-001..015) runs unchanged and pins the lock semantics that the migration tools rely on.
 
+Unit tests in `tests/preflight.test.mjs` call `safeRunArgs` on a fake project whose CLI prints a `--help` that declares `--output`.
+
 ## Test Cases
 
 | Case ID | Input / Setup | Expected Outcome | Test Location |
@@ -48,6 +50,8 @@ The tests use `node --test`.
 | TC-026 | UT-MOB-315: `authoritativeCatalog` with a synthetic listing; a web case and a scenario deleted in discovery 2, same-fingerprint new cases in discovery 3; a retitled scenario | the new cases do not receive the deleted uids; the merged cell drops the deleted entries after discovery 2 and holds one entry per uid with the newest title | `tests/mobile-import.test.mjs` |
 | TC-027 | UT-MOB-312/313/314 and IT-ATS602-API-012/013/014: the explicit token census and the collision rule through `discoverStatic` and the HTTP API | no duplicate uid in any catalogue; see `.quality/test-design/server/discovery/mobile-import.mjs.test.md` | `tests/mobile-import*.test.mjs` |
 | TC-025 | IT-LOCK-001..006, IT-DATA-001..002, IT-WAL-001..002: real Bridge processes (second instance refused while the first serves, simultaneous start, hard kill and takeover with an interrupted run, wait for the lock, taken-over lock stops the Bridge, deleted lock re-acquired, damaged state refused, kill during saves, WAL replay after a kill mid-transaction, damaged mirror rebuilt) | see `.quality/test-design/server/index.mjs.test.md` | `tests/instance-lock-it.test.mjs` |
+| UT-CORE-106-001 | Fake CLI declaring `--output`; `safeRunArgs(project, "tests/a.spec.ts", outDir)` | vector contains `--output <outDir>/results` and ends with `tests/a.spec.ts`; no `TypeError` | `tests/preflight.test.mjs` |
+| UT-CORE-106-002 | `safeRunArgs(project, "-x.spec.ts", outDir)` with the file present | throws `INVALID_TEST_FILTER` | `tests/preflight.test.mjs` |
 
 ## Boundary & Failure Cases
 
@@ -58,6 +62,8 @@ The tests use `node --test`.
 - The WAL test kills the writer while it prints `IN-TX` inside an open transaction, never after a sleep, so the kill point is deterministic.
 - A power cut differs from a process kill: a kill does not drop the OS page cache. So the fsync-before-rename ordering is asserted directly (TC-017), not inferred from the kill tests.
 
+Without a CLI the existing `PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT` is kept.
+
 ## Regression Scope
 
 - `tests/migrate-regressions.test.mjs` (lock semantics used by the migrations).
@@ -65,3 +71,5 @@ The tests use `node --test`.
 - `tests/sqlite-bridge.test.mjs` (mirror retry behaviour).
 - `tests/execution-model-it.test.mjs` (crash recovery to `interrupted`).
 - The full `npm test` at `--test-concurrency=2`.
+
+`tests/core.test.mjs` and the ATS-202 discovery suites.
