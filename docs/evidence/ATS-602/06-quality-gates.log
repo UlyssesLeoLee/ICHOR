@@ -1,6 +1,6 @@
 === ATS-602 evidence: the quality gates (ATS-301 gate + WBS updaters) ===
-tree : c51c4f30584927222e50a5d067a09e9c68b48891
-date : 2026-11-09T08:49:30Z
+tree : 664dcc7ef55fc1c1d05ffe6331f2f9925ba1a0fa
+date : 2026-11-09T08:58:46Z
 
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
 repo root : /d/ICHOR
