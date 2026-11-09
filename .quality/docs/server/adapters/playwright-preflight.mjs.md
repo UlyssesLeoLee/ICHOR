@@ -2,7 +2,7 @@
 
 Source: `server/adapters/playwright-preflight.mjs`
 
-Source-SHA256: `10167d971e2dd11d5e45fa521140fdd006e4a3d3fc60456225fbfed1a7a6eeaf`
+Source-SHA256: `9111f594988f83359bf53d13c185a2e8c2b497adced977df08aa36210073ed42`
 
 ## Responsibility
 
