@@ -125,10 +125,10 @@ function realDriver(capabilities = MOBILE_CAPABILITIES) {
  * was on the device before.
  */
 function installFixture() {
-  const uninstall = spawnSync(avail.adbPath, ['-s', avail.serial, 'uninstall', PACKAGE], {
+  const uninstall = spawnSync(availability.adbPath, ['-s', availability.device.serial, 'uninstall', PACKAGE], {
     encoding: 'utf8', timeout: 60000,
   });
-  const install = spawnSync(avail.adbPath, ['-s', avail.serial, 'install', '-r', '-t', APK], {
+  const install = spawnSync(availability.adbPath, ['-s', availability.device.serial, 'install', '-r', '-t', APK], {
     encoding: 'utf8', timeout: 120000,
   });
   if (install.status !== 0) {

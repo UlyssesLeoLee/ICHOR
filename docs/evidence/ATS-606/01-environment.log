@@ -1,0 +1,24 @@
+=== ATS-606 evidence: the environment ===
+tree : 7d9eb55c413312b802f1bb051240cbcd45d3a016
+date : 2026-11-09T16:25:57Z
+
+--- the host ---
+MINGW64_NT-10.0-26300 seikoist002 3.6.9-b4195d69.x86_64 2026-06-06 17:49 UTC x86_64 Msys
+
+node : v24.19.0
+java : java version "21.0.5" 2024-10-15 LTS
+
+--- the iOS tool chain (expected to be ABSENT on this host) ---
+xcrun : NOT FOUND
+xcodebuild : NOT FOUND
+simctl : NOT FOUND
+
+--- the Maestro CLI under test ---
+maestro : D:/AI-Tools/Maestro/bin/maestro
+2.12.1
+
+--- the conclusion this environment forces ---
+No macOS / Xcode / iOS simulator / iOS device is present, so NO iOS
+behaviour was measured. The evidence below is about the COMMAND
+INVENTORY and the DRIVER IMPLEMENTATION STATUS, both read off the
+shipped artifacts -- not about a Flow actually running on iOS.

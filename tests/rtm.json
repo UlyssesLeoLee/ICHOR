@@ -50,7 +50,7 @@
   {
     "requirement": "FR-009",
     "design": "B04",
-    "tests": "UT-RUN-001、IT-RUN-001、IT-RUN-002、IT-RUN-003、IT-RUN-MOCK-SETUP、ST-008",
+    "tests": "UT-RUN-001、IT-RUN-001、IT-RUN-002、IT-RUN-003、IT-RUN-MOCK-SETUP、ST-008、ST-039、ST-040、ST-042、ST-043",
     "status": "IMPLEMENTED"
   },
   {
@@ -80,7 +80,7 @@
   {
     "requirement": "FR-014",
     "design": "B05",
-    "tests": "IT-RUN-MOCK-001、ST-011、ST-034、ST-037、ST-038",
+    "tests": "IT-RUN-MOCK-001、ST-011、ST-041、ST-034、ST-037、ST-038",
     "status": "部分实现"
   },
   {

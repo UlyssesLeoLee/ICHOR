@@ -1,0 +1,13 @@
+=== ATS-603 evidence ===
+tree: bd21cca4eec4e01c1b39dd2611c73e5a1b886c46 | branch: dev | when: 2026-11-09T14:36:38Z
+cmd: bash tools/ats603-probes/build-smoke-app.sh
+--- output ---
+== aapt2 link ==
+== javac ==
+== d8 ==
+== add the dex ==
+== align ==
+== sign ==
+OK /d/ICHOR/tools/ats603-probes/build/smoke-app.apk
+com.ichor.smoke
+--- exit: 0 ---

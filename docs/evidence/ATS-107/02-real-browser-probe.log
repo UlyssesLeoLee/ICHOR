@@ -1,0 +1,42 @@
+=== ATS-107 evidence: the acceptance criterion: at least 1 PASS and 1 FAIL on Chromium, results and error messages consistent with the CLI (ST-039..041, ST-043) ===
+date        : 2026-11-09T16:17:14Z (UTC)
+commit      : add0fd268e100f4defa275bfbeab4d0582020c52
+node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command     : node tools/ats107-probes/st-ats107.mjs . /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-15-72a827b79864/worktree/.ats107-evidence-scratch
+
+PASS ST-1 the fixture pins an EXACT @playwright/test version -- declared=1.65.0
+PASS ST-1 the fixture has a lockfile on disk
+PASS ST-1 the fixture lockfile is COMMITTED -- examples/real-browser-fixture/package-lock.json examples/real-browser-fixture/package.json examples/real-browser-fixture/playwright.config.ts examples/real-browser-fixture/tests/constants.ts examples/real-browser-fixture/tests/expected.json examples/real-browser-fixture/tests/failing.spec.ts examples/real-browser-fixture/tests/passing.spec.ts
+PASS ST-1 the fixture names chromium explicitly
+PASS ST-1 the fixture sets retries: 0
+(node:11320) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+PASS ST-1 the fixture installs from its lockfile (npm ci) -- exit=0 
+PASS ST-1 the installed engine is the pinned one -- installed=1.65.0 pinned=1.65.0
+PASS ST-2 the direct CLI run produced a report -- exit=1
+PASS ST-2 the direct CLI run has at least one PASS -- 1 passed
+PASS ST-2 the direct CLI run has at least one FAIL -- 1 failed
+PASS ST-2 the direct CLI run used a real browser (the engine wrote a trace) -- error-context+trace | trace
+PASS ST-2 the failing case carries the engine's own error message -- 401 chars
+PASS the Bridge starts
+PASS the Bridge accepts the fixture as a project
+PASS ST-3 the Bridge run finished -- failed
+PASS ST-3 the Bridge reports one passed and one failed -- {"passed":1,"failed":1,"total":2}
+PASS ST-4 the Bridge and the CLI agree on the NUMBER of cases -- bridge=2 cli=2
+PASS ST-4 the per-case verdicts are IDENTICAL to the CLI's
+PASS ST-5 the failing case exists on both sides
+PASS ST-5 the Bridge carries the engine's error message (it is not empty) -- 401 chars
+PASS ST-5 the Bridge's error message is the engine's own -- the assertion text is present
+PASS ST-6 the Bridge matches the fixture's declared expectations
+PASS ST-7 the run folder holds the engine's report.json -- C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-15-72a827b79864\worktree\.ats107-evidence-scratch\ats107-5MknbF\data\runs\run_1_f61685b63d28fff685421871\report.json
+PASS ST-7 the run folder holds a REAL trace.zip -- 2 trace(s)
+PASS ST-8 the counters agree with the CLI's -- bridge=1/1/2 cli=1/1/2
+ENGINE: @playwright/test 1.65.0 (chromium)
+CLI run exit code: 1
+CLI stats: {"startTime":"2026-11-09T16:17:16.910Z","duration":6879.8060000000005,"expected":1,"skipped":0,"unexpected":1,"flaky":0}
+CLI cases: ATS-107 failing case asserts a text that is absent => unexpected | ATS-107 passing case renders the offline page => expected
+BRIDGE cases: ATS-107 failing case asserts a text that is absent => failed | ATS-107 passing case renders the offline page => passed
+RESULT: 25/25
+exit code   : 0
