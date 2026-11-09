@@ -1,0 +1,130 @@
+=== ATS-106 evidence: the 3 failures of log 08, attributed ===
+date        : 2026-11-09T11:41:10Z (UTC)
+commit      : d7f2da0baac504acd8ba90d935744700fa9dc25f
+node        : v24.19.0
+command     : node --test --test-reporter=spec <file>   (each failing file on its own)
+
+--- why this log exists ---
+log 08 (the serial full suite) reported 4 failures / 1592 on this run; the same
+tree reported 0 failures / 1592 on an earlier run of the same command. The
+failing files are UNTOUCHED by ATS-106 (this branch changes no source file at
+all relative to dev -- see the UQH section of the README), so the question is
+whether they fail on their own. This log answers it by running each failing
+file on its own, on this branch and on dev.
+
+
+=== this branch: tests/execution-model-it.test.mjs  (exit 0) ===
+✔ IT-EXE-001: the bridge starts (367.6138ms)
+✔ IT-EXE-002: a retried case is counted ONCE and keeps EVERY attempt (439.9323ms)
+✔ IT-EXE-003: the events of a run replay into its status, gap-free (2.5696ms)
+✔ IT-EXE-004: the events are in the state file AND in the metadata database (3.1714ms)
+✔ IT-EXE-005: the durable log and the state file carry the same events (0.4913ms)
+✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (1475.0472ms)
+✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (1476.8489ms)
+✔ IT-EXE-CLEANUP: stop and cleanup (13.6413ms)
+✔ IT-EXE-008: the bridge starts even when the run folder is gone (1780.9326ms)
+✔ IT-EXE-009: a torn event log stays readable (1772.0787ms)
+✔ IT-EXE-010: no event is appended after a terminal event (1861.997ms)
+✔ IT-EXE-011: a run that was cancelling when the bridge died is recovered (2236.0433ms)
+✔ IT-EXE-012: the summary of a run agrees with the exit code of the engine (863.2493ms)
+✔ IT-EXE-013: the replay reports the lost and the reused sequence numbers (1749.8415ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14156.1736
+
+=== this branch: tests/migrate-state.test.mjs  (exit 0) ===
+✔ ATS-206-UT-112: the engine refuses while a Bridge holds the lock (9.7294ms)
+✔ ATS-206-UT-113: the engine refuses to roll back while a Bridge holds the lock (324.2853ms)
+✔ ATS-206-UT-114: a dry run over an interrupted migration writes nothing (397.0401ms)
+✔ ATS-206-UT-115: a stale backup is archived, not overwritten (964.8237ms)
+✔ ATS-206-UT-116: an archived backup is never overwritten (1191.3501ms)
+✔ ATS-206-UT-117: an interrupted migration before the state write is undone under the lock (607.6577ms)
+✔ ATS-206-UT-118: an interrupted migration whose state was NOT written is reported as undone (649.5484ms)
+✔ ATS-206-UT-119: a migration that exits with process.exit leaves NO lock behind (668.3648ms)
+✔ ATS-206-UT-120: a recovery whose rename fails refuses and keeps the journal (968.3516ms)
+✔ ATS-206-UT-121: an interrupted migration whose state file is NOT migrated is refused (309.5525ms)
+✔ ATS-206-UT-122: a SIGKILL leaves a stale lock, and the next run takes it over (912.3645ms)
+✔ ATS-206-UT-085: cleanup removes the temporary fixture (200.1515ms)
+ℹ tests 92
+ℹ suites 0
+ℹ pass 92
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32330.4874
+
+=== this branch: tests/sqlite-bridge.test.mjs  (exit 0) ===
+✔ IT-SQL-001: the bridge starts and creates the metadata database (361.907ms)
+✔ IT-SQL-002: the metadata database carries the schema version (3.1709ms)
+✔ IT-SQL-003: a registered project appears in the metadata database (98.4401ms)
+✔ IT-SQL-004: the mirror holds exactly what the JSON state holds (2.0672ms)
+✔ IT-SQL-005: the bridge still serves the API after the mirror is in place (101.1392ms)
+✔ IT-SQL-006: the mirror recovers after the database was locked for too long (4271.5189ms)
+✔ IT-SQL-CLEANUP: stop and cleanup (15.6568ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4964.1678
+
+=== dev: tests/execution-model-it.test.mjs  (exit 0) ===
+✔ IT-EXE-006: a run whose bridge died replays into `interrupted` (1483.9743ms)
+✔ IT-EXE-007: the counter is reconciled with the durable log after a crash (1493.8365ms)
+✔ IT-EXE-CLEANUP: stop and cleanup (15.0524ms)
+✔ IT-EXE-008: the bridge starts even when the run folder is gone (1805.7853ms)
+✔ IT-EXE-009: a torn event log stays readable (1727.0642ms)
+✔ IT-EXE-010: no event is appended after a terminal event (1715.9657ms)
+✔ IT-EXE-011: a run that was cancelling when the bridge died is recovered (2161.4344ms)
+✔ IT-EXE-012: the summary of a run agrees with the exit code of the engine (807.9833ms)
+✔ IT-EXE-013: the replay reports the lost and the reused sequence numbers (1736.153ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13854.8578
+
+=== dev: tests/migrate-state.test.mjs  (exit 0) ===
+✔ ATS-206-UT-117: an interrupted migration before the state write is undone under the lock (634.845ms)
+✔ ATS-206-UT-118: an interrupted migration whose state was NOT written is reported as undone (805.2483ms)
+✔ ATS-206-UT-119: a migration that exits with process.exit leaves NO lock behind (629.5948ms)
+✔ ATS-206-UT-120: a recovery whose rename fails refuses and keeps the journal (935.3308ms)
+✔ ATS-206-UT-121: an interrupted migration whose state file is NOT migrated is refused (388.5397ms)
+✔ ATS-206-UT-122: a SIGKILL leaves a stale lock, and the next run takes it over (1047.5014ms)
+✔ ATS-206-UT-085: cleanup removes the temporary fixture (173.2936ms)
+ℹ tests 92
+ℹ suites 0
+ℹ pass 92
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 36330.5117
+
+=== dev: tests/sqlite-bridge.test.mjs  (exit 0) ===
+✔ IT-SQL-001: the bridge starts and creates the metadata database (424.6973ms)
+✔ IT-SQL-002: the metadata database carries the schema version (2.8957ms)
+✔ IT-SQL-003: a registered project appears in the metadata database (134.8319ms)
+✔ IT-SQL-004: the mirror holds exactly what the JSON state holds (3.2837ms)
+✔ IT-SQL-005: the bridge still serves the API after the mirror is in place (113.545ms)
+✔ IT-SQL-006: the mirror recovers after the database was locked for too long (4412.2317ms)
+✔ IT-SQL-CLEANUP: stop and cleanup (17.2627ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5228.3295

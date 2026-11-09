@@ -1,6 +1,6 @@
 === ATS-106 evidence: UQH verify --base dev (quality gate of .quality/qguard.json) ===
-date        : 2026-11-09T11:19:17Z (UTC)
-commit      : d3f301bd8bbab97f3ac0a72eb5d1f0e85de684dc
+date        : 2026-11-09T11:50:45Z (UTC)
+commit      : d7f2da0baac504acd8ba90d935744700fa9dc25f
 node        : v24.19.0
 python      : 3.14.7 (main, Sep  1 2026, 14:17:30) [MSC v.1944 64 bit (AMD64)]
 command     : python ~/.uqh-global/global_dispatcher.py verify --base dev
@@ -8,7 +8,7 @@ command     : python ~/.uqh-global/global_dispatcher.py verify --base dev
 QGuard PASS: no changed production source files.
 
 --- per-file line coverage of the ATS-106 changed sources, from .quality/coverage/{node,py}.lcov ---
-server/adapters/playwright-preflight.mjs       253/253   = 100.00%
+server/adapters/playwright-preflight.mjs       252/253   = 99.60%
 server/adapters/playwright-cli.mjs             157/167   = 94.01%
 server/core.mjs                               1440/1454  = 99.04%
 server/index.mjs                               442/1423  = 31.06%

@@ -1,20 +1,20 @@
 === ATS-106 evidence: real Bridge + marker CLIs (IT-PF-SETUP..007) ===
-date        : 2026-11-09T11:10:45Z (UTC)
-commit      : d3f301bd8bbab97f3ac0a72eb5d1f0e85de684dc
+date        : 2026-11-09T11:27:36Z (UTC)
+commit      : d7f2da0baac504acd8ba90d935744700fa9dc25f
 node        : v24.19.0
 python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command     : node --test --test-reporter=spec tests/preflight-it.test.mjs
 
-✔ IT-PF-SETUP: a Bridge with five registered projects (812.7506ms)
-✔ IT-PF-001: an unsupported version ends the run in error before spawn (183.5736ms)
-✔ IT-PF-002: a missing Playwright dependency ends the run in error before spawn (154.0277ms)
-✔ IT-PF-003: a config deleted after registration ends the run in error before spawn (323.728ms)
-✔ IT-PF-004: a complete installation runs, and the preflight is recorded (304.137ms)
-✔ IT-PF-005: fields outside the run request whitelist are refused, no run is created (56.0282ms)
-✔ IT-PF-006: an option-shaped or regex-shaped filter is refused, no run is created (46.922ms)
-✔ IT-PF-007: traversal is still refused by the source path check (16.1436ms)
-✔ IT-PF-008: a project without a local CLI ends the run in error before spawn (140.4947ms)
+✔ IT-PF-SETUP: a Bridge with five registered projects (913.8332ms)
+✔ IT-PF-001: an unsupported version ends the run in error before spawn (173.9414ms)
+✔ IT-PF-002: a missing Playwright dependency ends the run in error before spawn (171.0787ms)
+✔ IT-PF-003: a config deleted after registration ends the run in error before spawn (322.6059ms)
+✔ IT-PF-004: a complete installation runs, and the preflight is recorded (289.7626ms)
+✔ IT-PF-005: fields outside the run request whitelist are refused, no run is created (71.9167ms)
+✔ IT-PF-006: an option-shaped or regex-shaped filter is refused, no run is created (46.2834ms)
+✔ IT-PF-007: traversal is still refused by the source path check (16.1253ms)
+✔ IT-PF-008: a project without a local CLI ends the run in error before spawn (142.665ms)
 ℹ tests 9
 ℹ suites 0
 ℹ pass 9
@@ -22,5 +22,5 @@ command     : node --test --test-reporter=spec tests/preflight-it.test.mjs
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 2179.0684
+ℹ duration_ms 2299.6283
 exit code   : 0

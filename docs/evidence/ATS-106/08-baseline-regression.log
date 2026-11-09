@@ -1,6 +1,6 @@
 === ATS-106 evidence: baseline regression: npm test / node --check / port audit / ADR citations / dependency manifest ===
-date        : 2026-11-09T11:12:33Z (UTC)
-commit      : d3f301bd8bbab97f3ac0a72eb5d1f0e85de684dc
+date        : 2026-11-09T11:45:27Z (UTC)
+commit      : d7f2da0baac504acd8ba90d935744700fa9dc25f
 node        : v24.19.0
 python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)

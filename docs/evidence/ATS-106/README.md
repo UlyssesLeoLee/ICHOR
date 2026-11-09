@@ -13,26 +13,26 @@
 | `07-wbs-state.log` | `docs/WBS.xlsx` 中 ATS-106 行（第 11 行）与总览 | 状态 `待审核`，完成率 1，剩余 0 |
 | `08-baseline-regression.log` | 全量套件 `node --test --test-concurrency=1 tests/*.test.mjs`、`node --check`、端口审计、ADR 行号引用、依赖清单 | 1592 条：1577 通过、0 失败、15 跳过；其余检查均为 OK |
 | `09-uqh-verify.log` | UQH `verify --base dev` 与各变更文件的行覆盖率 | **PASS**（no changed production source files），退出码 0 |
+| `10-suite-flaky-rerun.log` | 长套件里偶发失败的归因：三个失败文件单独重跑（本分支与 `dev` 各一遍） | 全部单独全绿 |
 
 ## 生成提交
 
 实现最初在分支 `agent/opus/seikoist-149-0413f9e2f0ae` 上完成，并以三方合并合入 `dev@b93d2da`（合并提交 `ce9526f`，分支 `agent/fable/seikoist-149`）。
 
-本轮返工在分支 `agent/m3/seikoist-149` 上进行：先把最新的 `dev` 合进来（合并提交 `31cde09` 与 `fab03c5`），再改文档与测试，最后在**该返工提交之后**重新采集全部日志：
+本轮返工在分支 `agent/m3/seikoist-149` 上进行：先把最新的 `dev` 合进来（合并提交 `31cde09`、`fab03c5`、`d7f2da0`），再改文档与测试，最后在**该返工提交之后**重新采集全部日志：
 
-- 日志 01–09 全部生成于 `d3f301b`（返工提交 `e91128a`、文档同步提交 `6602200`、撤回源文件改动提交 `d3f301b` 之后）；
+- 日志 01–09 全部生成于 `d7f2da0`（返工提交 `e91128a`、文档同步提交 `6602200`、撤回源文件改动提交 `d3f301b`、证据提交 `afe9b20`、清单提交 `90bbbb7`、最后一次合入 dev 的合并提交 `d7f2da0` 之后）；
 - 每份日志头部记录了自己的 `commit` 字段，可逐份核对。
 
 全量套件串行执行（`ATS106_TEST_CONCURRENCY=1`），并设置了 `ATS_REAL_PLAYWRIGHT_PROJECT=D:/ICHOR/examples/sample-playwright`，因此 CT-PF-001 与 CT-ARG-001 在套件内也针对真实安装执行。
 
+### 长套件里的偶发失败（如实记录）
+
+全量套件在**同一棵树**上出现过两次不同结果：一次 1592 条中 **0 失败**，一次 1592 条中 **4 失败**（`IT-EXE-009`、`ATS-206-UT-033`、`ATS-206-UT-034`）。失败的文件 `tests/execution-model-it.test.mjs`、`tests/migrate-state.test.mjs` 与 `tests/sqlite-bridge.test.mjs` **本票一行未改**（本分支相对 `dev` 不改动任何源文件，见下节），且这三个文件单独重跑全绿（14/14、92/92、7/7，见 `10-suite-flaky-rerun.log`），在 `dev` 上同样单独全绿。同一命令在未加载的树上又回到 0 失败。
+
+因此判定为本机在长套件后段的资源压力下出现的偶发子进程失败，不是 ATS-106 的回归。本机 pagefile 只有 8 GB 且非管理员无法调整，采集证据期间 `update_checksums.py` 也出现过一次同源的 `WinError 1455`（页面文件太小）后重试成功。失败如实保留，未用重跑去掩盖。
+
 ### 15 项跳过
-
-跳过不是通过，也不是失败；每项都带原因，且都与 ATS-106 无关：
-
-- `IT-ADP-005` / `005B` / `005C` / `008` / `011` / `IT-API-013B`：`examples/sample-playwright has no node_modules`（本工作树的示例工程未安装依赖；`D:/ICHOR` 的检出已装，故真实 CLI 契约测试另在日志 03 中针对 `D:/ICHOR/examples/sample-playwright` 实测）；
-- `IT-ADP-006` / `007` / `009` / `011B`：`examples/sample-wdio has no node_modules`；
-- `IT-ADP-010`：`the fixtures have no node_modules`；
-- `IT-SEC-004` / `005` / `025` / `026`：`needs ATS402_REAL_CREDENTIAL_STORE=***`（属 ATS-402 的真实凭据库用例）。
 
 ## 覆盖率
 
@@ -40,7 +40,7 @@
 
 | 文件 | 行覆盖率 |
 |---|---:|
-| `server/adapters/playwright-preflight.mjs` | 100.00% |
+| `server/adapters/playwright-preflight.mjs` | 99.60% |
 | `server/adapters/playwright-cli.mjs` | 94.01% |
 | `server/core.mjs` | 99.04% |
 | `server/index.mjs` | 31.06% |

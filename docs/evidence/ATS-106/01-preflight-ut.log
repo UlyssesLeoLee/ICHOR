@@ -1,38 +1,38 @@
 === ATS-106 evidence: preflight + argument baseline unit tests (UT-PF/UT-ARG/UT-CORE-106) with coverage ===
-date        : 2026-11-09T11:10:45Z (UTC)
-commit      : d3f301bd8bbab97f3ac0a72eb5d1f0e85de684dc
+date        : 2026-11-09T11:27:36Z (UTC)
+commit      : d7f2da0baac504acd8ba90d935744700fa9dc25f
 node        : v24.19.0
 python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command     : node --test --experimental-test-coverage --test-coverage-include=server/adapters/playwright-preflight.mjs --test-coverage-include=server/adapters/playwright-cli.mjs tests/preflight.test.mjs
 
-✔ UT-PF-001: a complete installation passes every check (12.5665ms)
-✔ UT-PF-002: a missing config is a blocking error with a hint (7.1769ms)
-✔ UT-PF-003: a missing CLI blocks and skips every check that needs it (4.3848ms)
-✔ UT-PF-004: a version outside the supported range blocks (20.4587ms)
-✔ UT-PF-005: the range is inclusive below and exclusive above (12.8046ms)
-✔ UT-PF-006: an unreadable version is a warning, not a pass and not a block (15.6823ms)
-✔ UT-PF-007: the Node.js floor of the CLI package is enforced (21.8906ms)
-✔ UT-PF-007b: the whole >=N[.M[.P]] floor is compared, not only the major (58.7286ms)
-✔ UT-PF-008: a missing Playwright dependency blocks and names the package (10.2924ms)
-✔ UT-PF-009: without browsers.json the browsers are reported as unverified (8.5818ms)
-✔ UT-PF-010: missing browsers are a warning that lists them (10.022ms)
-✔ UT-PF-011: the registry directory follows the child environment (9.5911ms)
-✔ UT-PF-012: mac revision overrides select the special folder (6.2346ms)
-✔ UT-PF-013: versions are parsed strictly and compared numerically (0.1326ms)
-✔ UT-PF-014: several blocking problems are all reported, in check order (4.6855ms)
-✔ UT-PF-015: a dependency that does not export package.json still counts as present (6.3871ms)
-✔ UT-ARG-001: a plain relative filter is accepted and normalised (0.2324ms)
-✔ UT-ARG-002: a filter that would be read as an option is refused (0.3743ms)
-✔ UT-ARG-003: traversal is refused (0.0861ms)
-✔ UT-ARG-004: absolute paths and line filters are refused (0.0701ms)
-✔ UT-ARG-005: regular expression metacharacters are refused (0.1026ms)
-✔ UT-ARG-006: empty, oversized, non-string and control-character filters are refused (0.0767ms)
-✔ UT-ARG-007: the vectors the builder produces pass the whole-vector check (0.2984ms)
-✔ UT-ARG-008: any option the Bridge does not emit is refused (0.3438ms)
-✔ UT-ARG-009: the builder refuses an unsafe filter instead of returning a vector (0.1212ms)
-✔ UT-CORE-106-001: safeRunArgs passes the output directory the builder expects (75.0757ms)
-✔ UT-CORE-106-002: safeRunArgs refuses an option-shaped filter (70.174ms)
+✔ UT-PF-001: a complete installation passes every check (14.5883ms)
+✔ UT-PF-002: a missing config is a blocking error with a hint (9.2056ms)
+✔ UT-PF-003: a missing CLI blocks and skips every check that needs it (4.6506ms)
+✔ UT-PF-004: a version outside the supported range blocks (23.4062ms)
+✔ UT-PF-005: the range is inclusive below and exclusive above (12.0732ms)
+✔ UT-PF-006: an unreadable version is a warning, not a pass and not a block (14.9348ms)
+✔ UT-PF-007: the Node.js floor of the CLI package is enforced (18.4361ms)
+✔ UT-PF-007b: the whole >=N[.M[.P]] floor is compared, not only the major (68.2884ms)
+✔ UT-PF-008: a missing Playwright dependency blocks and names the package (10.368ms)
+✔ UT-PF-009: without browsers.json the browsers are reported as unverified (8.9258ms)
+✔ UT-PF-010: missing browsers are a warning that lists them (10.2594ms)
+✔ UT-PF-011: the registry directory follows the child environment (6.3068ms)
+✔ UT-PF-012: mac revision overrides select the special folder (6.4864ms)
+✔ UT-PF-013: versions are parsed strictly and compared numerically (0.1618ms)
+✔ UT-PF-014: several blocking problems are all reported, in check order (4.8674ms)
+✔ UT-PF-015: a dependency that does not export package.json still counts as present (6.2292ms)
+✔ UT-ARG-001: a plain relative filter is accepted and normalised (0.2344ms)
+✔ UT-ARG-002: a filter that would be read as an option is refused (0.3797ms)
+✔ UT-ARG-003: traversal is refused (0.0869ms)
+✔ UT-ARG-004: absolute paths and line filters are refused (0.0733ms)
+✔ UT-ARG-005: regular expression metacharacters are refused (0.0929ms)
+✔ UT-ARG-006: empty, oversized, non-string and control-character filters are refused (0.0788ms)
+✔ UT-ARG-007: the vectors the builder produces pass the whole-vector check (0.3002ms)
+✔ UT-ARG-008: any option the Bridge does not emit is refused (0.3427ms)
+✔ UT-ARG-009: the builder refuses an unsafe filter instead of returning a vector (0.1216ms)
+✔ UT-CORE-106-001: safeRunArgs passes the output directory the builder expects (85.3427ms)
+✔ UT-CORE-106-002: safeRunArgs refuses an option-shaped filter (71.5479ms)
 ℹ tests 27
 ℹ suites 0
 ℹ pass 27
@@ -40,7 +40,7 @@ command     : node --test --experimental-test-coverage --test-coverage-include=s
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 635.461
+ℹ duration_ms 679.4382
 ℹ start of coverage report
 ℹ -------------------------------------------------------------------------------------------
 ℹ file                       | line % | branch % | funcs % | uncovered lines
