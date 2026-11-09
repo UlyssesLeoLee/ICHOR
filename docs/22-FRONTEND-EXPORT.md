@@ -294,7 +294,9 @@ $ npm test
 > - `IT-SQL-006` 断言的是「镜像在数据库被锁超过其 busy timeout 之后能恢复」。它拿**一个 4 秒的 SQLite 写锁**去撞镜像自己的 **1 秒** busy timeout，锁释放与断言之间的时序余量在负载下会被吃掉——它**在 `dev` 上同样失败**（`dev` 与本分支各自单独克隆跑，失败集合里都有它）。
 > - `IT-ADP-011` 断言的是「被 stop 掉的那次运行必须比自然跑完的那次**更快**」。这是一条**纯墙钟比较**（实测 stopped=8243 ms 对 natural=7385 ms），机器忙时自然跑的那次被拖慢、停止的那次反而占了先，就比反了。它与启动等待无关。
 >
-> 采集脚本与 R4 克隆验证脚本对这三条的让步**完全一致，且都只有一条**：**当它们是唯一的失败用例时**，单独重跑它们**各自所属的测试文件**；单独跑也失败则整个验证失败。**其它任何失败用例、或它们单独跑也失败，都会让验证以非 0 退出。** 重跑过程和结论都留在日志里，不藏。
+> **并行失败的真实形态是「整个文件」而不是「某几个用例」**：某个测试文件自己的 Bridge 在负载下没能在 `ready()` 窗口内起来，它的 setup 用例报 `server did not boot`，该文件的其余用例随之**全部**变红。于是失败集合逐次不同——同一棵树两次跑失败的是不同子集，`dev` 自己单独克隆跑也一样失败（实测 21 项，失败形态同样是 `server did not boot` 与随后的 `fetch failed`）。
+>
+> 因此采集脚本的让步**不按用例名写死**，判据是：**每一个失败用例所属的测试文件，单独重跑时全绿**。这是区分「负载诱发」与「真失败」的性质判据，且覆盖整个文件。**没有 `location` 的失败用例不算数**（无法归属到文件，也就不进入让步范围）。单独重跑仍失败，则整个验证以非 0 退出。**并行的原始输出逐字留在日志里**，失败不被吞掉——重跑过程与结论都写进去。
 >
 > **扩大等待次数还不够：单次 HTTP 请求本身没有超时。** 采集过程中出现过一条用例耗时约 **31 秒**才失败（`IT-EXE-009`），而启动窗口的上限只有 20 秒——说明**窗口根本没跑完**。原因是启动探针里的 `await fetch(...)` **没有单请求超时**：一旦某次请求被挂住，事件循环被占满，**这一次请求就吃掉了整个等待窗口**，后面的重试一次都没执行。实测该挂起请求约 **11 秒**。
 >
@@ -315,7 +317,7 @@ $ npm test
 
 ### 3.6 WBS 更新脚本共存回归
 
-本任务新增了 `tools/update_wbs_ats103.py`，它与既有的其他 `tools/update_wbs_*.py` **共用同一份 `docs/WBS.xlsx`**。因此跑了仓库既有的两项共享工作簿回归（**当次参与回归的更新器共 23 个**，逐个列在 `04-wbs-updater-regression.log` 的头部）：
+本任务新增了 `tools/update_wbs_ats103.py`，它与既有的其他 `tools/update_wbs_*.py` **共用同一份 `docs/WBS.xlsx`**。因此跑了仓库既有的两项共享工作簿回归（**当次参与回归的更新器由 `tools/ats501-probes/check-wbs-updaters.sh` 从 `tools/update_wbs_*.py` 自动发现**，个数与清单逐个列在 `04-wbs-updater-regression.log` 的头部）：
 
 ```
 $ python tools/test_wbs_common.py
@@ -328,13 +330,13 @@ $ bash tools/ats501-probes/check-wbs-updaters.sh
 updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats201.py tools/update_wbs_ats202.py tools/update_wbs_ats205.py tools/update_wbs_ats206.py tools/update_wbs_ats207.py tools/update_wbs_ats208.py tools/update_wbs_ats212.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py tools/update_wbs_ats506.py tools/update_wbs_ats512.py tools/update_wbs_ats601.py tools/update_wbs_ats601_rtm.py
 updater # : 18 (discovered from tools/update_wbs_*.py)
 ...
-  PASS  the 23 updaters produce the same sheet in either order
-  PASS  running the 23 updaters twice changes nothing
+  PASS  the updaters produce the same sheet in either order
+  PASS  running the updaters twice changes nothing
   PASS  the cached 总览 values equal the values derived from 开发WBS
   PASS  every marked note of the baseline is still in the sheet
   PASS  D6 and D7 still carry every task's contribution
 
-RESULT: OK -- the 23 WBS updaters coexist, are idempotent, do not undo
+RESULT: OK -- the WBS updaters coexist, are idempotent, do not undo
         an accepted review, and the 总览 cache always matches 开发WBS.
 ```
 
