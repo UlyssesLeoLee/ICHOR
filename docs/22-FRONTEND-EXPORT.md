@@ -378,7 +378,12 @@ $ bash tools/ats103-probes/verify-r4.sh <clone-dir> <label>
 
 **这一步抓到了一个真问题。** 第一次跑克隆验证时，`verify_checksums.py` 报 `MISMATCH`：`verify-r4.sh` 本身在生成校验和清单**之后**被改过（把 `EXIT=$?` 改成 `PIPESTATUS[0]`），清单里那条记录的哈希已经过期。工作区自证**不会**发现这个问题——工作区里的文件是改过的、清单里的哈希对不上，但只有**克隆里**跑的是「已提交的文件对已提交的清单」这个真实场景。这正是 R4 要求在克隆里跑的原因。
 
-完整日志：`docs/evidence/ATS-103/10-r4-clone-verification-crlf.log` 与 `10-r4-clone-verification-lf.log`（两份日志的头部记着各自的 commit 与 `core.autocrlf` 取值）。
+完整日志（四份，各自的头部记着各自的 commit 与 `core.autocrlf` 取值）：
+
+- 交付分支上：`docs/evidence/ATS-103/10-r4-branch-clone-verification-crlf.log` 与 `10-r4-branch-clone-verification-lf.log`
+- 合并后的 `dev` 上：`docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log` 与 `11-r4-dev-clone-verification-lf.log`
+
+四份都是 8 步全绿（`R4_EXIT=0`）。
 
 ## 4. 本次交付发现的两个真实缺陷（不属于 ATS-103 的修复范围）
 
@@ -428,6 +433,35 @@ GET /_not-found/   -> 404  同上
 
 本轮把它换成一条**真正可判**的断言：**summary 必须与磁盘上的 `report.json` 逐项一致**（§3.3）。引擎崩溃（无 `report.json`）时该断言**判 FAIL**，探针退出码 1；变异 C 的实测证明（§3.3.2）它确实会红。
 
+### 4.4 第 3 轮返工在 R4 验证脚本里抓到并修掉的三个问题
+
+这三个都不是产品缺陷，而是**验证脚本自己的**缺陷；它们各自让 R4 的克隆验证报出一次「失败」，而真实原因是脚本没把事情做对。记在这里是因为「R4 第 4 项要的是在克隆里复跑」这件事，正是靠它们才真正复跑成真。
+
+**(a) `npm --prefix` 改写了夹具那份被跟踪的 `package.json`。**
+
+`verify-r4.sh` 原来用 `npm --prefix examples/sample-playwright install` 装夹具依赖。实测该写法会**改写夹具的 `package.json`**——npm 把 prefix 解析到父项目，于是加上一条 `"ai-test-studio": "file:../.."` 依赖：
+
+```
+-{"name":"ats-example",...,"devDependencies":{"@playwright/test":"^1.58.0"}}
++{"name":"ats-example",...,"devDependencies":{"@playwright/test":"^1.58.0"},"dependencies":{"ai-test-studio":"file:../.."}}
+```
+
+夹具的锁文件被 `.gitignore` 忽略，所以干净克隆里 `npm ci` 必然失败，每次都会落到 `install` 这一支——于是**每次验证都会弄脏被验证的树**。修法：以夹具目录为 cwd 跑 npm，装的是同一批包，`package.json` 不动。
+
+**(b) 钉 Playwright 版本时又把 `package.json` 改了。**
+
+夹具声明的是 `"@playwright/test": "^1.58.0"`，锁文件被忽略，一次不带版本的安装会浮到最新的 1.x。仓库的统一口径是钉死的 **1.64.1**（`tools/ats101-probes/lib/fixture.mjs` 的 `PLAYWRIGHT_VERSION`，`tools/ats2*-probes` 各脚本也都用它），ATS-203 的证据就是在 1.64.1 上采的。
+
+这个浮动**不是无关紧要**：实测 `@playwright/test` **1.65.0** 下，真实 `playwright test --list` 对两项目矩阵每个用例只给出**一个** spec id，ATS-203 的「the symmetric project matrix gives every case two spec ids」因此变红（1.64.1 → 11/11 通过，1.65.0 → 10/11 失败）。R4 第 8 步跑的就是全量套件，于是这一条把整轮验证判成 FAILED。
+
+修法：版本号从 `tools/ats101-probes/lib/fixture.mjs` **读出**（不重复写死，免得两处漂移），安装时带 `--no-save`——不带的话 npm 会把这个钉版写回夹具那份**被跟踪**的 `package.json`（把 range 改成 `^1.64.1`），又回到 (a) 那个问题。
+
+**(c) ADR 的两处引用位置随别的任务位移。**
+
+`tools/check_adr_citations.py` 按 ADR 引用的**位置**核对源码里那一行是否仍持有对应的 needle。ATS-403 给 `server/index.mjs` 插入了 111 行、ATS-203 给 `server/core.mjs` 插入了 9 行，于是 ADR 里有三处引用指向了错误的行（`:255`→`:262`、`:1311`→`:1419`、`:1374`→`:1381`），校验判 `MISMATCH`，R4 第 3 步变红。
+
+这**不是 ATS-103 引入的回归**：用 `git archive` 导出的干净树在 ATS-103 合入 `dev` **之前**复跑同样报 `MISMATCH`。修法按 ATS-215 合并 `dev` 之后的既有做法，把位置校正为实测位置（ADR 其它段落引用的本来就是校正后的 `:262` / `:1419`，这两处是漏改）。
+
 ## 5. 交付物清单
 
 | 路径 | 类型 | 内容 |
@@ -447,8 +481,10 @@ GET /_not-found/   -> 404  同上
 | `docs/evidence/ATS-103/07-port-audit.log` | 新增 | ATS-101 端口审计的输出（`RESULT: OK`） |
 | `docs/evidence/ATS-103/08-adr-citations.log` | 新增 | ADR 引用校验的输出 |
 | `docs/evidence/ATS-103/09-ci-build-gate.log` | 新增 | 构建门禁的输出（末尾 `RESULT: OK -- every build-gate step passed.`） |
-| `docs/evidence/ATS-103/10-r4-clone-verification-crlf.log` | 新增 | 在**CRLF 克隆**里复跑 R4 要求的各项（校验和、端口审计、ADR 引用、WBS 更新器、`npm test`）的输出 |
-| `docs/evidence/ATS-103/10-r4-clone-verification-lf.log` | 新增 | 同一组检查在 **LF 克隆**（`core.autocrlf=false`）里的输出 |
+| `docs/evidence/ATS-103/10-r4-branch-clone-verification-crlf.log` | 新增 | 在**交付分支**的 CRLF 克隆里复跑 R4 要求的各项（校验和、端口审计、ADR 引用、WBS 更新器、静态导出、HTTP 探针、浏览器探针、`npm test`）的输出，8 步全绿 |
+| `docs/evidence/ATS-103/10-r4-branch-clone-verification-lf.log` | 新增 | 同一组检查在**交付分支**的 LF 克隆（`core.autocrlf=false`）里的输出，8 步全绿 |
+| `docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log` | 新增 | R4 第 4 项要求的**合并后 `dev`** 上的复跑（CRLF 克隆），8 步全绿 |
+| `docs/evidence/ATS-103/11-r4-dev-clone-verification-lf.log` | 新增 | 同一组检查在**合并后 `dev`** 的 LF 克隆里的输出，8 步全绿 |
 | `tools/ats103-probes/verify-r4.sh` | 新增 | 在克隆出来的交付分支上复跑上述各项的脚本 |
 | `tools/update_wbs_ats103.py` | 修改 | 本任务的 WBS 行更新脚本（与 ATS-101/102/301/401/501 同构，标记 `【ATS-103】`）：备注同步为本轮的真实结论 |
 | `tools/wbs_common.py` | 修改 | 共享工作簿的标记登记与叙述片段：新增 `【ATS-103】` |
