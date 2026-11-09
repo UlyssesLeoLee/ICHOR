@@ -44,7 +44,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-106】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
            '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-215】', '【ATS-216】',
            '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-403】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
-           '【ATS-601】', '【ATS-602】')
+           '【ATS-601】', '【ATS-602】', '【ATS-606】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -209,6 +209,13 @@ NARRATIVE_FRAGMENTS = {
               '不支持的步骤保留原文并标记，不静默丢弃）',
         'D7': '移动端执行面仍无任何实现（ATS-602 只交付用例模型与导入映射；'
               '真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md',
+    },
+    '【ATS-606】': {
+        'D6': 'iOS 支持范围与 Maestro 兼容性边界已冻结（ATS-606：逐类步骤的 iOS 支持范围、'
+              'Maestro 命令逐条兼容性判定与不承诺清单；未做 iOS 实测）',
+        'D7': '移动端执行面仍无任何实现（ATS-606 只交付设计与边界；'
+              'iOS 真机路径按能力分层，真实 Android 冒烟属 ATS-603）；'
+              '详见 docs/25-MOBILE-APP-TESTING.md',
     },
     '【ATS-203】': {
         'D6': '索引回归数据集已交付（ATS-203：参数化循环/模板标题/重名/describe 路径/'

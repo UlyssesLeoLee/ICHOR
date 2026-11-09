@@ -578,23 +578,222 @@ ATS-603 的验收必须在**真实 Android 模拟器**上跑通下列四类步�
 
 ## 8. iOS 与 Maestro 兼容性边界（ATS-606）
 
+> **交付状态（ATS-606 交付）**：本节是**边界冻结**，不是实测结论。
+> 三张表（§8.4 iOS 支持范围表、§8.5 Maestro 命令兼容性判定表、§8.6 不承诺清单）
+> 已逐条填完并给出理由。判定所依据的两类事实——**Maestro 侧的命令清单与其 iOS 驱动实现**，
+> 与**本平台侧 ATS-601/ATS-602 的步骤词表与能力词表**——都有**可机读复核的来源**：
+>
+> * Maestro 侧：本机装有 Maestro CLI **2.12.1**（`D:/AI-Tools/Maestro`，
+>   2026-11-02 发布，当日最新 release）。命令清单由**行为**确认（对每条命令跑
+>   `maestro check-syntax`，看 Maestro 自己认不认），不是抄文档；
+>   iOS 两条路径的实现状态由**字节码**确认（`maestro-ios.jar` / `maestro-ios-driver.jar`
+>   的 `LocalIOSDevice` / `XCTestIOSDevice` / `SimctlIOSDevice` / `DeviceControlIOSDevice`）。
+> * 本平台侧：`server/adapters/mobile-target.mjs`（ATS-601 冻结的六类步骤与七项能力）、
+>   `server/discovery/mobile-import.mjs`（ATS-602 冻结的语义与拼写表）。
+>
+> 复核脚本：`tools/ats606-probes/`。
+>
+> **本机没有 iOS 环境**（无 macOS / Xcode / 模拟器 / 真机），
+> 因此**没有任何一条 iOS 行为被实测过**。下面写的是
+> 「按 Maestro 2.12.1 的实现与本平台的契约应当如何」，**不是**「已经跑通了」。
+> 任何「已支持 / 已验证」的说法在这里都不成立。
+
 ### 8.1 交付形态
 
-本机没有 iOS 环境，**ATS-606 以「设计与边界冻结」交付，不以实测交付**。
-交付物是三张表：
+**ATS-606 以「设计与边界冻结」交付，不以实测交付**。交付物是三张表：
 
-1. **iOS 支持范围表**：每个步骤类型在 iOS 上「可自动化 / 受限 / 不承诺」，逐条给理由。
-2. **Maestro Flow 语法兼容性判定表**：Maestro 的每类命令，判定「本平台可映射 / 部分可映射 /
+1. **iOS 支持范围表**（§8.4）：每个步骤类型在 iOS 上「可自动化 / 受限 / 不承诺」，逐条给理由。
+2. **Maestro Flow 语法兼容性判定表**（§8.5）：Maestro 的每类命令，判定「本平台可映射 / 部分可映射 /
    不映射」，并给出映射说明或不映射的理由。
-3. **不承诺清单**：明确写出手工测试仍需人工完成的部分。
+3. **不承诺清单**（§8.6）：明确写出手工测试仍需人工完成的部分。
 
 ### 8.2 判定依据
 
-Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）。
 判定只依据**语义**（这一步在设备上做什么），不依据具体 YAML 字段名——本平台不承诺兼容其语法。
 
----
+事实来源分两侧，各自有可机读复核的出处：
 
+| 侧 | 依据 | 出处 | 采集方式 |
+|---|---|---|---|
+| Maestro 命令清单 | **哪条命令真的存在** | Maestro CLI **2.12.1**（本机 `D:/AI-Tools/Maestro`） | **行为确认**：`maestro check-syntax` 对每条候选命令判定认/不认（`tools/ats606-probes/probe-maestro-compat.mjs`）。**不抄文档清单**——文档的索引页只有 48 条，而 Maestro 实际接受 **55** 条（差的 7 条是 `inputRandom*` 家族，官方文档把它们写在 `inputText` 页里而不是索引页） |
+| Maestro iOS 实现 | **每条命令在 iOS 上能不能跑** | 同上 jar 的字节码 | `LocalIOSDevice` 把操作分给两个后端：**XCTest 驱动**（20 个操作）与**deviceController**（9 个操作）。deviceController 在模拟器上是 `SimctlIOSDevice`、在真机上是 `DeviceControlIOSDevice`，**后者的实现状态与前者不同** |
+| 本平台侧 | 步骤词表、能力词表、语义映射表 | `server/adapters/mobile-target.mjs`（ATS-601）、`server/discovery/mobile-import.mjs`（ATS-602） | 源码直接读出 |
+
+**为什么要看字节码而不只看文档**：官方文档描述的是**命令的意图**，
+而「这个命令在 iOS 真机上能不能跑」取决于**该命令在 iOS 驱动里的实现**。
+这两者可以不一致——文档说支持，驱动里却是 `NotImplementedError`。
+§8.4 与 §8.5 的判定必须落到后者，否则就是拿文档当实现。
+
+### 8.3 术语与判定口径
+
+- **可自动化**：该语义在 iOS 上有**已实现**的支撑，且本平台的步骤词表里有对应种类。
+- **受限**：语义在 iOS 上有实现，但**在 iOS 真机路径上不可用**，
+  或其语义/参数超出本平台 ATS-601 冻结的六类步骤词表。
+- **不承诺**：本平台不提供该语义；或 Maestro 自己也不承诺（如 AI 命令为实验特性）。
+
+判定粒度是**命令**（Maestro 侧）与**步骤种类**（本平台侧）两套词表，
+不是 YAML 字段名。§8.5 的表把两者用「本平台对应步骤种类」一列连起来。
+
+### 8.4 iOS 支持范围表
+
+本平台的步骤种类是 ATS-601 冻结的**六类**（`server/adapters/mobile-target.mjs`
+的 `MOBILE_STEP_KINDS`），能力词表是**七项**（`MOBILE_CAPABILITY`）。
+
+**判定方法**：对每一类步骤，先找出 Maestro 实现它所必需的**底层操作**，
+再按 `LocalIOSDevice` 的**路由**（该操作走 XCTest 驱动还是走 deviceController）
+查该后端在**模拟器**（`SimctlIOSDevice`）与**真机**（`DeviceControlIOSDevice`）上的实现状态。
+
+| 本平台步骤种类 | 需要的 capability | Maestro 侧依赖的底层操作 | iOS 模拟器 | iOS 真机 | 判定 | 理由 |
+|---|---|---|---|---|---|---|
+| `launchApp` | `app.install` 或 `app.launch` | `launch`（走 deviceController） | 可自动化 | **受限** | 模拟器可自动化；真机受限 | `SimctlIOSDevice.launch` 已实现；`DeviceControlIOSDevice.launch`（真机路径）抛 `NotImplementedError`——**iOS 真机上 Maestro 自己也没有实现 App 启动**。本平台的 `launchApp` 需要 `app.launch`/`app.install`，真机路径无法满足 ⇒ 该步骤在真机上不可执行 |
+| `tapOn` | `ui.tap` + `ui.hierarchy` | `tap` + `viewHierarchy`（走 XCTest 驱动） | 可自动化 | 可自动化 | 两条路径均可自动化 | `XCTestIOSDevice.tap` / `viewHierarchy` **在两条路径上都是同一段实现**（XCUITest driver 装在设备上，模拟器与真机同一条路径），没有未实现项 ⇒ 元素定位与点按**在真机上可用** |
+| `assertVisible` | `ui.hierarchy` | `viewHierarchy`（走 XCTest 驱动） | 可自动化 | 可自动化 | 两条路径均可自动化 | 同上：断言依赖的视图层级树在真机路径上**已实现** |
+| `takeScreenshot` | `screen.capture` | `takeScreenshot`（走 XCTest 驱动） | 可自动化 | 可自动化 | 两条路径均可自动化 | `XCTestIOSDevice.takeScreenshot` 已实现，两条路径同源 |
+| `recordScreen` | `screen.record` | `startScreenRecording`（走 deviceController） | 可自动化 | **受限** | 模拟器可自动化；真机受限 | 模拟器走 `SimctlIOSDevice.startScreenRecording`（已实现）；真机路径 `DeviceControlIOSDevice.startScreenRecording` 未实现 |
+| `readLogs` | `log.read` | 设备日志流（`IOSDriver` 层，走 `xcrun simctl spawn <id> log stream --style syslog`） | 可自动化 | **不承诺** | 模拟器可自动化；真机不承诺 | 日志采集走 `LocalSimulatorUtils.startDeviceLogStream`，即 **`simctl`**，只对模拟器成立；真机路径没有对应的设备日志采集实现 |
+
+**这张表的结论**：**iOS 真机路径不是「全都不行」，而是「按能力分层的」**——
+**UI 交互（点按、断言、截图）在真机上是可用的**，因为它们走 XCUITest driver；
+但**App 生命周期（启动）与录屏在真机上不可用**，因为它们走 deviceController，而真机那侧尚未实现。
+这与「Maestro 的真机路径整体未实现」是不同的结论，后者是错的。
+
+> 这不是本平台的缺陷，也不是说 iOS 真机不能测——是说 **Maestro 2.12.1 的真机路径只实现了一半**。
+> 本平台若要做 iOS 真机，**UI 交互可以照抄 XCUITest driver 的做法**，
+> 而**App 启动与录屏必须自己写**（`devicectl` / `xcrun devicectl device process launch` 一类），
+> 那是 ATS-603 之后的独立工作量，**不在 S6 范围内**。
+
+**七项 capability 在 iOS 上的可满足性**（供 ATS-603/ATS-605 直接引用）：
+
+| capability | iOS 模拟器 | iOS 真机 | 说明 |
+|---|---|---|---|
+| `app.install` | 可满足 | 不可满足 | 真机 `install` 未实现 |
+| `app.launch` | 可满足 | 不可满足 | 真机 `launch` 未实现 |
+| `ui.tap` | 可满足 | **可满足** | 走 XCTest 驱动，两条路径同源 |
+| `ui.hierarchy` | 可满足 | **可满足** | 走 XCTest 驱动，两条路径同源 |
+| `screen.capture` | 可满足 | **可满足** | 走 XCTest 驱动，两条路径同源 |
+| `screen.record` | 可满足 | 不可满足 | 真机 `startScreenRecording` 未实现 |
+| `log.read` | 可满足 | **不承诺** | 日志流走 `simctl`，只对模拟器成立 |
+
+**能力协商的落点**：上表「不可满足」的项在真机上会让 ATS-601 的
+`negotiateMobileCapabilities` 产出对应的能力缺口，**执行前就被拒绝**
+（`REMOTE_CAPABILITY_MISSING`），而不是在执行中炸出驱动错误。这正是 §3.3 设计的用意。
+
+**另外两条 iOS 侧的硬事实**（与命令无关，但决定了 §8.5 的判定）：
+
+| 事实 | 证据 | 影响 |
+|---|---|---|
+| `back` 在 iOS 上是**空操作** | `IOSDriver.backPress` 的字节码体只有一条 `return` | iOS 没有返回键；`back` 在 Maestro 官方文档里也写明「只支持 Android 与 Web」 |
+| 飞行模式在 iOS 上**不生效** | `IOSDriver.setAirplaneMode` / `isAirplaneModeEnabled` 只打一条 `Airplane mode is not available on iOS simulators` 的 warn 就返回 | `setAirplaneMode` / `toggleAirplaneMode` 即使实现了也不构成 iOS 能力 |
+
+### 8.5 Maestro Flow 语法兼容性判定表
+
+Maestro CLI 2.12.1 实际接受 **55 条命令**（由 `maestro check-syntax` 行为确认，
+见 `tools/ats606-probes/probe-maestro-compat.mjs`）。
+下表按判定分组，**每条命令都在表里**。
+
+判定口径：
+
+- **可映射**：本平台有对应步骤种类（ATS-601 六类之一），语义一致，
+  且该语义在 iOS 模拟器上可自动化。
+- **部分可映射**：语义能被本平台表达，但**命令形态不同**（配对命令 vs 单步）、
+  **参数超出本平台模型**（参数保留并告警，不丢弃）或**平台差异**（如 Maestro 自己的 7 秒等待语义）。
+- **不映射**：本平台的步骤词表里没有该语义（ATS-602 会把它保留原文并标记不支持），
+  或 Maestro 自己也不承诺（实验性 AI 命令）。
+
+#### 8.5.1 可映射（7 条）
+
+| Maestro 命令 | 本平台对应步骤种类 | 映射说明 |
+|---|---|---|
+| `launchApp` | `launchApp` | 语义一致：启动被测 App。本平台的 `launchApp` 支持 `appId` 与别名（`app` / `package` / `packageName` / `bundleId`）。Maestro 的 `permissions` / `arguments` / `clearState` 等参数**不在模型内**⇒保留并告警、执行时不生效 |
+| `tapOn` | `tapOn` | 语义一致：点按元素。本平台的目标可以是**文本**或**资源 id**（二者任一即可，缺任一即判为不支持）。Maestro 的 `index` / `point` / `repeat` 等参数不在模型内⇒保留并告警、执行时不生效 |
+| `assertVisible` | `assertVisible` | 语义一致：断言元素可见。本平台的断言形如 `{visible: <目标>}` |
+| `assertNotVisible` | `assertVisible` | 语义一致：断言元素不可见。本平台的 `assertVisible` 支持 `visible` 与 `notVisible` 两个限定词（ATS-602 的 `isSupportedQualifier`），所以断言语义能表达；但 **Maestro 的 7 秒 fluent 重试语义本平台的模型里没有对应字段**⇒等待行为不等价 |
+| `takeScreenshot` | `takeScreenshot` | 语义一致：截屏。本平台的落盘路径走 ATS-209 的证据路径校验与 SHA-256 |
+| `startRecording` | `recordScreen` | 语义一致：开始录屏。本平台的 `recordScreen` 是一步（录一段），Maestro 是「开始/停止」两条配对命令⇒**配对语义在单步模型里无处安放**，录屏的开始/结束边界表达不出来 |
+| `stopRecording` | `recordScreen` | 语义一致：结束录屏。与 `startRecording` 同一条判定——**配对语义在单步模型里无处安放** |
+
+#### 8.5.2 部分可映射（3 条）
+
+| Maestro 命令 | 本平台对应步骤种类 | 判定理由 |
+|---|---|---|
+| `clearState` | `launchApp`（语义近似） | 「把 App 恢复到全新安装状态」在本平台**没有对应步骤**（六类里只有 `launchApp` 一个生命周期步骤，且它没有 `clearState` 参数）。可映射的部分是「启动 App」，不可映射的部分是「清状态」⇒ 语义只覆盖了一半 |
+| `killApp` | `launchApp`（语义近似） | 「强杀 App」没有对应步骤。可映射的部分是「启动 App」，不可映射的部分是「结束并强杀进程」⇒ 语义只覆盖了一半；一轮用例的收尾只能靠进程自然退出 |
+| `stopApp` | `launchApp`（语义近似） | 「正常停止 App」没有对应步骤。同 `killApp`：可映射的部分是「启动 App」，不可映射的部分是「停止」⇒ 语义只覆盖了一半 |
+
+> 这三条**不是「差一点就能映射」**，而是「语义只覆盖了一半」：本平台的生命周期步骤只有 `launchApp` 一个，**清状态 / 停止 / 强杀**三件事都无处安放。把它们单列而不是并进「不映射」，是因为它们直接决定了 iOS 用例**能不能可重复地跑**。
+
+#### 8.5.3 不映射（45 条）
+
+| Maestro 命令 | 不映射的理由 |
+|---|---|
+| `inputText` / `inputRandomEmail` / `inputRandomPersonName` / `inputRandomNumber` / `inputRandomText` / `inputRandomCityName` / `inputRandomCountryName` / `inputRandomColorName` / `eraseText` / `copyTextFrom` / `pasteText` / `setClipboard` | 本平台六类步骤里**没有文本输入与剪贴板操作**。这是最大的能力缺口（见 §8.6）——登录、表单填写、搜索这类最常见的用例形态，本平台一步都表达不了 |
+| `doubleTapOn` / `longPressOn` / `scroll` / `scrollUntilVisible` / `swipe` | 本平台**没有手势步骤**（双击 / 长按 / 滚动 / 滑动）。长列表、下拉刷新、抽屉导航一类场景因此不承诺 |
+| `hideKeyboard` / `back` / `pressKey` | 本平台**没有键盘处理与按键步骤**。`back` 在 iOS 上另有一层问题：它是**空操作**（`IOSDriver.backPress` 的字节码体只有一条 `return`），Maestro 官方文档也写明它只支持 Android 与 Web |
+| `clearKeychain` | `clearKeychain` 是 **iOS 专属**命令（清 iOS Keychain）。本平台没有该步骤 ⇒ iOS 用例**无法保证从干净状态起跑**（登录态跨用例泄漏）。它与 Android 上的 `clearState` 分开列，是因为它在 Maestro 里只对 iOS 有效，而本平台恰恰是在 iOS 上缺它 |
+| `openLink` / `setPermissions` / `setLocation` / `travel` / `setOrientation` / `setDarkMode` / `toggleDarkMode` / `assertDarkMode` / `assertLightMode` / `setAirplaneMode` / `toggleAirplaneMode` / `addMedia` | 本平台**没有对应的步骤**，也没有对应的 capability。其中飞行模式（`setAirplaneMode` / `toggleAirplaneMode`）另有一层问题：**iOS 上本来就不生效**（Maestro 的 iOS 驱动对这两个命令只打一条 warn 就返回）⇒ 即使实现了也不构成 iOS 能力 |
+| `assertTrue` / `assertScreenshot` / `waitForAnimationToEnd` / `extendedWaitUntil` | 本平台的断言只有 `visible` / `notVisible` 两种限定词（ATS-602 的 `isSupportedQualifier`），**没有任意表达式断言、没有等待步骤、没有视觉比对** |
+| `evalScript` / `runScript` / `runFlow` / `repeat` / `retry` | 本平台**不执行 Flow 里的任意代码**（ATS-602 的解析器是「只读文本、不执行任何内容」的受限子集读取器），用例也是**扁平的 TestCase 列表**（无子流程、无重复/重试结构） |
+| `assertWithAI` / `assertNoDefectsWithAI` / `extractTextWithAI` | **实验性** AI 命令：Maestro 自己也标注为 experimental；本平台不承诺 AI 断言能力（AI 能力属 ATS-401/ATS-403 的契约层，未做端到端实测） |
+
+**统计**：Maestro 2.12.1 的 55 条命令中，
+**可映射 7 条 / 部分可映射 3 条 / 不映射 45 条**。
+逐条对照由 `tools/ats606-probes/probe-maestro-compat.mjs` 机读校验：
+命令清单（行为确认）、§8.5 的判定与计数、以及判定与 ATS-601 词表的一致性，
+三者必须同时成立，不一致即退出码 1。
+
+#### 8.5.4 关于「兼容」的结论（FR-035 的直接答案）
+
+**结论：不兼容，且是设计选择，不是缺陷。**
+
+本平台**不实现 Maestro Flow 语法的兼容层**（docs/25 §1.2 已定）。
+ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第三方工具的语法承诺。
+所以 FR-035 要的「逐条判定并给出结论」，结论是：
+
+| 判定 | 含义 | 条数 |
+|---|---|---|
+| 可映射 | 语义落在 ATS-601 的六类步骤里，且在 iOS 上可自动化 | 7 |
+| 部分可映射 | 语义只覆盖了一半（如「启动 App」覆盖了 `clearState` 的前半截） | 3 |
+| 不映射 | 本平台的步骤词表里没有该语义 | 45 |
+
+**「不映射」的后果是被设计过的**：ATS-602 的映射器**保留原文 + 标记不支持 + 进导入报告**，
+绝不静默丢弃。所以一份用 Maestro 全量语法写的 Flow 导入本平台时，
+**45 类命令会逐条出现在导入报告里**（带原文、行号、判定原因），
+而不是变成一个「导入成功」的假象。**这正是 ATS-602 存在的意义。**
+
+### 8.6 不承诺清单
+
+以下内容**本平台不承诺**，需人工完成或另立任务：
+
+| # | 不承诺的内容 | 原因 | 影响的 iOS 场景 |
+|---|---|---|---|
+| 1 | **iOS 真机上的 App 启动与录屏** | Maestro 2.12.1 的真机路径（`DeviceControlIOSDevice`）的 `launch` / `install` / `clearAppState` / `startScreenRecording` / `addMedia` / `clearKeychain` / `openLink` / `setLocation` 均未实现（其余 `tap` / `viewHierarchy` / `takeScreenshot` 等走 XCTest 驱动，**真机可用**） | 真机上的「启动 App → 跑场景 → 留证据」这条链**在真机上断在第一步**；iOS 真机用例目前**只能手工执行** |
+| 2 | **文本输入** | 六类步骤里没有输入步骤 | 登录、表单填写、搜索——**最常见的用例形态** |
+| 3 | **滚动/滑动/双击/长按等手势** | 没有手势步骤 | 长列表、下拉刷新、抽屉导航 |
+| 4 | **键盘处理** | 没有 `hideKeyboard` | 软键盘遮挡提交按钮等场景 |
+| 5 | **断言「不可见」的等待语义** | 模型里只有 `visible` / `notVisible`，没有 Maestro 的 7 秒 fluent 重试与 `extendedWaitUntil` | 依赖等待的断言在弱网/慢设备上易 flaky |
+| 6 | **iOS Keychain 清理与 App 状态重置** | 没有 `clearKeychain` / `clearState` 步骤 | iOS 用例的**干净起跑**无法保证——登录态会跨用例泄漏 |
+| 7 | **权限弹窗处理** | 没有 `setPermissions` 步骤，`launchApp` 也没有权限参数 | 首次安装后的位置/相机/通知授权弹窗 |
+| 8 | **App 停止/强杀** | 没有 `stopApp` / `killApp` 步骤 | 一轮结束后无法显式收尾，依赖进程自然退出 |
+| 9 | **视觉回归判定** | 只有取证（`takeScreenshot`），没有比对 | 视觉走查仍需人工 |
+| 10 | **执行 Flow 中的 JavaScript** | 安全红线：平台的 Flow 解析器只读文本、不执行内容 | `evalScript` / `runScript` / `assertTrue` 表达的逻辑需改写为平台步骤或移到用例外 |
+| 11 | **深链/URL 打开、系统按键、方向与深浅色、地理位置、相册注入** | 无对应步骤 | 多 App 跳转、深链入口、外设场景 |
+| 12 | **子流程与流程复用** | 用例是扁平列表，无 `runFlow` | 登录前置等公共步骤只能复制 |
+| 13 | **AI 断言** | Maestro 侧为实验特性；本平台 AI 能力只有契约层，未端到端实测 | 复杂视觉状态的自动判定 |
+
+**总口径**：**iOS 上目前只承诺「模拟器上的六类步骤」+「真机上的 UI 交互三类」这一小块**。
+其余部分**明确不承诺**，且**不得被写成已支持**。
+
+### 8.7 复核方法（可机读）
+
+| 要复核的结论 | 复核命令 | 期望 |
+|---|---|---|
+| Maestro 命令清单（55 条）与 §8.5 的判定一一对应 | `node tools/ats606-probes/probe-maestro-compat.mjs` | `MAESTRO COMMAND INVENTORY: OK (55 commands)` |
+| §8.5 每条命令都有判定，且计数与文中一致 | 同上 | `COMPATIBILITY TABLE: OK` |
+| §8.5 的「可映射」都指向 ATS-601 冻结的步骤种类 | 同上（读 `server/adapters/mobile-target.mjs`） | `every mappable row names a step kind that ATS-601 freezes` |
+| iOS 两条路径的实现状态（§8.4 的事实基础） | `node tools/ats606-probes/probe-ios-driver-support.mjs` | `IOS DRIVER SUPPORT: OK`（需要本机 `D:/AI-Tools/Maestro`；缺 Maestro 时**跳过并写明原因**，不写 PASS） |
+| 证据日志 | `bash tools/ats606-probes/collect-evidence.sh <tree>` | `docs/evidence/ATS-606/` |
+
+---
 ## 9. 安全与信任边界
 
 移动端执行引入了新的攻击面，**必须在设计里先堵住**：
