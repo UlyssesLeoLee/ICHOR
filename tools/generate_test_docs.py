@@ -492,6 +492,15 @@ IT=[
 ('IT-DSC-API-006','FR-021','正常','信任跨重启保留','重启 Bridge 后再读','trust 仍为 trusted','node --test','PASS'),
 ('IT-DSC-API-007','FR-021','安全','撤销信任后回退','POST trust {trust: untrusted}','trust=untrusted 且索引回到 static','node --test','PASS'),
 ('IT-DSC-CLEANUP','NFR-005','清理','临时夹与进程清理','结束 IT suite','释放进程及临时目录','node --test','PASS'),
+('IT-ATS203-001', 'FR-021', '边界', '参数化循环的模板标题在静态索引里不可判定', '真实 Playwright 1.64.1；for 循环 test(`支付 - ${method}`)', '静态索引只给 1 条模板标题，uidStable=false、uidSource=provisional、ambiguity.reason=dynamic-template-title；权威索引给出 3 条渲染用例且各有稳定 UID；consistency 报告两者不一致', 'node --test tests/ats203-index-it.test.mjs', 'PASS'),
+('IT-ATS203-002', 'FR-021', '异常', '参数化同名用例被引擎拒绝并如实报告', 'for 循环里两次同名字面量标题', '静态索引 1 条稳定条目；权威发现 outcome=PLAYWRIGHT_LIST_FAILED，warning 与 errors 带引擎自己的 duplicate test title', 'node --test tests/ats203-index-it.test.mjs', 'PASS'),
+('IT-ATS203-003', 'FR-021', '异常', '同 describe 同名两次被引擎拒绝并报告为歧义', '两个 test.describe(\'结算\') 各含同名用例', '静态索引 2 条 provisional、ambiguity.reason=identical-title-and-body；权威发现错误含 duplicate test title "结算 › 提交订单"', 'node --test tests/ats203-index-it.test.mjs', 'PASS'),
+('IT-ATS203-004', 'FR-021', '正常', '跨文件同名在权威索引里是可判定的', '两个文件各含同名用例但 describe 不同', '静态索引 2 条不可判定；权威索引 2 条 uidStable=true 且 UID 互不相同，各自保留 describe 路径', 'node --test tests/ats203-index-it.test.mjs', 'PASS'),
+('IT-ATS203-005', 'FR-021', '正常', '不同 describe 下的同名用例在权威索引里可判定', '一个文件内两个 describe 各含同名用例', '静态索引不可判定；权威索引 2 条 uidStable=true 且 UID 互不相同', 'node --test tests/ats203-index-it.test.mjs', 'PASS'),
+('IT-ATS203-006', 'FR-021', '正常', '对称项目矩阵给出每条用例两个 spec id', 'playwright.config.ts 的 projects 为 chromium 与 firefox', '权威索引每条用例 specIds=2 且两个 spec id 互不相同；静态索引不带 spec id；两索引对同一逻辑用例给出相同 UID', 'node --test tests/ats203-index-it.test.mjs', 'PASS'),
+('IT-ATS203-007', 'FR-021', '正常', '非对称项目矩阵给出 2 与 1 的用例数', 'projects 为 all 与 only-a(testMatch)', 'case a 的 specIds=2，case b 的 specIds=1；两者 uidStable=true；两索引 UID 一致', 'node --test tests/ats203-index-it.test.mjs', 'PASS'),
+('IT-ATS203-008', 'FR-021', '正常', 'forEach 写法与 for 写法等价', '数组 forEach 里 test(`case ${name}`)', '静态索引 1 条模板且不可判定；权威索引 3 条渲染用例且 uidStable=true', 'node --test tests/ats203-index-it.test.mjs', 'PASS'),
+('IT-ATS203-009', 'FR-021', '正常', '切换索引不改变普通用例的 UID', '先静态后权威读同一个项目', '普通用例的 UID 相同且 uidStable=true', 'node --test tests/ats203-index-it.test.mjs', 'PASS'),
 # --- ATS-212: the environment profiles ---
 ('IT-ENV-SETUP','NFR-011','正常','Bridge 启动以承载环境档案接口','隔离 ATS_DATA_DIR 与随机端口启动 server/index.mjs','/api/health=200 且拿到会话令牌','node --test','PASS'),
 ('IT-ENV-001','FR-027','正常','登记一个项目','POST /api/projects 指向临时工程','201 且返回项目 id','node --test','PASS'),
@@ -736,6 +745,40 @@ ST+=[
 ('ST-028','FR-016','功能','质量概览：指标与原始结果可核对','同一批真实运行的 summary 与用例列表','逐项对账全部一致；对账结论由模块与探针独立复算两次','node tools/ats216-probes/st-ats216.mjs','PASS'),
 ('ST-029','FR-016','功能','两个界面共用同一份质量指标实现','便携 UI 与 Next 工作台','两者都 import 同一模块；Bridge 以 JavaScript MIME 提供该模块','node tools/ats216-probes/st-ats216.mjs','PASS'),
 ('ST-030','FR-016','可靠性','质量指标的实现被破坏时测试变红','对模块做 7 个变异（取消算失败、flaky 算通过、对账恒真、聚类常量、丢重试计数、留 ANSI 码、忽略 attempt 数）','每个变异都被 UT 或 ST 抓住，无一漏网','node tools/ats216-probes/mutation-check.mjs','PASS'),
+
+]
+
+# --- ATS-203: the dynamic / parameterised index cases ----------------------
+# These six rows were likewise added to the GENERATED document only. They
+# are taken over here for the same reason as the ATS-215 rows above: the
+# generated document is an OUTPUT, and a row that is not in the generator is
+# not in the catalogue. The wording is the delivered wording.
+ST+=[
+('ST-ATS203-001','FR-021','边界','经 HTTP：未可信项目的动态用例在索引里标明不可判定','真实 Bridge + 真实 Playwright 1.64.1；for 循环 test(`范围检查 - ${n}`)','discovery=static；模板条目 uidStable=false、uidSource=provisional、ambiguity.reason=dynamic-template-title；普通用例 uidStable=true；warning 单独计数该模板并说明用例数量不可判定','node --test tests/ats203-index-api.test.mjs','PASS'),
+('ST-ATS203-002','FR-021','正常','经 HTTP：可信项目的渲染用例进入目录','授予信任后重读同一项目','discovery=authoritative，outcome=OK，CLI 版本 1.64.1；目录里是 4 条渲染后的用例，渲染用例 uidStable=true 且 UID 互不相同；consistency 报告两索引不一致','node --test tests/ats203-index-api.test.mjs','PASS'),
+('ST-ATS203-003','FR-021','异常','经 HTTP：参数化同名用例的引擎拒绝理由被带到响应里','for 循环里两次同名字面量标题','discovery=static（回退），outcome=PLAYWRIGHT_LIST_FAILED，attempted=true；warning 与 errors[0].message 都带引擎自己的 duplicate test title','node --test tests/ats203-index-api.test.mjs','PASS'),
+('ST-ATS203-004','FR-021','正常','经 HTTP：对称项目矩阵的每条用例带两个 spec id','projects 为 chromium 与 firefox','目录里每条用例 specIds=2 且两个 spec id 互不相同，uidStable=true','node --test tests/ats203-index-api.test.mjs','PASS'),
+('ST-ATS203-005','FR-021','正常','经 HTTP：非对称项目矩阵给出 2 与 1','projects 为 all 与 only-a(testMatch)','case a 的 specIds=2，case b 的 specIds=1，两者 uidStable=true','node --test tests/ats203-index-api.test.mjs','PASS'),
+('ST-ATS203-006','FR-021','正常','经 HTTP：跨文件同名的判定随索引切换而改变','两个文件各含同名用例但 describe 不同','未可信时 2 条不可判定且 ambiguity.reason=identical-title-and-body，warning 计数 2；可信后 2 条 uidStable=true 且 UID 互不相同','node --test tests/ats203-index-api.test.mjs','PASS'),
+]
+# --- ATS-215: the evidence workbench (Trace location and the run comparison) --
+# The ST-034..038 segment was renumbered away from ST-031..035 because ATS-402
+# had already taken ST-031..033 on dev.
+#
+# These rows live in the GENERATOR, not only in docs/09-ST-TEST-DESIGN.md: that
+# document is generated, so a row added only to the generated file is wiped by
+# the next regeneration -- and tools/test_generate_test_docs.py then reports
+# the committed catalog as stale. A test case that exists only in the
+# generated document is a test case that does not exist.
+#
+# The block is placed here, before the emit() calls, so the ST list the
+# documents and the RTM are built from is the same list.
+ST+=[
+('ST-034','FR-014','功能','从失败用例 2 次点击内找到 Trace','真实 Bridge + 真实 Playwright + 真实 Chromium：真实失败运行留下真实 trace.zip','点失败用例 → 点 Trace，2 次点击内真的下载到 trace.zip','node tools/ats215-probes/st-ats215.mjs','PASS'),
+('ST-035','FR-015','功能','附件显示归档哈希与时间','同一次运行的 trace.zip','显示的 SHA-256 = 清单归档值 = 磁盘字节重算值；显示文件修改时间','node tools/ats215-probes/st-ats215.mjs','PASS'),
+('ST-036','FR-015','异常','归档后被改动的附件','把 trace.zip 改掉后再查','校验报出 changed（应有与实际两个摘要）；工作台仍显示归档时的摘要，还原后重新一致','node tools/ats215-probes/st-ats215.mjs','PASS'),
+('ST-037','FR-014','功能','两个界面共用同一份 Trace 定位实现','便携 UI 与 Next 工作台','两者显示同一个 Trace 文件、同一份摘要与同一个时间','node tools/ats215-probes/st-ats215.mjs','PASS'),
+('ST-038','FR-014','异常','定位不到 Trace 的用例','没有 trace 的用例','界面显示「定位不到」与原因，不给一条打不开的链接','tests/evidence-workbench.test.mjs（UT 覆盖；界面形态未单独 ST）','PASS（UT）'),
 ]
 
 # --- ATS-601: the mobile target and session contract ---
@@ -986,7 +1029,12 @@ IT+=[
 ]
 
 def emit(file,title,purpose,cases):
- lines=[f'# {title}','',f'> 设计总数：{len(cases)}；已执行通过：{sum(r[-1]=="PASS" for r in cases)}；待执行/未实现：{sum(r[-1]!="PASS" for r in cases)}。**PENDING 不是测试通过**。','',purpose,'','## 测试设计清单','', '| ID | 关联要件 | 类别 | 测试内容 | 测试数据 / 前提 | 预期结果 | 证据/方法 | 状态 |','|---|---|---|---|---|---|---|---|']
+ # The status column may qualify a PASS ("PASS（UT）" -- passed, but the
+ # evidence is a unit test rather than a system test). Such a row IS
+ # executed and passing, so it counts as passed; counting only the exact
+ # "PASS" would report a passing case as not executed.
+ passed=[r for r in cases if r[-1].startswith('PASS')]
+ lines=[f'# {title}','',f'> 设计总数：{len(cases)}；已执行通过：{len(passed)}；待执行/未实现：{len(cases)-len(passed)}。**PENDING 不是测试通过**。','',purpose,'','## 测试设计清单','', '| ID | 关联要件 | 类别 | 测试内容 | 测试数据 / 前提 | 预期结果 | 证据/方法 | 状态 |','|---|---|---|---|---|---|---|---|']
  for t in cases: lines.append('|'+'|'.join(x.replace('|','/').replace('\n',' ') for x in t)+'|')
  lines.extend(['','## 进入与退出条件','','- 进入：源码基线固定，目标环境、测试数据、执行账号和已知限制记录完整；优先执行异常/边界和安全阻断。','- 退出：P0 阻断级用例通过，失败有缺陷票和可复现证据；PENDING 逐条标注原因，不能简单计入通过。','- 每次复测必须关联修复 Git commit，并做受影响范围回归。',''])
  (DOC/file).write_text('\n'.join(lines),encoding='utf8')
