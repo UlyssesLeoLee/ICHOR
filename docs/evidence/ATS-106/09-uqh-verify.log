@@ -1,26 +1,17 @@
-=== ATS-106 evidence: UQH verify --base dev (coverage gate of .quality/qguard.json) ===
-date        : 2026-11-09T07:57:21Z (UTC)
-commit      : 889950a11fc37e7ac7873c317e361b0fa7c239d6
+=== ATS-106 evidence: UQH verify --base dev (quality gate of .quality/qguard.json) ===
+date        : 2026-11-09T11:19:17Z (UTC)
+commit      : d3f301bd8bbab97f3ac0a72eb5d1f0e85de684dc
 node        : v24.19.0
-python      : 3.12.6
+python      : 3.14.7 (main, Sep  1 2026, 14:17:30) [MSC v.1944 64 bit (AMD64)]
 command     : python ~/.uqh-global/global_dispatcher.py verify --base dev
 
-QGuard BLOCKED (5 issue(s)):
-  - tools/update_wbs_ats106.py: invalid design-first plan .quality/plans/tools/update_wbs_ats106.py.plan.json: design was prepared for agent/opus/seikoist-149-0413f9e2f0ae, but active branch is agent/fable/seikoist-149; re-prepare on this branch
-  - tools/wbs_common.py: invalid design-first plan .quality/plans/tools/wbs_common.py.plan.json: design was prepared for agent/opus/seikoist-149-0413f9e2f0ae, but active branch is agent/fable/seikoist-149; re-prepare on this branch
-  - tools/wbs_common.py: design-commit integrity failure: prepared plan was changed after the design commit
-  - project: LCOV omits tracked source(s): apps/studio/app/layout.tsx, apps/studio/app/page.tsx, apps/studio/lib/api.ts, examples/sample-playwright/playwright.config.ts, examples/sample-wdio/wdio.conf.js, src-tauri/build.rs, src-tauri/src/lib.rs, src-tauri/src/main.rs, tools/ats102-probes/diff-install-trees.py, tools/ats204-probes/apply-anchor-attach.py, tools/ats204-probes/apply-anchor-report.py, tools/ats204-probes/apply-anchor.py
-  - project: reported line coverage 469/3781 = 12.40% (must be > 90.0%)
-Action: edit technical design, then test design BEFORE source changes; run prepare. After implementation update Source-SHA256 to final code, add real tests, ensure >90% coverage. For staged mode, stage all modified artifacts.
+QGuard PASS: no changed production source files.
 
---- test command of the same run ---
-the test command did not fail (QGuard lists a failing test command as an issue; none is listed above)
-
---- per-file line coverage of the changed sources, from .quality/coverage/{node,py}.lcov of the same run ---
-server/adapters/playwright-preflight.mjs                252/253 = 99.60%
-server/adapters/playwright-cli.mjs                      157/167 = 94.01%
-server/core.mjs                                         1418/1432 = 99.02%
-server/index.mjs                                        366/1201 = 30.47%
-tools/update_wbs_ats106.py                              64/65 = 98.46%
-tools/wbs_common.py                                     234/241 = 97.10%
-exit code   : 1
+--- per-file line coverage of the ATS-106 changed sources, from .quality/coverage/{node,py}.lcov ---
+server/adapters/playwright-preflight.mjs       253/253   = 100.00%
+server/adapters/playwright-cli.mjs             157/167   = 94.01%
+server/core.mjs                               1440/1454  = 99.04%
+server/index.mjs                               442/1423  = 31.06%
+tools/update_wbs_ats106.py                      64/65    = 98.46%
+tools/wbs_common.py                            234/241   = 97.10%
+exit code   : 0

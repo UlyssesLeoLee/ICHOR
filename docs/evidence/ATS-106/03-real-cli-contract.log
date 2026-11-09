@@ -1,15 +1,15 @@
 === ATS-106 evidence: real Playwright installation at D:/ICHOR/examples/sample-playwright (CT-PF-001, CT-ARG-001; skipped with a reason when absent) ===
-date        : 2026-11-09T10:18:33Z (UTC)
-commit      : e91128a393f563dd695a0d90ac3d7ce5b4d95630
+date        : 2026-11-09T11:10:45Z (UTC)
+commit      : d3f301bd8bbab97f3ac0a72eb5d1f0e85de684dc
 node        : v24.19.0
-python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command     : ATS_REAL_PLAYWRIGHT_PROJECT=D:/ICHOR/examples/sample-playwright node --test --test-reporter=spec tests/preflight-real.test.mjs
 
 CT-PF-001 version=1.64.1 registry=C:\Users\seiko\AppData\Local\ms-playwright warnings=[]
-✔ CT-PF-001: the preflight reads a real installation as runnable (8.1386ms)
-CT-ARG-001 argv=["test","--reporter=line,json,html","--output","C:\\Users\\seiko\\AppData\\Local\\Temp\\ats106-ct-out-9V45o7\\results","--trace","on","--workers","1","tests/ok.spec.ts"] exit=0
-✔ CT-ARG-001: the real CLI accepts the Bridge vector and the filter selects one file (2225.4781ms)
+✔ CT-PF-001: the preflight reads a real installation as runnable (7.5198ms)
+CT-ARG-001 argv=["test","--reporter=line,json,html","--output","C:\\Users\\seiko\\AppData\\Local\\Temp\\ats106-ct-out-5gjO5P\\results","--trace","on","--workers","1","tests/ok.spec.ts"] exit=0
+✔ CT-ARG-001: the real CLI accepts the Bridge vector and the filter selects one file (2128.9931ms)
 ℹ tests 2
 ℹ suites 0
 ℹ pass 2
@@ -17,5 +17,5 @@ CT-ARG-001 argv=["test","--reporter=line,json,html","--output","C:\\Users\\seiko
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 2348.1719
+ℹ duration_ms 2240.5439
 exit code   : 0

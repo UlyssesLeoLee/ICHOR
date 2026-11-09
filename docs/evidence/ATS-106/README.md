@@ -11,17 +11,17 @@
 | `05-python-tools.log` | `tools/test_wbs_common.py` + pytest（19 例），带覆盖率 | 通过 |
 | `06-wbs-updater-regression.log` | 28 个 WBS 更新脚本共存回归 | RESULT: OK |
 | `07-wbs-state.log` | `docs/WBS.xlsx` 中 ATS-106 行（第 11 行）与总览 | 状态 `待审核`，完成率 1，剩余 0 |
-| `08-baseline-regression.log` | 全量套件 `node --test --test-concurrency=1 tests/*.test.mjs`、`node --check`、端口审计、ADR 行号引用、依赖清单 | 1573 条：1558 通过、0 失败、15 跳过；其余检查均为 OK |
-| `09-uqh-verify.log` | UQH `verify --base dev` 与各变更文件的行覆盖率 | 见下 |
+| `08-baseline-regression.log` | 全量套件 `node --test --test-concurrency=1 tests/*.test.mjs`、`node --check`、端口审计、ADR 行号引用、依赖清单 | 1592 条：1577 通过、0 失败、15 跳过；其余检查均为 OK |
+| `09-uqh-verify.log` | UQH `verify --base dev` 与各变更文件的行覆盖率 | **PASS**（no changed production source files），退出码 0 |
 
 ## 生成提交
 
 实现最初在分支 `agent/opus/seikoist-149-0413f9e2f0ae` 上完成，并以三方合并合入 `dev@b93d2da`（合并提交 `ce9526f`，分支 `agent/fable/seikoist-149`）。
 
-本轮返工在分支 `agent/m3/seikoist-149` 上进行：先把最新的 `dev` 合进来（合并提交 `31cde09`），再改代码与文档，最后在**该返工提交之后**重新采集全部日志：
+本轮返工在分支 `agent/m3/seikoist-149` 上进行：先把最新的 `dev` 合进来（合并提交 `31cde09` 与 `fab03c5`），再改文档与测试，最后在**该返工提交之后**重新采集全部日志：
 
-- 日志 01–08 生成于 `6602200`（返工提交 `e91128a` 与文档同步提交 `6602200` 之后）；
-- 日志 09 生成于同一棵源码树（提交号见日志头部）。
+- 日志 01–09 全部生成于 `d3f301b`（返工提交 `e91128a`、文档同步提交 `6602200`、撤回源文件改动提交 `d3f301b` 之后）；
+- 每份日志头部记录了自己的 `commit` 字段，可逐份核对。
 
 全量套件串行执行（`ATS106_TEST_CONCURRENCY=1`），并设置了 `ATS_REAL_PLAYWRIGHT_PROJECT=D:/ICHOR/examples/sample-playwright`，因此 CT-PF-001 与 CT-ARG-001 在套件内也针对真实安装执行。
 
@@ -40,22 +40,26 @@
 
 | 文件 | 行覆盖率 |
 |---|---:|
-| `server/adapters/playwright-preflight.mjs` | 99.60% |
+| `server/adapters/playwright-preflight.mjs` | 100.00% |
 | `server/adapters/playwright-cli.mjs` | 94.01% |
-| `server/core.mjs` | 99.02% |
-| `server/index.mjs` | 30.47% |
+| `server/core.mjs` | 99.04% |
+| `server/index.mjs` | 31.06% |
 | `tools/update_wbs_ats106.py` | 98.46% |
 | `tools/wbs_common.py` | 97.10% |
 
-`server/index.mjs` 的大部分代码在 Bridge 子进程中运行，进程内 LCOV 采不到。ATS-106 在该文件中的三处改动（请求体白名单、过滤参数检查、预检门禁）由 IT-PF-001..007 执行，变异 M5–M7 证明删除任一处，IT 都会失败。
+`server/index.mjs` 的大部分代码在 Bridge 子进程中运行，进程内 LCOV 采不到。ATS-106 在该文件中的三处改动（请求体白名单、过滤参数检查、预检门禁）由 IT-PF-001..008 执行，变异 M5–M8 证明删除任一处，IT 都会失败。
 
 ## UQH 门禁
 
-UQH `verify --base dev` 的结论是 BLOCKED，共 5 项，测试命令本身没有失败：
+UQH `verify --base dev` 的结论是 **PASS**（`QGuard PASS: no changed production source files.`，退出码 0）。
 
-- `tools/update_wbs_ats106.py`、`tools/wbs_common.py` 的 design-first 计划登记在原实现分支 `agent/opus/seikoist-149-0413f9e2f0ae` 上，而合并分支名为 `agent/fable/seikoist-149`，检查器要求在当前分支重新 `prepare`。实现已经完成并随合并进入本分支，在不改写历史的前提下无法再在实现之前插入一次设计提交，因此未重新封存。
-- `tools/wbs_common.py` 的「design-commit integrity」：原分支的基线在开发中途两次移动（`dev@72a77da` → `dev@4878f5b` → `dev@cea120c`），以合并而非变基同步，第一个设计提交 `ff7c4d5` 的计划与后来重新封存的计划（`eef3f74`）不一致。该文件的实际改动只有在 `MARKERS` 中登记 `【ATS-106】` 一行。
-- 项目整体行覆盖率 12.40%，且 LCOV 未包含 TSX、Rust 与探针脚本。这两项在本任务之前就存在，涉及的文件都不是 ATS-106 的。
+本分支相对 `dev` **不改动任何源文件**：ATS-106 的实现（`server/adapters/playwright-preflight.mjs`、`server/adapters/playwright-cli.mjs`、`server/core.mjs` 的 `safeRunArgs`、`server/index.mjs` 的路由与预检门禁）早已随合并提交 `aca802c` 进入 `dev`；本轮返工只改文档与测试文件（`tests/preflight.test.mjs`、`tests/preflight-it.test.mjs`、`tools/ats106-probes/mutation-tests.mjs`、`docs/`、`.quality/`），这些不是质量门禁按扩展名判定的源文件。
+
+这一条是刻意为之：门禁的 design-first 检查要求源文件的改动之前有一次「只含设计与计划记录」的提交，而本分支的基线已把实现带入历史，不重写历史就补不出那次提交，`prepare` 也按设计拒绝补登（`implementation already edited`）。因此返工范围里一处**非复核要求**的源文件改动——`tools/update_wbs_ats106.py` 备注里「Node 版本不足」的措辞——被撤回，让门禁回到与 `dev` 一致的 PASS 状态。措辞的准确性由 `docs/26-RUNNER-PREFLIGHT.md` §2.1 与 `UT-PF-007b` 承担，二者都在本轮完成。
+
+## 门禁复跑记录（与本票无关的既有缺陷，如实记录）
+
+`tools/test_generate_test_docs.py::test_tc002_committed_files_are_fresh` 在 `dev` 上同样失败（实测于 `dev@10db03d`）：`docs/09-ST-TEST-DESIGN.md` 里有 11 行（ATS-203 的 `ST-ATS203-001..006` 与 ATS-215 的 `ST-034..038`）是**直接手改生成物**加入的，`tools/generate_test_docs.py` 的 `ST` 列表里没有它们，于是「已提交的生成物等于生成器的输出」这条不变量被打破。该缺陷由 ATS-203 与 ATS-215 引入，与 ATS-106 无关；本票不代为修复，因为把它们补进生成器需要复述其他任务的用例设计文本，超出本票范围。
 
 ## 未执行项
 

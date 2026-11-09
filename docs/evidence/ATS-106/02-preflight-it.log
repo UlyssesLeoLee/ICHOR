@@ -1,20 +1,20 @@
 === ATS-106 evidence: real Bridge + marker CLIs (IT-PF-SETUP..007) ===
-date        : 2026-11-09T10:18:09Z (UTC)
-commit      : e91128a393f563dd695a0d90ac3d7ce5b4d95630
+date        : 2026-11-09T11:10:45Z (UTC)
+commit      : d3f301bd8bbab97f3ac0a72eb5d1f0e85de684dc
 node        : v24.19.0
-python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command     : node --test --test-reporter=spec tests/preflight-it.test.mjs
 
-✔ IT-PF-SETUP: a Bridge with five registered projects (789.4053ms)
-✔ IT-PF-001: an unsupported version ends the run in error before spawn (165.4379ms)
-✔ IT-PF-002: a missing Playwright dependency ends the run in error before spawn (185.5293ms)
-✔ IT-PF-003: a config deleted after registration ends the run in error before spawn (318.5244ms)
-✔ IT-PF-004: a complete installation runs, and the preflight is recorded (319.4636ms)
-✔ IT-PF-005: fields outside the run request whitelist are refused, no run is created (62.0427ms)
-✔ IT-PF-006: an option-shaped or regex-shaped filter is refused, no run is created (29.6172ms)
-✔ IT-PF-007: traversal is still refused by the source path check (1.4485ms)
-✔ IT-PF-008: a project without a local CLI ends the run in error before spawn (108.3841ms)
+✔ IT-PF-SETUP: a Bridge with five registered projects (812.7506ms)
+✔ IT-PF-001: an unsupported version ends the run in error before spawn (183.5736ms)
+✔ IT-PF-002: a missing Playwright dependency ends the run in error before spawn (154.0277ms)
+✔ IT-PF-003: a config deleted after registration ends the run in error before spawn (323.728ms)
+✔ IT-PF-004: a complete installation runs, and the preflight is recorded (304.137ms)
+✔ IT-PF-005: fields outside the run request whitelist are refused, no run is created (56.0282ms)
+✔ IT-PF-006: an option-shaped or regex-shaped filter is refused, no run is created (46.922ms)
+✔ IT-PF-007: traversal is still refused by the source path check (16.1436ms)
+✔ IT-PF-008: a project without a local CLI ends the run in error before spawn (140.4947ms)
 ℹ tests 9
 ℹ suites 0
 ℹ pass 9
@@ -22,5 +22,5 @@ command     : node --test --test-reporter=spec tests/preflight-it.test.mjs
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 2118.0883
+ℹ duration_ms 2179.0684
 exit code   : 0

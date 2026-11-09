@@ -1,8 +1,8 @@
 === ATS-106 evidence: guard mutations on a temporary copy (each must be caught) ===
-date        : 2026-11-09T10:18:33Z (UTC)
-commit      : e91128a393f563dd695a0d90ac3d7ce5b4d95630
+date        : 2026-11-09T11:10:45Z (UTC)
+commit      : d3f301bd8bbab97f3ac0a72eb5d1f0e85de684dc
 node        : v24.19.0
-python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command     : node tools/ats106-probes/mutation-tests.mjs
 
