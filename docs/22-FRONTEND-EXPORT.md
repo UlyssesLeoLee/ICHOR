@@ -401,7 +401,7 @@ $ bash tools/ats103-probes/verify-r4.sh <clone-dir> <label>
 - 交付分支上：`docs/evidence/ATS-103/10-r4-branch-clone-verification-crlf.log` 与 `10-r4-branch-clone-verification-lf.log`
 - 合并后的 `dev` 上：`docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log` 与 `11-r4-dev-clone-verification-lf.log`
 
-四份都是 8 步全绿（`R4_EXIT=0`）。
+四份都是 8 步全绿（`R4_EXIT=0`）。四份分别指向**两个不同的提交**：前两份指向交付分支的提交，后两份指向**合并后的 `dev`** 的 tip——R4 第 4 项要的就是「在合并后的 `dev` 上复跑」，因此 `dev` 那一侧是**在合并之后**才跑的，不是合并之前的同一棵树。
 
 ## 4. 本次交付发现的两个真实缺陷（不属于 ATS-103 的修复范围）
 
@@ -545,6 +545,7 @@ HTTP 探针 → ui-smoke（同源）→ ui-smoke（跨源）→ ui-smoke（非�
 | `docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log` | 新增 | R4 第 4 项要求的**合并后 `dev`** 上的复跑（CRLF 克隆），8 步全绿 |
 | `docs/evidence/ATS-103/11-r4-dev-clone-verification-lf.log` | 新增 | 同一组检查在**合并后 `dev`** 的 LF 克隆里的输出，8 步全绿 |
 | `tools/ats103-probes/verify-r4.sh` | 新增 | 在克隆出来的交付分支上复跑上述各项的脚本 |
+| `tools/ats103-probes/collect-r4-logs.sh` | 新增 | 采集上述四份克隆验证日志（交付分支与合并后的 `dev`，各 CRLF / LF 两份）的脚本 |
 | `tools/update_wbs_ats103.py` | 修改 | 本任务的 WBS 行更新脚本（与 ATS-101/102/301/401/501 同构，标记 `【ATS-103】`）：备注同步为本轮的真实结论 |
 | `tools/wbs_common.py` | 修改 | 共享工作簿的标记登记与叙述片段：新增 `【ATS-103】` |
 | `docs/22-FRONTEND-EXPORT.md` | 新增 | 本文件 |
