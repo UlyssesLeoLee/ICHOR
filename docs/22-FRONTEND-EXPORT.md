@@ -16,10 +16,10 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 
 | 验收项 | 结论 | 证据 |
 |---|---|---|
-| Next.js 16 静态导出构建 | **PASS** | `next build`（Next.js **16.4.5**，Turbopack）**构建成功**（编译/类型检查/静态页的用时数字随机器与负载浮动，**以日志为准**，见 `docs/evidence/ATS-103/02-next-static-export-build.log`）；产物 `apps/studio/out/`（`index.html` **12927 字节**、`404.html`、`_next/static/**`）；构建后工作区**不脏** |
-| 导出产物的自洽性 | **PASS** | `index.html` 引用的 **8 个**资源全部存在于磁盘；导出目录的**真实文件树**里没有任何服务端路由产物（**声明了 `force-static` 的 handler 会被预渲染进 `out/api/**`，由这条断言拦截**，见 §2） |
+| Next.js 16 静态导出构建 | **PASS** | `next build`（Next.js **16.4.5**，Turbopack）**构建成功**（编译/类型检查/静态页的用时数字随机器与负载浮动，**以日志为准**，见 `docs/evidence/ATS-103/02-next-static-export-build.log`）；产物 `apps/studio/out/`（`index.html` **14056 字节**、`404.html`、`_next/static/**`）；构建后工作区**不脏** |
+| 导出产物的自洽性 | **PASS** | `index.html` 引用的 **9 个**资源全部存在于磁盘；导出目录的**真实文件树**里没有任何服务端路由产物（**声明了 `force-static` 的 handler 会被预渲染进 `out/api/**`，由这条断言拦截**，见 §2） |
 | 导出页在运行时解析 API 基址 | **PASS** | **可执行判别**：导出页按主机名 `localhost` 打开，浏览器**实际**把 API 请求发往 `localhost:<port>`（运行时解析得到的是同源相对路径；构建期烘焙的绝对基址会发往数字地址）。静态启发式（bundle 里有对 `location.port` 的比较）是**必要不充分**的辅助信号，见 §2.1 |
-| Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（**12927 字节**），带 CSP（`connect-src` 含 `http://127.0.0.1:4577`）；带哈希的 chunk 亦可取回（HTTP 200） |
+| Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（**14056 字节**），带 CSP（`connect-src` 含 `http://127.0.0.1:4577`）；带哈希的 chunk 亦可取回（HTTP 200） |
 | Bridge 会话操作 | **PASS** | `GET /api/session` 返回 token；**异源 Origin → 403**、**无 token → 401** |
 | Bridge 项目操作 | **PASS** | `POST /api/projects` → 201；`GET /api/projects` → 200；`GET /api/projects/{id}/tests` → 2 个用例 |
 | Bridge 运行操作 | **PASS** | `POST /api/projects/{id}/run` → **202**，随后到达终态 `failed`，**真实结果 1 PASS / 1 FAIL / 共 2 例**，采集 **28 个**证据产物（含 `report.json`、HTML 报告、每例 `trace.zip`）；API 报告的 summary 与磁盘上的 `report.json` **逐项一致** |
@@ -50,7 +50,7 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 2. **导出目录的真实文件树里没有服务端路由产物。** 这一层才是真正的保证，**它拦得住上面那两种形状**——尤其是声明了 `force-static` 的那一种。验证脚本遍历 `apps/studio/out` 的**每一个文件与目录**，而不是去检查 Next 从不写出的两个路径（`out/app/api`、`out/.next/server`）——后者是永远不会失败的空转断言。断言本身：
 
    ```
-   PASS  the export contains no server-side API route output  --  25 exported entries, none of them a server route
+   PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
    ```
 
    变异 A′（声明 `force-static` 的 handler）实测让**这一条**变红：
@@ -157,16 +157,16 @@ Route (app)
 ```
 $ node tools/ats103-probes/verify-export-and-proxy.mjs
 PASS  export directory exists (apps/studio/out)
-PASS  export contains index.html  --  12927 bytes
+PASS  export contains index.html  --  14056 bytes
 PASS  export contains 404.html
 PASS  export contains _next/static assets
-PASS  the export contains no server-side API route output  --  25 exported entries, none of them a server route
-PASS  every asset referenced by index.html exists on disk (8 assets)
+PASS  the export contains no server-side API route output  --  27 exported entries, none of them a server route
+PASS  every asset referenced by index.html exists on disk (9 assets)
 PASS  the shipped bundle carries a comparison of the page location port  --  reads location.port: true, compares it: true, references /api/session: true
 PASS  bridge boots and answers /api/health
-PASS  bridge serves the exported index.html at /  --  HTTP 200, 12927 bytes
+PASS  bridge serves the exported index.html at /  --  HTTP 200, 14056 bytes
 PASS  the served page carries a CSP that allows the API origin  --  connect-src allows 127.0.0.1:4577
-PASS  the bridge serves the exported chunk /_next/static/chunks/07zxw0h7jdqcq.js  --  HTTP 200
+PASS  the bridge serves the exported chunk /_next/static/chunks/04p_vbrqf_cr7.js  --  HTTP 200
 PASS  GET /api/session returns a token
 PASS  a foreign Origin is rejected (403)  --  HTTP 403
 PASS  an unauthenticated API call is rejected (401)  --  HTTP 401
@@ -177,7 +177,7 @@ PASS  POST /api/projects/{id}/run is accepted (202)  --  HTTP 202
 PASS  the accepted run reaches a passed/failed terminal state  --  status=failed
 PASS  the terminal run reports a per-case result set  --  2 cases
 PASS  the terminal run summary matches the on-disk report.json  --  summary and report.json agree (1/1/0/0/2)
-PASS  the terminal run collected artefacts  --  27 artefacts
+PASS  the terminal run collected artefacts  --  28 artefacts
 PASS  the collected artefacts include report.json  --  1 report.json entries
 PASS  GET /api/runs lists the run history  --  1 runs
 PASS  the probe executed every registered check  --  25/25 checks executed
@@ -315,7 +315,7 @@ $ npm test
 
 ### 3.6 WBS 更新脚本共存回归
 
-本任务新增了 `tools/update_wbs_ats103.py`，它与既有的其他 `tools/update_wbs_*.py` **共用同一份 `docs/WBS.xlsx`**。因此跑了仓库既有的两项共享工作簿回归（**当次参与回归的更新器共 18 个**，逐个列在 `04-wbs-updater-regression.log` 的头部）：
+本任务新增了 `tools/update_wbs_ats103.py`，它与既有的其他 `tools/update_wbs_*.py` **共用同一份 `docs/WBS.xlsx`**。因此跑了仓库既有的两项共享工作簿回归（**当次参与回归的更新器共 23 个**，逐个列在 `04-wbs-updater-regression.log` 的头部）：
 
 ```
 $ python tools/test_wbs_common.py
@@ -328,13 +328,13 @@ $ bash tools/ats501-probes/check-wbs-updaters.sh
 updaters  : tools/update_wbs_ats101.py tools/update_wbs_ats101_done.py tools/update_wbs_ats102.py tools/update_wbs_ats103.py tools/update_wbs_ats201.py tools/update_wbs_ats202.py tools/update_wbs_ats205.py tools/update_wbs_ats206.py tools/update_wbs_ats207.py tools/update_wbs_ats208.py tools/update_wbs_ats212.py tools/update_wbs_ats301.py tools/update_wbs_ats401.py tools/update_wbs_ats501.py tools/update_wbs_ats506.py tools/update_wbs_ats512.py tools/update_wbs_ats601.py tools/update_wbs_ats601_rtm.py
 updater # : 18 (discovered from tools/update_wbs_*.py)
 ...
-  PASS  the 18 updaters produce the same sheet in either order
-  PASS  running the 18 updaters twice changes nothing
+  PASS  the 23 updaters produce the same sheet in either order
+  PASS  running the 23 updaters twice changes nothing
   PASS  the cached 总览 values equal the values derived from 开发WBS
   PASS  every marked note of the baseline is still in the sheet
   PASS  D6 and D7 still carry every task's contribution
 
-RESULT: OK -- the 18 WBS updaters coexist, are idempotent, do not undo
+RESULT: OK -- the 23 WBS updaters coexist, are idempotent, do not undo
         an accepted review, and the 总览 cache always matches 开发WBS.
 ```
 
