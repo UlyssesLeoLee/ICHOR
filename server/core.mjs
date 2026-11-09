@@ -986,7 +986,13 @@ export function discoverStatic(project, registry) {
  // Every kind of uncertainty is REPORTED. A case that got a uid but whose
  // registry entry disagreed with it is reported as well: the uid is usable,
  // but the memory of the past cases is inconsistent and a reader has to know.
- const conflicts=allTests.filter(t=>t.ambiguity&&t.ambiguity.reason!=='identical-title'&&t.ambiguity.reason!=='identical-title-and-body');
+ //
+ // ATS-203: a TEMPLATE title is counted on its own. It is not a "duplicate
+ // title" and it is not a registry disagreement: the case that runs carries
+ // a RENDERED title, so this index cannot say how many cases there are.
+ const templated=allTests.filter(t=>t.ambiguity&&t.ambiguity.reason==='dynamic-template-title').length;
+ const duplicatedTitles=allTests.filter(t=>t.ambiguity&&(t.ambiguity.reason==='identical-title'||t.ambiguity.reason==='identical-title-and-body')).length;
+ const conflicts=allTests.filter(t=>t.ambiguity&&t.ambiguity.reason!=='identical-title'&&t.ambiguity.reason!=='identical-title-and-body'&&t.ambiguity.reason!=='dynamic-template-title');
  const duplicatedExplicit=allTests.filter(t=>t.ambiguity?.reason==='duplicate-explicit-uid').length;
  // The static index is the HEURISTIC one: it sees the literal test()/it()
  // calls and nothing else. The authoritative index (`playwright test
@@ -995,7 +1001,8 @@ export function discoverStatic(project, registry) {
  // for. The warning therefore points at the way to get it, not at the raw
  // command.
  let warning='静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试不在其中。';
- if(ambiguous)warning+=` ${ambiguous} 个用例的 UID 为临时值（标题重复且无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
+ if(duplicatedTitles)warning+=` ${duplicatedTitles} 个用例的 UID 为临时值（标题重复且无法唯一判定），需要用 @TC-xxx 显式标注或人工复核。`;
+ if(templated)warning+=` ${templated} 个用例的标题是动态模板（含 \${}），静态索引看不到它们渲染后的标题，用例数量不可判定；如需准确结果请使用权威索引。`;
  if(duplicatedExplicit)warning+=` ${duplicatedExplicit} 个用例标注了同一个 @TC-xxx（重复的显式 UID），这些用例都没有绑定到该 UID，需要人工消歧。`;
  if(conflicts.length)warning+=` ${conflicts.length} 个用例的注册表记录与本次发现不一致（${[...new Set(conflicts.map(t=>t.ambiguity.reason))].join('、')}），其 UID 由本次发现派生，需要人工复核。`;
  // ATS-602: the mobile import reports itself. A step the platform cannot
