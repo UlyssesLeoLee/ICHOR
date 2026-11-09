@@ -1,12 +1,11 @@
 # 25-MOBILE-APP-TESTING.md ｜ 移动端（App）测试执行面设计书
 
-- 文书 ID：ATS-D-025｜状态：**PARTIAL**（ATS-601 的**契约层**与 ATS-602 的**用例模型/导入映射层**已实现并经 UT/IT 实测；ATS-606 的 **iOS/Maestro 边界已冻结**（§8，三张表 + 可机读复核的复核脚本）；§5~§7 仍为纯设计，仓库内无任何真实移动端执行）
+- 文书 ID：ATS-D-025｜状态：**PARTIAL**（ATS-601 的**契约层**、ATS-602 的**用例模型/导入映射层**与 ATS-603 的 **Android Runner**（真实模拟器实测）已实现；ATS-606 的 **iOS/Maestro 边界已冻结**（§8，三张表 + 可机读复核的复核脚本）；§6~§7 仍为纯设计，仓库内无移动端**证据归档**、无 iOS 执行）
 - 目标版本：v0.5.0｜阶段：S6｜WBS：ATS-601 ~ ATS-606
 - 需求：FR-031 ~ FR-035、NFR-013
 - 起草：2026-11-06
 
-> **基线声明**：本文描述的是**设计**，不是已实现的能力。仓库内没有真实设备会话、
-> 没有真实移动端 Runner、没有移动端证据适配层。**已实现的两层**是：
+> **基线声明**：本文描述的是**设计**，不是已实现的能力。**已实现的三层**是：
 >
 >   * §3 的**契约层**（目标/会话模型、状态机、能力协商、拒绝规则、安全边界）——
 >     由 ATS-601 实现，UT-MOB-001..094 共 99 例实测；那是**假目标 + 假会话**上的
@@ -14,7 +13,15 @@
 >   * §4 的**用例模型与导入映射层**（Flow 解析、语义映射、不支持步骤的保留、
 >     导入报告、UID 规则）——由 ATS-602 实现，UT-MOB-200..318 共 87 例 +
 >     IT-ATS602-API-001..015 共 15 例实测；那是**文本夹具**上的映射测试，
->     **不涉及任何设备**。
+>     **不涉及任何设备**；
+>   * §5 的 **Android Runner**（ADB 传输层、视图层级解析、步骤语义与失败分类、
+>     ATS-301 适配器实现）——由 ATS-603 实现，UT 共 43 例 +
+>     IT-ATS603-001..022 共 9 例在**真实 Android 模拟器**上实测 +
+>     IT-ATS603-030..031 共 2 例经**真实 Bridge**实测；
+>     这是**模拟器**上的实测，**真机**（`local-device`）路径未实测。
+>
+> **仍未实现**：§6 的移动端**证据归档**（ATS-604）、§7 的能力矩阵与环境声明
+> （ATS-605）。
 >
 > **已冻结的一节**是 §8（ATS-606 的 iOS / Maestro 边界）：三张表逐条填完，
 > 判定所依据的 Maestro 命令清单与 iOS 驱动实现状态都有可机读复核的来源
@@ -22,6 +29,7 @@
 > 本机无 macOS/Xcode/模拟器/真机，**没有任何一条 iOS 行为被实测过**。
 >
 > 契约层已实现 ≠ 移动端能跑；用例模型已实现 ≠ Flow 能在设备上跑；
+> **Android Runner 已实现 ≠ 移动端证据已归档 ≠ iOS 能跑**；
 > 边界已冻结 ≠ iOS 能跑。任何一项在 ATS-601 ~ ATS-606 完成并通过复核之前，
 > 都不得被称作「已实现」。
 
@@ -525,6 +533,29 @@ UT-MOB-242、IT-MOB-281 与 IT-ATS602-API-009）。
 
 ## 5. Android Runner（ATS-603）
 
+> **实现状态（ATS-603 交付）**：本节的 **Android Runner 已实现并在真实 Android 模拟器上实测**。
+> 实现分布在 `server/adapters/` 的四个新模块：
+>
+>   * `android-adb.mjs` —— **唯一的 ADB 传输层**。只以**参数向量**调用 `adb`
+>     （`shell: false`），绝不拼接 shell 字符串，因此 Flow 带来的包名/元素文本
+>     永远只是一个参数，不会成为命令。失败原因分四类：`adb-missing` /
+>     `device-absent` / `device-offline` / `command-failed`。
+>   * `android-hierarchy.mjs` —— **视图层级树解析器**。仓库无 XML 依赖，
+>     解析器是自带的严格读取器：读不到尾即报错，不静默丢弃后半段；
+>     未知实体报错；bounds 畸形报错（不会静默变成 0 矩形）。
+>   * `android-runner.mjs` —— **步骤语义与失败分类**（§5.3）。
+>   * `android-adapter.mjs` —— **ATS-301 适配器实现**，`kind=android`，
+>     与 ATS-601 的契约骨架 `kind=mobile` **并列注册、互不覆盖**。
+>
+> **已实测**：UT-ATS603-001..047 共 31 例 + UT-ATS603-050..065 共 12 例（UT，不需设备），
+> IT-ATS603-001..022 共 9 例在**真实模拟器**（Android 15 / API 35，
+> `Pixel_6_API_35`，WHPX 加速）上实测，
+> IT-ATS603-030..031 共 2 例走**真实 Bridge**（HTTP）走完运行生命周期。
+>
+> **仍未实现**（§6~§8 仍是设计）：证据归档与统一查询（ATS-604）、
+> 能力矩阵与环境声明（ATS-605）、iOS 与 Maestro 边界（ATS-606）。
+> 本机**无 iOS 环境、无 Android 真机连接**，两者本项未实测。
+
 ### 5.1 执行路径
 
 ```
@@ -533,21 +564,51 @@ Flow 解析 → TestCase → 步骤调度 → 设备会话 → 逐步骤下发 �
 
 Runner 必须是 **RunnerAdapter 的一个实现**，不得绕开 ATS-301 的契约另起一套。
 
+**已实现**：`server/adapters/android-adapter.mjs` 注册进**同一个**适配器注册表，
+通过**同一套** `assertAdapter`，用**同一套** `negotiate` / `negotiateWithDevice`
+协商。步骤词表沿用 ATS-601 冻结的六类，参数沿用 ATS-602 的映射，
+能力要求**直接读 ATS-601 的表**——Runner 不另立一套语义。
+
 ### 5.2 冒烟用例的最低要求
 
 ATS-603 的验收必须在**真实 Android 模拟器**上跑通下列四类步骤，且每类都有实测输出：
 
-| 步骤 | 断言 |
-|---|---|
-| 启动 App | 应用进入前台，包名与预期一致 |
-| 点按元素 | 目标元素被点中（后续状态可观察） |
-| 断言可见 | 元素确实可见；不可见时给出元素名而非泛化失败 |
-| 截图 | 截图文件落盘、尺寸正确、可被证据清单引用 |
+| 步骤 | 断言 | 实测结果 |
+|---|---|---|
+| 启动 App | 应用进入前台，包名与预期一致 | ✅ IT-ATS603-010/020：`foreground.package=com.ichor.smoke` |
+| 点按元素 | 目标元素被点中（后续状态可观察） | ✅ IT-ATS603-011/020：点按后第二屏出现 |
+| 断言可见 | 元素确实可见；不可见时给出元素名而非泛化失败 | ✅ IT-ATS603-012/020：失败时点名元素并附层级树 |
+| 截图 | 截图文件落盘、尺寸正确、可被证据清单引用 | ✅ IT-ATS603-013/020：1080×2400 的 PNG 落盘 |
+
+**夹具**：测试 App `com.ichor.smoke`，由 `tools/ats603-probes/build-smoke-app.sh`
+用 SDK 自带的 `aapt2` / `javac` / `d8` / `zipalign` / `apksigner` 构建——
+**无需 Gradle、无需联网**。夹具的屏幕是**已知的**（首页带 `ICHOR Smoke Home`
+与按钮 `Open Details`，点按后显示 `ICHOR Detail Screen`），
+所以断言测的是 **Runner**，不是某台设备的启动器界面。
 
 ### 5.3 失败的可诊断性
 
 失败必须区分并暴露：**会话掉线** / **元素找不到**（附视图层级） / **断言不成立** / **驱动报错**。
 笼统的「执行失败」不可接受——这与 ATS-512 对宿主提案的处理原则一致：**失败要说清是哪一类**。
+
+**已实现**。失败分类是**封闭词表**（`MOBILE_FAILURE`），四类互相区分：
+
+| 分类 | 何时 | 失败信息带什么 |
+|---|---|---|
+| `session-lost` | 设备掉线 / adb 不可用 / 设备不在 | ADB 的原始原因 |
+| `element-not-found` | 元素不在当屏 | **当屏的视图层级树**（可自证）+ 可见元素计数 + 尝试次数 |
+| `assertion-failed` | 元素在，但断言不成立 | **点名元素**及其 bounds |
+| `driver-error` | 驱动本身失败 | 设备 stderr 与命令 |
+| `capability-missing` | 设备缺该步骤所需能力 | 缺口清单（ATS-601 的表） |
+| `refused` | 被平台规则拒绝（如包名未登记） | 拒绝码 |
+
+**能力协商发生在第一步之前**：缺 `ui.hierarchy` 时 `tapOn` **不执行**，
+按缺口报告，不会退化成盲点坐标。**包名未登记**的 App 在**触碰设备之前**就被拒绝。
+
+**瞬时故障不算失败**：设备繁忙时 `uiautomator dump` 会偶发失败
+（实测第一轮 IT 报过 "the device did not return a view hierarchy"）。
+层级读取失败会被**重试**到超时；只有始终读不到才归为 `driver-error`——
+且它**不是** `element-not-found`，两者不可混淆。
 
 ---
 
@@ -821,7 +882,7 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
 |---|---|---|---|---|
 | ATS-601 | 移动端执行目标抽象与设备/模拟器会话模型 | - | 审查 + UT | 契约层设计 + 契约测试 |
 | ATS-602 | 跨引擎用例模型与移动端 Flow 导入映射 | ATS-601 | UT + IT | 映射器 + 导入报告（**已交付**） |
-| ATS-603 | Android 模拟器 Runner 原型与真实设备冒烟 | ATS-602 | UT + IT | **真实模拟器实测** |
+| ATS-603 | Android 模拟器 Runner 原型与真实设备冒烟 | ATS-602 | UT + IT | **真实模拟器实测**（**已交付**：UT 30 例 + 真实模拟器 IT 9 例） |
 | ATS-604 | 移动端证据归档与统一结果模型 | ATS-603 | UT + IT | 证据适配层 |
 | ATS-605 | 移动端能力矩阵与环境依赖声明 | ATS-603 | 审查 | 矩阵 + 未验证声明 |
 | ATS-606 | iOS 真机路径与 Maestro 兼容性边界 | ATS-602 | 审查 | **设计与边界冻结**（无实测；三张表 + 可机读复核的复核脚本） |
@@ -844,8 +905,17 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
   `server/discovery/mobile-flow-import.mjs` 实现，并经 UT-MOB-200..318 共 87 例 +
   IT-ATS602-API-001..015 共 15 例实测（证据 `docs/evidence/ATS-602/`）。
   **这是文本夹具上的映射测试**，验证的是「映射按设计工作」，**不是**设备行为。
-- **未验证（真实移动端执行面）**：§5~§7 的全部内容仍是设计判断，**未在本仓库做过任何
-  移动端实测**。没有真实设备、没有真实模拟器、没有 ADB 调用、没有移动端证据。
+- **已验证（ATS-603 的 Android Runner）**：§5 的执行路径、四类步骤的实测、失败分类
+  已由 `server/adapters/android-adb.mjs`、`android-hierarchy.mjs`、`android-runner.mjs`、
+  `android-adapter.mjs` 实现，并经 UT 共 43 例 +
+  IT-ATS603-001..022 共 9 例在**真实 Android 模拟器**（Android 15 / API 35）上实测 +
+  IT-ATS603-030..031 共 2 例经**真实 Bridge**实测
+  （证据 `docs/evidence/ATS-603/`）。
+  **这是模拟器上的实测**：它证明 Runner 的语义与失败分类按设计工作，
+  **不等于**真机上的行为（真机未连接），**也不等于**证据归档已完成（属 ATS-604）。
+- **未验证（§6~§7）**：证据归档与跨引擎统一查询（ATS-604）、能力矩阵与环境声明
+  （ATS-605）**仍未在本仓库实测**。
+  仓库内**没有**移动端证据清单、**没有**录屏归档。
 - **已冻结（ATS-606 的 iOS/Maestro 边界）**：§8 的三张表——iOS 支持范围表、
   Maestro 命令逐条兼容性判定表、不承诺清单——已逐条填完并给出理由，
   判定所依据的两类事实都有可机读复核的来源：
@@ -855,21 +925,31 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
   复核脚本 `tools/ats606-probes/`；证据 `docs/evidence/ATS-606/`。
   **但这仍然是「边界冻结」，不是实测**：本机无 macOS/Xcode/模拟器/真机，
   **没有任何一条 iOS 行为被实测过**。§8 写的是「按 Maestro 2.12.1 的实现
-  与本平台的契约应当如何」，**不是**「已经跑通了」。
+  与本平台的契约应当如何」，**不是**「已经跑通了」。仓库内**没有** iOS 执行。
 - Maestro 的产品结构与能力来自 2026-11-06 的官方文档调査（`docs/15-REFERENCES-LICENSES.md`
   登记引用）与 2026-11-09 对 Maestro CLI 2.12.1 的实查；调査与实查结论本身
   不是对本平台的实测。
-- 本机无 Android SDK/AVD、无 iOS 环境、无 ADB 连接设备——ATS-603 的真实冒烟是否能在本机完成，
-  **未验证**，由 ATS-605 负责在执行时给出明确声明。
-- 若本机确实不具备 Android 环境，ATS-603 面临的是「无法实测」而非「实现困难」；
-  此时应把该项的验证方式降级并在 WBS 备注里写明，而不是把 PENDING 写成 PASS。
+- 本机**有** Android SDK（API 35 镜像）与 AVD（`Pixel_6_API_35`，WHPX 加速可用），
+  ATS-603 的真实冒烟已在本机完成；**没有** iOS 环境，**没有** ADB 连接的 Android 真机。
+- 已知边界（ATS-603 的 Android Runner 自身）：
+  - **模拟器 ≠ 真机**：本项在模拟器上实测，真机（`local-device`）路径未实测，
+    平台对真机不接管安装与配对（§3.1 的策略），该路径属 ATS-605 的声明范围。
+  - **录屏与设备日志**已实现为驱动能力（`screen.record` / `log.read`），
+    但**统一归档**属 ATS-604，本项只落盘与产出记录。
+  - **会话与目标仍是内存中的数据**：本项**不引入持久化**，会话的存储与恢复未落地。
+  - **探针会点一次屏幕中央**：证明 `ui.tap` 能力的探针在屏幕正中点一次，
+    这是一个已声明的取舍（通常那里没有按钮）。
+  - **探针与步骤都把层级读取失败当作可重试**：设备繁忙时的偶发 dump 失败会被重试到超时，
+    只有始终读不到才归为 `driver-error`（且**不是** `element-not-found`）。
+>>>>>>> dev
 - 已知边界（ATS-601 契约层自身）：
   - 会话的**能力集由调用方提供**——契约校验会话能力**不超过目标声明**，
     并据此计算缺口；但**证明**设备能力的动作（探测层级树、试抓截图）属真实驱动（ATS-603）。
     契约层**不**验证调用方给出的能力集本身是否真实。
   - 目标与会话是**内存中的数据**，本任务**不引入持久化**；会话的存储与恢复随 ATS-603 一并落地。
-  - 移动端适配器当前**没有任何可用能力**，它存在的意义是把「移动端执行」这件事的
+  - 移动端适配器（`kind=mobile`）当前**没有任何可用能力**，它存在的意义是把「移动端执行」这件事的
     **入口与拒绝路径**定下来，让 ATS-603 有地方可长，而不是一个平行的 Playwright 专用实现。
+    ATS-603 的驱动是**另一个 kind**（`kind=android`），两者并列注册、互不覆盖。
 - 已知边界（ATS-602 用例模型与导入映射层自身）：
   - **Flow 的解析器是受限子集**：块映射、块序列、标量、行内集合都读；
     **锚点、别名、标签、复杂键不读**，用到它们的 Flow 报错误而不是读一半。
@@ -911,7 +991,24 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
 | `tools/ats602-probes/probe-mobile-import.mjs` | 契约探针：把映射规则并排展示给人读 |
 | `tools/update_wbs_ats602.py` | WBS 行的同步脚本（只写 ATS-602 行） |
 
-## 14. ATS-606 的交付物
+## 14. ATS-603 的交付物
+| 文件 | 作用 |
+|---|---|
+| `server/adapters/android-adb.mjs` | ADB 传输层：**唯一的** adb 调用点，只以参数向量调用（`shell: false`）；失败原因四分类（`adb-missing` / `device-absent` / `device-offline` / `command-failed`）；`shellQuote` 是设备 shell 引号的唯一实现；`createFakeAdb` 提供可编程的假设备 |
+| `server/adapters/android-hierarchy.mjs` | 视图层级树解析器：自带严格 XML 读取器（无依赖），读不到尾 / 未知实体 / 畸形 bounds 都报错；元素按文本、resource-id、content-desc、正则匹配；`summariseHierarchy` 给失败信息用 |
+| `server/adapters/android-runner.mjs` | 步骤语义与**失败分类**：六类步骤（launchApp / tapOn / assertVisible / takeScreenshot / recordScreen / readLogs）、封闭的 `MOBILE_FAILURE` 词表、能力协商在第一步之前、层级读取失败可重试、截图校验 PNG 签名与像素尺寸 |
+| `server/adapters/android-adapter.mjs` | ATS-301 适配器实现（`kind=android`）：注册进同一注册表、通过同一 `assertAdapter`；能力经设备探针**证明**；项目没有移动端用例时不被选中；结果映射到**统一结果模型** |
+| `server/adapters/registry.mjs` | 追加 `android` 适配器（`kind=android` 与 ATS-601 的 `kind=mobile` 并列，互不覆盖） |
+| `tests/android-runner.test.mjs` | UT-ATS603-001..047（31 例）：失败分类、能力协商、层级解析、安全边界（无 shell 字符串、证据名不可越根）、瞬时故障重试、前台应用读 `mFocusedApp` |
+| `tests/android-adapter.test.mjs` | UT-ATS603-050..065（12 例）：注册表（`kind=android` 与 `kind=mobile` 并列）、能力矩阵（无移动端用例的项目不被选中）、设备层跟随会话、**Bridge 句柄形状**（同步 `start()`、可流式日志、`close` 事件与退出码） |
+| `tests/android-runner-it.test.mjs` | IT-ATS603-001..022（9 例）：**真实 Android 模拟器**上的设备探针、四类步骤、整条 Flow、元素找不到与未登记包名的归类；无设备时**跳过并写明原因** |
+| `tests/android-bridge-it.test.mjs` | IT-ATS603-030..031（2 例）：**真实 Bridge**（HTTP）——移动端用例与 Web 用例进同一目录、协商选中 `android`、运行走完生命周期落到终态并带回统一结果模型的 summary |
+| `tools/ats603-probes/app/com/ichor/smoke/MainActivity.java` | 冒烟夹具 App：屏幕内容**已知**（首页 `ICHOR Smoke Home` + 按钮 `Open Details`；点按后 `ICHOR Detail Screen`），所以断言测的是 Runner 而非设备镜像 |
+| `tools/ats603-probes/build-smoke-app.sh` | 夹具构建脚本：SDK 自带的 `aapt2` / `javac` / `d8` / `zipalign` / `apksigner`，**无需 Gradle、无需联网** |
+| `tools/ats603-probes/collect-evidence.sh` | 证据采集脚本：日志写入 `docs/evidence/ATS-603/`，每份头部写明所描述的树 |
+| `tools/update_wbs_ats603.py` | WBS 行的同步脚本（只写 ATS-603 行） |
+
+## 15. ATS-606 的交付物
 
 | 文件 | 作用 |
 |---|---|
