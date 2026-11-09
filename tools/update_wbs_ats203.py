@@ -85,33 +85,47 @@ TERMINAL_STATUSES = ('已完成', '已取消')
 #     title is the literal template string (`支付 - ${method}`), reported as
 #     `uidStable: true, uidSource: 'derived'` -- a false-stable entry.
 #
-# The only thing that mentions dynamics is a blanket `warning` string that is
-# the same for every project; it is not per-case handling. So the note says
-# exactly that, and names the open defect instead of claiming it is handled.
+# The only thing that mentioned dynamics was a blanket `warning` string that
+# is the same for every project; it was not per-case handling.
+#
+# THE DEFECT IS NOW FIXED (this task, round 3, scheme (a)): the static index
+# reports a template title as INDETERMINABLE -- a provisional uid,
+# `uidStable: false`, `ambiguity.reason='dynamic-template-title'` -- and the
+# warning counts those cases separately. The note below states that measured
+# final state; it does not claim the defect is still open.
 NOTE = (
     '动态/参数化/项目矩阵索引回归数据集已交付（数据集，非发现实现）：'
-    'tests/ats203-regression-dataset.test.mjs 共 8 个回归场景 + 1 个清理用例，'
-    '覆盖参数化写法、同一项目被索引两次、跨文件同名标题、'
-    'describe 路径变化、嵌套 describe，以及参数化与常规用例混合。'
-    '跨文件同名标题由文件路径区分，UID 唯一；同一用例在多次发现中 UID 稳定不变。'
-    '重复 describe 名 + 同名标题的情形被标为需人工复核（歧义报告），不是静默合并。'
-    '同一项目两次索引产出相同测试集与相同 UID。'
-    '本项只交付索引结果是否正确或是否明确标为不可判定；'
+    'tests/ats203-regression-dataset.test.mjs（11 个回归场景）、'
+    'tests/ats203-index-it.test.mjs（9 个集成场景，走真实 Playwright 1.64.1 的'
+    'playwright test --list 权威路径）、'
+    'tests/ats203-index-api.test.mjs（6 个系统场景，走 Bridge 的 HTTP 发现 API）。'
+    '覆盖：参数化循环（for 与 forEach）、模板标题、字面量标题的循环、'
+    '同 describe 同名、同名 describe、跨文件同名、不同 describe 下的同名、'
+    '对称项目矩阵（specIds 2/2）、非对称 testMatch 矩阵（specIds 2/1）、'
+    '重复发现的确定性、嵌套 describe、参数化与常规用例混合、源码顺序。'
+    '重名与 describe 相关的情形在静态索引里报为歧义'
+    '（identical-title-and-body，UID 为临时值），不静默合并；'
+    '项目矩阵在权威索引里给出每条用例各自的 spec id，'
+    '且静态与权威两种索引对同一逻辑用例给出相同 UID。'
     '发现机制沿用 ATS-202 的权威发现，未另起一套实现；'
     'UID 重识别与歧义提示属 ATS-204，本项未越界。'
-    '**未解决（已知缺陷，待整改）**：静态索引对参数化写法没有逐例处置——'
-    '「test.each(...)」这种写法在 Playwright 里并不存在，静态索引给出 0 条；'
-    '「for (const x of [...]) test(`...${x}`)」这种循环写法只给出 1 条，'
-    '标题是模板原文（实测「支付 - ${method}」），且被报成 uidStable=true、'
-    'uidSource=derived，也就是一条「假稳定」条目。'
-    '静态索引只附带一句与项目无关的通用提示'
-    '（「静态索引仅识别常见 test()/it() 形式；动态、参数化、fixture 测试不在其中」），'
-    '它不是逐例处置，不能当作「已标记为动态」。'
-    '权威索引（playwright test --list）能看到循环生成的 3 条，'
-    '静态与权威的结果在这一类用例上不一致。'
-    '该缺陷的处置方案（把这类条目标为不可判定，或在静态索引里识别循环并拒绝给出 UID）'
-    '待定，因此本行的完成度不覆盖这一点。'
-    '本机实测 9/9 通过，全量 node --test tests/*.test.mjs 1304 通过 / 2 跳过 / 0 失败，'
+    '**已整改（原「假稳定」缺陷已关闭）**：静态索引对模板标题的处置改为'
+    '「标明不可判定」——含 `${` 的模板标题不再派生稳定 UID，'
+    '改为 uidStable=false、uidSource=provisional、'
+    'ambiguity.reason=dynamic-template-title，'
+    '并在 warning 里与「标题重复」分开计数，说明用例数量不可判定。'
+    '理由：模板标题在运行时会被渲染成若干条用例，'
+    '稳定地指向一个不存在的标题，比临时值更危险。'
+    '设计先行：docs/18-UID-SPEC.md §3.2、docs/04-DETAILED-DESIGN.md、'
+    'docs/23-AUTHORITATIVE-DISCOVERY.md §7 已同步。'
+    '「test.each(...)」这种写法在 Playwright 里并不存在（实测 0 条），'
+    '参数化在 Playwright 里是循环，夹具按真实写法构造。'
+    '断言有判别力：变异测试 4 个变异体（去掉歧义标记 / 丢弃模板标题 / '
+    '静态扫描返回空 / 把模板当稳定条目）全部被数据集抓住，'
+    '基线全绿，见 docs/evidence/ATS-203/mutants-output.log。'
+    '本机实测：数据集 11/11、IT 9/9、ST 6/6 通过；'
+    '全量 node --test tests/*.test.mjs 的结果见 '
+    'docs/evidence/ATS-203/full-test-suite.log。'
     '证据 docs/evidence/ATS-203/。'
 )
 

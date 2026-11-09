@@ -1,0 +1,9 @@
+### ATS-203 WBS 验收复核
+### date: 2026-11-09T19:19:14+09:00
+
+--- python tools/update_wbs_ats203.py --verify-only ---
+PASS the ATS-203 row is 待审核, 完成率=1, 剩余人日=0, note marker x1
+
+--- python -m pytest tools/test_wbs_common*.py ---
+.............                                                            [100%]
+13 passed in 0.10s

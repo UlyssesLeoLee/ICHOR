@@ -550,6 +550,14 @@ test('CE-E2: the template raises NO registry conflict', () => {
   // A template that renders TWO cases used to match several registry
   // entries at once, and the static index reported a conflict that no user
   // could act on.
+  //
+  // ATS-203 changed WHAT the template carries, but not THAT it must not
+  // carry a registry conflict: the template now carries the DELIBERATE
+  // `dynamic-template-title` ambiguity (it does not identify a case, so it
+  // gets no stable UID). The guarantee of this test is the one that
+  // mattered -- no conflict invented out of the registry -- so it is
+  // asserted as it is now, and the new ambiguity is asserted as the
+  // deliberate one it is.
   const p = fixture({ 'tests/e.spec.ts': [
     "import { test } from '@playwright/test';",
     "for (const n of ['alpha', 'beta']) {",
@@ -578,7 +586,11 @@ test('CE-E2: the template raises NO registry conflict', () => {
     const template = resolvedStatic.items[0];
     assert.ok(template.uid, 'the template has a UID');
     assert.equal(template.registryConflict, undefined, 'no registry conflict was raised');
-    assert.equal(template.ambiguity, undefined, 'no ambiguity was raised');
+    // ATS-203: the ambiguity the template carries is the DELIBERATE one --
+    // it says the title is a template, not that two cases share a title.
+    assert.equal(template.ambiguity.reason, 'dynamic-template-title');
+    assert.equal(template.ambiguity.reason === 'ambiguous-registry-match', false,
+      'the registry did NOT invent a conflict');
   } finally {
     fs.rmSync(p.root, { recursive: true, force: true });
   }
