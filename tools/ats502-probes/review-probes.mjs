@@ -23,6 +23,7 @@
  * Usage: node tools/ats502-probes/review-probes.mjs <path-to-checkout>
  */
 import path from 'node:path';
+import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const root = process.argv[2];
@@ -31,8 +32,34 @@ if (!root) {
   process.exit(2);
 }
 
-const { JobQueue, QueueError } = await import(pathToFileURL(path.join(root, 'server/queue.mjs')).href);
-const { createSchedulerServer } = await import(pathToFileURL(path.join(root, 'server/scheduler.mjs')).href);
+/**
+ * The checkout path, resolved to an ABSOLUTE NATIVE path.
+ *
+ * The path may come from a shell. An MSYS / Git-Bash path like /d/tmp/x is
+ * NOT a native Windows path: `path.resolve` treats the leading slash as
+ * "the root of the current drive", so it becomes `D:\d\tmp\x` -- a
+ * directory that does not exist. The MSYS form is therefore translated
+ * first (`/d/...` -> `D:\...`), and only then resolved.
+ */
+function nativePath(input) {
+  let p = input;
+  // An MSYS drive mount: /c/... /d/... -> C:\... D:\...
+  const msys = /^\/([A-Za-z])\/(.*)$/.exec(p);
+  if (msys) {
+    p = msys[1].toUpperCase() + ':' + path.sep + msys[2].split('/').join(path.sep);
+  }
+  const abs = path.resolve(p);
+  try {
+    return fs.realpathSync(abs);
+  } catch {
+    return abs;
+  }
+}
+
+const checkout = nativePath(root);
+
+const { JobQueue, QueueError } = await import(pathToFileURL(path.join(checkout, 'server/queue.mjs')).href);
+const { createSchedulerServer } = await import(pathToFileURL(path.join(checkout, 'server/scheduler.mjs')).href);
 
 const SHA = 'a'.repeat(40);
 let t = 1_000_000;
