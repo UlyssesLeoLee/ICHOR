@@ -211,11 +211,33 @@ echo "== sign =="
 # "FileNotFoundException ... (the system cannot find the file specified)"
 # when the directory does not exist yet.
 mkdir -p "$(dirname "$OUT_APK")"
-KEYSTORE="$WORK/debug.keystore"
-keytool -genkeypair -v -keystore "$(win "$KEYSTORE")" \
-  -storepass android -keypass android \
-  -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
-  -dname "CN=ATS-603 Smoke Fixture,O=ICHOR,C=CN" >/dev/null 2>&1
+
+# THE SIGNING KEY IS STABLE, NOT FRESH PER BUILD
+# ---------------------------------------------
+# A key generated into the build directory is a NEW key on every build, so
+# every rebuild produces an APK with a DIFFERENT signature. `adb install
+# -r` then refuses to replace the installed one:
+#
+#   INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package com.ichor.smoke
+#   signatures do not match newer version
+#
+# The first evidence run on the merged tree measured exactly that. The
+# key therefore lives OUTSIDE the build directory -- in the user's own
+# Android debug keystore when there is one, and in a stable location
+# beside the build otherwise -- so a rebuild keeps the signature and the
+# fixture installs over the previous one.
+#
+# The key signs a TEST FIXTURE. It is not a secret and it is not in the
+# repository: it is a local artefact of the build.
+KEYSTORE="${ATS603_KEYSTORE:-$HOME/.android/ats603-smoke.keystore}"
+if [ ! -f "$KEYSTORE" ]; then
+  mkdir -p "$(dirname "$KEYSTORE")"
+  keytool -genkeypair -v -keystore "$(win "$KEYSTORE")" \
+    -storepass android -keypass android \
+    -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+    -dname "CN=ATS-603 Smoke Fixture,O=ICHOR,C=CN" >/dev/null 2>&1
+  echo "created the signing key at $KEYSTORE"
+fi
 run_tool apksigner sign \
   --ks "$(win "$KEYSTORE")" \
   --ks-pass pass:android \
@@ -225,7 +247,6 @@ run_tool apksigner sign \
   "$(win "$WORK/aligned.apk")"
 run_tool apksigner verify "$OUT_APK_WIN"
 
-mkdir -p "$(dirname "$OUT_APK")"
 # apksigner wrote next to the aligned APK in some SDK versions; make sure
 # the requested path holds the signed one.
 if [ ! -f "$OUT_APK" ]; then

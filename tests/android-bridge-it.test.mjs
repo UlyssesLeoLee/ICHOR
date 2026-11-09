@@ -156,8 +156,15 @@ test('IT-ATS603-030: the Bridge runs a mobile case on the device and reports it'
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'ats603-e2e-data-'));
   let bridge = null;
   try {
-    // The fixture app is installed on the device.
-    spawnSync(avail.adbPath, ['-s', avail.serial, 'install', '-r', '-t', APK], { encoding: 'utf8', timeout: 120000 });
+    // The fixture app is installed on the device. The package is
+    // uninstalled first: the fixture is signed with a local debug key,
+    // and a rebuild with a different key produces a different signature --
+    // `adb install -r` then refuses with INSTALL_FAILED_UPDATE_INCOMPATIBLE.
+    spawnSync(avail.adbPath, ['-s', avail.serial, 'uninstall', PACKAGE], { encoding: 'utf8', timeout: 60000 });
+    const installed = spawnSync(avail.adbPath, ['-s', avail.serial, 'install', '-r', '-t', APK], { encoding: 'utf8', timeout: 120000 });
+    if (installed.status !== 0) {
+      throw new Error(`the smoke fixture could not be installed: ${installed.stdout} ${installed.stderr}`);
+    }
 
     bridge = await startBridge(dir, data);
     const projectId = await registerProject(bridge, dir);
