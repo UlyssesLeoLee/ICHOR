@@ -134,7 +134,7 @@ EXPECTED = {
     'tools/generate_test_docs.py': {
         416: "'localhost:3000 + ",
         422: "'Host=evil.example:",
-        541: '同 LAN 他机尝试访问 ',
+        550: '同 LAN 他机尝试访问 ',
     },
     # The ATS-103 WBS updater used to mention the port inside a NOTE
     # TEXT (the value never took effect), and the ADR cited that line.
