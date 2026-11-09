@@ -1,0 +1,59 @@
+=== ATS-502 evidence: scheduling core contract audit ===
+date        : 2026-11-09T06:15:46Z (UTC)
+commit      : b40a70b76c4ec584c1928293e16aa8be98225e65
+node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+default enc : gbk (what the same interpreter would use without the forcing)
+command     : node tools/ats502-probes/audit-scheduling-core.mjs
+
+PASS  protocol constraint block is present
+PASS  every frozen rejection code exists in the implementation
+PASS  the implementation invents no rejection code
+PASS  every rejection code has the frozen HTTP status and retryability
+PASS  the rejection table is not empty
+PASS  every REMOTE_ token in the implementation is a declared rejection code
+PASS  every error code the queue raises is declared
+PASS  the queue raises more than one kind of code
+PASS  every job state the queue produces is a known state
+PASS  the lease state is present
+PASS  the terminal states are exactly the protocol terminal set
+PASS  the dispatch operation requires an idempotency key
+PASS  the ack operation requires an idempotency key
+PASS  the result operation requires an idempotency key
+PASS  the cancel operation requires an idempotency key
+PASS  the dispatch path computes a request digest
+PASS  the digest is order-independent
+PASS  the sweep reclaims an expired lease of a RUNNING job, not only of a leased one
+PASS  releasing a node requeues its RUNNING jobs too
+PASS  the lease path reclaims a RUNNING job whose lease expired
+PASS  the sweep interrupts a RUNNING job that is past its deadline
+PASS  the ack operation requires a leaseId
+PASS  the heartbeat operation requires a leaseId
+PASS  the result operation requires a leaseId
+PASS  the queue has a single fencing check that all three operations use
+PASS  a wrong leaseId is refused with REMOTE_JOB_NOT_LEASABLE
+PASS  the queue exports a server-side lease-duration cap
+PASS  the lease path clamps the requested duration
+PASS  the queue records a failed request in the idempotency table
+PASS  the replay path re-throws a recorded failure instead of answering with a success
+PASS  the read path derives the tenant from a node context
+PASS  the read path does not take the tenant from an untrusted query parameter
+PASS  every control-plane write path requires a credential
+PASS  the scheduler does not import the local Bridge
+PASS  the scheduler does not import the local Bridge under any spelling
+PASS  the scheduler does not call the local Bridge over the network
+PASS  the scheduler does not read a Runner filesystem
+PASS  the scheduler does not carry a local absolute path
+PASS  the ATS-502 row exists in 开发WBS
+PASS  the ATS-502 status is one of the workbook statuses
+PASS  the ATS-502 completion rate is a number in [0,1]
+PASS  the ATS-502 remaining days are consistent with the rate
+PASS  the ATS-502 row carries the acceptance criteria of this task
+PASS  the ATS-502 row names ATS-501 as its prerequisite
+PASS  the ATS-502 verification method is UT,IT
+PASS  the ATS-502 risk cell records the idempotency / consistency risk
+
+46/46 checks passed
+RESULT: OK
+exit code   : 0
