@@ -34,6 +34,13 @@
 
 ### 15 项跳过
 
+跳过不是通过，也不是失败；每项都带原因，且都与 ATS-106 无关：
+
+- `IT-ADP-005` / `IT-ADP-005B` / `IT-ADP-005C` / `IT-ADP-008` / `IT-ADP-011` / `IT-API-013B`：`examples/sample-playwright has no node_modules`（本工作树的示例工程未安装依赖；`D:/ICHOR` 的检出已装，所以真实 CLI 契约测试另在日志 03 中针对 `D:/ICHOR/examples/sample-playwright` 实测）；
+- `IT-ADP-006` / `IT-ADP-007` / `IT-ADP-009` / `IT-ADP-011B`：`examples/sample-wdio has no node_modules`；
+- `IT-ADP-010`：`the fixtures have no node_modules`；
+- `IT-SEC-004` / `IT-SEC-005` / `IT-SEC-025` / `IT-SEC-026`：`needs ATS402_REAL_CREDENTIAL_STORE=***`（属 ATS-402 的真实凭据库用例）。
+
 ## 覆盖率
 
 来自 09（UQH 同一次运行的 `.quality/coverage/{node,py}.lcov`）：
