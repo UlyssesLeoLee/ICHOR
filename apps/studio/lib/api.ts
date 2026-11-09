@@ -33,7 +33,8 @@ export type EgressPreview={previewId:string,scope:EgressScope,note:string};
 export type EgressConsent={id:string,contract:string,kinds:string[],scopeDigest:string,itemCount:number,totalBytes:number,createdAt:string,expiresAt:string,state:string,revokedAt:string|null};
 export type SecurityContract={contract:string,provider:string,purposes:string[],errorCodes:string[],note:string,egressConsent:{contract:string,kinds:string[],states:string[],errorCodes:string[],defaultTtlSeconds:number,maxTtlSeconds:number,flow:string,note:string},egressAudit:{contract:string,events:string[],cap:number,note:string}};
 // ATS-402: an audit record names the refs and their digests. It never carries the content.
-export type EgressAuditItem={kind:string,ref:string,digest:string,bytes:number};
+// A refusal record names the requested kind/ref only: no file was read, so there is no digest.
+export type EgressAuditItem={kind:string,ref:string,digest:string|null,bytes:number};
 export type EgressAuditRecord={id:string,at:string,event:string,outcome:string,code:string|null,reason:string|null,consentId:string|null,projectId:string|null,kinds:string[],itemCount:number,totalBytes:number,scopeDigest:string|null,items:EgressAuditItem[]};
 const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
 let token='';

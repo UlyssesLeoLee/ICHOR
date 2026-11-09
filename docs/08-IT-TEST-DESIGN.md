@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：171；已执行通过：157；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：179；已执行通过：165；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -179,6 +179,14 @@
 |IT-DATA-002|NFR-010|可靠性|写入中强杀不留残缺状态|循环保存的进程被强杀 12 次|每次 state.json 都是完整的一代；之后 Bridge 启动清理临时文件且镜像一致|node --test|PASS|
 |IT-WAL-001|NFR-010|恢复|事务中强杀后 WAL 只恢复已提交的行|50 行已提交在 WAL，另 50 行未提交时强杀|integrity_check=ok，已提交的 50 行在、未提交的不在|node --test|PASS|
 |IT-WAL-002|NFR-010|恢复|Bridge 隔离并重建损坏的镜像|metadata.db 为乱码|报 quarantined，保留损坏副本，重建的镜像与 state.json 一致|node --test|PASS|
+|IT-SEC-019|FR-027|正常|requirement 输入 preview→confirm→check 为 200|requirement 默认与显式 ref|200|node --test|PASS|
+|IT-SEC-020|FR-027|正常|run 输入 preview→confirm→check 为 200；未知 run 被拒并审计|真实 run + run_unknown|200；未知为 400 且审计 +1|node --test|PASS|
+|IT-SEC-021|FR-027|安全|持有有效授权时越界 /check 被拒且每次审计 +1|../、绝对路径、混合、junction|400 SCOPE_INVALID；审计+1；条目含请求 ref、无摘要、无内容|node --test|PASS|
+|IT-SEC-022|FR-027|安全|requirement 经 junction 或出 .aitest 被拒|junction、../tests|400 SCOPE_INVALID|node --test|PASS|
+|IT-SEC-023|FR-027|正常|过期授权在列表中为 expired，/check 被拒并审计|ttlSeconds=1|state=expired；403 EGRESS_CONSENT_EXPIRED；审计+1|node --test|PASS|
+|IT-SEC-024|FR-027|异常|未知项目或空输入的 /check 被拒并审计|未知 projectId；inputs=[]|400；审计各 +1|node --test|PASS|
+|IT-SEC-025|FR-027|安全|并发写凭据保持索引与凭据库一致（真实凭据库）|三个并发同名 POST|1 个 201、2 个 CREDENTIAL_DUPLICATE；索引 1 条|ATS402_REAL_CREDENTIAL_STORE=1|PASS|
+|IT-SEC-026|FR-027|异常|凭据库条目消失后可删除；写失败为 503（真实凭据库）|cmdkey 删除后 DELETE；3000 字节密钥|200 且引用清掉；503 CREDENTIAL_STORE_FAILED|ATS402_REAL_CREDENTIAL_STORE=1|PASS|
 
 ## 进入与退出条件
 

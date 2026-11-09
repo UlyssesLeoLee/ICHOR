@@ -22,7 +22,7 @@ import { AdapterError } from './adapters/contract.mjs';
 // about to be sent.
 import { createCredentialStore,credentialIndexPath,describeCredentialStore } from './security/credentials.mjs';
 import { createEgressConsentStore,describeEgressConsent,describeEgressScope } from './security/egress-consent.mjs';
-import { authorizeEgress,readScopedInput } from './security/egress-gate.mjs';
+import { authorizeEgress,buildEgressScope,describeRequestedRefs } from './security/egress-gate.mjs';
 import { createEgressAuditStore,describeEgressAudit } from './security/egress-audit.mjs';
 // ATS-212: the environment profiles. A profile is a named, project-scoped
 // set of environment variables; the run carries the profile it ran under
@@ -302,29 +302,14 @@ const egressAuditStore=createEgressAuditStore({
  * 契约层的 `digest` 由请求方提供，只能证明「二者自洽」；这里的摘要由
  * 本机文件系统给出，于是「`ref` 确实对应那份源内容」才成立。
  */
-async function buildScope(project,inputs){
-  const resolved=[];
-  for(const input of inputs){
-    if(!input||typeof input!=='object'){const e=new Error('EGRESS_GATE_INPUT_INVALID');e.code='EGRESS_GATE_INPUT_INVALID';throw e;}
-    if(input.kind==='run'){
-      const run=getRun(input.ref);
-      const content=JSON.stringify({runId:run.id,status:run.status,summary:run.summary??null});
-      resolved.push({kind:'run',ref:input.ref,digest:crypto.createHash('sha256').update(content,'utf8').digest('hex'),content});
-      continue;
-    }
-    if(input.kind==='requirement'){
-      // The requirement document lives in the project's .aitest directory.
-      const rel=String(input.ref||'requirements.json');
-      const joined=path.resolve(project.root,'.aitest',rel);
-      if(!joined.startsWith(path.resolve(project.root)+path.sep)){const e=new Error('EGRESS_GATE_SCOPE_INVALID');e.code='EGRESS_GATE_SCOPE_INVALID';throw e;}
-      let content;
-      try{content=fs.readFileSync(joined,'utf8');}catch{const e=new Error('EGRESS_GATE_INPUT_INVALID');e.code='EGRESS_GATE_INPUT_INVALID';throw e;}
-      resolved.push({kind:'requirement',ref:rel,digest:crypto.createHash('sha256').update(content,'utf8').digest('hex'),content});
-      continue;
-    }
-    resolved.push(readScopedInput(project.root,input));
-  }
-  return describeEgressScope(resolved);
+function egressRunResolver(ref){
+  const run=getRun(ref);
+  const content=JSON.stringify({runId:run.id,status:run.status,summary:run.summary??null});
+  return {kind:'run',ref,digest:crypto.createHash('sha256').update(content,'utf8').digest('hex'),content};
+}
+// preview, confirm and check ALL resolve the scope through this one function.
+function buildScope(project,inputs){
+  return buildEgressScope({project,inputs,runResolver:egressRunResolver});
 }
 
 const ORIGINS=new Set([`http://localhost:${PORT}`,`http://127.0.0.1:${PORT}`,'http://localhost:3000','http://127.0.0.1:3000','tauri://localhost','http://tauri.localhost','https://tauri.localhost']);
@@ -1066,7 +1051,7 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   const b=await body(req);
   const project=getProject(b.projectId);
   const inputs=Array.isArray(b.inputs)?b.inputs:[];
-  const scope=await buildScope(project,inputs);
+  const scope=buildScope(project,inputs);
   const preview=egressConsentStore.preview(scope.items);
   // The preview carries the scope AND its byte total: the byte count is
   // part of what the user is shown, so it must be the real one.
@@ -1078,7 +1063,7 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   const b=await body(req);
   const project=getProject(b.projectId);
   const inputs=Array.isArray(b.inputs)?b.inputs:[];
-  const scope=await buildScope(project,inputs);
+  const scope=buildScope(project,inputs);
   const consent=await egressConsentStore.confirm({previewId:b.previewId,inputs:scope.items,ttlSeconds:b.ttlSeconds});
   // The consent itself is audited: the trail says WHICH scope was authorised,
   // so a later egress can be checked against what the user actually agreed to.
@@ -1108,21 +1093,24 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
  if(p==='/api/security/egress/check'&&req.method==='POST'){
   // The gate itself: it answers "may these inputs leave the machine?".
   // It is the same code path the platform uses before a real egress.
+  // EVERY refusal is audited -- including a scope the gate could not resolve
+  // (a path outside the project, an unknown project, a malformed input) --
+  // with the refs the request named. No file is read for a refusal record.
   const b=await body(req);
-  const project=getProject(b.projectId);
   const inputs=Array.isArray(b.inputs)?b.inputs:[];
-  const consent=b.consentId?await egressConsentStore.find(b.consentId):null;
-  const verdict=authorizeEgress({project,inputs,consent,consentStore:egressConsentStore});
-  if(!verdict.allowed){
-   // A REFUSAL is audited too. The gate refused, and the trail says so: the
-   // refs it was about to send, the code that refused it, and the reason.
+  const consent=typeof b.consentId==='string'?await egressConsentStore.find(b.consentId):null;
+  const deny=async(code,reason,project)=>{
    await egressAuditStore.record({
-    event:'egress.denied',outcome:'denied',code:verdict.code,reason:verdict.reason,
-    consentId:consent?.id??null,projectId:project.id,
-    kinds:[...new Set(inputs.map(i=>i?.kind).filter(Boolean))],items:[],
+    event:'egress.denied',outcome:'denied',code,reason,
+    consentId:consent?.id??null,projectId:project?.id??null,
+    kinds:[...new Set(inputs.map(i=>i?.kind).filter(k=>typeof k==='string'))],items:describeRequestedRefs(inputs),
    });
-   return respond(res,403,{error:verdict.code,reason:verdict.reason});
-  }
+   return respond(res,/INVALID|UNKNOWN/.test(code)&&code.startsWith('EGRESS_GATE_')?400:403,{error:code,reason});
+  };
+  let project;
+  try{project=getProject(b.projectId);}catch{return deny('EGRESS_GATE_PROJECT_UNKNOWN','the project is not registered',null);}
+  const verdict=authorizeEgress({project,inputs,consent,consentStore:egressConsentStore,runResolver:egressRunResolver});
+  if(!verdict.allowed)return deny(verdict.code,verdict.reason,project);
   await egressAuditStore.record({
    event:'egress.granted',outcome:'allowed',consentId:consent?.id??null,projectId:project.id,
    kinds:verdict.scope.kinds,items:verdict.scope.items,scopeDigest:verdict.scope.scopeDigest,

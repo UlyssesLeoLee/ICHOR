@@ -16,11 +16,13 @@
  *      变成第二个泄漏面。
  *   3. **追加写，不改写。** 记录只追加，撤销一条授权不会把「曾经放行过」的
  *      记录抹掉——审计记录是**事实**，不是状态。
- *   4. **有上限。** 记录条数有上限，超出后丢最旧的。理由是审计日志不能把
- *      `state.json` 撑成无界增长的单文件；上限写在代码里，不靠外部配置。
+ *   4. **有上限，且按类别计数。** 拒绝类与事实类（放行、授权、撤销）各有
+ *      上限，超出后各自丢**本类**最旧的；拒绝再多也挤不掉放行与授权记录。
+ *      审计日志不能把 `state.json` 撑成无界增长的单文件；上限写在代码里。
  *
- * 审计记录与授权记录一样持久化在 `state.json` 里（`state.egressAudit`），
- * 因此它们共享同一次原子写：不会出现「授权写了、审计没写」的中间态。
+ * 审计记录与授权记录一样持久化在 `state.json` 里（`state.egressAudit`）。
+ * 授权与它的审计记录是**两次**相邻的 `saveState`（先授权、后审计）；审计写入
+ * 失败会把异常抛给调用方，不会被吞掉。
  */
 import crypto from 'node:crypto';
 
@@ -35,8 +37,21 @@ export const EGRESS_AUDIT_EVENTS = Object.freeze([
   'consent.revoked',     // 用户撤销授权
 ]);
 
-/** 审计记录条数的上限。超出后丢最旧的。 */
+/**
+ * 审计记录条数的上限。**按类别分别计数、分别丢最旧的**：
+ *
+ *   - `egress.denied`（拒绝）一类，上限 500；
+ *   - 其余（`egress.granted`、`consent.*`，即「事实记录」）一类，上限 500。
+ *
+ * 两类互不挤占：无论调用方连发多少次被拒绝的请求，放行与授权的记录都不会
+ * 被冲掉。每一类超出上限后，丢的是**该类**最旧的一条。
+ */
 export const EGRESS_AUDIT_CAP = 500;
+
+/** 拒绝类与事实类各自的上限（均为 `EGRESS_AUDIT_CAP`）。 */
+export const EGRESS_AUDIT_CAPS = Object.freeze({ denied: EGRESS_AUDIT_CAP, decisions: EGRESS_AUDIT_CAP });
+
+const auditClassOf = (record) => (record.event === 'egress.denied' ? 'denied' : 'decisions');
 
 /**
  * 一条审计记录的形状。
@@ -63,7 +78,7 @@ export function describeAuditRecord(record) {
       ? record.items.map((item) => ({
         kind: item.kind,
         ref: item.ref,
-        digest: item.digest,
+        digest: item.digest ?? null,
         bytes: item.bytes ?? 0,
       }))
       : [],
@@ -128,14 +143,19 @@ export function createEgressAuditStore({ list, persist, now = () => Date.now() }
       items: items.map((item) => ({
         kind: item.kind,
         ref: item.ref,
-        digest: item.digest,
+        digest: item.digest ?? null,
         bytes: Number(item.bytes) || 0,
       })),
     };
     const records = await list();
     records.push(entry);
-    // The cap drops the OLDEST records, so the trail keeps the recent history.
-    while (records.length > EGRESS_AUDIT_CAP) records.shift();
+    // The cap is per CLASS: a flood of denials only evicts older denials, so a
+    // granted/consent record can never be pushed out through this API.
+    const klass = auditClassOf(entry);
+    let excess = records.filter((r) => auditClassOf(r) === klass).length - EGRESS_AUDIT_CAPS[klass];
+    for (let i = 0; excess > 0 && i < records.length; ) {
+      if (auditClassOf(records[i]) === klass) { records.splice(i, 1); excess -= 1; } else i += 1;
+    }
     await persist(records);
     return describeAuditRecord(entry);
   }

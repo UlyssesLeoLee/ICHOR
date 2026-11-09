@@ -17,8 +17,7 @@
  *      没有系统凭据库就没有密钥存储能力——**不回退**是这条规则的全部意义。
  *
  * 平台差异：Windows 用 Credential Manager（`server/security/wincred.ps1`）；
- * macOS 用 Keychain（`server/security/mackeychain.sh`，走 `security`
- * 命令行工具）；Linux 用 Secret Service（`secret-tool`）。三者都只经由
+ * macOS 用 Keychain（经 `security` 命令行工具）；Linux 用 Secret Service（`secret-tool`）。三者都只经由
  * 一个**受控的子进程接口**调用，Bridge 自己不直接碰这些 API。
  */
 import fs from 'node:fs';
@@ -77,6 +76,21 @@ const CREDENTIAL_NAME = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$/;
  */
 export const CREDENTIAL_TARGET_PREFIX = 'ATS:ai-test-studio:';
 
+/**
+ * 把后端抛出的任何错误规整成带 `.code` 的、落在 `CREDENTIAL_ERROR_CODES`
+ * 词汇表内的错误。词汇表之外的码（例如 helper 报的 `CREDENTIAL_WRITE_FAILED`）
+ * 一律归为 `CREDENTIAL_STORE_FAILED`，使 HTTP 状态与契约一致（503）。
+ * 错误消息只含码，不含秘密。
+ */
+export function normalizeCredentialError(error) {
+  const raw = `${error?.code ?? ''} ${error?.message ?? ''}`;
+  const match = /CREDENTIAL_[A-Z_]+/.exec(raw);
+  const code = match && CREDENTIAL_ERROR_CODES.includes(match[0]) ? match[0] : 'CREDENTIAL_STORE_FAILED';
+  const normalized = new Error(code);
+  normalized.code = code;
+  return normalized;
+}
+
 /* ------------------------------------------------------------------ */
 /* 平台后端                                                            */
 /* ------------------------------------------------------------------ */
@@ -94,10 +108,10 @@ export const CREDENTIAL_TARGET_PREFIX = 'ATS:ai-test-studio:';
  */
 
 /** Windows：Credential Manager（advapi32），经由一个 PowerShell helper。 */
-function windowsBackend(scriptPath) {
+export function windowsBackend(scriptPath, spawnFn = spawn, platform = process.platform) {
   const target = (id) => `${CREDENTIAL_TARGET_PREFIX}${id}`;
-  const call = (action, id, input) => new Promise((resolve, reject) => {
-    const child = spawn(
+  const callOnce = (action, id, input) => new Promise((resolve, reject) => {
+    const child = spawnFn(
       'powershell.exe',
       ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath,
         action, '-Target', target(id), '-User', 'ai-test-studio'],
@@ -120,9 +134,21 @@ function windowsBackend(scriptPath) {
     if (input !== undefined) child.stdin.write(input, 'utf8');
     child.stdin.end();
   });
+  // A helper that dies WITHOUT naming a CREDENTIAL_* code (the PowerShell host
+  // or its inline C# compile failing transiently) is retried once; a failure
+  // that names a code (WRITE_FAILED, NOT_FOUND, ...) is deterministic and is
+  // never retried.
+  const call = async (action, id, input) => {
+    try {
+      return await callOnce(action, id, input);
+    } catch (error) {
+      if (error.message !== 'CREDENTIAL_STORE_FAILED') throw error;
+      return callOnce(action, id, input);
+    }
+  };
   return {
     name: 'windows-credential-manager',
-    available: async () => process.platform === 'win32' && fs.existsSync(scriptPath),
+    available: async () => platform === 'win32' && fs.existsSync(scriptPath),
     write: async (id, secret) => { await call('write', id, secret); },
     read: async (id) => call('read', id),
     remove: async (id) => { await call('delete', id); },
@@ -130,10 +156,10 @@ function windowsBackend(scriptPath) {
 }
 
 /** macOS：Keychain，经由 `security` 命令行工具。 */
-function macosBackend() {
+export function macosBackend(spawnFn = spawn, platform = process.platform) {
   const target = (id) => `${CREDENTIAL_TARGET_PREFIX}${id}`;
   const run = (args, input) => new Promise((resolve, reject) => {
-    const child = spawn('security', args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawnFn('security', args, { stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
     child.stdout.setEncoding('utf8');
@@ -151,7 +177,7 @@ function macosBackend() {
   });
   return {
     name: 'macos-keychain',
-    available: async () => process.platform === 'darwin',
+    available: async () => platform === 'darwin',
     write: async (id, secret) => {
       // `-w` takes the secret on the command line, which would expose it in
       // the process table. `security` reads a password from stdin when the
@@ -167,10 +193,10 @@ function macosBackend() {
 }
 
 /** Linux：Secret Service，经由 `secret-tool`。 */
-function linuxBackend() {
+export function linuxBackend(spawnFn = spawn, hasBinaryFn = hasBinary, platform = process.platform) {
   const target = (id) => `${CREDENTIAL_TARGET_PREFIX}${id}`;
   const run = (args, input) => new Promise((resolve, reject) => {
-    const child = spawn('secret-tool', args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawnFn('secret-tool', args, { stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
     child.stdout.setEncoding('utf8');
@@ -188,7 +214,7 @@ function linuxBackend() {
   });
   return {
     name: 'linux-secret-service',
-    available: async () => process.platform === 'linux' && hasBinary('secret-tool'),
+    available: async () => platform === 'linux' && hasBinaryFn('secret-tool'),
     write: async (id, secret) => {
       await run(['store', '--label', 'AI Test Studio', 'service', 'ai-test-studio', 'account', id], secret);
     },
@@ -289,6 +315,20 @@ export function createCredentialStore({ indexFile, backend } = {}) {
   );
   const now = () => new Date().toISOString();
 
+  /**
+   * 写操作（put / remove）经由一把进程内互斥锁**串行**执行。
+   *
+   * 没有这把锁时，两个并发的 put 都先读到同一份索引、各自写凭据库，后写的
+   * 索引覆盖先写的：凭据库里留下没有引用的孤儿密钥，且 `CREDENTIAL_DUPLICATE`
+   * 被绕过。锁内每一步都**重新读取索引**，所以不会基于过期快照合并。
+   */
+  let writeChain = Promise.resolve();
+  const exclusive = (task) => {
+    const run = writeChain.then(task, task);
+    writeChain = run.catch(() => {});
+    return run;
+  };
+
   /** 后端的可用性。不可用时**拒绝**，绝不退回明文文件。 */
   async function requireBackend() {
     if (!resolvedBackend) {
@@ -346,28 +386,45 @@ export function createCredentialStore({ indexFile, backend } = {}) {
       throw error;
     }
     const store = await requireBackend();
-    const index = loadCredentialIndex(indexFile);
-    const duplicate = index.credentials.find((c) => c.name === name.trim());
-    if (duplicate) {
-      const error = new Error('CREDENTIAL_DUPLICATE');
-      error.code = 'CREDENTIAL_DUPLICATE';
-      throw error;
-    }
-    const id = `cred_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
-    await store.write(id, secret);
-    const entry = {
-      id,
-      name: name.trim(),
-      purpose,
-      provider: store.name,
-      fingerprint: fingerprintOf(secret),
-      createdAt: now(),
-      updatedAt: now(),
-    };
-    index.credentials.push(entry);
-    index.version = CREDENTIAL_STORE_CONTRACT_VERSION;
-    saveCredentialIndex(indexFile, index);
-    return describeCredentialReference(entry);
+    return exclusive(async () => {
+      const trimmed = name.trim();
+      // The index is read INSIDE the lock, so the duplicate check sees every
+      // put that finished before this one.
+      if (loadCredentialIndex(indexFile).credentials.some((c) => c.name === trimmed)) {
+        const error = new Error('CREDENTIAL_DUPLICATE');
+        error.code = 'CREDENTIAL_DUPLICATE';
+        throw error;
+      }
+      const id = `cred_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
+      try {
+        await store.write(id, secret);
+      } catch (error) {
+        throw normalizeCredentialError(error);
+      }
+      const entry = {
+        id,
+        name: trimmed,
+        purpose,
+        provider: store.name,
+        fingerprint: fingerprintOf(secret),
+        createdAt: now(),
+        updatedAt: now(),
+      };
+      // Re-read AFTER the credential-store write and merge into the fresh index.
+      const index = loadCredentialIndex(indexFile);
+      index.credentials.push(entry);
+      index.version = CREDENTIAL_STORE_CONTRACT_VERSION;
+      try {
+        saveCredentialIndex(indexFile, index);
+      } catch {
+        // The index could not be written: do not leave an orphan secret behind.
+        await store.remove(id).catch(() => {});
+        const error = new Error('CREDENTIAL_STORE_FAILED');
+        error.code = 'CREDENTIAL_STORE_FAILED';
+        throw error;
+      }
+      return describeCredentialReference(entry);
+    });
   }
 
   /**
@@ -397,14 +454,18 @@ export function createCredentialStore({ indexFile, backend } = {}) {
       throw error;
     }
     const store = await requireBackend();
-    return store.read(id);
+    try {
+      return await store.read(id);
+    } catch (error) {
+      throw normalizeCredentialError(error);
+    }
   }
 
   /**
    * 删除一个凭据。
    *
-   * 先删凭据库里的条目，再删索引里的引用。反过来会在索引里留下一个指向
-   * 已不存在条目的引用。
+   * 先删凭据库里的条目，再删索引里的引用；凭据库里已经没有这个条目时
+   * （NOT_FOUND）按成功处理并清掉引用——否则这条引用永远删不掉。
    */
   async function remove(id) {
     if (!CREDENTIAL_ID.test(String(id))) {
@@ -412,18 +473,32 @@ export function createCredentialStore({ indexFile, backend } = {}) {
       error.code = 'CREDENTIAL_NOT_FOUND';
       throw error;
     }
-    const index = loadCredentialIndex(indexFile);
-    const entry = index.credentials.find((c) => c.id === id);
-    if (!entry) {
+    if (!loadCredentialIndex(indexFile).credentials.some((c) => c.id === id)) {
       const error = new Error('CREDENTIAL_NOT_FOUND');
       error.code = 'CREDENTIAL_NOT_FOUND';
       throw error;
     }
     const store = await requireBackend();
-    await store.remove(id);
-    index.credentials = index.credentials.filter((c) => c.id !== id);
-    saveCredentialIndex(indexFile, index);
-    return describeCredentialReference(entry);
+    return exclusive(async () => {
+      const entry = loadCredentialIndex(indexFile).credentials.find((c) => c.id === id);
+      if (!entry) {
+        const error = new Error('CREDENTIAL_NOT_FOUND');
+        error.code = 'CREDENTIAL_NOT_FOUND';
+        throw error;
+      }
+      try {
+        await store.remove(id);
+      } catch (error) {
+        // An entry the credential store no longer has is the state `remove`
+        // wants to reach: the reference is cleared and the call succeeds.
+        // Every other failure keeps the reference (the secret may still exist).
+        if (normalizeCredentialError(error).code !== 'CREDENTIAL_NOT_FOUND') throw normalizeCredentialError(error);
+      }
+      const index = loadCredentialIndex(indexFile);
+      index.credentials = index.credentials.filter((c) => c.id !== id);
+      saveCredentialIndex(indexFile, index);
+      return describeCredentialReference(entry);
+    });
   }
 
   return Object.freeze({
