@@ -238,7 +238,7 @@ SDK 的每个方法按同一顺序做四件事：**授权判定 → 作用域判
 | ATS-501 远程协议契约审计（本任务消费它） | 108/108 OK | `docs/evidence/ATS-512/06-ats501-protocol-audit.log` |
 | 基线 ADR 的 `file:line` 引用全部解析 | OK | `docs/evidence/ATS-512/07-adr-citation-check.log` |
 | ATS-101 硬编码端口审计 | OK | `docs/evidence/ATS-512/08-port-audit.log` |
-| 两个插件模块的行覆盖率（contract.mjs 95.44%、sdk.mjs 90.37%） | OK | `docs/evidence/ATS-512/10-plugin-coverage.log` |
+| 两个插件模块的行覆盖率（contract.mjs 95.44%、sdk.mjs 91.87%） | OK | `docs/evidence/ATS-512/10-plugin-coverage.log` |
 | 第 1 轮复核的 11 条反例全部不再复现 | OK | `docs/evidence/ATS-512/11-review-counterexamples.log` |
 
 ## 6. API 面
