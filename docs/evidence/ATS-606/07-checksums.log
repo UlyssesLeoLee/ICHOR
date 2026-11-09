@@ -1,11 +1,12 @@
 === ATS-606 evidence: the checksum manifest ===
-tree : 7d9eb55c413312b802f1bb051240cbcd45d3a016
-date : 2026-11-09T16:25:57Z
+tree : a683fc5c2a9d362f1ab211157c4fc3e1eb396fd5
+date : 2026-11-09T17:12:51Z
 
-manifest entries : 884
-digest mismatches: 0
+manifest entries : 912
+digest mismatches: 1
+    tools/ats606-probes/probe-maestro-compat.mjs 1e11e1d1101b73c4dd644e6e444ce591ee89eada9d581851d6df26ca0488ee51 != 67378aee43da7f384bb0dc967111c18e90310a7a0f4eb2b001601adf4639e943
 tracked-not-listed: 0 []
 listed-not-tracked: 0 []
-RESULT: OK
+RESULT: MISMATCH
 
 exit : 0

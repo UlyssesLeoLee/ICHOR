@@ -371,11 +371,21 @@ $ python tools/check_adr_citations.py
 
 ### 3.9 在**克隆出来的**交付分支上复跑
 
-上面的各项都是在工作区跑的。门禁与校验脚本面对的是**已提交**的文件，所以它们在**两份克隆**里各跑一遍：一份按 Windows 默认检出（CRLF），一份用 `git -c core.autocrlf=false clone` 检出（LF）。两份克隆都指向**同一个提交**。
+上面的各项都是在工作区跑的。门禁与校验脚本面对的是**已提交**的文件，所以它们在**两份克隆**里各跑一遍：一份按 Windows 默认检出（CRLF），一份用 `core.autocrlf=false` 检出（LF）。两份克隆都指向**同一个提交**。
 
 ```
 $ bash tools/ats103-probes/verify-r4.sh <clone-dir> <label>
 ```
+
+**「LF 克隆」必须真的是 LF 检出，否则这组对比等于没做。** `git clone -c core.autocrlf=false` **不会**把该设置写进新克隆自己的配置——`-c` 配置的是克隆**进程**，新克隆沿用机器默认值（Windows 上是 `true`），于是那份「LF 克隆」其实仍是 CRLF 检出。实测两份克隆的工作区字节数可以分开：CRLF 克隆里那个文件有 **118** 个 CR 字节，LF 克隆里是 **0**。因此克隆之后必须显式写配置并重置检出：
+
+```bash
+git -C <clone> config core.autocrlf false
+git -C <clone> rm -r --cached .
+git -C <clone> reset --hard
+```
+
+四份日志的头部各自记着它自己的 commit 与 `core.autocrlf` 取值（`true` / `false`），可以直接核对。
 
 两份克隆的结论**逐项相同**：
 
@@ -401,7 +411,7 @@ $ bash tools/ats103-probes/verify-r4.sh <clone-dir> <label>
 - 交付分支上：`docs/evidence/ATS-103/10-r4-branch-clone-verification-crlf.log` 与 `10-r4-branch-clone-verification-lf.log`
 - 合并后的 `dev` 上：`docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log` 与 `11-r4-dev-clone-verification-lf.log`
 
-四份都是 8 步全绿（`R4_EXIT=0`）。
+四份都是 8 步全绿（`R4_EXIT=0`）。四份分别指向**两个不同的提交**：前两份指向交付分支的提交，后两份指向**合并后的 `dev`** 的 tip——R4 第 4 项要的就是「在合并后的 `dev` 上复跑」，因此 `dev` 那一侧是**在合并之后**才跑的，不是合并之前的同一棵树。
 
 ## 4. 本次交付发现的两个真实缺陷（不属于 ATS-103 的修复范围）
 
@@ -545,6 +555,7 @@ HTTP 探针 → ui-smoke（同源）→ ui-smoke（跨源）→ ui-smoke（非�
 | `docs/evidence/ATS-103/11-r4-dev-clone-verification-crlf.log` | 新增 | R4 第 4 项要求的**合并后 `dev`** 上的复跑（CRLF 克隆），8 步全绿 |
 | `docs/evidence/ATS-103/11-r4-dev-clone-verification-lf.log` | 新增 | 同一组检查在**合并后 `dev`** 的 LF 克隆里的输出，8 步全绿 |
 | `tools/ats103-probes/verify-r4.sh` | 新增 | 在克隆出来的交付分支上复跑上述各项的脚本 |
+| `tools/ats103-probes/collect-r4-logs.sh` | 新增 | 采集上述四份克隆验证日志（交付分支与合并后的 `dev`，各 CRLF / LF 两份）的脚本 |
 | `tools/update_wbs_ats103.py` | 修改 | 本任务的 WBS 行更新脚本（与 ATS-101/102/301/401/501 同构，标记 `【ATS-103】`）：备注同步为本轮的真实结论 |
 | `tools/wbs_common.py` | 修改 | 共享工作簿的标记登记与叙述片段：新增 `【ATS-103】` |
 | `docs/22-FRONTEND-EXPORT.md` | 新增 | 本文件 |
@@ -564,15 +575,17 @@ HTTP 探针 → ui-smoke（同源）→ ui-smoke（跨源）→ ui-smoke（非�
 1. **Next.js 静态导出未在 macOS / Linux 上实测**。本轮全部实测在 Windows 11 完成。Next.js 16 的静态导出与平台无关，但**未实测**不等于已验证。
 2. **未在真实 Tauri 桌面壳内实测**（`cargo tauri dev`）。ATS-104 的交付范围；且 B-02（Tauri 构建）在 ATS-102 结束时仍未关闭，仓库仍缺 `src-tauri/icons/icon.ico`。
 3. **未做人工可用性评测**。本轮的 ST 探针是**脚本驱动**的真实浏览器（会话 → 添加项目 → 运行到终态、console error 为 0），但**无障碍/键盘/加载态的人工评测**仍属 ATS-111。
-4. **Bridge 的运行结果依赖宿主机内存**。本轮曾因宿主机仅剩 ~1.2 GB 可用内存导致 Playwright 子进程 OOM（§4.1）。同样的运行在内存充裕时**实测通过**（1 PASS / 1 FAIL / 28 产物）。**该敏感性本身未被量化**——没有测出「需要多少可用内存才稳定」。
+4. **Bridge 的运行结果依赖宿主机内存**。本轮曾因宿主机仅剩 ~1.2 GB 可用内存导致 Playwright 子进程 OOM（§4.1）。同样的运行在内存充裕时**实测通过**（1 PASS / 1 FAIL / 27 产物）。**该敏感性本身未被量化**——没有测出「需要多少可用内存才稳定」。
 5. **ATS-101 阻断项 B-01 的「不复现」结论只覆盖本次这一组参数**（`--reporter/--output/--trace/--workers`，`@playwright/test` 1.64.1）。ATS-301 的参数探针覆盖面更宽（§3.4 末）。
 6. **GitHub Actions 未在真实 runner 上跑过**（沿用 ATS-102 的未验证项 1，ATS-103 未新增 CI 变更）。
 7. **`docs/WBS.xlsx` 的 ATS-103 行状态为「待审核」而非「已完成」**。本任务**不自行置 done**，工作簿里的 `已完成` 由复核人写入（`tools/update_wbs_ats103.py --status 已完成`）。同理「总览」的 `已完成项` 缓存值当前仍为 **1**（本任务不计入）。
 8. **Bridge 的静态路由只覆盖 `/`**：trailing-slash 目录与未知路径不解析、不返回导出的 `404.html`，且提示语误导。属 Bridge 侧缺陷，见 §4.2 与 `docs/16-BASELINE-ADR.md` §7。
+9. **端口占用的成因只在本机（Windows 11）实测**：§4.5 的「僵尸监听套接字」是 Windows 上 `TerminateProcess` 的行为。macOS / Linux 上 `child.kill()` 发送的是信号，套接字会被优雅关闭，因而**不会**出现同样的形态——本轮的修法（等待端口可绑定）在那些平台上是无害的冗余，而不是必需的修复。**该成因未在非 Windows 平台上核实过。**
+10. **「端口可用」判定与「进程树已结束」在非 Windows 平台上未实测**：`tools/ats103-probes/lib/port-free.mjs` 的进程树结束走 `process.kill(-pid, 'SIGTERM')`（进程组），该分支**未在 macOS / Linux 上跑过**——本轮全部实测在 Windows 11 完成，Windows 分支（`taskkill /T /F`）是唯一被验证过的路径。
 
 ## 7. 冻结声明
 
-- 本文件描述的是 ATS-103 交付后的状态：分支 `agent/m3/seikoist-148`（基线起点 `agent/m2/seikoist-148`）。
+- 本文件描述的是 ATS-103 交付后的状态：分支 `agent/m3/seikoist-148`（基线起点 `agent/m2/seikoist-148`），已用 `--no-ff` 合入 `dev`。
 - **未验证项一律如实标注**，不得计入通过。
-- 本文件所列命令与输出均可在 `docs/evidence/ATS-103/` 中找到对应日志，并可用 `node tools/ats103-probes/verify-export-and-proxy.mjs`、`node tools/ats103-probes/ui-smoke.mjs`、`bash tools/ats103-probes/mutation-evidence.sh` 重跑。
+- 本文件所列命令与输出均可在 `docs/evidence/ATS-103/` 中找到对应日志，并可用 `node tools/ats103-probes/verify-export-and-proxy.mjs`、`node tools/ats103-probes/ui-smoke.mjs`、`bash tools/ats103-probes/mutation-evidence.sh`、`bash tools/ats103-probes/collect-r4-logs.sh` 重跑。
 - 本文件的任何修改必须附新的可执行证据（命令 + 实际输出）。

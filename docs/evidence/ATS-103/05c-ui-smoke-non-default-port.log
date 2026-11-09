@@ -1,6 +1,6 @@
 === ATS-103 evidence: ST: the exported UI on a non-default port (the real UI cannot work there) ===
-date      : 2026-11-09T14:25:19Z (UTC)
-commit    : 4e46aeafa0526cb017fe6d93cd581e0a4955f873
+date      : 2026-11-09T17:03:42Z (UTC)
+commit    : 83179cc2de12f4e63b9b28cf07db82def4532399
 node      : v22.23.4
 npm       : 10.9.9
 command   : node tools/ats103-probes/ui-smoke.mjs --port 4600
@@ -33,7 +33,7 @@ FAIL  the page produced no console error and no failed request  --  console erro
 --- API calls the page made ---
 --- end ---
 --- bridge stderr ---
-  (node:30492) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+  (node:30992) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 --- end ---
 PASS  the probe executed every registered check  --  8/8 checks executed

@@ -109,7 +109,7 @@ const HEADER = `appId: ${fixtures.appId}\n---\n`;
  * Asks Maestro whether a Flow body is a valid command.
  * Returns { accepted: boolean, output: string }.
  */
-function checkSyntax(body) {
+function checkSyntax(body, retryOnce = false) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats606-'));
   const file = path.join(dir, 'probe.yaml');
   try {
@@ -126,6 +126,22 @@ function checkSyntax(body) {
       return { accepted: false, output: `spawn failed: ${res.error.message}`, status: null };
     }
     const out = `${res.stdout ?? ''}${res.stderr ?? ''}`.trim();
+    // Maestro prints NOTHING when it cannot run -- a JVM that died of
+    // "insufficient memory for the Java Runtime Environment" leaves no
+    // output and no "Invalid Command". Reading that as "the command is
+    // valid" would turn a crashed run into a clean inventory, so an empty
+    // output is a FAILURE, never an acceptance.
+    if (out === '') {
+      // The JVM can die of memory pressure when the host is busy. One
+      // retry separates "this command is genuinely silent" from "the
+      // machine was momentarily out of memory".
+      if (retryOnce) {
+        retryOnce = false;
+        return checkSyntax(body, true);
+      }
+      fail(`the Maestro CLI produced no output for a command check (exit ${res.status}) -- the inventory is NOT verified`);
+      return { accepted: false, output: '(no output)', status: res.status };
+    }
     // "Invalid Command: X" is Maestro's own verdict that the command does
     // not exist. Anything else (a parse error about arguments, say) means
     // the COMMAND was recognised -- the command exists, the usage may be
