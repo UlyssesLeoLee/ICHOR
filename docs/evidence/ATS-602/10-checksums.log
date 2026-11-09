@@ -1,8 +1,8 @@
 === ATS-602 evidence: the release manifest ===
-tree : a4102186c25a1d4d69e2ecdc161cec76f44f01c5
-date : 2026-11-09T06:17:45Z
+tree : 66e97efe698df4b0228b0791736ffb65f69d38d0
+date : 2026-11-09T06:25:57Z
 
-manifest entries : 727
+manifest entries : 728
 digest mismatches: 0
 tracked-not-listed: 0 []
 listed-not-tracked: 0 []
