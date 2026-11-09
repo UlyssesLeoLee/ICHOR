@@ -47,6 +47,7 @@ import {
   walkReport, cliCounts, verdictToStatus, stripAnsi,
   compareVerdicts, compareError, compareExpectations, compareCounters,
 } from './compare.mjs';
+import { chromiumInAny } from './lib/trace.mjs';
 
 const [repoArg, scratchArg] = process.argv.slice(2);
 if (!repoArg || !scratchArg) {
@@ -119,6 +120,26 @@ async function api(b, endpoint, method = 'GET', body, token) {
     body: body ? JSON.stringify(body) : undefined,
   });
   return [r.status, await r.json()];
+}
+
+/**
+ * Every `trace.zip` under a directory tree.
+ *
+ * @param {string} dir the root
+ * @returns {string[]} the absolute paths of the trace archives
+ */
+function traceFilesUnder(dir) {
+  const found = [];
+  const walk = (d) => {
+    if (!fs.existsSync(d)) return;
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const full = path.join(d, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (e.name === 'trace.zip') found.push(full);
+    }
+  };
+  walk(dir);
+  return found;
 }
 
 /** Runs the fixture's own CLI, exactly as a developer would. */
@@ -225,6 +246,20 @@ try {
   check('ST-2 the direct CLI run used a real browser (the engine wrote a trace)',
     cli.cases.some((c) => c.attachments.includes('trace')),
     cli.cases.map((c) => c.attachments.join('+')).join(' | '));
+
+  /* --- ST-2: the trace records a REAL browser CONTEXT -------------------- */
+  // A trace archive alone does NOT prove a browser was launched: a fixture
+  // that never asks for a `page` still writes a trace.zip, and the
+  // test-runner's own trace inside it mentions the browser name in fields
+  // that have nothing to do with a browser. What proves it is the BROWSER
+  // CONTEXT trace: the engine writes one trace file per browser context
+  // (`<n>-trace.trace`) whose first event is a `context-options` event
+  // naming the browser that was actually launched.
+  const cliTraces = traceFilesUnder(path.join(cliOutDir, 'results'));
+  const cliBrowser = chromiumInAny(cliTraces);
+  check('ST-2 the direct CLI run launched a REAL Chromium (the trace has a browser context)',
+    cliBrowser.ok, cliBrowser.detail);
+
   check('ST-2 the failing case carries the engine\'s own error message',
     cliFailed.length >= 1 && stripAnsi(cliFailed[0].error).length > 0,
     cliFailed.length ? `${stripAnsi(cliFailed[0].error).length} chars` : 'no failing case');
@@ -283,9 +318,21 @@ try {
   const cliError = stripAnsi(cliFailing?.error ?? '');
   check('ST-5 the Bridge carries the engine\'s error message (it is not empty)',
     bridgeError.length > 0, `${bridgeError.length} chars`);
-  const errorDiffs = compareError(cliFailing?.error ?? '', bridgeFailing?.error ?? '', expectedText);
-  check('ST-5 the Bridge\'s error message is the engine\'s own',
-    errorDiffs.length === 0, errorDiffs.join(' | ') || 'the assertion text is present');
+  check('ST-5 the Bridge\'s error message carries the engine\'s assertion text',
+    Boolean(expectedText) && bridgeError.includes(expectedText),
+    expectedText ?? '(the fixture declares no assertion text)');
+  // The equality check: both sides are stripped of ANSI and must then be the
+  // SAME text. A truncated message (first line + assertion text only) is
+  // caught here, which is why the comparison is not a containment check.
+  const errorDiffs = compareError(cli.cases, bridgeCases);
+  check('ST-5 the Bridge\'s error message is the engine\'s own (the whole text, not a part of it)',
+    errorDiffs.length === 0,
+    errorDiffs.join(' | ') || `cli=${cliError.length} chars, bridge=${bridgeError.length} chars, identical after stripping ANSI`);
+  // Print both texts in full, so a reviewer can read them side by side.
+  console.log(`CLI error message (${cliError.length} chars, ANSI stripped):`);
+  console.log(cliError);
+  console.log(`BRIDGE error message (${bridgeError.length} chars, ANSI stripped):`);
+  console.log(bridgeError);
 
   /* --- ST-6: the fixture's own declared expectations ---------------------- */
   const expected = JSON.parse(
@@ -299,18 +346,15 @@ try {
   const engineReport = path.join(runFolder, 'report.json');
   check('ST-7 the run folder holds the engine\'s report.json', fs.existsSync(engineReport),
     engineReport);
-  const traceOnDisk = [];
-  const collectTraces = (dir) => {
-    if (!fs.existsSync(dir)) return;
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, e.name);
-      if (e.isDirectory()) collectTraces(full);
-      else if (e.name === 'trace.zip') traceOnDisk.push(full);
-    }
-  };
-  collectTraces(runFolder);
+  const traceOnDisk = traceFilesUnder(runFolder);
   check('ST-7 the run folder holds a REAL trace.zip', traceOnDisk.length >= 1,
     `${traceOnDisk.length} trace(s)`);
+  // The trace archive existing is not enough: the archive must record a
+  // browser CONTEXT that names chromium. A fixture that never launches a
+  // browser still writes a trace.zip -- the browser context is the proof.
+  const bridgeBrowser = chromiumInAny(traceOnDisk);
+  check('ST-7 the Bridge run launched a REAL Chromium (the trace has a browser context)',
+    bridgeBrowser.ok, bridgeBrowser.detail);
 
   /* --- ST-8: the counters agree ------------------------------------------ */
   const counts = cliCounts(cli.cases);

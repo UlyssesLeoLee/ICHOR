@@ -21,9 +21,14 @@ ATS-106（`docs/26-RUNNER-PREFLIGHT.md`）修复了阻断真实浏览器链路�
 | `examples/real-browser-fixture/tests/expected.json` | 夹具**自己的期望结论**（作为数据入库），对账的第三个独立来源 |
 | `tools/ats107-probes/st-ats107.mjs` | 系统测试探针：用真实 Bridge 跑该夹具，并与独立的 CLI 直跑逐条对账 |
 | `tools/ats107-probes/compare.mjs` | 对账逻辑（纯函数），被探针与负控共用 |
-| `tools/ats107-probes/mutation-check.mjs` | **负控**：对账逻辑的变异测试，证明该对账不是恒真的 |
+| `tools/ats107-probes/lib/zip.mjs` | 读取 `trace.zip` 的最小 zip 读取器（中央目录 + inflate） |
+| `tools/ats107-probes/lib/trace.mjs` | 从 trace 归档里读出**浏览器上下文**（`<n>-trace.trace` 的 `context-options` 事件） |
+| `tools/ats107-probes/mutation-check.mjs` | **负控（第一层）**：对账逻辑的变异测试，证明该对账不是恒真的 |
+| `tools/ats107-probes/no-browser-control.mjs` | **负控（第二层）**：证明「真实浏览器」检查能拦住不启动浏览器的夹具 |
+| `tools/ats107-probes/product-mutation-control.sh` | **负控（第二层）**：在产品源码副本上截断错误信息，证明探针会拒绝它 |
 | `tools/update_wbs_ats107.py` | WBS 同步器（ATS-107 行 + 总览缓存与叙述单元格） |
-| `docs/evidence/ATS-107/` | 证据（探针输出、负控输出、WBS 同步结果） |
+| `tests/ats107-real-browser-it.test.mjs` | **结合测试**：经 HTTP 驱动真实 Bridge 跑真实夹具，从 API 的答案侧读同一口径 |
+| `docs/evidence/ATS-107/` | 证据（探针输出、各层负控输出、WBS 同步结果） |
 
 ## 2. 夹具：为什么是独立工程
 
@@ -61,6 +66,17 @@ export default defineConfig({
 
 `tests/expected.json` 是夹具**自己的期望结论**，作为数据入库。它是对账的第三个来源：夹具的行为变了，这个文件必须一起变，否则探针会失败，而不是悄悄接受新行为。
 
+### 2.2 「真实浏览器」是怎么被证明的
+
+**「有 `trace.zip`」不构成证明。** 一条从不取 `page` 的用例同样会写出 `trace.zip`，而那个归档里的 `test.trace` 属于**测试运行器**（它的 `context-options` 事件里 `browserName` 是空的），与有没有浏览器无关；整个归档里也搜得到 `browserName` 字样，因此简单地搜这个字符串同样拦不住。
+
+真正的证据是**浏览器上下文 trace**：
+
+- 引擎为**每一个浏览器上下文**写一个 trace 文件，命名为 `<n>-trace.trace`（`0-trace.trace`、`1-trace.trace`……）；
+- 该文件的第一个事件是 `context-options`，它的 `browserName` 写着**实际启动的浏览器**。
+
+于是判定规则是：归档里存在某个 `<n>-trace.trace`，且其 `context-options` 事件的 `browserName` 为 `chromium`。`tools/ats107-probes/lib/trace.mjs` 实现这条规则，探针在 CLI 侧（ST-2）与 Bridge 侧（ST-7）各用一次；`no-browser-control.mjs` 用「不取 `page`」的变异夹具证明这条规则会拒绝它。
+
 ## 3. 对账口径：与 CLI 一致
 
 ### 3.1 基准从哪来
@@ -81,17 +97,22 @@ export default defineConfig({
 | 计数器 | passed / failed / total 三项相同 |
 | 错误信息 | Bridge 报出的失败原因**就是引擎自己写的**，既不丢弃也不改写 |
 
-### 3.2 错误信息为什么用「包含」而不是「相等」
+### 3.2 错误信息按全文相等对账
 
-引擎的错误信息带 ANSI 转义序列，也带 call log。产品若将来剥掉 ANSI，严格相等就会断，而验收口径并没有要求逐字节相等——它要求的是**引擎自己的错误文本到达了读者面前**。
+验收口径是「错误信息与 CLI 一致」。因此对账的是**去掉 ANSI 之后的两份全文相等**，而不是「包含」：
 
-所以对账做的是**包含**检查：引擎写下的断言文本必须出现在 Bridge 的那份错误信息里。探针同时打印两边的长度与去 ANSI 后的文本，评审者能自己看到差别。
+- 只做包含检查时，一份被**截断**的错误信息（例如只保留首行与断言文本、丢掉 `Received:` / `Timeout:` / `Call log:`）照样能通过包含检查——那不是「与 CLI 一致」；
+- ANSI 码不是放行理由：两边都先去掉 ANSI 再比，去掉 ANSI 之后仍然是两份**同一段文本**，严格相等不会因此产生歧义。
+
+失败的用例按**标题**配对（不是取「第一条 failed」），因此多条用例失败时，比对的是同一条用例的两份错误信息。
+
+探针打印两边的长度与去 ANSI 后的文本全文，评审者能自己逐字核对。
 
 ### 3.3 负控：对账逻辑非恒真
 
 只喂一份诚实结果的对账，无法证明它会工作——它对不诚实的结果也会照样放行。
 
-因此对账逻辑抽成纯函数模块 `compare.mjs`，并由 `mutation-check.mjs` 喂进 **10 种变异**，要求每一种都被抓住：
+因此对账逻辑抽成纯函数模块 `compare.mjs`，并由 `mutation-check.mjs` 喂进 **13 种变异**，要求每一种都被抓住：
 
 | 变异 | 模拟的缺陷 |
 |---|---|
@@ -105,10 +126,24 @@ export default defineConfig({
 | M8 | 少报一条用例 |
 | M9 | 多报一条 CLI 没跑的用例 |
 | M10 | 总数报错 |
+| M11 | **截断错误信息**（保留首行与断言文本，丢掉 `Received:` / `Timeout:` / `Call log:`） |
+| M12 | 在 ANSI 转义序列后面截断错误信息 |
+| M13 | 把**另一条用例**的错误信息挂到失败用例上 |
 
 同时要求**未变异的诚实结果必须被接受**——否则一个「一律拒绝」的比较也能通过负控。
 
 变异只作用于内存中的副本，**不触碰被测产品源码**。
+
+### 3.4 负控（第二层）：产品变异与「没启动浏览器」的夹具
+
+`mutation-check.mjs` 证明的是**对账逻辑**有牙齿。它不能证明探针在**真实链路上**会拒绝一个坏掉的产品——比较逻辑再严，探针也可能根本没看到被破坏的输出。因此另有两道针对真实链路的负控：
+
+| 负控 | 做法 | 必须成立 |
+|---|---|---|
+| `no-browser-control.mjs` | 把夹具的两条用例改成**不取 `page`**（因此不启动浏览器），真实夹具与变异夹具各跑一次 | 真实夹具被接受；变异夹具被拒绝（`trace.zip` 里没有浏览器上下文） |
+| `product-mutation-control.sh` | 在**产品源码的副本**上截断 Bridge 报出的错误信息，然后对副本跑真实探针 | 探针在 ST-5 上失败（退出码非 0）；未变异的产品仍通过 |
+
+这两道负控针对的正是「只看 trace 文件存在」与「只看包含关系」这两种**看似成立、实则恒真**的检查。
 
 ## 4. 探针的执行方式
 
@@ -123,7 +158,8 @@ node tools/ats107-probes/st-ats107.mjs <repo> <scratch-dir>
 
 ## 5. 边界
 
-- **本机没有真实 Chromium 时，探针报 SKIP 而不是 PASS**。验收口径说的是真实浏览器，没有浏览器的机器没有满足它。
+- **本机没有真实 Chromium 时，探针报 FAIL 且退出码非 0**，不是 SKIP 也不是 PASS。验收口径说的是真实浏览器，没有浏览器的机器没有满足它；探针采用 fail-closed：缺浏览器时判定失败并退出非 0，采集脚本把该次运行如实记录为失败。
+- **CLI 直跑与 Bridge 的运行环境不同**。Bridge 在**封闭环境**里跑引擎（`server/env/profiles.mjs`）：只有白名单内的基础键会传给 runner，保留名（其中包括 `PLAYWRIGHT_BROWSERS_PATH`）不会。因此宿主设置的 `PLAYWRIGHT_BROWSERS_PATH` 只影响 CLI 直跑，不影响 Bridge 的运行。「与 CLI 一致」这条口径成立的前提是**两边都用默认的浏览器安装位置**；把宿主浏览器路径指向别处时，两边会各自找到不同的浏览器，结论不再可比。这是 ATS-212 的环境归属设计，不是本项的缺陷，但它是这条口径的边界。
 - **引擎版本漂移会被记录在证据里**（探针打印实测版本），而不是被藏起来。
 - **本项的覆盖面只有那两条离线用例**：真实站点的联网用例、可中断的长用例（ST-010）、多次重复执行（ST-012）仍未实测。
 

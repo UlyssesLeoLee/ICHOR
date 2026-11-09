@@ -1,0 +1,22 @@
+=== ATS-107 evidence: the same criterion from the API's side: a real Bridge over HTTP running the real fixture (IT-ATS107-001..003) ===
+date        : 2026-11-09T18:30:57Z (UTC)
+commit      : 323d01d4aa05110fa25f1f0a7d8da4606dfd2ae1
+node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command     : node --test tests/ats107-real-browser-it.test.mjs
+
+(node:24404) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✔ IT-ATS107-001: the Bridge runs the real fixture and reports one PASS and one FAIL (9968.7264ms)
+✔ IT-ATS107-002: the run really launched a Chromium (the trace has a browser context) (9169.0054ms)
+✔ IT-ATS107-003: the failing case carries the engine's own error message, in full (9079.5077ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 39312.6055
+exit code   : 0

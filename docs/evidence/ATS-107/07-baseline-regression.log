@@ -1,31 +1,44 @@
 === ATS-107 evidence: baseline regression: npm test / node --check / port audit / ADR citations / dependency manifest ===
-date        : 2026-11-09T16:17:14Z (UTC)
-commit      : add0fd268e100f4defa275bfbeab4d0582020c52
+date        : 2026-11-09T18:31:45Z (UTC)
+commit      : 323d01d4aa05110fa25f1f0a7d8da4606dfd2ae1
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command     : node --test --test-concurrency=2 tests/*.test.mjs; node --check server/index.mjs; node tools/ats101-probes/scenario-d-port-audit.mjs; python tools/check_adr_citations.py; node tools/gen_dep_manifest.mjs --check
 
 --- npm test suite: node --test --test-concurrency=2 tests/*.test.mjs ---
-✖ ST-ATS203-002: a trusted project gets the authoritative index, and the rendered cases come through (889.7544ms)
-✖ ST-ATS203-004: the symmetric project matrix gives every case two spec ids (1014.1878ms)
-✖ IT-ATS203-006: the symmetric project matrix gives every case two spec ids (666.7848ms)
-✖ ST-ATS-203-006: the symmetric project matrix gives every case two spec ids (706.2787ms)
-ℹ tests 1646
+ℹ tests 1649
 ℹ suites 0
-ℹ pass 1622
-ℹ fail 4
+ℹ pass 1621
+ℹ fail 0
 ℹ cancelled 0
-ℹ skipped 20
+ℹ skipped 28
 ℹ todo 0
-✖ failing tests:
-✖ ST-ATS203-002: a trusted project gets the authoritative index, and the rendered cases come through (889.7544ms)
-✖ ST-ATS203-004: the symmetric project matrix gives every case two spec ids (1014.1878ms)
-✖ IT-ATS203-006: the symmetric project matrix gives every case two spec ids (666.7848ms)
-✖ ST-ATS-203-006: the symmetric project matrix gives every case two spec ids (706.2787ms)
-exit code   : 1
+exit code   : 0
 
-NOTE: 4 ATS-203 failures (ST-ATS203-002, ST-ATS203-004, IT-ATS203-006, ST-ATS-203-006) are PRE-EXISTING, not caused by ATS-107. They were reproduced with the ATS-107 changes stashed, i.e. on the baseline content of 0e34299 (28 tests, 24 pass, the same 4 fail). They belong to ATS-203 (the authoritative-discovery index) and are not in this task's scope.
+--- the ATS-203 files on THIS tree and on the BASELINE tree ---
+baseline commit : 0e34299
+engine (this tree)   : 1.64.1 (D:/ICHOR/examples/sample-playwright/node_modules)
+
+--- this tree ---
+ℹ tests 28
+ℹ pass 28
+ℹ fail 0
+ℹ skipped 0
+exit code   : 0
+
+--- the baseline tree (0e34299) ---
+ℹ tests 28
+ℹ pass 28
+ℹ fail 0
+ℹ skipped 0
+exit code   : 0
+engine (baseline tree): 1.64.1 (D:/ICHOR/examples/sample-playwright/node_modules)
+
+NOTE: the two blocks above are the MEASURED comparison -- the same
+      three files, on this tree and on the baseline tree, with the
+      engine version on both sides. A failure that appears on BOTH
+      sides is not caused by this task.
 
 --- node --check ---
 OK

@@ -1,0 +1,85 @@
+=== ATS-107 evidence: the probe must reject a product that truncates the error message (ST-045) ===
+date        : 2026-11-09T18:27:16Z (UTC)
+commit      : 323d01d4aa05110fa25f1f0a7d8da4606dfd2ae1
+node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command     : bash tools/ats107-probes/product-mutation-control.sh
+
+warning: in the working copy of 'tools/ats107-probes/lib/trace.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tools/ats107-probes/lib/zip.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tools/ats107-probes/no-browser-control.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tools/ats107-probes/product-mutation-control.sh', LF will be replaced by CRLF the next time Git touches it
+=== ATS-107 product mutation control (P1: the Bridge truncates the error message) ===
+mutated tree : D:/hermes-multica/home/cache/scratch/ats107/ev-pm/tree
+
+P1 applied: the Bridge now truncates the error message it reports
+
+--- the probe against the mutated product (it must FAIL) ---
+PASS ST-1 the fixture pins an EXACT @playwright/test version -- declared=1.65.0
+PASS ST-1 the fixture has a lockfile on disk
+PASS ST-1 the fixture lockfile is COMMITTED -- examples/real-browser-fixture/package-lock.json examples/real-browser-fixture/package.json examples/real-browser-fixture/playwright.config.ts examples/real-browser-fixture/tests/constants.ts examples/real-browser-fixture/tests/expected.json examples/real-browser-fixture/tests/failing.spec.ts examples/real-browser-fixture/tests/passing.spec.ts
+PASS ST-1 the fixture names chromium explicitly
+PASS ST-1 the fixture sets retries: 0
+(node:19220) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+PASS ST-1 the fixture installs from its lockfile (npm ci) -- exit=0 
+PASS ST-1 the installed engine is the pinned one -- installed=1.65.0 pinned=1.65.0
+PASS ST-2 the direct CLI run produced a report -- exit=1
+PASS ST-2 the direct CLI run has at least one PASS -- 1 passed
+PASS ST-2 the direct CLI run has at least one FAIL -- 1 failed
+PASS ST-2 the direct CLI run used a real browser (the engine wrote a trace) -- error-context+trace | trace
+PASS ST-2 the direct CLI run launched a REAL Chromium (the trace has a browser context) -- 2/2 trace archives record a Chromium context (1-trace.trace (playwright 1.65.0), 1-trace.trace (playwright 1.65.0))
+PASS ST-2 the failing case carries the engine's own error message -- 401 chars
+PASS the Bridge starts
+PASS the Bridge accepts the fixture as a project
+PASS ST-3 the Bridge run finished -- failed
+PASS ST-3 the Bridge reports one passed and one failed -- {"passed":1,"failed":1,"total":2}
+PASS ST-4 the Bridge and the CLI agree on the NUMBER of cases -- bridge=2 cli=2
+PASS ST-4 the per-case verdicts are IDENTICAL to the CLI's
+PASS ST-5 the failing case exists on both sides
+PASS ST-5 the Bridge carries the engine's error message (it is not empty) -- 111 chars
+PASS ST-5 the Bridge's error message carries the engine's assertion text -- ATS-107 FAIL — this text is intentionally absent
+FAIL ST-5 the Bridge's error message is the engine's own (the whole text, not a part of it) -- ATS-107 failing case asserts a text that is absent: the error message is not the CLI's own (cli=401 chars, bridge=111 chars; they diverge at offset 51: cli="\nLocator:  locator('#target')\nExpected: \"ATS-107 FAIL — this" bridge="Expected: \"ATS-107 FAIL — this text is intentionally absent\"")
+CLI error message (401 chars, ANSI stripped):
+Error: expect(locator).toHaveText(expected) failed
+
+Locator:  locator('#target')
+Expected: "ATS-107 FAIL — this text is intentionally absent"
+Received: "ATS-107 PASS"
+Timeout:  5000ms
+
+Call log:
+  - Expect "toHaveText" locator('#target') with timeout 5000ms
+  - waiting for locator('#target')
+    14 × locator resolved to <main id="target">ATS-107 PASS</main>
+       - unexpected value "ATS-107 PASS"
+
+BRIDGE error message (111 chars, ANSI stripped):
+Error: expect(locator).toHaveText(expected) failed
+Expected: "ATS-107 FAIL — this text is intentionally absent"
+PASS ST-6 the Bridge matches the fixture's declared expectations
+PASS ST-7 the run folder holds the engine's report.json -- D:\hermes-multica\home\cache\scratch\ats107\ev-pm\scratch\ats107-21yAzl\data\runs\run_1_e059f277867bca67e714a959\report.json
+PASS ST-7 the run folder holds a REAL trace.zip -- 2 trace(s)
+PASS ST-7 the Bridge run launched a REAL Chromium (the trace has a browser context) -- 2/2 trace archives record a Chromium context (1-trace.trace (playwright 1.65.0), 1-trace.trace (playwright 1.65.0))
+PASS ST-8 the counters agree with the CLI's -- bridge=1/1/2 cli=1/1/2
+ENGINE: @playwright/test 1.65.0 (chromium)
+CLI run exit code: 1
+CLI stats: {"startTime":"2026-11-09T18:27:54.180Z","duration":7117.817,"expected":1,"skipped":0,"unexpected":1,"flaky":0}
+CLI cases: ATS-107 failing case asserts a text that is absent => unexpected | ATS-107 passing case renders the offline page => expected
+BRIDGE cases: ATS-107 failing case asserts a text that is absent => failed | ATS-107 passing case renders the offline page => passed
+RESULT: 27/28
+probe exit code: 1
+
+RESULT: OK -- the probe REJECTED the product that truncates the error message (P1 caught)
+
+--- the probe against the unmutated tree (it must PASS) ---
+CLI run exit code: 1
+CLI stats: {"startTime":"2026-11-09T18:28:13.283Z","duration":7299.935,"expected":1,"skipped":0,"unexpected":1,"flaky":0}
+CLI cases: ATS-107 failing case asserts a text that is absent => unexpected | ATS-107 passing case renders the offline page => expected
+BRIDGE cases: ATS-107 failing case asserts a text that is absent => failed | ATS-107 passing case renders the offline page => passed
+RESULT: 28/28
+probe exit code: 0
+
+RESULT: OK -- P1 is caught on the real chain, and the unmutated product still passes
+exit code   : 0
