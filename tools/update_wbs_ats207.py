@@ -43,17 +43,29 @@ MARKER = '【ATS-207】'
 STATUSES = ('待审核', '进行中')
 TERMINAL_STATUSES = ('已完成', '已取消')
 COMPLETION = {'待审核': 1.0, '进行中': 0.6}
-NOTE = ('数据目录单实例锁与崩溃恢复已实现：bridge.lock 以「完整记录写私有临时文件后硬链接发布」原子抢占，'
+NOTE = ('数据目录单实例锁与崩溃恢复已实现（Bridge 一侧）：'
+        'bridge.lock 以「完整记录写私有临时文件后硬链接发布」原子抢占，'
         '同一时刻多个进程恰一个成功（改动前的实现 6 个并发进程 6 个都「抢到」，竞态探针实测），'
-        '陈旧锁先改名再比对字节后接管、绝不删除活持有者的锁；锁记录带 token，Bridge 周期校验仍持有锁，'
+        '陈旧锁先改名再比对字节后接管；接管不主动删除活持有者的锁，'
+        '但在「改名」与「放回」之间若第三者发布了新锁，活持有者会丢失锁，'
+        '两个 Bridge 可共用同一数据目录至多一个校验周期（ATS_LOCK_VERIFY_MS，默认 5 秒），'
+        '被挤掉的持有者靠周期校验发现并停止；'
+        '锁记录带 token，Bridge 周期校验仍持有锁，'
         '锁被删则重取、被他人占用则退出；第二个 Bridge 以退出码 1 拒绝并报持有者 pid，'
         'ATS_LOCK_WAIT_MS 可等待锁空出；state.json 每进程临时文件、fsync 后改名，'
-        '损坏的状态文件报 STATE_CORRUPT 并拒绝启动且不改写；SQLite 镜像启动时 quick_check，'
-        '损坏则连同 -wal/-shm 隔离并由 state.json 重建；崩溃中的 run 恢复为 interrupted（ATS-208 的日志驱动恢复）；'
+        '损坏的状态文件报 STATE_CORRUPT 并拒绝启动且不改写；'
+        'SQLite 镜像启动时 quick_check，损坏则连同 -wal/-shm 隔离并由 state.json 重建；'
+        '崩溃中的 run 恢复为 interrupted——其依据是 state.json 里的事件日志（ATS-208 的日志驱动恢复），'
+        '不是 SQLite 镜像的 WAL 回放；镜像的 WAL 回放只保证已提交帧被应用、未提交事务被丢弃，'
+        '两者来源不同，不要混为一谈；'
         'UT 24 条（tests/instance-lock.test.mjs）、真实 Bridge 进程 IT 10 条（tests/instance-lock-it.test.mjs）、'
         '真实 Chromium 的 ST-017/025/026（tools/ats207-probes/st-ats207.mjs，18/18）已执行，'
         '证据见 docs/evidence/ATS-207/；断电以强杀进程模拟，未做真实掉电；'
-        '桌面壳不显示「已占用」提示且未实测（本机无 Rust/Tauri 工具链）；详见 docs/06-DATA-DESIGN.md §5.7')
+        '**验收项「第二实例提示占用」只完成了 Bridge 一侧，桌面侧未完成**：'
+        '桌面壳不显示「已占用」提示且未实测（本机无 Rust/Tauri 工具链），'
+        'src-tauri 丢弃 Bridge 的 stderr、也没有接入单实例插件；'
+        '因此本项在桌面路径上尚未满足，需另开 Desktop 角色的后续票，'
+        '不得记为已全部完成；详见 docs/06-DATA-DESIGN.md §5.7')
 
 
 def find_ats_row(xml, ats_id):
