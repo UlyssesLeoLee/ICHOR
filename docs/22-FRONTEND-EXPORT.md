@@ -22,7 +22,7 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 | Bridge 提供导出页 | **PASS** | `GET /` → HTTP 200（**14056 字节**），带 CSP（`connect-src` 含 `http://127.0.0.1:4577`）；带哈希的 chunk 亦可取回（HTTP 200） |
 | Bridge 会话操作 | **PASS** | `GET /api/session` 返回 token；**异源 Origin → 403**、**无 token → 401** |
 | Bridge 项目操作 | **PASS** | `POST /api/projects` → 201；`GET /api/projects` → 200；`GET /api/projects/{id}/tests` → 2 个用例 |
-| Bridge 运行操作 | **PASS** | `POST /api/projects/{id}/run` → **202**，随后到达终态 `failed`，**真实结果 1 PASS / 1 FAIL / 共 2 例**，采集 **28 个**证据产物（含 `report.json`、HTML 报告、每例 `trace.zip`）；API 报告的 summary 与磁盘上的 `report.json` **逐项一致** |
+| Bridge 运行操作 | **PASS** | `POST /api/projects/{id}/run` → **202**，随后到达终态 `failed`，**真实结果 1 PASS / 1 FAIL / 共 2 例**，采集 **27 个**证据产物（含 `report.json`、HTML 报告、每例 `trace.zip`）；API 报告的 summary 与磁盘上的 `report.json` **逐项一致** |
 | **ST：真实浏览器驱动导出的 UI** | **PASS** | headless Chromium 打开导出的页面，页面自身的 `/api/session` → 200；点「添加项目」→ toast「项目添加成功」、目录列出 2 个用例；点「运行全部」→ 202 → 终态 `failed`（2 例 / 28 产物）；**console error 0 条、无失败请求**；同源与白名单跨源（`127.0.0.1:3000`）**两种来源的 UI 流程都跑通**（跨源那一遍只有「基址解析」这条断言不适用，见 §3.3.1） |
 
 **本次交付没有改动产品代码。** `apps/studio/next.config.mjs`、`app/page.tsx`、`lib/api.ts` 与 `server/index.mjs` 全部保持 ATS-102 交付时的状态——实测证明这套配置**已经**满足本任务的完成定义（静态导出可用、路由可用、Bridge 三类操作可用）。本任务交付的是**可复跑的验证脚本 + 证据 + 结论文档**，以及两处**它发现的真实缺陷**（见 §4）。
@@ -109,7 +109,7 @@ PASS  the page's API requests go to the host its own location implies  --  page 
 
 ### 2.3 非默认端口上真实 UI 不可用
 
-**Bridge 在非默认端口时，导出页的 API 调用是不可用的**——导出页的基址解析与 Bridge 的 CSP 都指向默认端口 4577（`docs/16-BASELINE-ADR.md` §3.1 第 2 条已登记该限制）。实测 `ATS_PORT=4600` 时，Bridge 提供它自己的导出页，页面却去请求 `127.0.0.1:4577/api/session`，得到 `ERR_CONNECTION_REFUSED`。
+**Bridge 在非默认端口时，导出页的 API 调用是不可用的**——导出页的基址解析与 Bridge 的 CSP 都指向默认端口 4577（`docs/16-BASELINE-ADR.md` §3.1 第 2 条已登记该限制）。实测 `ATS_PORT=4600` 时，Bridge 提供它自己的导出页（`GET /` → 200），页面却去请求 `127.0.0.1:4577/api/session`，得到 `ERR_CONNECTION_REFUSED`。完整输出见 `docs/evidence/ATS-103/05c-ui-smoke-non-default-port.log`（该探针在这一遍**预期失败**，失败原因就是这条结论）。
 
 因此**两个探针的默认端口都是 Bridge 自己的默认端口**（由 `tools/ats103-probes/lib/default-port.mjs` 从产品源码 `server/index.mjs` 读出，探针自身不写端口字面量）。在**非默认端口**上运行时，探针会在结论里明写「这只验证了 API 接缝，不等于 UI 可用」，不会把一个真实 UI 不可用的配置报成通过。
 
@@ -177,7 +177,7 @@ PASS  POST /api/projects/{id}/run is accepted (202)  --  HTTP 202
 PASS  the accepted run reaches a passed/failed terminal state  --  status=failed
 PASS  the terminal run reports a per-case result set  --  2 cases
 PASS  the terminal run summary matches the on-disk report.json  --  summary and report.json agree (1/1/0/0/2)
-PASS  the terminal run collected artefacts  --  28 artefacts
+PASS  the terminal run collected artefacts  --  27 artefacts
 PASS  the collected artefacts include report.json  --  1 report.json entries
 PASS  GET /api/runs lists the run history  --  1 runs
 PASS  the probe executed every registered check  --  25/25 checks executed
@@ -198,7 +198,7 @@ PASS  the page's own session call succeeds  --  GET /api/session -> 200, GET /ap
 PASS  the page's API requests go to the host its own location implies  --  page location host: localhost:4577; API request hosts: localhost:4577
 PASS  adding a project through the UI registers it and lists the catalog  --  toast=项目添加成功：未修改原仓库, catalog items=2
 PASS  running through the UI reaches a terminal state  --  toast=已提交到本地 Playwright Runner, status=failed
-PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 28 artefacts
+PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 27 artefacts
 PASS  the page produced no console error and no failed request  --  console errors: none; failed requests: none
 PASS  the probe executed every registered check  --  8/8 checks executed
 
@@ -256,7 +256,7 @@ $ bash tools/ats103-probes/mutation-evidence.sh
 | `首页响应正常 @REQ-001` | **passed** | `page.setContent` + `toHaveText('hello')` |
 | `导航入口正常 @REQ-002` | **failed** | 故意断言不匹配，`element(s) not found` |
 
-采集到的 28 个证据产物包含：`report.json`、HTML 报告（`html/index.html`）、每例的 `trace.zip`、以及 `results/**/error-context.md`。
+采集到的 27 个证据产物包含：`report.json`、HTML 报告（`html/index.html`）、每例的 `trace.zip`、以及 `results/**/error-context.md`。
 
 > 这次运行同时**实测确认了 ATS-101 的阻断项 B-01 已不复现**：Bridge 传给 CLI 的参数向量是 `--reporter=line,json,html --output <dir> --trace on --workers 1`，全部是 `playwright test --help` 声明过的选项（ATS-301 的探针式构造），真实运行产出了真实 summary 与真实产物——这正是 B-01 修复后的应有形态。
 
@@ -271,44 +271,21 @@ $ npm test
 
 退出码 **0**，**0 失败**。用例总数随 dev 上的合并持续变化，所以这里**不写死总数**；**当次的真实数字以 `docs/evidence/ATS-103/03-npm-test-regression.log` 为准**（那里记的是本次采集的实际输出）。
 
-> **本轮发现并修掉的：测试套件并行跑会超时——不是端口冲突。** `npm test` 让测试文件**并行**执行，其中 14 个文件各自启动一个 Bridge。落败的那些报 `server did not boot`。我先怀疑是端口被抢，**实测否定了这个猜测**：
+> **测试套件并行跑会超时——不是端口冲突。** `npm test` 让测试文件**并行**执行，其中多个文件各自启动一个 Bridge。落败的那些报 `server did not boot`。端口被抢这个猜测**已被实测否定**：并发启动的 Bridge 各自的端口互不相同。
 >
-> | 测量 | 结果 |
-> |---|---|
-> | 14 个 Bridge 并发启动的耗时（最小 / 中位 / 最大） | **1289 / 5637 / 8582 ms** |
-> | 超过 `ready()` 窗口（4000 ms）的个数 | **10** |
-> | `ready()` 窗口本身 | 4000 ms（80 × 50 ms）与 2450 ms（70 × 35 ms） |
-> | 端口是否重复 | **无重复**，14 个端口互不相同 |
->
-> 真正的原因是**并发启动把耗时拖长，超过了测试自己的等待窗口**。这解释了故障为什么**不确定**：同一棵树连跑两次，失败的是**不同的子集**（实测 `dev` 自己失败 43 项、本分支失败 32 项，两边的差集双向都有）——取决于那次谁排在了慢的那一档。
->
-> **修法**：把会启动 Bridge 的测试文件里的**启动等待窗口**从 70–100 次提到 **400 次**（50 ms × 400 = 20 s，35 ms × 400 = 14 s），足以覆盖实测最坏值又留有余量。这些文件是 `agent-api`、`api`、`discovery-api`、`env-api`、`plugins-api`、`runner`、`sqlite-bridge`、`uid-api`，加上 `control-plane-it` 与 `execution-model-it` 里各自另写的启动等待（`discovery-api` 的 LEGACY 记录用例内联了一段自己的等待，不走共用助手）。改完之后**并行跑一次就全绿**（当次的具体数字以 `docs/evidence/ATS-103/03-npm-test-regression.log` 为准，该日志里并行与串行两次的结果都逐字保留）。
+> 真正的原因是**并发启动把耗时拖长，超过了测试自己的等待窗口**（`ready()` 窗口是若干次 50 ms / 35 ms 的轮询）。这解释了故障为什么**不确定**：同一棵树连跑两次，失败的是**不同的子集**——取决于那次谁排在了慢的那一档。**起 Bridge 的测试文件因此把启动等待窗口放宽了**（原先 70–100 次，改为 400 次），并在**所有启动探针的健康检查请求上**加 `AbortSignal.timeout(...)`，让单次请求有界——否则一次挂起的请求会吃掉整个等待窗口（实测该挂起请求约 **11 秒**，而窗口上限只有 20 秒，窗口根本没跑完）。断言的**内容不变**，改的只是「等多久」这个上界。
 >
 > 这是**既有缺陷，不是本任务引入的回归**——`dev` 在本分支之外单独克隆出来跑，一样失败、且失败集合还不一样。本任务**未改动任何被测代码**。
 >
-> 采集脚本仍然**两次都跑并把两个数字都记下来**：并行的那次**逐字**保留（包括哪些用例失败），串行的那次（`--test-concurrency=1`）作为对照；串行那次失败则整个采集以非 0 退出。**只报串行的绿灯会把问题藏起来**，所以并行那次也必须留在日志里。
+> 采集脚本**两次都跑并把两个数字都记下来**：并行的那次**逐字**保留（包括哪些用例失败），串行的那次（`--test-concurrency=1`）作为对照；串行那次失败则整个采集以非 0 退出。**只报串行的绿灯会把问题藏起来**，所以并行那次也必须留在日志里。
 >
-> **有三条时序敏感的用例需要说明**：
+> **有三条用例的失败与启动等待无关，是别的时序条件**：一条断言「Bridge 在某个项目**自己的 config 忙等 4 秒**期间仍要在 1000 ms 内应答 `/api/health`」；一条断言「镜像在数据库被锁超过其 busy timeout 之后能恢复」（拿 4 秒的写锁去撞 1 秒的 busy timeout）；一条断言「被 stop 掉的那次运行必须比自然跑完的那次**更快**」——最后这条是**纯墙钟比较**，机器忙时自然跑的那次被拖慢、停止的那次反而占了先，就比反了。
 >
-> - `IT-ATS202-API-009` 断言的是「Bridge 在某个项目**自己的 config 忙等 4 秒**期间仍要在 1000 ms 内应答 `/api/health`」。并行负载下 CPU 够忙时这条会变红（实测 2282 ms），机器空闲时又变绿——它**在 `dev` 上同样失败**，同样是既有缺陷、不是本任务引入。
-> - `IT-SQL-006` 断言的是「镜像在数据库被锁超过其 busy timeout 之后能恢复」。它拿**一个 4 秒的 SQLite 写锁**去撞镜像自己的 **1 秒** busy timeout，锁释放与断言之间的时序余量在负载下会被吃掉——它**在 `dev` 上同样失败**（`dev` 与本分支各自单独克隆跑，失败集合里都有它）。
-> - `IT-ADP-011` 断言的是「被 stop 掉的那次运行必须比自然跑完的那次**更快**」。这是一条**纯墙钟比较**（实测 stopped=8243 ms 对 natural=7385 ms），机器忙时自然跑的那次被拖慢、停止的那次反而占了先，就比反了。它与启动等待无关。
->
-> **并行失败的真实形态是「整个文件」而不是「某几个用例」**：某个测试文件自己的 Bridge 在负载下没能在 `ready()` 窗口内起来，它的 setup 用例报 `server did not boot`，该文件的其余用例随之**全部**变红。于是失败集合逐次不同——同一棵树两次跑失败的是不同子集，`dev` 自己单独克隆跑也一样失败（实测 21 项，失败形态同样是 `server did not boot` 与随后的 `fetch failed`）。
+> **并行失败的真实形态是「整个文件」而不是「某几个用例」**：某个测试文件自己的 Bridge 在负载下没能在 `ready()` 窗口内起来，它的 setup 用例报 `server did not boot`，该文件的其余用例随之**全部**变红。于是失败集合逐次不同，`dev` 自己单独克隆跑也一样失败。
 >
 > 因此采集脚本的让步**不按用例名写死**，判据是：**每一个失败用例所属的测试文件，单独重跑时全绿**。这是区分「负载诱发」与「真失败」的性质判据，且覆盖整个文件。**没有 `location` 的失败用例不算数**（无法归属到文件，也就不进入让步范围）。单独重跑仍失败，则整个验证以非 0 退出。**并行的原始输出逐字留在日志里**，失败不被吞掉——重跑过程与结论都写进去。
 >
-> **扩大等待次数还不够：单次 HTTP 请求本身没有超时。** 采集过程中出现过一条用例耗时约 **31 秒**才失败（`IT-EXE-009`），而启动窗口的上限只有 20 秒——说明**窗口根本没跑完**。原因是启动探针里的 `await fetch(...)` **没有单请求超时**：一旦某次请求被挂住，事件循环被占满，**这一次请求就吃掉了整个等待窗口**，后面的重试一次都没执行。实测该挂起请求约 **11 秒**。
->
-> **修法**：给**所有启动探针的健康检查请求**加上 `AbortSignal.timeout(...)`，让**单次请求有界**。这样「等待窗口」才是「最多等这么久」的上界，而不是「一次请求不返回就无限期等下去」。这一改动的直接效果是**套件更快也更稳**：并行套件的实测耗时从约 60 s 降到约 46 s（同一台机器、同一棵树），因为每次请求都有上限，窗口不会被单次挂起耗尽。
->
-> 采集脚本与 R4 克隆验证脚本里对 `IT-EXE-009` **不加任何让步**——它必须靠这个修复本身变绿。
-
-> `IT-ADP-011` 这条**与启动等待无关**，是另一类问题：它断言「被 stop 掉的那次运行必须比自然跑完的那次**更快**」——一条**纯墙钟比较**。把本任务的测试改动原样套到 `dev` 克隆上，两边各连跑三次并行套件，结果**完全一样**（872 项 / 867 通过 / 0 失败），说明它不是本任务引入的。
-
-> **还有一条是断言与异步投递之间的竞态**：`IT-LOCK-006` 断言「锁文件已被重新拿回」并且 stderr 里出现了 `re-acquired` 这一行。Bridge **先同步写锁文件、后异步写 stderr**，stderr 是**异步投递**到这个测试进程的——所以「文件已经回来了」与「那一行已经送到」之间存在时间差，断言若早于那一行送达就会失败。这条用例**单独跑 12 次全部通过**（`0/12` 失败），只在负载高时出现。
->
-> **修法**：把这一行改成**有界等待**（最多等 100 × 50 ms）再断言，断言的**内容不变**（仍然要求 stderr 里确实出现 `re-acquired`），只是把「恰好已经到达」这个时序要求换成「在上限内到达」。
+> 还有一条是断言与异步投递之间的竞态：某用例断言「锁文件已被重新拿回」并且 stderr 里出现了 `re-acquired` 这一行。Bridge **先同步写锁文件、后异步写 stderr**，stderr 是**异步投递**到这个测试进程的——所以「文件已经回来了」与「那一行已经送到」之间存在时间差，断言若早于那一行送达就会失败。**修法**：把这一行改成**有界等待**再断言，断言的**内容不变**（仍然要求 stderr 里确实出现 `re-acquired`），只是把「恰好已经到达」这个时序要求换成「在上限内到达」。
 
 
 > **测试数为什么每轮都不一样**：本任务对**被测产品行为**没有改动（产品代码的改动只有 CORS 那一处头，见 §3.3.1），改动集中在测试基础设施——等待窗口、单请求超时、一条断言的投递时序——另加独立探针脚本（不在 `tests/` 下，不参与 `npm test`）。测试总数由仓库里已合入的其他任务决定；这一轮的数字随 dev 上的合并持续变化，**当次的真实数字以 `03-npm-test-regression.log` 为准**——那里记的是本次采集的实际输出。

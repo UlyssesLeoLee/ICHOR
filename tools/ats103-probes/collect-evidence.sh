@@ -133,6 +133,21 @@ node tools/ats103-probes/ui-smoke.mjs --page-origin http://127.0.0.1:3000 \
   >> "$OUT/05b-ui-smoke-cross-origin.log" 2>&1
 echo "PROBE_EXIT=$?" >> "$OUT/05b-ui-smoke-cross-origin.log"
 
+# --- 3b. the same ST path on a NON-default port ----------------------------
+# The exported page resolves the API base to the DEFAULT port, and the
+# Bridge CSP allows only the default port, so on a non-default port the real
+# UI cannot work. That is a property of the product, and the probe says so
+# in its own conclusion -- this log is what backs the claim in
+# docs/22-FRONTEND-EXPORT.md §2.3. The probe is EXPECTED to fail here; the
+# point is the recorded reason, so the log is kept even though the exit code
+# is not 0.
+header 05c-ui-smoke-non-default-port.log \
+  "ST: the exported UI on a non-default port (the real UI cannot work there)" \
+  "node tools/ats103-probes/ui-smoke.mjs --port 4600"
+node tools/ats103-probes/ui-smoke.mjs --port 4600 \
+  >> "$OUT/05c-ui-smoke-non-default-port.log" 2>&1
+echo "PROBE_EXIT=$?" >> "$OUT/05c-ui-smoke-non-default-port.log"
+
 # --- 4. the mutation evidence ---------------------------------------------
 # The script mutates the product source temporarily and restores it. It
 # writes its own log; the header is prepended here so the log carries the
