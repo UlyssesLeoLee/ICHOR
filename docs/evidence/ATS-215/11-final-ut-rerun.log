@@ -1,0 +1,30 @@
+✔ UT-ATS215-001: the attachment kinds are the ones the engine writes (0.7328ms)
+✔ UT-ATS215-002: a trace stays a trace even when the content type lies (0.1095ms)
+✔ UT-ATS215-003: a trace ranks first and an unknown kind ranks last (0.1252ms)
+✔ UT-ATS215-004: the trace of a case is located through the engine record (0.3358ms)
+✔ UT-ATS215-005: a case with NO trace is not given one (0.3789ms)
+✔ UT-ATS215-006: an attachment that the manifest does not list is not evidence (0.2503ms)
+✔ UT-ATS215-007: the digest shown is the ARCHIVED one (0.1244ms)
+✔ UT-ATS215-008: the derived trace is only accepted when the file exists (0.126ms)
+✔ UT-ATS215-009: the case output directory follows the engine rule (0.1285ms)
+✔ UT-ATS215-010: the trace is two clicks away from the failure list (0.6266ms)
+✔ UT-ATS215-011: an unlocated trace does not claim to be within the budget (0.1337ms)
+✔ UT-ATS215-012: the workbench lists the failures with their trace (0.4936ms)
+✔ UT-ATS215-013: a passed case is not a failure (0.1307ms)
+✔ UT-ATS215-014: the digest is shortened for display but the full one is kept (0.1337ms)
+✔ UT-ATS215-015: two runs of the same case are compared (0.336ms)
+✔ UT-ATS215-016: a comparison across two commits is NOT comparable (0.2413ms)
+✔ UT-ATS215-017: a broken case is reported as broken, not as fixed (0.0863ms)
+✔ UT-ATS215-018: a comparison without both statuses is not conclusive (0.1901ms)
+✔ UT-ATS215-019: the compared case keeps its identity across the runs (0.1202ms)
+✔ UT-ATS215-020: the model keeps the attachments of a case (1.0983ms)
+✔ UT-ATS215-021: an inline attachment is not turned into a path (0.1349ms)
+✔ UT-ATS215-022: a retried case does not list the same trace twice (0.1578ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 118.1018

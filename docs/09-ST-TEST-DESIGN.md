@@ -1,6 +1,6 @@
 # ATS-ST-001 システムテスト設計書
 
-> 设计总数：39；已执行通过：15；待执行/未实现：24。**PENDING 不是测试通过**。
+> 设计总数：45；已执行通过：21；待执行/未实现：24。**PENDING 不是测试通过**。
 
 系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。
 
@@ -47,6 +47,11 @@
 |ST-ATS203-004|FR-021|正常|经 HTTP：对称项目矩阵的每条用例带两个 spec id|projects 为 chromium 与 firefox|目录里每条用例 specIds=2 且两个 spec id 互不相同，uidStable=true|node --test tests/ats203-index-api.test.mjs|PASS|
 |ST-ATS203-005|FR-021|正常|经 HTTP：非对称项目矩阵给出 2 与 1|projects 为 all 与 only-a(testMatch)|case a 的 specIds=2，case b 的 specIds=1，两者 uidStable=true|node --test tests/ats203-index-api.test.mjs|PASS|
 |ST-ATS203-006|FR-021|正常|经 HTTP：跨文件同名的判定随索引切换而改变|两个文件各含同名用例但 describe 不同|未可信时 2 条不可判定且 ambiguity.reason=identical-title-and-body，warning 计数 2；可信后 2 条 uidStable=true 且 UID 互不相同|node --test tests/ats203-index-api.test.mjs|PASS|
+| ST-034|FR-014|功能|从失败用例 2 次点击内找到 Trace|真实 Bridge + 真实 Playwright + 真实 Chromium：真实失败运行留下真实 trace.zip|点失败用例 → 点 Trace，2 次点击内真的下载到 trace.zip|node tools/ats215-probes/st-ats215.mjs|PASS|
+| ST-035|FR-015|功能|附件显示归档哈希与时间|同一次运行的 trace.zip|显示的 SHA-256 = 清单归档值 = 磁盘字节重算值；显示文件修改时间|node tools/ats215-probes/st-ats215.mjs|PASS|
+| ST-036|FR-015|异常|归档后被改动的附件|把 trace.zip 改掉后再查|校验报出 changed（应有与实际两个摘要）；工作台仍显示归档时的摘要，还原后重新一致|node tools/ats215-probes/st-ats215.mjs|PASS|
+| ST-037|FR-014|功能|两个界面共用同一份 Trace 定位实现|便携 UI 与 Next 工作台|两者显示同一个 Trace 文件、同一份摘要与同一个时间|node tools/ats215-probes/st-ats215.mjs|PASS|
+| ST-038|FR-014|异常|定位不到 Trace 的用例|没有 trace 的用例|界面显示「定位不到」与原因，不给一条打不开的链接|tests/evidence-workbench.test.mjs（UT 覆盖；界面形态未单独 ST）|PASS（UT）|
 
 ## 进入与退出条件
 

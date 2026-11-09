@@ -12,8 +12,8 @@
 >     由 ATS-601 实现，UT-MOB-001..094 共 99 例实测；那是**假目标 + 假会话**上的
 >     契约测试，**不是真实设备实测**；
 >   * §4 的**用例模型与导入映射层**（Flow 解析、语义映射、不支持步骤的保留、
->     导入报告、UID 规则）——由 ATS-602 实现，UT-MOB-200..316 共 85 例 +
->     IT-ATS602-API-001..014 共 14 例实测；那是**文本夹具**上的映射测试，
+>     导入报告、UID 规则）——由 ATS-602 实现，UT-MOB-200..318 共 87 例 +
+>     IT-ATS602-API-001..015 共 15 例实测；那是**文本夹具**上的映射测试，
 >     **不涉及任何设备**。
 >
 > 契约层已实现 ≠ 移动端能跑；用例模型已实现 ≠ Flow 能在设备上跑。
@@ -254,7 +254,7 @@ idle ──────────▶ created ──────────▶
 > **实现状态（ATS-602 交付）**：本节的**用例模型与导入映射层**已在
 > `server/discovery/mobile-flow.mjs`（解析）、`server/discovery/mobile-import.mjs`
 > （语义映射与 UID）与 `server/discovery/mobile-flow-import.mjs`（文件级入口）
-> 实现，并经 UT-MOB-200..316 共 85 例 + IT-ATS602-API-001..014 共 14 例实测。
+> 实现，并经 UT-MOB-200..318 共 87 例 + IT-ATS602-API-001..015 共 15 例实测。
 > 那是**文本夹具**上的映射测试，**不涉及任何设备、SDK 或驱动**。
 > 仓库内**仍无真实设备执行**——那属 ATS-603（Android Runner）与 ATS-604（证据归档）。
 > 下文标注 **已实现** 的是映射层；标注 **未实现** 的是真实执行面。
@@ -426,7 +426,10 @@ UT-MOB-242、IT-MOB-281 与 IT-ATS602-API-009）。
   所以一个 Web 用例与一个移动端用例同时声明 `@TC-100` 时，**两方都不绑定**，
   都标 `duplicate-explicit-uid`、`uidStable:false` 并计入告警。这与两个
   Web 用例声明同一个 token 的处理一致——两个引擎是**同一个目录**，
-  不是两个恰好放在一起的目录。
+  不是两个恰好放在一起的目录。这条规则在**两条目录路径**上都成立：静态目录
+  （`resolveIdentities`）与可信项目的权威目录（`resolveAuthoritativeIdentities`）
+  拿到的是同一份跨引擎普查结果，Web 一方在权威路径上同样不绑定（实测于
+  UT-MOB-318 与 IT-ATS602-API-015）。
 * **显式声明的 token 是保留的，且按统一目录保留**。本次发现中任何用例——
   无论 Web 还是移动端——显式声明的 token，注册表都**不得再发给别的用例**。
   一个移动端场景去掉了 `@TC-600`、同时一个 Web 用例写上了 `@TC-600`：
@@ -434,7 +437,13 @@ UT-MOB-242、IT-MOB-281 与 IT-ATS602-API-009）。
   而是改走派生路径并报告 `explicit-uid-claimed-by-another-case`。两个解析器
   拿到的是**同一个**保留集合——两个引擎显式声明的 token 的**并集**，不只是
   被重复声明的那些（实测于 UT-MOB-312、UT-MOB-313、UT-MOB-316 与
-  IT-ATS602-API-012）。
+  IT-ATS602-API-012）。**保留规则在两条目录路径上都成立**：权威路径的
+  `resolveAuthoritativeIdentities` 与静态路径的 `resolveIdentities` 接收同一份
+  普查（`claimed` 与 `duplicated`），注册表命中——无论按步骤/正文指纹还是按
+  位置锚点——都**不得发出**被声明的 token。反向序列「Web 用例去掉 `@TC-650`、
+  同时移动端场景写上 `@TC-650`」在可信项目上同样不产生重复 UID：移动端场景按
+  显式声明持有 `tc-650`，Web 用例改走派生路径并报告
+  `explicit-uid-claimed-by-another-case`（实测于 UT-MOB-317 与 IT-ATS602-API-015）。
 * **同一个 UID 被两个用例要求时，按一条规则判定持有者**：显式声明 > 注册表命中 >
   其余；落选方若步骤指纹在项目内唯一则改为 `derived-body`，否则给临时 UID 并报告。
   这与 Web 的 `resolveIdentities` 是同一条规则，不另立第三种。典型序列是
@@ -627,8 +636,8 @@ Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）�
 - **已验证（ATS-602 的用例模型与导入映射层）**：§4 的 Flow 解析、语义映射、
   不支持步骤的保留与标记、导入报告、UID 规则（位置为基线、改标题经注册表认回）
   已由 `server/discovery/mobile-flow.mjs`、`server/discovery/mobile-import.mjs`、
-  `server/discovery/mobile-flow-import.mjs` 实现，并经 UT-MOB-200..316 共 85 例 +
-  IT-ATS602-API-001..014 共 14 例实测（证据 `docs/evidence/ATS-602/`）。
+  `server/discovery/mobile-flow-import.mjs` 实现，并经 UT-MOB-200..318 共 87 例 +
+  IT-ATS602-API-001..015 共 15 例实测（证据 `docs/evidence/ATS-602/`）。
   **这是文本夹具上的映射测试**，验证的是「映射按设计工作」，**不是**设备行为。
 - **未验证（真实移动端执行面）**：§5~§8 的全部内容仍是设计判断，**未在本仓库做过任何
   移动端实测**。没有真实设备、没有真实模拟器、没有 ADB 调用、没有移动端证据。
@@ -677,10 +686,11 @@ Maestro 命令以官方文档为准（<https://docs.maestro.dev/maestro-cli>）�
 | `server/discovery/mobile-import.mjs` | 语义映射器：语义表、参数规范化、不支持步骤的保留与标记、UID 阶梯、导入报告 |
 | `server/discovery/mobile-flow-import.mjs` | 文件级入口：约定目录的发现、路径校验、单文件与全项目导入 |
 | `server/paths.mjs` | `sha` 与 `isSubpath` 的新家（拆出以断开 ATS-602 引入的循环依赖） |
-| `tests/mobile-import.test.mjs` | UT-MOB-200..316（85 例）：解析、映射、不支持步骤的保留、UID 稳定性、目录集成、复核的 14 个反例与 3 个编辑序列（跨引擎保留 token、复制后编辑、删除后同指纹新用例） |
-| `tests/mobile-import-it.test.mjs` | IT-ATS602-API-001..014（14 例）：真实 HTTP 下的目录、导入报告、UID 跨重启稳定、改标题经注册表认回、重复 `@TC-` 跨引擎、可信项目保留移动端用例、丢掉的 token 不经注册表发回、复制后编辑不重复、可信项目删除后不复用 UID |
+| `tests/mobile-import.test.mjs` | UT-MOB-200..318（87 例）：解析、映射、不支持步骤的保留、UID 稳定性、目录集成、复核的 14 个反例与 5 个编辑序列（跨引擎保留 token——静态与权威两条路径、复制后编辑、删除后同指纹新用例、两引擎同时声明同一 token） |
+| `tests/mobile-import-it.test.mjs` | IT-ATS602-API-001..015（15 例）：真实 HTTP 下的目录、导入报告、UID 跨重启稳定、改标题经注册表认回、重复 `@TC-` 跨引擎、可信项目保留移动端用例、丢掉的 token 不经注册表发回、复制后编辑不重复、可信项目删除后不复用 UID、可信项目上的 token 规则（真实 Playwright） |
 | `tools/ats602-probes/probe-round1-counterexamples.mjs`、`probe-round1-counterexamples-e2e.mjs` | 复核探针（逐字节保留）：14 个反例，进程内与真实 Bridge 两种 |
 | `tools/ats602-probes/probe-round2-counterexamples.mjs`、`probe-round2-counterexamples-e2e.mjs`、`probe-round2-reader.mjs` | 复核探针（逐字节保留）：N1/N2-cross/N3 三个编辑序列，进程内、真实 Bridge（trusted 与 untrusted 两种模式）与读取器边界 |
+| `tools/ats602-probes/probe-round3-counterexamples-e2e.mjs` | 复核探针（逐字节保留）：可信项目上的 token 规则 T1（Web 丢 token、移动端声明）/ T2 / T3（两引擎同时声明），真实 Bridge（trusted 与 untrusted 两种模式） |
 | `tools/ats602-probes/collect-evidence.sh` | 证据采集脚本：11 份日志写入 `docs/evidence/ATS-602/`，每份头部写明所描述的树 |
 | `tools/ats602-probes/probe-mobile-import.mjs` | 契约探针：把映射规则并排展示给人读 |
 | `tools/update_wbs_ats602.py` | WBS 行的同步脚本（只写 ATS-602 行） |

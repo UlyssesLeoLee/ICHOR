@@ -1,0 +1,56 @@
+$ node tools/ats403-probes/probe-ai-boundary.mjs
+
+# signal 1 -- STATIC: the adapter layer does not write a secret anywhere
+ok   server/ai/errors.mjs: no secret-to-file -- secret-to-file
+ok   server/ai/errors.mjs: no secret-to-argv -- secret-to-argv
+ok   server/ai/errors.mjs: no secret-to-log -- secret-to-log
+ok   server/ai/protocols.mjs: no secret-to-file -- secret-to-file
+ok   server/ai/protocols.mjs: no secret-to-argv -- secret-to-argv
+ok   server/ai/protocols.mjs: no secret-to-log -- secret-to-log
+ok   server/ai/transport.mjs: no secret-to-file -- secret-to-file
+ok   server/ai/transport.mjs: no secret-to-argv -- secret-to-argv
+ok   server/ai/transport.mjs: no secret-to-log -- secret-to-log
+ok   server/ai/provider.mjs: no secret-to-file -- secret-to-file
+ok   server/ai/provider.mjs: no secret-to-argv -- secret-to-argv
+ok   server/ai/provider.mjs: no secret-to-log -- secret-to-log
+ok   server/ai/fallback.mjs: no secret-to-file -- secret-to-file
+ok   server/ai/fallback.mjs: no secret-to-argv -- secret-to-argv
+ok   server/ai/fallback.mjs: no secret-to-log -- secret-to-log
+ok   server/ai/service.mjs: no secret-to-file -- secret-to-file
+ok   server/ai/service.mjs: no secret-to-argv -- secret-to-argv
+ok   server/ai/service.mjs: no secret-to-log -- secret-to-log
+# signal 1 -- NEGATIVE CONTROL: the detector must alarm on a broken copy
+ok   the negative control is detected -- a broken copy must trip the detector
+# signal 1 -- NEGATIVE CONTROL: the detector must alarm on a log leak
+ok   the log-leak negative control is detected
+# signal 1 -- NEGATIVE CONTROL: the detector must alarm on an argv leak
+ok   the argv-leak negative control is detected
+# signal 2 -- RUNTIME: the secret reaches the request as a header and nowhere else
+ok   the secret is in the authorization header
+ok   the secret is not in the URL
+ok   the secret is not in the request body
+ok   the secret is not in the provider description
+# signal 2 -- NEGATIVE CONTROL: a configuration with a plaintext key must be refused
+ok   a plaintext key in the configuration is refused
+# signal 3 -- RUNTIME: without a consent the provider is never reached
+ok   the call is refused with AI_EGRESS_DENIED -- AI_EGRESS_DENIED
+ok   the provider was never reached
+# signal 3 -- NEGATIVE CONTROL: a gate that always allows must be detected
+ok   the always-allow gate does NOT produce AI_EGRESS_DENIED -- AI_FALLBACK_EXHAUSTED
+ok   the always-allow gate let the request through to the provider -- AI_FALLBACK_EXHAUSTED
+# signal 4 -- RUNTIME: a failure leaves the working tree byte-identical
+ok   the rate limit is reported -- AI_FALLBACK_EXHAUSTED
+ok   the working tree is byte-identical after a rate limit
+# signal 4 -- RUNTIME: a timeout leaves the working tree byte-identical
+ok   the timeout is reported -- AI_PROVIDER_TIMEOUT
+ok   the working tree is byte-identical after a timeout
+# signal 4 -- NEGATIVE CONTROL: a provider that writes into the project must be detected
+ok   the pollution is detected
+# the fallback chain: only transient errors move the chain on
+ok   the chain stops at the auth failure -- AI_PROVIDER_AUTH_FAILED
+ok   the third provider was never tried -- a,b
+
+checks: 37, failures: 0
+RESULT: OK
+
+--- exit: 0 ---

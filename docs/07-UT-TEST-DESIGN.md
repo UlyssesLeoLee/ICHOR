@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：705；已执行通过：689；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：707；已执行通过：691；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -678,6 +678,8 @@
 |UT-MOB-314|FR-032|安全|复制场景后修改原场景不产生重复 UID|Login 复制为 Login copy 并给原 Login 加一步|副本经注册表保留旧 UID，原场景 derived-body 得新 UID，单文件导入同样判定|node --test|PASS|
 |UT-MOB-315|FR-032|安全|可信路径删除用例后同指纹新用例不继承旧 UID|权威目录：删除 Web beta 与场景 Logout，再新增同正文/同步骤的新用例；改标题|新用例的 UID 与被删的不同且非 registry，合并后的 cell 不含被删条目，改标题后一个 uid 一条条目且为新标题|node --test|PASS|
 |UT-MOB-316|FR-032|正常|注册表合并不改写输入且 Web 解析器尊重已声明的 token|mergeMobileRegistry 传入已有条目与新位置；resolveIdentities 传 claimedExplicitUids|输入条目不变、返回副本带别名、范围内无人认领的条目被删；Web 解析器拒绝注册表命中并报告 explicit-uid-claimed-by-another-case|node --test|PASS|
+|UT-MOB-317|FR-032|安全|可信路径：Web 用例丢掉的 token 被移动端场景声明后不经注册表发回|authoritativeCatalog 三次发现：Web 带 @TC-650、场景无 token；Web 去掉、场景声明；再反向|无重复 UID；场景按显式持有 tc-650，Web 用例改走派生并报告 explicit-uid-claimed-by-another-case；告警含注册表不一致；cell 中 tc-650 唯一并指向 Flow 文件；反向同理且传入的 cell 不被改写|node --test|PASS|
+|UT-MOB-318|FR-032|异常|可信路径：Web 用例与移动端场景同时声明同一 token 时两方都不绑定|authoritativeCatalog 一次发现：Web @TC-100 与场景 @TC-100；再走静态路径对照；只有 Web 声明的对照|两方都是 provisional、uidStable=false、duplicate-explicit-uid 并带 explicitUid；告警计 2 个；cell 不记录 tc-100；静态路径同样判定；只有 Web 声明时 Web 绑定|node --test|PASS|
 |UT-CRD-001|FR-027|正常|put 写凭据库、索引只存引用|注入内存凭据库的 put/resolve|秘密只在凭据库，索引无明文，resolve 取回一致|node --test|PASS|
 |UT-CRD-002|FR-027|安全|三个同名 put 并发只成功一个|三个并发 put 同名（后端有延迟）|1 个成功、2 个 CREDENTIAL_DUPLICATE；凭据库仅 1 条|node --test|PASS|
 |UT-CRD-003|FR-027|正常|三个不同名 put 并发都保留引用|三个并发 put 不同名|三条引用都在索引里，凭据库 3 条|node --test|PASS|

@@ -43,6 +43,30 @@ HTTP/1.1 200
 ```
 
 ```http
+GET /api/runs/:id/workbench
+X-ATS-Token: <local token>
+
+HTTP/1.1 200
+{"run":{"id":"run_1_...","uid":"...","status":"failed","gitCommit":"...","runner":"playwright",
+        "startedAt":"...","finishedAt":"...","engineVersion":"1.65.0"},
+ "artifacts":[{"file":"results/<case>/trace.zip","size":8048,"sha256":"<64 hex>",
+               "modifiedAt":"2026-11-07T03:00:09.393Z"}],
+ "cases":[{"title":"...","file":"home.spec.ts","line":22,"status":"failed","duration":5155,
+           "error":"...","attemptsCount":1,"scope":[],"caseKey":"...",
+           "attachments":[{"name":"trace","contentType":"application/zip",
+                          "file":"results/<case>/trace.zip"}]}],
+ "verification":{"verified":true,"ok":true,"checked":28,"missing":[],"changed":[],
+                 "reason":null}}
+```
+
+这个接口是**只读**的，交出的是**事实**而不是视图：视图由共享模块
+`apps/studio/public/evidence-workbench.mjs` 计算（两个界面都导入它）。
+`artifacts[].sha256` 是 ATS-209 的清单在**归档时**记录的摘要，不是现在重算的摘要；
+`modifiedAt` 是文件自身的修改时间（清单不记录时间）。
+`verification` 是 ATS-209 的校验结果：`verified` 是篡改判定，`ok` 是「清单读得出」，
+两者不是一回事（没有清单 ≠ 清单里什么都没有）。
+
+```http
 GET /api/projects/:id/env
 X-ATS-Token: <local token>
 
@@ -182,14 +206,15 @@ P0 实现是单项目至多一个并发 run；不同项目可同时执行。`run
 
 ```text
 node <project>/node_modules/@playwright/test/cli.js test
-  --reporter=line,json,html
-  --output <ATS_DATA_DIR>/runs/<run>/results
-  --trace on --screenshot only-on-failure
-  --video retain-on-failure --workers 1
+  [--reporter=line,json,html]
+  [--output <ATS_DATA_DIR>/runs/<run>/results]
+  [--trace on] [--workers 1]
   [testFile]
 ```
 
-环境 `PLAYWRIGHT_JSON_OUTPUT_FILE=<run>/report.json`、`PLAYWRIGHT_HTML_OUTPUT_DIR=<run>/html`、`PLAYWRIGHT_HTML_OPEN=never`。CLI 仅取自项目本地路径，不经 `npm exec`/`npx` 自动下载。Reporter 配置可能与目标工程现有 reporter 规则交互，ST 必须使用真实项目验证；不保证任意自定义项目可零配置运行。
+每个选项只在**已安装 CLI 的 `--help` 声明了它**时才传入（ATS-301，`docs/18-RUNNER-ADAPTER-CONTRACT.md`）；`--help` 读不出选项时使用上述四个选项的保守集合。CLI 没有 `--screenshot`/`--video` 选项，截图与视频由被测项目自己的 `use` 配置决定。环境 `PLAYWRIGHT_JSON_OUTPUT_FILE=<run>/report.json`、`PLAYWRIGHT_HTML_OUTPUT_DIR=<run>/html`、`PLAYWRIGHT_HTML_OPEN=never`，其余为 ATS-212 的封口环境。CLI 仅取自项目本地路径，不经 `npm exec`/`npx` 自动下载。
+
+**运行前预检与参数安全基线（ATS-106）**：spawn 之前先做环境预检（配置、本地 CLI、版本 `>=1.58.0 <2.0.0`、Node 版本、Playwright 依赖、浏览器），阻断项使 run 以确定的错误码进入 `error` 且引擎不被拉起；`testFile` 必须通过过滤参数校验，整条向量在返回前按白名单自检；运行请求体只接受 `file`/`capabilities`/`runner`/`env`。细则见 `docs/26-RUNNER-PREFLIGHT.md`。Reporter 配置可能与目标工程现有 reporter 规则交互，ST 必须使用真实项目验证；不保证任意自定义项目可零配置运行。
 
 ## 5. 测试发现及脚本 ID
 
@@ -340,6 +365,12 @@ JSON report 中取 suite/spec/test/results，生成 `summary.total,passed,failed
 | `PATH_OUTSIDE_PROJECT` | 越界或符号链接 | 400 | 阻断、提示安全错误 |
 | `STALE_EDIT_CONFLICT` | 源文件被外部更改 | 409（当前实现） | 提示重新加载并比较 |
 | `PLAYWRIGHT_NOT_INSTALLED...` | 没有项目本地 CLI | 202 Run status=error | 提示项目中安装依赖 |
+| `PLAYWRIGHT_VERSION_UNSUPPORTED` | 预检：CLI 版本不在 `>=1.58.0 <2.0.0` | 202 Run status=error | 显示 `errorHint`（安装受支持版本） |
+| `PLAYWRIGHT_NODE_UNSUPPORTED` | 预检：Node 低于 CLI 的 `engines.node` | 202 Run status=error | 显示 `errorHint` |
+| `PLAYWRIGHT_DEPENDENCY_MISSING` | 预检：Playwright 依赖链不完整 | 202 Run status=error | 显示 `errorHint`（`npm ci`） |
+| `PLAYWRIGHT_CONFIG_REQUIRED`（运行时） | 预检：登记后配置文件被删除 | 202 Run status=error | 显示 `errorHint` |
+| `RUN_PARAMETER_NOT_ALLOWED` | 运行请求体含白名单外字段 | 400 | 拒绝并附 `rejected` 数组 |
+| `INVALID_TEST_FILTER` | 过滤参数像选项、含 `:`/正则元字符/控制字符/`..` | 400 | 阻断 |
 | `PROJECT_ALREADY_RUNNING` | 同项目并发 | 409 | 禁止重复启动 |
 | `INVALID_SESSION` | 没有或错误 token | 401 | 重新访问本地会话 |
 | `ORIGIN_NOT_ALLOWED` | 跨站 | 403 | 阻断 |
@@ -373,4 +404,4 @@ interface AgentProposal { id:string; role:'planner'|'generator'|'triage'|'healer
 
 **Agent 契约 v1 的实现状态（ATS-401，S4/v0.4.0）**：`server/agent.mjs` 实现了 Agent 请求与提案的契约层——作用域（`scope`）、预算（`budget`）、输入出处（`inputs` 的 kind/ref/digest/content）、角色与能力白名单、提案收敛规则与评审状态机。契约层的权限边界是**机制**而非约定：契约层的源码只 import `node:crypto` 与 `node:path`、且不含任何 I/O 调用（由静态检查守护，**不是**「物理上无法」——真正的隔离属平台侧 ATS-403）；写入与提交类能力在请求层一律被拒；提案的 `approval` 恒为 `pending` 且提案人不得自审；diff 头部里出现的每一个路径都必须落在 `scope.outputs` 内且为测试脚本文件，rename/copy/binary/mode change 一律拒绝。
 
-**未实现**：模型提供商接入（ATS-403）、API Key 存储与外传知情授权（ATS-402）、提案落地（应用 diff / 更新 expected / Git 提交）。仓库中**没有**把模型输出写入仓库的代码路径。详见 `docs/17-AGENT-CONTRACT.md`。
+**未实现**：提案落地（应用 diff / 更新 expected / Git 提交）。仓库中**没有**把模型输出写入仓库的代码路径。API Key 存储与外传知情授权（ATS-402）、可替换模型 API 适配器与错误回退（ATS-403）**已实现**：适配层把「协议转换 / 传输 / 提供商 / 回退链 / 编排」分成五层，支持两种兼容协议，密钥只在发请求时从凭据库取，没有外传授权就不发请求；但**未用真实模型与真实密钥端到端验证**，且模型输出仍不写入仓库。详见 `docs/17-AGENT-CONTRACT.md` 与 `docs/30-MODEL-ADAPTER.md`。
