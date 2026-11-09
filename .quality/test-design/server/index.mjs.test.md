@@ -2,7 +2,7 @@
 
 Source: `server/index.mjs`
 
-Source-SHA256: `e6ff1240012934ef2e162b4ff6b3bb13d9e2e11bc89b3cc58bd35946c1683e32`
+Source-SHA256: `e98b2cd65688cf2bddb39a54a2f92b41bbabb351849b5309fd37b2252b88180f`
 
 ## Test Strategy
 
@@ -38,6 +38,7 @@ Process-level IT in `tests/preflight-it.test.mjs`: a real Bridge (`node server/i
 | IT-PF-005 | `POST run {config:"evil.ts"}`, `{project:"x"}`, `{args:["--grep","x"]}` | `400 RUN_PARAMETER_NOT_ALLOWED` with `rejected`; no run created | `tests/preflight-it.test.mjs` |
 | IT-PF-006 | `POST run {file:"-x.spec.ts"}` (exists at the root) and `{file:"tests/a+b.spec.ts"}` (exists) | `400 INVALID_TEST_FILTER`; no run created | `tests/preflight-it.test.mjs` |
 | IT-PF-007 | `POST run {file:"../outside.spec.ts"}` | `400` with `PATH_OUTSIDE_PROJECT` (existing check, regression) | `tests/preflight-it.test.mjs` |
+| IT-PF-008 | Project whose `node_modules` holds no local Playwright CLI; `POST run {}` | `202`; run ends `status=error`, `error=PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT`, `errorHint` set, `preflight.ok=false`; `detail.candidates` names the three CLI locations and the hint mentions `npm install`; the `cli` check is `failed` and `version`/`node`/`dependencies`/`browsers` are `skipped`; events `run.queued`, `run.error`; no `pid`, no `command`, marker absent (engine never spawned) | `tests/preflight-it.test.mjs` |
 | IT-RUN-001 | Existing: project without dependencies | `202`, `status=error` (unchanged contract) | `tests/api.test.mjs` |
 
 ## Boundary & Failure Cases

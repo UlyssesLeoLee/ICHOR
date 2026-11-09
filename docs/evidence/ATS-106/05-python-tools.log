@@ -1,6 +1,6 @@
 === ATS-106 evidence: WBS tooling tests and line coverage ===
-date        : 2026-11-09T07:42:05Z (UTC)
-commit      : 889950a11fc37e7ac7873c317e361b0fa7c239d6
+date        : 2026-11-09T11:27:36Z (UTC)
+commit      : d7f2da0baac504acd8ba90d935744700fa9dc25f
 node        : v24.19.0
 python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -27,10 +27,12 @@ PASS 【ATS-207】 is idempotent
 PASS 【ATS-208】 is idempotent
 PASS 【ATS-209】 is idempotent
 PASS 【ATS-212】 is idempotent
+PASS 【ATS-215】 is idempotent
 PASS 【ATS-216】 is idempotent
 PASS 【ATS-301】 is idempotent
 PASS 【ATS-401】 is idempotent
 PASS 【ATS-402】 is idempotent
+PASS 【ATS-403】 is idempotent
 PASS 【ATS-501】 is idempotent
 PASS 【ATS-502】 is idempotent
 PASS 【ATS-506】 is idempotent
@@ -66,6 +68,8 @@ PASS update_wbs_ats209.py declares exactly one marker
 PASS 【ATS-209】 (from update_wbs_ats209.py) is registered in MARKERS
 PASS update_wbs_ats212.py declares exactly one marker
 PASS 【ATS-212】 (from update_wbs_ats212.py) is registered in MARKERS
+PASS update_wbs_ats215.py declares exactly one marker
+PASS 【ATS-215】 (from update_wbs_ats215.py) is registered in MARKERS
 PASS update_wbs_ats216.py declares exactly one marker
 PASS 【ATS-216】 (from update_wbs_ats216.py) is registered in MARKERS
 PASS update_wbs_ats301.py declares exactly one marker
@@ -74,6 +78,8 @@ PASS update_wbs_ats401.py declares exactly one marker
 PASS 【ATS-401】 (from update_wbs_ats401.py) is registered in MARKERS
 PASS update_wbs_ats402.py declares exactly one marker
 PASS 【ATS-402】 (from update_wbs_ats402.py) is registered in MARKERS
+PASS update_wbs_ats403.py declares exactly one marker
+PASS 【ATS-403】 (from update_wbs_ats403.py) is registered in MARKERS
 PASS update_wbs_ats501.py declares exactly one marker
 PASS 【ATS-501】 (from update_wbs_ats501.py) is registered in MARKERS
 PASS update_wbs_ats502.py declares exactly one marker
@@ -99,6 +105,6 @@ tools\test_wbs_common.py              70     70     0%
 tools\update_wbs_ats106.py            65      1    98%
 tools\wbs_common.py                  241      7    97%
 ------------------------------------------------------
-TOTAL                               4368   3841    12%
-19 passed in 1.12s
+TOTAL                               4553   4026    12%
+19 passed in 1.38s
 exit code   : 0

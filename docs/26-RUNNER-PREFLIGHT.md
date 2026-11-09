@@ -35,12 +35,14 @@
 | 2 | 项目本地 CLI 存在（`@playwright/test` → `playwright` → `playwright-core` 的 `cli.js`） | `PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT` | 阻断 | 在项目目录执行 `npm install`（安装 `@playwright/test`） |
 | 3 | CLI 所属包的 `package.json` 版本可读 | `PLAYWRIGHT_VERSION_UNKNOWN` | 警告 | 用 `npm install` 重新安装 `@playwright/test` |
 | 3 | 版本落在支持范围 `>=1.58.0 <2.0.0` | `PLAYWRIGHT_VERSION_UNSUPPORTED` | 阻断 | `npm install -D @playwright/test@^1.58` |
-| 4 | CLI 包 `engines.node` 的下限不高于 Bridge 的 Node 主版本 | `PLAYWRIGHT_NODE_UNSUPPORTED` | 阻断 | 升级 Node，或安装与当前 Node 匹配的 Playwright |
+| 4 | CLI 包 `engines.node` 声明的下限不高于 Bridge 的 Node 版本（**只读 `>=N[.M[.P]]` 这一种写法**，逐段比较完整下限） | `PLAYWRIGHT_NODE_UNSUPPORTED` | 阻断 | 升级 Node，或安装与当前 Node 匹配的 Playwright |
 | 5 | CLI 包声明的 `dependencies` 中 Playwright 系的包（`playwright*`、`@playwright/*`）均可从 CLI 所在位置解析，逐级检查到 `playwright-core` | `PLAYWRIGHT_DEPENDENCY_MISSING` | 阻断 | 在项目目录执行 `npm ci`（或删除 `node_modules` 后 `npm install`） |
 | 6 | 定位 `playwright-core/browsers.json` | `PLAYWRIGHT_BROWSERS_UNVERIFIED` | 警告 | 安装完整的 `@playwright/test` 后重试 |
 | 6 | `installByDefault` 的浏览器（chromium、chromium-headless-shell、firefox、webkit）目录存在且含 `INSTALLATION_COMPLETE` | `PLAYWRIGHT_BROWSERS_NOT_INSTALLED` | 警告 | 在项目目录执行 `npx playwright install`（Bridge 不代为下载） |
 
 **支持范围的依据**：`>=1.58.0` 是本仓库实测过的最低版本（`examples/sample-playwright` 声明 `^1.58.0`，`docs/22-FRONTEND-EXPORT.md` 以 1.58.x 实测，其余实测均为 1.64.1）；`<2.0.0` 排除未验证的主版本。范围是常量 `SUPPORTED_PLAYWRIGHT_RANGE`，放宽它需要新的实测证据。
+
+**检查 4 的比较口径**：只读取 `engines.node` 中形如 `>=N`、`>=N.M`、`>=N.M.P` 的**完整下限**（允许 `v` 前缀与空白），逐段与 Bridge 的 Node 版本比较，缺省段按 `0` 计。因此 `>=22.5` 在 Node `22.1.0` 上**不通过**（下限的次版本段高于宿主），`>=22.1.0` 在 Node `22.1.0` 上通过。其他写法（`^20 || ^22`、`>20`、`>=18 <22` 等）**一律跳过**该检查（`checks` 中记为 `skipped`），因为它们表达的是范围而非单一的下限，按范围求交需要解析整个 semver 范围，超出本检查的判定口径。跳过意味着该声明未被验证为不兼容，不等于通过。
 
 **为什么「版本不可读」与「浏览器」是警告而不是阻断**：
 

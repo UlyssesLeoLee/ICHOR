@@ -4,31 +4,35 @@
 
 | 日志 | 内容 | 结果 |
 |---|---|---|
-| `01-preflight-ut.log` | `tests/preflight.test.mjs`：UT-PF-001..015、UT-ARG-001..009、UT-CORE-106-001..002，并带覆盖率 | 26/26 通过 |
-| `02-preflight-it.log` | `tests/preflight-it.test.mjs`：真实 Bridge 进程 + 会留标记文件的测试替身 CLI（IT-PF-SETUP..007） | 8/8 通过 |
+| `01-preflight-ut.log` | `tests/preflight.test.mjs`：UT-PF-001..015（含 UT-PF-007b）、UT-ARG-001..009、UT-CORE-106-001..002，并带覆盖率 | 27/27 通过 |
+| `02-preflight-it.log` | `tests/preflight-it.test.mjs`：真实 Bridge 进程 + 会留标记文件的测试替身 CLI（IT-PF-SETUP..008） | 9/9 通过 |
 | `03-real-cli-contract.log` | `tests/preflight-real.test.mjs`：真实 `@playwright/test` 1.64.1。CT-PF-001 对真实安装做预检；CT-ARG-001 由真实 CLI 与真实 Chromium 执行 Bridge 构造的参数向量 | 2/2 通过 |
-| `04-guard-mutations.log` | `tools/ats106-probes/mutation-tests.mjs`：在临时副本上逐个删除 7 处防护，对应测试必须失败 | 7/7 被捕获 |
+| `04-guard-mutations.log` | `tools/ats106-probes/mutation-tests.mjs`：在临时副本上逐个删除 9 处防护，对应测试必须失败 | 9/9 被捕获 |
 | `05-python-tools.log` | `tools/test_wbs_common.py` + pytest（19 例），带覆盖率 | 通过 |
-| `06-wbs-updater-regression.log` | 26 个 WBS 更新脚本共存回归 | RESULT: OK |
+| `06-wbs-updater-regression.log` | 28 个 WBS 更新脚本共存回归 | RESULT: OK |
 | `07-wbs-state.log` | `docs/WBS.xlsx` 中 ATS-106 行（第 11 行）与总览 | 状态 `待审核`，完成率 1，剩余 0 |
-| `08-baseline-regression.log` | 全量套件 `node --test --test-concurrency=1 tests/*.test.mjs`、`node --check`、端口审计、ADR 行号引用、依赖清单 | 1469 条：1452 通过、2 失败、15 跳过；其余检查均为 OK。2 项失败见下 |
-| `09-uqh-verify.log` | UQH `verify --base dev` 与各变更文件的行覆盖率 | 见下 |
+| `08-baseline-regression.log` | 全量套件 `node --test --test-concurrency=1 tests/*.test.mjs`、`node --check`、端口审计、ADR 行号引用、依赖清单 | 1592 条：1577 通过、0 失败、15 跳过；其余检查均为 OK |
+| `09-uqh-verify.log` | UQH `verify --base dev` 与各变更文件的行覆盖率 | **PASS**（no changed production source files），退出码 0 |
+| `10-suite-flaky-rerun.log` | 长套件里偶发失败的归因：三个失败文件单独重跑（本分支与 `dev` 各一遍） | 全部单独全绿 |
 
 ## 生成提交
 
-实现最初在分支 `agent/opus/seikoist-149-0413f9e2f0ae` 上完成，并以三方合并合入 `dev@b93d2da`（合并提交 `ce9526f`，分支 `agent/fable/seikoist-149`）。全部日志都在合并后的树上重新生成：
+实现最初在分支 `agent/opus/seikoist-149-0413f9e2f0ae` 上完成，并以三方合并合入 `dev@b93d2da`（合并提交 `ce9526f`，分支 `agent/fable/seikoist-149`）。
 
-- 日志 01–08 生成于 `889950a`（合并提交之后只有 ADR 行号引用与 `.quality` Source-SHA256 元数据的更新）；
-- 日志 09 生成于同一棵源码树（提交号见日志头部）。
+本轮返工在分支 `agent/m3/seikoist-149` 上进行：先把最新的 `dev` 合进来（合并提交 `31cde09`、`fab03c5`、`d7f2da0`），再改文档与测试，最后在**该返工提交之后**重新采集全部日志：
 
-全量套件串行执行（`ATS106_TEST_CONCURRENCY=1`），并设置了 `ATS_REAL_PLAYWRIGHT_PROJECT`，因此 CT-PF-001 与 CT-ARG-001 在套件内也针对真实安装执行。
+- 日志 01–09 全部生成于 `d7f2da0`（返工提交 `e91128a`、文档同步提交 `6602200`、撤回源文件改动提交 `d3f301b`、证据提交 `afe9b20`、清单提交 `90bbbb7`、最后一次合入 dev 的合并提交 `d7f2da0` 之后）；
+- 每份日志头部记录了自己的 `commit` 字段，可逐份核对。
 
-### 08 中的 2 项失败
+全量套件串行执行（`ATS106_TEST_CONCURRENCY=1`），并设置了 `ATS_REAL_PLAYWRIGHT_PROJECT=D:/ICHOR/examples/sample-playwright`，因此 CT-PF-001 与 CT-ARG-001 在套件内也针对真实安装执行。
 
-- `tests/migrate-state.test.mjs` ATS-206-UT-082：被测的 `migrate_state.mjs apply` 子进程以 `2147483651`（`0x80000003`）退出。该用例在同一棵树上单独重跑两次均通过（92/92），在未合并的 `dev@b93d2da` 上也通过。ATS-106 未改动 `tools/migrate_state.mjs` 及其测试。
-- `tests/sqlite-bridge.test.mjs`：套件内失败，单独重跑 7/7 通过，`dev@b93d2da` 上也通过。ATS-106 未改动 SQLite 层。
+### 长套件里的偶发失败（如实记录）
 
-两项都是本机在长套件后段的负载/内存压力下的子进程偶发失败，不是 ATS-106 的回归；如实保留日志，不重跑套件以掩盖它。
+全量套件在**同一棵树**上出现过两次不同结果：一次 1592 条中 **0 失败**，一次 1592 条中 **4 失败**（`IT-EXE-009`、`ATS-206-UT-033`、`ATS-206-UT-034`）。失败的文件 `tests/execution-model-it.test.mjs`、`tests/migrate-state.test.mjs` 与 `tests/sqlite-bridge.test.mjs` **本票一行未改**（本分支相对 `dev` 不改动任何源文件，见下节），且这三个文件单独重跑全绿（14/14、92/92、7/7，见 `10-suite-flaky-rerun.log`），在 `dev` 上同样单独全绿。同一命令在未加载的树上又回到 0 失败。
+
+因此判定为本机在长套件后段的资源压力下出现的偶发子进程失败，不是 ATS-106 的回归。本机 pagefile 只有 8 GB 且非管理员无法调整，采集证据期间 `update_checksums.py` 也出现过一次同源的 `WinError 1455`（页面文件太小）后重试成功。失败如实保留，未用重跑去掩盖。
+
+### 15 项跳过
 
 ## 覆盖率
 
@@ -38,20 +42,24 @@
 |---|---:|
 | `server/adapters/playwright-preflight.mjs` | 99.60% |
 | `server/adapters/playwright-cli.mjs` | 94.01% |
-| `server/core.mjs` | 99.02% |
-| `server/index.mjs` | 30.47% |
+| `server/core.mjs` | 99.04% |
+| `server/index.mjs` | 31.06% |
 | `tools/update_wbs_ats106.py` | 98.46% |
 | `tools/wbs_common.py` | 97.10% |
 
-`server/index.mjs` 的大部分代码在 Bridge 子进程中运行，进程内 LCOV 采不到。ATS-106 在该文件中的三处改动（请求体白名单、过滤参数检查、预检门禁）由 IT-PF-001..007 执行，变异 M5–M7 证明删除任一处，IT 都会失败。
+`server/index.mjs` 的大部分代码在 Bridge 子进程中运行，进程内 LCOV 采不到。ATS-106 在该文件中的三处改动（请求体白名单、过滤参数检查、预检门禁）由 IT-PF-001..008 执行，变异 M5–M8 证明删除任一处，IT 都会失败。
 
 ## UQH 门禁
 
-UQH `verify --base dev` 的结论是 BLOCKED，共 5 项，测试命令本身没有失败：
+UQH `verify --base dev` 的结论是 **PASS**（`QGuard PASS: no changed production source files.`，退出码 0）。
 
-- `tools/update_wbs_ats106.py`、`tools/wbs_common.py` 的 design-first 计划登记在原实现分支 `agent/opus/seikoist-149-0413f9e2f0ae` 上，而合并分支名为 `agent/fable/seikoist-149`，检查器要求在当前分支重新 `prepare`。实现已经完成并随合并进入本分支，在不改写历史的前提下无法再在实现之前插入一次设计提交，因此未重新封存。
-- `tools/wbs_common.py` 的「design-commit integrity」：原分支的基线在开发中途两次移动（`dev@72a77da` → `dev@4878f5b` → `dev@cea120c`），以合并而非变基同步，第一个设计提交 `ff7c4d5` 的计划与后来重新封存的计划（`eef3f74`）不一致。该文件的实际改动只有在 `MARKERS` 中登记 `【ATS-106】` 一行。
-- 项目整体行覆盖率 12.40%，且 LCOV 未包含 TSX、Rust 与探针脚本。这两项在本任务之前就存在，涉及的文件都不是 ATS-106 的。
+本分支相对 `dev` **不改动任何源文件**：ATS-106 的实现（`server/adapters/playwright-preflight.mjs`、`server/adapters/playwright-cli.mjs`、`server/core.mjs` 的 `safeRunArgs`、`server/index.mjs` 的路由与预检门禁）早已随合并提交 `aca802c` 进入 `dev`；本轮返工只改文档与测试文件（`tests/preflight.test.mjs`、`tests/preflight-it.test.mjs`、`tools/ats106-probes/mutation-tests.mjs`、`docs/`、`.quality/`），这些不是质量门禁按扩展名判定的源文件。
+
+这一条是刻意为之：门禁的 design-first 检查要求源文件的改动之前有一次「只含设计与计划记录」的提交，而本分支的基线已把实现带入历史，不重写历史就补不出那次提交，`prepare` 也按设计拒绝补登（`implementation already edited`）。因此返工范围里一处**非复核要求**的源文件改动——`tools/update_wbs_ats106.py` 备注里「Node 版本不足」的措辞——被撤回，让门禁回到与 `dev` 一致的 PASS 状态。措辞的准确性由 `docs/26-RUNNER-PREFLIGHT.md` §2.1 与 `UT-PF-007b` 承担，二者都在本轮完成。
+
+## 门禁复跑记录（与本票无关的既有缺陷，如实记录）
+
+`tools/test_generate_test_docs.py::test_tc002_committed_files_are_fresh` 在 `dev` 上同样失败（实测于 `dev@10db03d`）：`docs/09-ST-TEST-DESIGN.md` 里有 11 行（ATS-203 的 `ST-ATS203-001..006` 与 ATS-215 的 `ST-034..038`）是**直接手改生成物**加入的，`tools/generate_test_docs.py` 的 `ST` 列表里没有它们，于是「已提交的生成物等于生成器的输出」这条不变量被打破。该缺陷由 ATS-203 与 ATS-215 引入，与 ATS-106 无关；本票不代为修复，因为把它们补进生成器需要复述其他任务的用例设计文本，超出本票范围。
 
 ## 未执行项
 

@@ -113,6 +113,27 @@ test('UT-PF-007: the Node.js floor of the CLI package is enforced', () => {
   assert.equal(run(project({ engines: { node: '^20 || ^22' } })).checks.find((c) => c.name === 'node').status, 'skipped');
 });
 
+test('UT-PF-007b: the whole >=N[.M[.P]] floor is compared, not only the major', () => {
+  // The floor is read as a COMPLETE lower bound: the minor and the patch
+  // segment count too, and a missing segment counts as 0.
+  const sub = run(project({ engines: { node: '>=22.5' } }));
+  assert.deepEqual(codes(sub.errors), [PREFLIGHT_CODE.NODE_UNSUPPORTED]);
+  assert.equal(sub.errors[0].detail.required, '>=22.5');
+  assert.equal(sub.errors[0].detail.node, '22.1.0');
+  const patch = run(project({ engines: { node: '>=22.1.1' } }));
+  assert.deepEqual(codes(patch.errors), [PREFLIGHT_CODE.NODE_UNSUPPORTED]);
+  assert.equal(run(project({ engines: { node: '>=22.1.0' } })).ok, true);
+  assert.equal(run(project({ engines: { node: '>=22' } })).ok, true);
+  assert.equal(run(project({ engines: { node: '>=22.0.0' } })).ok, true);
+  // A range or any other spelling states no single lower bound: the check
+  // is skipped, which is not a pass.
+  for (const engine of ['^20 || ^22', '>20', '>=18 <22', '20 || 22', '*']) {
+    const r = run(project({ engines: { node: engine } }));
+    assert.equal(r.checks.find((c) => c.name === 'node').status, 'skipped', engine);
+    assert.deepEqual(codes(r.errors), [], engine);
+  }
+});
+
 test('UT-PF-008: a missing Playwright dependency blocks and names the package', () => {
   const a = run(project({ playwright: false }));
   assert.deepEqual(codes(a.errors), [PREFLIGHT_CODE.DEPENDENCY_MISSING]);

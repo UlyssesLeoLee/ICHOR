@@ -2,7 +2,7 @@
 
 Source: `server/index.mjs`
 
-Source-SHA256: `e6ff1240012934ef2e162b4ff6b3bb13d9e2e11bc89b3cc58bd35946c1683e32`
+Source-SHA256: `e98b2cd65688cf2bddb39a54a2f92b41bbabb351849b5309fd37b2252b88180f`
 
 ## Responsibility
 
