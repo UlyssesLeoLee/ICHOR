@@ -1,6 +1,6 @@
-=== ATS-107 evidence: 10 mutations of the Bridge's own result projection; every one must be caught, and the honest result must be accepted (ST-042) ===
-date        : 2026-11-09T16:17:14Z (UTC)
-commit      : add0fd268e100f4defa275bfbeab4d0582020c52
+=== ATS-107 evidence: 13 mutations of the Bridge's own result projection; every one must be caught, and the honest result must be accepted (ST-042) ===
+date        : 2026-11-09T17:59:38Z (UTC)
+commit      : 36f4a8c0675dc0e51a033bb5d6d670e9c7bdbd08
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -20,5 +20,8 @@ PASS the mutation is caught -- M7 the Bridge's verdicts differ from the fixture'
 PASS the mutation is caught -- M8 the Bridge loses a case entirely -- the comparison noticed
 PASS the mutation is caught -- M9 the Bridge reports a case that the CLI did not run -- the comparison noticed
 PASS the mutation is caught -- M10 the Bridge reports a wrong total -- the comparison noticed
-RESULT: 14/14
+PASS the mutation is caught -- M11 the Bridge truncates the error message (keeps the first line and the assertion text) -- the comparison noticed
+PASS the mutation is caught -- M12 the Bridge truncates the error message behind ANSI escape sequences -- the comparison noticed
+PASS the mutation is caught -- M13 the Bridge attaches a different case's error message -- the comparison noticed
+RESULT: 17/17
 exit code   : 0

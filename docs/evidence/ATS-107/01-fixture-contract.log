@@ -1,6 +1,6 @@
 === ATS-107 evidence: the ATS-107 fixture: exact pin, committed lockfile, chromium, offline specs ===
-date        : 2026-11-09T16:17:14Z (UTC)
-commit      : add0fd268e100f4defa275bfbeab4d0582020c52
+date        : 2026-11-09T17:59:38Z (UTC)
+commit      : 36f4a8c0675dc0e51a033bb5d6d670e9c7bdbd08
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)

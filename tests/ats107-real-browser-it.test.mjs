@@ -127,12 +127,29 @@ test.before(async () => {
 test.after(async () => {
   if (bridge?.cp) {
     const cp = bridge.cp;
+    // Wait for the Bridge to actually exit before removing its data
+    // directory: it holds the directory (and its lock) while it runs, and
+    // removing it under a live Bridge fails with ENOTEMPTY on Windows.
+    const exited = new Promise((r) => cp.once('close', r));
     if (process.platform === 'win32') {
       spawn('taskkill', ['/PID', String(cp.pid), '/T', '/F'], { windowsHide: true });
     } else cp.kill('SIGKILL');
+    await Promise.race([exited, new Promise((r) => setTimeout(r, 10000))]);
   }
-  fs.rmSync(dataDir, { recursive: true, force: true });
-  if (prepared.project) fs.rmSync(path.dirname(prepared.project), { recursive: true, force: true });
+  // The removal can still race the file system's last write, so it is
+  // retried a few times. A leftover temp directory is not a test failure.
+  for (const dir of [dataDir, prepared.project ? path.dirname(prepared.project) : null]) {
+    if (!dir) continue;
+    for (let i = 0; i < 5; i++) {
+      try {
+        fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
+        break;
+      } catch {
+        if (i === 4) console.log(`NOTE: the temporary directory ${dir} could not be removed: ${fs.existsSync(dir) ? 'still present' : 'gone'}`);
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+  }
 });
 
 async function api(endpoint, method = 'GET', body, token) {
