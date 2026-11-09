@@ -130,7 +130,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    | 5 | `apps/studio/public/fallback.html:3` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
    | 6 | `src-tauri/src/lib.rs:19` | `ATS_PORT` 环境变量默认值 |
 
-   另有 8 个文件**非运行时数据**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）、`tools/generate_test_docs.py:390,396,513`（`tests/test-cases.json` 的生成器，重新生成会把旧端口写回去）、`test-cases.xlsx`（3 处，测试用例输入数据）、`tools/update_wbs_ats216.py`（WBS 备注**文本**里的端口，值不生效）、
+   另有 8 个文件**非运行时数据**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）、`tools/generate_test_docs.py:416,422,541`（`tests/test-cases.json` 的生成器，重新生成会把旧端口写回去）、`test-cases.xlsx`（3 处，测试用例输入数据）、`tools/update_wbs_ats216.py`（WBS 备注**文本**里的端口，值不生效）、
    文档类的端口提及另计，见下。
    本清单由 `tools/ats101-probes/scenario-d-port-audit.mjs` 自动比对源码与本文档，**按 `file:line` 逐条校验**，遗漏即报错。
    **审计范围**：扫描仓库内全部 `.mjs/.js/.ts/.tsx/.html/.rs/.json/.md/.ps1/.sh/.py` 文件（跳过 `node_modules/`、`.git/`、`.next/`、`out/`、`dist/`、`target/`、`test-results/`、`playwright-report/`、`.multica/`），另加 `test-cases.xlsx` 这一个 zip 容器（其单元格数据是 deflate 压缩的，须解压后扫描）。

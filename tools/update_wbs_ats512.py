@@ -97,7 +97,7 @@ def main():
     # The script is idempotent: a marker identifies the note this script owns,
     # so re-running replaces it instead of appending a second copy.
     notes = {
-        'ATS-512': '插件契约已冻结于 docs/21-PLUGIN-CONTRACT.md：插件 Manifest 声明权限、宿主按策略档位授予（生效集合=声明∩档位∩封闭词汇表）、越权调用被拒且被拒本身进审计、插件作用域由宿主授予、证据 SHA-256 由宿主计算、插件结论为提案（approval 恒为 pending）且提案人不得自审；契约层已实现并经 UT/IT/探针实测，插件宿主、加载器与沙箱在本任务范围内无任何实现',
+        'ATS-512': '插件契约已冻结于 docs/21-PLUGIN-CONTRACT.md：插件 Manifest 声明权限、宿主按策略档位授予（生效集合=声明∩档位∩封闭词汇表）、越权调用被拒且每一次 SDK 调用都进审计（序号仅在 sink 写入成功后前进）、作用域由宿主授予（文件前缀与允许的项目两层，默认都为空）、证据 SHA-256 由宿主计算、插件结论为提案（approval 恒为 pending）且提案人不得自审；提案由 SDK 直接交给宿主、宿主持有权威记录，宿主没有的或对不上的提案不能被评审，proposalId 全局唯一；契约层已实现并经 UT/IT/探针与第 1 轮复核反例闭合检查实测，插件宿主、加载器与沙箱在本任务范围内无任何实现',
     }
     for ats, note in notes.items():
         rid, _rm = find_ats_row(xml2, ats)

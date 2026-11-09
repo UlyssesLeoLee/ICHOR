@@ -6,16 +6,25 @@
  * controlled policy tier and a controlled scope, hands it to the sample
  * plugin, and checks that the plugin cannot exceed what the host granted.
  *
- * The three facts this probe proves:
+ * The facts this probe proves -- and, just as importantly, the ones it does
+ * NOT prove:
  *
  *   1. **超权被拒**: a plugin that calls an operation whose permission the
  *      host did not grant is refused with PLUGIN_PERMISSION_DENIED, and the
  *      refusal is audited.
- *   2. **插件不绕过审核**: an outcome is a proposal with approval=pending and
- *      producedBy=plugin:<id>; the plugin may not review its own proposal.
+ *   2. **提案由宿主持有**: an outcome is a proposal with approval=pending and
+ *      producedBy=plugin:<id>; the SDK hands it to the HOST's authoritative
+ *      record; the plugin may not review its own proposal; a proposal the host
+ *      does not hold -- or one whose fields/digests differ from the host
+ *      record -- cannot be reviewed at all.
  *   3. **插件不绕过证据**: the SHA-256 of an evidence reference is computed by
  *      the host resolver; a plugin-supplied digest is not part of the input at
  *      all, and an outcome without an evidence reference is refused.
+ *
+ * NOT proved by this probe: that a plugin cannot escape the SDK by importing
+ * node:fs itself. There is no plugin host and no sandbox in this repository,
+ * so a plugin in the same process is free to do that; only the ATS-403
+ * sandbox will close that hole.
  *
  * NEGATIVE CONTROL (signal 4): the same detector must FIRE on a plugin that
  * is handed an over-privileged tier. Without it, "the plugin is refused"
@@ -36,6 +45,7 @@ import {
   PLUGIN_PERMISSIONS,
   PLUGIN_POLICY_TIERS,
   PLUGIN_SDK_SURFACE,
+  authorizePluginOperation,
   resolvePluginPermissions,
   validatePluginManifest,
 } from '../../server/plugins/contract.mjs';
@@ -60,11 +70,20 @@ console.log(`repo root : ${REPO_ROOT}`);
 console.log(`work root : ${WORK_ROOT}`);
 console.log('');
 
-/** A host whose audit sink records everything, and whose reader is honest. */
+/**
+ * A host whose audit sink records everything, whose reader is honest, and
+ * which holds the AUTHORITATIVE proposal record.
+ *
+ * The proposal store is not decoration: without it the SDK refuses to be
+ * built, because a proposal that only exists in the plugin's hands cannot
+ * be reviewed against anything.
+ */
 function makeHost(overrides = {}) {
   const events = [];
+  const proposals = new Map();
   return {
     events,
+    proposals,
     host: {
       audit: (event) => { events.push(event); },
       readTestFile: async (projectId, file) => ({
@@ -76,6 +95,8 @@ function makeHost(overrides = {}) {
       readRequirements: async (projectId) => ({ projectId, requirements: [] }),
       readRunEvidence: async (projectId, runUid) => ({ projectId, runUid, artifacts: [] }),
       resolveEvidenceDigest: async (projectId, runUid, ref) => 'd'.repeat(64),
+      submitProposal: async (proposal) => { proposals.set(proposal.proposalId, structuredClone(proposal)); },
+      getProposal: (proposalId) => proposals.get(proposalId),
       ...overrides,
     },
   };
@@ -126,6 +147,7 @@ console.log('--- signal 1: a plugin that exceeds its permission is refused ---')
     host,
     tier: 'readonly',
     scope: { files: ['tests'] },
+    projects: ['proj_probe'],
   });
   let code = null;
   try {
@@ -147,12 +169,13 @@ console.log('--- signal 1: a plugin that exceeds its permission is refused ---')
 console.log('');
 console.log('--- signal 2: a plugin cannot approve its own outcome ---');
 {
-  const { host } = makeHost();
+  const { host, proposals } = makeHost();
   const sdk = createPluginSdk({
     manifest: { ...manifest, permissions: ['test.read', 'outcome.report'] },
     host,
     tier: 'reporter',
     scope: { files: ['tests'] },
+    projects: ['proj_probe'],
   });
   const proposal = await sdk.reportOutcome('proj_probe', RUN_UID, {
     summary: 'the sample run passed',
@@ -162,14 +185,24 @@ console.log('--- signal 2: a plugin cannot approve its own outcome ---');
   check('the outcome is a proposal, not a state change', proposal.approval === 'pending');
   check('the proposal names the plugin as its producer',
     proposal.producedBy === `plugin:${manifest.id}`, proposal.producedBy);
+  check('the HOST holds the proposal record, not the plugin',
+    proposals.has(proposal.proposalId));
   let code = null;
   try {
-    reviewPluginProposal(proposal, { reviewer: `plugin:${manifest.id}`, decision: 'approved' });
+    reviewPluginProposal(proposal, {
+      reviewer: `plugin:${manifest.id}`,
+      decision: 'approved',
+      host,
+    });
   } catch (error) {
     code = error.code;
   }
   check('the plugin cannot review its own proposal', code === 'PLUGIN_REVIEW_SELF_FORBIDDEN', `code=${code}`);
-  const approved = reviewPluginProposal(proposal, { reviewer: 'probe-reviewer', decision: 'approved' });
+  const approved = reviewPluginProposal(proposal, {
+    reviewer: 'probe-reviewer',
+    decision: 'approved',
+    host,
+  });
   check('an independent reviewer can approve', approved.approval === 'approved');
 }
 
@@ -192,6 +225,7 @@ console.log('--- signal 3: the evidence digest comes from the host ---');
     host,
     tier: 'reporter',
     scope: { files: ['tests'] },
+    projects: ['proj_probe'],
   });
   const proposal = await sdk.reportOutcome('proj_probe', RUN_UID, {
     summary: 'the sample run passed',
@@ -237,6 +271,7 @@ console.log('--- signal 3b: a plugin cannot read outside the granted scope ---')
     host,
     tier: 'readonly',
     scope: { files: ['tests'] },
+    projects: ['proj_probe'],
   });
   let code = null;
   try {
@@ -264,6 +299,7 @@ console.log('--- signal 4: negative control -- the refusal is caused by the perm
     host,
     tier: 'reporter',
     scope: { files: ['tests'] },
+    projects: ['proj_probe'],
   });
   let refused = false;
   try {
@@ -294,6 +330,7 @@ console.log('--- signal 5: the sample plugin runs inside its permission ---');
     host,
     tier: 'readonly',
     scope: { files: ['tests'] },
+    projects: ['proj_probe'],
   });
   const result = await samplePlugin.run(sdk, {
     projectId: 'proj_probe',
@@ -341,6 +378,184 @@ console.log('--- signal 6: the permission vocabulary is closed ---');
 }
 
 /* ------------------------------------------------------------------ */
+/* 7. the host holds the authoritative proposal record                  */
+/* ------------------------------------------------------------------ */
+
+console.log('');
+console.log('--- signal 7: the host holds the proposal record, the plugin cannot forge one ---');
+{
+  const { host, proposals } = makeHost();
+  const sdk = createPluginSdk({
+    manifest: { ...manifest, permissions: ['test.read', 'outcome.report'] },
+    host,
+    tier: 'reporter',
+    scope: { files: ['tests'] },
+    projects: ['proj_probe'],
+  });
+  const proposal = await sdk.reportOutcome('proj_probe', RUN_UID, {
+    summary: 'the sample run passed',
+    evidenceRefs: ['trace.zip'],
+  });
+  check('the host holds the proposal', proposals.has(proposal.proposalId));
+
+  // A proposal the host never saw: shape-valid, but not in the record.
+  const forged = {
+    proposalId: 'plgprop_forged_1',
+    pluginId: manifest.id,
+    runUid: RUN_UID,
+    kind: 'outcome',
+    status: 'passed',
+    summary: 'all green',
+    evidenceRefs: [],
+    approval: 'pending',
+    producedBy: `plugin:${manifest.id}`,
+  };
+  let code = null;
+  try {
+    reviewPluginProposal(forged, { reviewer: 'probe-reviewer', decision: 'approved', host });
+  } catch (error) {
+    code = error.code;
+  }
+  check('a proposal the host does not hold is refused', code === 'PLUGIN_PROPOSAL_INVALID', `code=${code}`);
+
+  // A TAMPERED proposal: the shape is legal, the content differs from the
+  // host record. This is the case a shape check alone would wave through.
+  const tampered = { ...proposal, evidenceRefs: [{ ref: 'trace.zip', sha256: 'b'.repeat(64) }] };
+  code = null;
+  try {
+    reviewPluginProposal(tampered, { reviewer: 'probe-reviewer', decision: 'approved', host });
+  } catch (error) {
+    code = error.code;
+  }
+  check('a tampered proposal is refused', code === 'PLUGIN_PROPOSAL_INVALID', `code=${code}`);
+
+  // The re-signing attack: the plugin rewrites `producedBy` so the
+  // self-review check no longer matches, and then reviews under its own
+  // ORIGINAL identity. The shape is legal and the self-review check does
+  // not fire -- only the comparison with the host record stops it.
+  const tamperedProducer = { ...proposal, producedBy: 'plugin:someone-else' };
+  code = null;
+  try {
+    reviewPluginProposal(tamperedProducer, {
+      reviewer: `plugin:${manifest.id}`,
+      decision: 'approved',
+      host,
+    });
+  } catch (error) {
+    code = error.code;
+  }
+  check('a re-signed proposal is refused', code === 'PLUGIN_PROPOSAL_INVALID', `code=${code}`);
+
+  // And the self-review check still fires for the forged producer.
+  code = null;
+  try {
+    reviewPluginProposal(tamperedProducer, {
+      reviewer: 'plugin:someone-else',
+      decision: 'approved',
+      host,
+    });
+  } catch (error) {
+    code = error.code;
+  }
+  check('the forged producer still cannot self-review',
+    code === 'PLUGIN_REVIEW_SELF_FORBIDDEN', `code=${code}`);
+
+  // The proposal id is globally unique, not per SDK instance.
+  const ids = [];
+  for (let i = 0; i < 2; i += 1) {
+    const { host: h2 } = makeHost();
+    const sdk2 = createPluginSdk({
+      manifest: { ...manifest, permissions: ['test.read', 'outcome.report'] },
+      host: h2,
+      tier: 'reporter',
+      scope: { files: ['tests'] },
+      projects: ['proj_probe'],
+    });
+    const p2 = await sdk2.reportOutcome('proj_probe', RUN_UID, {
+      summary: 'the sample run passed',
+      evidenceRefs: ['trace.zip'],
+    });
+    ids.push(p2.proposalId);
+  }
+  check('the proposal id is unique across SDK instances', ids[0] !== ids[1], ids.join(', '));
+
+  // The audit trail names the proposal and its digests.
+  const { host: h3, events } = makeHost();
+  const sdk3 = createPluginSdk({
+    manifest: { ...manifest, permissions: ['test.read', 'outcome.report'] },
+    host: h3,
+    tier: 'reporter',
+    scope: { files: ['tests'] },
+    projects: ['proj_probe'],
+  });
+  const p3 = await sdk3.reportOutcome('proj_probe', RUN_UID, {
+    summary: 'the sample run passed',
+    evidenceRefs: ['trace.zip'],
+  });
+  const reported = events.filter((e) => e.type === 'plugin.outcome.reported');
+  check('the audit event names the proposal id',
+    reported.length === 1 && reported[0].data.proposalId === p3.proposalId);
+  check('the audit event carries the evidence digests',
+    reported.length === 1 && reported[0].data.evidenceDigests.length === 1
+      && reported[0].data.evidenceDigests[0].sha256 === 'd'.repeat(64));
+}
+
+/* ------------------------------------------------------------------ */
+/* 8. every refused call is audited                                     */
+/* ------------------------------------------------------------------ */
+
+console.log('');
+console.log('--- signal 8: every refused call leaves a trace ---');
+{
+  const { host, events } = makeHost();
+  const sdk = createPluginSdk({
+    manifest: { ...manifest, permissions: ['test.read', 'outcome.report', 'evidence.read'] },
+    host,
+    tier: 'reporter',
+    scope: { files: ['tests'] },
+    projects: ['proj_probe'],
+  });
+  const attempts = [
+    () => sdk.reportOutcome('proj_probe', RUN_UID, { summary: 'no evidence' }),
+    () => sdk.reportOutcome('proj_probe', RUN_UID, { summary: 'no evidence', evidenceRefs: [] }),
+    () => sdk.readRunEvidence('proj_probe', 'run_not-a-run-id'),
+    () => sdk.readTestFile('proj_other', 'tests/a.spec.ts'),
+  ];
+  for (const attempt of attempts) {
+    try { await attempt(); } catch { /* the refusal is the point */ }
+  }
+  check('every refusal was audited', events.length === attempts.length,
+    `events=${events.length} attempts=${attempts.length}`);
+  check('describe() is audited too', (sdk.describe(), events.some((e) => e.type === 'plugin.describe')));
+}
+
+/* ------------------------------------------------------------------ */
+/* 9. the frozen tables are looked up with own properties only            */
+/* ------------------------------------------------------------------ */
+
+console.log('');
+console.log('--- signal 9: prototype names are not table entries ---');
+{
+  const validated = validatePluginManifest(manifest);
+  const prototypeNames = ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf'];
+  const allowed = prototypeNames
+    .map((name) => authorizePluginOperation(validated, name).allowed)
+    .filter(Boolean);
+  check('no prototype name is an authorised operation', allowed.length === 0, `allowed=${allowed.length}`);
+
+  let allRejected = true;
+  for (const name of prototypeNames) {
+    try {
+      resolvePluginPermissions(['test.read'], name);
+      allRejected = false;
+    } catch (error) {
+      if (error.code !== 'PLUGIN_MANIFEST_INVALID') allRejected = false;
+    }
+  }
+  check('no prototype name is a policy tier', allRejected);
+}
+
+/* ------------------------------------------------------------------ */
 console.log('');
 console.log('--- verdict ---');
 if (failures.length) {
@@ -348,5 +563,8 @@ if (failures.length) {
   for (const failure of failures) console.log(`  - ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log('PASS: a plugin cannot exceed its declared permissions, review its own outcome, or forge evidence');
+  console.log('PASS: the SDK refuses a plugin that exceeds its granted permissions, reads outside its');
+  console.log('      granted scope or projects, skips the evidence, or forges/tampers a proposal;');
+  console.log('      every refused call is audited. NOT proved here: that a plugin cannot escape the');
+  console.log('      SDK by importing node:fs itself -- there is no plugin host and no sandbox yet.');
 }
