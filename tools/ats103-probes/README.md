@@ -9,7 +9,7 @@
 | 脚本 | 结论 | 文档位置 |
 |---|---|---|
 | `verify-export-and-proxy.mjs` | **25 项**检查全部通过：(a) 静态导出产物自洽——`index.html`/`404.html`/`_next/static` 齐备，`index.html` 引用的 9 个资源全部存在；(b) 导出目录**不含任何服务端路由产物**——断言直接扫过导出目录的**真实文件树**，因此新增 `app/api/**` 时它会真的变红（变异证据见 `docs/evidence/ATS-103/06-mutation-evidence.log`）；(c) 导出产物里带着**对 `location.port` 的比较**（**静态启发式**：能抓住「完全不读端口」的烘焙，**证明不了** `root()` 本身是在运行时解析的——反例见下 B2）；(d) Bridge 能在 `/` 提供该导出并带上允许 API 源的 CSP，哈希 chunk 亦可取回；(e) 会话/项目/运行三类操作实测成功——异源 Origin 403、无 token 401、`POST /api/projects` 201、`GET .../tests` 返回 2 个用例、`POST .../run` 返回 202 并最终到达终态；(f) 真实运行的 **summary 与磁盘上的 `report.json` 逐项一致**、每例结果集非空、证据产物非空——不是「不伪造」这种恒真断言 | 22 §1/§2/§3.3/§3.4 |
-| `ui-smoke.mjs` | **8 项**检查全部通过：在**真实 headless Chromium** 里驱动**导出的那一页**执行它自己的 JS，走完会话 → 添加项目 → 运行到终态，并断言 **console error 为 0**、无失败请求、UI 启动的那次运行就是 Bridge 记录的那次。它同时是「API 基址在运行时解析」的**可执行判别**：页面按**主机名** `localhost` 打开，探针记录每个 API 请求**实际**去的 host——运行时解析得到的是同源相对路径（→ `localhost:<port>`），写死的基址是绝对地址（→ 数字地址），两者可区分（同样的 ST 路径在 `--page-origin http://127.0.0.1:3000` 的白名单跨源下再跑一遍） | 22 §2.1/§3.3 |
+| `ui-smoke.mjs` | **8 项**检查全部通过：在**真实 headless Chromium** 里驱动**导出的那一页**执行它自己的 JS，走完会话 → 添加项目 → 运行到终态，并断言 **console error 为 0**、无失败请求、UI 启动的那次运行就是 Bridge 记录的那次。它同时是「API 基址在运行时解析」的**可执行判别**：页面按**主机名** `localhost` 打开，探针记录每个 API 请求**实际**去的 host——运行时解析得到的是同源相对路径（→ `localhost:<port>`），写死的基址是绝对地址（→ 数字地址），两者可区分。同一套 ST 路径在 `--page-origin http://127.0.0.1:3000` 的白名单跨源下再跑一遍，**那一遍同样是 8/8 全绿、退出码 0**：跨源时产品本就应当走绝对基址，因此那一遍断言的是**正确性**（请求去绝对基址的 host），不是判别 | 22 §2.1/§3.3 |
 | `ui-smoke.mjs --port 4600` | **预期失败**，失败原因就是结论本身：在**非默认端口**上，导出页仍去请求**默认端口**的 API（`/api/session` → `ERR_CONNECTION_REFUSED`），因为导出页的基址解析与 Bridge 的 CSP 都指向默认端口（`docs/16-BASELINE-ADR.md` §3.1 第 2 条）。这一遍的日志是 `docs/evidence/ATS-103/05c-ui-smoke-non-default-port.log`——它给 §2.3 那条结论提供可复跑的背书 |
 | `mutation-evidence.sh` | **五个变异**：A 服务端 route handler **未声明** `force-static`（Next.js 16 在 `output:'export'` 下于**构建期**直接拒绝——它证明的是「构建被拒绝」，**不**证明文件树断言）；A′ 同一个 handler **声明了** `force-static`（构建**成功**、handler 被预渲染成 `out/api/session`，**「导出目录无服务端路由产物」这条断言**因此变红，报 `found: api/session`）；B API 基址被烘焙成构建期常量（静态启发式变红，**可执行判别**也变红）；B2 基址被烘焙**且** bundle 里留着一个**无关的** `location.port` 比较（静态启发式**仍然绿**——这就是它的边界；**可执行判别**变红）；C 夹具 `node_modules` 被移走（引擎缺失）。变异**临时**改动产品源码，脚本用 `trap` 在退出时**还原源码并重建导出**，备份写在**仓库之外**的临时目录里 | 22 §2/§3.3.2 |
 | `collect-evidence.sh` | 把上述命令连同 `npm ci`、`next build`、`npm test`、WBS 共存回归、**端口审计**、**ADR 引用校验**、**8 步构建门禁**的**实际输出**写进 `docs/evidence/ATS-103/` | 22 §3 |
@@ -76,6 +76,20 @@ bash tools/ats103-probes/collect-evidence.sh
    补回 `Access-Control-Allow-Origin`，那是探针抓出的**真实产品缺陷**
    （缺这个头时浏览器会拦掉全部跨源响应），修复与回归用例见
    `docs/22-FRONTEND-EXPORT.md` §3.3.1。
+8. **端口的可用性必须用真实的 `bind()` 判定，而且要等。** 在 Windows 上，
+   一个被 `TerminateProcess` 杀掉的进程，它的监听套接字会留成**僵尸**
+   （套接字表里状态是 `LISTENING`、属主 PID 是 0），在**数百毫秒到数秒**内
+   挡住后续的 `bind()`。因此：
+   - 两个探针在启动 Bridge 之前**等待端口可绑定**（有界等待；真的被别人
+     占用仍然失败关闭——探针绝不能去跟一个别的服务器说话）；
+   - 两个探针在结束时**结束整棵进程树**（Bridge 会拉起 Playwright 驱动与
+     浏览器，只杀 Bridge 会把它们留下），并**等待端口重新可绑定**；
+   - `mutation-evidence.sh` 的**每一段之前**都先确认端口可绑定
+     （`lib/port-free.mjs --wait`），否则那一段会因为端口而整片变红，
+     描述的是端口而不是被测的变异。
+   这些共用 `lib/port-free.mjs`；端口字面量仍**不写在本目录**（由
+   `lib/default-port.mjs` 从产品源码读出）。成因与实测见
+   `docs/22-FRONTEND-EXPORT.md` §4.5。
 
 ## 依赖
 

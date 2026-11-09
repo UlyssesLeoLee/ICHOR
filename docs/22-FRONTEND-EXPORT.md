@@ -23,7 +23,7 @@ ATS-103 的验收标准是「**产出静态目录；127.0.0.1 Bridge 的会话/�
 | Bridge 会话操作 | **PASS** | `GET /api/session` 返回 token；**异源 Origin → 403**、**无 token → 401** |
 | Bridge 项目操作 | **PASS** | `POST /api/projects` → 201；`GET /api/projects` → 200；`GET /api/projects/{id}/tests` → 2 个用例 |
 | Bridge 运行操作 | **PASS** | `POST /api/projects/{id}/run` → **202**，随后到达终态 `failed`，**真实结果 1 PASS / 1 FAIL / 共 2 例**，采集 **28 个**证据产物（含 `report.json`、HTML 报告、每例 `trace.zip`）；API 报告的 summary 与磁盘上的 `report.json` **逐项一致** |
-| **ST：真实浏览器驱动导出的 UI** | **PASS** | headless Chromium 打开导出的页面，页面自身的 `/api/session` → 200；点「添加项目」→ toast「项目添加成功」、目录列出 2 个用例；点「运行全部」→ 202 → 终态 `failed`（2 例 / 28 产物）；**console error 0 条、无失败请求**；同源与白名单跨源（`127.0.0.1:3000`）**两种来源的 UI 流程都跑通**（跨源那一遍只有「基址解析」这条断言不适用，见 §3.3.1） |
+| **ST：真实浏览器驱动导出的 UI** | **PASS** | headless Chromium 打开导出的页面，页面自身的 `/api/session` → 200；点「添加项目」→ toast「项目添加成功」、目录列出 2 个用例；点「运行全部」→ 202 → 终态 `failed`（2 例 / 27 产物）；**console error 0 条、无失败请求**；同源与白名单跨源（`127.0.0.1:3000`）**两种来源下都是 8/8 全绿、退出码 0**（同源断言可执行判别、跨源断言正确性，见 §3.3.1） |
 
 **本次交付没有改动产品代码。** `apps/studio/next.config.mjs`、`app/page.tsx`、`lib/api.ts` 与 `server/index.mjs` 全部保持 ATS-102 交付时的状态——实测证明这套配置**已经**满足本任务的完成定义（静态导出可用、路由可用、Bridge 三类操作可用）。本任务交付的是**可复跑的验证脚本 + 证据 + 结论文档**，以及两处**它发现的真实缺陷**（见 §4）。
 
@@ -85,14 +85,16 @@ PASS  the shipped bundle carries a comparison of the page location port  --  rea
 **（2）可执行判别（ST 探针，真正的证明）。** `tools/ats103-probes/ui-smoke.mjs` 把导出页按**主机名** `http://localhost:<port>/` 打开（不是数字地址），并记录浏览器**实际**请求到的 host：
 
 ```
-PASS  the page's API requests go to the host its own location implies  --  page location host: localhost:4577; API request hosts: localhost:4577
+PASS  the page's API requests go to the host the product's base resolution implies  --  page location host: localhost:4577; API request hosts: localhost:4577; expected host: localhost:4577
 ```
 
 产品的 `root()` 在页面位于 Bridge 自身端口时返回**空串**（相对路径），浏览器于是按页面自身 origin 解析，请求去 `localhost:<port>`；而**构建期烘焙**的基址是**绝对地址**，请求去**数字地址**。两者可区分，且这个判别是**执行出来的**，无法被一个只是「提到端口」的 bundle 满足。
 
+**这条断言断言的是「产品自己的基址解析规则对页面所在的那个 origin 所蕴含的 host」**：页面的端口是默认端口 ⇒ 相对基址 ⇒ 请求去页面自身 origin；页面的端口不是默认端口 ⇒ 绝对基址 ⇒ 请求去绝对基址的 host。**同源那一遍因此是可执行判别**（两种基址解析到**不同**的 host，可区分）；**跨源那一遍是正确性检查**（绝对基址本来就是唯一可行的目标，正确即绿）——见 §3.3.1。
+
 两个变异都让它变红：
 
-| 变异 | 静态启发式 | 可执行判别 |
+| 变异 | 静态启发式 | 可执行判别（同源那一遍） |
 |---|---|---|
 | **B**（基址写死，bundle 里没有端口比较） | **红** | **红** |
 | **B2**（基址写死**且**留一个无关的端口比较） | **绿**（这就是它的边界） | **红** |
@@ -105,7 +107,7 @@ PASS  the page's API requests go to the host its own location implies  --  page 
 
 **「任何静态文件服务器都能提供这份导出」是不成立的**（第一轮复核 C5(a) 的反例已推翻该说法）。实测：用 `python -m http.server 8931` 提供 `out/`，而 Bridge 在 4577，Bridge 对 Origin `http://127.0.0.1:8931` 返回 **403**（预检 OPTIONS 同样 403），浏览器报 `ERR_FAILED`，UI 提示「Failed to fetch」。
 
-**准确的说法是**：这份导出可以被**任意静态服务器**提供，但**只有当页面的 Origin 落在 Bridge 的白名单里**时，它对 Bridge 的 API 调用才会被接受。当前白名单是 `localhost`/`127.0.0.1` 的 **4577**（Bridge 自身）与 **3000**（Next 开发服务器）、以及 `tauri://localhost` / `http://tauri.localhost` / `https://tauri.localhost`（`server/index.mjs:31`）。ST 探针因此在**同源（4577）**与**白名单跨源（3000）**两种来源下各跑了一遍，**两种来源下整条 UI 流程都跑通**（同源 8/8 全绿；跨源 7/8，唯一变红的那条是只适用于同源的基址判别断言，见 §3.3.1）；而 8931 那种白名单外的来源，Bridge 侧返回 403，是**设计行为**，不是缺陷。
+**准确的说法是**：这份导出可以被**任意静态服务器**提供，但**只有当页面的 Origin 落在 Bridge 的白名单里**时，它对 Bridge 的 API 调用才会被接受。当前白名单是 `localhost`/`127.0.0.1` 的 **4577**（Bridge 自身）与 **3000**（Next 开发服务器）、以及 `tauri://localhost` / `http://tauri.localhost` / `https://tauri.localhost`（`server/index.mjs:31`）。ST 探针因此在**同源（4577）**与**白名单跨源（3000）**两种来源下各跑了一遍，**两种来源下整条 UI 流程都跑通，且两遍都是 8/8 全绿、退出码 0**（同源那一遍断言的是可执行判别，跨源那一遍断言的是正确性，见 §3.3.1）；而 8931 那种白名单外的来源，Bridge 侧返回 403，是**设计行为**，不是缺陷。
 
 ### 2.3 非默认端口上真实 UI 不可用
 
@@ -195,10 +197,10 @@ RESULT: OK -- 25/25 checks passed.
 $ node tools/ats103-probes/ui-smoke.mjs
 PASS  the exported page loads in a real browser  --  HTTP 200, http://localhost:4577/
 PASS  the page's own session call succeeds  --  GET /api/session -> 200, GET /api/session -> 200
-PASS  the page's API requests go to the host its own location implies  --  page location host: localhost:4577; API request hosts: localhost:4577
+PASS  the page's API requests go to the host the product's base resolution implies  --  page location host: localhost:4577; API request hosts: localhost:4577; expected host: localhost:4577
 PASS  adding a project through the UI registers it and lists the catalog  --  toast=项目添加成功：未修改原仓库, catalog items=2
 PASS  running through the UI reaches a terminal state  --  toast=已提交到本地 Playwright Runner, status=failed
-PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 28 artefacts
+PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 27 artefacts
 PASS  the page produced no console error and no failed request  --  console errors: none; failed requests: none
 PASS  the probe executed every registered check  --  8/8 checks executed
 
@@ -209,10 +211,24 @@ RESULT: OK -- 8/8 checks passed.
 
 ```
 $ node tools/ats103-probes/ui-smoke.mjs --page-origin http://127.0.0.1:3000
-... RESULT: FAILED -- 7/8 checks passed.
+PASS  the exported page loads in a real browser  --  HTTP 200, http://127.0.0.1:3000/
+PASS  the page's own session call succeeds  --  GET /api/session -> 200, GET /api/session -> 200
+PASS  the page's API requests go to the host the product's base resolution implies  --  page location host: 127.0.0.1:3000; API request hosts: 127.0.0.1:4577; expected host: 127.0.0.1:4577
+PASS  adding a project through the UI registers it and lists the catalog  --  toast=项目添加成功：未修改原仓库, catalog items=2
+PASS  running through the UI reaches a terminal state  --  toast=已提交到本地 Playwright Runner, status=failed
+PASS  the UI started the run the Bridge reports  --  status=failed, 2 cases, 27 artefacts
+PASS  the page produced no console error and no failed request  --  console errors: none; failed requests: none
+PASS  the probe executed every registered check  --  8/8 checks executed
+
+RESULT: OK -- 8/8 checks passed.
 ```
 
-**跨源这一遍有且只有一条断言变红，而且它变红是设计使然，不是缺陷**：变红的是「页面的 API 请求去页面自身 origin 隐含的 host」。这条断言**按构造就是同源判别器**——页面在 `localhost:4577` 上时，相对基址解析成 `localhost:4577`，写死的绝对基址则是 `127.0.0.1:4577`，两者可区分。**跨源场景下页面在 `127.0.0.1:3000`**，产品按「端口不是 4577 ⇒ 用绝对基址」的规则请求 `127.0.0.1:4577`，**这是正确行为**（相对基址在跨源时根本无法工作），所以这条断言在这里不适用。探针的失败详情把这一点写在行内：`page location host: 127.0.0.1:3000; API request hosts: 127.0.0.1:4577; this check is the same-origin discriminator ...`。
+**跨源这一遍是 8/8 全绿、退出码 0**，因为**这一遍断言的是「正确性」，不是「判别」**。判别与正确性是两件不同的事，必须分开说：
+
+- **同源那一遍**（页面在 `localhost:4577`）断言的是**可执行判别**：相对基址解析成 `localhost:4577`，写死的绝对基址则是 `127.0.0.1:4577`，两者可区分，因此这一遍能抓住「基址在构建期被烘焙」。**B 与 B2 两个变异都让它变红**（§3.3.2）。
+- **跨源那一遍**（页面在 `127.0.0.1:3000`）断言的是**正确性**：相对基址在跨源时根本无法工作，产品按「端口不是 4577 ⇒ 用绝对基址」的规则请求 `127.0.0.1:4577`，**这是正确行为**。因此这一遍断言请求去**绝对基址的 host**，正确的运行必然是绿的。
+
+**退出码就是结论，两遍都是。** 一遍「退出码是红的、而失败详情却在解释行为正确」的运行，对复跑的人是**没有用的**：退出码必须能区分真缺陷与正确配置。因此跨源这一遍必须是 `RESULT: OK` 与退出码 0——**这一条本身就是断言**：如果哪一天产品行为变了（例如跨源时不再走绝对基址），这条断言会变红，退出码随之非 0。
 
 其余七条（含「页面自身的会话调用成功」「通过 UI 添加项目」「跑到终态」「console error 为 0、无失败请求」）在跨源下**全部通过**——这说明**白名单跨源路径是真的通的**：Bridge 接受了该 Origin、返回了可读的回答、整条 UI 流程走完。
 
@@ -235,11 +251,13 @@ $ bash tools/ats103-probes/mutation-evidence.sh
 |---|---|---|
 | **A** 新增 `apps/studio/app/api/session/route.ts`（**未声明** `force-static`） | 「构建拒绝 route handler」 | `next build` **构建期即失败**（`output: export` 不允许未声明 `force-static` 的 handler），**导出根本没生成**。它证明的是**构建被拒绝**，**没有**执行到文件树遍历那段逻辑 |
 | **A′** 同一个 handler，**声明** `export const dynamic = 'force-static';` | 「导出不含服务端路由产物」 | 构建**成功**，handler 被**预渲染**成静态文件 `out/api/session`；断言**变红**：`FAIL the export contains no server-side API route output -- found: api/session`，探针退出码 1 |
-| **B** `lib/api.ts` 的 `root()` 改成构建期常量 | 静态启发式「bundle 里有对 `location.port` 的比较」+ 可执行判别「页面的 API 请求去页面自身 origin 隐含的 host」 | **两条同时变红**，探针退出码 1 |
+| **B** `lib/api.ts` 的 `root()` 改成构建期常量 | 静态启发式「bundle 里有对 `location.port` 的比较」+ 可执行判别「页面的 API 请求去产品基址解析所蕴含的 host」 | **两条同时变红**，探针退出码 1 |
 | **B2** 基址写死**且** bundle 里留一个**无关的** `location.port` 比较 | 可执行判别（静态启发式**抓不到**它） | 静态启发式**仍然绿**（25/25，退出码 0）——这是它的边界；**可执行判别变红**（`API request hosts: 127.0.0.1:4577`，页面 origin 是 `localhost:4577`），退出码 1 |
 | **C** 移走夹具 `node_modules`（引擎缺失） | 「run 到达 passed/failed 终态」「每例结果非空」「summary 与 report.json 一致」「产物非空」 | **四条同时变红**，探针退出码 1 |
 
 **每个变异只隔离一件事**：B 结束后脚本先把源码还原并**重建**一份干净的导出，再跑 B2、再跑 C——否则后面的日志里会同时出现前面变异造成的基址解析失败，看不出是哪一条变异破坏了哪个断言。
+
+**每一段之前脚本都先确认默认端口可绑定**（`tools/ats103-probes/lib/port-free.mjs`，有界等待，超时即报错退出）。原因见 §4.5：一个端口被占用会让该段的**每一条**断言都变红，而那与被测的变异无关——那样的日志描述的是端口，不是变异。
 
 **A 与 A′ 证明的是不同的东西，不能互相顶替**：A 之所以整篇变红，是因为 Next.js 在**构建期**就拒绝了那个 handler，导出根本没生成——它**没有**执行到「遍历导出目录的每个文件」这段逻辑；A′ 才是让**那段逻辑**变红的形状（构建成功、handler 进入 `out/api/**`）。
 
@@ -462,13 +480,54 @@ GET /_not-found/   -> 404  同上
 
 这**不是 ATS-103 引入的回归**：用 `git archive` 导出的干净树在 ATS-103 合入 `dev` **之前**复跑同样报 `MISMATCH`。修法按 ATS-215 合并 `dev` 之后的既有做法，把位置校正为实测位置（ADR 其它段落引用的本来就是校正后的 `:262` / `:1419`，这两处是漏改）。
 
+### 4.5 第 4 轮返工：端口被占用的真实成因
+
+第 3 轮复核驳回的两项里，D2 是「变异 A′ 的入库日志被端口占用污染」。**本节记录被实测确认的成因**——它不是「端口没释放」这么笼统，而是三件各自独立、必须分别处理的事：
+
+**(a) 一个被 TerminateProcess 杀掉的进程，它的监听套接字会留成「僵尸」。**
+
+在 Windows 上，进程被 `TerminateProcess`（`child.kill()` 在 Windows 上的实现）杀掉时，**不会优雅地关闭它的套接字**。实测（`netstat -ano`）：探针跑完后，默认端口上留下一行
+
+```
+TCP    127.0.0.1:4577         127.0.0.1:0            LISTENING       0
+```
+
+——状态是 `LISTENING`，但**属主 PID 是 0**：没有人持有它，它却仍然占着端口。这一行就是「端口被占用而没有人监听」的形态。实测它在**数百毫秒到数秒**内被系统回收。
+
+**这一条与 TIME_WAIT 无关**，两者必须分开：实测一个**服务端**套接字处于 `TIME_WAIT`（本地端点就是该端口）时，随后 `bind()` 仍然**成功**——`TIME_WAIT` 不阻止绑定；真正阻止绑定的是上面那个 `LISTENING` + PID 0 的僵尸行。判定端口是否可用，**必须用一次真实的 `bind()`**，不能读套接字表（表里的 `TIME_WAIT` 行会给出错误答案）。
+
+**(b) 探针清理时只杀了 Bridge，没有杀它拉起的子进程。**
+
+Bridge 会拉起 Playwright 驱动与浏览器。实测在 Bridge 被 `child.kill()` 杀掉之后，这些后代进程**仍然存活**（实测树：Bridge → node → node → `chrome-headless-shell` ×3）。因此探针的清理改为**结束整棵进程树**（Windows 上用 `taskkill /PID <pid> /T /F`）。
+
+**(c) 采集脚本的各段之间没有等待端口可用。**
+
+即使 (a)、(b) 都修了，一段探针刚退出、下一段立刻起跑时，端口**仍可能**处于僵尸窗口内。实测复现的顺序是：
+
+```
+HTTP 探针 → ui-smoke（同源）→ ui-smoke（跨源）→ ui-smoke（非默认端口）→ HTTP 探针
+```
+
+在这个顺序下，最后那个 HTTP 探针报出 **34 处** `port 4577 is already in use`，25 项检查里 18 项因端口失败——**与被测的产品行为毫无关系**，却把整段日志染成了红色。
+
+**修法（三处一起，缺一不可）**：
+
+1. 两个探针在启动 Bridge 之前**等待端口可绑定**（有界等待；真的被占用仍然失败关闭——探针绝不能去跟一个别的服务器说话）；
+2. 两个探针在结束时**结束整棵进程树**，并**等待端口重新可绑定**；
+3. 变异证据脚本的**每一段之前**都先确认端口可绑定（`tools/ats103-probes/lib/port-free.mjs`，有界等待，超时即报错退出并让整份日志以非 0 退出）。
+
+**修后实测**：同样的顺序复跑，`already in use` 出现 **0** 次，最后那个 HTTP 探针 **25/25、退出码 0**；变异 A′ 段实测 **24/25**，唯一变红的是文件树断言（`found: api/session`），全文不再出现 `already in use`。
+
+**(d) 复核提出的根因猜想（后代进程继承了监听套接字）经实测**不成立**：后代进程确实会存活（见 (b)），但它们**不持有**那个监听套接字——杀掉 Bridge 之后端口立刻可绑定（实测 15–49 ms）。真正占住端口的是 (a) 的僵尸套接字。两条都修，是稳妥的做法；但**归因必须写准**，否则下一个修的人会去查错的地方。
+
 ## 5. 交付物清单
 
 | 路径 | 类型 | 内容 |
 |---|---|---|
 | `tools/ats103-probes/verify-export-and-proxy.mjs` | 新增 | **25 项**检查的 IT 验证脚本（静态导出 → Bridge → API 全链），可重复执行，退出码即结论；检查项数是常量，缺项即 FAIL |
 | `tools/ats103-probes/ui-smoke.mjs` | 新增 | **8 项**检查的 ST 验证脚本：在真实 headless Chromium 里驱动导出的那一页（会话 → 添加项目 → 运行到终态），断言 console error 为 0；同时是「基址在运行时解析」的**可执行判别**（页面按主机名 `localhost` 打开，记录 API 请求实际去的 host） |
-| `tools/ats103-probes/lib/default-port.mjs` | 新增 | 从产品源码 `server/index.mjs` 读出 Bridge 的默认端口（探针自身不写端口字面量） |
+| `tools/ats103-probes/lib/default-port.mjs` | 新增 | 从产品源码 `server/index.mjs` 读出 Bridge 的默认端口（探针自身不写端口字面量）；带 `--print` 供 shell 脚本使用 |
+| `tools/ats103-probes/lib/port-free.mjs` | 新增 | 端口管理：等待端口可绑定（真实 `bind()` 判定）、结束整棵进程树、结束进程后等待端口释放；带 `--wait` 供 shell 脚本使用 |
 | `tools/ats103-probes/mutation-evidence.sh` | 新增 | 五个变异（A 未声明 `force-static` 的路由 / A′ 声明了 `force-static` 的路由 / B 构建期烘焙基址 / B2 烘焙基址+无关端口比较 / C 引擎缺失）的证据脚本 |
 | `tools/ats103-probes/collect-evidence.sh` | 修改 | 证据收集：构建、IT、ST、跨源 ST、变异、`npm test`、WBS 共存回归、**端口审计**、**ADR 引用校验**、**构建门禁** |
 | `docs/evidence/ATS-103/01-export-and-proxy-verification.log` | 新增 | §3.3 的完整运行日志 |

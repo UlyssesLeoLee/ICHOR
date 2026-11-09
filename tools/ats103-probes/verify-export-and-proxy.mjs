@@ -47,11 +47,11 @@
  */
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defaultPort } from './lib/default-port.mjs';
+import { stopChildAndReleasePort, waitForPortFree } from './lib/port-free.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT_DIR = path.join(REPO_ROOT, 'apps', 'studio', 'out');
@@ -187,16 +187,6 @@ function walkExport(dir, prefix = '') {
     else out.push(rel);
   }
   return out;
-}
-
-/** Whether the port is free. A busy port would make the probe talk to a DIFFERENT server. */
-function portIsFree(port) {
-  return new Promise((resolve) => {
-    const srv = net.createServer();
-    srv.once('error', () => resolve(false));
-    srv.once('listening', () => srv.close(() => resolve(true)));
-    srv.listen(port, '127.0.0.1');
-  });
 }
 
 /**
@@ -358,7 +348,16 @@ async function main() {
   );
 
   // --- 2. the Bridge serves the export -----------------------------------
-  if (!(await portIsFree(PORT))) {
+  // The port has to be bindable. On Windows a process that was killed with
+  // TerminateProcess leaves its listening socket behind as a ZOMBONE
+  // (netstat still shows it as LISTENING, its owning PID is 0) for a
+  // moment, so a probe that starts right after the previous one can find
+  // the port un-bindable although nobody is listening on it. The port is
+  // therefore WAITED FOR, not merely checked once: a genuinely busy port
+  // is still refused (the probe fails closed), but a port that is only
+  // waiting to be reaped becomes usable.
+  const portWaited = await waitForPortFree(PORT, 10000);
+  if (portWaited === null) {
     failRemaining(`port ${PORT} is already in use -- the probe would talk to a DIFFERENT server`);
     return finish();
   }
@@ -528,7 +527,12 @@ async function main() {
     const runs = await runsRes.json();
     check('GET /api/runs lists the run history', runsRes.status === 200 && Array.isArray(runs.runs) && runs.runs.length >= 1, `${runs.runs?.length ?? 0} runs`);
   } finally {
-    child.kill();
+    // The Bridge spawns the Playwright driver and its browser, so ending
+    // only the Bridge would leave those running. The whole tree is ended,
+    // and the port is WAITED FOR afterwards: on Windows a killed process
+    // leaves its listening socket behind as a zombie for a moment, and the
+    // next probe would otherwise find the port busy.
+    await stopChildAndReleasePort(child, PORT);
     try { fs.rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
   }
   return finish();
