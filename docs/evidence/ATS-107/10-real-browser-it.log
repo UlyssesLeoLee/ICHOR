@@ -1,44 +1,22 @@
 === ATS-107 evidence: the same criterion from the API's side: a real Bridge over HTTP running the real fixture (IT-ATS107-001..003) ===
-date        : 2026-11-09T17:59:38Z (UTC)
-commit      : 36f4a8c0675dc0e51a033bb5d6d670e9c7bdbd08
+date        : 2026-11-09T18:13:57Z (UTC)
+commit      : 4cff449bb79e4db52f1eba8383c078373461c9e3
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command     : node --test tests/ats107-real-browser-it.test.mjs
 
-(node:28724) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(node:15192) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
 (Use `node --trace-deprecation ...` to show where the warning was created)
-✔ IT-ATS107-001: the Bridge runs the real fixture and reports one PASS and one FAIL (8824.5894ms)
-✔ IT-ATS107-002: the run really launched a Chromium (the trace has a browser context) (8214.7846ms)
-✔ IT-ATS107-003: the failing case carries the engine's own error message, in full (8304.4361ms)
-✖ C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-15-59dbe8ad8cb3\worktree\tests\ats107-real-browser-it.test.mjs (98.0302ms)
-ℹ tests 4
+✔ IT-ATS107-001: the Bridge runs the real fixture and reports one PASS and one FAIL (9368.4344ms)
+✔ IT-ATS107-002: the run really launched a Chromium (the trace has a browser context) (8530.4662ms)
+✔ IT-ATS107-003: the failing case carries the engine's own error message, in full (8286.3482ms)
+ℹ tests 3
 ℹ suites 0
 ℹ pass 3
-ℹ fail 1
+ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 26555.6881
-
-✖ failing tests:
-
-test at tests\ats107-real-browser-it.test.mjs:127:6
-✖ C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-15-59dbe8ad8cb3\worktree\tests\ats107-real-browser-it.test.mjs (98.0302ms)
-  Error: ENOTEMPTY, Directory not empty: \\?\C:\Users\seiko\AppData\Local\Temp\ats107-it-data-C9Na8f '\\?\C:\Users\seiko\AppData\Local\Temp\ats107-it-data-C9Na8f'
-      at Object.rmSync (node:fs:1283:18)
-      at TestContext.<anonymous> (file:///C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-15-59dbe8ad8cb3/worktree/tests/ats107-real-browser-it.test.mjs:134:6)
-      at TestHook.runInAsyncScope (node:async_hooks:227:14)
-      at TestHook.run (node:internal/test_runner/test:1382:25)
-      at TestHook.run (node:internal/test_runner/test:1726:18)
-      at TestHook.run (node:internal/util:581:20)
-      at Test.runHook (node:internal/test_runner/test:1269:20)
-      at after (node:internal/test_runner/test:1322:20)
-      at Test.run (node:internal/test_runner/test:1408:13)
-      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
-    errno: 41,
-    code: 'ENOTEMPTY',
-    path: '\\\\?\\C:\\Users\\seiko\\AppData\\Local\\Temp\\ats107-it-data-C9Na8f',
-    syscall: 'rm'
-  }
-exit code   : 1
+ℹ duration_ms 37382.9398
+exit code   : 0

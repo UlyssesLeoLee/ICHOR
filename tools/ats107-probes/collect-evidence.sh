@@ -205,7 +205,7 @@ header 07-baseline-regression.log "baseline regression: npm test / node --check 
   ATS203_FILES="tests/ats203-index-api.test.mjs tests/ats203-index-it.test.mjs tests/ats203-regression-dataset.test.mjs"
   BASELINE="${ATS107_BASELINE:-0e34299}"
   echo "baseline commit : $BASELINE"
-  echo "engine (this tree)   : $(node -e "try{console.log(require('$NATIVE_ROOT/examples/sample-playwright/node_modules/@playwright/test/package.json').version)}catch(e){console.log('<not installed in this tree>')}")"
+  echo "engine (this tree)   : $(node -e "const c=['$NATIVE_ROOT/examples/sample-playwright/node_modules','D:/ICHOR/examples/sample-playwright/node_modules'];for(const d of c){try{console.log(require(d+'/@playwright/test/package.json').version+' ('+d+')');break}catch(e){}}")"
   echo "";
   echo "--- this tree ---";
   node --test $ATS203_FILES 2>&1 | grep -E '^(✖|ℹ (tests|pass|fail|skipped))' ; echo "exit code   : ${PIPESTATUS[0]}"; echo "";
@@ -214,12 +214,13 @@ header 07-baseline-regression.log "baseline regression: npm test / node --check 
   rm -rf "$BASE_DIR"; mkdir -p "$BASE_DIR"
   git archive "$BASELINE" | tar -x -C "$BASE_DIR"
   ( cd "$BASE_DIR" && node --test $ATS203_FILES 2>&1 | grep -E '^(✖|ℹ (tests|pass|fail|skipped))' ); echo "exit code   : ${PIPESTATUS[0]}"
-  echo "engine (baseline tree): $(node -e "try{console.log(require('$BASE_DIR/examples/sample-playwright/node_modules/@playwright/test/package.json').version)}catch(e){console.log('<not installed in the baseline tree>')}")"
+  echo "engine (baseline tree): $(node -e "const c=['$BASE_DIR/examples/sample-playwright/node_modules','D:/ICHOR/examples/sample-playwright/node_modules'];for(const d of c){try{console.log(require(d+'/@playwright/test/package.json').version+' ('+d+')');break}catch(e){}}")"
   rm -rf "$BASE_DIR"
   echo "";
-  echo "NOTE: the two blocks above are the MEASURED comparison. The ATS-203"
-  echo "      failures belong to ATS-203 (the authoritative-discovery index),"
-  echo "      not to this task; this task neither caused nor fixed them."
+  echo "NOTE: the two blocks above are the MEASURED comparison -- the same"
+  echo "      three files, on this tree and on the baseline tree, with the"
+  echo "      engine version on both sides. A failure that appears on BOTH"
+  echo "      sides is not caused by this task."
   echo "";
   echo "--- node --check ---"; node --check server/index.mjs && echo "OK"; echo "";
   echo "--- port audit (ATS-101 scenario D) ---"; node tools/ats101-probes/scenario-d-port-audit.mjs 2>&1 | tail -16; echo "exit code   : ${PIPESTATUS[0]}"; echo "";
