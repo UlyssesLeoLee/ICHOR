@@ -77,6 +77,19 @@ ST `tests/ats203-index-api.test.mjs`（基线 8 例，含 SETUP/CLEANUP）：M1 
 
 真实 Playwright 的版本：**1.64.1**（`examples/sample-playwright/node_modules`，通过 junction 接入夹具，未安装任何东西）。
 
+### 4.1 合入 dev 之后的复跑
+
+整改先在任务分支上完成，再把 `dev` 合回来。冲突三处（见 §6），合入后在**合并后的树**上复跑：
+
+| 命令 | 结果 |
+|---|---|
+| `node --test tests/ats203-regression-dataset.test.mjs` | 11 pass / 0 fail |
+| `node --test tests/ats203-index-it.test.mjs` | 9 pass / 0 fail |
+| `node --test tests/ats203-index-api.test.mjs` | 8 pass / 0 fail |
+| `bash tools/ats501-probes/check-wbs-updaters.sh` | RESULT: OK（**28** 个更新器，dev 新增了 ATS-106/215/403 的更新器） |
+| `python tools/update_wbs_ats203.py --verify-only` | PASS |
+| `node --test tests/*.test.mjs` | 见 `full-test-suite.log`（合并后的树） |
+
 ---
 
 ## 5. 关键实测事实（本轮纠正的与旧结论相反的说法）
@@ -94,6 +107,16 @@ ST `tests/ats203-index-api.test.mjs`（基线 8 例，含 SETUP/CLEANUP）：M1 
 - 合回 `dev` 用 `git merge --no-ff`（见提交记录）。
 - **未合入** `775787f`（`{`、`t.ambiguity`、`.serena/`）与 `38fd216`（`hs_err_pid*.log`）—— 这两个提交仍在 `agent/haiku/seikoist-165` 上，没有进入本分支。
 - 证据在 `docs/evidence/ATS-203/`，CHECKSUMS 在交付后用 `tools/update_checksums.py` 重新生成。
+
+### 6.1 合入 dev 时的三处冲突
+
+冲突不是「取 ours 还是 theirs」的问题，两边都往同一处加了东西，所以逐个按三方比对解决：
+
+| 冲突 | 解法 | 校验 |
+|---|---|---|
+| `docs/08-IT-TEST-DESIGN.md`、`docs/09-ST-TEST-DESIGN.md` | 两边都往同一张表里加了行。取**并集**（按行 ID 去重），头部计数由合并后的表重算。工具 `tools/ats203-probes/resolve-design-docs.py` | dev 的行一条不少、我方的行一条不少、合并后无重复 ID；计数与表一致 |
+| `docs/WBS.xlsx` | 二进制。取 dev 的工作簿（它带着其它任务写的行），再在它上面跑本任务的更新器 | 28 个更新器共存回归 RESULT: OK；本行 `--verify-only` PASS；其它 25 个任务的 marker 一条没丢；总览 D6/D7 都带 ATS-203 片段 |
+| `server/core.mjs`、`server/uid.mjs` | 无冲突——dev 没有动这两处的相关行 | 合并后 `server/` 相对 dev 的差异只有本任务的那 5 个文件（127 行），ATS-203 的三层复跑全绿 |
 
 ---
 
