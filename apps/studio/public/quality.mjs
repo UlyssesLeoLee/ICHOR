@@ -337,9 +337,9 @@ function identityOfCase(c) {
  *
  * The identity is built from the facts that are available, in this order:
  *
- *   1. the DESCRIBE PATH and the LINE, when the stored summary carries
- *      them -- two same-titled cases of one file under different describes
- *      are two cases;
+ *   1. the DESCRIBE PATH, when the stored summary carries one -- two
+ *      same-titled cases of one file under different describes are two
+ *      cases;
  *   2. the CASE KEY, when the stored summary carries one and the describe
  *      path is not available (the WebdriverIO adapter keys its cases on
  *      the file, the title and the ordinal of the group inside the suite);
@@ -347,6 +347,41 @@ function identityOfCase(c) {
  *      neither -- the identity is then as coarse as the data allows, and a
  *      collision inside one run is REPORTED instead of being merged
  *      silently.
+ *
+ * WHY THE LINE IS NOT PART OF THE KEY
+ * ----------------------------------
+ * The line is the position of the case in the test file, and the position
+ * of a case changes whenever anything above it changes -- a new import, a
+ * new test, a comment. A key that contains the line therefore splits the
+ * history of one case into two at every such edit: the case passed before
+ * the edit and failed after it, and the overview reports two cases that
+ * each look stable instead of one case that is unreliable.
+ *
+ * The line carries no disambiguation power that the describe path does not
+ * already carry, because the engine itself rejects the duplicates that a
+ * line would have to separate. Measured with Playwright 1.64.1
+ * (`tools/ats216-probes/identity-probe.mjs`):
+ *
+ *   - two tests with the same title in the SAME describe -> the engine
+ *     refuses to run the file ("duplicate test title");
+ *   - two describes with the same NAME and the same test title -> the
+ *     engine refuses to run the file ("duplicate test title");
+ *   - two describes with DIFFERENT names and the same test title -> the
+ *     engine runs both, and the describe path tells them apart;
+ *   - the same title path in two files -> the engine runs both, and the
+ *     file tells them apart.
+ *
+ * So within one file the pair (describe path, title) is already unique --
+ * the engine guarantees it -- and the line is a fact that moves. The key
+ * therefore uses the describe path, not the line.
+ *
+ * The line still says whether the summary carries an engine-level identity
+ * at all: a summary that carries a line carries a describe path, even when
+ * that path is empty (a case declared outside any describe). Such a
+ * summary is keyed on (file, describe path, title); a summary that carries
+ * neither a describe path nor a line (the WebdriverIO one) falls back to
+ * the case key, and a summary that carries neither falls back to the file
+ * and the title.
  *
  * The key is the JSON encoding of the facts, not the values joined by a
  * separator: a separator character could occur inside a title or a path,
@@ -367,7 +402,7 @@ export function testKeyOf(file, title, identity = null) {
     ? identity.caseKey
     : null;
   if (scope.length || line !== null) {
-    return JSON.stringify([String(file ?? ''), scope, line, String(title ?? '')]);
+    return JSON.stringify([String(file ?? ''), scope, String(title ?? '')]);
   }
   if (caseKey) return JSON.stringify([caseKey]);
   return JSON.stringify([String(file ?? ''), String(title ?? '')]);
@@ -607,10 +642,20 @@ export function buildQualityOverview(runs, options = {}) {
   /** @type {QualityCaseRef[]} */
   const inconclusiveCases = [];
   /**
-   * The case statuses as they were WALKED, counted independently of the
-   * buckets. The reconciliation compares the two, so a bucket that lost or
-   * duplicated a case is caught. It counts only the cases of runs that
-   * carry a verdict -- the same population the buckets hold.
+   * The case statuses as they were WALKED. The reconciliation compares
+   * them with the buckets, so a bucket that lost or duplicated a case is
+   * caught. It counts only the cases of runs that carry a verdict -- the
+   * same population the buckets hold.
+   *
+   * The count is filled in the SAME walk, in the SAME branch, from the
+   * SAME `caseStatus` that fills the bucket. It therefore catches a bucket
+   * that lost or duplicated a case -- a push that did not happen, or one
+   * that happened twice. It does NOT catch a case that was put in the
+   * WRONG bucket: the classification is the shared premise of both
+   * numbers, not an independent derivation of one of them. What catches a
+   * wrong classification is the check that compares the number the
+   * interface DISPLAYS with the counter the bridge reported -- those two
+   * come from different places.
    */
   const walkedByStatus = {};
   for (const s of CASE_STATUSES) walkedByStatus[s] = 0;
@@ -911,9 +956,8 @@ export function buildQualityOverview(runs, options = {}) {
 
   for (const s of CASE_STATUSES) {
     // The bucket must hold exactly the cases of that status that were
-    // walked. The count is derived from the raw case list of the run,
-    // independently of the bucket, so a bucket that lost or duplicated a
-    // case is caught.
+    // walked. Both numbers come from the same walk of the raw case list of
+    // the run, so this catches a bucket that lost or duplicated a case.
     const walkedInBucket = walkedByStatus[s] ?? 0;
     addCheck(
       `the ${s} bucket count matches the cases of that status`,

@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：171；已执行通过：157；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：184；已执行通过：170；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -67,8 +67,8 @@
 |IT-PLG-015|NFR-002|安全|未知档位的错误体不泄漏内部细节|tier=toString|响应体不含 JS 内部错误文本，也不含本机路径|node --test|PASS|
 |IT-PLG-CLEANUP|NFR-005|清理|插件 API 子进程与夹清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
 |IT-SEC-SETUP|NFR-011|正常|安全面 API 的 bridge 启动|隔离 ATS_DATA_DIR 与随机端口|/api/health=200 并取得 token|node --test|PASS|
-|IT-SEC-001|FR-027|正常|安全契约经 API 暴露|GET /api/security/contract|200 + credential-store/v1 + egress-consent/v1|node --test|PASS|
-|IT-SEC-002|NFR-002|安全|安全端点需要会话 token|不带 X-ATS-Token 访问三个端点|均 401 INVALID_SESSION|node --test|PASS|
+|IT-SEC-027|FR-027|正常|安全契约经 API 暴露|GET /api/security/contract|200 + credential-store/v1 + egress-consent/v1|node --test|PASS|
+|IT-SEC-028|NFR-002|安全|安全端点需要会话 token|不带 X-ATS-Token 访问三个端点|均 401 INVALID_SESSION|node --test|PASS|
 |IT-SEC-003|FR-027|安全|凭据清单只含引用|GET /api/security/credentials|每条引用无 secret 字段，指纹 8 位|node --test|PASS|
 |IT-SEC-004|FR-027|安全|秘密不出现在平台状态文件|写真实凭据库后扫描数据目录|目录内任何文件都不含秘密|node --test (real store)|PASS|
 |IT-SEC-005|FR-027|异常|重名被拒|同名写入两次|400 CREDENTIAL_DUPLICATE|node --test (real store)|PASS|
@@ -150,6 +150,8 @@
 |IT-CP-011|NFR-002|安全|控制面响应不含本地路径与本地 Token|逐条扫描本套件收集的全部控制面响应|不含本地数据目录、本地项目路径、示例仓库路径、家目录、本地 token|node --test|PASS|
 |IT-CP-012|FR-001|回归|本地 Bridge 仍按路径登记项目且控制面看不到|本地 POST /api/projects 示例仓库后查控制面列表|本地 201；控制面列表不含该项目|node --test|PASS|
 |IT-CP-013|NFR-002|安全|控制面拒绝与本地 Bridge 共用端口|ATS_CP_PORT 等于 ATS_PORT 启动控制面|退出码 2，stderr 点名 ATS_CP_PORT|node --test|PASS|
+|IT-CP-014|NFR-002|安全|嵌入的本地 Token 与变量路径被拒且不会被读回|以真实本地会话 Token 构造 Bearer/x-ats-token=/tok 前缀与 $USERPROFILE 等 displayName，再读列表|422 且列表数量不变、响应不含本地 Token|node --test|PASS|
+|IT-CP-015|NFR-002|安全|配置证书时控制面只提供 TLS 1.3|openssl 生成自签证书启动控制面，分别以 TLSv1.3/TLSv1.2 握手并 GET /cp/v1/health|TLSv1.3 成功、TLSv1.2 被拒、health 200；无 openssl 时跳过并记录|node --test|PASS|
 |IT-ATS602-API-001|FR-032|正常|移动端用例出现在 API 提供的目录里|真实 Bridge + 含 Flow 的夹具项目|目录里 web 用例与 4 个移动端用例都在，移动端用例是 TestDefinition|node --test|PASS|
 |IT-ATS602-API-002|FR-032|正常|移动端用例带着步骤与引擎|读取目录里的某个移动端用例|带 engine、appId、tags 与步骤，断言是统一模型的断言|node --test|PASS|
 |IT-ATS602-API-003|FR-032|安全|导入报告随目录一起提供|读取目录的 mobile 段|每个 Flow 一个报告，不支持步骤带原文与行号与原因|node --test|PASS|
@@ -161,6 +163,9 @@
 |IT-ATS602-API-009|FR-032|正常|改标题后移动端用例的 UID 不变|经 HTTP 改写 Flow 的场景标题|UID 不变且 uidSource=registry|node --test|PASS|
 |IT-ATS602-API-010|FR-032|安全|重复的 @TC- token 跨引擎由双方都不绑定|web 用例与移动端用例声明同一个 @TC-100|目录里没有重复 UID，双方都标 duplicate-explicit-uid|node --test|PASS|
 |IT-ATS602-API-011|FR-032|正常|可信项目保留移动端用例|把项目标记为可信后重新读目录|discovery=authoritative 且移动端用例与 mobile 段都在|node --test|PASS|
+|IT-ATS602-API-012|FR-032|安全|经 HTTP：移动端丢掉的 @TC- token 被 Web 用例声明后不再发回|两次读目录之间移动端去掉 @TC-600、Web 用例声明 @TC-600|每次读目录都无重复 UID，Web tc-600/explicit，移动端 derived 并报告注册表冲突|node --test|PASS|
+|IT-ATS602-API-013|FR-032|安全|经 HTTP：复制场景后修改原场景 UID 保持不同|两次读目录之间复制 Checkout 并给原场景加一步|每次读目录都无重复 UID，副本 registry 保留旧 UID，原场景 derived-body|node --test|PASS|
+|IT-ATS602-API-014|FR-032|安全|经 HTTP：可信项目删除用例后同指纹新用例不继承旧 UID|可信项目三次读目录：删 beta 与 Logout，再新增同正文/同步骤的新用例（无真实 Playwright 时跳过并记录原因）|三次都是 discovery=authoritative 且无重复 UID，新用例 UID 与被删的不同且非 registry|node --test|PASS|
 |IT-CP-CLEANUP|NFR-005|清理|控制面 IT 子进程与夹清理|结束 IT suite|两个子进程退出，临时目录删除|node --test|PASS|
 |IT-SQL-001|NFR-010|正常|Bridge 启动并创建元数据数据库|隔离 ATS_DATA_DIR 启动 server/index.mjs|数据目录出现 metadata.db|node --test|PASS|
 |IT-SQL-002|NFR-010|正常|元数据库携带 schema 版本|读 metadata.db 的 meta 表|schema_version 大于 0|node --test|PASS|
@@ -179,6 +184,14 @@
 |IT-DATA-002|NFR-010|可靠性|写入中强杀不留残缺状态|循环保存的进程被强杀 12 次|每次 state.json 都是完整的一代；之后 Bridge 启动清理临时文件且镜像一致|node --test|PASS|
 |IT-WAL-001|NFR-010|恢复|事务中强杀后 WAL 只恢复已提交的行|50 行已提交在 WAL，另 50 行未提交时强杀|integrity_check=ok，已提交的 50 行在、未提交的不在|node --test|PASS|
 |IT-WAL-002|NFR-010|恢复|Bridge 隔离并重建损坏的镜像|metadata.db 为乱码|报 quarantined，保留损坏副本，重建的镜像与 state.json 一致|node --test|PASS|
+|IT-SEC-019|FR-027|正常|requirement 输入 preview→confirm→check 为 200|requirement 默认与显式 ref|200|node --test|PASS|
+|IT-SEC-020|FR-027|正常|run 输入 preview→confirm→check 为 200；未知 run 被拒并审计|真实 run + run_unknown|200；未知为 400 且审计 +1|node --test|PASS|
+|IT-SEC-021|FR-027|安全|持有有效授权时越界 /check 被拒且每次审计 +1|../、绝对路径、混合、junction|400 SCOPE_INVALID；审计+1；条目含请求 ref、无摘要、无内容|node --test|PASS|
+|IT-SEC-022|FR-027|安全|requirement 经 junction 或出 .aitest 被拒|junction、../tests|400 SCOPE_INVALID|node --test|PASS|
+|IT-SEC-023|FR-027|正常|过期授权在列表中为 expired，/check 被拒并审计|ttlSeconds=1|state=expired；403 EGRESS_CONSENT_EXPIRED；审计+1|node --test|PASS|
+|IT-SEC-024|FR-027|异常|未知项目或空输入的 /check 被拒并审计|未知 projectId；inputs=[]|400；审计各 +1|node --test|PASS|
+|IT-SEC-025|FR-027|安全|并发写凭据保持索引与凭据库一致（真实凭据库）|三个并发同名 POST|1 个 201、2 个 CREDENTIAL_DUPLICATE；索引 1 条|node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)|PASS|
+|IT-SEC-026|FR-027|异常|凭据库条目消失后可删除；写失败为 503（真实凭据库）|cmdkey 删除后 DELETE；3000 字节密钥|200 且引用清掉；503 CREDENTIAL_STORE_FAILED|node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)|PASS|
 
 ## 进入与退出条件
 

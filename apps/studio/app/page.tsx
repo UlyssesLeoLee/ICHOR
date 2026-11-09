@@ -178,7 +178,7 @@ export default function Studio(){
       </div></div>
       <div className="card"><div className="card-title"><ShieldAlert size={16}/> 外传审计</div>
        <p className="muted">每一次外传判定都会留痕，<b>放行与拒绝都记</b>。记录里只有 ref、字节数与 SHA-256 摘要——<b>不含内容、不含密钥</b>。</p>
-       {audit.map(r=><div className="result-item" key={r.id}><span className={r.outcome==='allowed'?'ok':'bad'}>{r.outcome==='allowed'?<CheckCircle2 size={15}/>:<XCircle size={15}/>}</span><div><b>{r.event}</b><small>{formatTime(r.at)} · {r.kinds.join('、')||'—'} · {r.itemCount} 项 · {r.totalBytes} 字节{r.code?` · ${r.code}`:''}</small>{r.items.map(i=><small key={i.ref} style={{display:'block'}}>{i.ref} · SHA-256 {i.digest.slice(0,12)}…</small>)}</div></div>)}
+       {audit.map(r=><div className="result-item" key={r.id}><span className={r.outcome==='allowed'?'ok':'bad'}>{r.outcome==='allowed'?<CheckCircle2 size={15}/>:<XCircle size={15}/>}</span><div><b>{r.event}</b><small>{formatTime(r.at)} · {r.kinds.join('、')||'—'} · {r.itemCount} 项 · {r.totalBytes} 字节{r.code?` · ${r.code}`:''}</small>{r.items.map((i,n)=><small key={`${i.ref}-${n}`} style={{display:'block'}}>{i.ref} · {i.digest?`SHA-256 ${i.digest.slice(0,12)}…`:'未读取内容'}</small>)}</div></div>)}
        {!audit.length&&<p className="muted">尚无外传记录。</p>}
       </div>
       <div className="note"><ShieldAlert size={15}/> 未接入模型提供商，因此当前没有任何请求能真正到达模型；本页交付的是凭据存储与外传授权这两道闸门本身。</div>

@@ -25,7 +25,9 @@
  *                                            (取消的运行污染了判定指标)
  *   9. the case identity is reduced to the file and the title
  *                                            (同名的两个用例被合并成一个)
- *  10. the displayed counts are not reconciled with the bridge
+ *  10. the case identity contains the LINE
+ *                                            (用例上方的改动把它的历史切成两段)
+ *  11. the displayed counts are not reconciled with the bridge
  *                                            (界面显示的数不再被核对)
  *
  * The module is restored after every mutation, and the script asserts that
@@ -109,6 +111,15 @@ const MUTATIONS = [
     id: 'the case identity is reduced to the file and the title',
     needle: 'const tkey = testKeyOf(ref.file, ref.title, identity);',
     replacement: 'const tkey = testKeyOf(ref.file, ref.title);',
+  },
+  {
+    // The identity must not contain the LINE: the line is the position of
+    // the case in the file, and the position moves whenever anything above
+    // the case changes. A key that carried it would split the history of
+    // one case into two at every such edit.
+    id: 'the case identity contains the line',
+    needle: "  if (scope.length || line !== null) {\n    return JSON.stringify([String(file ?? ''), scope, String(title ?? '')]);",
+    replacement: "  if (scope.length || line !== null) {\n    return JSON.stringify([String(file ?? ''), scope, line, String(title ?? '')]);",
   },
   {
     // The reconciliation must compare the DISPLAYED numbers with the

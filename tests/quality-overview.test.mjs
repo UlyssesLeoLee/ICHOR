@@ -748,7 +748,10 @@ test('ATS-216-UT-055 two same-titled cases under different describes are TWO tes
   assert.equal(second.passedRuns, 1);
 });
 
-test('ATS-216-UT-055b the LINE separates two same-titled cases of one file', () => {
+test('ATS-216-UT-055b a case declared outside any describe is keyed on the file and the title', () => {
+  // A case outside a describe carries no scope, but the stored summary
+  // carries a line -- so the engine-level identity is there, and the key
+  // is (file, describe path, title).
   const o = buildQualityOverview([
     run('failed', [
       kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'e' }],
@@ -758,8 +761,36 @@ test('ATS-216-UT-055b the LINE separates two same-titled cases of one file', () 
       kase('passed', undefined, { title: 'works', file: 'a.spec.ts', line: 9 }),
     ], { id: 'r2' }),
   ]);
-  assert.equal(o.tests.total, 2, 'the two lines are two tests');
-  assert.equal(o.tests.flaky, 0);
+  assert.equal(o.tests.total, 1, 'the two lines are ONE test -- the line is not part of the key');
+  assert.equal(o.tests.flaky, 1, 'one run passed and one failed: the test is unstable');
+});
+
+test('ATS-216-UT-055g an edit ABOVE a case does not split its cross-run history', () => {
+  // The line is the position of the case in the file, and the position
+  // moves whenever anything above the case changes -- a comment, an
+  // import, another test. A key that carried the line would split the
+  // history of one case into two, and the "unstable" case would be
+  // reported as two stable ones.
+  //
+  // The engine itself rejects the duplicates that a line would have to
+  // separate (measured: tools/ats216-probes/identity-probe.mjs), so the
+  // describe path alone tells two cases of one file apart.
+  const o = buildQualityOverview([
+    run('passed', [
+      kase('passed', undefined, { title: '提交订单', file: 'a.spec.ts', scope: ['结算'], line: 4 }),
+    ], { id: 'r1' }),
+    run('failed', [
+      kase('failed', [{ status: 'failed', retry: 0, duration: 1, error: 'e' }],
+        { title: '提交订单', file: 'a.spec.ts', scope: ['结算'], line: 5 }),
+    ], { id: 'r2' }),
+  ]);
+  assert.equal(o.tests.total, 1, 'the comment above the case did not create a second test');
+  const t = o.tests.list.find((x) => x.title === '提交订单');
+  assert.equal(t.runs, 2, 'both runs belong to the same test');
+  assert.equal(t.passedRuns, 1);
+  assert.equal(t.failedRuns, 1);
+  assert.equal(t.flaky, true, 'one run passed and one failed: the test IS unstable');
+  assert.equal(o.tests.flaky, 1, 'the overview reports the unstable case');
 });
 
 test('ATS-216-UT-055c the CASE KEY separates two cases when the scope is absent', () => {
@@ -817,13 +848,23 @@ test('ATS-216-UT-055f the test key of an identity that carries a scope differs',
     testKeyOf('a.spec.ts', 'T', { scope: ['a'], line: 5 }),
     testKeyOf('a.spec.ts', 'T', { scope: ['b'], line: 5 }));
   assert.notEqual(
-    testKeyOf('a.spec.ts', 'T', { scope: [], line: 5 }),
-    testKeyOf('a.spec.ts', 'T', { scope: [], line: 9 }));
-  assert.notEqual(
     testKeyOf('a.spec.ts', 'T', { caseKey: 'k0' }),
     testKeyOf('a.spec.ts', 'T', { caseKey: 'k1' }));
+  // The line is NOT part of the key: it moves whenever anything above the
+  // case changes, and it separates nothing the describe path does not.
+  assert.equal(
+    testKeyOf('a.spec.ts', 'T', { scope: ['a'], line: 5 }),
+    testKeyOf('a.spec.ts', 'T', { scope: ['a'], line: 9 }));
+  assert.equal(
+    testKeyOf('a.spec.ts', 'T', { scope: [], line: 5 }),
+    testKeyOf('a.spec.ts', 'T', { scope: [], line: 9 }));
   // Without an identity the key falls back to the file and the title.
   assert.equal(testKeyOf('a.spec.ts', 'T'), JSON.stringify(['a.spec.ts', 'T']));
+  // A summary that carries a line but no describe path (a case declared
+  // outside any describe) is keyed on the file and the title.
+  assert.equal(
+    testKeyOf('a.spec.ts', 'T', { scope: [], line: 5 }),
+    JSON.stringify(['a.spec.ts', [], 'T']));
 });
 
 /* ------------------------------------------------------------------ */

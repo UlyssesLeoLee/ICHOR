@@ -79,7 +79,47 @@ function makeHost(overrides = {}) {
     readRequirements: async (projectId) => ({ projectId, requirements: [] }),
     readRunEvidence: async (projectId, runUid) => ({ projectId, runUid, artifacts: [] }),
     resolveEvidenceDigest: async (projectId, runUid, ref) => 'a'.repeat(64),
+    submitProposal: async (proposal) => { proposals.set(proposal.proposalId, structuredClone(proposal)); },
+    getProposal: (proposalId) => proposals.get(proposalId),
+    ...overrides,
+  };
+  return { events, proposals, host };
+}
+
+/**
+ * Host factory for discriminating tests: shallow copy storage.
+ * This host stores proposals with shallow copy to test SDK-level protection.
+ */
+function makeHostShallow(overrides = {}) {
+  const events = [];
+  const proposals = new Map();
+  const host = {
+    audit: (event) => { events.push(event); },
+    readTestFile: async (projectId, file) => ({ projectId, file, content: `content of ${file}`, hash: 'h'.repeat(64) }),
+    readRequirements: async (projectId) => ({ projectId, requirements: [] }),
+    readRunEvidence: async (projectId, runUid) => ({ projectId, runUid, artifacts: [] }),
+    resolveEvidenceDigest: async (projectId, runUid, ref) => 'a'.repeat(64),
     submitProposal: async (proposal) => { proposals.set(proposal.proposalId, { ...proposal }); },
+    getProposal: (proposalId) => proposals.get(proposalId),
+    ...overrides,
+  };
+  return { events, proposals, host };
+}
+
+/**
+ * Host factory for discriminating tests: by-reference storage.
+ * This host stores proposals by reference to test SDK-level protection.
+ */
+function makeHostByRef(overrides = {}) {
+  const events = [];
+  const proposals = new Map();
+  const host = {
+    audit: (event) => { events.push(event); },
+    readTestFile: async (projectId, file) => ({ projectId, file, content: `content of ${file}`, hash: 'h'.repeat(64) }),
+    readRequirements: async (projectId) => ({ projectId, requirements: [] }),
+    readRunEvidence: async (projectId, runUid) => ({ projectId, runUid, artifacts: [] }),
+    resolveEvidenceDigest: async (projectId, runUid, ref) => 'a'.repeat(64),
+    submitProposal: async (proposal) => { proposals.set(proposal.proposalId, proposal); },
     getProposal: (proposalId) => proposals.get(proposalId),
     ...overrides,
   };
@@ -1017,6 +1057,164 @@ test('UT-PLG-061: a TAMPERED proposal cannot be reviewed', async () => {
     codeOf(() => reviewPluginProposal(proposal, { reviewer: 'plugin:evil', decision: 'approved', host })),
     'PLUGIN_PROPOSAL_INVALID',
   );
+});
+
+test('UT-PLG-061-A: nested-only sha256 tampering with deep-copy host is rejected', async () => {
+  const { host } = makeHost();
+  const sdk = createPluginSdk({
+    manifest: baseManifest({ permissions: ['outcome.report'] }),
+    host,
+    tier: 'reporter',
+    projects: [PROJECT],
+  });
+  const proposal = await sdk.reportOutcome(PROJECT, RUN_UID, { summary: 'ok', evidenceRefs: ['e1'] });
+  const tampered = structuredClone(proposal);
+  tampered.evidenceRefs[0].sha256 = 'f'.repeat(64);
+  assert.equal(
+    codeOf(() => reviewPluginProposal(tampered, { reviewer: 'alice', decision: 'approved', host })),
+    'PLUGIN_PROPOSAL_INVALID',
+  );
+});
+
+test('UT-PLG-061-B: nested-only ref tampering with deep-copy host is rejected', async () => {
+  const { host } = makeHost();
+  const sdk = createPluginSdk({
+    manifest: baseManifest({ permissions: ['outcome.report'] }),
+    host,
+    tier: 'reporter',
+    projects: [PROJECT],
+  });
+  const proposal = await sdk.reportOutcome(PROJECT, RUN_UID, { summary: 'ok', evidenceRefs: ['e1'] });
+  const tampered = structuredClone(proposal);
+  tampered.evidenceRefs[0].ref = 'someone-elses-e1';
+  assert.equal(
+    codeOf(() => reviewPluginProposal(tampered, { reviewer: 'alice', decision: 'approved', host })),
+    'PLUGIN_PROPOSAL_INVALID',
+  );
+});
+
+test('UT-PLG-061-C: nested-only sha256 tampering with shallow-copy host is rejected', async () => {
+  const { host } = makeHostShallow();
+  const sdk = createPluginSdk({
+    manifest: baseManifest({ permissions: ['outcome.report'] }),
+    host,
+    tier: 'reporter',
+    projects: [PROJECT],
+  });
+  const proposal = await sdk.reportOutcome(PROJECT, RUN_UID, { summary: 'ok', evidenceRefs: ['e1'] });
+  // Tamper the returned object in-place (not a clone) to detect aliasing defects
+  proposal.evidenceRefs[0].sha256 = 'f'.repeat(64);
+  assert.equal(
+    codeOf(() => reviewPluginProposal(proposal, { reviewer: 'alice', decision: 'approved', host })),
+    'PLUGIN_PROPOSAL_INVALID',
+  );
+});
+
+test('UT-PLG-061-D: nested-only ref tampering with by-ref host is rejected', async () => {
+  const { host } = makeHostByRef();
+  const sdk = createPluginSdk({
+    manifest: baseManifest({ permissions: ['outcome.report'] }),
+    host,
+    tier: 'reporter',
+    projects: [PROJECT],
+  });
+  const proposal = await sdk.reportOutcome(PROJECT, RUN_UID, { summary: 'ok', evidenceRefs: ['e1'] });
+  // Tamper the returned object in-place (not a clone) to detect aliasing defects
+  proposal.evidenceRefs[0].ref = 'someone-elses-e1';
+  assert.equal(
+    codeOf(() => reviewPluginProposal(proposal, { reviewer: 'alice', decision: 'approved', host })),
+    'PLUGIN_PROPOSAL_INVALID',
+  );
+});
+
+test('UT-PLG-061-E: adding evidence entry is rejected', async () => {
+  const { host } = makeHost();
+  const sdk = createPluginSdk({
+    manifest: baseManifest({ permissions: ['outcome.report'] }),
+    host,
+    tier: 'reporter',
+    projects: [PROJECT],
+  });
+  const proposal = await sdk.reportOutcome(PROJECT, RUN_UID, { summary: 'ok', evidenceRefs: ['e1'] });
+  const tampered = structuredClone(proposal);
+  tampered.evidenceRefs.push({ ref: 'fake', sha256: 'f'.repeat(64) });
+  assert.equal(
+    codeOf(() => reviewPluginProposal(tampered, { reviewer: 'alice', decision: 'approved', host })),
+    'PLUGIN_PROPOSAL_INVALID',
+  );
+});
+
+test('UT-PLG-061-F: removing evidence entry is rejected', async () => {
+  const { host } = makeHost();
+  const sdk = createPluginSdk({
+    manifest: baseManifest({ permissions: ['outcome.report'] }),
+    host,
+    tier: 'reporter',
+    projects: [PROJECT],
+  });
+  const proposal = await sdk.reportOutcome(PROJECT, RUN_UID, { summary: 'ok', evidenceRefs: ['e1', 'e2'] });
+  const tampered = structuredClone(proposal);
+  tampered.evidenceRefs = [];
+  assert.equal(
+    codeOf(() => reviewPluginProposal(tampered, { reviewer: 'alice', decision: 'approved', host })),
+    'PLUGIN_PROPOSAL_INVALID',
+  );
+});
+
+test('UT-PLG-061-G: replacing evidence entry with non-object is rejected', async () => {
+  const { host } = makeHost();
+  const sdk = createPluginSdk({
+    manifest: baseManifest({ permissions: ['outcome.report'] }),
+    host,
+    tier: 'reporter',
+    projects: [PROJECT],
+  });
+  const proposal = await sdk.reportOutcome(PROJECT, RUN_UID, { summary: 'ok', evidenceRefs: ['e1'] });
+  const tampered = structuredClone(proposal);
+  tampered.evidenceRefs[0] = 'not-an-object';
+  assert.equal(
+    codeOf(() => reviewPluginProposal(tampered, { reviewer: 'alice', decision: 'approved', host })),
+    'PLUGIN_PROPOSAL_INVALID',
+  );
+});
+
+test('UT-PLG-061-POST-APPROVAL: post-approval mutations do not affect the approved result', async () => {
+  const { host } = makeHost();
+  const sdk = createPluginSdk({
+    manifest: baseManifest({ permissions: ['outcome.report'] }),
+    host,
+    tier: 'reporter',
+    projects: [PROJECT],
+  });
+  const proposal = await sdk.reportOutcome(PROJECT, RUN_UID, { summary: 'ok', evidenceRefs: ['e1'] });
+  const approved = reviewPluginProposal(proposal, { reviewer: 'alice', decision: 'approved', host });
+  proposal.evidenceRefs[0].sha256 = 'f'.repeat(64);
+  assert.equal(approved.evidenceRefs[0].sha256, 'a'.repeat(64));
+  assert.notEqual(approved, proposal);
+  assert.notEqual(approved.evidenceRefs, proposal.evidenceRefs);
+});
+
+test('UT-PLG-061-IDENTITY: SDK returns distinct objects, host record is frozen', async () => {
+  let submitted = null;
+  const { host: origHost } = makeHost();
+  const host = {
+    ...origHost,
+    submitProposal: async (p) => {
+      submitted = p;
+      return origHost.submitProposal(p);
+    },
+  };
+  const sdk = createPluginSdk({
+    manifest: baseManifest({ permissions: ['outcome.report'] }),
+    host,
+    tier: 'reporter',
+    projects: [PROJECT],
+  });
+  const returned = await sdk.reportOutcome(PROJECT, RUN_UID, { summary: 'ok', evidenceRefs: ['e1'] });
+  assert.notEqual(submitted, returned);
+  assert.ok(Object.isFrozen(submitted));
+  assert.ok(Object.isFrozen(submitted.evidenceRefs[0]));
+  assert.ok(!Object.isFrozen(returned));
 });
 
 test('UT-PLG-062: a review without the host record store is refused', async () => {

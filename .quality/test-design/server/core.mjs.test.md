@@ -2,7 +2,7 @@
 
 Source: `server/core.mjs`
 
-Source-SHA256: `baacd433f122a4cc8c356cb6af502644b16fc48cb77534987623a48b51e2b688`
+Source-SHA256: `38e25f836d865a51252b5b84bbf9d635209a0221dc9274c7212df3e1e388b945`
 
 ## Test Strategy
 
@@ -16,6 +16,8 @@ The tests use `node --test`.
 **Process-level integration tests.** `tests/instance-lock-it.test.mjs` starts real `node server/index.mjs` processes on ports from `tests/helpers/free-port.mjs`. Every instance gets its own port, so a busy port can never be the reason for a refusal.
 
 **Regression suite.** The existing `tests/migrate-regressions.test.mjs` (UT-MIG-REG-001..015) runs unchanged and pins the lock semantics that the migration tools rely on.
+
+Unit tests in `tests/preflight.test.mjs` call `safeRunArgs` on a fake project whose CLI prints a `--help` that declares `--output`.
 
 ## Test Cases
 
@@ -45,7 +47,11 @@ The tests use `node --test`.
 | TC-022 | UT-WAL-002: mirror replaced by non-database bytes (with `-wal`/`-shm` siblings present) | `quarantined`; the damaged file is moved to `metadata.db.corrupt-*` together with any `-wal`/`-shm` that still exist (SQLite may already have discarded them when it opened the damaged file); no `metadata.db`, `-wal` or `-shm` remains; the next `saveState` rebuilds a mirror that `verifyMirror` accepts | `tests/instance-lock.test.mjs` |
 | TC-023 | UT-WAL-003: mirror with an overwritten b-tree page | `quick_check` problems → `quarantined` with the problem text in `reason` | `tests/instance-lock.test.mjs` |
 | TC-024 | UT-WAL-004: mirror whose `schema_version` is in the future; a `metadata.db` path that is a directory; rename of a damaged file fails (injected `EBUSY`) | `ok` and kept (a newer schema is not damage); `unchecked` and left alone; `quarantine-failed` with the reason | `tests/instance-lock.test.mjs` |
+| TC-026 | UT-MOB-315: `authoritativeCatalog` with a synthetic listing; a web case and a scenario deleted in discovery 2, same-fingerprint new cases in discovery 3; a retitled scenario | the new cases do not receive the deleted uids; the merged cell drops the deleted entries after discovery 2 and holds one entry per uid with the newest title | `tests/mobile-import.test.mjs` |
+| TC-027 | UT-MOB-312/313/314 and IT-ATS602-API-012/013/014: the explicit token census and the collision rule through `discoverStatic` and the HTTP API | no duplicate uid in any catalogue; see `.quality/test-design/server/discovery/mobile-import.mjs.test.md` | `tests/mobile-import*.test.mjs` |
 | TC-025 | IT-LOCK-001..006, IT-DATA-001..002, IT-WAL-001..002: real Bridge processes (second instance refused while the first serves, simultaneous start, hard kill and takeover with an interrupted run, wait for the lock, taken-over lock stops the Bridge, deleted lock re-acquired, damaged state refused, kill during saves, WAL replay after a kill mid-transaction, damaged mirror rebuilt) | see `.quality/test-design/server/index.mjs.test.md` | `tests/instance-lock-it.test.mjs` |
+| UT-CORE-106-001 | Fake CLI declaring `--output`; `safeRunArgs(project, "tests/a.spec.ts", outDir)` | vector contains `--output <outDir>/results` and ends with `tests/a.spec.ts`; no `TypeError` | `tests/preflight.test.mjs` |
+| UT-CORE-106-002 | `safeRunArgs(project, "-x.spec.ts", outDir)` with the file present | throws `INVALID_TEST_FILTER` | `tests/preflight.test.mjs` |
 
 ## Boundary & Failure Cases
 
@@ -56,6 +62,8 @@ The tests use `node --test`.
 - The WAL test kills the writer while it prints `IN-TX` inside an open transaction, never after a sleep, so the kill point is deterministic.
 - A power cut differs from a process kill: a kill does not drop the OS page cache. So the fsync-before-rename ordering is asserted directly (TC-017), not inferred from the kill tests.
 
+Without a CLI the existing `PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT` is kept.
+
 ## Regression Scope
 
 - `tests/migrate-regressions.test.mjs` (lock semantics used by the migrations).
@@ -63,3 +71,5 @@ The tests use `node --test`.
 - `tests/sqlite-bridge.test.mjs` (mirror retry behaviour).
 - `tests/execution-model-it.test.mjs` (crash recovery to `interrupted`).
 - The full `npm test` at `--test-concurrency=2`.
+
+`tests/core.test.mjs` and the ATS-202 discovery suites.
