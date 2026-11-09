@@ -38,8 +38,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve as pathResolve } from 'node:path';
 import {
-  attemptUidFor, bodyKeyOf, findTestUid, normalizeTestPath, scanTestCases,
+  attemptUidFor, bodyKeyOf, extractExplicitUid, findTestUid, normalizeTestPath, scanTestCases,
 } from '../uid.mjs';
+import { bindReported } from '../identity.mjs';
 
 /* ------------------------------------------------------------------ */
 /* The vocabulary                                                     */
@@ -204,6 +205,20 @@ export function outcomeOf(status, expectedStatus) {
  * An outcome of `unknown` (no declared expectation) does not decide
  * anything: a case whose projects say nothing keeps the `unknown` outcome,
  * and the STATUS aggregation decides it.
+ *
+ * AN UNKNOWN OUTCOME DOES NOT MAKE THE LIST `expected`.
+ *
+ * Dropping the unknown outcomes and then declaring the rest `expected`
+ * would claim that EVERY outcome in the list was `expected` -- including
+ * the one that said nothing at all. That claim is not evidence: an engine
+ * that declares no expectation (WDIO) gives every execution the `unknown`
+ * outcome, so a list that mixes `skipped` with `unknown` would be read as
+ * `expected`, and the STATUS aggregation would then rewrite a FAILED case
+ * as `passed` (the case failed, but the outcome claims it was expected).
+ *
+ * So `expected` is a claim about EVERY outcome in the list, and a list that
+ * holds an unknown outcome cannot make that claim: it stays `unknown` --
+ * the honest answer for an engine that declared nothing.
  */
 export function aggregateOutcomes(outcomes) {
   const list = Array.isArray(outcomes) ? outcomes : [];
@@ -212,6 +227,10 @@ export function aggregateOutcomes(outcomes) {
   if (list.every((o) => o === OUTCOME.SKIPPED)) return OUTCOME.SKIPPED;
   if (known.some((o) => o === OUTCOME.UNEXPECTED)) return OUTCOME.UNEXPECTED;
   if (known.some((o) => o === OUTCOME.FLAKY)) return OUTCOME.FLAKY;
+  // `expected` claims EVERY outcome in the list was expected. An unknown
+  // outcome is not part of that claim, so the list is only `expected` when
+  // it holds no unknown at all.
+  if (list.some((o) => o === OUTCOME.UNKNOWN)) return OUTCOME.UNKNOWN;
   return OUTCOME.EXPECTED;
 }
 
@@ -251,16 +270,40 @@ export function outcomeOfVerdict(verdict) {
  * passed". The verdicts are what tell them apart, so they are used when the
  * engine provides them.
  *
- * Returns null when no verdict is known -- the caller then falls back to
- * the aggregation of the attempt statuses (which is what an engine that
- * declares no per-project verdict, such as WDIO, needs).
+ * AN UNKNOWN VERDICT NEVER BECOMES `passed`.
+ *
+ * A verdict the model does not know is `unknown`, and `unknown` is not
+ * evidence of a success. The rule above would classify a list of unknown
+ * verdicts as `passed` (it falls through to the last case), which would
+ * turn a case whose execution FAILED into a passed case -- the summary
+ * would then contradict the exit code of the engine, which is exactly the
+ * defect the `outcome` vocabulary was introduced to prevent.
+ *
+ * So an unknown verdict does NOT decide the case: it is dropped from the
+ * decision, and the KNOWN verdicts decide it. A list that holds only
+ * unknown verdicts decides nothing, and the caller falls back to the
+ * aggregation of the attempt statuses -- the honest answer for an engine
+ * that says nothing.
+ *
+ * Dropping the unknown verdict does NOT make the case `passed` on its own:
+ * a case that ran in project a (`expected`) and was skipped in project b
+ * (`skipped`) is `passed`, because the KNOWN verdicts say so. What must
+ * not happen is a case whose only verdict is `unknown` being called
+ * `passed`.
+ *
+ * Returns null when no verdict decides the case -- the caller then falls
+ * back to the aggregation of the attempt statuses (which is what an engine
+ * that declares no per-project verdict, such as WDIO, needs).
  */
 export function aggregateVerdicts(verdicts) {
   const list = (Array.isArray(verdicts) ? verdicts : []).filter((v) => v);
-  if (!list.length) return null;
-  if (list.some((v) => v === CASE_STATUS.FAILED)) return CASE_STATUS.FAILED;
-  if (list.some((v) => v === CASE_STATUS.FLAKY)) return CASE_STATUS.FLAKY;
-  if (list.every((v) => v === CASE_STATUS.SKIPPED)) return CASE_STATUS.SKIPPED;
+  // The verdicts that decide the case: the KNOWN ones. An unknown verdict
+  // is not evidence either way, so it does not vote.
+  const known = list.filter((v) => v !== CASE_STATUS.UNKNOWN);
+  if (!known.length) return null;
+  if (known.some((v) => v === CASE_STATUS.FAILED)) return CASE_STATUS.FAILED;
+  if (known.some((v) => v === CASE_STATUS.FLAKY)) return CASE_STATUS.FLAKY;
+  if (known.every((v) => v === CASE_STATUS.SKIPPED)) return CASE_STATUS.SKIPPED;
   return CASE_STATUS.PASSED;
 }
 
@@ -331,18 +374,30 @@ export function mapEngineStatus(status) {
 /* ------------------------------------------------------------------ */
 
 /**
- * The identity of a case: the three facts a report gives that name it.
+ * The identity of a case: the facts a report gives that name it.
  *
- * The identity is deliberately made of the FILE, the TITLE and the LINE --
- * the same three facts `findTestUid` uses to bind a reported case to a
- * registry entry. Two executions with the same identity are two tries of the
- * SAME case; executions with different identities are different cases.
+ * The identity is made of the FILE, the DESCRIBE PATH, the TITLE and the
+ * LINE -- the same facts `parseListReport` uses to merge the rows the CLI
+ * writes for one logical case.
+ *
+ * WHY THE DESCRIBE PATH IS PART OF IT
+ * ----------------------------------
+ * Two cases that share a file, a title and a line but sit under DIFFERENT
+ * `describe` blocks are TWO cases: `describe('a') { test('works') }` and
+ * `describe('b') { test('works') }` are two different cases that the CLI
+ * itself tells apart. The identity of a case has to agree with the CLI's own
+ * notion of a case, or the run side and the discovery side describe the same
+ * test differently -- which is how two cases end up merged into one.
+ *
+ * The path is written with spaces around it so that the key stays readable
+ * and stays unambiguous for the titles that contain spaces themselves.
  */
 export function caseIdentity(execution) {
   const file = execution?.file ?? '';
   const title = execution?.title ?? '';
   const line = execution?.line ?? null;
-  return `${file} ${title} ${line}`;
+  const scope = Array.isArray(execution?.scope) ? execution.scope.join(' ') : '';
+  return `${file} ${scope} ${title} ${line}`;
 }
 
 /**
@@ -395,6 +450,11 @@ export function aggregateCases(executions) {
         file: raw.file ?? '',
         line: raw.line ?? null,
         column: raw.column ?? null,
+        // ATS-204: the describe path of the case. The report carries it
+        // (the CLI nests the specs under their describe blocks), and the
+        // run side needs it: it is the signal that tells two same-titled
+        // cases of DIFFERENT describes apart.
+        scope: Array.isArray(raw.scope) ? [...raw.scope] : [],
         attempts: [],
       });
     }
@@ -425,6 +485,8 @@ export function aggregateCases(executions) {
       file: group.file,
       line: group.line,
       column: group.column,
+      // The describe path of the case. ATS-204: the run side binds by it.
+      scope: group.scope,
       // The key the case is grouped by: the parser of the report decides
       // it, and it is kept so that a caller can attach the engine's own
       // per-project verdicts to the case afterwards.
@@ -586,23 +648,46 @@ export function aggregateAttempts(attempts) {
 export function parseReport(report) {
   const executions = [];
   const rootDir = report?.config?.rootDir || null;
-  /** The ordinal of every spec, so that two specs with the same identity
-   *  (the same file, the same title and NO line) stay two cases. */
+  /*
+   * The ordinal of the specs that carry NO line.
+   *
+   * ATS-204: the ordinal used to be taken for EVERY spec, and that made the
+   * two rows the CLI writes for one case in two PROJECTS into two cases.
+   * The ordinal is only needed for the specs the report cannot tell apart
+   * -- the ones WITHOUT a line. A spec WITH a line is identified by its
+   * position, and the two projects of one case share that position.
+   */
   let specOrdinal = 0;
   /** The verdict of every PROJECT of every case, keyed by the case key.
    *  The verdict is what the engine itself concluded about the case in
    *  that project (`expected` / `unexpected` / `flaky` / `skipped`). */
   const verdicts = new Map();
 
-  function walk(s) {
+  function walk(s, describePath = []) {
     for (const x of s.specs || []) {
       const file = x.file || s.file || '';
       const line = x.line ?? null;
       const column = x.column ?? null;
-      // The identity of the SPEC: its file, its title and its line. The
-      // ordinal keeps two same-titled specs apart when the report carries no
-      // line for them.
-      const caseKey = `${file} ${x.title ?? ''} ${line} #${specOrdinal++}`;
+      // The identity of the SPEC: its file, its DESCRIBE PATH, its title and
+      // its line. The describe path is part of the identity because the CLI
+      // treats two same-titled cases under different describes as two
+      // cases -- `parseListReport` merges the rows on exactly these four
+      // facts, and the run side has to agree with it. Without the path, the
+      // two rows of `describe('a') { test('works') }` and
+      // `describe('b') { test('works') }` become ONE case, and a failure in
+      // one of them is reported as the other.
+      //
+      // The ordinal keeps two same-titled specs apart when the report
+      // carries no line for them.
+      //
+      // ATS-204: the ordinal is taken ONLY for the specs without a line.
+      // A spec WITH a line is keyed by its position alone, so the two rows
+      // the CLI writes for one case in two projects are ONE case -- which
+      // is what the counters and the per-project verdicts are about.
+      const scope = describePath.filter((p) => typeof p === 'string' && p.length > 0);
+      const caseKey = Number.isInteger(line)
+        ? `${file} ${scope.join(' ')} ${x.title ?? ''} ${line}`
+        : `${file} ${scope.join(' ')} ${x.title ?? ''} #${specOrdinal++}`;
       for (const t of x.tests || []) {
         const caseStatus = t.status || 'unknown';
         // What the case DECLARED it wanted: `passed` by default, `failed`
@@ -618,14 +703,14 @@ export function parseReport(report) {
           // A case with no execution: it was skipped or it never ran. It
           // still exists, and it is still counted ONCE.
           executions.push({
-            title: x.title, file, line, column, caseKey,
+            title: x.title, file, line, column, caseKey, scope,
             status: caseStatus, expectedStatus, retry: 0, duration: 0, error: '',
           });
           continue;
         }
         results.forEach((r, index) => {
           executions.push({
-            title: x.title, file, line, column, caseKey,
+            title: x.title, file, line, column, caseKey, scope,
             // The RESULT level status of this execution. When the result
             // carries no status, the case level status is the best the
             // report says.
@@ -641,10 +726,16 @@ export function parseReport(report) {
         });
       }
     }
-    for (const sub of s.suites || []) walk(sub);
+    for (const sub of s.suites || []) {
+      // The FILE suite is the one whose line is 0: its title is the file
+      // name and it is not part of the describe path.
+      const isFileSuite = Boolean(sub.file) && sub.line === 0;
+      const nextPath = isFileSuite ? describePath : [...describePath, String(sub.title ?? '')];
+      walk(sub, nextPath);
+    }
   }
 
-  for (const suite of report?.suites || []) walk(suite);
+  for (const suite of report?.suites || []) walk(suite, []);
   const aggregated = aggregateCases(executions);
   // The engine's per-project verdicts decide the case level status and
   // outcome when the engine provides them. They are what tell "the case
@@ -776,6 +867,58 @@ export function attemptsForRun(run, summary, registry) {
   const occurrence = new Map();
   const bodyCache = new Map();
   const attempts = [];
+  const entries = registry?.projects?.[projectUid]?.entries ?? [];
+
+  /*
+   * How many of the CASES OF THIS RUN share a body fingerprint.
+   *
+   * The fingerprint identifies a case only when it is unique -- among the
+   * registry entries AND among the cases of the run being bound. A body
+   * that two cases of the same run share identifies neither of them, and
+   * binding one of them to the other's uid is the silent mis-association
+   * this mapper exists to prevent.
+   */
+  const bodyCounts = new Map();
+  for (const c of summary.cases) {
+    const file = normalizeTestPath(c.file, { rootDir, projectRoot });
+    const key = reportedBodyKey(projectRoot, file, c, bodyCache);
+    if (!key) continue;
+    bodyCounts.set(key, (bodyCounts.get(key) ?? 0) + 1);
+  }
+  /*
+   * How many of the CASES OF THIS RUN share a body fingerprint AND sit
+   * under the same describe path.
+   *
+   * Two cases under DIFFERENT describes may well share the body -- the
+   * template they share is one body -- and the describe path is what tells
+   * them apart. So the "shared body" guard is counted per scope: the
+   * signal that uses the describe path is not blocked by a body that is
+   * only shared ACROSS describes.
+   */
+  const bodyScopeCounts = new Map();
+  for (const c of summary.cases) {
+    const file = normalizeTestPath(c.file, { rootDir, projectRoot });
+    const key = reportedBodyKey(projectRoot, file, c, bodyCache);
+    if (!key) continue;
+    const scopeKey = (Array.isArray(c.scope) ? c.scope : []).join(' ');
+    const scoped = `${key} ${scopeKey}`;
+    bodyScopeCounts.set(scoped, (bodyScopeCounts.get(scoped) ?? 0) + 1);
+  }
+  /*
+   * How many cases of THIS RUN carry an explicit token.
+   *
+   * The token belongs to the case that carries it -- and to ONE case. Two
+   * cases of the same run carrying `@TC-001` means neither of them owns
+   * it, and the mapper is asked about one case at a time, so it has to be
+   * told.
+   */
+  const explicitCounts = new Map();
+  for (const c of summary.cases) {
+    const token = extractExplicitUid(c.title);
+    if (!token) continue;
+    explicitCounts.set(token, (explicitCounts.get(token) ?? 0) + 1);
+  }
+
   for (const c of summary.cases) {
     // The report names the test files relative to the Playwright rootDir, the
     // registry stores them relative to the project root. The project root is
@@ -788,11 +931,25 @@ export function attemptsForRun(run, summary, registry) {
     // them apart, so it is computed from the source of THIS run and handed to
     // the lookup. The source is read only when the file is known and only
     // once per file.
-    const found = findTestUid(registry, projectUid, {
+    //
+    // ATS-204: the lookup is the identity mapper. It walks the signals from
+    // the strongest to the weakest -- the explicit annotation, the position,
+    // the body fingerprint, the recorded alias, the title -- and it binds
+    // NOTHING when the signal it reached is not unique. The fingerprint is
+    // what makes a rename AND a retitle survive: the registry remembers the
+    // fingerprint of the body, and the body does not change when the file is
+    // renamed or the title is rewritten.
+    const bodyKey = reportedBodyKey(projectRoot, file, c, bodyCache);
+    const found = bindReported({
+      entries,
       file,
       title: c.title,
       line: c.line,
-      resolveBodyKey: () => reportedBodyKey(projectRoot, file, c, bodyCache)
+      scope: c.scope ?? null,
+      bodyKey,
+      bodyCounts,
+      bodyScopeCounts,
+      explicitCounts,
     });
     const key = `${file} ${c.title} ${c.line}`;
     for (const attempt of attemptsOfCase(c)) {
@@ -809,6 +966,11 @@ export function attemptsForRun(run, summary, registry) {
         runUid: run.uid || run.id,
         testUid: found.uid,
         uidBasis: found.basis,
+        // ATS-204: when the mapper could not decide, it says WHY and it
+        // lists the candidates. The attempt stays unbound, and the reason
+        // is on the record -- an unbound attempt that says nothing is
+        // indistinguishable from a case that is not in the catalogue.
+        ...(found.ambiguity ? { uidAmbiguity: found.ambiguity } : {}),
         file,
         title: c.title,
         line: c.line,
@@ -958,16 +1120,32 @@ export function statusOfEvent(event) {
  * violations is NOT a valid description of a run -- so the answer says so
  * instead of agreeing with a contradictory record.
  *
- * The check follows the same rule as the writer: an event is written BEFORE
- * the status changes, so each event names the status the run is LEAVING.
- * The `run.queued` event is the exception: it is written while the run is
- * still `queued`.
+ * THE REPLAY ALSO CHECKS THE SEQUENCE.
+ *
+ * The sequence of a run is 1..N: gap-free and strictly increasing. Two
+ * things can break that, and BOTH are reported:
+ *
+ *   * a LOST number -- a hole in the sequence. The numbers that are missing
+ *     are listed in `gaps`. The holes BETWEEN two events were always
+ *     reported; the hole at the BEGINNING of the stream was not, so a log
+ *     that lost its first events looked intact. The sequence starts at 1,
+ *     so every number below the first one that is present is missing too.
+ *   * a REUSED number -- two events carrying the same number. The
+ *     metadata layer's primary key `(run_uid, seq)` refuses such a pair,
+ *     so a stream that holds one does not describe a run: it is reported
+ *     in `duplicates` and the stream is NOT valid.
+ *
+ * The check follows the same rule as the writer: an event is written
+ * BEFORE the status changes, so each event names the status the run is
+ * LEAVING. The `run.queued` event is the exception: it is written while
+ * the run is still `queued`.
  *
  * @param {object[]} events the events of the run
- * @returns {{status:string|null,terminal:boolean,sequence:number[],gaps:number[],events:object[],valid:boolean,violations:object[]}}
+ * @returns {{status:string|null,terminal:boolean,sequence:number[],gaps:number[],duplicates:number[],unsequenced:number[],events:object[],valid:boolean,violations:object[]}}
  *   `status` is null when the events determine no status (an empty stream,
  *   or a stream that ends before the run reached one). `gaps` lists the
- *   sequence numbers that are missing from the stream. `violations` lists
+ *   sequence numbers that are missing from the stream. `duplicates` lists
+ *   the sequence numbers that are used more than once. `violations` lists
  *   the events that the state machine does not allow.
  */
 export function replayEvents(events) {
@@ -1000,9 +1178,29 @@ export function replayEvents(events) {
   }
 
   const sequence = list.map((e) => Number(e.seq) || 0);
+  // The events that carry no usable sequence number. The sequence of a run
+  // starts at 1, so a number that is not a positive integer is not part of
+  // it -- and an event without a number cannot be placed in the stream.
+  const unsequenced = sequence.filter((n) => !Number.isInteger(n) || n < 1);
+  // The numbers the stream actually holds, and how often each is used.
+  const counts = new Map();
+  for (const n of sequence) {
+    if (!Number.isInteger(n) || n < 1) continue;
+    counts.set(n, (counts.get(n) ?? 0) + 1);
+  }
+  // The numbers that are used MORE THAN ONCE. A reused number is a
+  // contradiction: two events claim the same place in the stream.
+  const duplicates = [...counts.entries()]
+    .filter(([, n]) => n > 1)
+    .map(([seq]) => seq)
+    .sort((a, b) => a - b);
+  // The numbers that are MISSING. The sequence starts at 1, so the hole at
+  // the beginning of the stream counts as well: a log that lost its first
+  // events is not an intact log.
   const gaps = [];
-  for (let i = 1; i < sequence.length; i++) {
-    for (let missing = sequence[i - 1] + 1; missing < sequence[i]; missing++) gaps.push(missing);
+  const highest = counts.size ? Math.max(...counts.keys()) : 0;
+  for (let missing = 1; missing <= highest; missing++) {
+    if (!counts.has(missing)) gaps.push(missing);
   }
 
   return {
@@ -1010,9 +1208,12 @@ export function replayEvents(events) {
     terminal: status !== null && isTerminalRunStatus(status),
     sequence,
     gaps,
+    duplicates,
+    unsequenced,
     events: list,
-    // A stream that violates the state machine does not describe a run.
-    valid: violations.length === 0,
+    // A stream that violates the state machine, or that reuses a sequence
+    // number, does not describe a run.
+    valid: violations.length === 0 && duplicates.length === 0,
     violations,
   };
 }

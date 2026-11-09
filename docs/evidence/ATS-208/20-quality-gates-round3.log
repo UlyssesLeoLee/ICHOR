@@ -1,0 +1,22 @@
+=== the python gates ===
+repo root : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-3111785a4ef3/worktree
+commit    : 82340dc
+
+    warn(msg)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+42 passed, 2 warnings in 7.67s
+
+=== the ATS-301 gate ===
+listed but not found at runtime : (none)
+count claimed in 16 §3.1        : 6
+actual runtime occurrence count : 6
+count matches source            : true
+doc files/mentions claimed      : 9 / 27
+doc files/mentions actual       : 9 / 27
+doc mention count matches       : true
+
+RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
+  PASS  tools/ats101-probes/scenario-d-port-audit.mjs
+
+RESULT: OK -- the WBS helper regression, the ADR citation check and the port audit all pass.

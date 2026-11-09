@@ -34,8 +34,40 @@ export const DISCOVERY = Object.freeze({
 /**
  * The key of a case in the comparison: the file, the `describe` path and the
  * leaf title. Two indexes agree on a case when they agree on this key.
+ *
+ * This is the READABLE key: it is what the `onlyStatic` / `onlyAuthoritative`
+ * lists show. The key the comparison actually MATCHES on is `matchKey`.
  */
 export const caseKey = (c) => `${c.file} ${(c.describePath ?? []).join(' > ')} ${c.title}`;
+
+/**
+ * The key the comparison MATCHES on: the POSITION of the case.
+ *
+ * WHY THE POSITION AND NOT THE DESCRIBE PATH
+ * ------------------------------------------
+ * The `describe` path is read LEXICALLY by the static index, and a lexical
+ * reader cannot know the title of a `describe` that is built at run time:
+ *
+ *   * `describe(suite, ...)` -- the title lives in a variable;
+ *   * `describe(`area ${area}`, ...)` -- the title is a template literal;
+ *   * `describe('tagged', { tag: '@smoke' }, ...)` -- the details object opens
+ *     a brace BEFORE the callback's body does.
+ *
+ * The CLI knows the REAL title in all three cases. A key that carries the
+ * describe path therefore reports a FALSE difference for a case both indexes
+ * see: the static case carries the path the scanner could read (often an
+ * empty one), the CLI case carries the real one. The user then gets a false
+ * warning -- "1 个用例仅静态索引可见" -- about a case the CLI enumerates.
+ *
+ * The position is what BOTH indexes agree on: the CLI reports the line of
+ * the `test(` call, and the scanner reports the line of the call too (the
+ * round-1 finding CE-I moved the scanner onto the call line).
+ *
+ * The leaf title stays part of the key: it is the title the CLI reports, and
+ * the scanner reads the literal, so the two agree on it for every case the
+ * scanner can see.
+ */
+export const matchKey = (c) => `${c.file} ${Number.isInteger(c.line) ? `#${c.line}` : ''} ${c.title}`;
 
 /**
  * Compares the authoritative case list with the static one.
@@ -46,13 +78,26 @@ export const caseKey = (c) => `${c.file} ${(c.describePath ?? []).join(' > ')} $
  * does not match `testMatch`, or a case the CLI could not load.
  *
  * The counts are reported, and the DIFFERING cases are reported with their
- * keys, so a reader can see WHICH cases differ and not only how many.
+ * readable keys, so a reader can see WHICH cases differ and not only how many.
+ *
+ * THE MATCHING KEY
+ * ----------------
+ * The two lists are matched on `matchKey` (the position), NOT on the
+ * describe path -- see the note above `matchKey` for the reason. The
+ * guarantee that follows is STRUCTURAL rather than lexical: a case the CLI
+ * enumerates contributes its own key to the authoritative set, so its key is
+ * IN that set, and therefore it can never land in `onlyStatic`.
+ *
+ * `onlyStatic` holds the cases the CLI does NOT enumerate: the TEMPLATE of a
+ * dynamic case (the scanner reads `dynamic ${n}`, the CLI reports the
+ * rendered `dynamic alpha`), a case in a file the CLI did not enumerate, and
+ * a case whose title the scanner read differently at the same position.
  */
 export function compareDiscoveries(authoritative, staticCases) {
-  const authKeys = new Map(authoritative.map((c) => [caseKey(c), c]));
-  const staticKeys = new Map(staticCases.map((c) => [caseKey(c), c]));
-  const onlyAuthoritative = [...authKeys.keys()].filter((k) => !staticKeys.has(k));
-  const onlyStatic = [...staticKeys.keys()].filter((k) => !authKeys.has(k));
+  const authKeys = new Map(authoritative.map((c) => [matchKey(c), c]));
+  const staticKeys = new Map(staticCases.map((c) => [matchKey(c), c]));
+  const onlyAuthoritative = [...authKeys.values()].filter((c) => !staticKeys.has(matchKey(c))).map(caseKey);
+  const onlyStatic = [...staticKeys.values()].filter((c) => !authKeys.has(matchKey(c))).map(caseKey);
   return {
     authoritative: authoritative.length,
     static: staticCases.length,
@@ -115,7 +160,14 @@ export function describePathAt(content, line) {
       // block. A `describe` body may contain other blocks (a nested
       // `describe`, an object literal, a function), and those do not close
       // the `describe`.
-      if (pending && pending.depth === depth) {
+      //
+      // The brace that opens the describe is the one that opens the
+      // CALLBACK'S BODY, which is not necessarily the next brace: the
+      // DETAILS OBJECT of `describe('tagged', { tag: '@smoke' }, ...)` opens
+      // a brace of its own, and it closes again immediately. The scope is
+      // therefore tied to the brace the callback body starts at, not to the
+      // next brace in the file.
+      if (pending && pending.brace === i) {
         scopes.push({ title: pending.title, depth: depth + 1 });
         pending = null;
       }
@@ -138,7 +190,10 @@ export function describePathAt(content, line) {
       if (word === 'describe') {
         const title = readDescribeTitle(src, i);
         if (title) {
-          pending = { title: title.value, depth };
+          // The scope of the block is the callback's body, so the brace is
+          // found by looking at the CALLBACK, not at the next brace.
+          const brace = callbackBodyBrace(src, title.end);
+          pending = brace >= 0 ? { title: title.value, brace } : null;
           i = title.end;
           continue;
         }
@@ -148,6 +203,106 @@ export function describePathAt(content, line) {
     i++;
   }
   return scopes.map((s) => s.title);
+}
+
+/**
+ * The offset of the brace that opens the BODY of the describe callback.
+ *
+ * The Playwright signature is `describe(title, details?, callback)`, so the
+ * body brace is NOT the next brace after the title:
+ *
+ *   * `describe('tagged', { tag: '@smoke' }, () => { ... })` -- the details
+ *     object opens a brace that closes again right away;
+ *   * `describe('group', () => { ... })` -- the body brace follows the
+ *     arrow function.
+ *
+ * So the reader skips the details object, finds the arrow of the callback
+ * and returns the brace that follows it.
+ *
+ * Returns -1 when the callback has no brace body -- an expression-bodied
+ * callback (`describe('x', () => test('inside', ...))`) or a callback that
+ * is not an arrow function. The caller then opens no scope at all: a
+ * lexical reader cannot tell where such a block ends, and a WRONG scope is
+ * worse than none (it is a false difference in the consistency report).
+ */
+function callbackBodyBrace(src, from) {
+  let i = from;
+  // 1. the optional DETAILS object, between the title and the callback.
+  i = skipSpace(src, i);
+  if (src[i] === ',') {
+    i = skipSpace(src, i + 1);
+    if (src[i] === '{') {
+      i = skipBalanced(src, i, '{', '}');
+      i = skipSpace(src, i);
+      if (src[i] === ',') i = skipSpace(src, i + 1);
+    }
+  }
+  // 2. the arrow of the callback, at the top level of the argument list.
+  let depth = 0;
+  let arrow = -1;
+  while (i < src.length) {
+    const c = src[i];
+    if (c === '/' && src[i + 1] === '/') { i = skipComment(src, i); continue; }
+    if (c === '/' && src[i + 1] === '*') { i = skipComment(src, i); continue; }
+    if (c === '"' || c === "'") { i = skipString(src, i, c); continue; }
+    if (c === '`') { i = skipTemplate(src, i); continue; }
+    if (c === '/' && regexAllowedAt(src, i)) { i = skipRegexLiteral(src, i); continue; }
+    if (c === '(' || c === '[' || c === '{') { depth++; i++; continue; }
+    if (c === ')' || c === ']' || c === '}') {
+      if (depth === 0) break; // the end of the describe call
+      depth--;
+      i++;
+      continue;
+    }
+    if (c === '=' && src[i + 1] === '>') {
+      if (depth === 0) arrow = i;
+      i += 2;
+      continue;
+    }
+    i++;
+  }
+  if (arrow < 0) return -1;
+  // 3. the body of the callback.
+  let j = skipSpace(src, arrow + 2);
+  if (src[j] === '(') {
+    j = skipBalanced(src, j, '(', ')');
+    j = skipSpace(src, j);
+  }
+  return src[j] === '{' ? j : -1;
+}
+
+/** The offset of the first character at or after `i` that is not a space. */
+function skipSpace(src, i) {
+  let j = i;
+  while (j < src.length && /\s/.test(src[j])) j++;
+  return j;
+}
+
+/**
+ * The offset just after the group that starts at `i` and is closed by
+ * `close`. The content is skipped with the same restricted lexer, so a
+ * brace inside a string, a template literal, a comment or a regular
+ * expression does not close the group.
+ */
+function skipBalanced(src, i, open, close) {
+  let depth = 0;
+  while (i < src.length) {
+    const c = src[i];
+    if (c === '/' && src[i + 1] === '/') { i = skipComment(src, i); continue; }
+    if (c === '/' && src[i + 1] === '*') { i = skipComment(src, i); continue; }
+    if (c === '"' || c === "'") { i = skipString(src, i, c); continue; }
+    if (c === '`') { i = skipTemplate(src, i); continue; }
+    if (c === '/' && regexAllowedAt(src, i)) { i = skipRegexLiteral(src, i); continue; }
+    if (c === open) { depth++; i++; continue; }
+    if (c === close) {
+      depth--;
+      i++;
+      if (depth === 0) return i;
+      continue;
+    }
+    i++;
+  }
+  return i;
 }
 
 /** True for the characters an identifier may start with. */

@@ -24,6 +24,13 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-mig-reg-'));
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const script = path.join(repoRoot, 'tools', 'migrate_uids.mjs');
 
+// The health probe is BOUNDED. An unbounded fetch turns ONE request that
+// never comes back into a stall of the whole boot window, and the boot wait
+// then reports "the bridge did not come up" for a bridge that IS listening
+// and merely busy. Measured: a hung probe made the wait 31 s long (the 20 s
+// window plus an ~11 s request that never came back). The timeout is far
+// below the window, so a slow-but-alive bridge is still found, and a hung
+// request is retried instead of consuming the wait.
 function legacyState(root) {
   return {
     schema: 1,
@@ -311,7 +318,7 @@ test('UT-MIG-REG-015: the Bridge starts when the lock belongs to a reused pid', 
   const deadline = Date.now() + 20000;
   let up = false;
   while (Date.now() < deadline) {
-    try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) { up = true; break; } } catch { /* not up yet */ }
+    try { if ((await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2000) })).ok) { up = true; break; } } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 50));
   }
   cp.kill();

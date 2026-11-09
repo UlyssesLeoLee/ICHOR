@@ -1,0 +1,40 @@
+=== command ===
+node tools/ats204-probes/review-r1/r1-anchor.mjs .
+=== output ===
+OK   P1  reordered loop data: each render keeps ITS OWN uid
+  before:
+    "adds 1 item" line=7 uid=tc_1_d_06b302ca4e456309 basis=title-key
+    "adds 2 items" line=7 uid=tc_1_d_ed8615981627b01c basis=title-key
+  after reorder:
+    "adds 2 items" line=7 uid=tc_1_d_ed8615981627b01c basis=title-key
+    "adds 1 item" line=7 uid=tc_1_d_06b302ca4e456309 basis=title-key
+OK   P1b replaced data element: the NEW render (dave) must not inherit the removed render (bob) uid silently
+  before:
+    "user alice" line=7 uid=tc_1_d_0648ee0de6a25147 basis=title-key
+    "user bob" line=7 uid=tc_1_d_c860c5011d2f87c4 basis=title-key
+    "user carol" line=7 uid=tc_1_d_9e9caf74b6d9dbb2 basis=title-key
+  after bob->dave:
+    "user alice" line=7 uid=tc_1_d_0648ee0de6a25147 basis=title-key
+    "user dave" line=7 uid=tc_1_d_88b1c9d319040b61 basis=title-key ambiguity=render-partially-changed
+    "user carol" line=7 uid=tc_1_d_9e9caf74b6d9dbb2 basis=title-key
+OK   P2a source case B moved onto deleted A's line (body edited): B must NOT get A's uid
+  before:
+    "login works" line=5 uid=tc_1_d_f9ddf97a6b13152f basis=title-key
+    "logout works" line=10 uid=tc_1_d_0268b6b51d84b7b1 basis=title-key
+  after:
+    "logout works" line=5 uid=tc_1_d_0268b6b51d84b7b1 basis=title-key
+OK   P2b new case (new title + new body) on deleted A's line: doc 26 §7 says identity changes
+  before:
+    "login works" line=5 uid=tc_1_d_f9ddf97a6b13152f basis=title-key
+  after:
+    "search finds item" line=5 uid=tc_1_d_baeb75878b5c6d82 basis=title-key
+OK   P2c insert a new case above an existing one: the existing case keeps its uid AND the new one does not take it
+  before:
+    "login works" line=5 uid=tc_1_d_f9ddf97a6b13152f basis=title-key
+  after insert above:
+    "search finds item" line=5 uid=tc_1_d_baeb75878b5c6d82 basis=title-key
+    "login works" line=9 uid=tc_1_d_f9ddf97a6b13152f basis=body-key
+OK   P1m reidentifyRendered on reordered renders does not swap
+  adds 2 items->(title), adds 1 item->(title)
+SUMMARY: 0 counterexample(s) hold
+=== exit code: 0 ===

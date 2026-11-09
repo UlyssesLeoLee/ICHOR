@@ -5,6 +5,7 @@ Synthetic XML strings are used wherever possible; the workbook is only read
 (or copied into a temporary directory), never written.
 """
 import io
+import re
 import shutil
 import sys
 import zipfile
@@ -140,3 +141,60 @@ def test_tc008_sheet_cells_and_totals():
     assert empty['completion_rate'] == 0.0
     repo = w.totals()
     assert repo['sum_estimate'] > 0
+
+
+def test_tc009_totals_follow_the_grown_sheet():
+    """The totals cover every task row, even the ones appended later.
+
+    The 开发WBS sheet grew when ATS-601 appended the mobile rows, and the
+    总览 formulas in the workbook were grown with it (`N6:N100`). A
+    derivation over the OLD constant (6..94) silently dropped the appended
+    rows from the totals, so the cached 总览 value disagreed with the
+    formula that produced it.
+    """
+    shared = '<x:sst><x:si><x:t>已完成</x:t></x:si></x:sst>'
+    sheet = ('<x:sheetData>'
+             '<x:row r="6"><x:c r="A6" t="str"><x:v>ATS-1</x:v></x:c><x:c r="K6"><x:v>4</x:v></x:c>'
+             '<x:c r="P6"><x:v>1</x:v></x:c></x:row>'
+             # A task row appended far beyond the OLD constant (94).
+             '<x:row r="100"><x:c r="A100" t="str"><x:v>ATS-601</x:v></x:c><x:c r="K100"><x:v>5</x:v></x:c>'
+             '<x:c r="P100"><x:v>5</x:v></x:c></x:row>'
+             '</x:sheetData>')
+    parts = {w.SHARED_STRINGS: shared, w.SHEET2: sheet}
+    rows = w.sheet_cells(parts, w.SHEET2)
+    assert w.last_data_row(rows) == 100
+    t = w.totals(parts)
+    # The appended row counts: 4 + 5 estimate, 1 + 5 remaining.
+    assert t['sum_estimate'] == 9.0, t
+    assert t['sum_remaining'] == 6.0, t
+    assert t['completion_rate'] == pytest.approx(1 - 6 / 9)
+
+    # THE RANGE ITSELF: `totals` must not be limited to the rows that
+    # existed when the helper was written. Restoring the old constant
+    # (LAST_ROW = 94) drops the appended row and reports 4 / 1 instead
+    # of 9 / 6 -- this assertion is what makes the defect visible.
+    assert t['sum_estimate'] > 4.0, (
+        'totals() ignored the rows appended after row '
+        f'{w.LAST_ROW}: {t}')
+
+    # The REPO's workbook: the cached 总览 value must agree with the range
+    # its own formulas cover. Both are read out of the workbook, so a
+    # divergence between them is a real defect.
+    repo_parts = w.read_parts()
+    overview = repo_parts[w.SHEET1]
+    formula = re.search(r'<x:c r="B10"[^>]*>(.*?)</x:c>', overview, re.S)
+    assert formula is not None, 'the 总览 B10 cell is missing'
+    f = re.search(r'<x:f>(.*?)</x:f>', formula.group(1), re.S)
+    assert f is not None, 'the 总览 B10 cell carries no formula'
+    covered = re.search(r'P6:P(\d+)', f.group(1))
+    assert covered is not None, f'the B10 formula has no P range: {f.group(1)}'
+    last = int(covered.group(1))
+    repo_rows = w.sheet_cells(repo_parts, w.SHEET2)
+    assert w.last_data_row(repo_rows) == last, (
+        f'the sheet holds a task in row {w.last_data_row(repo_rows)} but the '
+        f'总览 formulas only cover row {last}')
+    cached = w.cell_text(overview, 10, 'B')
+    derived = w.totals(repo_parts)
+    assert float(cached) == derived['sum_remaining'], (
+        f'the cached 总览 remaining ({cached}) disagrees with the sheet '
+        f'({derived["sum_remaining"]})')

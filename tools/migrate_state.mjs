@@ -220,6 +220,12 @@ function commandApply(args) {
     return 1;
   }
 
+  // A SUCCESSFUL run can still carry notes -- "an interrupted migration was
+  // found and was UNDONE", "dry run: nothing written". They are not
+  // failures, but the operator has to see them: a migration that silently
+  // undid an earlier one is not a migration the operator asked for.
+  for (const p of report.problems ?? []) console.log(`note: ${p}`);
+
   console.log(`migrated: ${paths.statePath}`);
   if (report.imported) console.log(`the metadata database was imported: ${paths.dbPath}`);
   console.log(`backup: ${paths.statePath}.bak`);
@@ -303,7 +309,7 @@ function commandRollback(args) {
   }
   for (const u of result.undone) console.log(u);
   if (result.lost?.length) {
-    console.log(`the runs recorded after the migration were discarded: ${result.lost.join(', ')}`);
+    console.log(`the runs the backup does not hold were discarded: ${result.lost.join(', ')}`);
   }
   console.log(`rolled back: ${paths.statePath}`);
   return 0;

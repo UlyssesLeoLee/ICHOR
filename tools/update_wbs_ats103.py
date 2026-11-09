@@ -103,20 +103,30 @@ def main():
     # The script is idempotent: a marker identifies the note this script owns,
     # so re-running replaces it instead of appending a second copy.
     notes = {
-        'ATS-103': '交付物为验证与证据（产品代码零改动）：tools/ats103-probes/verify-export-and-proxy.mjs '
-                   '23/23 项通过（静态导出产物自洽 8 个引用资源全部存在、导出目录无服务端路由产物、'
+        'ATS-103': '交付物为验证与证据，另含一处 CORS 修复：tools/ats103-probes/verify-export-and-proxy.mjs '
+                   '25/25 项通过（静态导出产物自洽、导出目录无服务端路由产物、'
                    'Bridge 在 / 提供该导出并带 connect-src CSP、会话/项目/运行三类操作实测成功、'
-                   '真实运行 1 PASS/1 FAIL 共 2 例并采集 27 个产物）。'
-                   '「API 代理」在 output:export 下的真实形态是导出页到 127.0.0.1:4577 的跨源直连'
-                   '（基址由 lib/api.ts 运行时按端口解析），静态导出下不存在 Next.js 服务端代理路由；'
+                   '真实运行 1 PASS/1 FAIL 共 2 例并采集 28 个产物）；'
+                   'tools/ats103-probes/ui-smoke.mjs 在真实 headless Chromium 里驱动导出的那一页 8/8 通过'
+                   '（会话→添加项目→运行到终态，console error 为 0）。'
+                   '「API 代理」在 output:export 下的真实形态是导出页到 Bridge 的跨源直连'
+                   '（基址由 lib/api.ts 运行时按端口解析，构建期不烘焙），静态导出下不存在 Next.js 服务端代理路由；'
+                   '五个变异划出各条断言的真实边界：声明了 force-static 的路由 handler 会被预渲染进 '
+                   'out/api/** 并由文件树断言拦下，烘焙基址会被可执行判别（页面按主机名 localhost 打开，'
+                   '记录 API 请求实际去的 host）变红。'
+                   '此外合入 dev 后发现并修掉一处产品缺陷：server/index.mjs 的 CORS 段给白名单内的 '
+                   'Origin 设了 Allow-Methods/Allow-Headers/Vary 却没有设 Access-Control-Allow-Origin，'
+                   '浏览器因此拦掉全部跨源响应；修法是把该头设回该 Origin，回归用例 IT-SEC-002B '
+                   '断言白名单 Origin 被原样回显（去掉该头即红、加回即绿）。'
                    '详见 docs/22-FRONTEND-EXPORT.md §2',
         'ATS-104': '前置 ATS-103 已交付静态导出基线：apps/studio/out 可由 Bridge 直接提供（server/index.mjs '
-                   '的 staticFile() 以该目录为静态根），本项的 Tauri 壳可直接加载 http://127.0.0.1:4577；'
+                   '的 staticFile() 以该目录为静态根），本项的 Tauri 壳可直接加载该导出；'
                    '但静态导出未在真实 Tauri 壳内实测，且 ATS-102 的 B-02 阻断仍未关闭（仓库缺 '
-                   'src-tauri/icons/icon.ico、MSVC C++ 构建工具缺失），该 job 属本项交付范围',
-        'ATS-111': '前置 ATS-103 已交付可用的静态导出产物与 API 契约（会话/项目/运行三类操作实测通过），'
-                   '本项的可用性迭代可直接在该产物上进行；但 ATS-103 的实测只覆盖 HTTP 层契约，'
-                   '未在真实浏览器里人工评测无障碍/键盘/加载态（属本项 ST 范围）',
+                   'src-tauri/icons/icon.ico、MSVC C++ 构建工具缺失），该 job 属本项交付范围。'
+                   '另注：Bridge 的静态路由只覆盖 /，目录索引与 404 未实现（ATS-103 交付时发现）',
+        'ATS-111': '前置 ATS-103 已交付可用的静态导出产物与 API 契约（会话/项目/运行三类操作实测通过，'
+                   '真实浏览器脚本驱动导出的那一页 8/8 通过），本项的可用性迭代可直接在该产物上进行；'
+                   '但 ATS-103 的浏览器验证是脚本驱动的，未做人工评测（无障碍/键盘/加载态属本项 ST 范围）',
     }
     for ats, note in notes.items():
         rid, _rm = find_ats_row(xml2, ats)

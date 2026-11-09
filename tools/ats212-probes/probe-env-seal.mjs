@@ -52,8 +52,8 @@ console.log('fake-cli: one case');
 
 const PORT = 4607;
 // The bridge's OWN environment holds something that looks like a
-// credential. Before ATS-212 the runner inherited it, so the code under
-// test could print it into a report that is archived as evidence.
+// credential. The runner does not inherit it, so the code under test
+// cannot print it into a report that is archived as evidence.
 const child = spawn(process.execPath, ['server/index.mjs'], {
   cwd: root,
   env: { ...process.env, ATS_PORT: String(PORT), ATS_DATA_DIR: data, HOST_SECRET_MARKER: 'the-host-secret-value' },

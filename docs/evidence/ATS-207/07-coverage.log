@@ -1,0 +1,16 @@
+# ATS-207 evidence: line coverage of the files ATS-207 changed (from 05 and 06)
+# collected : 2026-11-06T10:05:51Z
+# HEAD      : c7c3d2f946e414e37de5ac3e0eb137943c3a48fb
+# tree      : 06c2ac3f1820b6643b4b45ff90327df085319938
+# node      : v24.19.0
+# command   : bash -c node tools/ats207-probes/coverage-of.mjs D:/tmp/opus-168/ev/node.lcov 'server/(core|index)\.mjs$' && node tools/ats207-probes/coverage-of.mjs D:/tmp/opus-168/ev/py.lcov 'tools/(update_wbs_ats207|wbs_common|generate_test_docs)\.py$'
+
+server/core.mjs  1112/1145  97.12%
+server/index.mjs  279/811  34.40%
+all files in this LCOV: 13640/14696  92.81%
+tools/generate_test_docs.py  35/35  100.00%
+tools/update_wbs_ats207.py  64/65  98.46%
+tools/wbs_common.py  227/233  97.42%
+all files in this LCOV: 772/3434  22.48%
+
+# exit code: 0

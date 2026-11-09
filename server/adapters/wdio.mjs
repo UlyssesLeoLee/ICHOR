@@ -53,7 +53,7 @@ import {
 import { walkTests } from '../core.mjs';
 // ATS-208: the shared status mapping and the shared aggregation, so that
 // the WDIO engine describes a run in exactly the same way as Playwright.
-import { aggregateCases, mapEngineStatus } from '../execution/model.mjs';
+import { aggregateCases, CASE_STATUS, mapEngineStatus } from '../execution/model.mjs';
 
 /** Where the local WDIO CLI may live inside the project under test. */
 const CLI_CANDIDATES = [
@@ -150,6 +150,39 @@ export function findWdioReports(outputDir) {
  * two cases that happen to share a title but are not one another's retry
  * stay two cases.
  *
+ * THE GROUP ENDS WITH THE FIRST PASSED ENTRY.
+ *
+ * A retried WDIO test stops at its FIRST PASS: the reporter pushes the
+ * entry of the retry only when the previous try did not pass. So an entry
+ * that FOLLOWS a passed entry of the same name cannot be its retry -- it is
+ * a DIFFERENT test that happens to share the title (two `it('renders')` in
+ * one suite, or a data-driven loop with the same title).
+ *
+ * Grouping such entries together would hide a real failure: a suite with
+ * `[passed, failed]` (two distinct tests, the second one failing) would be
+ * merged into one flaky case with `failed: 0`, and the failing test would
+ * disappear from the summary. So the group ends as soon as an entry
+ * passes, and the next entry of the same name starts a NEW group.
+ *
+ * A SKIPPED ENTRY ENDS THE GROUP TOO.
+ *
+ * A skipped test is not retried either -- the reporter pushes the entry of
+ * the retry only when the previous try did not pass, and a skip is not a
+ * pass. So an entry that FOLLOWS a skipped entry of the same name is a
+ * DIFFERENT test, exactly like an entry that follows a passed one. Grouping
+ * them would merge `[skipped, failed]` into one case, and the outcome
+ * aggregation would then read the skipped attempt and the failed one as
+ * ONE case whose outcome was `skipped` -- the failure would disappear from
+ * the summary even though the engine exited nonzero.
+ *
+ * The remaining ambiguity is stated rather than guessed: a report that
+ * holds `[failed, passed]` cannot be told apart from one test that failed
+ * and was retried until it passed. The adapter reads it as a retry (the
+ * reading the measured reporter shape supports), and the reader of the
+ * summary sees a flaky case -- which says "it needed a retry", not "it
+ * failed". The report itself does not carry a retry index, so no adapter
+ * can do better.
+ *
  * The case identity therefore keeps the group's position in its suite:
  * `file + title + the ordinal of the group`. Without the ordinal two
  * same-titled cases of one file would merge into one.
@@ -171,13 +204,25 @@ export function mergeWdioReports(reports) {
       // this suite: it keeps two same-titled cases of one suite apart.
       let groupOrdinal = 0;
       let previousName = null;
+      // Whether the previous entry of this suite PASSED. A passed entry
+      // ends the group it belongs to: a retried test stops at its first
+      // pass, so the next entry of the same name is a different test.
+      let previousPassed = false;
+      // Whether the previous entry of this suite was SKIPPED. A skipped
+      // test is not retried either, so it ends its group the same way a
+      // passed entry does.
+      let previousSkipped = false;
       for (const test of suite.tests || []) {
         if (!onlySpec) unattributed++;
         const file = onlySpec ? fileUrlToRelative(onlySpec) : '';
-        // A new group starts when the name changes. The FIRST entry of a
-        // group takes the next ordinal.
-        if (previousName === null || test.name !== previousName) groupOrdinal++;
+        const state = mapWdioStatus(test.state);
+        // A new group starts when the name changes OR when the previous
+        // entry passed or was skipped. The FIRST entry of a group takes the
+        // next ordinal.
+        if (previousName === null || test.name !== previousName || previousPassed || previousSkipped) groupOrdinal++;
         previousName = test.name;
+        previousPassed = state === CASE_STATUS.PASSED;
+        previousSkipped = state === CASE_STATUS.SKIPPED;
         executions.push({
           title: test.name,
           file,
@@ -187,7 +232,7 @@ export function mergeWdioReports(reports) {
           // case -- the consecutive entries with the same name -- share it
           // and therefore become the attempts of that case.
           caseKey: `${file} ${test.name} #${groupOrdinal}`,
-          status: mapWdioStatus(test.state),
+          status: state,
           duration: test.duration || 0,
           error: test.error ? (test.error.message || String(test.error)) : '',
         });
@@ -206,6 +251,12 @@ export function mergeWdioReports(reports) {
       title: c.title,
       file: c.file,
       status: c.status,
+      // The IDENTITY of the case, as the model computed it. The WebdriverIO
+      // adapter keys its cases on the file, the title and the ordinal of
+      // the group inside the suite, and that key is what tells two
+      // same-titled cases of one suite apart -- so it travels with the
+      // case, exactly as the describe path does for Playwright.
+      caseKey: c.caseKey ?? null,
       duration: c.duration,
       error: c.error,
       attemptsCount: c.attemptsCount,

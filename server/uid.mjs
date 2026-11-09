@@ -574,7 +574,7 @@ function matchRegistry(it, { registryByBody, bodyCounts, reserved }) {
  * up in the ambiguity report, because the author wrote down the same uid twice
  * and only the author can say which case it belongs to.
  */
-export function resolveIdentities({ projectUid, discovered, registry, scope = null }) {
+export function resolveIdentities({ projectUid, discovered, registry, scope = null, duplicateExplicitUids = null, extraCandidates = null, claimedExplicitUids = null }) {
   const reg = registryOf(registry, projectUid);
   const items = discovered.map((d) => ({
     ...d,
@@ -600,6 +600,22 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
     explicitOwners.get(it.explicitUid).push(it);
   }
   const reserved = new Set(explicitOwners.keys());
+  // ATS-602: a token that ANY case of the catalogue declares is reserved as
+  // well -- a mobile case the caller knows about, not only a web case of
+  // this list. The registry may remember a token under the body of a case
+  // that has since dropped it, and handing it back would give two cases
+  // one uid. The caller passes the tokens every case of the whole
+  // catalogue declares; a missing or non-Set value adds nothing.
+  if (claimedExplicitUids instanceof Set) {
+    for (const uid of claimedExplicitUids) reserved.add(uid);
+  }
+
+  // A token that ANOTHER ENGINE claims as well is claimed by nobody. The
+  // caller knows the whole catalogue -- the web cases and the mobile ones --
+  // and passes the tokens that more than one case claims. Both sides then
+  // give the token up.
+  const claimedElsewhere = duplicateExplicitUids instanceof Set ? duplicateExplicitUids : new Set();
+  const isDuplicated = (uid) => (explicitOwners.get(uid)?.length ?? 0) > 1 || claimedElsewhere.has(uid);
 
   const registryByBody = new Map();
   for (const e of reg.entries) {
@@ -610,7 +626,7 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
 
   const candidates = items.map((it) => {
     if (it.explicitUid) {
-      if (explicitOwners.get(it.explicitUid).length > 1) {
+      if (isDuplicated(it.explicitUid)) {
         // The same annotation on two cases: neither may claim it.
         return {
           ...it,
@@ -740,7 +756,7 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
     };
   }
 
-  const entries = mergeRegistry(reg, candidates, scope);
+  const entries = mergeRegistry(reg, [...candidates, ...(extraCandidates ?? [])], scope);
   return { items: candidates, registry: { version: UID_SCHEME_VERSION, projects: { ...(registry?.projects ?? {}), [projectUid]: entries } } };
 }
 
@@ -760,7 +776,9 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
 function mergeRegistry(reg, candidates, scope = null) {
   const entries = reg.entries.slice();
   const byBody = new Map();
+  const byUid = new Map();
   for (const e of entries) {
+    if (e.uid && !byUid.has(e.uid)) byUid.set(e.uid, e);
     if (!e.bodyKey) continue;
     if (!byBody.has(e.bodyKey)) byBody.set(e.bodyKey, []);
     byBody.get(e.bodyKey).push(e);
@@ -776,7 +794,21 @@ function mergeRegistry(reg, candidates, scope = null) {
       const sameFile = hits.filter((e) => e.file === c.file);
       if (sameFile.length === 1) existing = sameFile[0];
     }
+    // ONE ENTRY PER UID. The uid may be remembered under ANOTHER body: an
+    // explicit token that moved to a case with a different body (a web
+    // case that took over a token a mobile scenario dropped, for one).
+    // The entry is then UPDATED to the new body and position, not
+    // duplicated -- a second entry with the same uid would keep the OLD
+    // position alive and make every later lookup ambiguous.
+    if (!existing) existing = byUid.get(c.uid) ?? null;
     if (existing) {
+      if (existing.bodyKey !== c.bodyKey) {
+        const bucket = byBody.get(existing.bodyKey) ?? [];
+        const at = bucket.indexOf(existing);
+        if (at >= 0) bucket.splice(at, 1);
+        if (!byBody.has(c.bodyKey)) byBody.set(c.bodyKey, []);
+        byBody.get(c.bodyKey).push(existing);
+      }
       if (existing.file !== c.file || existing.title !== c.title) {
         existing.aliases = existing.aliases ?? [];
         if (!existing.aliases.some((a) => a.file === existing.file && a.title === existing.title)) {
@@ -789,6 +821,7 @@ function mergeRegistry(reg, candidates, scope = null) {
       existing.uidSource = c.uidSource;
       existing.line = c.line;
       existing.bodyKey = c.bodyKey;
+      existing.duplicateExplicit = c.duplicateExplicit ?? null;
       continue;
     }
     const entry = {
@@ -799,9 +832,21 @@ function mergeRegistry(reg, candidates, scope = null) {
       file: c.file,
       title: c.title,
       line: c.line,
-      aliases: []
+      aliases: [],
+      // ATS-204: the verdict of the catalogue on the explicit token this
+      // case carries. The static index judges the token duplicated in the
+      // project (two cases wrote down the same `@TC-xxx`), and the RUN side
+      // has to agree with that judgement: a run that covers only one of the
+      // two files would otherwise bind the token to one of them, and the two
+      // cases would end up with the same UID.
+      //
+      // The verdict is written on the ENTRY, because the entry is what the
+      // run side reads. The candidate alone does not reach it -- the run
+      // side never sees the candidates, it sees the registry.
+      duplicateExplicit: c.duplicateExplicit ?? null,
     };
     entries.push(entry);
+    byUid.set(entry.uid, entry);
     if (!byBody.has(c.bodyKey)) byBody.set(c.bodyKey, []);
     byBody.get(c.bodyKey).push(entry);
   }

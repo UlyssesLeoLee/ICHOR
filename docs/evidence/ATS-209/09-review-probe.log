@@ -1,0 +1,39 @@
+=== the round 1 review probe against this tree ===
+tree   : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-8222c3c90bd2/worktree
+commit : 7b2a5302d81171df96791ee228ae9b0fd584629d
+
+--- E1/E2: in-place write through one hard link ---
+info   run1 run_1_441418c4d134406675a35501 passed, run2 run_1_f1a1c71d36f1ebf9b9ce152f passed, nlink(run1 index.html)=3
+info   E2 (disclosed trade-off, docs only): an in-place write to run1's file also changes run2; run2 verified=false changed=["html/index.html"] run2 content="<h1>TAMPERED via run1</h1>"
+ok     E1a: a fresh run keeps the bytes it produced; run3 index.html="<h1>fixture report</h1>"
+ok     E1b: a fresh, untouched run verifies; run3 verified=true changed=[]
+info   /api/evidence/dedup wastedBytes=488 duplicated=3 storeBytes=244 (the duplicated files are hard links: no byte is stored twice)
+--- E6: a run folder with more than 400 evidence files ---
+info   run4 run_1_4efa2a21890b750f64d21aef: run.artifacts=400, manifest.artifacts=400, files not in manifest=0
+ok     E6: manifest covers every artifact
+info   run5 run_1_49f439c520e0fd836fcf86d1 passed (control, not expired) verified=true changed=[] -- report.json was written in place through run4 (E6), so the shared blob run5 was linked to is the poisoned one (E1)
+--- E7/E8/E4: offline cleaning ---
+info   clean #1 exit=0
+         data dir : C:\tmp\multica-task-3923829175\ats209-r1-probe\data
+         period   : 30 days
+         expired  : 4
+         cleaned  : 4
+           run_1_4efa2a21890b750f64d21aef: removed 454 file(s), kept events.jsonl, manifest.json, evidence-cleaned.json
+           run_1_84c543e679bd7610de12718f: removed 4 file(s), kept events.jsonl, manifest.json, evidence-cleaned.json
+           run_1_f1a1c71d36f1ebf9b9ce152f: removed 4 file(s), kept events.jsonl, manifest.json, evidence-cleaned.json
+           run_1_441418c4d134406675a35501: removed 4 file(s), kept events.jsonl, manifest.json, evidence-cleaned.json
+         run records kept: 5
+         store: removed 401 unreferenced blob(s), freed 2713 bytes
+         journal: C:\tmp\multica-task-3923829175\ats209-r1-probe\data\evidence-retention-journal.jsonl
+ok     E8: the documented "clean --days N --yes" leaves no blob of the cleaned evidence on disk; store before=2957 after=244, 0 blob(s) / 0 bytes referenced by no run but still on disk
+ok     E7: after a normal retention cleaning, verify does not report the cleaned runs as not matching; verify exit=0; cleaned run2 verified=true missing=0 reason=""
+ok     E7-control: deleting html/index.html of the kept run5 is still reported; verify exit=1, names run5=true
+ok     E4: a second cleaning removes nothing, so its journal records nothing removed; clean #2 exit=0, journal claims 0 file(s) removed across 4 line(s)
+--- E5: --dry-run --prune-store ---
+ok     E5: a dry run removes nothing; unreferenced blob still on disk=true; output says: ["run records kept: 5","dry run: nothing was removed"]
+--- E3: manifest entries outside the run folder ---
+ok     E3: cleaning the expired run run_1_aaaaaaaaaaaaaaaaaaaaaaaa touches only its own folder; exit=0; state.json kept=true; run_1_bbbbbbbbbbbbbbbbbbbbbbbb/events.jsonl (a run that is NOT expired) kept=true
+
+RESULT: OK -- 0 defect(s)
+
+exit code : 0

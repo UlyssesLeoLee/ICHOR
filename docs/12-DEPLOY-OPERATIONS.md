@@ -27,12 +27,16 @@
 | 不能停止运行 | 任务管理器 / `taskkill` | 清理子孙进程，归档日志后重新测试 |
 | 页面空白 | Next 构建缺失 | 使用 `/fallback.html` 或补全 npm 依赖 |
 | 运行历史不存在 | 检查 `ATS_DATA_DIR` 与 state.json | 核对操作系统用户和权限 |
-| 状态损坏 | Node 服务启动报错 | 先备份损坏文件，再恢复历史快照 |
+| 状态损坏 | 启动报 `STATE_CORRUPT` / `UNSUPPORTED_DATABASE`，Bridge 拒绝启动且不改写该文件 | 先复制损坏文件，再恢复最后一份完好的副本（迁移备份 `state.json.bak`）；见 docs/06 §5.7 |
+| 第二个 Bridge 起不来 | 启动报 `holds the data directory lock` 并给出持有者 pid | 同一数据目录只允许一个 Bridge；确认该 pid 不是 Bridge 后才可删除 `bridge.lock` |
+| 镜像损坏 | 启动时 stderr 报 `quarantined` | 无需处理：损坏的 `metadata.db` 已改名为 `metadata.db.corrupt-*`，镜像已由 state.json 重建 |
 
 ## 5. 环境变量
 
 - `ATS_PORT`：默认 4577（Next UI 的 API BASE 当前写死 4577，变更端口需同步调整 UI 配置；非动态端口发布模式）
-- `ATS_DATA_DIR`：本地历史/附件目录，默认用户主目录 `.ai-test-studio`
+- `ATS_DATA_DIR`：本地历史/附件目录，默认用户主目录 `.ai-test-studio`；同一目录同一时刻只允许一个 Bridge
+- `ATS_LOCK_WAIT_MS`：数据目录锁被占用时，启动中的 Bridge 最多等待的毫秒数；默认 0（立即拒绝）
+- `ATS_LOCK_VERIFY_MS`：Bridge 校验自己仍持有锁的间隔毫秒数；默认 5000，下限 50
 - `PLAYWRIGHT_JSON_OUTPUT_FILE` 等由 Runner 注入到测试子进程。
 - `ATS_CP_HOST` / `ATS_CP_PORT`：部署式控制面的监听地址与端口，默认 `127.0.0.1` / `4610`；端口与已设置的 `ATS_PORT` 相同即拒绝启动（本地与远程不得共用同一端点）
 - `ATS_CP_TLS_CERT` / `ATS_CP_TLS_KEY`：控制面 HTTPS 证书与私钥文件，必须成对给出；非回环地址必填

@@ -1,0 +1,18 @@
+=== command ===
+node tools/ats204-probes/probe-matrix.mjs
+=== output ===
+=== the REAL CLI shape (one spec row per project) ===
+  cases: 1
+    title="plain case" line=4 status=failed outcome=unexpected attempts=2
+  counters: total=1 passed=0 failed=1 flaky=0 executions=2
+
+=== the shape the product's tests assume (one row, many projects) ===
+  cases: 1
+    title="plain case" line=4 status=failed outcome=unexpected attempts=2
+  counters: total=1 passed=0 failed=1 flaky=0 executions=2
+
+=== the binding of the two rows ===
+    testUid=tc_1_d_aaaaaaaaaaaaaaaa basis=title status=passed outcome=expected
+    testUid=tc_1_d_aaaaaaaaaaaaaaaa basis=title status=failed outcome=unexpected
+  the two rows share ONE test uid: true
+=== exit code: 0 ===

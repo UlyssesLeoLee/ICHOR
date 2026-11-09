@@ -1,0 +1,54 @@
+================================================================================
+ATS-402 evidence log -- the AI data security API integration tests (tests/security-api.test.mjs)
+================================================================================
+commit        : 773eddd5bea25642aa742e7660b2540a51f61ca8
+timestamp     : 2026-11-09T06:47:34Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-df6305c2c2fd/worktree
+node          : v24.19.0
+python        : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command       : node --test tests/security-api.test.mjs
+================================================================================
+
+✔ IT-SEC-SETUP: start server (490.6384ms)
+✔ IT-SEC-027: the security contract is exposed over HTTP (1.8172ms)
+✔ IT-SEC-028: the security endpoints require a session token (37.7033ms)
+✔ IT-SEC-003: the credential list exposes references only (15.7102ms)
+﹣ IT-SEC-004: a secret never reaches the platform state files (0.1432ms) # needs ATS402_REAL_CREDENTIAL_STORE=1
+﹣ IT-SEC-005: a duplicate credential name is refused (0.0512ms) # needs ATS402_REAL_CREDENTIAL_STORE=1
+✔ IT-SEC-006: an invalid credential name is refused (14.8114ms)
+✔ IT-SEC-007: the egress preview shows the real scope (16.8664ms)
+✔ IT-SEC-008: egress without a consent is refused with 403 (23.6753ms)
+✔ IT-SEC-009: the preview -> confirm -> check flow grants egress (62.7244ms)
+✔ IT-SEC-010: a consent cannot be confirmed twice from one preview (51.5265ms)
+✔ IT-SEC-011: a confirmation without a preview is refused (14.9596ms)
+✔ IT-SEC-012: changed content does not match the confirmed consent (93.0541ms)
+✔ IT-SEC-013: a revoked consent refuses egress immediately (86.5861ms)
+✔ IT-SEC-014: a scope that escapes the project root is refused (36.0824ms)
+✔ IT-SEC-015: an unknown project is refused (15.7265ms)
+✔ IT-SEC-016: the consent records are listed and carry no content (16.0989ms)
+✔ IT-SEC-017: the diagnostics endpoint reports the security surface (15.362ms)
+✔ IT-SEC-018: a non-security error keeps its pre-ATS-402 behaviour (2.1794ms)
+✔ IT-AUD-001: a refused egress leaves an audit record (28.8781ms)
+✔ IT-AUD-002: a granted egress leaves an audit record too (61.3935ms)
+✔ IT-AUD-003: the audit records never carry the content (15.9175ms)
+✔ IT-AUD-004: the audit trail survives a bridge restart (715.9836ms)
+✔ IT-SEC-019: a requirement input goes preview -> confirm -> check to 200 (91.6167ms)
+✔ IT-SEC-020: a run input goes preview -> confirm -> check to 200 (189.3892ms)
+✔ IT-SEC-021: with a VALID consent, every out-of-scope /check is refused AND audited (201.3832ms)
+✔ IT-SEC-022: a requirement path through a junction, or out of .aitest, is refused (16.4989ms)
+✔ IT-SEC-023: an expired consent is listed as expired and refused by /check (1434.0175ms)
+✔ IT-SEC-024: /check for an unknown project, or with no inputs, is refused and audited (78.5498ms)
+﹣ IT-SEC-025: concurrent credential writes keep the index and the vault consistent (0.1192ms) # needs ATS402_REAL_CREDENTIAL_STORE=1
+﹣ IT-SEC-026: a reference whose vault entry vanished can be deleted; a failed write is 503 (0.0347ms) # needs ATS402_REAL_CREDENTIAL_STORE=1
+✔ IT-SEC-CLEANUP: the bridge exits and the fixture is removed (211.1501ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 4
+ℹ todo 0
+ℹ duration_ms 4151.8869
+
+--- exit code: 0 ---

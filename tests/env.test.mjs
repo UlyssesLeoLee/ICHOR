@@ -409,8 +409,8 @@ test('UT-ENV-056: the public view of a profile carries the names, never the valu
 
 test('UT-ENV-057: the capability probe does not hand the host environment to the project CLI', () => {
   // The probe runs the PROJECT'S OWN CLI (`node <project>/.../cli.js
-  // --help`), so it is the same trust boundary as the run. Before ATS-212
-  // it inherited `{...process.env}`.
+  // --help`), so it is the same trust boundary as the run. It does not
+  // inherit `{...process.env}`.
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats212-probe-'));
   const script = path.join(dir, 'show-env.js');
   fs.writeFileSync(script, 'process.stdout.write(JSON.stringify(process.env));');

@@ -74,9 +74,9 @@ async function environmentOfChild(project, outputDir, extra = {}) {
 test('IT-ENV-ADP-001: the child receives the profile variables and NOT the host environment', async () => {
   const project = fixture();
   const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats212-out-'));
-  // The host holds something that looks like a credential. Before ATS-212
-  // the adapter spread the host environment in, so this reached the code
-  // under test -- and from there into the report that is archived.
+  // The host holds something that looks like a credential. The adapter does
+  // not spread the host environment in, so this cannot reach the code under
+  // test -- and from there into the report that is archived.
   const HOST_SECRET = 'the-host-secret-value';
   process.env.HOST_SECRET_MARKER = HOST_SECRET;
   try {

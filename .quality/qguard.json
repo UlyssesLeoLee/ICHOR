@@ -9,7 +9,7 @@
   "coverage_commands": [
     ["python", "tools/test_wbs_common.py"],
     ["node", "--test", "--experimental-test-coverage", "--test-reporter=spec", "--test-reporter-destination=stdout", "--test-reporter=lcov", "--test-reporter-destination=.quality/coverage/node.lcov", "tests/*.test.mjs"],
-    ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tools/test_wbs_common_helpers.py", "tools/test_update_wbs_ats506.py", "tools/test_generate_test_docs.py", "--cov=tools", "--cov-report=lcov:.quality/coverage/py.lcov"],
+    ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tools/test_wbs_common_helpers.py", "tools/test_update_wbs_ats506.py", "tools/test_update_wbs_ats207.py", "tools/test_generate_test_docs.py", "--cov=tools", "--cov-report=lcov:.quality/coverage/py.lcov"],
     ["python", "-c", "import pathlib; d = pathlib.Path('.quality/coverage'); (d / 'lcov.info').write_text((d / 'node.lcov').read_text(encoding='utf-8') + (d / 'py.lcov').read_text(encoding='utf-8'), encoding='utf-8')"]
   ],
   "mappings": {},

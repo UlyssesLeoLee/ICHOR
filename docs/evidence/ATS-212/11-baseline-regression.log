@@ -1,0 +1,5 @@
+=== the full suite on the pre-ATS-212 baseline, for the no-regression claim ===
+SKIPPED: ATS212_BASELINE is not set to a baseline worktree.
+The no-regression claim therefore rests on the current tree's totals alone.
+
+exit code : 0

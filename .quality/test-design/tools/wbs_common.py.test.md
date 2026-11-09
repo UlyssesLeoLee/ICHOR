@@ -2,7 +2,7 @@
 
 Source: `tools/wbs_common.py`
 
-Source-SHA256: `2c11affaa71e13e67dbe3e240556eeb2be9eee59a64331a98ab3e7f871e3ec64`
+Source-SHA256: `6e158f3a3d5d03d2a45e271c60a37a30cd5cedda4f6049fce65d25a04c00e68a`
 
 ## Test Strategy
 
@@ -12,8 +12,8 @@ pytest. The existing `tools/test_wbs_common.py` (merge idempotence, foreign bloc
 
 | Case ID | Input / Setup | Expected Outcome | Test Location |
 | --- | --- | --- | --- |
-| TC-001 | Every `tools/update_wbs_ats*.py` marker vs `MARKERS` | all registered, including `【ATS-506】` | `tools/test_wbs_common.py` |
-| TC-002 | `NARRATIVE_FRAGMENTS['【ATS-506】']`; `compose_narrative('', 'D6')` and `'D7'` | both fragments present, the cell ends with `。`, ATS-501 fragments still present | `tools/test_wbs_common_helpers.py` |
+| TC-001 | Every `tools/update_wbs_ats*.py` marker vs `MARKERS` | all registered, including `【ATS-207】` | `tools/test_wbs_common.py` |
+| TC-002 | `NARRATIVE_FRAGMENTS['【ATS-506】']` and `NARRATIVE_FRAGMENTS['【ATS-207】']`; `compose_narrative('', 'D6')` and `'D7'` | all fragments present, the cell ends with `。`, ATS-501 fragments still present | `tools/test_wbs_common_helpers.py` |
 | TC-003 | `cell_text` / `cell_number` on a missing cell, a cell without `<x:v>`, a non-numeric value, an escaped value | `''`, `''`, `0.0`, the unescaped text | `tools/test_wbs_common_helpers.py` |
 | TC-004 | `set_cell` keeps `<x:f>` and style, switches `t="n"`/`t="str"`, escapes `<&>`; missing column and missing row | value replaced, formula kept; `SystemExit` for missing column / row | `tools/test_wbs_common_helpers.py` |
 | TC-005 | `merge_marked` with `plain=True` (with and without an existing prefix), `drop_unmarked=True`, `stale_prefixes`/`stale_fragments`, a duplicate own block, an own block already prefixed with the marker | expected cell text for each; second application is a no-op | `tools/test_wbs_common_helpers.py` |

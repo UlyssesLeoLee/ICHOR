@@ -1,0 +1,357 @@
+/**
+ * ATS-402 ｜ 数据外传知情授权（Informed egress consent）
+ *
+ * 本模块实现 FR-027 的第二条完成定义：**「首次上传任何项目内容前展示
+ * 范围并确认」**。
+ *
+ * 核心规则
+ * --------
+ *   1. **默认不外传。** 没有任何授权记录时，一切外传都被拒绝。这与
+ *      ATS-401 契约层的 `egress.kinds` 默认值（空）一致，但这里给出的是
+ *      **原因**：没有同意书。
+ *   2. **首次必须先展示范围再确认。** 授权不是一次勾选，而是三步：
+ *      `preview`（展示将要外传什么）→ `confirm`（用户确认）→
+ *      `grant`（生成授权记录）。`confirm` 必须携带 `preview` 产生的
+ *      **预览令牌**，因此**看过范围**这件事本身是可校验的：没有令牌
+ *      的确认一律拒绝。
+ *   3. **授权是有范围的。** 一条授权记录声明：允许外传的输入种类
+ *      （`kinds`）、**摘要指纹**（`scopeDigest`）与有效期。后续每一次
+ *      外传都要匹配这条记录——种类在授权里、内容摘要一致、记录未过期。
+ *      范围变了（文件改了）就**不再匹配**，必须重新展示并确认。
+ *   4. **授权可撤销，且撤销即刻生效。**
+ *
+ * 授权记录里**不含**任何项目内容：只有种类、计数与摘要。真正的内容
+ * 在调用点被读取，而**读取之前**先由本模块判定「有没有同意书」。
+ */
+import crypto from 'node:crypto';
+
+export const EGRESS_CONSENT_CONTRACT_VERSION = 'egress-consent/v1';
+
+/** 可外传的输入种类。与 ATS-401 契约层的 `INPUT_KINDS` 一致。 */
+export const EGRESS_KINDS = Object.freeze(['file', 'requirement', 'run', 'evidence']);
+
+/** 授权记录的错误码。调用方按 `err.code` 分支。 */
+export const EGRESS_ERROR_CODES = Object.freeze([
+  'EGRESS_CONSENT_REQUIRED',
+  'EGRESS_CONSENT_INVALID',
+  'EGRESS_CONSENT_EXPIRED',
+  'EGRESS_CONSENT_SCOPE_MISMATCH',
+  'EGRESS_CONSENT_REVOKED',
+  'EGRESS_PREVIEW_INVALID',
+  'EGRESS_PREVIEW_STALE',
+  'EGRESS_KIND_NOT_ALLOWED',
+]);
+
+/** 一条授权记录的状态。 */
+export const EGRESS_CONSENT_STATES = Object.freeze(['granted', 'revoked', 'expired']);
+
+/** 授权记录 id 的形状。 */
+const CONSENT_ID = /^egr_[0-9a-f]{24}$/;
+
+/** 预览令牌 id 的形状。 */
+const PREVIEW_ID = /^egp_[0-9a-f]{24}$/;
+
+/** 授权有效期上限（秒）。默认 30 天，最长 365 天。 */
+export const MAX_CONSENT_TTL_SECONDS = 365 * 24 * 60 * 60;
+
+/** 授权有效期默认值（秒）：24 小时。 */
+export const DEFAULT_CONSENT_TTL_SECONDS = 24 * 60 * 60;
+
+/**
+ * 外传范围的摘要。
+ *
+ * 它由「种类 + 每个输入的 ref 与内容摘要」算出，因此内容一变，摘要就变，
+ * 授权就不再匹配——这正是「授权是有范围的」的技术落点。
+ */
+export function scopeDigestOf(inputs) {
+  if (!Array.isArray(inputs)) {
+    const error = new Error('EGRESS_CONSENT_INVALID');
+    error.code = 'EGRESS_CONSENT_INVALID';
+    throw error;
+  }
+  const parts = inputs
+    .map((input) => `${input.kind}\u0000${input.ref}\u0000${input.digest}`)
+    .sort()
+    .join('\u0001');
+  return crypto.createHash('sha256').update(parts, 'utf8').digest('hex');
+}
+
+/**
+ * 一次外传的**预览**。
+ *
+ * 预览是「将要外传什么」的完整描述：种类、每个输入的 ref、字节数与
+ * 摘要。摘要让用户能核对内容确实是他以为的那份。
+ */
+export function describeEgressScope(inputs) {
+  if (!Array.isArray(inputs)) {
+    const error = new Error('EGRESS_CONSENT_INVALID');
+    error.code = 'EGRESS_CONSENT_INVALID';
+    throw error;
+  }
+  const items = inputs.map((input) => {
+    if (!input || typeof input !== 'object') {
+      const error = new Error('EGRESS_CONSENT_INVALID');
+      error.code = 'EGRESS_CONSENT_INVALID';
+      throw error;
+    }
+    if (!EGRESS_KINDS.includes(input.kind)) {
+      const error = new Error('EGRESS_KIND_NOT_ALLOWED');
+      error.code = 'EGRESS_KIND_NOT_ALLOWED';
+      throw error;
+    }
+    if (typeof input.ref !== 'string' || !input.ref.trim()) {
+      const error = new Error('EGRESS_CONSENT_INVALID');
+      error.code = 'EGRESS_CONSENT_INVALID';
+      throw error;
+    }
+    if (typeof input.digest !== 'string' || !/^[0-9a-f]{64}$/.test(input.digest)) {
+      const error = new Error('EGRESS_CONSENT_INVALID');
+      error.code = 'EGRESS_CONSENT_INVALID';
+      throw error;
+    }
+    const content = typeof input.content === 'string' ? input.content : '';
+    // The byte count may be given directly (when an already-described scope
+    // is re-described, e.g. the consent is confirmed from the preview's
+    // items). Without this the re-description would report 0 bytes for
+    // content that is really there.
+    const bytes = typeof input.bytes === 'number' && Number.isFinite(input.bytes)
+      ? input.bytes
+      : Buffer.byteLength(content, 'utf8');
+    return {
+      kind: input.kind,
+      ref: input.ref,
+      digest: input.digest,
+      bytes,
+    };
+  });
+  return {
+    kinds: [...new Set(items.map((i) => i.kind))].sort(),
+    count: items.length,
+    totalBytes: items.reduce((n, i) => n + i.bytes, 0),
+    items,
+    scopeDigest: scopeDigestOf(inputs),
+  };
+}
+
+/**
+ * 创建一个外传授权存储。
+ *
+ * 授权记录**持久化在 state.json 里**（与 projects / runs 同处），因此这里
+ * 不自己管文件，而是由调用方注入 `list` / `persist` 两个函数：
+ *
+ *   list()            -> Promise<consent[]>  当前所有授权记录
+ *   persist(records)  -> Promise<void>       把记录写回存储
+ *
+ * 这样「授权记录」和其它平台状态共享同一次原子写，不会出现两份状态互相
+ * 打架的情况。
+ *
+ * @param {object} options
+ * @param {() => Promise<object[]>} options.list       读出授权记录
+ * @param {(records: object[]) => Promise<void>} options.persist 写回授权记录
+ * @param {() => number} [options.now]                 当前时间（毫秒），测试可注入
+ */
+export function createEgressConsentStore({ list, persist, now = () => Date.now() } = {}) {
+  if (typeof list !== 'function' || typeof persist !== 'function') {
+    throw new TypeError('list and persist are required');
+  }
+  /** 待确认的预览：id -> { scope, createdAt }。 */
+  const previews = new Map();
+
+  /**
+   * 生成一次预览。
+   *
+   * 预览**不**授权任何东西——它只是把范围摆出来，并产生一个令牌。
+   * 令牌是一次性的：确认之后立即作废。
+   */
+  function preview(inputs) {
+    const scope = describeEgressScope(inputs);
+    const id = `egp_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
+    previews.set(id, { scope, createdAt: now() });
+    return {
+      previewId: id,
+      scope,
+      note: 'Confirm this scope to grant egress consent. The preview token is consumed by the confirmation.',
+    };
+  }
+
+  /**
+   * 确认预览并生成授权记录。
+   *
+   * `previewId` 必须来自一次**尚未用过**的预览，且预览的范围必须与这次
+   * 确认所声明的范围一致——否则预览就形同虚设（用户看的是 A，同意的是 B）。
+   */
+  async function confirm({ previewId, inputs, ttlSeconds = DEFAULT_CONSENT_TTL_SECONDS } = {}) {
+    if (!PREVIEW_ID.test(String(previewId))) {
+      const error = new Error('EGRESS_PREVIEW_INVALID');
+      error.code = 'EGRESS_PREVIEW_INVALID';
+      throw error;
+    }
+    const pending = previews.get(previewId);
+    if (!pending) {
+      const error = new Error('EGRESS_PREVIEW_INVALID');
+      error.code = 'EGRESS_PREVIEW_INVALID';
+      throw error;
+    }
+    // The preview is single-use: consume it BEFORE any further validation,
+    // so a rejected confirmation cannot be retried with the same token.
+    previews.delete(previewId);
+    const scope = describeEgressScope(inputs);
+    if (scope.scopeDigest !== pending.scope.scopeDigest) {
+      const error = new Error('EGRESS_PREVIEW_STALE');
+      error.code = 'EGRESS_PREVIEW_STALE';
+      throw error;
+    }
+    if (!Number.isInteger(ttlSeconds) || ttlSeconds <= 0 || ttlSeconds > MAX_CONSENT_TTL_SECONDS) {
+      const error = new Error('EGRESS_CONSENT_INVALID');
+      error.code = 'EGRESS_CONSENT_INVALID';
+      throw error;
+    }
+    const createdAt = now();
+    const consent = {
+      id: `egr_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`,
+      contract: EGRESS_CONSENT_CONTRACT_VERSION,
+      kinds: scope.kinds,
+      scopeDigest: scope.scopeDigest,
+      itemCount: scope.count,
+      totalBytes: scope.totalBytes,
+      createdAt: new Date(createdAt).toISOString(),
+      expiresAt: new Date(createdAt + ttlSeconds * 1000).toISOString(),
+      state: 'granted',
+      revokedAt: null,
+    };
+    // The record is persisted BEFORE it is handed back: a consent that is
+    // not on disk does not survive a restart, and a caller that received it
+    // would believe it did.
+    const records = await list();
+    records.push(consent);
+    await persist(records);
+    return consent;
+  }
+
+  /** 记录的**有效状态**：已过期的 granted 记录对外显示为 `expired`。 */
+  const withEffectiveState = (record) => (
+    record.state === 'granted' && !(Date.parse(record.expiresAt) > now())
+      ? { ...record, state: 'expired' }
+      : record
+  );
+
+  /** 当前所有授权记录（最新的在前），状态反映过期。 */
+  async function all() {
+    const records = await list();
+    return records.slice().reverse().map(withEffectiveState);
+  }
+
+  /** 按 id 找一条授权记录。 */
+  async function find(id) {
+    const records = await list();
+    return records.find((record) => record.id === id) || null;
+  }
+
+  /**
+   * 判定一份授权记录本身是否有效，以及它是否覆盖给定的输入种类。
+   *
+   * 这一层**不**比较内容摘要——它回答的是「这份同意书还有效吗、它允许
+   * 这些种类吗」。平台侧的闸门先问这一层（此时还没有读文件），再读内容、
+   * 复算摘要、问第二层。
+   */
+  function checkConsent(consent, kinds = []) {
+    if (!consent || typeof consent !== 'object') {
+      return { allowed: false, code: 'EGRESS_CONSENT_REQUIRED', reason: 'no egress consent record' };
+    }
+    if (!CONSENT_ID.test(String(consent.id))) {
+      return { allowed: false, code: 'EGRESS_CONSENT_INVALID', reason: 'malformed egress consent record' };
+    }
+    if (consent.state === 'revoked') {
+      return { allowed: false, code: 'EGRESS_CONSENT_REVOKED', reason: 'the egress consent was revoked' };
+    }
+    if (consent.state !== 'granted') {
+      return { allowed: false, code: 'EGRESS_CONSENT_INVALID', reason: `consent state is ${consent.state}` };
+    }
+    const expiresAt = Date.parse(consent.expiresAt);
+    if (!Number.isFinite(expiresAt) || expiresAt <= now()) {
+      return { allowed: false, code: 'EGRESS_CONSENT_EXPIRED', reason: 'the egress consent has expired' };
+    }
+    const allowed = new Set(consent.kinds || []);
+    for (const kind of kinds) {
+      if (!allowed.has(kind)) {
+        return {
+          allowed: false,
+          code: 'EGRESS_KIND_NOT_ALLOWED',
+          reason: `the consent does not cover the input kind ${kind}`,
+        };
+      }
+    }
+    return { allowed: true, consent };
+  }
+
+  /**
+   * 判定一次外传是否有有效的授权。
+   *
+   * 返回 `{ allowed: true, consent }` 或 `{ allowed: false, code, reason }`。
+   * **不抛异常**——这是一个判定函数，调用点据此决定放行还是拒绝。
+   */
+  function check(consent, inputs) {
+    const validity = checkConsent(consent, []);
+    if (!validity.allowed) return validity;
+    let scope;
+    try {
+      scope = describeEgressScope(inputs);
+    } catch (error) {
+      return { allowed: false, code: error.code || 'EGRESS_CONSENT_INVALID', reason: 'invalid egress scope' };
+    }
+    // Every kind that is about to leave must be covered by the consent.
+    const kindVerdict = checkConsent(consent, scope.kinds);
+    if (!kindVerdict.allowed) return kindVerdict;
+    // The scope itself must be unchanged since the user saw it.
+    if (scope.scopeDigest !== consent.scopeDigest) {
+      return {
+        allowed: false,
+        code: 'EGRESS_CONSENT_SCOPE_MISMATCH',
+        reason: 'the content about to be sent differs from what the user confirmed',
+      };
+    }
+    return { allowed: true, consent };
+  }
+
+  /** 撤销一条授权。撤销后立刻生效，并持久化。 */
+  async function revoke(consentId) {
+    const records = await list();
+    const record = records.find((entry) => entry.id === consentId);
+    if (!record) {
+      const error = new Error('EGRESS_CONSENT_INVALID');
+      error.code = 'EGRESS_CONSENT_INVALID';
+      throw error;
+    }
+    const revoked = { ...record, state: 'revoked', revokedAt: new Date(now()).toISOString() };
+    const updated = records.map((entry) => (entry.id === consentId ? revoked : entry));
+    await persist(updated);
+    return revoked;
+  }
+
+  return Object.freeze({
+    contract: EGRESS_CONSENT_CONTRACT_VERSION,
+    preview,
+    confirm,
+    check,
+    checkConsent,
+    revoke,
+    all,
+    find,
+    /** 待确认的预览数量（诊断用）。 */
+    pendingPreviews: () => previews.size,
+  });
+}
+
+/** 供诊断使用的契约描述（不含任何秘密）。 */
+export function describeEgressConsent() {
+  return {
+    contract: EGRESS_CONSENT_CONTRACT_VERSION,
+    kinds: [...EGRESS_KINDS],
+    states: [...EGRESS_CONSENT_STATES],
+    errorCodes: [...EGRESS_ERROR_CODES],
+    defaultTtlSeconds: DEFAULT_CONSENT_TTL_SECONDS,
+    maxTtlSeconds: MAX_CONSENT_TTL_SECONDS,
+    flow: 'preview -> confirm(previewId) -> granted consent -> egress allowed while the scope matches',
+    note: 'No egress happens without a granted consent whose scope still matches the content about to be sent.',
+  };
+}

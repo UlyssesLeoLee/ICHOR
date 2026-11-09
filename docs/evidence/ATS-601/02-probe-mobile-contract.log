@@ -1,0 +1,56 @@
+=== ATS-601 evidence: the contract probe: the hard rules side by side ===
+tree : e906ae08450fa594ff04e52b788c8dcdef95b3c4
+date : 2026-11-06T20:44:11Z
+
+=== ATS-601 probe: the mobile target/session contract ===
+  (fake targets and fake sessions; no device, no emulator, no ADB)
+
+--- 1. a mobile run is refused explicitly, never run as a browser ---
+  PASS  the mobile runner is registered in the SAME registry
+  PASS  the mobile adapter refuses to start -- code=REMOTE_TARGET_UNAVAILABLE reason=no-driver
+  PASS  the refusal names the reason (no driver yet)
+  PASS  an unsatisfiable request reports EVERY runner it tried, mobile included -- playwright,wdio,mobile
+  PASS  the mobile runner was NOT silently chosen for a web project -- nothing could satisfy the request
+
+--- 2. tapOn without ui.hierarchy is unavailable, not a blind tap ---
+  PASS  the negotiation reports the gap list of THIS execution -- gaps=tapOn,assertVisible
+  PASS  tapOn is in the unavailable list
+  PASS  the tapOn gap names ui.hierarchy -- missing=ui.hierarchy
+  PASS  the tapOn gap says a blind tap is not a substitute
+
+--- 3. an expired farm lease is refused AND reclaimed ---
+  PASS  an expired lease is refused -- reason=lease-expired
+  PASS  the refusal names the lease as the reason
+  PASS  the expired lease is reclaimed back to idle -- state=idle
+
+--- 3b. a device another run holds is refused ---
+  PASS  an occupied device is refused -- reason=device-occupied
+  PASS  the refusal names the occupancy as the reason
+
+--- 3c. a device that is not connected is refused ---
+  PASS  a device that is not connected is refused -- reason=device-not-connected
+  PASS  the refusal names the missing connection as the reason
+
+--- 4. the session answers "which device and what can it do" ---
+  PASS  a usable session resolves
+  PASS  the session carries the proven capability set
+  PASS  a missing target is refused
+
+--- 5. only a session the user registered may be used ---
+  PASS  an unregistered session is refused (no registration list) -- code=MOBILE_SESSION_NOT_REGISTERED
+  PASS  an unregistered session is refused (an empty registration list) -- code=MOBILE_SESSION_NOT_REGISTERED
+  PASS  an unregistered session is refused (a registration list that is not a list) -- code=MOBILE_SESSION_NOT_REGISTERED
+  PASS  a registered session still resolves
+
+--- 6. a session may not claim capabilities its target never declared ---
+  PASS  a session claiming undeclared capabilities is refused -- code=REMOTE_CAPABILITY_MISSING
+  PASS  the refusal names the undeclared capabilities -- undeclared=app.install,app.launch,log.read,screen.record,ui.hierarchy,ui.tap
+
+--- 6b. the device layer does not prove what the target never declared ---
+  PASS  an undeclared capability is not reported as proved -- supported=false evidence=""
+  PASS  an undeclared capability carries no evidence
+  PASS  the refusal names the target declaration -- reason=the session ses_wide claims ui.hierarchy: not declared by target tgt_narrow, so it was never proven
+  PASS  the declared capability is still proved by the same session
+
+
+RESULT: 0 failed -- the mobile contract refuses explicitly, never degrades silently.

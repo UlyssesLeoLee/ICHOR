@@ -1,7 +1,7 @@
 === the event stream: replayed by run+sequence, gap-free ===
-repo root : /d/ICHOR
-commit    : a916ad4
-branch    : dev
+repo root : /d/d/ats208-landing
+commit    : 981e2c7
+branch    : 
 node      : v24.19.0
 python    : Python 3.11.16
 

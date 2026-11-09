@@ -1,0 +1,53 @@
+=== the R1 case on the PRE-FIX tree (08713a1) ===
+repo root : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-3111785a4ef3/worktree
+commit    : 82340dc
+
+old tree  : 08713a1 (extracted from git archive)
+test files: the NEW ones of this delivery
+
+✔ UT-EXE-001: every engine status maps onto the common vocabulary (1.9565ms)
+✔ UT-EXE-002: an unknown status becomes unknown, not a guess (0.3901ms)
+✔ UT-EXE-003: the terminal run statuses are the ones a run never leaves (0.2645ms)
+✔ UT-EXE-004: a retried case is ONE case that keeps EVERY attempt (1.5693ms)
+✔ UT-EXE-005: the counters count the CASES, never the executions (0.4559ms)
+✔ UT-EXE-006: the aggregation of the attempts follows the documented order (0.2948ms)
+✔ UT-EXE-007: two cases with the same title in one file stay two cases (0.3486ms)
+✔ UT-EXE-008: a case with no execution still exists and is counted once (0.2532ms)
+✔ UT-EXE-009: the attempts of one case share the TestDefinition UID (9.2406ms)
+✔ UT-EXE-010: the events of a run replay into its terminal status (1.6463ms)
+✔ UT-EXE-011: an interrupted run replays into `interrupted` (0.3296ms)
+✔ UT-EXE-012: the replay follows the SEQUENCE, not the order of the array (0.2235ms)
+✔ UT-EXE-013: a hole in the sequence is reported, not hidden (0.231ms)
+✔ UT-EXE-014: an empty stream determines no status (0.1392ms)
+✔ UT-EXE-015: the sequence of a run is gap-free and starts at 1 (1.1439ms)
+✔ UT-EXE-016: the state machine refuses the transitions it can disprove (0.2217ms)
+✔ UT-EXE-017: the event that names the status is the last one of the stream (0.1795ms)
+✔ UT-EXE-018: the unified view carries the run, the cases and the attempts (0.7302ms)
+✔ UT-EXE-019: an empty report does not crash and reports zero (0.1884ms)
+✔ UT-EXE-020: an expected failure is a PASSED case, not a failed one (0.2771ms)
+✔ UT-EXE-021: an UNEXPECTED pass is a FAILED case, not a passed one (0.2063ms)
+✔ UT-EXE-022: the counters of a run agree with the engine's own stats (0.3842ms)
+✔ UT-EXE-023: an execution without a declared expectation is not a guess (0.1652ms)
+✔ UT-EXE-023B: the per-project verdicts decide the case, not the attempt mix (0.2425ms)
+✔ UT-EXE-024: a stream that violates the state machine is NOT valid (0.232ms)
+✔ UT-EXE-025: a stream that obeys the state machine is valid (0.2651ms)
+✔ UT-EXE-026: a torn line is skipped and REPORTED, not fatal (0.3832ms)
+✔ UT-EXE-027: an intact log reports no damage (0.2048ms)
+✔ UT-EXE-028: the state diagram of the design document agrees with the code (1.4098ms)
+✔ UT-EXE-029: the WDIO merge does NOT hide a failure behind a passed entry (1.2959ms)
+✖ UT-EXE-030: an unknown verdict never becomes `passed` (1.6219ms)
+✔ UT-EXE-031: the replay reports the lost and the reused sequence numbers (0.4551ms)
+✖ UT-EXE-032: a skipped attempt never turns a failure into a pass (0.5141ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 31
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 419.9691
+✖ failing tests:
+✖ UT-EXE-030: an unknown verdict never becomes `passed` (1.6219ms)
+✖ UT-EXE-032: a skipped attempt never turns a failure into a pass (0.5141ms)
+
+exit code : 1 (non-zero is EXPECTED: the cases must be red on the old tree)

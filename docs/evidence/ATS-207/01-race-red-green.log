@@ -1,0 +1,127 @@
+# ATS-207 evidence: race probe: 6 processes acquire one lock at the same instant
+# collected : 2026-11-06T10:00:30Z
+# HEAD      : c7c3d2f946e414e37de5ac3e0eb137943c3a48fb
+# tree      : 06c2ac3f1820b6643b4b45ff90327df085319938
+# node      : v24.19.0
+# command   : node tools/ats207-probes/race-probe.mjs <module> D:/tmp/opus-168/ev/race 6 [stale]
+
+## base 72a77da, fresh lock, round 1
+child 1 pid 27900: WON
+child 2 pid 30504: WON
+child 3 pid 22128: WON
+child 4 pid 27312: WON
+child 5 pid 21096: WON
+child 6 pid 21900: WON
+lock file names pid 30504
+RESULT: winners=6 (expected 1)
+# exit code: 1
+## base 72a77da, fresh lock, round 2
+child 1 pid 29144: WON
+child 2 pid 18152: WON
+child 3 pid 23076: WON
+child 4 pid 24408: WON
+child 5 pid 9132: WON
+child 6 pid 11928: WON
+lock file names pid 18152
+RESULT: winners=6 (expected 1)
+# exit code: 1
+## base 72a77da, fresh lock, round 3
+child 1 pid 30968: WON
+child 2 pid 20656: WON
+child 3 pid 18464: WON
+child 4 pid 20844: WON
+child 5 pid 12184: WON
+child 6 pid 2700: WON
+lock file names pid 12184
+RESULT: winners=6 (expected 1)
+# exit code: 1
+## ATS-207 (HEAD), fresh lock, round 1
+child 1 pid 15104: HELD
+child 2 pid 24076: HELD
+child 3 pid 14580: HELD
+child 4 pid 21420: WON
+child 5 pid 15124: HELD
+child 6 pid 2416: HELD
+lock file names pid 21420
+RESULT: winners=1 (expected 1)
+# exit code: 0
+## ATS-207 (HEAD), fresh lock, round 2
+child 1 pid 2564: HELD
+child 2 pid 20260: HELD
+child 3 pid 28540: HELD
+child 4 pid 24404: HELD
+child 5 pid 23580: HELD
+child 6 pid 6676: WON
+lock file names pid 6676
+RESULT: winners=1 (expected 1)
+# exit code: 0
+## ATS-207 (HEAD), fresh lock, round 3
+child 1 pid 3792: HELD
+child 2 pid 8960: HELD
+child 3 pid 25192: WON
+child 4 pid 24656: HELD
+child 5 pid 7604: HELD
+child 6 pid 27276: HELD
+lock file names pid 25192
+RESULT: winners=1 (expected 1)
+# exit code: 0
+## base 72a77da, stale lock, round 1
+child 1 pid 9028: WON
+child 2 pid 13880: WON
+child 3 pid 31424: WON
+child 4 pid 9304: WON
+child 5 pid 2928: WON
+child 6 pid 14588: WON
+lock file names pid 9304
+RESULT: winners=6 (expected 1)
+# exit code: 1
+## base 72a77da, stale lock, round 2
+child 1 pid 15260: WON
+child 2 pid 19040: WON
+child 3 pid 28152: WON
+child 4 pid 12164: WON
+child 5 pid 27764: WON
+child 6 pid 16524: WON
+lock file names pid 15260
+RESULT: winners=6 (expected 1)
+# exit code: 1
+## base 72a77da, stale lock, round 3
+child 1 pid 27492: WON
+child 2 pid 16708: WON
+child 3 pid 18800: WON
+child 4 pid 16672: WON
+child 5 pid 3936: WON
+child 6 pid 4072: WON
+lock file names pid 27492
+RESULT: winners=6 (expected 1)
+# exit code: 1
+## ATS-207 (HEAD), stale lock, round 1
+child 1 pid 18208: HELD
+child 2 pid 21520: HELD
+child 3 pid 28740: HELD
+child 4 pid 23088: WON
+child 5 pid 28152: HELD
+child 6 pid 13152: HELD
+lock file names pid 23088
+RESULT: winners=1 (expected 1)
+# exit code: 0
+## ATS-207 (HEAD), stale lock, round 2
+child 1 pid 30276: HELD
+child 2 pid 15952: WON
+child 3 pid 29084: HELD
+child 4 pid 1544: HELD
+child 5 pid 29676: HELD
+child 6 pid 9832: HELD
+lock file names pid 15952
+RESULT: winners=1 (expected 1)
+# exit code: 0
+## ATS-207 (HEAD), stale lock, round 3
+child 1 pid 27220: WON
+child 2 pid 22764: HELD
+child 3 pid 24128: HELD
+child 4 pid 9224: HELD
+child 5 pid 9112: HELD
+child 6 pid 23416: HELD
+lock file names pid 27220
+RESULT: winners=1 (expected 1)
+# exit code: 0

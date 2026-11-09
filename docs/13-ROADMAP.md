@@ -25,6 +25,7 @@ msvc 链的最终链接在本机无法验证，因此 **ATS-104 的验收须以 
 | P0.2 资产一致性 | 3–5 周 | Playwright --list 原生索引、稳定 UID、Git diff 审核、source 原子保存、SQLite WAL、附件去重与保留 | 完整 AST 图反写 |
 | P1 双引擎 | 4–7 周 | WDIO Tauri Service 实测、Run/Test/Attempt、统一 Trace/Evidence 协议 | 远程集群 |
 | P1 图谱和测试设计 | 4–7 周 | Requirements/Design/TestCase 实体图、React Flow、UT/IT/ST 导入与覆盖矩阵 | 复杂跨仓库因果模型 |
+| P1 移动端执行面 | 6–10 周 | 目标抽象与用例模型、Android 模拟器 Runner 实测、移动端证据归档、能力矩阵与 iOS/Maestro 边界 | iOS 真实执行、云端设备农场、移动端图形化流程编辑 |
 | P1 AI 安全编排 | 5–9 周 | Agent Planner、Generator、Triage、Diff Review，Docker 沙箱与模型适配 | AI 自动合并到主分支 |
 | P2 企业扩展 | 8–16 周 | 多用户、远程 Runner、S3、OIDC/RBAC、签名证据、审计、CI/CD 双向事件 | 取决于商业需求 |
 

@@ -54,7 +54,7 @@ Run 创建后不会通过二次执行来恢复失败脚本；用户可再次触�
 
 ## 4. UI 画面结构
 
-顶部：产品、环境、本地运行状态；项目栏：Git branch、commit、dirty、项目导入；左侧：四大导航（Catalog、Run、Traceability、Architecture）及资源清单；主内容：概览统计与工作区。代码和流程是统一源文件的两个视图，流程目前只读。
+顶部：产品、环境、本地运行状态；项目栏：Git branch、commit、dirty、项目导入；左侧：五大导航（Catalog、Run、Quality、Traceability、Architecture）及资源清单；主内容：概览统计与工作区。Quality 一屏给出运行/用例/重试/取消的分桶统计、失败聚类与「指标与原始结果核对」表（ATS-216）。代码和流程是统一源文件的两个视图，流程目前只读。
 
 ## 5. 数据分层
 

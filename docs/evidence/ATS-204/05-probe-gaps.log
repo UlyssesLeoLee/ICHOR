@@ -1,0 +1,25 @@
+=== command ===
+node tools/ats204-probes/probe-gaps.mjs
+=== output ===
+=== G1: the run happens BEFORE the catalogue was re-opened ===
+  the case has uid tc_1_d_f9ddf97a6b13152f (the registry remembers tests/login.spec.ts)
+  the attempt of the renamed file: testUid=tc_1_d_f9ddf97a6b13152f basis=body-key
+  GAP? the attempt is unbound although the registry knows the case under its OLD name: false
+=== G2: the run happens BEFORE the catalogue was re-opened, with a retitle ===
+  the attempt of the renamed+retitled file: testUid=tc_1_d_f9ddf97a6b13152f basis=body-key
+  GAP? the attempt is unbound: false
+=== G3: the old file name is reused by a DIFFERENT case ===
+  the original case has uid tc_1_d_f9ddf97a6b13152f
+  the attempt of the new case in the old file: testUid=null basis=unbound
+  the new case was bound to the OLD case's uid: false
+  GAP? the new case inherited the old case's uid: false
+=== G4: are the recorded aliases ever used by a lookup? ===
+  the entry records aliases=[{"file":"tests/login.spec.ts","title":"login works"}]
+  a lookup under the OLD spelling: uid=tc_1_d_f9ddf97a6b13152f basis=title
+  GAP? the alias is never consulted by the lookup: true
+=== G5: the static index of a loop-generated case ===
+  the static index reports 1 case(s):
+    uid=tc_1_d_3ea34bf307b68870 line=2 title="adds ${n} items" source=derived
+  (the CLI reports TWO cases here: "adds 1 items" and "adds 2 items")
+  GAP? the static index invents a case the CLI does not report: true
+=== exit code: 0 ===

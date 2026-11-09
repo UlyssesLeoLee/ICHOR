@@ -8,13 +8,16 @@
  *      manifest.json) -- the HOST decides what is actually granted;
  *   2. the plugin receives the SDK from the host and uses only the declared
  *      surface;
- *   3. every call the plugin makes is audited by the host.
+ *   3. every call the plugin makes is audited by the host;
+ *   4. the host binds the scope AND the projects, and holds the authoritative
+ *      proposal record -- the plugin never sees any of them.
  *
- * **The sample does NOT run.** There is no plugin host, no loader and no
- * sandbox in this repository, so `export default` here is a function the host
- * would CALL, not an entry point anything executes by itself. The sample is
- * exercised by the probe in tools/ats512-probes/, which plays the role of the
- * host and shows that the plugin cannot exceed its declared permissions.
+ * **This is a protocol sample, not a runnable plugin.** There is no plugin
+ * host, no loader and no sandbox in this repository, so `export default` here
+ * is a function the host would CALL, not an entry point anything executes by
+ * itself. It does NOT run by itself. The sample is exercised by the probe in
+ * tools/ats512-probes/, which plays the role of the host and shows that the
+ * plugin cannot exceed its declared permissions.
  *
  * A plugin author writes exactly this shape:
  *

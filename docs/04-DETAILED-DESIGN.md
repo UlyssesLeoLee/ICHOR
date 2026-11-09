@@ -116,15 +116,15 @@ stateDiagram-v2
  [*] --> queued: POST run
  queued --> running: spawn success
  queued --> error: the engine could not be started
- queued --> cancelling: stop requested before the engine started
+ queued --> cancelling: stop requested before the engine started [状态机允许、当前代码不产生]
  queued --> interrupted: the bridge died before the engine started
  running --> passed: exit code 0
  running --> failed: exit code nonzero
  running --> cancelling: stop requested
  running --> interrupted: the bridge died while the run was in flight
  cancelling --> cancelled: the engine was stopped on request
- cancelling --> failed: the engine exited nonzero while being stopped
- cancelling --> error: the engine could not be reported
+ cancelling --> failed: the engine exited nonzero while being stopped [状态机允许、当前代码不产生]
+ cancelling --> error: the engine could not be reported [状态机允许、当前代码不产生]
  cancelling --> interrupted: the bridge died while the run was stopping
  passed --> [*]
  failed --> [*]
@@ -135,19 +135,24 @@ stateDiagram-v2
 
 P0 实现是单项目至多一个并发 run；不同项目可同时执行。`runs` 写入 state 后再 spawn；退出事件在同一 Node 进程内串行处理。对信号停止采取 best effort：Unix 直接 SIGTERM 子进程，Windows 尝试 `taskkill /T /F`；Unix 子进程后代清理仍有限制，因此长远需要进程组与沙箱。
 
-**本图与代码一致（ATS-208 第 2 轮复核修正）**：图上的每一条边都是
-`server/execution/model.mjs` 的 `RUN_TRANSITIONS` 允许的迁移；反之，代码会
-走到的迁移都在图上。上一版图与代码有五处不符：图上有而代码不会走的
-`running → error`（引擎进程的 `error` 事件走 `finishRun(127)`，结果是
-`failed`；`error` 状态只在**引擎还没起来**时出现，即 `queued → error`），
-以及图上缺的四条边 `queued → cancelling`、`queued → interrupted`、
-`cancelling → error`、`cancelling → interrupted`。
+**本图与代码的关系**：图上的每一条边都是 `server/execution/model.mjs` 的
+`RUN_TRANSITIONS` 允许的迁移；反之，代码会走到的迁移都在图上。`UT-EXE-028`
+逐条比对这张图与 `RUN_TRANSITIONS`：图上多一条代码不允许的边、或者代码会走
+的边图上没有，用例都变红。
 
-`RUN_TRANSITIONS` 还允许 `running → error` 与 `cancelling → error`；图中只画
-了 `cancelling → error`（它是停止过程中引擎无法上报时的出口），
-`running → error` 没有画出，因为**当前没有任何代码路径会产生它**：引擎进程
-的 `error` 事件走 `finishRun(run, 127)`，终态是 `failed`。状态机是宽松的
-（它只拒绝能被证伪的迁移），图画的是**实际会发生**的状态迁移。
+**标着「状态机允许、当前代码不产生」的三条边**：`queued → cancelling`、
+`cancelling → failed`、`cancelling → error`。状态机是**宽松**的——它只拒绝
+能被证伪的迁移——而这三条边**当前没有任何代码路径会产生**：
+
+- `queued → cancelling`：引擎起来之前没有活动 job，`cancelRun()` 对没有
+  job 的在飞 run 写下的是 `run.interrupted`，不是 `run.cancelling`；
+- `cancelling → failed`：`finishRun()` 对 `cancelling` 的 run 一律给出
+  `cancelled`，因此「停止过程中引擎非零退出」这一标签描述的路径不存在；
+- `cancelling → error`：`run.error` 只在**引擎还没起来**时写下（适配器启动
+  抛错），那时 run 仍是 `queued`。
+
+图保留这三条边，是因为它们是**状态机允许**的迁移；标注是为了让读者知道
+它们**当前不会发生**，而不是让读者以为它们是常规路径。
 
 **事件流（ATS-208 已实现）**：事件记录 `run.queued`, `run.started`, `run.cancelling`, `run.finished`, `run.error`, `run.interrupted`。三条性质是这条流的设计目标，定义在 `server/execution/model.mjs`：
 
@@ -228,6 +233,18 @@ P1 变更流程：AST parse → calculate supported subset → generate JSON pat
 
 档案存放在 Bridge 状态里的 `state.envProfiles`，而不是单独一份文件：状态已经是真相源，原子写入、SQLite 镜像与导入导出往返都能覆盖它，另起一份旁路文件只会多一处会与状态分叉的地方。
 
+**档案与白名单一律按 `projectKeyOf(project)` 取键**（即 `project.uid ?? projectUidOf(project)`）。 写入、列举、删除与**运行**四条路径用的是同一个键，也就是 UID 注册表、信任表与运行记录已经在用的那个。
+
+这个键对**还没迁移**的项目记录同样成立：`id` 还是旧的 `proj_<uuid>`、没有 `uid` 的项目记录，按其根目录重算出的 UID 正是迁移后新 `id` 的值，所以写入、列举、删除与运行四条路径取的键是同一个，API 能列出的档案也一定能被运行取到。
+
+这个键在状态迁移前后**不变**：旧项目记录按其根目录重算出的 UID 正是迁移后新 `id` 的值，所以未迁移安装的档案迁移之后仍然找得到。
+
+（`projectKeyOf` 而不是直接用 `projectUidOf`，是为了认下**注册路由已经写好的** `uid` 字段——项目被注册时 `uid` 就已经是 `projectUidOf(project)`，两者相等；这里只是不要求调用方保证这一点。）
+
+**迁移会同步改写档案与白名单的键。** `planMigration` 改写 `envProfiles.profiles[].projectUid` 和 `envProfiles.whitelists` 的键——理由与信任表、UID 注册表完全一样：保留旧键的表不是丢了，是**够不着**了，桥接在新 UID 下查到的会是一个空桶，项目于是静默退回 14 个名字的默认白名单。
+
+档案的 `uid` 由「项目 + 名称」派生，所以换键就意味着**重新派生**，同时也改写 `runs[].envUid`——否则运行会指向一个已经不存在的档案。重新派生之后 `uid` 仍然是**可重算**的（`envUidFor(projectUid, name)` 是唯一的规则）。
+
 ### 5A.2 白名单：拒绝，而不是丢弃
 
 变量名不在白名单上时，它**不入档案**，并连同**理由**一起报回调用方。静默丢弃会让调用方以为变量已生效——那是一个只会在生产里出现的 bug。
@@ -235,6 +252,12 @@ P1 变更流程：AST parse → calculate supported subset → generate JSON pat
 白名单条目只能是名称或**结尾单星号**（`FEATURE_*`）。通用 glob 不支持；裸 `*` 被拒——一个把范围写错的条目不该把白名单撑大到全体。
 
 白名单按项目配置；未配置时用内置默认。配置的清单**替换**默认，不是叠加。
+
+**空白名单就是空白名单。** 配置 `names: []` 表示这个项目**一个环境变量都不许带**，不是「没配置」。白名单是允许清单，允许清单为空就是什么都不允许。
+
+配置项按**是否存在**判断，不按长度：`names: []` 就是空白名单，白名单是允许清单，允许清单为空就是什么都不允许。
+
+要恢复默认，请显式调用「恢复默认白名单」这一操作，不要靠提交空数组。
 
 ### 5A.3 凭据不进档案
 
@@ -246,6 +269,14 @@ P1 变更流程：AST parse → calculate supported subset → generate JSON pat
 
 保留名（`LD_PRELOAD` / `DYLD_INSERT_LIBRARIES` / `NODE_OPTIONS` / `PLAYWRIGHT_JSON_OUTPUT_FILE` 等）即使被白名单放行也拒绝。
 
+**保留名是确切名单，不是家族规则。** 被拒绝的是清单上写下的那几个具体名字——`PLAYWRIGHT_JSON_OUTPUT_FILE`、`PLAYWRIGHT_HTML_OUTPUT_DIR`、`PLAYWRIGHT_HTML_OPEN`、`PLAYWRIGHT_BROWSERS_PATH`、`PWDEBUG`、`HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` / `NO_PROXY`、`NODE_TLS_REJECT_UNAUTHORIZED` / `NODE_EXTRA_CA_CERTS` / `SSL_CERT_FILE`，以及平台结构键 `PATH` / `PATHEXT` / `SYSTEMROOT` / `WINDIR` / `COMSPEC`。**不是**所有 `PLAYWRIGHT_*` 或所有 `*_PROXY` 都被拒：档案可以命名 `PLAYWRIGHT_HTML_REPORT` 这类别的引擎变量。
+
+这些别的引擎变量**挪不动证据**——适配器自有的输出变量是在构造环境时**最后**生效的，档案写什么都赢不了。那是**顺序**的性质，不是名单的性质。
+
+保留名的比较**不区分大小写**：环境块里 `PATH` 与 `Path` 是同一个键，所以 `windir` 与 `WINDIR` 也是同一个键。构造环境时先把结构键的**所有大小写变体**删掉，再按宿主自己的拼写重新应用一次——Windows 上按字典序去重的环境块会让档案的 `WINDIR` 排在平台的 `windir` 之前，所以「档案改不掉平台关键键」只有在这一步成立。
+
+**保留名在运行时同样生效。** 保留名单会随平台与引擎的要求增长，而已存下的档案不会跟着变；因此运行前按**当前**的保留名单再筛一次，一个今天被保留的名字不会因为它是早先写下的就进入子进程。
+
 **本任务不实现凭据存储。** 独立安全凭据存储是 FR-027 的另一半，不在 ATS-212 的范围内；这里做的是把凭据**挡在档案之外**，并说清它该去哪里。
 
 ### 5A.4 封口的 runner 环境
@@ -253,14 +284,24 @@ P1 变更流程：AST parse → calculate supported subset → generate JSON pat
 runner 子进程的环境是**封口**的：
 
 ```text
-runner 环境 = 平台基础键 + 经白名单筛选的档案变量
+runner 环境 = 平台基础键 + 经**当前**白名单筛选的档案变量
 ```
 
-宿主 `process.env` **一律不继承**。改造前适配器用的是 `{...process.env, ...}`，操作者在 shell 里的云凭据与 CI token 会一路进到被测代码，再被写进归档为证据的报告。
+宿主 `process.env` **一律不继承**：操作者在 shell 里的云凭据与 CI token 不会进到被测代码，也不会被写进归档为证据的报告。
 
 - 没有档案时环境同样封口（平台基础键仍在，子进程照样跑得起来）
-- 平台关键键（`PATH` / `SystemRoot` / `ComSpec` 等）在构造环境时**无条件最后覆盖**，档案改不掉它
+- 平台关键键（`PATH` / `SystemRoot` / `ComSpec` 等）在构造环境时**无条件最后覆盖**，档案改不掉它（见 §5A.3 的不区分大小写规则）
 - 适配器自有的输出变量（报告写到哪里）也最后生效——引擎的契约是报告写在适配器指定的地方
+
+**白名单约束的是运行，不只是写入。** 档案是按**写它那一刻**的白名单校验的，而白名单之后可以收紧。收紧之后发生的运行**不得**再带上被移除的变量——否则白名单只是个写入时的检查，变量照样进到被测代码里，而那正是白名单要划的边界。
+
+采用的是**过滤**，不是拒绝运行：被移除的变量从 runner 环境里去掉，运行**照常发生**，带上当前白名单仍然允许的那些变量。运行记录上会列出**被过滤掉的名字与理由**（`envRefused`），运行记录里的 `envVariables` 只列**真正到达了 runner** 的那些名字。
+
+之所以选过滤而不是拒绝运行：白名单收紧不应该让既有档案全部变成死档案——运行该发生，只是带着仍然被允许的变量。
+
+**Windows 运行时会自己补几个键。** 一个只带 `{PATH, SystemRoot}` 启动的子进程，Windows 运行时（libuv）会补上 `HOMEDRIVE` / `HOMEPATH` / `LOGONSERVER` / `SYSTEMDRIVE` / `USERDOMAIN` / `USERNAME` / `WINDIR`。它们不是密钥，但「封口集合 = 基础键 + 档案」在 Windows 上不是字面成立，文档写明这一点。
+
+**环境封口不等于凭据隔离。** 子进程以**同一用户身份**运行，并且带着 `HOME` / `USERPROFILE`，所以 `~/.aws/credentials`、`~/.npmrc` 照样读得到。「宿主 secret 不到达被测代码」这句话只成立于**环境变量层面**。
 
 ### 5A.5 不进 Git
 

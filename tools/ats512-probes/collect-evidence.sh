@@ -117,6 +117,14 @@ run 09-baseline-regression.log \
   'the one failing suite test is reproduced on the untouched reference tree' \
   bash tools/ats512-probes/prove-baseline-regression.sh || known_fail=1
 
+run 10-plugin-coverage.log \
+  'the line coverage of both plugin modules (contract.mjs and sdk.mjs)' \
+  node --test --experimental-test-coverage --test-coverage-include='server/plugins/**' tests/plugins.test.mjs || fail=1
+
+run 11-review-counterexamples.log \
+  "the round-1 review's 11 counterexamples no longer reproduce" \
+  node tools/ats512-probes/check-review-counterexamples.mjs || fail=1
+
 echo
 if [ "$fail" -eq 0 ]; then
   echo 'RESULT: OK -- every ATS-512 check passed.'

@@ -1,11 +1,13 @@
 === the probes of the first review round ===
-repo root : /d/ICHOR
-commit    : a916ad4
+repo root : /d/d/ats208-landing
+commit    : 981e2c7
 node      : v24.19.0
 
-probes    : .work/r1/probes/probes
+probes    : .work/r1/probes
 
-tree      : D:/ICHOR
+tree      : D:/d/ats208-landing
+
+fixtures  : .work/r1/fixtures
 
 --- pw-semantics: does the model agree with Playwright's own verdict? ---
 OK       "expected failure via test.fail"
@@ -48,17 +50,17 @@ RESULT: 0 of 10 cases disagree with Playwright's verdict
 exit code : 0
 
 --- startup-robustness: does the Bridge start when the log is damaged? ---
-crafted run run_1_b5cd657bee1c910d89daeacb
+crafted run run_1_b891d7a1b46ae59c2a30f0ae
 == S1: state says running, run folder missing ==
    tip : up {"replayHttp":200,"eventsHttp":200,"runStatus":"interrupted","replayedStatus":"interrupted"}
 ok   S1 the tip Bridge starts and recovers the run
 == S2: the last line of events.jsonl is torn ==
    tip : up {"replayHttp":200,"eventsHttp":200,"runStatus":"interrupted","replayedStatus":"interrupted"}
    events.jsonl after the tip boot:
-     {"seq":1,"at":"2026-11-05T22:07:29.191Z","type":"run.queued","data":{"file":"tests/slow.spec.ts","runner":"playwright"}}
-     {"seq":2,"at":"2026-11-05T22:07:29.259Z","type":"run.started","data":{"pid":39220,"runner":"playwright"}}
+     {"seq":1,"at":"2026-11-06T12:49:22.920Z","type":"run.queued","data":{"file":"tests/slow.spec.ts","runner":"playwright"}}
+     {"seq":2,"at":"2026-11-06T12:49:22.997Z","type":"run.started","data":{"pid":22412,"runner":"playwright"}}
      {"seq":3,"at":"2026-11-06T00:00:00.000Z","ty
-     {"seq":3,"at":"2026-11-05T22:07:34.774Z","type":"run.interrupted","data":{"reason":"Server restarted while run was active"}}
+     {"seq":3,"at":"2026-11-06T12:49:30.190Z","type":"run.interrupted","data":{"reason":"Server restarted while run was active"}}
      
 ok   S2 the run stays readable after a torn tail (replay 200)  -- {"replayHttp":200,"eventsHttp":200,"runStatus":"interrupted","replayedStatus":"interrupted"}
 == S3: the Bridge died after appending run.finished, before saveState (the finishRun collect window) ==
@@ -75,13 +77,13 @@ OK   merged into one case
 exit code : 0
 
 --- bridge-e2e: the Bridge end to end with a real Playwright ---
-   discovery 200 tests/retry.spec.ts:flaky: fails first try then passes:tc_1_d_ab51938f90e242e2 | tests/xfail.spec.ts:expected failure via test.fail:tc_1_d_4d80c69e02ee614c
+   discovery 200 tests/retry.spec.ts:flaky: fails first try then passes:tc_1_d_72c61456872fa3fc | tests/xfail.spec.ts:expected failure via test.fail:tc_1_d_4d2c96fa2eeea557
 == E1: a case that fails on the first try and passes on the retry (real PW) ==
    run.status passed summary {"passed":0,"failed":0,"skipped":0,"flaky":1,"total":1,"executions":2}
-   attempts [{"retry":0,"status":"failed","caseStatus":"flaky","testUid":"tc_1_d_ab51938f90e242e2","error":"Error: first attempt failed\n\n\u001b[2mexpect("},{"retry":1,"status":"passed","caseStatus":"flaky","testUid":"tc_1_d_ab51938f90e242e2","error":""}]
+   attempts [{"retry":0,"status":"failed","caseStatus":"flaky","testUid":"tc_1_d_72c61456872fa3fc","error":"Error: first attempt failed\n\n\u001b[2mexpect("},{"retry":1,"status":"passed","caseStatus":"flaky","testUid":"tc_1_d_72c61456872fa3fc","error":""}]
 ok   E1 case counted once (total=1, flaky=1, executions=2)
 ok   E1 first attempt kept as failed with its error
-ok   E1 both attempts carry the same NON-NULL testUid  -- testUid=tc_1_d_ab51938f90e242e2 basis=file-line
+ok   E1 both attempts carry the same NON-NULL testUid  -- testUid=tc_1_d_72c61456872fa3fc basis=file-line
    replay {"status":"passed","replayedStatus":"passed","agrees":true,"sequence":[1,2,3],"gaps":[],"types":["run.queued","run.started","run.finished"]}
 ok   E1 replay agrees and sequence is 1..N
 == E2: a file whose only case is an expected failure (test.fail) ==

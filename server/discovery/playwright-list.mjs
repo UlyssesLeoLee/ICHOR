@@ -69,6 +69,16 @@ export const LIST_OUTCOME = Object.freeze({
 export const DEFAULT_LIST_TIMEOUT_MS = 120000;
 
 /**
+ * How long the async listing waits for the KILLED child to be really gone.
+ *
+ * The kill is a request, not a fact: the child may still be winding down. The
+ * answer is delayed by at most this long so a caller that removes the
+ * project the instant it got the timeout answer does not hit a lock that
+ * the dying child still holds.
+ */
+const KILL_GRACE_MS = 2000;
+
+/**
  * True when `child` is inside `root`.
  *
  * A local copy rather than an import from `server/core.mjs`: the core imports
@@ -141,6 +151,18 @@ export function parseListReport(report, { projectRoot = null } = {}) {
   const byKey = new Map();
   const files = new Set();
   const skipped = [];
+  /**
+   * ATS-204: the order the CLI REPORTED the cases in.
+   *
+   * It is the order the template GENERATED its renders in, and it is what
+   * the anchor's ordinal counts. The catalogue's own display order is
+   * sorted by title (see the sort below), and a re-worded title changes
+   * its rank -- so the ordinal must not be taken from the sorted order.
+   *
+   * The counter runs over the spec rows of the report, which is the order
+   * the CLI wrote them in.
+   */
+  let reportOrder = 0;
 
   const addSpec = (spec, describePath, suiteFile) => {
     const rawFile = spec.file ?? suiteFile ?? '';
@@ -169,6 +191,8 @@ export function parseListReport(report, { projectRoot = null } = {}) {
         ok: spec.ok !== false,
         tags: Array.isArray(spec.tags) ? spec.tags : [],
         projects: [],
+        // ATS-204: the order the CLI reported this case in.
+        reportOrder: reportOrder++,
       };
       byKey.set(key, entry);
     }
@@ -235,11 +259,10 @@ export function parseListReport(report, { projectRoot = null } = {}) {
  * same trust boundary as the run -- the code under test -- and the host
  * environment must not reach it.
  *
- * Before ATS-212 the listing inherited `{...process.env, ...}`, so an
- * operator's cloud credentials and CI tokens reached the project's config
- * and test files. A config that logs its environment -- or a test that
- * prints one into a report -- would then put them into the listing output
- * that the Bridge keeps.
+ * An operator's cloud credentials and CI tokens therefore never reach the
+ * project's config and test files. A config that logs its environment -- or
+ * a test that prints one into a report -- cannot put them into the listing
+ * output that the Bridge keeps.
  *
  * The environment is the same shape the run path uses: the platform base
  * keys plus the listing's own output variables, and nothing else. There is
@@ -324,6 +347,17 @@ export async function listTestsAsync(project, { timeoutMs = DEFAULT_LIST_TIMEOUT
  * The timeout is enforced HERE rather than by the operating system: a
  * child that ignores the timeout is KILLED, and the outcome is the same
  * `PLAYWRIGHT_LIST_TIMEOUT` the synchronous variant reports.
+ *
+ * THE TIMEOUT ANSWER WAITS FOR THE CHILD TO BE GONE
+ * --------------------------------------------------
+ * The timeout handler kills the child, but it does NOT resolve the promise
+ * right away: it waits for the child's `close` event. On Windows a process
+ * that is still winding down keeps a lock on its working directory, so a
+ * caller that removed the project the instant it got the timeout answer
+ * would fail with EPERM -- and the child's own output would still be
+ * arriving. Resolving on `close` makes the timeout answer mean what it
+ * says: the child is dead, its handles are released, and the caller owns
+ * the directory again.
  */
 function spawnAsync(command, args, options) {
   return new Promise((resolve) => {
@@ -334,18 +368,28 @@ function spawnAsync(command, args, options) {
     let stdout = '';
     let stderr = '';
     let settled = false;
+    let timedOut = false;
     const timer = options.timeout > 0
       ? setTimeout(() => {
         if (settled) return;
-        settled = true;
+        timedOut = true;
         try { child.kill('SIGKILL'); } catch { /* the child is already gone */ }
-        resolve({
-          error: Object.assign(new Error(`spawnSync ${command} ETIMEDOUT`), { code: 'ETIMEDOUT' }),
-          stdout,
-          stderr,
-          status: null,
-          signal: 'SIGKILL'
-        });
+        // The promise is resolved by the `close` handler below, so the
+        // caller is told the timeout only once the child is really gone.
+        // If the child never closes (a wedged process), the answer is
+        // still delivered -- the kill was requested, and a caller that is
+        // blocked forever would be worse than an early answer.
+        setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          resolve({
+            error: Object.assign(new Error(`spawnSync ${command} ETIMEDOUT`), { code: 'ETIMEDOUT' }),
+            stdout,
+            stderr,
+            status: null,
+            signal: 'SIGKILL'
+          });
+        }, KILL_GRACE_MS).unref?.();
       }, options.timeout)
       : null;
 
@@ -361,7 +405,15 @@ function spawnAsync(command, args, options) {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
-      resolve({ error: undefined, stdout, stderr, status, signal });
+      resolve({
+        error: timedOut
+          ? Object.assign(new Error(`spawnSync ${command} ETIMEDOUT`), { code: 'ETIMEDOUT' })
+          : undefined,
+        stdout,
+        stderr,
+        status,
+        signal
+      });
     });
   });
 }

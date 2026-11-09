@@ -1,0 +1,67 @@
+=== the ATS-209 probe ===
+tree   : C:/tmp/multica-task-3923829175/ats209-final
+commit : 513524289384fd83f2957f3777c65c4bca653950
+
+=== ATS-209 probe: the evidence manifest and the retention policy ===
+tree : C:\tmp\multica-task-3923829175\ats209-final
+
+--- 1. the manifest names the run and carries the digests ---
+ok   the manifest names the run -- runId=run_1_000000000000000000000000
+ok   the manifest names the project
+ok   the manifest names the commit
+ok   the manifest has an evidence section
+ok   the manifest lists the evidence and nothing else -- report.json, results/trace.zip
+ok   every digest is the digest of the file's real bytes
+
+--- 2. TAMPERING IS DETECTED ---
+ok   the intact archive verifies -- verified=true missing=0 changed=0
+ok   the tampered archive does NOT verify
+ok   the tampered file is named -- ["report.json"]
+ok   both digests are reported
+ok   a deleted file is reported as missing
+
+--- 3. THE NEGATIVE CONTROL: a broken check detects nothing ---
+ok   the broken verification does NOT detect the tampering -- a check that passes on a broken copy is not a check
+ok   the real verification DOES detect it
+
+--- 4. THE CLEANING DOES NOT DELETE THE RUN METADATA ---
+ok   the old terminal run is expired -- expired=1
+ok   the cleaning ran
+ok   the evidence was removed
+ok   the event log stays
+ok   the raw output stays
+ok   the manifest stays
+ok   the run record is byte-identical after the cleaning
+ok   the run still has its status
+ok   the run still has its summary
+ok   the run still has its attempts
+ok   the run still has its events
+
+--- 5. THE CLEANING IS REFUSED WHILE THE BRIDGE HOLDS THE DIRECTORY ---
+ok   the cleaning is refused
+ok   nothing was removed
+
+--- 6. THE SAME BYTES ARE STORED ONCE ---
+ok   the first copy is stored
+ok   the second copy finds the stored one
+ok   both point at the same blob
+ok   the store holds the bytes ONCE -- store holds 16 bytes
+ok   the run file is linked to the stored copy
+ok   the two paths are the same inode
+
+--- 7. THE EVIDENCE SET IS WHAT THE MANIFEST DESCRIBES ---
+ok   the collected entries and the manifest agree
+
+--- 8. THE REVIEW ROUND 1 PROPERTIES ---
+ok   a tampered blob is not reused (E1) -- the blob holds "GENUINE"
+ok   an entry outside the run folder is refused (E3) -- rejected=[{"file":"../outside-e3.json","reason":"the entry points outside the run folder"}]
+ok   the cleaning does not reach outside the run folder (E3)
+ok   a manifest that hit the entry limit records it (E6)
+ok   a manifest that does not cover the folder does not verify (E6)
+ok   a cleaned run is not reported as tampered (E7) -- verified=true cleaned=3
+ok   a file that vanishes without a cleaning record is still a tamper (E7)
+ok   the cleaning reports only the files it actually removed (E4) -- removed=[]
+
+RESULT: OK -- 0 failure(s)
+
+exit code : 0

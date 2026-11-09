@@ -50,7 +50,11 @@ echo '--- 5. the full Node test suite ---'
 run 05-node-test-full.log node --test tests/*.test.mjs
 
 echo '--- 6. the line coverage of the discovery modules ---'
-run 06-line-coverage.log node --test --experimental-test-coverage tests/discovery.test.mjs tests/discovery-it.test.mjs tests/discovery-api.test.mjs
+# The coverage is measured over the WHOLE suite, not over the discovery tests
+# alone: the modules of this task are also exercised by the other suites (the
+# UID registry, the execution model, the API), and a coverage number that
+# only counted the three files above would report less than the real one.
+run 06-line-coverage.log node --test --experimental-test-coverage tests/*.test.mjs
 
 echo '--- 7. the WBS updater: the XML escaping and the idempotency ---'
 run 07-wbs-updater.log python tools/update_wbs_ats202.py
@@ -109,6 +113,130 @@ run 10-port-audit.log node tools/ats101-probes/scenario-d-port-audit.mjs
 
 echo '--- 11. the ADR citation check (the gate the review found broken) ---'
 run 11-adr-citations.log python tools/check_adr_citations.py
+
+# --- 12-16: the round-2 review findings ---------------------------------------
+#
+# The round-2 reviewer brought four probes of its own. They are kept in the
+# repository so that the findings stay reproducible: they drive the product's
+# own discoverTests() (or the real Bridge) against the REAL Playwright CLI and
+# print EXPECTED vs ACTUAL per counterexample.
+#
+# The probes need a node_modules that holds @playwright/test 1.64.1. The
+# sample project of this repository has one; when it is absent the probes are
+# SKIPPED and say so -- never reported as a pass.
+#
+# The PROBE FIXTURE is a directory that holds a node_modules with
+# @playwright/test. It defaults to the sample project and can be pointed
+# elsewhere with ATS202_PW_NODE_MODULES.
+PW_NM2="${ATS202_PW_NODE_MODULES:-$ROOT/examples/sample-playwright/node_modules}"
+# The probes are run by NODE, which is a NATIVE program: an MSYS path like
+# /d/ICHOR is read as "D:\d\ICHOR" and the module is not found. So both the
+# tree and the fixture are converted to NATIVE paths here.
+native() {
+  case "$1" in
+    /*) (cd "$1" 2>/dev/null && pwd -W 2>/dev/null || echo "$1") ;;
+    *)  echo "$1" ;;
+  esac
+}
+PW_NM2="$(native "$PW_NM2")"
+TREE_NATIVE="$(native "$ROOT")"
+R2="$TREE_NATIVE/tools/ats202-probes/r2"
+SCRATCH="${ATS202_SCRATCH:-$(mktemp -d)}"
+SCRATCH="$(native "$SCRATCH")"
+
+if [ -d "$PW_NM2/@playwright/test" ]; then
+  echo '--- 12. N1: an awaited listing must not erase another project''s registry entries ---'
+  run 12-r2-race.log node "$R2/r2-race.mjs" "$TREE_NATIVE" "$PW_NM2" "$SCRATCH"
+
+  echo '--- 13. N3: a case the CLI enumerates never lands in onlyStatic ---'
+  run 13-r2-scope.log node "$R2/r2-scope.mjs" "$TREE_NATIVE" "$PW_NM2" "$SCRATCH"
+
+  echo '--- 14. the async listing path: the timeout kills the child ---'
+  run 14-r2-async.log node "$R2/r2-async.mjs" "$TREE_NATIVE" "$PW_NM2" "$SCRATCH"
+
+  echo '--- 15. N4: the scanner fix moves the UID of an escaped-quote title once ---'
+  # The OLD tree is the one BEFORE the scanner fix (cc68331). It is exported
+  # with `git archive`, so the comparison runs on a clean LF tree.
+  #
+  # The archive is taken from INSIDE the repository: `git -C <msys-path>` is
+  # not understood by the native git, and an empty archive makes tar fail
+  # with "This does not look like a tar archive".
+  #
+  # This probe exits 1 ON PURPOSE: the escaped-quote case is EXPECTED to
+  # change its UID, and that change is what the probe documents (N4). So the
+  # exit code is recorded, not treated as a failure of the collection.
+  OLD_TREE="${ATS202_OLD_TREE:-$SCRATCH/ats202-round0-tree}"
+  rm -rf "$OLD_TREE"; mkdir -p "$OLD_TREE"
+  if (cd "$ROOT" && git archive cc68331) | tar -x -C "$OLD_TREE" 2>/dev/null && [ -f "$OLD_TREE/server/core.mjs" ]; then
+    run 15-r2-upgrade.log node "$R2/r2-upgrade.mjs" "$(native "$OLD_TREE")" "$TREE_NATIVE" "$SCRATCH"
+    {
+      echo ""
+      echo "=== note ==="
+      echo "The exit code 1 of this probe is the EXPECTED result: the escaped-quote"
+      echo "case is expected to change its static UID once (the N4 finding). The"
+      echo "other two cases must stay OK. See docs/23-AUTHORITATIVE-DISCOVERY.md 4.5.1."
+    } >> "$OUT/15-r2-upgrade.log"
+  else
+    {
+      echo "=== command ==="
+      echo "node $R2/r2-upgrade.mjs <old-tree> <new-tree> <scratch>"
+      echo "=== output ==="
+      echo "SKIPPED: the commit cc68331 could not be exported from this clone."
+      echo "=== exit code: 2 ==="
+    } > "$OUT/15-r2-upgrade.log"
+    echo "  wrote $OUT/15-r2-upgrade.log (skipped)"
+  fi
+else
+  for name in 12-r2-race 13-r2-scope 14-r2-async 15-r2-upgrade; do
+    {
+      echo "=== command ==="
+      echo "node tools/ats202-probes/r2/<probe>.mjs <tree> <node_modules> <scratch>"
+      echo "=== output ==="
+      echo "SKIPPED: $PW_NM2/@playwright/test is not installed;"
+      echo "the probes need the real Playwright CLI to enumerate the cases."
+      echo "=== exit code: 2 ==="
+    } > "$OUT/$name.log"
+    echo "  wrote $OUT/$name.log (skipped)"
+  done
+fi
+
+echo '--- 16. the ASYNC listing path has its own tests (N2) ---'
+run 16-discovery-async-ut.log node --test tests/discovery-async.test.mjs
+
+# --- 17-19: the round-3 review findings -------------------------------------
+#
+# The round-3 reviewer brought two probes of its own. They are kept in the
+# repository so that the findings stay reproducible: `r3-legacy.mjs` drives
+# the REAL Bridge over HTTP against a LEGACY project record (no `uid`, the
+# old `proj_<uuid>` id) and checks that the registry is written back, and
+# `r3-gate-async.mjs` drives the ASYNC discovery path with a real CLI and a
+# top-level marker file to prove the trust gate.
+#
+# The probes are the reviewer's own files, kept BYTE-IDENTICAL: a probe that
+# was edited to pass would no longer be the probe the reviewer ran.
+#
+# `r3-legacy.mjs` needs no Playwright at all (the legacy record is untrusted,
+# so the static index answers). `r3-gate-async.mjs` needs the real CLI.
+echo '--- 17. R1: the registry of a LEGACY project record is written back ---'
+run 17-r3-legacy.log node tools/ats202-probes/r3/r3-legacy.mjs "$TREE_NATIVE" "$SCRATCH"
+
+if [ -d "$PW_NM2/@playwright/test" ]; then
+  echo '--- 18. the trust gate on the ASYNC path (a real CLI, a marker file) ---'
+  run 18-r3-gate-async.log node tools/ats202-probes/r3/r3-gate-async.mjs "$TREE_NATIVE" "$PW_NM2" "$SCRATCH"
+else
+  {
+    echo "=== command ==="
+    echo "node tools/ats202-probes/r3/r3-gate-async.mjs <tree> <node_modules> <scratch>"
+    echo "=== output ==="
+    echo "SKIPPED: $PW_NM2/@playwright/test is not installed;"
+    echo "the probe needs the real Playwright CLI to enumerate the cases."
+    echo "=== exit code: 2 ==="
+  } > "$OUT/18-r3-gate-async.log"
+  echo "  wrote $OUT/18-r3-gate-async.log (skipped)"
+fi
+
+echo '--- 19. the legacy record regression, as a test of the suite ---'
+run 19-discovery-api-ut.log node --test tests/discovery-api.test.mjs
 
 echo ''
 echo 'evidence written to docs/evidence/ATS-202/'

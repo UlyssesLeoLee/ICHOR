@@ -1,0 +1,30 @@
+=== the refusal-branch / stale-lock probe ===
+repo root : /d/ICHOR
+commit    : 6c0e420
+branch    : dev
+node      : v24.19.0
+python    : Python 3.11.16
+
+
+=== R4-1: the recovery whose rename fails (EBUSY) must refuse, keep the journal, and rollback restores v0.1 ===
+journal on disk before the recovery: true
+recovery exit 1; UNDONE claimed: false; names the failure: true; journal kept: true
+    an interrupted migration was found and could NOT be finished: EBUSY: resource busy or locked. The state file holds the migrated identifiers but some run folders are still named after the old ones. Run "rollback" to restore the pre-migration state. | the steps that were done have NOT been undone (--no-rollback).
+then rollback exit 0; state back to v0.1: true; legacy folders: 3/3
+VERDICT R4-1: ok -- a recovery whose rename fails must refuse, keep the journal, and the rollback must restore v0.1
+
+=== R4-2: a journal that says "state" over an UNMIGRATED state file must be refused, journal kept ===
+apply exit 1; refused: true; journal kept: true; state untouched: true
+    an interrupted migration was found and could not be resolved automatically. The state file and the run folders may disagree. Run "rollback" to restore the pre-migration state, then run "apply" again. | the steps that were done have NOT been undone (--no-rollback).
+VERDICT R4-2: ok -- an interrupted migration whose state file is not migrated must be refused, with the journal kept and nothing written
+
+=== R4-3: a SIGKILL leaves a STALE lock; the next run takes it over and holds the lock for every data write ===
+killed: status=1 really killed: true; lock file left behind: true
+recovery ok: true; data writes during the recovery: [["renameSync","run_4a1514d5-4615-4cd5-9e1a-d79544406d25",true],["renameSync","run_17771376-ce77-4504-82b8-48b6287c2650",true]]
+stale lock files left behind: []
+then rollback exit 0; state back to v0.1: true; legacy folders: 2/2
+VERDICT R4-3: ok -- a SIGKILL leaves a stale lock; the next run takes it over and every data write happens under the new lock
+
+0 counterexample(s) hold
+
+exit code : 0

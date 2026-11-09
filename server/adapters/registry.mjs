@@ -12,11 +12,12 @@
 import { assertAdapter, negotiate, requireCapability, AdapterError } from './contract.mjs';
 import { createPlaywrightAdapter } from './playwright.mjs';
 import { createWdioAdapter } from './wdio.mjs';
+import { createMobileAdapter } from './mobile.mjs';
 
 /** The runners this build knows about, in preference order. */
 export function createRegistry() {
   const registry = new Map();
-  for (const factory of [createPlaywrightAdapter, createWdioAdapter]) {
+  for (const factory of [createPlaywrightAdapter, createWdioAdapter, createMobileAdapter]) {
     const adapter = assertAdapter(factory());
     registry.set(adapter.kind, adapter);
   }

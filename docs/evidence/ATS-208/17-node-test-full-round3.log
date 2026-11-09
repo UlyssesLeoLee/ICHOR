@@ -1,0 +1,14 @@
+=== the full node test suite ===
+repo root : C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-16-3111785a4ef3/worktree
+commit    : 82340dc
+branch    : agent/m3/seikoist-169-3111785a4ef3
+node      : v24.19.0
+
+ℹ tests 867
+ℹ suites 0
+ℹ pass 867
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 92325.4659

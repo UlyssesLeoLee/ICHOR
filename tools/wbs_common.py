@@ -13,7 +13,11 @@ about to write. The derivation is:
     B9  = IFERROR(1 - SUM(开发WBS!P6:P94) / SUM(开发WBS!K6:K94), 0)
     B10 = SUM(开发WBS!P6:P94)
 
-The row range (6..94) mirrors the formulas stored in the workbook.
+The row range (6..94) mirrors the formulas stored in the workbook. It is
+NOT a constant: the sheet grew when ATS-601 appended the mobile rows, and
+the formulas in the workbook were grown with it. `totals()` therefore
+derives the last row from the SHEET (`last_data_row`), so the cached value
+always agrees with the formula that produced it.
 """
 import re
 import struct
@@ -37,8 +41,10 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-205】', '【ATS-206】',
-           '【ATS-208】', '【ATS-212】', '【ATS-301】', '【ATS-401】', '【ATS-501】', '【ATS-506】', '【ATS-512】')
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
+           '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-216】',
+           '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
+           '【ATS-601】', '【ATS-602】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -81,9 +87,11 @@ NARRATIVE_FRAGMENTS = {
         'D7': 'CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md',
     },
     '【ATS-103】': {
-        'D6': 'Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过（ATS-103）',
+        'D6': 'Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过，'
+              '真实 headless Chromium 驱动导出页 7/7 通过（ATS-103）',
         'D7': '静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；'
-              '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112，'
+              '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112；'
+              'Bridge 静态路由只覆盖 /，目录索引与 404 未实现；'
               '详见 docs/22-FRONTEND-EXPORT.md',
     },
     '【ATS-401】': {
@@ -95,6 +103,12 @@ NARRATIVE_FRAGMENTS = {
         'D7': '权威发现在可信仓库上执行仓库代码（--list 非只读），沙箱化属 ATS-415；'
               '详见 docs/23-AUTHORITATIVE-DISCOVERY.md',
     },
+    '【ATS-204】': {
+        'D6': '身份映射器已实现（ATS-204：改名/改标题后的 UID 重识别、动态用例的锚点、'
+              '歧义不误关联）',
+        'D7': '跨机器的用例身份不在本任务范围（Project UID 依赖绝对路径）；'
+              '详见 docs/26-IDENTITY-MAPPER.md',
+    },
     '【ATS-205】': {
         'D6': 'SQLite 元数据层已实现（ATS-205：WAL、版本迁移与事务；state.json 的镜像）',
         'D7': '元数据层当前只做 state.json 的镜像，不提供查询 API；'
@@ -105,6 +119,12 @@ NARRATIVE_FRAGMENTS = {
         'D7': '迁移为离线操作须先停 Bridge；降级不在本项范围，进程级独占归 ATS-207；'
               '详见 docs/24-STATE-MIGRATION.md',
     },
+    '【ATS-207】': {
+        'D6': '数据目录单实例锁与崩溃恢复已实现（ATS-207：原子抢锁、持有者校验、'
+              'state.json 落盘同步、损坏镜像隔离重建）',
+        'D7': '断电只以强杀进程模拟，未做真实掉电；桌面壳不显示占用提示；'
+              '详见 docs/06-DATA-DESIGN.md §5.7',
+    },
     '【ATS-208】': {
         'D6': '执行状态机 v2 已实现（ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试，'
               '事件可按 run+sequence 复演）',
@@ -114,26 +134,78 @@ NARRATIVE_FRAGMENTS = {
     '【ATS-212】': {
         'D6': '项目级环境档案与 runner 环境封口已实现（ATS-212：档案按项目命名空间；'
               '只有白名单内的变量可传递；runner 不继承宿主环境）',
-        'D7': '凭据形态的变量被拒绝，独立安全凭据存储未实现（属 FR-027 的另一半）；'
+        'D7': '凭据形态的变量被拒绝并指向凭据存储（该存储已由 ATS-402 交付）；'
               '详见 docs/04-DETAILED-DESIGN.md §5A',
     },
+    '【ATS-402】': {
+        'D6': 'AI 数据安全三道闸门已实现（ATS-402：密钥入系统凭据库且磁盘只留引用；'
+              '外传须先展示范围并取得知情授权，放行与拒绝都进审计）',
+        'D7': '模型提供商未接入（仓库无外发路径，ATS-403）；'
+              'macOS/Linux 凭据库后端未在真机实测；Tauri 壳内凭据存取未验证；'
+              '外传审计未做外部防篡改；ST-032 仍为 PENDING（缺外发路径），ST-031/033 已执行；'
+              '详见 docs/23-AI-DATA-SECURITY.md',
+    },
+    '【ATS-209】': {
+        'D6': '证据清单与保留策略已实现（ATS-209：清单带所属运行与整组摘要、'
+              '内容寻址去重、到期清理只删证据不删 Run 元数据）',
+        'D7': '证据清单未签名（不得宣称 WORM 或防篡改等级），'
+              '清理掉证据后清单与文件夹不再一致（校验会如实报 missing）；'
+              '详见 docs/27-EVIDENCE-MANIFEST.md',
+    },
+    '【ATS-216】': {
+        'D6': '质量概览模块已实现（ATS-216：失败聚类/Flaky 基础指标，非 AI；'
+              '失败/重试/取消分开计数，指标与原始结果可核对）',
+        'D7': '质量概览已在真实 Chromium 里实测渲染（两个界面都打开质量概览页、指标与对账表都渲染、'
+              '两界面数字一致、无 console 错误），但人工可用性（无障碍/键盘/加载态）未评测，属 ATS-111；'
+              '聚类只到「错误文本归一化后的签名」，不做根因判断；'
+              '详见 docs/28-QUALITY-OVERVIEW.md',
+    },
     '【ATS-501】': {
-            'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',
-            'D7': '远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；'
-                  '详见 docs/19-REMOTE-RUNNER-PROTOCOL.md',
-        },
-        '【ATS-506】': {
-            'D6': '部署式控制面 API 边界骨架已实现（ATS-506：独立进程/端点/凭据，'
-                  '入站拒绝本地路径与本地 Token）',
-            'D7': '控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；'
-                  '详见 docs/21-CONTROL-PLANE-API.md',
-        },
-        '【ATS-512】': {
-            'D6': '插件契约层已实现（权限清单与 Runner SDK，插件宿主未实现）',
-            'D7': '插件宿主与沙箱未实现（ATS-512 只交付契约层）；'
-                  '详见 docs/21-PLUGIN-CONTRACT.md',
-        },
-    }
+        'D6': '远程执行面协议已冻结（ADR-015~023，全部 DESIGNED，无实现）',
+        'D7': '远程执行面无任何实现（ATS-501 只冻结协议与威胁模型）；'
+              '详见 docs/19-REMOTE-RUNNER-PROTOCOL.md',
+    },    '【ATS-502】': {
+        'D6': '远程调度内核已实现（队列/租约/心跳/幂等键/重试，含租约 fencing 与 running 态回收）',
+        'D7': '远程节点协议、签名与工作树隔离仍未实现（ATS-503/504）；'
+              '详见 docs/29-REMOTE-SCHEDULING.md',
+    },
+
+    '【ATS-506】': {
+        'D6': '部署式控制面 API 边界骨架已实现（ATS-506：独立进程/端点/凭据，'
+              '入站拒绝本地路径与本地 Token）',
+        'D7': '控制面无持久化、用户认证仅有接口（OIDC 属 ATS-507）；'
+              '详见 docs/21-CONTROL-PLANE-API.md',
+    },
+    '【ATS-512】': {
+        'D6': '插件契约层已实现（权限清单与 Runner SDK，含宿主持有的权威提案记录；插件宿主未实现）',
+        'D7': '插件宿主与沙箱未实现（ATS-512 只交付契约层；同进程插件仍可自行 import，ATS-403 之前无保证）；'
+              '详见 docs/21-PLUGIN-CONTRACT.md',
+    },
+    '【ATS-601】': {
+        'D6': '移动端目标与会话契约已实现（ATS-601：三类目标、会话状态机、能力协商与拒绝规则；'
+              '无真实设备）',
+        'D7': '移动端执行面无任何实现（ATS-601 只交付契约层；真实 Android 冒烟属 ATS-603）；'
+              '详见 docs/25-MOBILE-APP-TESTING.md',
+    },
+    '【ATS-602】': {
+        'D6': '移动端 Flow 导入映射已实现（ATS-602：跨引擎用例模型、映射规则与导入报告；'
+              '不支持的步骤保留原文并标记，不静默丢弃）',
+        'D7': '移动端执行面仍无任何实现（ATS-602 只交付用例模型与导入映射；'
+              '真实 Android 冒烟属 ATS-603）；详见 docs/25-MOBILE-APP-TESTING.md',
+    },
+    '【ATS-203】': {
+        'D6': '索引回归数据集已交付（ATS-203：参数化/重复项目/同名标题/嵌套 describe；'
+              '静态索引对参数化写法无逐例处置：test.each 给 0 条、循环写法给 1 条模板原文的'
+              '假稳定条目——已知缺陷待整改）',
+        'D7': '参数化用例的权威发现仍依赖 ATS-202 的 playwright test --list；'
+              'UID 重识别与歧义提示属 ATS-204；静态与权威索引在循环生成用例上不一致',
+    },
+    '【ATS-502】': {
+        'D6': '远程调度内核已实现（队列/租约/心跳/幂等键/重试，含租约 fencing 与 running 态回收）',
+        'D7': '远程节点协议、签名与工作树隔离仍未实现（ATS-503/504）；'
+              '详见 docs/29-REMOTE-SCHEDULING.md',
+    },
+}
 
 
 def _text(value):
@@ -486,12 +558,36 @@ def sheet_cells(parts, sheet_name):
     return rows
 
 
+def last_data_row(rows):
+    """The last row of the 开发WBS sheet that carries a task.
+
+    The sheet GREW: ATS-601 appended the mobile rows, so the range that the
+    总览 formulas cover (6..N) is not a constant any more -- it is written
+    into the workbook by whoever grew the sheet, and the derivations have to
+    follow it. A derivation that kept the old constant would silently drop
+    the appended rows from the totals, and the cached 总览 value would
+    disagree with the formula that produced it.
+    """
+    last = FIRST_ROW - 1
+    for rid, cells in rows.items():
+        if rid < FIRST_ROW:
+            continue
+        if (cells.get('A') or '').startswith('ATS-'):
+            last = max(last, rid)
+    return last
+
+
 def totals(parts=None):
     """Return the 总览 figures derived from the 开发WBS sheet.
 
     Returns a dict with `completed` (count of 已完成), `sum_estimate`
     (SUM of K), `sum_remaining` (SUM of P) and `completion_rate`
     (1 - SUM(P)/SUM(K), 0 when there is nothing to divide).
+
+    THE ROW RANGE FOLLOWS THE SHEET, not a hardcoded constant: the sheet
+    grew when ATS-601 appended the mobile rows, and the 总览 formulas in
+    the workbook were grown with it. A derivation over the old constant
+    would leave the cached 总览 value disagreeing with its own formula.
     """
     if parts is None:
         parts = read_parts()
@@ -499,7 +595,7 @@ def totals(parts=None):
     completed = 0
     sum_estimate = 0.0
     sum_remaining = 0.0
-    for rid in range(FIRST_ROW, LAST_ROW + 1):
+    for rid in range(FIRST_ROW, last_data_row(rows) + 1):
         cells = rows.get(rid)
         if not cells:
             continue

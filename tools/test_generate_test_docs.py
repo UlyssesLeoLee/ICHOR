@@ -83,3 +83,20 @@ def test_tc005_fr028_stays_designed(generated):
 
 def test_tc006_two_runs_are_identical(monkeypatch):
     assert run_generator(monkeypatch) == run_generator(monkeypatch)
+
+
+def test_tc007_ats207_catalog_matches_test_titles(generated):
+    """The ATS-207 rows name exactly the tests that exist, and all are executed."""
+    cases = json.loads(generated['tests/test-cases.json'])
+    groups = ((('UT-LOCK-', 'UT-DATA-', 'UT-WAL-'), 'tests/instance-lock.test.mjs'),
+              (('IT-LOCK-', 'IT-DATA-', 'IT-WAL-'), 'tests/instance-lock-it.test.mjs'))
+    for prefixes, test_file in groups:
+        catalog = {c['id'] for c in cases if c['id'].startswith(prefixes)}
+        source = (ROOT / test_file).read_text(encoding='utf-8')
+        pattern = r"test\('((?:%s)[0-9]+):" % '|'.join(map(re.escape, prefixes))
+        titles = set(re.findall(pattern, source))
+        assert catalog == titles, (test_file, sorted(catalog ^ titles))
+        assert all(c['status'] == 'PASS' for c in cases if c['id'] in catalog)
+    st = [c for c in cases if c['id'] in ('ST-017', 'ST-025', 'ST-026')]
+    assert len(st) == 3
+    assert all(c['status'] == 'PASS' and 'st-ats207.mjs' in c['evidence'] for c in st)

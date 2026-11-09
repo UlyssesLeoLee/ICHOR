@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：329；已执行通过：312；待执行/未实现：17。**PENDING 不是测试通过**。
+> 设计总数：701；已执行通过：685；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -15,6 +15,15 @@
 |UT-CORE-004|FR-001|异常|缺失 package.json|提供上级临时目录|抛 PROJECT_PACKAGE_JSON_REQUIRED|node --test|PASS|
 |UT-RUN-001|FR-009|异常|项目没有 Playwright CLI|node_modules 无 CLI|不自动安装，抛 PLAYWRIGHT_NOT_INSTALLED|node --test|PASS|
 |UT-RPT-001|FR-016|正常|报告摘要计数|JSON 含 expected/unexpected/skipped|总数3,通过1,失败1,跳过1|node --test|PASS|
+|UT-QUAL-001|FR-016|正常|运行状态分组|passed/failed/cancelled/error/interrupted/queued/running/cancelling|verdict / inconclusive / inFlight 三组，未知状态归 inconclusive|node --test|PASS|
+|UT-QUAL-002|FR-016|正常|取消的运行不算失败也不算通过|一次取消 + 一次失败|取消计入 cancelled；其用例归 inconclusive；通过率的分母不含取消|node --test|PASS|
+|UT-QUAL-003|FR-016|正常|重试后通过的用例单列|一次 failed + 一次 passed 的 attempt|用例计入 flaky 而非 passed/failed；初次尝试的 failed 仍可见|node --test|PASS|
+|UT-QUAL-004|FR-016|边界|未知状态不猜测|用例状态与运行状态各一个未知值|用例归 unknown、运行归 inconclusive，均不折成通过或失败|node --test|PASS|
+|UT-QUAL-005|FR-016|正常|指标与 Bridge 报告的计数器对账|summary 与用例列表一致的运行|逐项一致，对账结论为一致|node --test|PASS|
+|UT-QUAL-006|FR-016|异常|summary 与用例列表不一致时报告差异|summary 声称 1 通过 0 失败，列表里是一个失败用例|对账结论为不一致，且逐项指出差异|node --test|PASS|
+|UT-QUAL-007|FR-016|正常|失败聚类按归一化后的签名|同一断言的两个实例（id/数字不同）|归一化后相同，聚为一类；不同错误类型不共享签名|node --test|PASS|
+|UT-QUAL-008|FR-016|边界|ANSI 颜色码不改变签名|带色与不带色的同一错误|签名相同，且不含转义字符|node --test|PASS|
+|UT-QUAL-009|FR-016|正常|跨运行维度识别不稳定用例|一个运行失败、另一个运行通过的同一用例|判为不稳定并单列；同名不同文件视为不同用例|node --test|PASS|
 |UT-CORE-005|NFR-005|清理|临时夹清理|准备好独立测试 fixture|测试后的临时夹可删除|node --test|PASS|
 |UT-CORE-006|FR-003|边界|忽略 node_modules 中测试|仓库含 node_modules/test.spec.ts|不出现在测试清单|设计用例，待自动化|PENDING|
 |UT-CORE-007|FR-004|边界|嵌套深度上限|超过 14 层的测试路径|安全终止扫描，不陷入递归|设计用例，待自动化|PENDING|
@@ -27,7 +36,7 @@
 |UT-SEC-002|NFR-003|安全|symlink 越界源码|tests/test.spec.ts 指向仓库外|禁止打开与保存|设计用例，待自动化|PENDING|
 |UT-SEC-003|FR-015|安全|恶意附件文件路径|file=../../etc/passwd|拒绝下载|设计用例，待自动化|PENDING|
 |UT-EVT-001|FR-018|正常|事件序列递增|queued→running→finished|序列号单调 +1，无覆写|设计用例，待自动化|PENDING|
-|UT-DATA-001|NFR-010|异常|状态文件格式损坏|state.json 非 JSON|服务拒绝启动，提示备份恢复|设计用例，待自动化|PENDING|
+|UT-DATA-001|NFR-010|异常|状态文件格式损坏|state.json 非 JSON（含零长度）、null、schema 2|报 STATE_CORRUPT / UNSUPPORTED_DATABASE，服务拒绝启动并提示备份恢复，文件不被改写|node --test|PASS|
 |UT-GIT-001|FR-002|正常|非 Git 仓库|存在 package 和 playwright config，无 .git|branch detached/none,不阻断添加|设计用例，待自动化|PENDING|
 |UT-GIT-002|FR-002|正常|dirty 状态变化|修改一份被追踪的 spec.ts|Git status dirty=true|设计用例，待自动化|PENDING|
 |UT-UI-001|FR-020|交互|流程视图复杂代码保护|测试脚本存在条件循环/helper|不修改源文件，不显示可反向编辑能力|待前端测试|PENDING|
@@ -153,6 +162,65 @@
 |UT-PLG-050|FR-028|安全|SDK 自己不碰文件系统|检查 sdk.mjs 源码|不 import node:fs / node:child_process，不 spawn|node --test|PASS|
 |UT-PLG-051|FR-028|安全|禁止权限永不出现在生效集合里|每个档位下解析全量申请|granted 与禁止清单无交集|node --test|PASS|
 |UT-PLG-052|FR-028|正常|SDK 没有写任何文件|检查临时夹目录|目录为空|node --test|PASS|
+|UT-PLG-053|FR-028|安全|describe() 也进审计|连续两次 describe()|两条 plugin.describe 事件，seq 为 1、2|node --test|PASS|
+|UT-PLG-054|FR-028|安全|跳过证据的尝试进审计|evidenceRefs 为空或缺失|报 PLUGIN_EVIDENCE_REQUIRED 并留下 plugin.proposal.refused|node --test|PASS|
+|UT-PLG-055|FR-028|安全|每一次被拒的调用都进审计|非法 runUid / 宿主解不出摘要 / 非法 status|每次拒绝各留一条审计事件|node --test|PASS|
+|UT-PLG-056|FR-028|安全|宿主读取失败也进审计|宿主 readTestFile 抛错|事件 outcome=failed 且带错误信息|node --test|PASS|
+|UT-PLG-057|FR-028|异常|宿主没有提案存储时拒绝构造 SDK|缺 submitProposal / getProposal|报 PLUGIN_HOST_REQUIRED|node --test|PASS|
+|UT-PLG-058|FR-028|安全|提案由宿主持有|reportOutcome 后查宿主存储|宿主记录里有这份提案，approval=pending|node --test|PASS|
+|UT-PLG-059|FR-028|安全|审计记 proposalId 与证据摘要|上报一次结论|事件带 proposalId 与每条证据的 sha256|node --test|PASS|
+|UT-PLG-060|FR-028|安全|宿主没有的提案不能评审|伪造一个形状合法的提案|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-061|FR-028|安全|被篡改的提案不能评审|改 sha256 与 producedBy|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-062|FR-028|异常|评审缺少宿主记录存储时被拒|不传 host|报 PLUGIN_REVIEW_STATE_INVALID|node --test|PASS|
+|UT-PLG-063|FR-028|安全|proposalId 全局唯一|三个 SDK 实例各产一份提案|三个 id 互不相同|node --test|PASS|
+|UT-PLG-064|FR-028|安全|越出授予项目被拒并审计|对 proj_OTHER_TENANT 调用三个操作|报 PLUGIN_SCOPE_INVALID，宿主没收到那个 id|node --test|PASS|
+|UT-PLG-065|FR-028|安全|没有授予项目时什么都读不到|不传 projects|报 PLUGIN_SCOPE_INVALID 并进审计|node --test|PASS|
+|UT-PLG-066|FR-028|正常|授予的项目出现在 describe() 里|授予两个项目|grantedPermissions 之外另有 grantedProjects|node --test|PASS|
+|UT-PLG-067|FR-028|安全|原型链上的名字不是合法操作|constructor / __proto__ / toString / hasOwnProperty / valueOf|一律 allowed=false 且 permission=null|node --test|PASS|
+|UT-PLG-068|FR-028|安全|原型链上的名字不是合法档位|tier 取上述名字|报 PLUGIN_MANIFEST_INVALID|node --test|PASS|
+|UT-PLG-069|FR-028|安全|authorizePluginCall 对未知操作给专用错误码|operation=toString|报 PLUGIN_OPERATION_UNSUPPORTED|node --test|PASS|
+|UT-PLG-070|FR-028|正常|sink 拒收事件时序号不前进|sink 第一次抛错|序号停在原处，下一次成功写入从 1 开始|node --test|PASS|
+|UT-PLG-071|FR-028|安全|宿主拒收提案记录时被审计|submitProposal 抛错|报 PLUGIN_PROPOSAL_INVALID 并留下审计事件|node --test|PASS|
+|UT-PLG-072|FR-028|正常|readRequirements 成功路径|宿主返回需求|返回宿主的结果并记一条 plugin.requirements.read|node --test|PASS|
+|UT-PLG-073|FR-028|安全|没有该权限时 readRequirements 被拒|清单未申请 requirements.read|报 PLUGIN_PERMISSION_DENIED 并进审计|node --test|PASS|
+|UT-PLG-074|FR-028|正常|readRunEvidence 成功路径|宿主返回归档证据|返回宿主的结果并记一条 plugin.evidence.read|node --test|PASS|
+|UT-PLG-075|FR-028|安全|非法 runUid 的证据读取被拒并审计|runUid=run_x|报 PLUGIN_SCOPE_INVALID 并进审计|node --test|PASS|
+|UT-PLG-076|FR-028|边界|证据引用过多被拒|65 条 evidenceRefs|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-077|FR-028|异常|形状不合法的结论被拒|outcome 不是对象 / summary 为空 / 引用不是字符串|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
+|UT-PLG-078|FR-028|安全|跨项目上报结论被拒|projectId 不在授予列表里|报 PLUGIN_SCOPE_INVALID 并进审计|node --test|PASS|
+|UT-SEC-016|FR-027|正常|凭据存储契约版本固定|查询 credential-store/v1|contract 固定|node --test|PASS|
+|UT-SEC-017|FR-027|安全|密钥进凭据库而不落盘|写入一个密钥后检查索引文件|索引文件不含秘密与其片段|node --test|PASS|
+|UT-SEC-018|FR-027|安全|引用带指纹但无密钥字段|读取一个凭据引用|有 8 位指纹，无 secret 字段|node --test|PASS|
+|UT-SEC-004|FR-027|正常|密钥字节精确回读|写入后读回|内容完全一致|node --test|PASS|
+|UT-SEC-005|FR-027|异常|未知凭据 id|读取不存在的 id|报 CREDENTIAL_NOT_FOUND|node --test|PASS|
+|UT-SEC-006|FR-027|异常|非法名称/秘密/用途|空名、含路径分隔符、空秘密、未知用途|分别报 CREDENTIAL_NAME_INVALID / CREDENTIAL_INVALID|node --test|PASS|
+|UT-SEC-007|FR-027|异常|重名拒绝|同名写入两次|第二次报 CREDENTIAL_DUPLICATE|node --test|PASS|
+|UT-SEC-008|FR-027|安全|凭据库不可用即拒绝且不回退|后端 available=false|报 CREDENTIAL_STORE_UNAVAILABLE，不留索引|node --test|PASS|
+|UT-SEC-009|FR-027|安全|没有后端时同样拒绝|无可用后端|报 CREDENTIAL_STORE_UNAVAILABLE|node --test|PASS|
+|UT-SEC-010|FR-027|正常|删除同时清凭据库与索引|写入后删除|两处都没有残留|node --test|PASS|
+|UT-SEC-011|FR-027|正常|索引原子写且可重载|写入后重新打开|无 .tmp 残留，记录可读|node --test|PASS|
+|UT-SEC-012|FR-027|异常|索引损坏报错而非静默清空|写入非法 JSON|报 CREDENTIAL_STORE_FAILED|node --test|PASS|
+|UT-SEC-013|FR-027|安全|契约描述不含密钥|describeCredentialStore()|含 provider 与错误码，无密钥|node --test|PASS|
+|UT-SEC-014|FR-027|正常|索引路径在数据目录下|credentialIndexPath()|落在数据目录内|node --test|PASS|
+|UT-SEC-015|FR-027|正常|索引存取往返|保存后读回|内容一致|node --test|PASS|
+|UT-EGR-001|FR-027|正常|外传授权契约版本固定|查询 egress-consent/v1|contract 固定|node --test|PASS|
+|UT-EGR-002|FR-027|安全|无授权即拒绝外传|判定一个空授权|allowed=false 且 code=EGRESS_CONSENT_REQUIRED|node --test|PASS|
+|UT-EGR-003|FR-027|正常|预览描述将要外传的内容|预览一个文件输入|列出 kind/ref/字节数/摘要|node --test|PASS|
+|UT-EGR-004|FR-027|安全|没有预览的确认被拒|伪造 previewId|报 EGRESS_PREVIEW_INVALID|node --test|PASS|
+|UT-EGR-005|FR-027|安全|预览令牌一次性|同一 previewId 确认两次|第二次报 EGRESS_PREVIEW_INVALID|node --test|PASS|
+|UT-EGR-006|FR-027|安全|确认范围与预览不一致被拒|预览 A、确认 B|报 EGRESS_PREVIEW_STALE|node --test|PASS|
+|UT-EGR-007|FR-027|正常|授权后只放行同一范围|授权后判定同一输入|allowed=true|node --test|PASS|
+|UT-EGR-008|FR-027|安全|内容变化后授权失效|授权后修改内容|报 EGRESS_CONSENT_SCOPE_MISMATCH|node --test|PASS|
+|UT-EGR-009|FR-027|安全|授权外的输入种类被拒|授权 file、加入 evidence|报 EGRESS_KIND_NOT_ALLOWED|node --test|PASS|
+|UT-EGR-010|FR-027|异常|过期授权被拒|ttl=60 秒后推进时钟|报 EGRESS_CONSENT_EXPIRED|node --test|PASS|
+|UT-EGR-011|FR-027|安全|撤销后立即失效|撤销后判定|报 EGRESS_CONSENT_REVOKED|node --test|PASS|
+|UT-EGR-012|FR-027|异常|畸形授权记录被拒|id 不合规、状态非法|报 EGRESS_CONSENT_INVALID|node --test|PASS|
+|UT-EGR-013|FR-027|正常|授权记录先落盘再返回|确认后检查存储|记录已在存储里|node --test|PASS|
+|UT-EGR-014|FR-027|异常|非法有效期被拒|ttl=0|报 EGRESS_CONSENT_INVALID|node --test|PASS|
+|UT-EGR-015|FR-027|异常|未知输入种类被拒|kind=wat|报 EGRESS_KIND_NOT_ALLOWED|node --test|PASS|
+|UT-EGR-016|FR-027|异常|畸形摘要被拒|digest 非 sha256|报 EGRESS_CONSENT_INVALID|node --test|PASS|
+|UT-EGR-017|FR-027|正常|范围摘要与输入顺序无关|交换输入顺序|摘要不变|node --test|PASS|
+|UT-EGR-018|FR-027|正常|授权契约描述列出流程与错误码|describeEgressConsent()|含 flow 与错误码|node --test|PASS|
 |UT-SQL-001|NFR-010|正常|元数据层在当前 Node 构建上可用|node:sqlite 无需 flag|sqliteAvailable() 为 true|node --test|PASS|
 |UT-SQL-002|NFR-010|正常|数据库以 WAL 模式运行|在临时目录打开 metadata.db|PRAGMA journal_mode = wal|node --test|PASS|
 |UT-SQL-003|NFR-010|正常|被锁住的写入者会等待而不是立即失败|另一个进程持有 BEGIN IMMEDIATE 写锁|写入者等到锁释放后才提交成功|node --test|PASS|
@@ -258,6 +326,25 @@
 |UT-ENV-054|FR-027|安全|配置的白名单优先于内置默认|项目配置白名单 ONLY_THIS|source=custom；默认中的 BASE_URL 被拒绝|node --test|PASS|
 |UT-ENV-055|FR-027|安全|授权凭据的白名单被拒绝|设置白名单 API_TOKEN|抛错 code=INVALID_ENV_WHITELIST|node --test|PASS|
 |UT-ENV-056|FR-027|安全|档案的公开视图只含变量名|含 BASE_URL 与 TENANT 的档案|variables 为名称数组，且序列化后不含值|node --test|PASS|
+|UT-ENV-004|FR-027|正常|写入、列举、删除与运行按同一个项目键取档案|一个未迁移的项目记录|四个路径取到的键相同，API 列出的档案能被运行取到|node --test|PASS|
+|UT-ENV-005|FR-027|正常|状态迁移同步改写档案与白名单的键|旧键下的档案与自定义白名单|迁移后档案与白名单都在新键下，自定义白名单未退回默认|node --test|PASS|
+|UT-ENV-006|FR-027|正常|状态迁移重新派生档案标识并改写运行记录|旧键下的档案与引用它的运行|标识按新键重新派生且可重算，运行仍指向该档案|node --test|PASS|
+|UT-ENV-007|FR-027|正常|已在规范键下的档案不被迁移改名|当前写入路径产生的档案|标识不变，归属改写为规范键，仍能按名取到|node --test|PASS|
+|UT-ENV-017|FR-027|安全|白名单移除的名字不进入子进程|白名单收窄为 TENANT|BASE_URL 不在环境里且被报告，理由非空|node --test|PASS|
+|UT-ENV-018|FR-027|安全|runner 环境只带筛选后的档案变量|白名单收窄为 TENANT|环境里只有 TENANT 与平台基础键|node --test|PASS|
+|UT-ENV-019|FR-027|安全|空白名单过滤掉全部变量|白名单为空|环境变量集合为空，过滤理由已报告|node --test|PASS|
+|UT-ENV-022|FR-027|安全|空白名单不是默认名单|配置 names 为空|source=custom，名称列表为空|node --test|PASS|
+|UT-ENV-023|FR-027|正常|未配置白名单的项目仍得到默认名单|状态里没有该项目的白名单键|source=default 且名称列表非空|node --test|PASS|
+|UT-ENV-035|FR-027|安全|同一名字的两种大小写写法整体拒绝|同时提交 base_url 与 BASE_URL|两个值都不入档案，两种写法都被报告|node --test|PASS|
+|UT-ENV-036|FR-027|正常|单个小写写法被规范化而不是被拒绝|只提交 base_url|规范化为 BASE_URL，无拒绝项|node --test|PASS|
+|UT-ENV-044|FR-027|安全|保留的结构键无论大小写都被拒绝|WINDIR/SYSTEMROOT/COMSPEC/PATH 的各种写法|每个都被拒绝并进入 rejected|node --test|PASS|
+|UT-ENV-045|FR-027|安全|平台关键键的值胜过档案|档案声明 WINDIR，基础环境有 windir|档案拼写被剥除，平台值按宿主拼写保留|node --test|PASS|
+|UT-ENV-046|FR-027|安全|结构键只出现一次且用宿主拼写|基础环境含 Path/SystemRoot/windir|环境块里该键只有一个拼写|node --test|PASS|
+|UT-ENV-047|FR-027|安全|结构键是保留名的子集|结构键列表与保留名列表|每个结构键都在保留名列表内|node --test|PASS|
+|UT-ENV-058|FR-027|安全|保留名策略按名单逐条陈述|模块注释与保留名列表|注释不声称家族被保留；名单里的每个名字都被拒绝|node --test|PASS|
+|UT-ENV-059|FR-027|安全|Windows 运行时补入的键在文档里写明|设计书与安全风险表的正文|HOMEDRIVE/LOGONSERVER/SYSTEMDRIVE/USERDOMAIN 都被写明|node --test|PASS|
+|UT-ENV-060|FR-027|安全|今天被保留的名字不进入子进程|存量档案含 SSL_CERT_FILE 与 WINDIR，白名单放行|两个都被拒绝并报告，runner 环境里没有它们|node --test|PASS|
+|UT-ENV-061|FR-027|安全|迁移不为同一标识留下两条档案|旧键与规范键下各有一个同名档案|迁移后只剩一条，保留规范键那条，丢弃被报出|node --test|PASS|
 |UT-SQL-ENV-001|FR-027|正常|schema 认识环境相关表|schema version 4|存在 env_profiles 与 env_whitelists；runs 含 env_uid|node --test|PASS|
 |UT-SQL-ENV-002|FR-027|完整性|档案与白名单完整往返|含档案与白名单的 state|读回的档案、白名单、run 的 envUid 与写入一致|node --test|PASS|
 |UT-SQL-ENV-003|FR-027|安全|索引列只存变量名不存值|一个含两个变量的档案|索引列是名称数组且不含值；doc 列保留完整记录|node --test|PASS|
@@ -269,6 +356,45 @@
 |UT-SQL-ENV-009|FR-027|回归|没有环境字段的旧状态镜像正常|state 无 envProfiles|verifyMirror 通过，读回为空档案与空白名单|node --test|PASS|
 |UT-SQL-ENV-010|FR-027|回归|含档案时导入仍幂等|连续导入同一 state 两次|两次读回结果相同，verifyMirror 通过|node --test|PASS|
 |UT-SQL-ENV-011|FR-027|完整性|迁移回滚清除环境表与列|手工执行第 4 步的 down|表与 env_uid 列都不存在|node --test|PASS|
+|UT-EVD-001|FR-015|正常|清单说明它属于哪一次运行|一个已结束的 run 与它的文件夹|清单带 runId、projectUid、sourceCommit 与每条证据的 sha256|node --test|PASS|
+|UT-EVD-002|FR-015|正常|清单不列出自己与运行记录|文件夹含 events.jsonl、stdout.log 与 manifest.json|清单只列证据文件|node --test|PASS|
+|UT-EVD-003|FR-015|正常|清单是运行与文件夹的函数|同一运行与同一文件夹建两次清单|两次清单完全相同|node --test|PASS|
+|UT-EVD-004|FR-015|完整性|整组证据的摘要与条目顺序无关|同样两条证据换顺序|setDigest 相同；大小不同则不同|node --test|PASS|
+|UT-EVD-005|FR-015|正常|证据条目按相对路径排序|文件夹含 z.txt、a.txt、m/n.txt|条目顺序为 a.txt、m/n.txt、z.txt|node --test|PASS|
+|UT-EVD-006|NFR-003|安全|符号链接不是证据|文件夹内一个指向外部的链接|该链接不进证据集|node --test|PASS|
+|UT-EVD-007|FR-015|完整性|摘要按原始字节计算|内容为 hello 的文件|摘要等于 sha256(hello)|node --test|PASS|
+|UT-EVD-008|FR-015|异常|清单读不出来时报错而不是当作空|无清单或清单不是 JSON|报告原因，不返回空证据集|node --test|PASS|
+|UT-EVD-009|FR-015|正常|完好的证据集校验通过|按清单归档且未改动|verified=true，missing 与 changed 均为空|node --test|PASS|
+|UT-EVD-010|FR-015|完整性|归档后被改动的文件被检出|改写归档后的 report.json|verified=false；changed 指出该文件与两个摘要|node --test|PASS|
+|UT-EVD-011|FR-015|完整性|归档后被删除的文件被报为缺失|删除清单列出的一个文件|missing 列出该文件；changed 为空|node --test|PASS|
+|UT-EVD-012|FR-015|边界|归档后追加的文件被报为 extra|加一个清单未列的文件|extra 列出该文件；已归档文件仍算完好|node --test|PASS|
+|UT-EVD-013|FR-015|异常|没有清单的目录无法校验|只有证据没有清单|ok=false 且给出原因|node --test|PASS|
+|UT-EVD-014|NFR-004|正常|只有终态的 run 才是清理对象|状态取遍 8 个运行状态|终态五个为真；在飞三个为假|node --test|PASS|
+|UT-EVD-015|NFR-004|安全|在飞的 run 永不被清理|running/queued/cancelling 且很旧|到期列表为空|node --test|PASS|
+|UT-EVD-016|NFR-004|正常|到期的是超过期限的终态 run|一个 31 天前结束、一个昨天结束|只有前者到期|node --test|PASS|
+|UT-EVD-017|NFR-004|异常|非法的保留期被拒绝|负数或非数字的期限|抛 INVALID_RETENTION_PERIOD|node --test|PASS|
+|UT-EVD-018|NFR-004|正常|清理删证据但保留运行记录|含证据、事件日志与原始输出的目录|证据消失；事件日志、原始输出与清单仍在|node --test|PASS|
+|UT-EVD-019|NFR-004|完整性|清理不碰 run 记录本身|带 status/summary/attempts/events 的 run 记录|清理后逐字段不变|node --test|PASS|
+|UT-EVD-020|NFR-004|安全|Bridge 持锁时拒绝清理|lockHeld=true|ok=false 且证据仍在|node --test|PASS|
+|UT-EVD-021|NFR-004|正常|演练只报告不删除|dryRun=true|报告将删的文件；文件仍在|node --test|PASS|
+|UT-EVD-022|NFR-004|完整性|清理写审计日志|带日志路径的清理|日志有一条记录，含 runId 与删除的文件|node --test|PASS|
+|UT-EVD-023|NFR-004|异常|损坏的日志行被报出而不是丢弃|日志中混一行非 JSON|unreadable 报出该行号|node --test|PASS|
+|UT-EVD-024|NFR-004|正常|保留期计划给出到期与空间|两个 run，一个到期一个未到期|expiredCount=1；字节数分别计入|node --test|PASS|
+|UT-EVD-025|NFR-004|正常|计划不改动任何文件|调用计划|证据文件仍在|node --test|PASS|
+|UT-EVD-026|NFR-004|完整性|第二份相同证据被记为重复|两个 run 同一份内容|copies=2，第二份是重复项|node --test|PASS|
+|UT-EVD-027|NFR-004|回归|没有索引字段的旧状态得到空索引|state 无 evidenceIndex|索引为空且字段被补上|node --test|PASS|
+|UT-EVD-028|NFR-004|完整性|重新扫描一个 run 覆盖旧记录|先登记 a.txt 再登记 b.txt|旧条目消失，新条目存在|node --test|PASS|
+|UT-EVD-029|NFR-004|完整性|去重报告指出被存了多份的内容|两份同样的 100 字节证据|duplicated=1，浪费 100 字节|node --test|PASS|
+|UT-EVD-030|NFR-004|正常|证据副本的键是派生的|runId 与 file|键为 runId:file|node --test|PASS|
+|UT-EVD-031|NFR-004|完整性|共享字节按重复份数计|两个 run 各一份 10 字节|共享 10 字节|node --test|PASS|
+|UT-EVD-032|NFR-004|完整性|副本按自己的摘要存放|一个证据文件|副本路径以摘要命名且内容相同|node --test|PASS|
+|UT-EVD-033|NFR-004|完整性|相同内容只存一份|两个内容相同的文件|store 只占一份的字节数|node --test|PASS|
+|UT-EVD-034|NFR-004|异常|与摘要不符的副本不被存放|摘要与文件内容不符|不存放且给出原因|node --test|PASS|
+|UT-EVD-036|NFR-004|完整性|run 文件成为副本的硬链接|存放后链接到 run 文件|两者是同一 inode，链接数为 2|node --test|PASS|
+|UT-EVD-037|NFR-004|完整性|删掉 run 副本后副本仍在|删除 run 侧链接|store 中的副本仍在且内容不变|node --test|PASS|
+|UT-EVD-038|NFR-004|安全|仍被引用的副本不被回收|run 仍持有链接|回收列表为空，副本仍在|node --test|PASS|
+|UT-EVD-039|NFR-004|正常|无人引用的副本被回收|删掉 run 侧链接后回收|回收一个副本并报出释放的字节|node --test|PASS|
+|UT-EVD-040|NFR-004|正常|副本路径由摘要派生|一个 SHA-256 摘要|路径末段是摘要；非法摘要无路径|node --test|PASS|
 |UT-CP-001|FR-028|安全|本地路径形态判定矩阵|盘符、UNC、POSIX、file:、家目录、环境变量、路径穿越、仓库地址各形态|逐一返回对应规则名|node --test|PASS|
 |UT-CP-002|FR-028|边界|非路径值不误判|https 地址、prj UID、40 位 SHA、相对片段、ns:name、非字符串|均返回 null|node --test|PASS|
 |UT-CP-003|FR-028|安全|百分号编码的路径同等拒绝|C%3A%5Crepo、%2Fhome%2Fa、损坏编码|前两者命中规则；损坏编码按原文判定不抛错|node --test|PASS|
@@ -337,6 +463,252 @@
 |ATS-206-UT-039g|NFR-010|正常|--state 直接指向状态文件|用 --state 指定状态文件|plan 成功并称数量保持|node --test|PASS|
 |ATS-206-UT-039h|NFR-010|正常|默认数据目录来自 ATS_DATA_DIR|设置 ATS_DATA_DIR 后跑 plan|plan 成功并称数量保持|node --test|PASS|
 |ATS-206-UT-060|NFR-010|正常|迁移夹具用完即清理|测试跑完之后|临时目录被删除|node --test|PASS|
+|ATS-206-UT-119|NFR-010|异常|process.exit 退出的迁移不留锁|迁移在改名运行目录时 process.exit(137)|锁文件不存在，且没有 .stale- 残留|node --test|PASS|
+|ATS-206-UT-120|NFR-010|异常|恢复时改名失败则拒绝并保留日志|恢复期改名抛 EBUSY|退出码非 0、不报 UNDONE、日志保留；随后 rollback 逐字节还原 v0.1 且目录全部改回旧名|node --test|PASS|
+|ATS-206-UT-121|NFR-010|异常|日志记着 state 但状态文件未迁移则拒绝|日志 steps=[state]，状态文件是 v0.1|退出码非 0、日志保留、状态文件逐字节未变|node --test|PASS|
+|ATS-206-UT-122|NFR-010|恢复|SIGKILL 留下的陈旧锁由下一次运行接管|迁移被 SIGKILL 杀掉|锁文件留在盘上；下一次运行接管它，恢复的每一次数据写入都在新锁下；无 .stale- 残留|node --test|PASS|
+|UT-LOCK-001|NFR-010|正常|取锁发布完整记录并可自校验与释放|新数据目录|记录含 pid/启动时间/token；verify 为 held；释放后文件消失，不留临时文件|node --test|PASS|
+|UT-LOCK-002|NFR-010|异常|活持有者的锁不被覆盖|本进程持锁时再次取锁|报 BRIDGE_ALREADY_RUNNING（reason=held），锁文件逐字节不变|node --test|PASS|
+|UT-LOCK-003|NFR-010|边界|等待取锁超时|子进程持锁，waitMs=400|≥400ms 后报 BRIDGE_ALREADY_RUNNING，waitedMs≥400|node --test|PASS|
+|UT-LOCK-004|NFR-010|正常|持有者释放后等待者取得锁|子进程 500ms 后释放，waitMs=15000|取锁成功，记录为本进程|node --test|PASS|
+|UT-LOCK-005|NFR-008|恢复|陈旧锁被接管|死 pid 的锁；pid 被复用的锁|均被接管，不留 .stale- 文件|node --test|PASS|
+|UT-LOCK-006|NFR-010|异常|无可校验身份的活 pid 锁按占用处理|活 pid 无启动时间；非 JSON 锁文件|前者报 BRIDGE_ALREADY_RUNNING；后者被接管|node --test|PASS|
+|UT-LOCK-007|NFR-010|并发|6 个进程同时抢一把新锁|屏障同时放行 6 个子进程|恰 1 个取得锁、5 个报占用，锁文件记赢家|node --test|PASS|
+|UT-LOCK-008|NFR-010|并发|6 个进程同时接管一把陈旧锁|预置死 pid 的锁|恰 1 个取得锁，不留 .stale- 文件|node --test|PASS|
+|UT-LOCK-009|NFR-010|并发|接管时误移的新锁被放回|锁文件已不是判定为陈旧的字节|返回 false，新锁逐字节放回|node --test|PASS|
+|UT-LOCK-010|NFR-010|并发|放回时不覆盖期间发布的更新锁|放回前已有人发布新锁|保留更新的锁，返回 false|node --test|PASS|
+|UT-LOCK-011|NFR-010|兼容|无硬链接的文件系统退化为独占创建|linkSync 报 EPERM / ENOTSUP|取锁成功，第二次取锁被拒|node --test|PASS|
+|UT-LOCK-012|NFR-010|边界|反复变化的锁有尝试上限|锁每次都消失 / 瞬时错误 / 硬错误|报 reason=contended；瞬时错误限次重试；硬错误直接抛出|node --test|PASS|
+|UT-LOCK-013|NFR-010|安全|释放与校验不认领他人的锁|他人 token / 死 pid / 被替换 / 乱码 / 被删除|release 为 false 且不删除；verify 报 taken-over / unreadable / absent|node --test|PASS|
+|UT-LOCK-014|NFR-010|边界|环境变量与取锁选项校验|ATS_LOCK_WAIT_MS / ATS_LOCK_VERIFY_MS 与 waitMs 的非法值|非法值取默认值，不等待|node --test|PASS|
+|UT-LOCK-015|NFR-010|异常|createDir:false 不重建缺失的数据目录|数据目录已不存在|报 ENOENT，目录未被创建|node --test|PASS|
+|UT-DATA-002|NFR-010|可靠性|改名前先 fsync 临时文件|记录 fsync 与 rename 的调用顺序|fsync 在改名之前；临时文件名带 pid；不留临时文件|node --test|PASS|
+|UT-DATA-003|NFR-010|异常|写入失败时旧状态不变|改名瞬时 EPERM 两次 / 持续 EBUSY / ENOSPC / fsync 失败|瞬时冲突重试后成功；其余抛错，旧文件逐字节不变，不留临时文件|node --test|PASS|
+|UT-DATA-004|NFR-010|清理|清理中断保存留下的临时文件|state.json.tmp、state.json.<pid>.tmp、state.json.bak|只删两个临时文件，状态与备份不变|node --test|PASS|
+|UT-DATA-005|NFR-010|兼容|目录同步在不支持的平台上不抛错|win32 / 不存在的目录|返回 false，不抛错|node --test|PASS|
+|UT-WAL-001|NFR-010|正常|健全的镜像通过检查|无镜像；saveState 写出的镜像|absent；ok 且文件不变|node --test|PASS|
+|UT-WAL-002|NFR-010|恢复|非数据库的镜像被隔离并重建|metadata.db 被写成乱码|quarantined；不留旧 -wal/-shm；下一次保存重建且 verifyMirror 通过|node --test|PASS|
+|UT-WAL-003|NFR-010|恢复|页面损坏的镜像被隔离|覆写一个 b-tree 页|quick_check 报错，quarantined|node --test|PASS|
+|UT-WAL-004|NFR-010|异常|只有损坏才会移动镜像|更新的 schema / 路径是目录 / 改名失败|ok / unchecked 且不移动 / quarantine-failed|node --test|PASS|
+|UT-MOB-001|FR-031|正常|目标 kind 词表恰为三个设计值|枚举 TARGET_KINDS|local-emulator / local-device / remote-farm|node --test|PASS|
+|UT-MOB-002|FR-031|正常|会话状态词表恰为四个设计态|枚举 SESSION_STATES|idle / created / running / failed|node --test|PASS|
+|UT-MOB-003|FR-031|正常|能力词表恰为七个设计能力|枚举 MOBILE_CAPABILITIES|app.install / app.launch / ui.tap / ui.hierarchy / screen.capture / screen.record / log.read|node --test|PASS|
+|UT-MOB-004|FR-031|正常|每个步骤类型都声明了所需能力|遍历 MOBILE_STEP_KINDS|launchApp / tapOn / assertVisible / takeScreenshot / recordScreen / readLogs 均在词表内|node --test|PASS|
+|UT-MOB-005|FR-031|正常|真机只被借用，不被接管|查 TARGET_KIND_POLICY[local-device]|platformOwnsLifecycle=false 且 platformMayInstall=false|node --test|PASS|
+|UT-MOB-006|FR-031|正常|农场设备是租约式的，模拟器由平台创建|查三种 kind 的策略|remote-farm.leaseRequired=true；local-emulator.platformOwnsLifecycle=true|node --test|PASS|
+|UT-MOB-007|FR-031|正常|目标保留形状且不可变|构造目标并去重能力|能力去重排序，target 冻结|node --test|PASS|
+|UT-MOB-008|FR-031|异常|未知目标 kind 被拒|kind=cloud-phone|报 MOBILE_TARGET_INVALID|node --test|PASS|
+|UT-MOB-009|FR-031|异常|词表外的能力被拒|capabilities 含 ui.teleport|报 MOBILE_TARGET_INVALID 并点名该能力|node --test|PASS|
+|UT-MOB-010|FR-031|异常|什么都做不了的目标被拒|capabilities 为空|报 MOBILE_TARGET_INVALID|node --test|PASS|
+|UT-MOB-011|FR-031|异常|缺 id 或缺 platform 的目标被拒|分别置空 targetId / platform|均报 MOBILE_TARGET_INVALID|node --test|PASS|
+|UT-MOB-011b|FR-031|异常|能力集不是列表时被拒|capabilities 传字符串|报 MOBILE_TARGET_INVALID|node --test|PASS|
+|UT-MOB-012|FR-031|正常|会话携带身份、状态与能力集|构造会话|sessionId / targetId / state / capabilities 齐备|node --test|PASS|
+|UT-MOB-012b|FR-031|异常|会话缺 id、缺目标或能力集不是列表时被拒|分别置空 sessionId / targetId、capabilities 传字符串|均报 MOBILE_SESSION_INVALID|node --test|PASS|
+|UT-MOB-013|FR-031|异常|未知会话状态被拒|state=sleeping|报 MOBILE_SESSION_INVALID|node --test|PASS|
+|UT-MOB-014|FR-031|异常|会话的词表外能力被拒|capabilities 含 screen.mirror|报 MOBILE_SESSION_INVALID|node --test|PASS|
+|UT-MOB-015|FR-031|正常|状态机允许 idle→created→running→idle|逐条查询 canTransition|三条边均为真|node --test|PASS|
+|UT-MOB-016|FR-031|异常|异常路径从 created 与 running 进 failed|逐条查询 canTransition|两条边均为真|node --test|PASS|
+|UT-MOB-017|FR-031|异常|会话不得跳过 created，failed 只能回 idle|查询非法边|idle→running / idle→failed / running→created / failed→running 均为假|node --test|PASS|
+|UT-MOB-018|FR-031|正常|合法迁移保留会话身份|idle→created|状态与身份、能力集均保留|node --test|PASS|
+|UT-MOB-019|FR-031|异常|非法迁移抛错而不是静默移动|idle→running|报 MOBILE_SESSION_TRANSITION_INVALID 并列出允许的下一状态|node --test|PASS|
+|UT-MOB-020|FR-031|异常|failed 态记录失败原因|running→failed 带错误串|error 字段记录原因|node --test|PASS|
+|UT-MOB-021|FR-031|正常|迁移表覆盖每个状态|遍历 SESSION_STATES|每个状态都有迁移表且目标态在词表内|node --test|PASS|
+|UT-MOB-022|FR-031|异常|目标不存在时明确拒绝而非降级|resolveSession(null, 会话)|报 REMOTE_TARGET_UNAVAILABLE，reason=target-not-found|node --test|PASS|
+|UT-MOB-023|FR-031|异常|目标没有会话时明确拒绝|resolveSession(目标, null)|报 REMOTE_TARGET_UNAVAILABLE，reason=session-not-found|node --test|PASS|
+|UT-MOB-024|FR-031|异常|会话属于别的目标时明确拒绝|会话的 targetId 不匹配|报 REMOTE_TARGET_UNAVAILABLE，reason=session-target-mismatch|node --test|PASS|
+|UT-MOB-025|FR-031|异常|failed 会话被拒绝|会话处于 failed 态|报 REMOTE_TARGET_UNAVAILABLE，reason=session-failed 并带错误原因|node --test|PASS|
+|UT-MOB-026|FR-031|异常|农场租约过期时明确拒绝|租约到期时间在过去|报 REMOTE_TARGET_UNAVAILABLE，reason=lease-expired|node --test|PASS|
+|UT-MOB-027|FR-031|正常|有效的农场租约被接受|租约到期时间在未来|返回该会话|node --test|PASS|
+|UT-MOB-028|FR-031|边界|没有租约到期时间的农场会话视为已过期|leaseExpiresAt=null|isLeaseExpired 为真且解析被拒|node --test|PASS|
+|UT-MOB-029|FR-031|正常|过期的农场会话被回收|租约过期且处于 running|回收后状态为 idle|node --test|PASS|
+|UT-MOB-030|FR-031|正常|未过期的农场会话不被回收|租约未过期且处于 running|状态保持 running|node --test|PASS|
+|UT-MOB-031|FR-031|正常|本地真机没有租约因而不回收|local-device 且租约时间在过去|状态不变|node --test|PASS|
+|UT-MOB-031b|FR-031|正常|failed 的农场会话也能被回收|failed 态且租约过期|回收为 idle 且不再带错误|node --test|PASS|
+|UT-MOB-032|FR-031|正常|两个拒绝码都在唯一的拒绝码表里|查 REMOTE_CODES|REMOTE_TARGET_UNAVAILABLE 与 REMOTE_CAPABILITY_MISSING 均已登记|node --test|PASS|
+|UT-MOB-033|FR-031|正常|launchApp 需要 app.install 或 app.launch|分别只给一个能力|两者之一即可满足；都没有则缺口为这两个|node --test|PASS|
+|UT-MOB-034|FR-031|正常|tapOn 需要 ui.tap 与 ui.hierarchy|只给 ui.tap|不满足，缺口为 ui.hierarchy|node --test|PASS|
+|UT-MOB-035|FR-031|安全|缺 ui.hierarchy 时 tapOn 被拒并说明不能盲点|只给 ui.tap|理由点名 ui.hierarchy 与 blind tap|node --test|PASS|
+|UT-MOB-036|FR-031|正常|其余步骤类型各自对应其能力|遍历 assertVisible / takeScreenshot / recordScreen / readLogs|各自能力满足才通过|node --test|PASS|
+|UT-MOB-037|FR-031|异常|未知步骤类型是编程错误而非缺口|kind=swipe|报 MOBILE_STEP_UNKNOWN|node --test|PASS|
+|UT-MOB-038|FR-031|正常|协商产出本次执行的能力缺口清单|会话缺 ui.hierarchy 且步骤含 tapOn|unavailableSteps 含 tapOn，gap 缺口为 ui.hierarchy|node --test|PASS|
+|UT-MOB-039|FR-031|正常|步骤全部可满足时协商干净通过|全部步骤类型 + 全能力|supported=true 且缺口为空|node --test|PASS|
+|UT-MOB-040|FR-031|安全|缺口按会话而非按目标计算|目标声明全能力但会话只证明 app.launch|仍报出 ui.tap 与 ui.hierarchy 缺口|node --test|PASS|
+|UT-MOB-041|FR-031|异常|能力不足时抛 REMOTE_CAPABILITY_MISSING 并带缺口|requireMobileCapabilities 缺能力|错误码为 REMOTE_CAPABILITY_MISSING 且 details.gaps 非空|node --test|PASS|
+|UT-MOB-042|FR-031|正常|能力齐全时协商返回结果|requireMobileCapabilities 全能力|supported=true|node --test|PASS|
+|UT-MOB-043|FR-031|安全|只允许启动项目登记过的 App 包名|登记 com.example.app，请求别的包|报 MOBILE_APP_PACKAGE_NOT_REGISTERED|node --test|PASS|
+|UT-MOB-044|FR-031|异常|空包名被拒|packageName 为空串|报 MOBILE_APP_PACKAGE_INVALID|node --test|PASS|
+|UT-MOB-045|FR-031|安全|未可信项目不得执行移动端 Flow|trust=untrusted|报 MOBILE_PROJECT_UNTRUSTED|node --test|PASS|
+|UT-MOB-046|FR-031|安全|只允许使用用户显式登记的会话|登记列表不含该会话|报 MOBILE_SESSION_NOT_REGISTERED|node --test|PASS|
+|UT-MOB-047|FR-031|安全|未登记的会话即使目标正确也被拒|登记列表为空|报 MOBILE_SESSION_NOT_REGISTERED|node --test|PASS|
+|UT-MOB-048|FR-031|安全|证据在根目录内解析且摘要由宿主计算|在证据根内放一个文件|返回相对路径、大小与 SHA-256，摘要等于内容摘要|node --test|PASS|
+|UT-MOB-049|FR-031|安全|越出证据根的路径被拒|relative=../escape.png|报 MOBILE_EVIDENCE_PATH_FORBIDDEN|node --test|PASS|
+|UT-MOB-050|FR-031|异常|缺失的证据文件被报告而不是按空摘要处理|读取不存在的文件|报 MOBILE_EVIDENCE_NOT_FOUND|node --test|PASS|
+|UT-MOB-051|FR-031|异常|空证据路径被拒|relative 为空串|报 MOBILE_EVIDENCE_PATH_INVALID|node --test|PASS|
+|UT-MOB-051b|FR-031|安全|证据路径是目录时被拒|relative 指向子目录|报 MOBILE_EVIDENCE_PATH_FORBIDDEN|node --test|PASS|
+|UT-MOB-051c|FR-031|安全|指向证据根之外的证据软链被拒|根内软链指向根外文件|报 MOBILE_EVIDENCE_PATH_FORBIDDEN|node --test|PASS|
+|UT-MOB-052|FR-031|安全|契约层自身没有任何设备驱动|静态检查契约源码|不 import 子进程/网络模块，也不 spawn|node --test|PASS|
+|UT-MOB-053|FR-031|正常|拒绝码就是设计书点名的两个|查 MOBILE_REJECTION|REMOTE_TARGET_UNAVAILABLE 与 REMOTE_CAPABILITY_MISSING|node --test|PASS|
+|UT-MOB-054|FR-031|正常|移动端 Runner 在同一个注册表里|查 listRunners|注册表同时含 playwright / wdio / mobile|node --test|PASS|
+|UT-MOB-055|FR-031|正常|移动端适配器通过同一套 assertAdapter|注册移动端适配器|契约版本与四个操作齐备|node --test|PASS|
+|UT-MOB-056|FR-031|正常|device 段是可选的，既有适配器不受影响|对 playwright 做设备层协商|deviceContractVersion 为 null 且无设备缺口|node --test|PASS|
+|UT-MOB-057|FR-031|正常|带 device 段的适配器声明设备契约版本|查移动端适配器|device.contractVersion=1|node --test|PASS|
+|UT-MOB-058|FR-031|正常|设备能力不支持时要理由、支持时要有证据|构造 deviceCapability|缺理由或缺证据分别报对应码|node --test|PASS|
+|UT-MOB-059|FR-031|异常|未知的设备能力被报告而不是抛错|对空列表协商 ui.tap|missing[0].kind=unknown 且带理由|node --test|PASS|
+|UT-MOB-060|FR-031|正常|引擎缺口与设备缺口分开报告|同时协商两层|两层 missing 分开，合计数一致|node --test|PASS|
+|UT-MOB-061|FR-031|安全|设备层跟随会话而非目标|会话只证明两个能力|已证明的支持、未证明的带理由|node --test|PASS|
+|UT-MOB-062|FR-031|异常|移动端适配器拒绝启动而不是改跑别的|调用 start/stop/collect/discover|均报 REMOTE_TARGET_UNAVAILABLE，reason=no-driver|node --test|PASS|
+|UT-MOB-063|FR-031|诚实|移动端适配器的引擎能力全部带理由地不支持|查 capabilities|每条 supported=false 且 reason 非空|node --test|PASS|
+|UT-MOB-064|FR-031|诚实|移动端适配器自称契约而非驱动|查 describe()|designStatus=CONTRACT_ONLY 且注明 ATS-603|node --test|PASS|
+|UT-MOB-065|FR-031|正常|resolveDevice 执行全部硬规则|登记正确的会话|返回目标与会话|node --test|PASS|
+|UT-MOB-066|FR-031|安全|resolveDevice 拒绝用户未登记的会话|登记列表不含该会话|报 MOBILE_SESSION_NOT_REGISTERED|node --test|PASS|
+|UT-MOB-067|FR-031|异常|resolveDevice 拒绝缺失的目标|target=null|报 REMOTE_TARGET_UNAVAILABLE|node --test|PASS|
+|UT-MOB-068|FR-031|安全|移动端 Runner 不会被静默选为网页项目的执行器|在拒绝列表里找 mobile|mobile 出现在被拒列表中|node --test|PASS|
+|UT-MOB-069|FR-031|安全|移动端适配器源码自身没有驱动|静态检查适配器源码|不 import 子进程/网络模块，也不 spawn|node --test|PASS|
+|UT-MOB-070|FR-031|正常|设备契约是增量的，既有能力词表不变|查 playwright 的能力名|不含 ui.tap 等设备能力|node --test|PASS|
+|UT-MOB-071|FR-031|异常|未挂接的会话被拒绝：设备未连接|会话处于 idle 态|报 REMOTE_TARGET_UNAVAILABLE，reason=device-not-connected|node --test|PASS|
+|UT-MOB-072|FR-031|异常|被别的运行占用的会话被拒绝|会话处于 running 态|报 REMOTE_TARGET_UNAVAILABLE，reason=device-occupied|node --test|PASS|
+|UT-MOB-073|FR-031|正常|只有状态机允许获取的会话才被交出|遍历三种 kind 与四个状态|仅 created 可获取，其余全部拒绝|node --test|PASS|
+|UT-MOB-074|FR-031|安全|租约规则不能被选项关掉|传入 requireConnected=false|过期租约仍报 reason=lease-expired|node --test|PASS|
+|UT-MOB-075|FR-031|异常|会话不得声称目标未声明的能力|目标只声明 screen.capture，会话声称七项|报 REMOTE_CAPABILITY_MISSING，reason=session-capability-undeclared|node --test|PASS|
+|UT-MOB-076|FR-031|正常|会话能力在目标声明之内时正常交出|目标与会话都只有 screen.capture|返回该会话|node --test|PASS|
+|UT-MOB-077|FR-031|正常|会话可用性是数据并带原因|查 sessionUsability|四个状态各自返回 usable 与 reason|node --test|PASS|
+|UT-MOB-078|FR-031|安全|可信判定接受 trustOf() 的判定记录|用真实的 withTrust / trustOf 串联|可信项目通过，被撤销与未登记的被拒|node --test|PASS|
+|UT-MOB-079|FR-031|异常|非 trusted 的判定形状一律被拒|传 undefined/null/对象/数字/错误字符串|均报 MOBILE_PROJECT_UNTRUSTED|node --test|PASS|
+|UT-MOB-080|FR-031|安全|未登记会话时 resolveDevice 拒绝|登记列表省略/为空/null/非列表|均报 MOBILE_SESSION_NOT_REGISTERED|node --test|PASS|
+|UT-MOB-081|FR-031|正常|已登记且可用的会话仍然解析成功|登记列表含该会话|返回目标与会话|node --test|PASS|
+|UT-MOB-082|FR-031|异常|resolveDevice 拒绝未连接或被占用的会话|会话处于 idle / running 态|报 REMOTE_TARGET_UNAVAILABLE，reason 各自点名|node --test|PASS|
+|UT-MOB-083|FR-031|安全|不可用的会话在设备层不证明任何能力|failed / idle / running 会话|每条能力 supported=false 且无证据|node --test|PASS|
+|UT-MOB-084|FR-031|安全|失败会话的设备层协商不报支持|对 failed 会话协商 ui.hierarchy|device.supported=false 且 missing 无证据|node --test|PASS|
+|UT-MOB-085|FR-031|异常|没有会话时设备层全部报不支持|适配器不带会话|每条能力 supported=false 且带理由|node --test|PASS|
+|UT-MOB-086|FR-031|正常|适配器自述在有目标与无目标时都成立|查 describe()|有目标时给 kind 与 sessionId，无目标时为 null|node --test|PASS|
+|UT-MOB-087|FR-031|正常|设备层跟随调用方给出的会话|上下文会话与适配器自带会话不同|以上下文会话为准|node --test|PASS|
+|UT-MOB-088|FR-031|异常|迁移表里没有的状态没有可用迁移|查 canTransition|未知状态到任何状态均为假|node --test|PASS|
+|UT-MOB-089|FR-031|正常|会话携带错误原因与租约到期时间|构造带 error 与 leaseExpiresAt 的会话|两者如实携带，缺省时为 null|node --test|PASS|
+|UT-MOB-090|FR-031|安全|设备层不把目标未声明的能力报成已证明|目标只声明 screen.capture，会话声称七项|未声明的能力 supported=false、无证据、理由点名|node --test|PASS|
+|UT-MOB-091|FR-031|安全|设备层与解析路径对同一会话结论一致|同一条超声明会话走两条路径|解析路径拒绝，设备层报不支持且无证据|node --test|PASS|
+|UT-MOB-092|FR-031|安全|设备层按调用方给出的目标判定|上下文目标与会话所属目标不同|该目标下不证明任何能力|node --test|PASS|
+|UT-MOB-093|FR-031|正常|目标声明了但会话没证明的能力仍报不支持|目标声明两项，会话只证明一项|已证明的那项支持，另一项理由为未证明|node --test|PASS|
+|UT-MOB-094|FR-031|异常|没有目标时设备层报不支持而不是抛错|适配器 target=null 且带会话|每条能力 supported=false、无证据、带理由|node --test|PASS|
+|UT-MOB-200|FR-032|正常|Flow 的语法由扩展名决定|.yaml/.yml 为 YAML 声明，.flow 为线性声明|两种语法各自识别，其他扩展名不是 Flow|node --test|PASS|
+|UT-MOB-201|FR-032|正常|YAML Flow 被读成场景与步骤|含 appId 与两个场景的 YAML 声明|读出 2 个场景、标签与每一步的命令与参数|node --test|PASS|
+|UT-MOB-202|FR-032|正常|线性 Flow 被读成同一形状|含 app 与两个场景的线性声明|读出与 YAML 同形的场景与步骤|node --test|PASS|
+|UT-MOB-203|FR-032|正常|两种语法产出同一组语义|同一场景分别用两种语法书写|步骤种类序列相同|node --test|PASS|
+|UT-MOB-204|FR-032|正常|步骤的行号是它声明的那一行|步骤前有空行与注释|行号指向步骤所在行，不是外层键所在行|node --test|PASS|
+|UT-MOB-205|FR-032|异常|没有场景的 Flow 被报告|只有 appId 的声明|零个场景且产生读取错误|node --test|PASS|
+|UT-MOB-206|FR-032|异常|缩进坏掉的 Flow 被报告|同一列表里第二步缩进更深|产生带行号的读取错误|node --test|PASS|
+|UT-MOB-207|FR-032|安全|锚点不被读成半个文档|使用 &anchor 的声明|报错误而不是读一半|node --test|PASS|
+|UT-MOB-208|FR-032|正常|注释不进入声明|行尾带 # 注释|注释被剥离，声明内容不受影响|node --test|PASS|
+|UT-MOB-209|FR-032|正常|步骤选项不被读成命令|步骤只带 label 键|命令是真正的步骤键，不是 label|node --test|PASS|
+|UT-MOB-210|FR-032|安全|映射出的步骤种类都在 ATS-601 词表内|遍历语义表的全部种类|每个种类都在 ATS-601 的六类词表内|node --test|PASS|
+|UT-MOB-211|FR-032|正常|命令的拼写不影响判定|launchApp/launch/launch_app/LAUNCHAPP|都判定为同一语义；无关命令判不出|node --test|PASS|
+|UT-MOB-212|FR-032|安全|报告保留作者的原文|不支持的命令 NotACommand|raw 是作者写的那一行，command 是原拼写|node --test|PASS|
+|UT-MOB-220|FR-032|正常|Flow 映射到统一用例模型|含两个场景的声明|产出 2 个用例，各带稳定 uid、文件与行号|node --test|PASS|
+|UT-MOB-221|FR-032|正常|场景成用例、步骤成步骤|一个含四步的场景|用例带标题与标签，步骤按顺序映射|node --test|PASS|
+|UT-MOB-222|FR-032|正常|步骤的断言进统一模型|assertVisible 步骤|断言是 {visible: 目标}|node --test|PASS|
+|UT-MOB-223|FR-032|正常|两种语法映射到相同的步骤|同一场景的两种写法|种类、参数与断言完全相同|node --test|PASS|
+|UT-MOB-224|FR-032|正常|未写 app 的启动步骤继承文件的 app|文件声明 appId，步骤只写 launchApp|步骤拿到该 app，场景也记录该 app|node --test|PASS|
+|UT-MOB-225|FR-032|边界|没有名字的场景得到确定的标题|场景无 name|标题由位置派生，两次导入相同|node --test|PASS|
+|UT-MOB-230|FR-032|安全|映射不了的步骤被保留而不是丢弃|场景含一个未知命令|步骤不在用例里，但进不支持清单，带原文与行号与原因|node --test|PASS|
+|UT-MOB-231|FR-032|安全|静默丢弃的步骤会让测试失败|场景含三个步骤，其中两个不支持|声明数 = 已映射 + 已报告，无一步消失|node --test|PASS|
+|UT-MOB-232|FR-032|异常|缺必需参数的步骤被报告|tapOn 没有任何参数|该步骤进不支持清单，原因点名缺 text|node --test|PASS|
+|UT-MOB-233|FR-032|异常|没有命令的步骤被报告|步骤只带选项键|该步骤进不支持清单并带原文|node --test|PASS|
+|UT-MOB-234|FR-032|安全|模型外的参数被保留并告警|步骤带一个未知参数|参数保留在步骤里并产生一条告警|node --test|PASS|
+|UT-MOB-235|FR-032|正常|导入报告列出每个不支持步骤|一个不支持的步骤|报告给出原文、行号与原因|node --test|PASS|
+|UT-MOB-240|FR-032|正常|切换导入方式不改变已有 UID|同一份声明导入两次|两次得到同一个 uid|node --test|PASS|
+|UT-MOB-241|FR-032|正常|同一场景在两种语法下步骤指纹相同|同一场景的两种写法|步骤指纹相同，因此可被同一个注册表认回|node --test|PASS|
+|UT-MOB-242|FR-032|正常|改标题后用例保住 UID|先导入再改标题重导入|uid 不变且 uidSource=registry|node --test|PASS|
+|UT-MOB-243|FR-032|正常|显式 @TC- 标注优先于一切派生键|标题含 @TC-601|uid 是该标注，来源 explicit|node --test|PASS|
+|UT-MOB-244|FR-032|边界|同名同步骤的两个用例被判为歧义|两个同名同步骤的场景|两个都是临时 uid 并报告歧义|node --test|PASS|
+|UT-MOB-245|FR-032|边界|同名不同步骤的两个用例各保其 uid|两个同名但步骤不同的场景|两个 uid 不同且都稳定|node --test|PASS|
+|UT-MOB-246|FR-032|边界|没有项目 UID 时不编造稳定标识|不带项目 UID 导入|uid 是临时的且 uidStable=false|node --test|PASS|
+|UT-MOB-250|FR-032|正常|Flow 在约定目录下被发现|项目里有 flows/ 与 mobile/ 下的 Flow 与一个无关 YAML|只发现约定目录下的 Flow|node --test|PASS|
+|UT-MOB-251|FR-032|正常|不是 Flow 的文件不被读取|flows/ 下放一个 .txt|该文件不进发现结果|node --test|PASS|
+|UT-MOB-252|FR-032|安全|项目之外的 Flow 被拒绝|传入 ../outside.yaml|报 flow-outside-project 且零个用例|node --test|PASS|
+|UT-MOB-253|FR-032|异常|读不出的 Flow 被报告而不是抛错|导入一个不存在的文件|报 flow-unreadable|node --test|PASS|
+|UT-MOB-254|FR-032|异常|读不动的文档不产出用例也不抛异常|缩进坏掉的 Flow|该文档零个用例、错误被报告、ok=false|node --test|PASS|
+|UT-MOB-255|FR-032|正常|导入报告给出文件名与计数|导入一个 Flow 文件|报告给出文件名、用例数与已映射步骤数|node --test|PASS|
+|UT-MOB-260|FR-032|正常|移动端用例进入统一目录|项目里有一个 Flow 与一个 web 用例|目录里两种用例都在，移动端用例是 TestDefinition|node --test|PASS|
+|UT-MOB-261|FR-032|正常|没有 Flow 的项目没有移动端用例|项目里只有 web 用例|移动端用例数为 0 且目录不含移动端字样|node --test|PASS|
+|UT-MOB-262|FR-032|安全|不支持的步骤计入目录的告警|Flow 里有一个不支持的步骤|告警写明 1 个移动端步骤不受支持|node --test|PASS|
+|UT-MOB-270|FR-032|正常|嵌套目录下的 Flow 被发现并导入|flows/smoke/login.yaml 与 tests/mobile/android/pay.flow|嵌套路径出现在发现结果里且产出用例|node --test|PASS|
+|UT-MOB-271|FR-032|安全|项目根下同名目录不被当成 Flow 目录|项目根有 android/ 而 Flow 目录是 flows/|发现结果为空且不报读不出的错误|node --test|PASS|
+|UT-MOB-272|FR-032|异常|文档不被读一半|场景列表中间插一个顶层键|两个场景都在，且错误指向那个顶层键|node --test|PASS|
+|UT-MOB-273|FR-032|异常|一个步骤命名两个命令时报错|步骤里同时有 tapOn 与 assertVisible|该步骤整条上报，不只取第一个|node --test|PASS|
+|UT-MOB-274|FR-032|安全|步骤的选项被保留并告警|步骤带 optional 与 when|选项留在步骤里且产生一条告警|node --test|PASS|
+|UT-MOB-275|FR-032|安全|模型不映射的段落里的每一步都进报告|头部 onFlowStart 与场景 setup 与第二个列表|三步全部上报，原因是 unmapped-section|node --test|PASS|
+|UT-MOB-276|FR-032|正常|头部标题不产出幻影用例|头部有 name 而正文是步骤列表|只产出一个用例，且它带步骤|node --test|PASS|
+|UT-MOB-277|FR-032|正常|按 id 指向元素的步骤可映射|tapOn 只给 id|该步骤映射成功，参数里保留 id|node --test|PASS|
+|UT-MOB-278|FR-032|异常|线性语法的 env 块不吞掉步骤|env 之后有 tap Settings: General|环境只含环境变量，三个步骤都在|node --test|PASS|
+|UT-MOB-279|FR-032|安全|线性语法的多余参数不覆盖主参数|launch x clearState 与 tap "a" "b"|主参数保持第一个值，多余参数保留并告警|node --test|PASS|
+|UT-MOB-280|FR-032|安全|同一参数的两个写法不静默覆盖|步骤同时给 text 与 title|保留第一个，产生一条冲突告警|node --test|PASS|
+|UT-MOB-281|FR-032|正常|移动端注册表被持久化且改标题后 UID 不变|改写 Flow 的场景标题后重新发现|UID 不变且 uidSource=registry|node --test|PASS|
+|UT-MOB-282|FR-032|正常|Flow 顶部加注释不改变身份|在 Flow 顶部加一行注释|UID 不变|node --test|PASS|
+|UT-MOB-283|FR-032|安全|重复的 @TC- token 跨引擎由双方都不绑定|web 用例与移动端用例声明同一个 @TC-100|目录里没有重复 UID，相关用例都标 duplicate-explicit-uid|node --test|PASS|
+|UT-MOB-284|FR-032|安全|步骤指纹的唯一性按全项目判定|两个 Flow 文件声明同样的步骤|两个用例的 UID 不同|node --test|PASS|
+|UT-MOB-285|FR-032|正常|可信项目的目录里也有移动端用例|标记为可信的项目|静态与回退路径都带移动端用例与 mobile 段|node --test|PASS|
+|UT-MOB-286|FR-032|安全|任何形状下声明的步骤都被交代|五种形状的 Flow|已映射数 + 已报告数 = 声明数|node --test|PASS|
+|UT-MOB-290|FR-032|异常|未知语法被报告而不是猜|传一个不认识的语法名|零个场景且报 unknown Flow syntax|node --test|PASS|
+|UT-MOB-291|FR-032|异常|混排场景与步骤的列表被报告|一个列表里既有场景又有步骤|报 mixes scenarios and steps|node --test|PASS|
+|UT-MOB-292|FR-032|正常|scenarios 列表被读|顶层 scenarios 列表|读出两个场景与它们的步骤|node --test|PASS|
+|UT-MOB-293|FR-032|异常|不是映射的场景项被报告|scenarios 列表里有一个字符串|报 not a mapping|node --test|PASS|
+|UT-MOB-294|FR-032|异常|没有名字的场景项被报告|scenarios 列表里有一项没有 name|报 no name|node --test|PASS|
+|UT-MOB-295|FR-032|正常|带步骤的映射就是一个场景|顶层 name 与 steps|读出一个带标题与步骤的场景|node --test|PASS|
+|UT-MOB-296|FR-032|正常|显式步骤形式被读|command 加 arguments 块|命令与参数被读出|node --test|PASS|
+|UT-MOB-297|FR-032|异常|列表形式的步骤被报告|步骤是一个行内列表|报 not a command|node --test|PASS|
+|UT-MOB-298|FR-032|异常|空步骤被报告|步骤项是空的|报 empty step|node --test|PASS|
+|UT-MOB-299|FR-032|正常|标量步骤被读|步骤是 launchApp|命令是 launchApp，原文保留|node --test|PASS|
+|UT-MOB-300|FR-032|正常|行内集合被读|tags 是行内列表|标签读成列表|node --test|PASS|
+|UT-MOB-301|FR-032|异常|未闭合的引号被报告|标题是未闭合的双引号|报 unterminated|node --test|PASS|
+|UT-MOB-302|FR-032|异常|未闭合的行内集合被报告|tags 是未闭合的行内列表|报 unterminated|node --test|PASS|
+|UT-MOB-303|FR-032|安全|标签不被读成半个文档|标题带 YAML 标签|报错误而不是读一半|node --test|PASS|
+|UT-MOB-304|FR-032|异常|同一映射里重复的键被报告|一个场景有两个 name|报 appears twice|node --test|PASS|
+|UT-MOB-305|FR-032|异常|场景之前的步骤被报告|线性声明里步骤排在 scenario 之前|报 before any scenario|node --test|PASS|
+|UT-MOB-306|FR-032|正常|线性语法的行内步骤列表被读|steps: launch, tap "x"|读出两个步骤|node --test|PASS|
+|UT-MOB-307|FR-032|正常|线性语法的标签与环境被读|线性声明带 tags 与 env|标签与环境被读出，引号被剥掉|node --test|PASS|
+|UT-MOB-308|FR-032|异常|什么都不命名的线性步骤被报告|步骤是一对空引号|报 empty step|node --test|PASS|
+|UT-MOB-309|FR-032|正常|线性语法的 title 也开启一个场景|线性声明用 title:|读出一个场景|node --test|PASS|
+|UT-MOB-310|FR-032|异常|线性语法里没有场景也被报告|只有 app 的线性声明|报 no scenario|node --test|PASS|
+|UT-MOB-311|FR-032|正常|读取器的标量类型被读|一个普通的 YAML 声明|读出一个场景|node --test|PASS|
+|UT-MOB-312|FR-032|安全|移动端用例丢掉的 @TC- token 被 Web 用例声明后注册表不再发回|移动端场景去掉 @TC-600 且 Web 用例声明 @TC-600|Web 用例 tc-600/explicit，移动端场景 derived 并报告 explicit-uid-claimed-by-another-case，目录无重复 UID，cell 里 tc-600 只指向 Web 用例|node --test|PASS|
+|UT-MOB-313|FR-032|安全|丢掉的 token 无论哪个引擎声明都被保留|Web 丢 @TC-650 移动端声明；移动端 Login 丢 @TC-500 同文件 Other 声明|声明方 explicit，丢弃方 derived 并报告注册表冲突，目录无重复 UID|node --test|PASS|
+|UT-MOB-314|FR-032|安全|复制场景后修改原场景不产生重复 UID|Login 复制为 Login copy 并给原 Login 加一步|副本经注册表保留旧 UID，原场景 derived-body 得新 UID，单文件导入同样判定|node --test|PASS|
+|UT-MOB-315|FR-032|安全|可信路径删除用例后同指纹新用例不继承旧 UID|权威目录：删除 Web beta 与场景 Logout，再新增同正文/同步骤的新用例；改标题|新用例的 UID 与被删的不同且非 registry，合并后的 cell 不含被删条目，改标题后一个 uid 一条条目且为新标题|node --test|PASS|
+|UT-MOB-316|FR-032|正常|注册表合并不改写输入且 Web 解析器尊重已声明的 token|mergeMobileRegistry 传入已有条目与新位置；resolveIdentities 传 claimedExplicitUids|输入条目不变、返回副本带别名、范围内无人认领的条目被删；Web 解析器拒绝注册表命中并报告 explicit-uid-claimed-by-another-case|node --test|PASS|
+|UT-CRD-001|FR-027|正常|put 写凭据库、索引只存引用|注入内存凭据库的 put/resolve|秘密只在凭据库，索引无明文，resolve 取回一致|node --test|PASS|
+|UT-CRD-002|FR-027|安全|三个同名 put 并发只成功一个|三个并发 put 同名（后端有延迟）|1 个成功、2 个 CREDENTIAL_DUPLICATE；凭据库仅 1 条|node --test|PASS|
+|UT-CRD-003|FR-027|正常|三个不同名 put 并发都保留引用|三个并发 put 不同名|三条引用都在索引里，凭据库 3 条|node --test|PASS|
+|UT-CRD-004|FR-027|正常|remove 与 put 并发串行|并发 remove + put|索引与凭据库一致|node --test|PASS|
+|UT-CRD-005|FR-027|异常|凭据库条目已消失时 remove 清掉引用|凭据库被清空后 remove|成功并清掉引用|node --test|PASS|
+|UT-CRD-006|FR-027|异常|凭据库删除失败时保留引用|后端抛 DELETE_FAILED|抛 CREDENTIAL_STORE_FAILED，引用仍在|node --test|PASS|
+|UT-CRD-007|FR-027|异常|凭据库写失败映射为契约内错误码|后端抛 WRITE_FAILED|code=CREDENTIAL_STORE_FAILED（HTTP 503），无引用残留|node --test|PASS|
+|UT-CRD-008|FR-027|异常|索引写失败时撤回刚写入的秘密|索引临时文件位置被目录占用|抛 CREDENTIAL_STORE_FAILED，凭据库无孤儿|node --test|PASS|
+|UT-CRD-009|FR-027|异常|输入校验与 NOT_FOUND 分支|非法名、空秘密、非法用途、未知 id|对应契约错误码|node --test|PASS|
+|UT-CRD-010|FR-027|边界|resolve 需用途匹配与可读凭据库|用途不符；条目消失|CREDENTIAL_INVALID / CREDENTIAL_NOT_FOUND|node --test|PASS|
+|UT-CRD-011|FR-027|安全|凭据库不可用即拒绝且不落任何文件|available=false 的后端|CREDENTIAL_STORE_UNAVAILABLE，索引不存在|node --test|PASS|
+|UT-CRD-012|FR-027|边界|无 available() 的后端视为可用|裸后端|put 成功|node --test|PASS|
+|UT-CRD-013|FR-027|异常|错误码规整到契约词汇表|各种后端错误|code 落在 CREDENTIAL_ERROR_CODES 内，未知归 STORE_FAILED|node --test|PASS|
+|UT-CRD-014|FR-027|异常|索引读写与损坏拒绝|缺失/损坏/畸形索引|缺失为空；损坏报 STORE_FAILED|node --test|PASS|
+|UT-CRD-015|FR-027|正常|诊断描述含后端名与错误码、无秘密|describeCredentialStore|provider、errorCodes 齐全|node --test|PASS|
+|UT-CRD-016|FR-027|安全|Windows 后端经 stdin 传秘密|注入 spawn 的 write/read/delete|秘密只在 stdin，不在 argv|node --test|PASS|
+|UT-CRD-017|FR-027|异常|Windows 后端只重试无码失败一次|无码失败/有码失败/spawn 错误|无码重试 1 次；有码不重试；ENOENT→UNAVAILABLE|node --test|PASS|
+|UT-CRD-018|FR-027|安全|macOS 后端经 stdin 传秘密（注入 spawn）|add/find/delete-generic-password|秘密只在 stdin；错误码规整|node --test|PASS|
+|UT-CRD-019|FR-027|安全|Linux 后端经 stdin 传秘密（注入 spawn）|secret-tool store/lookup/clear|秘密只在 stdin；错误码规整|node --test|PASS|
+|UT-CRD-020|FR-027|正常|后端选择随宿主、无明文后端|selectBackend、hasBinary|本机后端名正确；不存在的二进制为 false|node --test|PASS|
+|UT-GATE-001|FR-027|正常|file/requirement/run 经同一解析器|resolveEgressInputs 三种输入|ref/字节数正确；requirement 缺省为 requirements.json|node --test|PASS|
+|UT-GATE-002|FR-027|安全|越界写法一律 SCOPE_INVALID|../、绝对路径、盘符、出 .aitest|EGRESS_GATE_SCOPE_INVALID|node --test|PASS|
+|UT-GATE-003|FR-027|安全|junction 越界被拒（file 与 requirement）|junction 指向项目外|EGRESS_GATE_SCOPE_INVALID|node --test|PASS|
+|UT-GATE-004|FR-027|异常|畸形输入 INPUT_INVALID / PROJECT_UNKNOWN|空、非数组、缺文件、目录、超大、未知 run|对应闸门错误码|node --test|PASS|
+|UT-GATE-005|FR-027|正常|isSubpath 与被拒请求的 ref 描述|describeRequestedRefs|只含 kind/ref，digest=null，bytes=0，上限 50|node --test|PASS|
+|UT-GATE-006|FR-027|安全|无授权在读文件之前被拒|无同意书 + 越界 ref|EGRESS_CONSENT_REQUIRED，未构造范围|node --test|PASS|
+|UT-GATE-007|FR-027|正常|有效授权放行 file+requirement+run|授权后 authorizeEgress|allowed，范围 3 项|node --test|PASS|
+|UT-GATE-008|FR-027|安全|持有有效授权时范围失败是带码的拒绝|../、混合、缺文件、空输入、种类不在授权内、未知项目|allowed=false 且 code 对应|node --test|PASS|
+|UT-GATE-009|FR-027|安全|内容变化后不再匹配|授权后改文件|EGRESS_CONSENT_SCOPE_MISMATCH|node --test|PASS|
+|UT-GATE-010|FR-027|边界|缺 check() 为编程错误；缺 checkConsent() 仍可用|最小授权存储|TypeError / 放行|node --test|PASS|
+|UT-CON-001|FR-027|正常|列表反映过期为 expired，find 保持原记录|时钟拨过 TTL|all()=expired；find()=granted；checkConsent=EXPIRED|node --test|PASS|
+|UT-CON-002|FR-027|边界|范围摘要字段间有分隔|ref 含空格的两种写法|摘要不同|node --test|PASS|
+|UT-AUD-009|FR-027|安全|某一类的洪泛不挤掉另一类的记录|先记 granted/consent，再灌 525 条 denied 与 525 条 consent|egress.granted 仍在；denied、consent 各只留 500 条且丢本类最旧|node --test|PASS|
+|UT-AUD-010|FR-027|边界|放行类有自己的上限|503 条 egress.granted|只留 500 条，丢本类最旧|node --test|PASS|
+|UT-AUD-011|FR-027|正常|拒绝记录无摘要时记为 digest:null、bytes:0|denied 条目无 digest|null / 0|node --test|PASS|
 
 ## 进入与退出条件
 

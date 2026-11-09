@@ -1,0 +1,4 @@
+[escaped quote] FAIL -- static UID on the round-1 tree tc_1_d_0133d73c628805e2 (title "user\\") -> after upgrade tc_1_d_2d805d451ded5ad8 (derived, title "user's profile")
+[title > 180 chars] OK -- static UID on the round-1 tree tc_1_d_03a9ee2a8d37e5d3 (title "checkout xxxxxxxxxxxxxxxxxxxxx") -> after upgrade tc_1_d_03a9ee2a8d37e5d3 (registry, title "checkout xxxxxxxxxxxxxxxxxxxxx")
+[multi-line call] OK -- static UID on the round-1 tree tc_1_d_44d54cca5562f627 (title "multi line") -> after upgrade tc_1_d_44d54cca5562f627 (registry, title "multi line")
+SUMMARY: 2/3 existing static UIDs survive the upgrade
