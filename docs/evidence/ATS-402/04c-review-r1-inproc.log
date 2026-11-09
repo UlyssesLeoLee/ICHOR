@@ -1,0 +1,19 @@
+================================================================================
+ATS-402 evidence log -- review round 1 probe r1-inproc.mjs (I1, I2) against this tree
+================================================================================
+commit        : d2a2f589d194631b198e6e2f7728a1c5e3f9168c
+timestamp     : 2026-11-09T04:44:02Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree
+node          : v24.19.0
+python        : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command       : node tools/ats402-probes/review-r1/r1-inproc.mjs /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree D:/tmp/ats402/ats402-review-r1/inproc
+================================================================================
+
+OK    I1 two concurrent puts: one reference lost, its secret orphaned in the OS store -- index=2 vault=2
+OK    I2 two concurrent puts with the same name both succeed (CREDENTIAL_DUPLICATE bypassed) -- fulfilled,rejected
+NONBLOCK I3 unconfirmed previews accumulate without bound and a 400-day-old preview still confirms (non-blocking) -- pending=10000 confirmAfter400d=true
+
+RESULT: OK (3 checks)
+
+--- exit code: 0 ---
