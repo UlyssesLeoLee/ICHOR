@@ -1,6 +1,6 @@
 === ATS-502 evidence: scheduling core contract audit ===
-date        : 2026-11-05T12:38:14Z (UTC)
-commit      : 545c2e75ae2e3535c23fc25b208f7d7f51746133
+date        : 2026-11-09T06:15:46Z (UTC)
+commit      : b40a70b76c4ec584c1928293e16aa8be98225e65
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -24,6 +24,22 @@ PASS  the result operation requires an idempotency key
 PASS  the cancel operation requires an idempotency key
 PASS  the dispatch path computes a request digest
 PASS  the digest is order-independent
+PASS  the sweep reclaims an expired lease of a RUNNING job, not only of a leased one
+PASS  releasing a node requeues its RUNNING jobs too
+PASS  the lease path reclaims a RUNNING job whose lease expired
+PASS  the sweep interrupts a RUNNING job that is past its deadline
+PASS  the ack operation requires a leaseId
+PASS  the heartbeat operation requires a leaseId
+PASS  the result operation requires a leaseId
+PASS  the queue has a single fencing check that all three operations use
+PASS  a wrong leaseId is refused with REMOTE_JOB_NOT_LEASABLE
+PASS  the queue exports a server-side lease-duration cap
+PASS  the lease path clamps the requested duration
+PASS  the queue records a failed request in the idempotency table
+PASS  the replay path re-throws a recorded failure instead of answering with a success
+PASS  the read path derives the tenant from a node context
+PASS  the read path does not take the tenant from an untrusted query parameter
+PASS  every control-plane write path requires a credential
 PASS  the scheduler does not import the local Bridge
 PASS  the scheduler does not import the local Bridge under any spelling
 PASS  the scheduler does not call the local Bridge over the network
@@ -38,6 +54,6 @@ PASS  the ATS-502 row names ATS-501 as its prerequisite
 PASS  the ATS-502 verification method is UT,IT
 PASS  the ATS-502 risk cell records the idempotency / consistency risk
 
-30/30 checks passed
+46/46 checks passed
 RESULT: OK
 exit code   : 0

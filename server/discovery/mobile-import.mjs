@@ -72,7 +72,7 @@
  */
 import crypto from 'node:crypto';
 
-import { deriveTestUid, normalizeTitleKey, pruneRegistry, provisionalTestUid } from '../uid.mjs';
+import { UID_SCHEME_VERSION, deriveTestUid, normalizeTitleKey, pruneRegistry, provisionalTestUid } from '../uid.mjs';
 import { MOBILE_STEP_KINDS } from '../adapters/mobile-target.mjs';
 
 /* ------------------------------------------------------------------ */
@@ -716,8 +716,8 @@ function isSupportedQualifier(kind, qualifier) {
  * shape the ATS-201 registry stores and the shape the catalogue writes
  * back.
  */
-export function resolveProjectMobileUids({ cases, projectUid = null, registry = null, scope = null, duplicateExplicitUids = null }) {
-  return resolveMobileUids({ cases, projectUid, registry, scope, duplicateExplicitUids });
+export function resolveProjectMobileUids({ cases, projectUid = null, registry = null, scope = null, duplicateExplicitUids = null, claimedExplicitUids = null }) {
+  return resolveMobileUids({ cases, projectUid, registry, scope, duplicateExplicitUids, claimedExplicitUids });
 }
 
 /**
@@ -774,8 +774,28 @@ export function resolveProjectMobileUids({ cases, projectUid = null, registry = 
  * WITHOUT a project UID the cases cannot have a stable, project-scoped
  * identifier, so they get a PROVISIONAL one and `uidStable: false`. A UID
  * derived from a missing project would collide with another project's.
+ *
+ * THE RESERVED TOKENS
+ * -------------------
+ * A token that ANY case of this discovery declares -- a mobile case here,
+ * or any case of the catalogue the caller knows about
+ * (`claimedExplicitUids`, both engines) -- is RESERVED: the registry may
+ * remember it under the body of a case that has since dropped it, and
+ * handing it back would give two cases one uid. A registry hit on a
+ * reserved uid is refused; the case walks on down the ladder and reports
+ * `explicit-uid-claimed-by-another-case`.
+ *
+ * THE COLLISIONS
+ * --------------
+ * Two cases may still want the same uid: a copied scenario is found by the
+ * registry under the old steps, while the edited original derives the same
+ * uid from its unchanged position and title. ONE rule decides the holder,
+ * the ATS-201 one of `resolveIdentities`: an explicit claim wins, then a
+ * registry claim. Every other claimant falls back to its body fingerprint
+ * (`derived-body`) when that is unique in the project, and to a provisional
+ * identifier otherwise. There is no third rule.
  */
-function resolveMobileUids({ cases, projectUid, registry, scope = null, duplicateExplicitUids = null, bodyScope = 'project' }) {
+function resolveMobileUids({ cases, projectUid, registry, scope = null, duplicateExplicitUids = null, claimedExplicitUids = null, bodyScope = 'project' }) {
   const entries = registry?.projects?.[projectUid]?.entries ?? [];
   const byBody = new Map();
   for (const e of entries) {
@@ -817,6 +837,13 @@ function resolveMobileUids({ cases, projectUid, registry, scope = null, duplicat
   // token that a web case and a mobile case both claim belongs to
   // NEITHER of them, exactly as it would if two web cases claimed it.
   const claimedElsewhere = duplicateExplicitUids instanceof Set ? duplicateExplicitUids : new Set();
+  // The tokens the registry may NOT hand out: every token a case of this
+  // discovery declares -- the mobile cases here and every case of the
+  // catalogue the caller knows about -- plus the tokens the registry binds
+  // to a case of another file. The case that declares a token keeps it;
+  // nobody else gets it through the registry.
+  const claimedAnywhere = claimedExplicitUids instanceof Set ? claimedExplicitUids : new Set();
+  const withheld = new Set([...reserved, ...explicitOwners.keys(), ...claimedAnywhere]);
 
   const out = [];
   for (const c of cases) {
@@ -861,10 +888,17 @@ function resolveMobileUids({ cases, projectUid, registry, scope = null, duplicat
     const hits = bodyKey ? (byBody.get(bodyKey) ?? []) : [];
     const scoped = bodyScope === 'file' ? hits.filter((h) => h.file === c.file) : hits;
     const uids = [...new Set(scoped.map((h) => h.uid).filter(Boolean))];
+    // A registry hit on a RESERVED uid is refused and reported: the token
+    // belongs to the case that declares it, and this case does not.
+    let registryConflict = null;
     if (bodyKey && bodyCounts.get(bodyKey) === 1 && uids.length === 1) {
-      out.push({ ...c, uid: uids[0], uidSource: 'registry', uidStable: true, uidBasis: 'body-key', bodyKey, titleKey });
-      continue;
+      if (!withheld.has(uids[0])) {
+        out.push({ ...c, uid: uids[0], uidSource: 'registry', uidStable: true, uidBasis: 'body-key', bodyKey, titleKey });
+        continue;
+      }
+      registryConflict = { reason: 'explicit-uid-claimed-by-another-case', candidates: [uids[0]] };
     }
+    const conflict = registryConflict ? { registryConflict } : {};
 
     if (!projectUid) {
       // Without a project there is no project-scoped identifier to derive.
@@ -888,14 +922,14 @@ function resolveMobileUids({ cases, projectUid, registry, scope = null, duplicat
 
     if (titleCounts.get(titleKey) === 1) {
       const uid = deriveTestUid(projectUid, positionBasis(c.file, c.line, titleKey));
-      out.push({ ...c, uid, uidSource: 'derived', uidStable: true, uidBasis: 'position-title', bodyKey, titleKey });
+      out.push({ ...c, uid, uidSource: 'derived', uidStable: true, uidBasis: 'position-title', bodyKey, titleKey, ...conflict });
       continue;
     }
 
     // The title is shared. The body decides, when it is unique.
     if (bodyKey && bodyCounts.get(bodyKey) === 1) {
       const uid = deriveTestUid(projectUid, positionBasis(c.file, c.line, bodyKey));
-      out.push({ ...c, uid, uidSource: 'derived-body', uidStable: true, uidBasis: 'body-key', bodyKey, titleKey });
+      out.push({ ...c, uid, uidSource: 'derived-body', uidStable: true, uidBasis: 'body-key', bodyKey, titleKey, ...conflict });
       continue;
     }
 
@@ -908,6 +942,7 @@ function resolveMobileUids({ cases, projectUid, registry, scope = null, duplicat
       uidBasis: null,
       bodyKey,
       titleKey,
+      ...conflict,
       ambiguity: {
         key: titleKey,
         reason: 'identical-title',
@@ -915,6 +950,48 @@ function resolveMobileUids({ cases, projectUid, registry, scope = null, duplicat
           .map((x) => ({ file: x.file, title: x.title, line: x.line })),
       },
     });
+  }
+
+  // Collision resolution: two cases may want the same uid -- a copied
+  // scenario the registry finds under the old steps, and the edited
+  // original that derives the same uid from its unchanged position and
+  // title. The ATS-201 rule decides: an explicit claim keeps the uid, then
+  // a registry claim; every other claimant falls back to its body
+  // fingerprint when that is unique in the project, and to a provisional
+  // identifier otherwise. The contested uid is never issued twice.
+  const claims = new Map();
+  for (const c of out) {
+    if (!c.uid) continue;
+    if (!claims.has(c.uid)) claims.set(c.uid, []);
+    claims.get(c.uid).push(c);
+  }
+  for (const [uid, group] of claims) {
+    if (group.length < 2) continue;
+    const winner = group.find((g) => g.uidSource === 'explicit')
+      ?? group.find((g) => g.uidSource === 'registry')
+      ?? null;
+    for (const c of group) {
+      if (winner && c === winner) continue;
+      const fallback = projectUid && c.bodyKey && bodyCounts.get(c.bodyKey) === 1
+        ? deriveTestUid(projectUid, positionBasis(c.file, c.line, c.bodyKey))
+        : null;
+      if (fallback && fallback !== uid) {
+        c.uid = fallback;
+        c.uidSource = 'derived-body';
+        c.uidStable = true;
+        c.uidBasis = 'body-key';
+        continue;
+      }
+      c.uid = null;
+      c.uidSource = 'provisional';
+      c.uidStable = false;
+      c.uidBasis = null;
+      c.ambiguity = {
+        key: c.titleKey,
+        reason: 'identical-title',
+        candidates: group.map((g) => ({ file: g.file, title: g.title, line: g.line })),
+      };
+    }
   }
 
   // The provisional identifiers of the ambiguous groups: the ordinal is
@@ -934,6 +1011,18 @@ function resolveMobileUids({ cases, projectUid, registry, scope = null, duplicat
       c.uidSource = 'provisional';
       c.uidStable = false;
     });
+  }
+
+  // A refused registry hit is reported on the case it happened to, even
+  // though the case got a uid of its own: the memory of the past cases
+  // points at a token another case now declares, and a reader has to know.
+  for (const c of out) {
+    if (!c.registryConflict || c.ambiguity) continue;
+    c.ambiguity = {
+      key: c.titleKey,
+      reason: c.registryConflict.reason,
+      candidates: c.registryConflict.candidates.map((uid) => ({ uid })),
+    };
   }
 
   return { cases: out, registry: mergeMobileRegistry(entries, out, scope) };
@@ -985,8 +1074,19 @@ export function bodyKeyOfCase(c) {
  * The SCOPE is the set of files this import covered. An entry whose file
  * is outside the scope is KEPT: it says nothing about the cases inside
  * it, and pruning it would drop the identity of a case that still exists.
+ *
+ * THE INPUT IS NOT MUTATED. The entries the caller passed in are the
+ * caller's memory of the past cases -- the live registry of the Bridge,
+ * or the cell another resolver just produced. An entry that changes is
+ * replaced by an updated COPY in the result, so two readers of the same
+ * registry inside one discovery see the same content.
+ *
+ * It is exported because the authoritative catalogue merges the mobile
+ * cases into the cell the authoritative resolver has already pruned, with
+ * the Flow files as the scope: each engine prunes its own files and
+ * neither prunes the other's.
  */
-function mergeMobileRegistry(entries, cases, scope = null) {
+export function mergeMobileRegistry(entries, cases, scope = null) {
   const byUid = new Map();
   for (const e of entries) {
     if (e.uid && !byUid.has(e.uid)) byUid.set(e.uid, e);
@@ -1005,18 +1105,16 @@ function mergeMobileRegistry(entries, cases, scope = null) {
       aliases: [],
     };
     if (existing) {
+      // The uid is the SAME case: the newest position wins, and a case that
+      // moved keeps its old position as an alias so that it can still be
+      // found under the old spelling.
+      const aliases = [...(existing.aliases ?? [])];
       if (existing.file !== next.file || existing.title !== next.title) {
-        existing.aliases = existing.aliases ?? [];
-        if (!existing.aliases.some((a) => a.file === existing.file && a.title === existing.title)) {
-          existing.aliases.push({ file: existing.file, title: existing.title });
+        if (!aliases.some((a) => a.file === existing.file && a.title === existing.title)) {
+          aliases.push({ file: existing.file, title: existing.title });
         }
       }
-      existing.uidSource = next.uidSource;
-      existing.titleKey = next.titleKey;
-      existing.bodyKey = next.bodyKey;
-      existing.file = next.file;
-      existing.title = next.title;
-      existing.line = next.line;
+      byUid.set(c.uid, { ...next, aliases });
       continue;
     }
     byUid.set(c.uid, next);
@@ -1025,7 +1123,7 @@ function mergeMobileRegistry(entries, cases, scope = null) {
   // was part of THIS import and no resolved case claims its uid.
   const merged = [...byUid.values()];
   return {
-    version: 1,
+    version: UID_SCHEME_VERSION,
     entries: pruneRegistry(merged, cases, scope),
   };
 }

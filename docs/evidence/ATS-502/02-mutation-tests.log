@@ -1,6 +1,6 @@
 === ATS-502 evidence: scheduling audit mutation tests (negative fixtures) ===
-date        : 2026-11-05T12:38:14Z (UTC)
-commit      : 545c2e75ae2e3535c23fc25b208f7d7f51746133
+date        : 2026-11-09T06:15:46Z (UTC)
+commit      : b40a70b76c4ec584c1928293e16aa8be98225e65
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -16,9 +16,18 @@ PASS  a dropped idempotency-key check is caught  [exit 1]
 PASS  a lease state that is not in the protocol is caught  [exit 1]
 PASS  a scheduler that imports the local Bridge is caught (HB-1)  [exit 1]
 PASS  a scheduler that reads a filesystem is caught (HB-7)  [exit 1]
+PASS  a sweep that ignores the RUNNING state is caught  [exit 1]
+PASS  a releaseNode that ignores the RUNNING state is caught  [exit 1]
+PASS  a sweep that interrupts only QUEUED jobs is caught  [exit 1]
+PASS  an ack without a leaseId check is caught  [exit 1]
+PASS  a result without a leaseId check is caught  [exit 1]
+PASS  an unbounded client-chosen lease duration is caught  [exit 1]
+PASS  a replay that answers a recorded failure with a success is caught  [exit 1]
+PASS  a read path that takes the tenant from the query string is caught  [exit 1]
+PASS  a write path without the control-plane credential check is caught  [exit 1]
 PASS  a WBS completion rate that contradicts the remaining days is caught  [exit 1]
 PASS  a WBS acceptance criterion that was dropped is caught  [exit 1]
 
-11/11 mutation expectations met
+20/20 mutation expectations met
 RESULT: OK
 exit code   : 0

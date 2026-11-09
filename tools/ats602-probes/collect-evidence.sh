@@ -13,6 +13,8 @@ TREE="${1:-.}"
 cd "$TREE" || exit 1
 
 export TMPDIR="${TMPDIR:-/tmp}"
+# The Python steps print Chinese; the console code page must not mangle it.
+export PYTHONUTF8=1
 mkdir -p "$TMPDIR"
 
 EV="docs/evidence/ATS-602"
@@ -85,6 +87,45 @@ hdr() {
   fi
 } > "$EV/03b-round1-review-probes.log" 2>&1
 
+# --- 03c: the round-2 review probes --------------------------------------
+#
+# The three probes of the round-2 review, kept VERBATIM (byte-identical to
+# the ones the reviewer attached, line endings aside). They are the edit
+# SEQUENCES of the review: a token that moves to another case (N2-cross), a
+# scenario that is copied and then edited (N3), a case that is deleted and
+# then re-created under a new name on the trusted path (N1).
+#
+# The in-process probe and the reader probe need nothing but Node. The
+# end-to-end one drives the REAL Bridge over HTTP in BOTH trust modes and
+# needs a real Playwright install for the trusted one -- it is SKIPPED with
+# the reason when there is none, and a skip is never written as a pass.
+{
+  echo "=== ATS-602 evidence: the round-2 review probes (N1 / N2-cross / N3) ==="
+  echo "tree : $COMMIT"
+  echo "date : $STAMP"
+  echo
+  echo "--- the in-process probe (node r2.mjs) ---"
+  node tools/ats602-probes/probe-round2-counterexamples.mjs "$TREE" "$TMPDIR/ats602-r2-probe" 2>&1
+  echo
+  echo "--- the reader probe (node r2-reader.mjs) ---"
+  node tools/ats602-probes/probe-round2-reader.mjs "$TREE" 2>&1
+  echo
+  PW_NM="${ATS602_PLAYWRIGHT_NODE_MODULES:-}"
+  for MODE in trusted untrusted; do
+    echo "--- the end-to-end probe (node r2-e2e.mjs, the real Bridge over HTTP, mode=$MODE) ---"
+    if [ -n "$PW_NM" ] && [ -d "$PW_NM" ]; then
+      node tools/ats602-probes/probe-round2-counterexamples-e2e.mjs "$TREE" "$PW_NM" "$TMPDIR/ats602-r2-e2e-$MODE" "$MODE" 2>&1
+    else
+      echo "SKIPPED: no real Playwright install (set ATS602_PLAYWRIGHT_NODE_MODULES to the"
+      echo "          node_modules directory of a real @playwright/test install to run it)."
+      echo "          A skip is NOT a pass: the end-to-end counter-examples are covered by"
+      echo "          IT-ATS602-API-012/013/014 in 02-node-test-mobile-import-it.log, which"
+      echo "          install their own Playwright."
+    fi
+    echo
+  done
+} > "$EV/03c-round2-review-probes.log" 2>&1
+
 # --- 04: the coverage -----------------------------------------------------
 {
   echo "=== ATS-602 evidence: the line and branch coverage of the import ==="
@@ -96,12 +137,21 @@ hdr() {
 } > "$EV/04-coverage-mobile-import.log" 2>&1
 
 # --- 05: the full regression ----------------------------------------------
+#
+# The suite is the same `tests/*.test.mjs` that `npm test` runs. The runner
+# is told how many files to run AT ONCE: left to its default (one per CPU)
+# it starts every file together, and on a machine that is already busy the
+# runner itself dies of "Zone Allocation failed - process out of memory"
+# before a single test runs. A bounded concurrency changes the pace, not
+# the tests; the log says which value was used.
+CONCURRENCY="${ATS602_TEST_CONCURRENCY:-2}"
 {
   echo "=== ATS-602 evidence: the full regression (every test file) ==="
   echo "tree : $COMMIT"
   echo "date : $STAMP"
+  echo "runner: node --test --test-concurrency=$CONCURRENCY tests/*.test.mjs"
   echo
-  npm test 2>&1
+  node --test --test-concurrency="$CONCURRENCY" tests/*.test.mjs 2>&1
 } > "$EV/05-node-test-full.log" 2>&1
 
 # --- 06: the quality gates -------------------------------------------------
@@ -230,5 +280,5 @@ PY
   python tools/verify_checksums.py 2>&1
 } > "$EV/10-checksums.log" 2>&1
 
-echo "collected 10 logs into $EV"
+echo "collected 11 logs into $EV"
 ls -la "$EV"

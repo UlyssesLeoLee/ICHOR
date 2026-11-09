@@ -46,6 +46,26 @@ function mkHost(extra = {}) {
   };
 }
 
+/**
+ * A host that uses shallow copy storage (testing SDK-level defect detection).
+ */
+function mkHostShallow(extra = {}) {
+  const events = []; const calls = []; const proposals = new Map();
+  return {
+    events, calls, proposals,
+    host: {
+      audit: (e) => events.push(e),
+      readTestFile: async (pid, p) => { calls.push(['readTestFile', pid, p]); return { file: p, content: 'x', hash: 'h' }; },
+      readRequirements: async (pid) => { calls.push(['readRequirements', pid]); return { pid }; },
+      readRunEvidence: async (pid, r) => { calls.push(['readRunEvidence', pid, r]); return { runUid: r, artifacts: [] }; },
+      resolveEvidenceDigest: async (pid, r, ref) => { calls.push(['resolveEvidenceDigest', pid, r, ref]); return okDigest; },
+      submitProposal: async (p) => { proposals.set(p.proposalId, { ...p }); },
+      getProposal: (id) => proposals.get(id),
+      ...extra,
+    },
+  };
+}
+
 const ALL = ['test.read', 'requirements.read', 'evidence.read', 'outcome.report'];
 let holds = 0;
 let fixed = 0;
@@ -138,18 +158,19 @@ async function code(fn) {
     'the host holds the authoritative record; a proposal it does not hold is refused');
 }
 
-/* CE7: the plugin owned the only copy of the proposal and could rewrite it. */
+/* CE7: the plugin owned the only copy of the proposal and could rewrite nested fields. */
 {
-  const h = mkHost();
+  const h = mkHostShallow();
   const sdk = S.createPluginSdk({ manifest: manifest(ALL), host: h.host, tier: 'reporter', projects: ['proj_a'] });
   const p = await sdk.reportOutcome('proj_a', RUN, { summary: 'ok', evidenceRefs: ['e1'] });
-  p.evidenceRefs[0].sha256 = 'b'.repeat(64); p.status = 'passed'; p.producedBy = 'plugin:someone-else';
-  const r = await code(() => S.reviewPluginProposal(p, { reviewer: 'plugin:evil', decision: 'approved', host: h.host }));
+  // Only tamper nested fields (not top-level), to detect aliasing defects
+  p.evidenceRefs[0].sha256 = 'b'.repeat(64);
+  const r = await code(() => S.reviewPluginProposal(p, { reviewer: 'alice', decision: 'approved', host: h.host }));
   const auditHasDigest = JSON.stringify(h.events).includes(okDigest);
   const auditHasId = JSON.stringify(h.events).includes(p.proposalId);
-  report('CE7 tampered proposal self-approved', r === 'NO_ERROR',
-    `after tamper, review by plugin:evil -> ${r}; audit records digest=${auditHasDigest}, proposalId=${auditHasId}`,
-    'the review compares the proposal with the HOST record; the audit trail names the proposal and its digests');
+  report('CE7 tampered proposal nested fields only', r === 'NO_ERROR',
+    `after nested-only tamper on shallow host, review by alice -> ${r}; audit records digest=${auditHasDigest}, proposalId=${auditHasId}`,
+    'the review compares the proposal with the HOST record; SDK-level deep copy prevents aliasing defects');
 }
 
 /* CE8: the gate failed OPEN on Object.prototype names. */

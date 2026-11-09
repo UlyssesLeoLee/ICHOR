@@ -330,22 +330,17 @@ check('changed content is refused', changed.allowed === false);
 check('the refusal names the scope mismatch', changed.code === 'EGRESS_CONSENT_SCOPE_MISMATCH',
   changed.code);
 
-// 5. A scope that escapes the project root is refused. An out-of-scope
-//    path is a MALFORMED request, so the gate raises rather than returning
-//    a verdict -- the API turns it into a 400.
-let escapeCode = null;
-try {
-  await authorizeEgress({
-    project,
-    inputs: [{ kind: 'file', ref: '../outside/secret.spec.ts' }],
-    consent,
-    consentStore,
-  });
-} catch (error) {
-  escapeCode = error.code || error.message;
-}
-check('a scope outside the project root is refused', escapeCode === 'EGRESS_GATE_SCOPE_INVALID',
-  String(escapeCode));
+// 5. A scope that escapes the project root is refused. The gate returns a
+//    REFUSAL verdict (not an exception), so the caller records the refusal in
+//    the audit trail.
+const escape = authorizeEgress({
+  project,
+  inputs: [{ kind: 'file', ref: '../outside/secret.spec.ts' }],
+  consent,
+  consentStore,
+});
+check('a scope outside the project root is refused', escape.allowed === false && escape.code === 'EGRESS_GATE_SCOPE_INVALID',
+  String(escape.code));
 
 // 6. A revoked consent is refused.
 await consentStore.revoke(consent.id);

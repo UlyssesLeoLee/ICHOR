@@ -1,37 +1,49 @@
 === ATS-502 evidence: scheduling service integration tests ===
-date        : 2026-11-05T12:38:14Z (UTC)
-commit      : 545c2e75ae2e3535c23fc25b208f7d7f51746133
+date        : 2026-11-09T06:15:46Z (UTC)
+commit      : b40a70b76c4ec584c1928293e16aa8be98225e65
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 default enc : gbk (what the same interpreter would use without the forcing)
 command     : node --test tests/scheduler.test.mjs
 
-✔ IT-SCHED-SETUP: start the scheduler (28.7065ms)
-✔ IT-SCHED-001: the health endpoint reports the queue snapshot (4.2854ms)
-✔ IT-SCHED-002: dispatch returns 202 and the job is queued (4.5146ms)
-✔ IT-SCHED-003: the same dispatch again is a 200 replay of the first job (13.5442ms)
-✔ IT-SCHED-004: the same key with a different body is 409 REMOTE_IDEMPOTENCY_CONFLICT (1.7341ms)
-✔ IT-SCHED-005: dispatch without an idempotency key is 403 (11.2762ms)
-✔ IT-SCHED-006: a node must be bound before it can lease (15.8795ms)
-✔ IT-SCHED-007: leasing a job of an unbound node is 403 REMOTE_TENANT_REQUIRED (31.3638ms)
-✔ IT-SCHED-008: leasing a job hands out a lease (30.0715ms)
-✔ IT-SCHED-009: a second node cannot lease the same job (no double run) (46.6079ms)
-✔ IT-SCHED-010: a heartbeat renews the lease over the wire (14.5568ms)
-✔ IT-SCHED-011: after the lease expires the job is recoverable (requeued and re-leasable) (31.2102ms)
-✔ IT-SCHED-012: the stale node cannot report the result after the re-dispatch (30.3416ms)
-✔ IT-SCHED-013: a replayed result returns the first result and does not change the state (46.2718ms)
-✔ IT-SCHED-014: a job of another tenant is not found (46.2407ms)
-✔ IT-SCHED-015: releasing a node returns its jobs to the queue (61.6932ms)
-✔ IT-SCHED-016: an unknown job is 404 REMOTE_JOB_NOT_FOUND (15.4896ms)
-✔ IT-SCHED-017: an unknown route is 404 REMOTE_RESOURCE_NOT_FOUND (15.041ms)
-✔ IT-SCHED-CLEANUP: stop the scheduler (1.4224ms)
-ℹ tests 19
+✔ IT-SCHED-SETUP: start the scheduler and bind the nodes (43.6196ms)
+✔ IT-SCHED-001: the health endpoint reports the queue snapshot (8.2294ms)
+✔ IT-SCHED-002: dispatch returns 202 and the job is queued (3.0859ms)
+✔ IT-SCHED-003: the same dispatch again is a 200 replay of the first job (18.3937ms)
+✔ IT-SCHED-004: the same key with a different body is 409 REMOTE_IDEMPOTENCY_CONFLICT (8.3609ms)
+✔ IT-SCHED-005: dispatch without an idempotency key is 403 (1.9255ms)
+✔ IT-SCHED-005b: dispatch without the control-plane credential is 401 (13.4744ms)
+✔ IT-SCHED-006: a node must be bound before it can lease (4.9057ms)
+✔ IT-SCHED-007: leasing a job of an unbound node is 403 REMOTE_TENANT_REQUIRED (25.5672ms)
+✔ IT-SCHED-008: leasing a job hands out a lease (15.0055ms)
+✔ IT-SCHED-009: a second node cannot lease the same job (no double run) (15.5837ms)
+✔ IT-SCHED-010: a heartbeat renews the lease over the wire (17.0467ms)
+✔ IT-SCHED-011: after the lease expires the job is recoverable (requeued and re-leasable) (45.4096ms)
+✔ IT-SCHED-012: the stale node cannot report the result after the re-dispatch (31.0289ms)
+✔ IT-SCHED-013: a replayed result returns the first result and does not change the state (48.1629ms)
+✔ IT-SCHED-014: a job of another tenant is not found (30.1233ms)
+✔ IT-SCHED-015: releasing a node returns its jobs to the queue (93.2992ms)
+✔ IT-SCHED-016: an unknown job is 404 REMOTE_JOB_NOT_FOUND (2.7585ms)
+✔ IT-SCHED-017: an unknown route is 404 REMOTE_RESOURCE_NOT_FOUND (12.585ms)
+✔ IT-SCHED-020: listing jobs without a node context is 403 (15.6224ms)
+✔ IT-SCHED-021: listing jobs with an unknown node context is 403 (1.0609ms)
+✔ IT-SCHED-022: a node context only sees its own tenant jobs (14.8463ms)
+✔ IT-SCHED-023: a claimed tenant that differs from the node context is 403 (1.0166ms)
+✔ IT-SCHED-024: another tenant job is 404 for a node of a different tenant (29.7279ms)
+✔ IT-SCHED-025: releasing a node without the control-plane credential is 401 (1.1412ms)
+✔ IT-SCHED-026: binding a node without the control-plane credential is 401 (1.1345ms)
+✔ IT-SCHED-027: cancelling a job without the control-plane credential is 401 (29.2404ms)
+✔ IT-SCHED-028: a lease request with an over-long leaseMs is capped by the server (32.0156ms)
+✔ IT-SCHED-029: a node cannot ack a job without presenting the current leaseId (61.2392ms)
+✔ IT-SCHED-030: a RUNNING job of a silent node is requeued by the sweep (34.0433ms)
+✔ IT-SCHED-CLEANUP: stop the scheduler (1.4714ms)
+ℹ tests 31
 ℹ suites 0
-ℹ pass 19
+ℹ pass 31
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 552.5545
+ℹ duration_ms 777.6258
 exit code   : 0
