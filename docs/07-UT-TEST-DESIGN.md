@@ -701,8 +701,8 @@
 |UT-GATE-010|FR-027|边界|缺 check() 为编程错误；缺 checkConsent() 仍可用|最小授权存储|TypeError / 放行|node --test|PASS|
 |UT-CON-001|FR-027|正常|列表反映过期为 expired，find 保持原记录|时钟拨过 TTL|all()=expired；find()=granted；checkConsent=EXPIRED|node --test|PASS|
 |UT-CON-002|FR-027|边界|范围摘要字段间有分隔|ref 含空格的两种写法|摘要不同|node --test|PASS|
-|UT-AUD-009|FR-027|安全|大量拒绝不冲掉放行/授权记录|先记 granted/consent 再灌 525 条 denied|决策类记录仍在；denied 只留 500 条且丢最旧|node --test|PASS|
-|UT-AUD-010|FR-027|边界|决策类有自己的上限|503 条 egress.granted|只留 500 条，丢本类最旧|node --test|PASS|
+|UT-AUD-009|FR-027|安全|某一类的洪泛不挤掉另一类的记录|先记 granted/consent，再灌 525 条 denied 与 525 条 consent|egress.granted 仍在；denied、consent 各只留 500 条且丢本类最旧|node --test|PASS|
+|UT-AUD-010|FR-027|边界|放行类有自己的上限|503 条 egress.granted|只留 500 条，丢本类最旧|node --test|PASS|
 |UT-AUD-011|FR-027|正常|拒绝记录无摘要时记为 digest:null、bytes:0|denied 条目无 digest|null / 0|node --test|PASS|
 
 ## 进入与退出条件

@@ -16,8 +16,8 @@
  *      变成第二个泄漏面。
  *   3. **追加写，不改写。** 记录只追加，撤销一条授权不会把「曾经放行过」的
  *      记录抹掉——审计记录是**事实**，不是状态。
- *   4. **有上限，且按类别计数。** 拒绝类与事实类（放行、授权、撤销）各有
- *      上限，超出后各自丢**本类**最旧的；拒绝再多也挤不掉放行与授权记录。
+ *   4. **有上限，且按类别计数。** 拒绝、放行、授权/撤销三类各有上限，超出后
+ *      各自丢**本类**最旧的；某一类的洪泛挤不掉另外两类的记录。
  *      审计日志不能把 `state.json` 撑成无界增长的单文件；上限写在代码里。
  *
  * 审计记录与授权记录一样持久化在 `state.json` 里（`state.egressAudit`）。
@@ -40,18 +40,21 @@ export const EGRESS_AUDIT_EVENTS = Object.freeze([
 /**
  * 审计记录条数的上限。**按类别分别计数、分别丢最旧的**：
  *
- *   - `egress.denied`（拒绝）一类，上限 500；
- *   - 其余（`egress.granted`、`consent.*`，即「事实记录」）一类，上限 500。
+ *   - `denied`  ：`egress.denied`（拒绝）
+ *   - `granted` ：`egress.granted`（闸门放行）
+ *   - `consent` ：`consent.granted` / `consent.revoked`（授权与撤销）
  *
- * 两类互不挤占：无论调用方连发多少次被拒绝的请求，放行与授权的记录都不会
- * 被冲掉。每一类超出上限后，丢的是**该类**最旧的一条。
+ * 三类各 500 条、互不挤占：无论调用方连发多少次被拒绝的请求，或反复 preview→confirm，
+ * 放行记录都不会被冲掉；反之亦然。每一类超出上限后，丢的是**该类**最旧的一条。
+ * 能淘汰某一类记录的只有**同一类**的新记录——要淘汰 `egress.granted`，必须先持有
+ * 有效授权并真的发起 500 次放行。
  */
 export const EGRESS_AUDIT_CAP = 500;
 
-/** 拒绝类与事实类各自的上限（均为 `EGRESS_AUDIT_CAP`）。 */
-export const EGRESS_AUDIT_CAPS = Object.freeze({ denied: EGRESS_AUDIT_CAP, decisions: EGRESS_AUDIT_CAP });
+/** 各类别的上限（均为 `EGRESS_AUDIT_CAP`）。 */
+export const EGRESS_AUDIT_CAPS = Object.freeze({ denied: EGRESS_AUDIT_CAP, granted: EGRESS_AUDIT_CAP, consent: EGRESS_AUDIT_CAP });
 
-const auditClassOf = (record) => (record.event === 'egress.denied' ? 'denied' : 'decisions');
+const auditClassOf = (record) => (record.event === 'egress.denied' ? 'denied' : record.event === 'egress.granted' ? 'granted' : 'consent');
 
 /**
  * 一条审计记录的形状。

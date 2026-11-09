@@ -219,27 +219,30 @@ function memAudit() {
   return { store, raw: () => records };
 }
 
-test('UT-AUD-009: a flood of denials never evicts a granted / consent record', async () => {
+test('UT-AUD-009: a flood of one class never evicts another class (denials, consents, grants)', async () => {
   const { store, raw } = memAudit();
   const granted = await store.record({ event: 'egress.granted', outcome: 'allowed', items: [{ kind: 'file', ref: 'a', digest: 'b'.repeat(64), bytes: 1 }] });
   const consent = await store.record({ event: 'consent.granted' });
-  const revoked = await store.record({ event: 'consent.revoked', outcome: 'denied' });
   for (let i = 0; i < EGRESS_AUDIT_CAPS.denied + 25; i += 1) {
     await store.record({ event: 'egress.denied', code: 'EGRESS_CONSENT_REQUIRED', items: [{ kind: 'file', ref: `r${i}`, digest: null }] });
   }
+  // The preview -> confirm endpoints write `consent.*`: flooding them must not evict a grant either.
+  for (let i = 0; i < EGRESS_AUDIT_CAPS.consent + 25; i += 1) await store.record({ event: 'consent.granted', consentId: `c${i}` });
   const ids = new Set(raw().map((r) => r.id));
-  assert.ok(ids.has(granted.id) && ids.has(consent.id) && ids.has(revoked.id), 'decision records survive the flood');
+  assert.ok(ids.has(granted.id), 'the egress.granted record survives both floods');
+  assert.ok(!ids.has(consent.id), 'the consent flood only evicted older consent records');
   assert.equal(raw().filter((r) => r.event === 'egress.denied').length, EGRESS_AUDIT_CAPS.denied);
+  assert.equal(raw().filter((r) => r.event === 'consent.granted').length, EGRESS_AUDIT_CAPS.consent);
   const refs = raw().filter((r) => r.event === 'egress.denied').map((r) => r.items[0].ref);
   assert.ok(!refs.includes('r0') && refs.includes(`r${EGRESS_AUDIT_CAPS.denied + 24}`), 'the OLDEST denials are the ones dropped');
 });
 
-test('UT-AUD-010: the decision class has its own cap and drops its own oldest', async () => {
+test('UT-AUD-010: the grant class has its own cap and drops its own oldest', async () => {
   const { store, raw } = memAudit();
-  for (let i = 0; i < EGRESS_AUDIT_CAPS.decisions + 3; i += 1) await store.record({ event: 'egress.granted', outcome: 'allowed', consentId: `c${i}` });
-  const decisions = raw().filter((r) => r.event !== 'egress.denied');
-  assert.equal(decisions.length, EGRESS_AUDIT_CAPS.decisions);
-  assert.equal(decisions[0].consentId, 'c3');
+  for (let i = 0; i < EGRESS_AUDIT_CAPS.granted + 3; i += 1) await store.record({ event: 'egress.granted', outcome: 'allowed', consentId: `c${i}` });
+  const grants = raw().filter((r) => r.event === 'egress.granted');
+  assert.equal(grants.length, EGRESS_AUDIT_CAPS.granted);
+  assert.equal(grants[0].consentId, 'c3');
   assert.equal(EGRESS_AUDIT_CAP, 500);
 });
 

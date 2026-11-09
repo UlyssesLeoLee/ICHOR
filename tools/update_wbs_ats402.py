@@ -62,7 +62,7 @@ NOTE = (
     'EGRESS_PREVIEW_STALE，previewId 不可复用。'
     '（3）外传审计——每一次外传判定（放行与拒绝都算）都写入审计记录，'
     '记录只含 ref、字节数与 SHA-256 摘要（拒绝记录只含请求的 kind/ref），不含内容、不含密钥，追加写、'
-    '拒绝类与决策类各 500 条互不挤占、跨重启保留；/check 里的每一次拒绝（含范围解析失败）都写 egress.denied，'
+    '拒绝/放行/授权三类各 500 条互不挤占、跨重启保留；/check 里的每一次拒绝（含范围解析失败）都写 egress.denied，'
     '越权外传因此既被拦截也被留痕。授权列表的状态反映过期（expired）。'
     '实测：UT 76 项全通过（tests/security.test.mjs 41 + security-credentials.test.mjs 20 + '
     'security-gate.test.mjs 15，进程内、注入后端）；server/security 四个文件行覆盖率均大于 90%'
