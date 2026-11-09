@@ -1,15 +1,15 @@
 === ATS-107 evidence: the real-browser check must reject a fixture that never launches a browser (ST-044) ===
-date        : 2026-11-09T17:59:38Z (UTC)
-commit      : 36f4a8c0675dc0e51a033bb5d6d670e9c7bdbd08
+date        : 2026-11-09T18:27:16Z (UTC)
+commit      : 323d01d4aa05110fa25f1f0a7d8da4606dfd2ae1
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command     : node tools/ats107-probes/no-browser-control.mjs
 
-(node:19124) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(node:34308) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
 (Use `node --trace-deprecation ...` to show where the warning was created)
 PASS the real fixture (the specs take a page) is ACCEPTED as a real-browser run -- 2/2 trace archives record a Chromium context (1-trace.trace (playwright 1.65.0), 1-trace.trace (playwright 1.65.0))
-PASS the mutated fixture (the specs never take a page) is REJECTED: no browser context -- none of the 2 trace archives records a Chromium context (no browser context trace in the archive (members: src/393cfba00ffa9c42e11deb07d87cb20e83d81e07.ts, attachments/80694f21dac7fb87eb8444a399ac96df55e1f7da, test.trace) | no browser context trace in the archive (members: src/7aaf8ad5ac3688af402f2b20c716f06c78a61c31.ts, test.trace))
+PASS the mutated fixture (the specs never take a page) is REJECTED: no browser context -- none of the 2 trace archives records a Chromium context (no browser context trace in the archive (members: src/bc3b0648f14ebe8262f50e097aaff1956bbdc0cf.ts, attachments/80694f21dac7fb87eb8444a399ac96df55e1f7da, test.trace) | no browser context trace in the archive (members: src/aac0932cd0cc9cd76973622641e7b1d15463a1c8.ts, test.trace))
 PASS the mutated fixture still writes a trace.zip (so the archive alone proves nothing) -- 2 trace(s) written without a browser
 RESULT: 3/3
 exit code   : 0

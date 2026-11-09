@@ -1,6 +1,6 @@
 === ATS-107 evidence: WBS updater coexistence regression (discovers tools/update_wbs_ats107.py) ===
-date        : 2026-11-09T18:02:30Z (UTC)
-commit      : a7fb97ea686252b7fb91b029710ebeae35b85fd6
+date        : 2026-11-09T18:27:16Z (UTC)
+commit      : 323d01d4aa05110fa25f1f0a7d8da4606dfd2ae1
 node        : v24.19.0
 python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)

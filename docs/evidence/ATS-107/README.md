@@ -7,7 +7,7 @@
 | `01-fixture-contract.log` | 夹具的交付形态：精确固定的版本、入库的 lockfile、显式的 chromium、`retries: 0`、两条离线用例、夹具自己的 `tests/expected.json` | 7 个文件已入库 |
 | `02-real-browser-probe.log` | **验收口径本身**：同一夹具分别经 Playwright CLI 直跑与经真实 Bridge 跑，逐条对账（判定 / 计数器 / 错误信息全文相等），并检查产物（`report.json` + 真实 `trace.zip` + **浏览器上下文**） | **RESULT: 28/28** |
 | `03-mutation-control.log` | **负控第 1 层**（对账逻辑）：对 Bridge 自身结果投影施加 13 种变异，每种都必须被对账逻辑抓住；未变异的真实结果必须被接受 | **RESULT: 17/17**（13 种变异 + 4 项对照） |
-| `04-python-tools.log` | 全部 Python 工具测试（`pytest tools/`） | 64 passed, 2 warnings in 1.99s |
+| `04-python-tools.log` | 全部 Python 工具测试（`pytest tools/`） | 64 passed, 2 warnings in 3.30s |
 | `05-wbs-updater-regression.log` | 全部 WBS 更新脚本共存回归（发现 `tools/update_wbs_ats107.py`） | RESULT: OK（31 个更新器） |
 | `06-wbs-state.log` | `docs/WBS.xlsx` 中 ATS-107 行（第 12 行）与总览 | 状态 `待审核`，完成率 1，剩余 0 |
 | `07-baseline-regression.log` | 全量套件 `node --test --test-concurrency=2 tests/*.test.mjs`、`node --check`、端口审计、ADR 行号引用、依赖清单；并**实测**本树与基线树的 ATS-203 三个文件 | 全量 1649 条：1621 通过、**0 失败**、28 跳过；ATS-203 本树与基线树**均 28/28 通过** |
