@@ -52,7 +52,7 @@ run() {
 }
 
 # --- 1. unit tests + per-file line coverage of the control plane ------------
-header 01-control-plane-ut.log "control-plane unit tests (UT-CP-001..030) with coverage of server/control-plane/*" \
+header 01-control-plane-ut.log "control-plane unit tests (UT-CP-001..034) with coverage of server/control-plane/*" \
   "node --test --experimental-test-coverage --test-coverage-include=server/control-plane/** tests/control-plane.test.mjs"
 run 01-control-plane-ut.log node --test --experimental-test-coverage '--test-coverage-include=server/control-plane/**' tests/control-plane.test.mjs
 

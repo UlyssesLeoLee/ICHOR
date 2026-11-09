@@ -2,7 +2,7 @@
 
 Source: `server/control-plane/boundary.mjs`
 
-Source-SHA256: `c265ba38d02fd8bd54b56cc0050bf1669ddd52bc74e384515e3808150cacc719`
+Source-SHA256: `4be3a578aa106a3e121900a999d4abed2a03e4efc34e70a8d562370066daa38a`
 
 ## Responsibility
 
