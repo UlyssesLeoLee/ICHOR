@@ -125,11 +125,21 @@ function entryOf(item) {
  * only when their file was part of THIS discovery), plus one addition: an
  * entry keeps the spec ids of the CLI, so that a RUN can bind its attempts
  * to the case by the CLI's own identity instead of by a title heuristic.
+ *
+ * ATS-602: the merge does NOT rewrite the entries it was given. It works
+ * on COPIES and returns a new cell, which the Bridge writes back. The live
+ * registry is read twice in one discovery of a trusted project -- by this
+ * resolver and, after it, by the mobile resolver -- and both have to see
+ * the same memory: an entry rewritten here in place (a token that moved
+ * back from a scenario to a web case takes the scenario's entry over)
+ * would hide the scenario's remembered steps from the mobile resolver,
+ * and the refused registry hit it has to report would go unreported.
+ * The same rule holds for `mergeMobileRegistry` (round 3).
  */
 function mergeRegistry(entries, items, scope) {
   const byUid = new Map();
   for (const e of entries) {
-    if (e.uid && !byUid.has(e.uid)) byUid.set(e.uid, e);
+    if (e.uid && !byUid.has(e.uid)) byUid.set(e.uid, { ...e, aliases: [...(e.aliases ?? [])] });
   }
   for (const item of items) {
     if (!item.uid) continue;
@@ -178,19 +188,30 @@ function mergeRegistry(entries, items, scope) {
  *
  * Returns the uid or null.
  */
-function matchRegistry(item, { registryByBody, bodyCounts }) {
-  if (!item.bodyKey) return null;
+function matchRegistry(item, { registryByBody, bodyCounts, reserved }) {
+  const none = { uid: null, conflict: null };
+  if (!item.bodyKey) return none;
   // Only a SOURCE case may be matched by its body. The body of a dynamic
   // case is the body of the TEMPLATE it was generated from, and that
   // template may generate more cases later -- so the body does not identify
   // one dynamic case, and matching it would hand the case a UID that moves
   // as soon as the template grows.
-  if (!item.source) return null;
+  if (!item.source) return none;
   const hits = registryByBody.get(item.bodyKey);
-  if (!hits || !hits.length) return null;
-  if (bodyCounts.get(item.bodyKey) !== 1) return null;
+  if (!hits || !hits.length) return none;
+  if (bodyCounts.get(item.bodyKey) !== 1) return none;
   const uids = [...new Set(hits.map((h) => h.uid).filter(Boolean))];
-  return uids.length === 1 ? uids[0] : null;
+  if (uids.length !== 1) return none;
+  // ATS-602: a uid that a case of THIS catalogue declares as its `@TC-`
+  // token is RESERVED for that case. The registry remembers the token
+  // under the body of a case that has since dropped it (or that never
+  // declared it: the token may have moved from a web case to a mobile
+  // scenario), and handing it back would give two cases one uid. The hit
+  // is refused and REPORTED, and the case walks on down the ladder.
+  if (reserved.has(uids[0])) {
+    return { uid: null, conflict: { reason: 'explicit-uid-claimed-by-another-case', candidates: [uids[0]] } };
+  }
+  return { uid: uids[0], conflict: null };
 }
 
 /**
@@ -204,8 +225,24 @@ function matchRegistry(item, { registryByBody, bodyCounts }) {
  *               and it is unavailable for a case the scanner never saw.
  * `registry`-- the UID registry of the project.
  * `scope`   -- the set of files this discovery covered.
+ *
+ * ATS-602 -- the catalogue is ONE catalogue, web and mobile cases alike,
+ * and the caller takes the census of its `@TC-` tokens over both engines
+ * before either resolver runs:
+ *
+ * `duplicateExplicitUids` -- the tokens more than one case of the whole
+ *               catalogue declares. A listed case that declares one of them
+ *               does NOT bind it, exactly as when two listed cases declare
+ *               the same token: the token belongs to neither.
+ * `claimedExplicitUids`   -- the tokens ANY case of the whole catalogue
+ *               declares. Each of them is RESERVED: no registry hit (by body
+ *               or by position anchor) may hand it to a case that does not
+ *               declare it.
+ *
+ * Both are optional; a missing or non-Set value adds nothing, so the
+ * resolver behaves as before for a caller that has no census.
  */
-export function resolveAuthoritativeIdentities({ projectUid, cases, bodies, registry, scope = null }) {
+export function resolveAuthoritativeIdentities({ projectUid, cases, bodies, registry, scope = null, duplicateExplicitUids = null, claimedExplicitUids = null }) {
   const items = cases.map((c) => {
     const key = `${c.file} ${c.line}`;
     const scanned = bodies.get(key) ?? null;
@@ -276,6 +313,21 @@ export function resolveAuthoritativeIdentities({ projectUid, cases, bodies, regi
     if (!explicitOwners.has(it.explicitUid)) explicitOwners.set(it.explicitUid, []);
     explicitOwners.get(it.explicitUid).push(it);
   }
+  // ATS-602: the RESERVED tokens -- the ones the listed cases declare plus
+  // the ones any other case of the catalogue (a mobile scenario) declares.
+  // The registry may not hand any of them to a case that does not declare
+  // it. This is the same reservation `resolveIdentities` applies on the
+  // static path; the trusted path has to apply it too, or a token that
+  // moves from a web case to a scenario comes back to the web case through
+  // the registry and two cases share one uid.
+  const reserved = new Set(explicitOwners.keys());
+  if (claimedExplicitUids instanceof Set) {
+    for (const uid of claimedExplicitUids) reserved.add(uid);
+  }
+  // A token that another case of the catalogue claims as well is claimed by
+  // nobody: both sides give it up, whichever engine they belong to.
+  const claimedElsewhere = duplicateExplicitUids instanceof Set ? duplicateExplicitUids : new Set();
+  const isDuplicated = (uid) => (explicitOwners.get(uid)?.length ?? 0) > 1 || claimedElsewhere.has(uid);
 
   /*
    * ATS-204: the ANCHOR of every case.
@@ -382,24 +434,34 @@ export function resolveAuthoritativeIdentities({ projectUid, cases, bodies, regi
 
   const resolved = items.map((it) => {
     if (it.explicitUid) {
-      if (explicitOwners.get(it.explicitUid).length > 1) {
+      if (isDuplicated(it.explicitUid)) {
         return { ...it, uid: null, uidSource: 'provisional', uidStable: false, basis: null, duplicateExplicit: it.explicitUid };
       }
       return { ...it, uid: it.explicitUid, uidSource: 'explicit', uidStable: true, basis: 'explicit' };
     }
     // The registry remembers the UID of a case that was renamed: the body
     // fingerprint is the signal that survives the rename.
-    const remembered = matchRegistry(it, { registryByBody, bodyCounts });
-    if (remembered) {
-      return { ...it, uid: remembered, uidSource: 'registry', uidStable: true, basis: 'body-key' };
+    const remembered = matchRegistry(it, { registryByBody, bodyCounts, reserved });
+    if (remembered.uid) {
+      return { ...it, uid: remembered.uid, uidSource: 'registry', uidStable: true, basis: 'body-key' };
     }
+    // ATS-602: a registry hit that was refused because the uid is reserved
+    // is carried along and reported below -- the case may still get a
+    // usable uid further down the ladder, but the memory of the past cases
+    // disagrees with the catalogue, and a reader has to know.
+    if (remembered.conflict) it.registryConflict = remembered.conflict;
     /*
      * ATS-204: the ANCHOR recognises a case whose title was rewritten.
      * It comes before the title claim, because a title that was rewritten
      * no longer claims anything: the title key of the case is a NEW one.
+     *
+     * ATS-602: the anchor is a registry hit as well, so it may not hand out
+     * a reserved uid either.
      */
     const byAnchor = anchored.get(it);
-    if (byAnchor) {
+    if (byAnchor && reserved.has(byAnchor.uid)) {
+      if (!it.registryConflict) it.registryConflict = { reason: 'explicit-uid-claimed-by-another-case', candidates: [byAnchor.uid] };
+    } else if (byAnchor) {
       return {
         ...it,
         uid: byAnchor.uid,
@@ -503,6 +565,20 @@ export function resolveAuthoritativeIdentities({ projectUid, cases, bodies, regi
         candidates: group.map((g) => ({ file: g.file, title: g.title, line: g.line })),
       };
     });
+  }
+
+  // ATS-602: a refused registry hit is reported on the case it happened to,
+  // even when the case itself could be given a uid: the uid is usable, but
+  // the memory of the past cases disagrees with the catalogue. A stronger
+  // ambiguity that is already attached is never overwritten. This is the
+  // same report `resolveIdentities` makes on the static path.
+  for (const r of resolved) {
+    if (!r.registryConflict || r.ambiguity) continue;
+    r.ambiguity = {
+      key: r.titleKey,
+      reason: r.registryConflict.reason,
+      candidates: (r.registryConflict.candidates ?? []).map((uid) => ({ uid })),
+    };
   }
 
   const entries = mergeRegistry(registry?.entries ?? [], resolved, scope);

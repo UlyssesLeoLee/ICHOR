@@ -1,18 +1,18 @@
 $ node --test tests/ai-api.test.mjs
 
-✔ IT-AIE-SETUP: start server (481.5264ms)
-✔ IT-AIE-001: the adapter contract is exposed (3.7603ms)
-✔ IT-AIE-002: the contract endpoint requires a session token (6.4404ms)
-✔ IT-AIE-003: a provider is configured and listed in the fallback order (23.0805ms)
-✔ IT-AIE-004: a provider configuration with a plaintext secret is refused (9.1222ms)
-✔ IT-AIE-005: the configured providers carry no secret (1.3631ms)
-✔ IT-AIE-006: a call without a consent is refused before the provider is reached (13.7164ms)
-✔ IT-AIE-007: a call for an unknown project is refused (23.6492ms)
-✔ IT-AIE-008: the refusal is audited (1.5272ms)
-✔ IT-AIE-009: with a consent the call reaches the provider (168.2321ms)
-✔ IT-AIE-010: the diagnostics report the adapter layer (13.2252ms)
-✔ IT-AIE-011: a provider can be removed (15.0971ms)
-✔ IT-AIE-SHUTDOWN: stop server (0.4477ms)
+✔ IT-AIE-SETUP: start server (479.5261ms)
+✔ IT-AIE-001: the adapter contract is exposed (2.6304ms)
+✔ IT-AIE-002: the contract endpoint requires a session token (6.4348ms)
+✔ IT-AIE-003: a provider is configured and listed in the fallback order (31.4534ms)
+✔ IT-AIE-004: a provider configuration with a plaintext secret is refused (30.7215ms)
+✔ IT-AIE-005: the configured providers carry no secret (15.4371ms)
+✔ IT-AIE-006: a call without a consent is refused before the provider is reached (26.6361ms)
+✔ IT-AIE-007: a call for an unknown project is refused (14.6182ms)
+✔ IT-AIE-008: the refusal is audited (1.3723ms)
+✔ IT-AIE-009: with a consent the call reaches the provider (167.7906ms)
+✔ IT-AIE-010: the diagnostics report the adapter layer (5.4039ms)
+✔ IT-AIE-011: a provider can be removed (30.2874ms)
+✔ IT-AIE-SHUTDOWN: stop server (0.4837ms)
 ℹ tests 13
 ℹ suites 0
 ℹ pass 13
@@ -20,6 +20,6 @@ $ node --test tests/ai-api.test.mjs
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 873.1915
+ℹ duration_ms 916.9204
 
 --- exit: 0 ---

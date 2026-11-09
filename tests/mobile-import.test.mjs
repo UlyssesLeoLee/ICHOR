@@ -1451,3 +1451,116 @@ test('UT-MOB-316: the registry merge copies instead of mutating, and the web res
   const loose = resolveIdentities({ projectUid: PROJECT_UID, discovered, registry, scope: new Set(['tests/a.spec.ts']), claimedExplicitUids: ['tc-900'] });
   assert.equal(loose.items[0].uid, 'tc-900');
 });
+
+test('UT-MOB-317: on the trusted path a @TC- token a web case drops and a scenario declares is not re-issued (T1)', () => {
+  // The round-3 reservation was only exercised on the static path. On the
+  // TRUSTED path the web cases are resolved by `resolveAuthoritativeIdentities`,
+  // which has to receive the same census: discovery 1 binds the web case
+  // to tc-650, discovery 2 moves the token to the scenario. The registry
+  // still remembers the web body under tc-650 -- and must not hand it back.
+  const p = carriedProject({
+    'tests/a.spec.ts': WEB_HEAD + "test('web case @TC-650', async () => { const w = 1; });\n",
+    'flows/a.yaml': '---\n- name: Login\n  steps:\n    - tapOn: "Login"\n',
+  });
+  try {
+    const first = p.discoverTrusted();
+    assert.equal(first.tests.find((t) => t.source === 'authoritative').uid, 'tc-650');
+    assert.equal(first.tests.find((t) => t.source === 'mobile').uidSource, 'derived');
+
+    p.write('tests/a.spec.ts', WEB_HEAD + "test('web case', async () => { const w = 1; });\n");
+    p.write('flows/a.yaml', '---\n- name: "Login @TC-650"\n  steps:\n    - tapOn: "Login"\n');
+    const second = p.discoverTrusted();
+    const web = second.tests.find((t) => t.source === 'authoritative');
+    const mobile = second.tests.find((t) => t.source === 'mobile');
+    assert.equal(mobile.uid, 'tc-650');
+    assert.equal(mobile.uidSource, 'explicit', 'the scenario holds the token it declares');
+    assert.notEqual(web.uid, 'tc-650', 'the web case does not get the token back through the registry');
+    assert.equal(web.uidSource, 'derived', 'it walks on down the ladder');
+    assert.equal(web.uidStable, true);
+    // The refused registry hit is REPORTED, not silently dropped -- on the
+    // case and in the warning, as on the static path.
+    assert.equal(web.ambiguity?.reason, 'explicit-uid-claimed-by-another-case');
+    assert.deepEqual(web.ambiguity.candidates, [{ uid: 'tc-650' }]);
+    assert.match(second.warning, /1 个用例的注册表记录与本次发现不一致（explicit-uid-claimed-by-another-case）/);
+    // The cell holds tc-650 once, and it points at the Flow file.
+    const owners = p.cell().entries.filter((e) => e.uid === 'tc-650');
+    assert.equal(owners.length, 1, 'one entry for tc-650');
+    assert.equal(owners[0].file, 'flows/a.yaml');
+
+    // The reverse move (T2) on the same path: the scenario drops the token
+    // and the web case declares it again. The scenario's steps are still
+    // remembered under tc-650, and the mobile resolver refuses them too.
+    p.write('tests/a.spec.ts', WEB_HEAD + "test('web case @TC-650', async () => { const w = 1; });\n");
+    p.write('flows/a.yaml', '---\n- name: Login\n  steps:\n    - tapOn: "Login"\n');
+    // The live cell is read by BOTH resolvers of this discovery, so the
+    // authoritative merge may not rewrite it in place: with the scenario's
+    // tc-650 entry overwritten by the web case before the mobile resolver
+    // runs, the refused hit below would go unreported.
+    const liveCell = p.cell();
+    const liveSnapshot = JSON.stringify(liveCell);
+    const third = p.discoverTrusted();
+    assert.equal(JSON.stringify(liveCell), liveSnapshot, 'the cell handed to the discovery is not mutated');
+    const web3 = third.tests.find((t) => t.source === 'authoritative');
+    const mobile3 = third.tests.find((t) => t.source === 'mobile');
+    assert.equal(web3.uid, 'tc-650');
+    assert.equal(web3.uidSource, 'explicit');
+    assert.notEqual(mobile3.uid, 'tc-650');
+    assert.equal(mobile3.uidSource, 'derived');
+    assert.equal(mobile3.ambiguity?.reason, 'explicit-uid-claimed-by-another-case');
+    assert.match(third.warning, /注册表记录与本次发现不一致/);
+    const owners3 = p.cell().entries.filter((e) => e.uid === 'tc-650');
+    assert.equal(owners3.length, 1);
+    assert.equal(owners3[0].file, 'tests/a.spec.ts');
+  } finally {
+    p.dispose();
+  }
+});
+
+test('UT-MOB-318: on the trusted path a @TC- token a web case and a scenario both declare binds neither (T3)', () => {
+  // docs/25 §4.3.1: one token names ONE case, so when a web case and a
+  // mobile scenario both declare @TC-100, neither binds it -- on the
+  // authoritative path exactly as on the static one. Before round 4 the
+  // web side bound the token on the trusted path (the mobile side was
+  // provisional, so there was no duplicate, but the rule was broken).
+  const files = {
+    'tests/a.spec.ts': WEB_HEAD + "test('web login @TC-100', async () => { const w = 1; });\n",
+    'flows/a.yaml': '---\n- name: "mobile login @TC-100"\n  steps:\n    - tapOn: "x"\n',
+  };
+  const expectUnbound = (catalog, label) => {
+    assert.equal(catalog.tests.length, 2, label);
+    for (const t of catalog.tests) {
+      assert.notEqual(t.uid, 'tc-100', `${label}: ${t.source} does not bind tc-100`);
+      assert.equal(t.uidSource, 'provisional', `${label}: ${t.source} is provisional`);
+      assert.equal(t.uidStable, false, `${label}: ${t.source} is not stable`);
+      assert.equal(t.ambiguity?.reason, 'duplicate-explicit-uid', `${label}: ${t.source} reports the duplicate`);
+      assert.equal(t.ambiguity.explicitUid, 'tc-100', `${label}: ${t.source} names the token`);
+    }
+    assert.match(catalog.warning, /2 个用例标注了同一个 @TC-xxx/, `${label}: the warning counts both`);
+    assert.ok(!catalog.registry.projects[PROJECT_UID].entries.some((e) => e.uid === 'tc-100'), `${label}: the cell does not record tc-100`);
+  };
+  const p = carriedProject(files);
+  try {
+    expectUnbound(p.discoverTrusted(), 'trusted');
+    // Parity: the static path over the same files gives the same verdict.
+    expectUnbound(p.discover(), 'static');
+    // And again on the trusted path with the static cell carried over.
+    expectUnbound(p.discoverTrusted(), 'trusted again');
+  } finally {
+    p.dispose();
+  }
+  // The control: only the web case declares the token, so the web case
+  // binds it on the trusted path -- the reservation is not a blanket ban.
+  const q = carriedProject({
+    ...files,
+    'flows/a.yaml': '---\n- name: "mobile login"\n  steps:\n    - tapOn: "x"\n',
+  });
+  try {
+    const c = q.discoverTrusted();
+    const web = c.tests.find((t) => t.source === 'authoritative');
+    assert.equal(web.uid, 'tc-100');
+    assert.equal(web.uidSource, 'explicit');
+    assert.equal(c.tests.find((t) => t.source === 'mobile').uidSource, 'derived');
+  } finally {
+    q.dispose();
+  }
+});

@@ -42,7 +42,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-106】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
-           '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-216】',
+           '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-215】', '【ATS-216】',
            '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-403】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
            '【ATS-601】', '【ATS-602】')
 
@@ -142,7 +142,8 @@ NARRATIVE_FRAGMENTS = {
               '外传须先展示范围并取得知情授权，放行与拒绝都进审计）',
         'D7': '模型提供商适配层已由 ATS-403 接入（外发路径只由该层持有，仍须先取得外传授权）；'
               'macOS/Linux 凭据库后端未在真机实测；Tauri 壳内凭据存取未验证；'
-              '外传审计未做外部防篡改；ST-032 仍为 PENDING（缺外发路径），ST-031/033 已执行；'
+              '外传审计未做外部防篡改；ST-032 仍为 PENDING（外发路径已有，但未用真实服务商验证），'
+              'ST-031/033 已执行；'
               '详见 docs/23-AI-DATA-SECURITY.md',
     },
     '【ATS-403】': {
@@ -158,6 +159,15 @@ NARRATIVE_FRAGMENTS = {
         'D7': '证据清单未签名（不得宣称 WORM 或防篡改等级），'
               '清理掉证据后清单与文件夹不再一致（校验会如实报 missing）；'
               '详见 docs/27-EVIDENCE-MANIFEST.md',
+    },
+    '【ATS-215】': {
+        'D6': '证据工作台已实现（ATS-215：从失败用例 2 次点击内找到 Trace；'
+              '附件显示归档时的 SHA-256 与文件时间；两个界面共用同一份定位实现）',
+        'D7': '工作台不代为打开 trace（Trace Viewer 是引擎附带的独立程序，版本须与产生该 trace 的引擎一致）；'
+              'Trace 定位依赖 report.json，报告缺失时只能走兜底推导，而兜底推导在超长标题/多项目/重试场景下不精确'
+              '（此时报「定位不到」而不是猜）；'
+              '跨运行并排对照目前只有模块能力与接口基础，界面未提供（P1）；'
+              '详见 docs/29-EVIDENCE-WORKBENCH.md',
     },
     '【ATS-216】': {
         'D6': '质量概览模块已实现（ATS-216：失败聚类/Flaky 基础指标，非 AI；'

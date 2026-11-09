@@ -185,7 +185,15 @@ IT `IT-AIE-006`/`007`/`008`（真实 HTTP：无授权时请求在到达提供商
 node --test tests/ai-adapter.test.mjs            # UT 58 项
 node --test tests/ai-api.test.mjs                # IT 13 项
 node tools/ats403-probes/probe-ai-boundary.mjs   # 边界探针 37 项
-npm test                                         # 全量
+python tools/ats403-probes/check-wbs-ats403.py   # WBS 行与总览叙述的只读核对
+npm test                                         # 全量 1571 项（1554 通过 / 17 跳过 / 0 失败）
 ```
 
-证据日志在 `docs/evidence/ATS-403/`。
+证据日志在 `docs/evidence/ATS-403/`。整份证据可由一条命令重采：
+
+```
+bash tools/ats403-probes/capture-evidence.sh
+```
+
+该脚本逐步执行并把每一步的真实输出与退出码写进 `docs/evidence/ATS-403/`；
+任何一步失败，脚本以非零码退出并指明是哪一步（不会把失败记成通过）。

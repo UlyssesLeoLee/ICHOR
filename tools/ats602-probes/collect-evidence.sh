@@ -126,6 +126,36 @@ hdr() {
   done
 } > "$EV/03c-round2-review-probes.log" 2>&1
 
+# --- 03d: the round-3 review probe ---------------------------------------
+#
+# The probe of the round-3 review, kept VERBATIM (byte-identical to the one
+# the reviewer attached, line endings aside). It is the `@TC-` token rules
+# of docs/25 §4.3.1 on BOTH catalogue paths, over the REAL Bridge: a web
+# case that drops a token a scenario declares in the same discovery (T1), the
+# reverse move (T2), a web-only control (T4), and a token both engines
+# declare (T3). It needs a real Playwright install for the trusted mode and
+# is SKIPPED with the reason when there is none; a skip is never a pass.
+{
+  echo "=== ATS-602 evidence: the round-3 review probe (token rules on the trusted path: T1 / T2 / T3) ==="
+  echo "tree : $COMMIT"
+  echo "date : $STAMP"
+  echo
+  PW_NM="${ATS602_PLAYWRIGHT_NODE_MODULES:-}"
+  for MODE in trusted untrusted; do
+    echo "--- the end-to-end probe (node r3-e2e.mjs, the real Bridge over HTTP, mode=$MODE) ---"
+    if [ -n "$PW_NM" ] && [ -d "$PW_NM" ]; then
+      node tools/ats602-probes/probe-round3-counterexamples-e2e.mjs "$TREE" "$PW_NM" "$TMPDIR/ats602-r3-e2e-$MODE" "$MODE" 2>&1
+    else
+      echo "SKIPPED: no real Playwright install (set ATS602_PLAYWRIGHT_NODE_MODULES to the"
+      echo "          node_modules directory of a real @playwright/test install to run it)."
+      echo "          A skip is NOT a pass: the trusted-path token rules are covered by"
+      echo "          IT-ATS602-API-015 in 02-node-test-mobile-import-it.log, which installs"
+      echo "          its own Playwright."
+    fi
+    echo
+  done
+} > "$EV/03d-round3-review-probes.log" 2>&1
+
 # --- 04: the coverage -----------------------------------------------------
 {
   echo "=== ATS-602 evidence: the line and branch coverage of the import ==="

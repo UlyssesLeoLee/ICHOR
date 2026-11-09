@@ -54,7 +54,7 @@ Run 创建后不会通过二次执行来恢复失败脚本；用户可再次触�
 
 ## 4. UI 画面结构
 
-顶部：产品、环境、本地运行状态；项目栏：Git branch、commit、dirty、项目导入；左侧：五大导航（Catalog、Run、Quality、Traceability、Architecture）及资源清单；主内容：概览统计与工作区。Quality 一屏给出运行/用例/重试/取消的分桶统计、失败聚类与「指标与原始结果核对」表（ATS-216）。代码和流程是统一源文件的两个视图，流程目前只读。
+顶部：产品、环境、本地运行状态；项目栏：Git branch、commit、dirty、项目导入；左侧：六大导航（Catalog、Run、Quality、Evidence、Traceability、Architecture）及资源清单；主内容：概览统计与工作区。Quality 一屏给出运行/用例/重试/取消的分桶统计、失败聚类与「指标与原始结果核对」表（ATS-216）。Evidence（证据工作台，ATS-215）一屏给出失败用例列表、定位到的 Trace 与附件的归档摘要与时间——失败用例与 Trace 按钮同屏，这是「2 次点击内找到 Trace」成立的前提。代码和流程是统一源文件的两个视图，流程目前只读。
 
 ## 5. 数据分层
 
@@ -80,6 +80,7 @@ Run 创建后不会通过二次执行来恢复失败脚本；用户可再次触�
 | `/api/runs/:id/stop` | POST | token | 停止 |
 | `/api/runs/:id/events` | GET | token | 事件列表 |
 | `/api/runs/:id/artifact?file=` | GET | token | 附件下载 |
+| `/api/runs/:id/workbench` | GET | token | 证据工作台的**事实**（run/artifacts/cases/ATS-209 校验结果）；视图由共享模块计算 |
 | `/api/diagnostics` | GET | token | 运行限制/平台信息 |
 
 部署式控制面 API（独立进程与端口，详见 `docs/21-CONTROL-PLANE-API.md` §3）：

@@ -57,8 +57,9 @@ run 05-deps-manifest npm run deps:manifest:check
 # 6. the syntax check of every touched module
 run 06-syntax-check node --check server/index.mjs
 
-# 7. the WBS row
+# 7. the WBS row: the updater (idempotent) and then the read-only check
 run 07-wbs-row python tools/update_wbs_ats403.py
+run 07b-wbs-row-check python tools/ats403-probes/check-wbs-ats403.py
 
 # 8. the ATS-401 agent boundary probe must still pass
 run 08-agent-boundary-probe node tools/ats401-probes/probe-agent-boundary.mjs

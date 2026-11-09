@@ -35,6 +35,18 @@ export type SecurityContract={contract:string,provider:string,purposes:string[],
 // ATS-402: an audit record names the refs and their digests (digest is null for a refusal: no file was read). It never carries the content.
 export type EgressAuditItem={kind:string,ref:string,digest:string|null,bytes:number};
 export type EgressAuditRecord={id:string,at:string,event:string,outcome:string,code:string|null,reason:string|null,consentId:string|null,projectId:string|null,kinds:string[],itemCount:number,totalBytes:number,scopeDigest:string|null,items:EgressAuditItem[]};
+// ATS-215: the EVIDENCE WORKBENCH. The endpoint hands over the FACTS; the
+// shared module (apps/studio/public/evidence-workbench.mjs) turns them
+// into the view. Both interfaces import that one module, so the two UIs
+// cannot disagree about where a case's trace is.
+export type EvidenceAttachment={file:string,size:number|null,sha256:string|null,modifiedAt:string|null,kind?:string};
+export type EvidenceCaseAttachment={name:string,contentType:string,file:string};
+export type EvidenceCase={title:string,file:string,line:number|null,status:string,duration:number|null,error:string,attemptsCount:number|null,scope?:string[],caseKey?:string|null,attachments?:EvidenceCaseAttachment[]};
+export type EvidenceVerification={verified:boolean,ok:boolean,checked:number,missing:string[],changed:{file:string,expected:string,actual:string}[],reason:string|null};
+export type EvidenceMaterial={run:{id:string,uid:string|null,status:string|null,gitCommit:string|null,runner:string|null,startedAt:string|null,finishedAt:string|null,createdAt:string|null,engineVersion:string|null},artifacts:EvidenceAttachment[],cases:EvidenceCase[],verification:EvidenceVerification|null};
+// The view the shared module computes from the material.
+export type WorkbenchFailure={title:string,file:string,line:number|null,status:string,error:string,duration:number|null,attemptsCount:number|null,trace:EvidenceAttachment|null,traceLocated:boolean,traceSource:string,traceReason:string,attachments:EvidenceAttachment[],clickPath:{steps:{action:string,label:string}[],clicks:number,budget:number,withinBudget:boolean}};
+export type WorkbenchView={runId:string|null,runUid:string|null,runStatus:string|null,gitCommit:string|null,runner:string|null,startedAt:string|null,finishedAt:string|null,engineVersion:string|null,failureCount:number,failures:WorkbenchFailure[],attachments:EvidenceAttachment[],totals:{count:number,bytes:number,failures:number,locatedTraces:number},verification:EvidenceVerification|null,clickBudget:number};
 const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
 let token='';
 export async function api<T>(url:string,method='GET',payload?:unknown):Promise<T>{
