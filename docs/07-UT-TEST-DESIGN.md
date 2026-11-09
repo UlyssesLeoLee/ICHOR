@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：701；已执行通过：685；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：705；已执行通过：689；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -425,6 +425,10 @@
 |UT-CP-028|FR-028|安全|控制面源码导入白名单|扫描 server/control-plane/*.mjs|不导入本地 Bridge 模块、Tauri、child_process，不发起外呼|node --test|PASS|
 |UT-CP-029|FR-028|安全|桌面侧调用边界|扫描 src-tauri/src/lib.rs 与 apps/studio|Tauri 只注册 local_bridge_status 且只托管本地 Bridge；前端无 Tauri API|node --test|PASS|
 |UT-CP-030|FR-028|正常|契约端点描述边界|GET /cp/v1/contract|tauriRequired=false，localBridgeReachable=false，本地凭据不接受|node --test|PASS|
+|UT-CP-031|NFR-002|安全|本地 Token 在任意位置都被识别|Bearer/x-ats-token=/tok/0x 前缀、查询串、大小写、括号包裹；49/64/96 位、40 位 SHA 夹在文本中|独立的 48 位十六进制片段命中，其它长度不命中；键、值、嵌套均适用|node --test|PASS|
+|UT-CP-032|FR-028|安全|环境变量形态全部被识别|$USERPROFILE、$APPDATA、${HOME}、$env:NAME、%NAME%；100%、%E4%B8%AD、$5、a$|前者 env_path，后者 null|node --test|PASS|
+|UT-CP-033|FR-028|安全|盘符相对、根相对、家目录用户形态被拒|D:work、\Users\x、Users\x\y、~root/x、~；a/b、ns:name、TCP/IP、~approx|前者对应规则名，后者 null|node --test|PASS|
+|UT-CP-034|NFR-002|安全|嵌入 Token 与变量路径入站被拒且出站不回显|POST 嵌入 Token 与变量路径、查询串；存储被注入嵌入 Token 后读取|422 REMOTE_SECRET_INLINE_FORBIDDEN / REMOTE_PATH_FORBIDDEN；出站 500 REMOTE_INTERNAL，响应不含该 Token|node --test|PASS|
 |ATS-206-UT-001|NFR-010|正常|状态的可数项被逐项计数|一个含项目/运行/重试/产物/登记的状态|五项计数都与内容相符|node --test|PASS|
 |ATS-206-UT-002|NFR-010|正常|迁移保持项目与历史的数量一致|迁移一个 v0.1 状态|迁移前后五项计数逐项相等|node --test|PASS|
 |ATS-206-UT-003|NFR-010|异常|计数不一致的迁移被拒绝|迁移前后计数不同|抛 MIGRATION_COUNT_MISMATCH|node --test|PASS|

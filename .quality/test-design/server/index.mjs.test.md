@@ -2,7 +2,7 @@
 
 Source: `server/index.mjs`
 
-Source-SHA256: `316ad963a76d3cbc81e455b6cb708e92fe6374946d0d21c2e506e9129984cde1`
+Source-SHA256: `e6ff1240012934ef2e162b4ff6b3bb13d9e2e11bc89b3cc58bd35946c1683e32`
 
 ## Test Strategy
 
@@ -14,6 +14,8 @@ Source-SHA256: `316ad963a76d3cbc81e455b6cb708e92fe6374946d0d21c2e506e9129984cde1
 - The holder-check tests set `ATS_LOCK_VERIFY_MS=100`, so a tick happens within the test's time budget.
 
 **System test.** `tools/ats207-probes/st-ats207.mjs` runs the same guard end to end with a real Playwright run. It is executed separately, and its output is the ST evidence.
+
+Process-level IT in `tests/preflight-it.test.mjs`: a real Bridge (`node server/index.mjs`) on a free port with an isolated `ATS_DATA_DIR`, projects built from test-double CLIs whose `cli.js` writes a marker file when executed, so the test proves whether the engine was spawned.
 
 ## Test Cases
 
@@ -29,6 +31,14 @@ Source-SHA256: `316ad963a76d3cbc81e455b6cb708e92fe6374946d0d21c2e506e9129984cde1
 | TC-008 | IT-DATA-002: a child process loops `saveState` (growing generations); it is hard-killed 12 times at staggered moments; then a Bridge starts | after every kill `state.json` parses and holds one complete generation; the Bridge starts, removes the leftover temp files, keeps the projects | `tests/instance-lock-it.test.mjs` |
 | TC-009 | IT-WAL-001: a child commits 50 rows with auto-checkpoint off, opens `BEGIN IMMEDIATE`, inserts 50 more, prints `IN-TX`; it is hard-killed on that line | before reopening the `-wal` file is non-empty; after reopening `integrity_check` = ok, the 50 committed rows are present, the 50 uncommitted rows are absent | `tests/instance-lock-it.test.mjs` |
 | TC-010 | IT-WAL-002: `metadata.db` is replaced by non-database bytes, then the Bridge starts | stderr reports `quarantined`; `metadata.db.corrupt-*` exists; the rebuilt mirror passes `verifyMirror` against `state.json` | `tests/instance-lock-it.test.mjs` |
+| IT-PF-001 | Project whose CLI package is `1.40.0`; `POST run {}` | `202`; run ends `status=error`, `error=PLAYWRIGHT_VERSION_UNSUPPORTED`, `errorHint` set, `preflight.ok=false`; events `run.queued`, `run.error`; marker absent (engine never spawned) | `tests/preflight-it.test.mjs` |
+| IT-PF-002 | Project whose `@playwright/test` declares `playwright`, which is absent | `error=PLAYWRIGHT_DEPENDENCY_MISSING`; marker absent | `tests/preflight-it.test.mjs` |
+| IT-PF-003 | Project whose config file is deleted after registration | `error=PLAYWRIGHT_CONFIG_REQUIRED`; marker absent | `tests/preflight-it.test.mjs` |
+| IT-PF-004 | Complete fake 1.64.1 install; `POST run {file:"tests/ok.spec.ts"}` | run `passed`; `preflight.ok=true`; marker present; `run.command` ends with the filter | `tests/preflight-it.test.mjs` |
+| IT-PF-005 | `POST run {config:"evil.ts"}`, `{project:"x"}`, `{args:["--grep","x"]}` | `400 RUN_PARAMETER_NOT_ALLOWED` with `rejected`; no run created | `tests/preflight-it.test.mjs` |
+| IT-PF-006 | `POST run {file:"-x.spec.ts"}` (exists at the root) and `{file:"tests/a+b.spec.ts"}` (exists) | `400 INVALID_TEST_FILTER`; no run created | `tests/preflight-it.test.mjs` |
+| IT-PF-007 | `POST run {file:"../outside.spec.ts"}` | `400` with `PATH_OUTSIDE_PROJECT` (existing check, regression) | `tests/preflight-it.test.mjs` |
+| IT-RUN-001 | Existing: project without dependencies | `202`, `status=error` (unchanged contract) | `tests/api.test.mjs` |
 
 ## Boundary & Failure Cases
 
@@ -37,9 +47,15 @@ Source-SHA256: `316ad963a76d3cbc81e455b6cb708e92fe6374946d0d21c2e506e9129984cde1
 - The kill-during-save test accepts only complete generations. A zero-length or partial file fails it.
 - The damaged-state test proves the file is NOT overwritten, because a Bridge that started with an empty state would destroy the history.
 
+A preflight failure never leaves the project locked: the run is terminal (`error`), so a second run request is accepted. The whitelist runs before the `capabilities` type check.
+
 ## Regression Scope
 
 - `tests/migrate-regressions.test.mjs` UT-MIG-REG-014/015: refusal message, reused pid.
 - `tests/execution-model-it.test.mjs` IT-EXE-006/007/011: crash recovery.
 - `tests/sqlite-bridge.test.mjs`: mirror behaviour.
 - `tests/api.test.mjs`: the Bridge still starts and serves.
+
+Whole `npm test` suite (run lifecycle, cancel, recovery, env profiles, adapter negotiation).
+
+Negative controls (`tools/ats106-probes/mutation-tests.mjs`): M5 removes the whitelist, M6 the preflight gate, M7 the route filter check; `tests/preflight-it.test.mjs` must fail for each.

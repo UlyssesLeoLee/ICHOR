@@ -24,6 +24,7 @@ flowchart LR
 | SEC-004 | 文件路径规范化 | `realpath` + `isSubpath` + 文件后缀；拒绝 traversal/symlink |
 | SEC-005 | 脚本更新冲突控制 | SHA-256 旧内容不匹配拒绝覆盖 |
 | SEC-006 | 不接收任意 CLI 命令 | `spawn(process.execPath,args,{shell:false})` |
+| SEC-006A | 运行前预检与参数安全基线（ATS-106） | 请求体字段白名单；过滤参数拒绝选项注入/穿越/行号/正则元字符/控制字符；整条参数向量在 spawn 前按白名单自检（拒绝 `--config`/`--project` 等）；预检只读文件系统、不下载；见 `docs/26-RUNNER-PREFLIGHT.md` |
 | SEC-007 | 附件隔离 | 每 Run 独立目录；附件下载 token 与 `Content-Disposition` |
 | SEC-008 | 不自动向云端上传 | 无云账户/AI 服务自动调用；本机 UI/运行服务。**外传前必须先有覆盖该内容的知情授权**（ATS-402：预览范围 → 确认 → 授权记录；平台侧读真实文件并复算摘要，内容一变授权即失效——见 SEC-015） |
 | SEC-009 | Agent 契约层无写入能力 | `server/agent.mjs` 只 import `node:crypto`/`node:path` 且源码不含任何 I/O 调用（静态检查守护）；写入与提交类能力在请求层被拒；提案 `approval` 恒为 `pending` 且提案人不得自审。**运行时隔离（模块沙箱/只读挂载/子进程）未实现，属 ATS-403** |

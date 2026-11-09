@@ -28,5 +28,5 @@ PASS ST-216-7b the cases of a run WITHOUT a verdict do not enter the retry metri
 PASS ST-216-7c the cross-run view only counts the runs that carry a verdict -- tests.total=3 raw(verdict identities)=3 no-verdict runs=1
 PASS ST-216-8a the displayed case counts match the raw case list of the verdict runs -- displayed={"passed":1,"failed":1,"flaky":1,"skipped":0} raw={"passed":1,"failed":1,"flaky":1,"skipped":0}
 PASS ST-216-8b every run is in exactly one run bucket -- bucketSum=3 runs=3
-scratch: C:\Users\seiko\AppData\Local\Temp\multica-task-2436323363\ats216-dev-ev\st216-0e6oNE
+scratch: D:\hermes-multica\home\cache\scratch\ats216-st4\st216-thxqU1
 RESULT: 30/30

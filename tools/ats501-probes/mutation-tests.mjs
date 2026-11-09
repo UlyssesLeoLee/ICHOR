@@ -62,9 +62,17 @@ function runAuditOn(docText, workbookBytes) {
       fs.copyFileSync(path.join(REPO_ROOT, 'docs', 'WBS.xlsx'), path.join(tmp, 'docs', 'WBS.xlsx'));
     }
 
-    const res = spawnSync(process.execPath, [path.join(tmpProbe, 'audit-remote-protocol.mjs')], {
-      encoding: 'utf8',
-    });
+    // A child that cannot even start (spawn error, killed, or no output at all)
+    // is a machine failure -- seen as 0xc0000409 / OOM under commit-memory
+    // pressure -- not an audit verdict. Only that case is retried; a real
+    // verdict (exit code with output) is never retried, so a mutation the audit
+    // fails to catch still fails the probe.
+    let res;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      res = spawnSync(process.execPath, [path.join(tmpProbe, 'audit-remote-protocol.mjs')], { encoding: 'utf8' });
+      const infrastructureFailure = res.error || res.status === null || ((res.stdout ?? '') === '' && (res.stderr ?? '') === '');
+      if (!infrastructureFailure) break;
+    }
     return {
       exitCode: res.status,
       stdout: res.stdout ?? '',

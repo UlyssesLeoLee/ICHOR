@@ -1361,7 +1361,9 @@ export function safeRunArgs(project,testFile,output) {
  if(!cli)throw new Error('PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT');
  const probed=playwrightCliOptions(project);
  const options=(probed&&probed.length)?probed:FALLBACK_CLI_OPTIONS;
- const args=buildPlaywrightArgs({cli,options,output,testFile});
+ // ATS-106: the parameter is `outputDir`; passing `output` left it undefined
+ // and path.join() threw a TypeError whenever the CLI declares --output.
+ const args=buildPlaywrightArgs({cli,options,outputDir:output,testFile});
  if(testFile)sourcePath(project,testFile);
  return args;
 }
