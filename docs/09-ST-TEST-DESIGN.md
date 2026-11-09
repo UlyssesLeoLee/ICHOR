@@ -1,6 +1,6 @@
 # ATS-ST-001 システムテスト設計書
 
-> 设计总数：33；已执行通过：9；待执行/未实现：24。**PENDING 不是测试通过**。
+> 设计总数：38；已执行通过：14；待执行/未实现：24。**PENDING 不是测试通过**。
 
 系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。
 
@@ -40,7 +40,12 @@
 |ST-027|FR-016|功能|质量概览：失败/重试/取消分开计数|真实 Bridge + 真实 Playwright：一次真实失败运行、一次真实重试后通过、一次真实停止|失败计入失败桶、重试用例计入 flaky 桶、停止的运行计入 cancelled 且不计入失败与通过率|node tools/ats216-probes/st-ats216.mjs|PASS|
 |ST-028|FR-016|功能|质量概览：指标与原始结果可核对|同一批真实运行的 summary 与用例列表|逐项对账全部一致；对账结论由模块与探针独立复算两次|node tools/ats216-probes/st-ats216.mjs|PASS|
 |ST-029|FR-016|功能|两个界面共用同一份质量指标实现|便携 UI 与 Next 工作台|两者都 import 同一模块；Bridge 以 JavaScript MIME 提供该模块|node tools/ats216-probes/st-ats216.mjs|PASS|
-|ST-030|FR-016|可靠性|质量指标的实现被破坏时测试变红|对模块做 7 个变异（取消算失败、flaky 算通过、对账恒真、聚类常量、丢重试计数、留 ANSI 码、忽略 attempt 数）|每个变异都被 UT 或 ST 抓住，无一漏网|node tools/ats216-probes/mutation-check.mjs|PASS|
+| ST-030|FR-016|可靠性|质量指标的实现被破坏时测试变红|对模块做 7 个变异（取消算失败、flaky 算通过、对账恒真、聚类常量、丢重试计数、留 ANSI 码、忽略 attempt 数）|每个变异都被 UT 或 ST 抓住，无一漏网|node tools/ats216-probes/mutation-check.mjs|PASS|
+| ST-034|FR-014|功能|从失败用例 2 次点击内找到 Trace|真实 Bridge + 真实 Playwright + 真实 Chromium：真实失败运行留下真实 trace.zip|点失败用例 → 点 Trace，2 次点击内真的下载到 trace.zip|node tools/ats215-probes/st-ats215.mjs|PASS|
+| ST-035|FR-015|功能|附件显示归档哈希与时间|同一次运行的 trace.zip|显示的 SHA-256 = 清单归档值 = 磁盘字节重算值；显示文件修改时间|node tools/ats215-probes/st-ats215.mjs|PASS|
+| ST-036|FR-015|异常|归档后被改动的附件|把 trace.zip 改掉后再查|校验报出 changed（应有与实际两个摘要）；工作台仍显示归档时的摘要，还原后重新一致|node tools/ats215-probes/st-ats215.mjs|PASS|
+| ST-037|FR-014|功能|两个界面共用同一份 Trace 定位实现|便携 UI 与 Next 工作台|两者显示同一个 Trace 文件、同一份摘要与同一个时间|node tools/ats215-probes/st-ats215.mjs|PASS|
+| ST-038|FR-014|异常|定位不到 Trace 的用例|没有 trace 的用例|界面显示「定位不到」与原因，不给一条打不开的链接|tests/evidence-workbench.test.mjs（UT 覆盖；界面形态未单独 ST）|PASS（UT）|
 
 ## 进入与退出条件
 

@@ -448,6 +448,87 @@ function writeEvent(run,type,data={}){
  *     possible the run says so explicitly instead of pretending it has no
  *     cases.
  */
+/**
+ * ATS-215: make the attachment paths of the cases RELATIVE to the run
+ * folder.
+ *
+ * The engine writes the absolute path of every file it produced, on the
+ * machine that ran the test. That path is meaningless to a reader of the
+ * archive -- the run folder moves with the data directory, and the
+ * download endpoint takes a RELATIVE path.
+ *
+ * A path outside the run folder is DROPPED and the drop is recorded on
+ * the case (`attachmentsOutsideRun`). It is not evidence of this run: the
+ * download endpoint refuses such a path (`PATH_OUTSIDE_RUN`), so keeping
+ * it would put a link in the interface that cannot be opened. The count is
+ * reported so the reader knows the case has attachments that are not
+ * part of the archive -- an empty list that silently means "dropped" would
+ * be a lie.
+ *
+ * @param {object[]} cases the cases of the run
+ * @param {string} folder the run folder
+ */
+function relativizeAttachments(cases,folder){
+ const root=path.resolve(folder);
+ for(const c of cases??[]){
+  const list=Array.isArray(c.attachments)?c.attachments:[];
+  const kept=[];let outside=0;
+  for(const a of list){
+   if(!a||typeof a.path!=='string'||!a.path)continue;
+   const full=path.resolve(root,a.path);
+   const relative=path.relative(root,full).replace(/\\/g,'/');
+   // A path that escapes the run folder (`..`) is not kept.
+   if(relative.startsWith('..')||path.isAbsolute(relative)){outside++;continue;}
+   kept.push({...a,file:relative});
+  }
+  c.attachments=kept;
+  if(outside)c.attachmentsOutsideRun=outside;
+ }
+}
+/**
+ * ATS-215: the MATERIAL of the evidence workbench of a run.
+ *
+ * It is a READ, and it returns the FACTS, not the view: the run, its
+ * artifacts (with their ARCHIVED digest and their modification time), its
+ * cases (with the attachments the engine named) and the ATS-209
+ * verification result.
+ *
+ * The VIEW is computed by the shared module
+ * (`apps/studio/public/evidence-workbench.mjs`), which both user
+ * interfaces import. The server does NOT compute a second view: two
+ * implementations of "where is this case's trace" would be two answers,
+ * and they would drift. This endpoint therefore hands over the raw facts
+ * and lets the one module do the locating -- the same arrangement
+ * ATS-216's quality overview uses.
+ *
+ * @param {object} run the run record
+ * @param {object} [options]
+ * @param {object} [options.verification] the ATS-209 verification result
+ * @returns {object} the material
+ */
+function evidenceWorkbenchMaterial(run,options={}){
+ const folder=runDir(run.id);
+ // The artifacts with their TIMES. The manifest carries the digest and
+ // the size; the time comes from the file itself, because the manifest
+ // does not record one (and inventing a timestamp in the manifest would
+ // be a claim about when the file was archived, which is not what the
+ // reader is asking for).
+ const artifacts=(run.artifacts??[]).map(a=>{
+  let modifiedAt=null;
+  try{modifiedAt=fs.statSync(path.join(folder,a.file)).mtime.toISOString();}catch{/* the file is gone*/}
+  return {...a,modifiedAt};
+ });
+ return {
+  run:{
+   id:run.id,uid:run.uid??null,status:run.status??null,gitCommit:run.gitCommit??null,
+   runner:run.runner??null,startedAt:run.startedAt??null,finishedAt:run.finishedAt??null,
+   createdAt:run.createdAt??null,engineVersion:run.engineVersion??null,
+  },
+  artifacts,
+  cases:Array.isArray(run.summary?.cases)?run.summary.cases:[],
+  verification:options.verification??null,
+ };
+}
 function collectRunResults(run){
  const folder=runDir(run.id);
  const adapter=run.runner?getAdapter(run.runner):null;
@@ -466,6 +547,18 @@ function collectRunResults(run){
  }else{
   run.summaryCollected=true;
  }
+ // ATS-215: the attachment paths of the engine are ABSOLUTE and name the
+ // machine that ran the test. The evidence workbench needs them RELATIVE
+ // to the run folder: the run folder is what survives (it moves with the
+ // data directory), and a relative path is what the artifact download
+ // endpoint accepts.
+ //
+ // A path that cannot be made relative -- one that points OUTSIDE the run
+ // folder -- is DROPPED, and the drop is reported on the case. Such a
+ // path is not evidence of this run: the download endpoint would refuse
+ // it anyway (`PATH_OUTSIDE_RUN`), so keeping it would be a link that
+ // cannot be opened.
+ relativizeAttachments(run.summary.cases,folder);
  // The report names the test files relative to the Playwright rootDir, the
  // registry stores them relative to the project root. The project root is
  // needed to reconcile the two spellings.
@@ -580,7 +673,13 @@ function finishRun(run,code,signal){
   }
   const cp=handle.child;
   writeEvent(run,EVENT_TYPE.STARTED,{pid:cp.pid,runner:run.runner});
-  run.status=RUN_STATUS.RUNNING;run.pid=cp.pid;run.startedAt=now();run.command=[handle.command,...handle.args];jobs.set(run.id,{child:cp,handle});saveState(store);
+  run.status=RUN_STATUS.RUNNING;run.pid=cp.pid;run.startedAt=now();run.command=[handle.command,...handle.args];
+  // ATS-215: the engine's version travels with the run. The Trace Viewer
+  // is a separate program whose version must match the one that wrote the
+  // trace, so a reader who opens a trace must be able to tell which
+  // viewer it needs. The version is the one the adapter PROBED.
+  if(handle.engineVersion)run.engineVersion=handle.engineVersion;
+  jobs.set(run.id,{child:cp,handle});saveState(store);
   for(const stream of [cp.stdout,cp.stderr])stream.on('data',buf=>{
    const str=buf.toString('utf8');run.log=compactLog((run.log||'')+str);
    fs.appendFileSync(path.join(folder,'stdout.log'),str);
@@ -1015,6 +1114,21 @@ const server=http.createServer(async(req,res)=>{
    const result=verifyEvidence(runDir(r.id));
    if(!result.manifest)return err(res,404,'MANIFEST_NOT_FOUND',{reason:result.reason});
    return respond(res,200,{runId:r.id,manifest:result.manifest});
+  }
+  // ATS-215: the MATERIAL of the EVIDENCE WORKBENCH of a run.
+  //
+  // It is a READ: the run, its artifacts (with their ARCHIVED digest and
+  // their modification time), its cases (with the attachments the engine
+  // named) and the ATS-209 verification result. The VIEW is computed by
+  // the shared module both interfaces import, so there is only ever ONE
+  // implementation of "where is this case's trace".
+  if(action==='workbench'&&req.method==='GET'){
+   const verification=verifyEvidence(runDir(r.id));
+   const material=evidenceWorkbenchMaterial(r,{verification:{
+    verified:verification.verified,ok:verification.ok,checked:verification.checked,
+    missing:verification.missing,changed:verification.changed,reason:verification.reason??null,
+   }});
+   return respond(res,200,material);
   }
  }
  // ATS-209: the RETENTION policy of the whole data directory.

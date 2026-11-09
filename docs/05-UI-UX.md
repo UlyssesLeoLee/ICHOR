@@ -15,6 +15,7 @@
 | UI-007 | Traceability | requirements 与 `verified_by` 脚本关系 | IMPLEMENTED basic read-only |
 | UI-008 | System Boundaries | 解释本地模式/项目可信性/未完成项 | IMPLEMENTED |
 | UI-011 | Quality Overview | 运行/用例/重试/取消分桶、失败聚类、指标与原始结果对账表 | IMPLEMENTED（ATS-216） |
+| UI-012 | Evidence Workbench | 失败用例列表、定位到的 Trace、附件哈希与时间 | IMPLEMENTED（ATS-215） |
 | UI-009 | Agent Review | AI diff 审核、验证/拒绝、证据引用 | P1 |
 | UI-010 | Distributed Runner | 节点状态、队列、资源占用、任务重试 | P2 |
 
@@ -25,6 +26,7 @@
 - 运行：每个项目仅允许一个正在运行的 Run；运行时显示日志轮询；停止为可请求，最终状态以进程关闭为准。
 - 结果：Passed、Failed、Error、Interrupted、Cancelled 不可混为一谈；报告文件独立下载，不嵌入未清理的测试 HTML。
 - 质量概览（ATS-216）：取消（Cancelled）与失败（Failed）分桶，取消既不计入失败也不计入通过率，取消运行的用例也不进判定类指标；重试后通过（Flaky）单列，既不算通过也不算失败，初次尝试的失败与其错误仍可见；每个指标与原始结果逐项对账（对账同时核对界面显示的数与 Bridge 报告的计数器），不一致时列出差异而非抹平；界面提供「原始结果」面板，每个显示出来的数字可展开到它计数所依据的用例或运行。
+- 证据工作台（ATS-215）：失败用例与其 Trace 在同一屏，点击预算 2 次是数出来的（模块返回点击路径，界面显示这个数）；定位不到 Trace 时显示原因而不是给一条打不开的链接；附件显示的是**归档时**清单记录的 SHA-256（ATS-209）与文件自身的修改时间，不是现在重算的摘要——归档后被改动的文件仍显示归档值，并由校验结果另行报出 changed/missing，两者不互相冒充；Trace Viewer 是引擎附带的独立程序，界面给出产生该 trace 的引擎版本，但**不代为打开 trace**。
 - 需求追踪：未配置 `.aitest` 文件时呈现空状态/示例，不伪造覆盖率。
 - Agent：所有建议必须标识 Evidence source、model、工具权限、风险级别和审核人（P1）。
 

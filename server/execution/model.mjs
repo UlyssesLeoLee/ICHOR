@@ -456,9 +456,27 @@ export function aggregateCases(executions) {
         // cases of DIFFERENT describes apart.
         scope: Array.isArray(raw.scope) ? [...raw.scope] : [],
         attempts: [],
+        // ATS-215: the attachments of the case. Every attempt brings its
+        // own, and the CASE keeps the union -- a reader who wants the
+        // trace of a case wants the trace of the attempt that failed, and
+        // the union is what makes the evidence reachable from the case.
+        attachments: [],
       });
     }
     const group = groups.get(key);
+    // The attachments are collected per attempt and DEDUPLICATED by their
+    // path: a retried case writes the same trace path twice (once per
+    // attempt), and a duplicated entry would make the evidence list look
+    // like it holds two different traces.
+    //
+    // The paths are the ones the engine wrote (absolute). The bridge makes
+    // them relative to the run folder afterwards, because the run folder
+    // is what the download endpoint takes.
+    for (const attachment of Array.isArray(raw.attachments) ? raw.attachments : []) {
+      if (!attachment || typeof attachment.path !== 'string' || !attachment.path) continue;
+      if (group.attachments.some((a) => a.path === attachment.path)) continue;
+      group.attachments.push(attachment);
+    }
     group.attempts.push({
       // The result level status of THIS execution: what happened.
       status,
@@ -491,6 +509,10 @@ export function aggregateCases(executions) {
       // it, and it is kept so that a caller can attach the engine's own
       // per-project verdicts to the case afterwards.
       caseKey: group.caseKey,
+      // ATS-215: the attachments of the case -- the link from the case to
+      // the evidence it produced. The bridge makes the paths relative to
+      // the run folder before they reach here.
+      attachments: group.attachments,
       // The CASE level status: the aggregate of the attempts.
       status: aggregate.status,
       // The aggregate of the OUTCOMES, next to the aggregate of the raw
@@ -609,7 +631,43 @@ export function aggregateAttempts(attempts) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Parses a Playwright JSON report into the unified model.
+ * The attachments of one result of the engine's report.
+ *
+ * ATS-215: the engine names the file it wrote for every attachment of
+ * every result. That name is the link between a failing case and its
+ * trace, and it is the ONLY authoritative link there is: the trace's
+ * location cannot be derived reliably (the engine's naming rule depends
+ * on the test directory, the describe path, the project id and the retry
+ * index), so the report is what says which file belongs to which case.
+ *
+ * The paths are kept as the engine wrote them (absolute). The caller
+ * makes them relative to the run folder; the report is parsed before the
+ * run folder is known to the parser.
+ *
+ * @param {object} r one result of the report
+ * @returns {{name:string, contentType:string, path:string}[]}
+ */
+export function attachmentsOf(r) {
+  const list = Array.isArray(r?.attachments) ? r.attachments : [];
+  const out = [];
+  for (const a of list) {
+    if (!a || typeof a !== 'object') continue;
+    // An attachment without a path is one the engine wrote inline (a
+    // buffer). It is not a file of the run folder, so it has no place in
+    // the evidence set and it is skipped -- never turned into a fake
+    // path.
+    if (typeof a.path !== 'string' || !a.path) continue;
+    out.push({
+      name: typeof a.name === 'string' ? a.name : '',
+      contentType: typeof a.contentType === 'string' ? a.contentType : '',
+      path: a.path,
+    });
+  }
+  return out;
+}
+
+/**
+ * Parse a Playwright JSON report into the run summary.
  *
  * THE HIERARCHY OF THE REPORT
  * ---------------------------
@@ -722,6 +780,13 @@ export function parseReport(report) {
             retry: Number.isInteger(r.retry) ? r.retry : index,
             duration: Number.isFinite(r.duration) ? r.duration : 0,
             error: r.error?.message || '',
+            // ATS-215: the ATTACHMENTS of this execution. The engine knows
+            // which file belongs to which result -- that is the link the
+            // evidence workbench needs to take a reader from a failing case
+            // to that case's trace. The paths are the ones the engine
+            // wrote (absolute, on the machine that ran it); the bridge
+            // makes them relative to the run folder.
+            attachments: attachmentsOf(r),
           });
         });
       }
