@@ -52,10 +52,24 @@ step "4. check-wbs-updaters.sh" bash tools/ats501-probes/check-wbs-updaters.sh
 # R4 asks for the HTTP probe and the browser probe on the merged tree too.
 # They need the static export, so it is built here first.
 echo "--- 5. the static export (for the two probes below) ---"
-npm --prefix apps/studio ci --no-audit --no-fund > /dev/null 2>&1
-CI_RC=$?
-echo "STEP_EXIT=$CI_RC"
-if [ "$CI_RC" -ne 0 ]; then
+# `npm ci` on Windows can die with ENOTEMPTY while removing the previous tree
+# (a file handle is still open) and leave a HALF-installed node_modules: the
+# install then reports success but `next` is not on the path, and the build
+# fails with exit 127 ("next is not recognized"). The retry below starts from
+# a clean tree, and the build is retried once for the same reason.
+CI_STATUS=1
+for attempt in 1 2 3; do
+  rm -rf apps/studio/node_modules
+  npm --prefix apps/studio ci --no-audit --no-fund > /dev/null 2>&1
+  CI_STATUS=$?
+  if [ "$CI_STATUS" -eq 0 ] && [ -x apps/studio/node_modules/.bin/next ]; then
+    break
+  fi
+  echo "npm ci did not leave a usable tree (exit $CI_STATUS); retrying"
+  sleep 5
+done
+echo "STEP_EXIT=$CI_STATUS"
+if [ "$CI_STATUS" -ne 0 ]; then
   FAILED=1
 fi
 # The probes drive a real Playwright run, which needs the example project's
@@ -75,10 +89,18 @@ if [ -d examples/sample-playwright ]; then
   fi
 fi
 rm -rf apps/studio/out apps/studio/.next
-npm --prefix apps/studio run build > /dev/null 2>&1
-BUILD_RC=$?
-echo "STEP_EXIT=$BUILD_RC"
-if [ "$BUILD_RC" -ne 0 ]; then
+BUILD_STATUS=1
+for attempt in 1 2; do
+  npm --prefix apps/studio run build > /dev/null 2>&1
+  BUILD_STATUS=$?
+  if [ "$BUILD_STATUS" -eq 0 ] && [ -f apps/studio/out/index.html ]; then
+    break
+  fi
+  echo "next build failed with exit $BUILD_STATUS; retrying"
+  sleep 5
+done
+echo "STEP_EXIT=$BUILD_STATUS"
+if [ "$BUILD_STATUS" -ne 0 ]; then
   FAILED=1
 fi
 if [ ! -f apps/studio/out/index.html ]; then
