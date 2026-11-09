@@ -131,8 +131,10 @@ switch ($Action) {
         Fail 'CREDENTIAL_WRITE_FAILED' ([Runtime.InteropServices.Marshal]::GetLastWin32Error())
       }
     } finally {
-      # Zero the secret memory before releasing it.
-      [Runtime.InteropServices.Marshal]::WriteByte($blobPtr, 0)
+      # Zero the WHOLE secret block (every byte of the credential blob) before
+      # releasing it, not only its first byte.
+      $zeros = New-Object byte[] $credential.CredentialBlobSize
+      [Runtime.InteropServices.Marshal]::Copy($zeros, 0, $blobPtr, $zeros.Length)
       [void][Runtime.InteropServices.Marshal]::FreeHGlobal($targetPtr)
       [void][Runtime.InteropServices.Marshal]::FreeHGlobal($userPtr)
       [void][Runtime.InteropServices.Marshal]::FreeHGlobal($blobPtr)
@@ -162,7 +164,10 @@ switch ($Action) {
 
   'delete' {
     if (-not [AtsWinCred]::CredDeleteW($Target, 1, 0)) {
-      Fail 'CREDENTIAL_DELETE_FAILED' ([Runtime.InteropServices.Marshal]::GetLastWin32Error())
+      $win32 = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+      # ERROR_NOT_FOUND (1168): the entry is already gone.
+      if ($win32 -eq 1168) { Fail 'CREDENTIAL_NOT_FOUND' $win32 }
+      Fail 'CREDENTIAL_DELETE_FAILED' $win32
     }
     [Console]::Out.Write('OK')
     exit 0

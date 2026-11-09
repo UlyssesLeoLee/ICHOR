@@ -2,7 +2,7 @@
 
 Source: `server/core.mjs`
 
-Source-SHA256: `baacd433f122a4cc8c356cb6af502644b16fc48cb77534987623a48b51e2b688`
+Source-SHA256: `38e25f836d865a51252b5b84bbf9d635209a0221dc9274c7212df3e1e388b945`
 
 ## Responsibility
 
@@ -14,6 +14,8 @@ The Bridge's shared core. This design covers the two sections ATS-207 owns. The 
    - A damaged `state.json` is reported instead of being replaced with an empty state.
    - A damaged SQLite metadata mirror (`metadata.db`, ATS-205) is quarantined at start-up and rebuilt from `state.json`.
 
+Pure functions and local processing of the Bridge. ATS-106 changes `safeRunArgs()` only (the v0.1-compatible vector helper next to `resolvePlaywright`): it passes the output directory under the parameter name `buildPlaywrightArgs` expects (`outputDir`), so the helper no longer throws a `TypeError` when the CLI declares `--output`, and its vector is subject to the ATS-106 assertions. The static discovery section (`walkTests` / `discoverStatic`, ATS-202) is not touched.
+
 ## Dependencies
 
 - Upstream:
@@ -24,6 +26,9 @@ The Bridge's shared core. This design covers the two sections ATS-207 owns. The 
   - `server/index.mjs`: start-up lock, periodic holder check, state load, temp-file clean-up, mirror check.
   - `server/migration/apply.mjs`, `tools/migrate_state.mjs`, `tools/migrate_uids.mjs`: the same lock with the same error code.
   - `tests/instance-lock.test.mjs`, `tests/instance-lock-it.test.mjs`, `tests/migrate-regressions.test.mjs`.
+
+- Upstream: `buildPlaywrightArgs` / `probePlaywrightCli` from `server/adapters/playwright-cli.mjs`.
+- Downstream: callers of `safeRunArgs` (`tests/preflight.test.mjs`).
 
 ## Public Contract
 
@@ -109,7 +114,24 @@ The Bridge's shared core. This design covers the two sections ATS-207 owns. The 
 - The Bridge never starts on a state it could not parse.
 - The mirror is derived data. The state file is never rebuilt from it automatically.
 
+### Catalogue identity merge (ATS-602)
+
+The catalogue of a project holds the cases of both engines, and its registry cell is ONE cell.
+
+- **`discoverMobile(project)`**: maps the Flow files of the project (`mapProjectFlows`) and returns `{mapped, files, imports, unsupported, errors}`. It does NOT resolve identities: the catalogue resolves them once, over the whole catalogue, so the live registry is read exactly once per discovery and never mutated by a preliminary pass.
+- **Explicit token census** (`explicitTokenCensus(webCases, mobileCases)`): one pass over every title of both engines yields `{duplicated, claimed}`: the tokens more than one case declares, and the tokens any case declares. Both resolvers receive both sets (`duplicateExplicitUids`, `claimedExplicitUids`), so a token declared anywhere in the catalogue is reserved everywhere in it.
+- **Static path** (`discoverStatic`): unchanged shape. The mobile cases are resolved first, then handed to `resolveIdentities` as `extraCandidates`, so one merge and one pruning (scope = spec files plus Flow files) produce the cell.
+- **Authoritative path** (`authoritativeCatalog`, exported for tests): the cell the authoritative resolver returns is already pruned over the spec files. The mobile entries are merged into THAT cell with `mergeMobileRegistry(resolvedCell.entries, mobileResolved, new Set(flowFiles))`: existing entries are updated by uid (newest position wins), new ones added, and entries of Flow files that no mobile case claims are dropped. The previous cell is never used as the base, so an entry the authoritative resolver pruned does not come back.
+
+Invariants:
+
+- No two cases of a catalogue share a uid, on either path.
+- A case deleted from a file that the discovery covered does not hand its uid to a later case with the same fingerprint, on either path.
+- `safeRunArgs(project, testFile, output)` returns the vector of `buildPlaywrightArgs({ cli, options, outputDir: output, testFile })`; it throws `PLAYWRIGHT_NOT_INSTALLED_RUN_NPM_INSTALL_IN_PROJECT` without a CLI and `INVALID_TEST_FILTER` / `INVALID_SOURCE_FILE` / `PATH_OUTSIDE_PROJECT` for a bad filter.
+
 ## Change Notes
+
+ATS-602 round 3 (review findings N1, N2-cross, N3): the catalogue identity merge above. `discoverMobile` no longer returns a `registry` (unused); `authoritativeCatalog` is exported; `mergeRegistryCells` is replaced by `mergeMobileRegistry` over the pruned cell.
 
 ATS-207 hardens the lock that ATS-201/ATS-206 introduced.
 
@@ -119,3 +141,5 @@ ATS-207 hardens the lock that ATS-201/ATS-206 introduced.
   - a `saveState` without fsync, whose temp file was shared by every writer;
   - `loadState` crashing with a raw `SyntaxError` / `TypeError` on a damaged file.
 - **Out of scope:** the migration backup and rollback (`state.json.bak`, the journal) remain ATS-206's. The Tauri shell's own single-instance window handling is not part of this module.
+
+ATS-106 fixes the `output`/`outputDir` parameter mismatch in `safeRunArgs`.

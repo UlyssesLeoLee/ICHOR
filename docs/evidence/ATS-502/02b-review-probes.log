@@ -1,0 +1,71 @@
+=== ATS-502 evidence: review round 1 counter-examples (P1-P8 / H1-H5) on the rejected tree and on this tree ===
+date        : 2026-11-09T06:15:46Z (UTC)
+commit      : b40a70b76c4ec584c1928293e16aa8be98225e65
+node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+default enc : gbk (what the same interpreter would use without the forcing)
+command     : node tools/ats502-probes/review-probes.mjs <tree>   (run twice: the rejected tree 8130e35 and this tree)
+
+--- the REJECTED tree (agent/m2/seikoist-218 @ 8130e35) ---
+
+DEFECT  P1  running job, node silent, lease expired 10s ago, sweep() then lease by B
+        -> sweep={"requeued":[],"interrupted":[]} state=running leaseB=REMOTE_JOB_NOT_LEASABLE
+DEFECT  P2  running job, releaseNode(A), then lease by B
+        -> released=0 state=running leaseB=REMOTE_JOB_NOT_LEASABLE
+DEFECT  P3  running job, node silent, deadline passed 55s ago, sweep()
+        -> sweep={"requeued":[],"interrupted":[]} state=running
+DEFECT  P4  ack 5s after a 1s lease expired (no sweep in between)
+        -> ack=accepted state=running
+DEFECT  P5  A re-leases after expiry (attempt 2); a late result from attempt 1 arrives
+        -> result=accepted as attempt 2; (l1!=l2: true)
+DEFECT  P6  stale node A reports failed after B finished the job
+        -> accepted: replayed=true result.status=succeeded
+DEFECT  P7  A leases with leaseMs=10 years, then goes silent for 30 days
+        -> sweep={"requeued":[],"interrupted":[]} leaseB=REMOTE_JOB_NOT_LEASABLE
+DEFECT  P8  result after deadline, then the identical request replayed
+        -> first=REMOTE_LEASE_EXPIRED replay=ok replayed=true status=interrupted
+DEFECT  H1  unauthenticated GET /jobs with no tenantId
+        -> status=200 jobs=1
+DEFECT  H2  unauthenticated GET /jobs/<victim job>
+        -> status=200 tenant=victim projectUid=secret-project
+DEFECT  H3  attacker self-binds a new node to tenant "victim", then leases the victim job
+        -> bind=200 lease=200 leaseNode=attacker-node
+DEFECT  H4  unauthenticated cancel with tenantId taken from the request body
+        -> status=200 state=cancelled
+DEFECT  H5  unauthenticated release of someone else's node
+        -> release=200
+
+13/13 probes show a defect
+
+--- THIS tree (b40a70b76c4ec584c1928293e16aa8be98225e65) ---
+
+ok      P1  running job, node silent, lease expired 10s ago, sweep() then lease by B
+        -> sweep={"requeued":["job_c44a1103-1832-465e-ad65-be80f5f6166b"],"interrupted":[]} state=leased leaseB=ok
+ok      P2  running job, releaseNode(A), then lease by B
+        -> released=1 state=leased leaseB=ok
+ok      P3  running job, node silent, deadline passed 55s ago, sweep()
+        -> sweep={"requeued":[],"interrupted":["job_3edaf624-5c44-4769-b69c-89ba1a99d798"]} state=interrupted
+ok      P4  ack 5s after a 1s lease expired (no sweep in between)
+        -> ack=REMOTE_LEASE_EXPIRED state=queued
+ok      P5  A re-leases after expiry (attempt 2); a late result from attempt 1 arrives
+        -> result=REMOTE_JOB_NOT_LEASABLE; (l1!=l2: true)
+ok      P6  stale node A reports failed after B finished the job
+        -> REMOTE_JOB_NOT_LEASABLE
+ok      P7  A leases with leaseMs=10 years, then goes silent for 30 days
+        -> sweep={"requeued":["job_f169cf9b-5d63-42f1-b072-7130ca8fa3b4"],"interrupted":[]} leaseB=ok
+ok      P8  result after deadline, then the identical request replayed
+        -> first=REMOTE_LEASE_EXPIRED replay=REMOTE_LEASE_EXPIRED
+ok      H1  unauthenticated GET /jobs with no tenantId
+        -> status=403 jobs=n/a
+ok      H2  unauthenticated GET /jobs/<victim job>
+        -> status=404 tenant=undefined projectUid=undefined
+ok      H3  attacker self-binds a new node to tenant "victim", then leases the victim job
+        -> bind=401 lease=404 leaseNode=undefined
+ok      H4  unauthenticated cancel with tenantId taken from the request body
+        -> status=404 state=undefined
+ok      H5  unauthenticated release of someone else's node
+        -> release=401
+
+0/13 probes show a defect
+exit code   : 0

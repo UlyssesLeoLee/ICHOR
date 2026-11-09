@@ -22,8 +22,11 @@ import { AdapterError } from './adapters/contract.mjs';
 // about to be sent.
 import { createCredentialStore,credentialIndexPath,describeCredentialStore } from './security/credentials.mjs';
 import { createEgressConsentStore,describeEgressConsent,describeEgressScope } from './security/egress-consent.mjs';
-import { authorizeEgress,readScopedInput } from './security/egress-gate.mjs';
+import { authorizeEgress,buildEgressScope,describeRequestedRefs } from './security/egress-gate.mjs';
 import { createEgressAuditStore,describeEgressAudit } from './security/egress-audit.mjs';
+// ATS-106: the run preflight and the test filter check (docs/26-RUNNER-PREFLIGHT.md).
+import { preflightPlaywright } from './adapters/playwright-preflight.mjs';
+import { assertSafeTestFilter } from './adapters/playwright-cli.mjs';
 // ATS-212: the environment profiles. A profile is a named, project-scoped
 // set of environment variables; the run carries the profile it ran under
 // and the runner receives the SEALED environment (the profile's variables
@@ -56,6 +59,8 @@ const ROOT=path.resolve(HERE,'..');
 const PORT=Number(process.env.ATS_PORT||4577);
 const TOKEN=crypto.randomBytes(24).toString('hex');
 const jobs=new Map();
+// ATS-106: the only fields a run request may carry.
+const RUN_REQUEST_FIELDS=new Set(['file','capabilities','runner','env']);
 // The data directory is locked for the whole lifetime of the Bridge. The
 // migration script (tools/migrate_uids.mjs) rewrites the state file AND
 // renames the run folders; a Bridge that is running at that moment would
@@ -301,30 +306,30 @@ const egressAuditStore=createEgressAuditStore({
  * 这是 ATS-401 契约层留下的缺口的落点（`docs/17-AGENT-CONTRACT.md` §6）：
  * 契约层的 `digest` 由请求方提供，只能证明「二者自洽」；这里的摘要由
  * 本机文件系统给出，于是「`ref` 确实对应那份源内容」才成立。
+ *
+ * 范围解析**只有一份实现**（`server/security/egress-gate.mjs` 的
+ * `resolveEgressInputs`）：preview（用户看到的范围）、confirm（用户同意的
+ * 范围）与 check（闸门放行的范围）三处都经由它，所以三者不可能漂移：
+ *
+ *   - `file` / `evidence`：`<项目根>/<ref>`；
+ *   - `requirement`      ：`<项目根>/.aitest/<ref>`（缺省 `requirements.json`）；
+ *   - `run`              ：由下面的 `egressRunResolver` 给出；
+ *
+ * 落在文件系统上的输入一律先 realpath 再做根内判定（junction/符号链接越界
+ * 即拒绝）。run 的内容是平台自己的运行记录摘要，不来自请求方。
+ *
+ * 解析失败不在这里吞掉：闸门（`/api/security/egress/check`）把它当作一次
+ * **拒绝**写进外传审计，记录请求方给出的 kind/ref（不读文件、没有摘要）；
+ * preview/confirm 则把同一个错误码作为 400 返回给调用方。
+ *
  */
-async function buildScope(project,inputs){
-  const resolved=[];
-  for(const input of inputs){
-    if(!input||typeof input!=='object'){const e=new Error('EGRESS_GATE_INPUT_INVALID');e.code='EGRESS_GATE_INPUT_INVALID';throw e;}
-    if(input.kind==='run'){
-      const run=getRun(input.ref);
-      const content=JSON.stringify({runId:run.id,status:run.status,summary:run.summary??null});
-      resolved.push({kind:'run',ref:input.ref,digest:crypto.createHash('sha256').update(content,'utf8').digest('hex'),content});
-      continue;
-    }
-    if(input.kind==='requirement'){
-      // The requirement document lives in the project's .aitest directory.
-      const rel=String(input.ref||'requirements.json');
-      const joined=path.resolve(project.root,'.aitest',rel);
-      if(!joined.startsWith(path.resolve(project.root)+path.sep)){const e=new Error('EGRESS_GATE_SCOPE_INVALID');e.code='EGRESS_GATE_SCOPE_INVALID';throw e;}
-      let content;
-      try{content=fs.readFileSync(joined,'utf8');}catch{const e=new Error('EGRESS_GATE_INPUT_INVALID');e.code='EGRESS_GATE_INPUT_INVALID';throw e;}
-      resolved.push({kind:'requirement',ref:rel,digest:crypto.createHash('sha256').update(content,'utf8').digest('hex'),content});
-      continue;
-    }
-    resolved.push(readScopedInput(project.root,input));
-  }
-  return describeEgressScope(resolved);
+function egressRunResolver(ref){
+  const run=getRun(ref);
+  const content=JSON.stringify({runId:run.id,status:run.status,summary:run.summary??null});
+  return {kind:'run',ref,digest:crypto.createHash('sha256').update(content,'utf8').digest('hex'),content};
+}
+function buildScope(project,inputs){
+  return buildEgressScope({project,inputs,runResolver:egressRunResolver});
 }
 
 const ORIGINS=new Set([`http://localhost:${PORT}`,`http://127.0.0.1:${PORT}`,'http://localhost:3000','http://127.0.0.1:3000','tauri://localhost','http://tauri.localhost','https://tauri.localhost']);
@@ -554,6 +559,20 @@ function finishRun(run,code,signal){
    // CURRENT reserved list allows (the caller filtered them); the profile
    // itself may still carry more.
    const sealedEnv=buildRunnerEnv({variables:envVariables??envProfile?.variables??{}});
+   // ATS-106: the preflight of a Playwright run (docs/26-RUNNER-PREFLIGHT.md).
+   // It reads the project's installation from the file system -- with the
+   // SEALED environment, so the browser registry it checks is the one the
+   // child will use -- and a blocking problem ends the run in `error` with a
+   // deterministic code and a fix hint. The engine is never spawned then.
+   if(run.runner==='playwright'){
+    const preflight=preflightPlaywright(project.root,{env:sealedEnv});
+    run.preflight=preflight;
+    if(!preflight.ok){
+     const first=preflight.errors[0];
+     writeEvent(run,EVENT_TYPE.ERROR,{error:first.code,hint:first.hint,preflight});
+     run.status=RUN_STATUS.ERROR;run.error=first.code;run.errorHint=first.hint;run.finishedAt=now();saveState(store);return;
+    }
+   }
    try{handle=adapter.start({project,run,file:run.file,outputDir:folder,env:sealedEnv});}
   catch(e){
    writeEvent(run,EVENT_TYPE.ERROR,{error:e.message});
@@ -806,7 +825,13 @@ const server=http.createServer(async(req,res)=>{
   if(action==='source'&&req.method==='PUT'){const b=await body(req);return respond(res,200,writeSource(project,b.file,b.content,b.baseHash));}
   if(action==='run'&&req.method==='POST'){
    if(store.runs.some(x=>x.projectId===project.id&&['running','queued','cancelling'].includes(x.status)))throw new Error('PROJECT_ALREADY_RUNNING');
-   const b=await body(req),file=b.file||null;if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');if(file)readSource(project,file);
+   const b=await body(req),file=b.file||null;
+   // ATS-106: the run request carries only these fields. Anything else --
+   // `config`, `project`, `grep`, `args` -- is REFUSED, not ignored: a caller
+   // that sent `config` must not believe it took effect.
+   const rejected=Object.keys(b&&typeof b==='object'&&!Array.isArray(b)?b:{}).filter(k=>!RUN_REQUEST_FIELDS.has(k));
+   if(rejected.length)return err(res,400,'RUN_PARAMETER_NOT_ALLOWED',{rejected});
+   if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');if(file){readSource(project,file);assertSafeTestFilter(file);}
    // Pick the runner by capability negotiation, not by a hardcoded name. A
    // caller may pin one with `runner`; otherwise the first runner that
    // supports the required operations wins.
@@ -1066,7 +1091,7 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   const b=await body(req);
   const project=getProject(b.projectId);
   const inputs=Array.isArray(b.inputs)?b.inputs:[];
-  const scope=await buildScope(project,inputs);
+  const scope=buildScope(project,inputs);
   const preview=egressConsentStore.preview(scope.items);
   // The preview carries the scope AND its byte total: the byte count is
   // part of what the user is shown, so it must be the real one.
@@ -1078,7 +1103,7 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   const b=await body(req);
   const project=getProject(b.projectId);
   const inputs=Array.isArray(b.inputs)?b.inputs:[];
-  const scope=await buildScope(project,inputs);
+  const scope=buildScope(project,inputs);
   const consent=await egressConsentStore.confirm({previewId:b.previewId,inputs:scope.items,ttlSeconds:b.ttlSeconds});
   // The consent itself is audited: the trail says WHICH scope was authorised,
   // so a later egress can be checked against what the user actually agreed to.
@@ -1106,23 +1131,23 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   return respond(res,200,{audit:await egressAuditStore.all()});
  }
  if(p==='/api/security/egress/check'&&req.method==='POST'){
-  // The gate itself: it answers "may these inputs leave the machine?".
-  // It is the same code path the platform uses before a real egress.
+  // The gate itself ("may these inputs leave the machine?"): the same code path the platform uses before a real egress.
+  // EVERY refusal is audited, including a scope the gate could not resolve; no file is read for a refusal record.
+  // An unregistered project is a refusal too (400 EGRESS_GATE_PROJECT_UNKNOWN), unlike preview/confirm (404).
   const b=await body(req);
-  const project=getProject(b.projectId);
   const inputs=Array.isArray(b.inputs)?b.inputs:[];
-  const consent=b.consentId?await egressConsentStore.find(b.consentId):null;
-  const verdict=authorizeEgress({project,inputs,consent,consentStore:egressConsentStore});
-  if(!verdict.allowed){
-   // A REFUSAL is audited too. The gate refused, and the trail says so: the
-   // refs it was about to send, the code that refused it, and the reason.
+  const consent=typeof b.consentId==='string'?await egressConsentStore.find(b.consentId):null;const deny=async(code,reason,project)=>{
    await egressAuditStore.record({
-    event:'egress.denied',outcome:'denied',code:verdict.code,reason:verdict.reason,
-    consentId:consent?.id??null,projectId:project.id,
-    kinds:[...new Set(inputs.map(i=>i?.kind).filter(Boolean))],items:[],
+    event:'egress.denied',outcome:'denied',code,reason,
+    consentId:consent?.id??null,projectId:project?.id??null,
+    kinds:[...new Set(inputs.map(i=>i?.kind).filter(k=>typeof k==='string'))],items:describeRequestedRefs(inputs),
    });
-   return respond(res,403,{error:verdict.code,reason:verdict.reason});
-  }
+   return respond(res,/INVALID|UNKNOWN/.test(code)&&code.startsWith('EGRESS_GATE_')?400:403,{error:code,reason});
+  };
+  let project;
+  try{project=getProject(b.projectId);}catch{return deny('EGRESS_GATE_PROJECT_UNKNOWN','the project is not registered',null);}
+  const verdict=authorizeEgress({project,inputs,consent,consentStore:egressConsentStore,runResolver:egressRunResolver});
+  if(!verdict.allowed)return deny(verdict.code,verdict.reason,project);
   await egressAuditStore.record({
    event:'egress.granted',outcome:'allowed',consentId:consent?.id??null,projectId:project.id,
    kinds:verdict.scope.kinds,items:verdict.scope.items,scopeDigest:verdict.scope.scopeDigest,

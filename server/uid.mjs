@@ -574,7 +574,7 @@ function matchRegistry(it, { registryByBody, bodyCounts, reserved }) {
  * up in the ambiguity report, because the author wrote down the same uid twice
  * and only the author can say which case it belongs to.
  */
-export function resolveIdentities({ projectUid, discovered, registry, scope = null, duplicateExplicitUids = null, extraCandidates = null }) {
+export function resolveIdentities({ projectUid, discovered, registry, scope = null, duplicateExplicitUids = null, extraCandidates = null, claimedExplicitUids = null }) {
   const reg = registryOf(registry, projectUid);
   const items = discovered.map((d) => ({
     ...d,
@@ -600,6 +600,15 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
     explicitOwners.get(it.explicitUid).push(it);
   }
   const reserved = new Set(explicitOwners.keys());
+  // ATS-602: a token that ANY case of the catalogue declares is reserved as
+  // well -- a mobile case the caller knows about, not only a web case of
+  // this list. The registry may remember a token under the body of a case
+  // that has since dropped it, and handing it back would give two cases
+  // one uid. The caller passes the tokens every case of the whole
+  // catalogue declares; a missing or non-Set value adds nothing.
+  if (claimedExplicitUids instanceof Set) {
+    for (const uid of claimedExplicitUids) reserved.add(uid);
+  }
 
   // A token that ANOTHER ENGINE claims as well is claimed by nobody. The
   // caller knows the whole catalogue -- the web cases and the mobile ones --
@@ -767,7 +776,9 @@ export function resolveIdentities({ projectUid, discovered, registry, scope = nu
 function mergeRegistry(reg, candidates, scope = null) {
   const entries = reg.entries.slice();
   const byBody = new Map();
+  const byUid = new Map();
   for (const e of entries) {
+    if (e.uid && !byUid.has(e.uid)) byUid.set(e.uid, e);
     if (!e.bodyKey) continue;
     if (!byBody.has(e.bodyKey)) byBody.set(e.bodyKey, []);
     byBody.get(e.bodyKey).push(e);
@@ -783,7 +794,21 @@ function mergeRegistry(reg, candidates, scope = null) {
       const sameFile = hits.filter((e) => e.file === c.file);
       if (sameFile.length === 1) existing = sameFile[0];
     }
+    // ONE ENTRY PER UID. The uid may be remembered under ANOTHER body: an
+    // explicit token that moved to a case with a different body (a web
+    // case that took over a token a mobile scenario dropped, for one).
+    // The entry is then UPDATED to the new body and position, not
+    // duplicated -- a second entry with the same uid would keep the OLD
+    // position alive and make every later lookup ambiguous.
+    if (!existing) existing = byUid.get(c.uid) ?? null;
     if (existing) {
+      if (existing.bodyKey !== c.bodyKey) {
+        const bucket = byBody.get(existing.bodyKey) ?? [];
+        const at = bucket.indexOf(existing);
+        if (at >= 0) bucket.splice(at, 1);
+        if (!byBody.has(c.bodyKey)) byBody.set(c.bodyKey, []);
+        byBody.get(c.bodyKey).push(existing);
+      }
       if (existing.file !== c.file || existing.title !== c.title) {
         existing.aliases = existing.aliases ?? [];
         if (!existing.aliases.some((a) => a.file === existing.file && a.title === existing.title)) {
@@ -821,6 +846,7 @@ function mergeRegistry(reg, candidates, scope = null) {
       duplicateExplicit: c.duplicateExplicit ?? null,
     };
     entries.push(entry);
+    byUid.set(entry.uid, entry);
     if (!byBody.has(c.bodyKey)) byBody.set(c.bodyKey, []);
     byBody.get(c.bodyKey).push(entry);
   }

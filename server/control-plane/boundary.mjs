@@ -27,11 +27,18 @@ const PATH_RULES = [
   ['unc_path', /(?:^|[\s"'(=,;])\\\\[^\\\s]+\\/],
   ['windows_drive_path', /^[A-Za-z]:(?:[\\/]|$)/],
   ['windows_drive_path', /(?:^|[^A-Za-z0-9])[A-Za-z]:[\\/]/],
-  ['home_relative_path', /^~(?:[\\/]|$)/],
-  ['env_path', /%[A-Za-z_][A-Za-z0-9_]*%[\\/]|\$HOME\b|\$\{HOME\}/],
+  // Drive-relative form `D:work`.
+  ['windows_drive_path', /^[A-Za-z]:[^\s\\/]/],
+  // `~`, `~/x`, `~root/x`.
+  ['home_relative_path', /^~$|^~[^\s\\/]*[\\/]/],
+  // Any environment reference: $NAME, ${NAME}, $env:NAME, %NAME% (3+ characters, so %E4% is not one).
+  ['env_path', /\$\{?[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_]{2,}%/],
   ['path_traversal', /(?:^|[\\/])\.\.(?:[\\/]|$)/],
   ['posix_absolute_path', /^\//],
   ['posix_absolute_path', new RegExp(`(?:^|[\\s"'(=,;:])/(?:${SYSTEM_ROOTS})(?:/|$)`)],
+  // No drive letter: `\Users\x`, and backslash-separated segments `Users\x\y`.
+  ['windows_rooted_path', /^\\[^\\]/],
+  ['windows_rooted_path', /[A-Za-z0-9._-]\\[A-Za-z0-9._-]/],
 ];
 
 function matchRules(text) {
@@ -63,13 +70,17 @@ export function detectLocalPath(text) {
   return decoded ? matchRules(decoded) : null;
 }
 
+const TOKEN_RUN = /(?<![0-9a-fA-F])[0-9a-fA-F]{48}(?![0-9a-fA-F])/;
+
 /**
- * True for the shape of the local Bridge session token: 24 random bytes in
- * hexadecimal, i.e. exactly 48 hex characters. Git SHAs (40) and SHA-256
- * digests (64) have different lengths and are not affected.
+ * True when `text` contains the shape of the local Bridge session token
+ * anywhere: a standalone run of exactly 48 hex characters (24 random bytes).
+ * `Bearer <token>`, `x-ats-token=<token>` and a bare token all match. Git SHAs
+ * (40), SHA-256 (64) and SHA-384 (96) digests are other lengths and are not
+ * affected.
  */
 export function isLocalSessionTokenShape(text) {
-  return typeof text === 'string' && /^[0-9a-f]{48}$/i.test(text);
+  return typeof text === 'string' && TOKEN_RUN.test(text);
 }
 
 const PATH_FIELDS = new Set(['path', 'localpath', 'projectpath', 'root', 'projectroot', 'rootdir', 'cwd', 'dir',

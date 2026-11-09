@@ -121,6 +121,7 @@ WBS 的完成定义是一句话：
 |---|---|
 | 同一 describe 下两个同名用例 | 引擎拒绝运行该文件（`duplicate test title`） |
 | 两个同名 describe + 同名用例 | 引擎拒绝运行该文件（`duplicate test title`） |
+| 参数化的同名用例 | 引擎拒绝运行该文件（`duplicate test title`） |
 | 两个不同名 describe + 同名用例 | 引擎运行两个用例，describe 路径把它们分开 |
 | 同一标题路径出现在两个文件 | 引擎运行两个用例，文件把它们分开 |
 

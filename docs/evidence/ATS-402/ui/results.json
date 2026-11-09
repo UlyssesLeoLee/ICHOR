@@ -1,0 +1,114 @@
+{
+  "at": "2026-11-09T04:45:18.652Z",
+  "browserChannel": "msedge",
+  "results": [
+    {
+      "id": "UI-LOAD",
+      "name": "the studio loads in a real browser",
+      "ok": true,
+      "detail": "title=\"AI Test Studio\""
+    },
+    {
+      "id": "UI-TAB",
+      "name": "the \"AI 数据安全\" tab renders its three cards",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ST-031a",
+      "name": "the saved key is listed by reference (name, fingerprint), and the password field is cleared",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ST-031b",
+      "name": "the secret is in NO file under the platform data directory or fixture",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ST-031c",
+      "name": "the secret is not rendered anywhere in the page",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ST-031d",
+      "name": "deleting the key through the UI clears the reference",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ST-033a",
+      "name": "egress with no consent is refused (403 EGRESS_CONSENT_REQUIRED)",
+      "ok": true,
+      "detail": "403 EGRESS_CONSENT_REQUIRED"
+    },
+    {
+      "id": "ST-032a",
+      "name": "the preview shows the real scope BEFORE any consent exists (ref, bytes, SHA-256)",
+      "ok": true,
+      "detail": "待确认的范围 1 项 · 43 字节 · 种类 file tests/home.spec.ts file · 43 字节 · SHA-256 d332a97e4873a911… 确认并授权"
+    },
+    {
+      "id": "ST-032b",
+      "name": "no consent exists yet when the preview is shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ST-032c",
+      "name": "confirming records one granted consent and shows a revoke button",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ST-032d",
+      "name": "with the consent the same egress is allowed (200)",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "id": "ST-033b",
+      "name": "after revoking in the UI the same egress is refused (403 EGRESS_CONSENT_REVOKED)",
+      "ok": true,
+      "detail": "403 EGRESS_CONSENT_REVOKED"
+    },
+    {
+      "id": "ST-033c",
+      "name": "the revoked consent has no revoke button any more",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ST-033d",
+      "name": "a path outside the project is refused even with a valid consent",
+      "ok": true,
+      "detail": "400 EGRESS_GATE_SCOPE_INVALID"
+    },
+    {
+      "id": "ST-033e",
+      "name": "the audit card shows egress.denied rows, including the escaping ref, without any file content",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "UI-EXPIRED",
+      "name": "an expired consent is shown as `expired`, with no revoke button, and is not counted as active",
+      "ok": true,
+      "detail": "active 2 -> 1"
+    },
+    {
+      "id": "ST-033f",
+      "name": "the expired consent is refused (403 EGRESS_CONSENT_EXPIRED)",
+      "ok": true,
+      "detail": "403 EGRESS_CONSENT_EXPIRED"
+    },
+    {
+      "id": "UI-NOERR",
+      "name": "the page raised no uncaught error",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

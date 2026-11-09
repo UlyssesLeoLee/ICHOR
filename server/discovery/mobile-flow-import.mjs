@@ -257,9 +257,11 @@ export function mapProjectFlows(root, { syntax = null } = {}) {
  *
  * The `duplicateExplicitUids` are the `@TC-` tokens that more than one case
  * of the catalogue claims -- the web ones included. A token that two cases
- * claim belongs to NEITHER of them.
+ * claim belongs to NEITHER of them. The `claimedExplicitUids` are the
+ * tokens ANY case of the catalogue claims: the registry never hands one of
+ * them to a case that does not declare it.
  */
-export function importProjectFlows(root, { projectUid = null, registry = null, syntax = null, duplicateExplicitUids = null } = {}) {
+export function importProjectFlows(root, { projectUid = null, registry = null, syntax = null, duplicateExplicitUids = null, claimedExplicitUids = null } = {}) {
   const mapped = mapProjectFlows(root, { syntax });
   const files = mapped.files;
   const results = mapped.results;
@@ -271,6 +273,7 @@ export function importProjectFlows(root, { projectUid = null, registry = null, s
     registry,
     scope: new Set(files),
     duplicateExplicitUids,
+    claimedExplicitUids,
   });
 
   return {

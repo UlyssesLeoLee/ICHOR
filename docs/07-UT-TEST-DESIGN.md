@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：661；已执行通过：645；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：705；已执行通过：689；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -188,9 +188,9 @@
 |UT-PLG-076|FR-028|边界|证据引用过多被拒|65 条 evidenceRefs|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
 |UT-PLG-077|FR-028|异常|形状不合法的结论被拒|outcome 不是对象 / summary 为空 / 引用不是字符串|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
 |UT-PLG-078|FR-028|安全|跨项目上报结论被拒|projectId 不在授予列表里|报 PLUGIN_SCOPE_INVALID 并进审计|node --test|PASS|
-|UT-SEC-001|FR-027|正常|凭据存储契约版本固定|查询 credential-store/v1|contract 固定|node --test|PASS|
-|UT-SEC-002|FR-027|安全|密钥进凭据库而不落盘|写入一个密钥后检查索引文件|索引文件不含秘密与其片段|node --test|PASS|
-|UT-SEC-003|FR-027|安全|引用带指纹但无密钥字段|读取一个凭据引用|有 8 位指纹，无 secret 字段|node --test|PASS|
+|UT-SEC-016|FR-027|正常|凭据存储契约版本固定|查询 credential-store/v1|contract 固定|node --test|PASS|
+|UT-SEC-017|FR-027|安全|密钥进凭据库而不落盘|写入一个密钥后检查索引文件|索引文件不含秘密与其片段|node --test|PASS|
+|UT-SEC-018|FR-027|安全|引用带指纹但无密钥字段|读取一个凭据引用|有 8 位指纹，无 secret 字段|node --test|PASS|
 |UT-SEC-004|FR-027|正常|密钥字节精确回读|写入后读回|内容完全一致|node --test|PASS|
 |UT-SEC-005|FR-027|异常|未知凭据 id|读取不存在的 id|报 CREDENTIAL_NOT_FOUND|node --test|PASS|
 |UT-SEC-006|FR-027|异常|非法名称/秘密/用途|空名、含路径分隔符、空秘密、未知用途|分别报 CREDENTIAL_NAME_INVALID / CREDENTIAL_INVALID|node --test|PASS|
@@ -425,6 +425,10 @@
 |UT-CP-028|FR-028|安全|控制面源码导入白名单|扫描 server/control-plane/*.mjs|不导入本地 Bridge 模块、Tauri、child_process，不发起外呼|node --test|PASS|
 |UT-CP-029|FR-028|安全|桌面侧调用边界|扫描 src-tauri/src/lib.rs 与 apps/studio|Tauri 只注册 local_bridge_status 且只托管本地 Bridge；前端无 Tauri API|node --test|PASS|
 |UT-CP-030|FR-028|正常|契约端点描述边界|GET /cp/v1/contract|tauriRequired=false，localBridgeReachable=false，本地凭据不接受|node --test|PASS|
+|UT-CP-031|NFR-002|安全|本地 Token 在任意位置都被识别|Bearer/x-ats-token=/tok/0x 前缀、查询串、大小写、括号包裹；49/64/96 位、40 位 SHA 夹在文本中|独立的 48 位十六进制片段命中，其它长度不命中；键、值、嵌套均适用|node --test|PASS|
+|UT-CP-032|FR-028|安全|环境变量形态全部被识别|$USERPROFILE、$APPDATA、${HOME}、$env:NAME、%NAME%；100%、%E4%B8%AD、$5、a$|前者 env_path，后者 null|node --test|PASS|
+|UT-CP-033|FR-028|安全|盘符相对、根相对、家目录用户形态被拒|D:work、\Users\x、Users\x\y、~root/x、~；a/b、ns:name、TCP/IP、~approx|前者对应规则名，后者 null|node --test|PASS|
+|UT-CP-034|NFR-002|安全|嵌入 Token 与变量路径入站被拒且出站不回显|POST 嵌入 Token 与变量路径、查询串；存储被注入嵌入 Token 后读取|422 REMOTE_SECRET_INLINE_FORBIDDEN / REMOTE_PATH_FORBIDDEN；出站 500 REMOTE_INTERNAL，响应不含该 Token|node --test|PASS|
 |ATS-206-UT-001|NFR-010|正常|状态的可数项被逐项计数|一个含项目/运行/重试/产物/登记的状态|五项计数都与内容相符|node --test|PASS|
 |ATS-206-UT-002|NFR-010|正常|迁移保持项目与历史的数量一致|迁移一个 v0.1 状态|迁移前后五项计数逐项相等|node --test|PASS|
 |ATS-206-UT-003|NFR-010|异常|计数不一致的迁移被拒绝|迁移前后计数不同|抛 MIGRATION_COUNT_MISMATCH|node --test|PASS|
@@ -669,6 +673,46 @@
 |UT-MOB-309|FR-032|正常|线性语法的 title 也开启一个场景|线性声明用 title:|读出一个场景|node --test|PASS|
 |UT-MOB-310|FR-032|异常|线性语法里没有场景也被报告|只有 app 的线性声明|报 no scenario|node --test|PASS|
 |UT-MOB-311|FR-032|正常|读取器的标量类型被读|一个普通的 YAML 声明|读出一个场景|node --test|PASS|
+|UT-MOB-312|FR-032|安全|移动端用例丢掉的 @TC- token 被 Web 用例声明后注册表不再发回|移动端场景去掉 @TC-600 且 Web 用例声明 @TC-600|Web 用例 tc-600/explicit，移动端场景 derived 并报告 explicit-uid-claimed-by-another-case，目录无重复 UID，cell 里 tc-600 只指向 Web 用例|node --test|PASS|
+|UT-MOB-313|FR-032|安全|丢掉的 token 无论哪个引擎声明都被保留|Web 丢 @TC-650 移动端声明；移动端 Login 丢 @TC-500 同文件 Other 声明|声明方 explicit，丢弃方 derived 并报告注册表冲突，目录无重复 UID|node --test|PASS|
+|UT-MOB-314|FR-032|安全|复制场景后修改原场景不产生重复 UID|Login 复制为 Login copy 并给原 Login 加一步|副本经注册表保留旧 UID，原场景 derived-body 得新 UID，单文件导入同样判定|node --test|PASS|
+|UT-MOB-315|FR-032|安全|可信路径删除用例后同指纹新用例不继承旧 UID|权威目录：删除 Web beta 与场景 Logout，再新增同正文/同步骤的新用例；改标题|新用例的 UID 与被删的不同且非 registry，合并后的 cell 不含被删条目，改标题后一个 uid 一条条目且为新标题|node --test|PASS|
+|UT-MOB-316|FR-032|正常|注册表合并不改写输入且 Web 解析器尊重已声明的 token|mergeMobileRegistry 传入已有条目与新位置；resolveIdentities 传 claimedExplicitUids|输入条目不变、返回副本带别名、范围内无人认领的条目被删；Web 解析器拒绝注册表命中并报告 explicit-uid-claimed-by-another-case|node --test|PASS|
+|UT-CRD-001|FR-027|正常|put 写凭据库、索引只存引用|注入内存凭据库的 put/resolve|秘密只在凭据库，索引无明文，resolve 取回一致|node --test|PASS|
+|UT-CRD-002|FR-027|安全|三个同名 put 并发只成功一个|三个并发 put 同名（后端有延迟）|1 个成功、2 个 CREDENTIAL_DUPLICATE；凭据库仅 1 条|node --test|PASS|
+|UT-CRD-003|FR-027|正常|三个不同名 put 并发都保留引用|三个并发 put 不同名|三条引用都在索引里，凭据库 3 条|node --test|PASS|
+|UT-CRD-004|FR-027|正常|remove 与 put 并发串行|并发 remove + put|索引与凭据库一致|node --test|PASS|
+|UT-CRD-005|FR-027|异常|凭据库条目已消失时 remove 清掉引用|凭据库被清空后 remove|成功并清掉引用|node --test|PASS|
+|UT-CRD-006|FR-027|异常|凭据库删除失败时保留引用|后端抛 DELETE_FAILED|抛 CREDENTIAL_STORE_FAILED，引用仍在|node --test|PASS|
+|UT-CRD-007|FR-027|异常|凭据库写失败映射为契约内错误码|后端抛 WRITE_FAILED|code=CREDENTIAL_STORE_FAILED（HTTP 503），无引用残留|node --test|PASS|
+|UT-CRD-008|FR-027|异常|索引写失败时撤回刚写入的秘密|索引临时文件位置被目录占用|抛 CREDENTIAL_STORE_FAILED，凭据库无孤儿|node --test|PASS|
+|UT-CRD-009|FR-027|异常|输入校验与 NOT_FOUND 分支|非法名、空秘密、非法用途、未知 id|对应契约错误码|node --test|PASS|
+|UT-CRD-010|FR-027|边界|resolve 需用途匹配与可读凭据库|用途不符；条目消失|CREDENTIAL_INVALID / CREDENTIAL_NOT_FOUND|node --test|PASS|
+|UT-CRD-011|FR-027|安全|凭据库不可用即拒绝且不落任何文件|available=false 的后端|CREDENTIAL_STORE_UNAVAILABLE，索引不存在|node --test|PASS|
+|UT-CRD-012|FR-027|边界|无 available() 的后端视为可用|裸后端|put 成功|node --test|PASS|
+|UT-CRD-013|FR-027|异常|错误码规整到契约词汇表|各种后端错误|code 落在 CREDENTIAL_ERROR_CODES 内，未知归 STORE_FAILED|node --test|PASS|
+|UT-CRD-014|FR-027|异常|索引读写与损坏拒绝|缺失/损坏/畸形索引|缺失为空；损坏报 STORE_FAILED|node --test|PASS|
+|UT-CRD-015|FR-027|正常|诊断描述含后端名与错误码、无秘密|describeCredentialStore|provider、errorCodes 齐全|node --test|PASS|
+|UT-CRD-016|FR-027|安全|Windows 后端经 stdin 传秘密|注入 spawn 的 write/read/delete|秘密只在 stdin，不在 argv|node --test|PASS|
+|UT-CRD-017|FR-027|异常|Windows 后端只重试无码失败一次|无码失败/有码失败/spawn 错误|无码重试 1 次；有码不重试；ENOENT→UNAVAILABLE|node --test|PASS|
+|UT-CRD-018|FR-027|安全|macOS 后端经 stdin 传秘密（注入 spawn）|add/find/delete-generic-password|秘密只在 stdin；错误码规整|node --test|PASS|
+|UT-CRD-019|FR-027|安全|Linux 后端经 stdin 传秘密（注入 spawn）|secret-tool store/lookup/clear|秘密只在 stdin；错误码规整|node --test|PASS|
+|UT-CRD-020|FR-027|正常|后端选择随宿主、无明文后端|selectBackend、hasBinary|本机后端名正确；不存在的二进制为 false|node --test|PASS|
+|UT-GATE-001|FR-027|正常|file/requirement/run 经同一解析器|resolveEgressInputs 三种输入|ref/字节数正确；requirement 缺省为 requirements.json|node --test|PASS|
+|UT-GATE-002|FR-027|安全|越界写法一律 SCOPE_INVALID|../、绝对路径、盘符、出 .aitest|EGRESS_GATE_SCOPE_INVALID|node --test|PASS|
+|UT-GATE-003|FR-027|安全|junction 越界被拒（file 与 requirement）|junction 指向项目外|EGRESS_GATE_SCOPE_INVALID|node --test|PASS|
+|UT-GATE-004|FR-027|异常|畸形输入 INPUT_INVALID / PROJECT_UNKNOWN|空、非数组、缺文件、目录、超大、未知 run|对应闸门错误码|node --test|PASS|
+|UT-GATE-005|FR-027|正常|isSubpath 与被拒请求的 ref 描述|describeRequestedRefs|只含 kind/ref，digest=null，bytes=0，上限 50|node --test|PASS|
+|UT-GATE-006|FR-027|安全|无授权在读文件之前被拒|无同意书 + 越界 ref|EGRESS_CONSENT_REQUIRED，未构造范围|node --test|PASS|
+|UT-GATE-007|FR-027|正常|有效授权放行 file+requirement+run|授权后 authorizeEgress|allowed，范围 3 项|node --test|PASS|
+|UT-GATE-008|FR-027|安全|持有有效授权时范围失败是带码的拒绝|../、混合、缺文件、空输入、种类不在授权内、未知项目|allowed=false 且 code 对应|node --test|PASS|
+|UT-GATE-009|FR-027|安全|内容变化后不再匹配|授权后改文件|EGRESS_CONSENT_SCOPE_MISMATCH|node --test|PASS|
+|UT-GATE-010|FR-027|边界|缺 check() 为编程错误；缺 checkConsent() 仍可用|最小授权存储|TypeError / 放行|node --test|PASS|
+|UT-CON-001|FR-027|正常|列表反映过期为 expired，find 保持原记录|时钟拨过 TTL|all()=expired；find()=granted；checkConsent=EXPIRED|node --test|PASS|
+|UT-CON-002|FR-027|边界|范围摘要字段间有分隔|ref 含空格的两种写法|摘要不同|node --test|PASS|
+|UT-AUD-009|FR-027|安全|某一类的洪泛不挤掉另一类的记录|先记 granted/consent，再灌 525 条 denied 与 525 条 consent|egress.granted 仍在；denied、consent 各只留 500 条且丢本类最旧|node --test|PASS|
+|UT-AUD-010|FR-027|边界|放行类有自己的上限|503 条 egress.granted|只留 500 条，丢本类最旧|node --test|PASS|
+|UT-AUD-011|FR-027|正常|拒绝记录无摘要时记为 digest:null、bytes:0|denied 条目无 digest|null / 0|node --test|PASS|
 
 ## 进入与退出条件
 

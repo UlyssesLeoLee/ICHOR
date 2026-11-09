@@ -33,6 +33,15 @@ deliverable is submitted, but it has not been accepted yet -- the reviewer
 (Opus) syncs 已完成/完成率 after the review passes. Declaring it 已完成
 before review would contradict "不得自行置 done".
 
+NOTE on re-runs after acceptance: the review is a one-way door. Once the
+reviewer has returned PASS and the row carries 已完成, re-running this script
+must NOT walk that row back to 待审核 -- the same guard the other updaters
+carry (tools/update_wbs_ats101.py, ..._ats103.py, ..._ats502.py). The guard
+protects a row that is accepted AND self-consistent (状态=已完成 with
+完成率=1 and 剩余人日=0); a 已完成 row that contradicts its own numbers is a
+stale artefact, not an acceptance, and does not get to veto the status this
+task owns.
+
 IDEMPOTENCY: running this script twice must leave row ATS-216 byte-identical.
 The marker-aware merge in `wbs_common.set_marked_cell` replaces the previous
 marked block instead of appending, so the second run is a no-op. `verify()`
@@ -55,6 +64,14 @@ XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 FIRST_ROW, LAST_ROW = 6, 94
 
 MARKER = '【ATS-216】'
+
+# The two status values that a later acceptance may have set. They are not
+# downgraded by a re-run of this script: the review is a one-way door.
+TERMINAL_STATUSES = ('已完成', '已取消')
+
+# The status the reviewer (Opus) writes after a PASS. It is one of the six
+# values in the N-column data-validation list.
+STATUS_DONE = '已完成'
 
 NOTE = (
     '已交付质量概览模块（失败聚类/Flaky 基础指标，非 AI）：'
@@ -86,6 +103,8 @@ NOTE = (
     '引擎一律报 duplicate test title 拒绝运行；不同名 describe+同名用例、'
     '同一标题路径出现在两个文件，引擎正常运行并由 describe 路径/文件区分），'
     '因此在一个文件内「describe 路径+标题」这一对已经是唯一的，键用的是 describe 路径；'
+    '升级前存下的运行摘要不带 describe 路径与 case key，按「文件+标题」成键，'
+    '与升级后的运行各自成条（同一批用例在升级前后是两个条目，而不是一条历史）；'
     '对账除了逐 run 与 Bridge 计数器比对，还比对「界面显示的数」与 Bridge 报告的计数器'
     '（verdict 组各运行的 Σ summary.<bucket> 对上 cases.<bucket>，Σ summary.executions 对上 attempt 数），'
     '并检查每个运行恰好落在一个运行桶里；显示的数与 Bridge 的数来自两个地方，模块算错时对账会变红；'
@@ -123,6 +142,21 @@ def find_ats_row(xml, ats_id):
     raise SystemExit(f'row for {ats_id} not found')
 
 
+def self_consistent(xml, rid):
+    """True when the row's 状态 agrees with its own 完成率 / 剩余人日.
+
+    A row that says 已完成 but carries a completion rate below 1 or a
+    non-zero remainder contradicts itself; such a row is a stale artefact,
+    not an acceptance, and must not veto the status this task owns.
+    """
+    try:
+        rate = float(cell_text(xml, rid, 'O') or 0)
+        remaining = float(cell_text(xml, rid, 'P') or 0)
+    except ValueError:
+        return False
+    return rate >= 1 and remaining <= 0
+
+
 def patch_workbook(status='待审核'):
     shutil.copy2(XLSX, XLSX.with_suffix('.xlsx.bak'))
     zin = zipfile.ZipFile(XLSX)
@@ -133,8 +167,13 @@ def patch_workbook(status='待审核'):
     xml2 = parts[SHEET2].decode('utf-8')
 
     rid, _rm = find_ats_row(xml2, 'ATS-216')
-    # 待审核 is one of the six values in the N-column data-validation list.
-    xml2 = set_cell_in_row(xml2, rid, 'N', status)
+    # A re-run must not undo an accepted review: only a row that has not been
+    # accepted yet is (re)written. An accepted row keeps its status, and the
+    # notes and the cached 总览 values are still refreshed below.
+    current = cell_text(xml2, rid, 'N')
+    if current not in TERMINAL_STATUSES or not self_consistent(xml2, rid):
+        # 待审核 and 已完成 are both in the N-column data-validation list.
+        xml2 = set_cell_in_row(xml2, rid, 'N', status)
     xml2 = set_cell_in_row(xml2, rid, 'O', '1', numeric=True)
     # P keeps its formula K*(1-O) = 4*(1-1) = 0; only the cached value changes
     xml2 = set_cell_in_row(xml2, rid, 'P', '0', numeric=True)
@@ -201,7 +240,11 @@ def verify():
     rate = cell_text(xml2, rid, 'O')
     remain = cell_text(xml2, rid, 'P')
     note = cell_text(xml2, rid, 'T')
-    assert status == '待审核', f'ATS-216 status is {status!r}, expected 待审核'
+    # The row is 待审核 while the review is in flight and 已完成 once the
+    # reviewer has returned PASS; either is a correct state, but a row in
+    # some OTHER status is not.
+    assert status in ('待审核', STATUS_DONE), \
+        f'ATS-216 status is {status!r}, expected 待审核 or {STATUS_DONE}'
     assert rate == '1', f'ATS-216 completion rate is {rate!r}, expected 1'
     assert remain == '0', f'ATS-216 remaining days is {remain!r}, expected 0'
     assert note.count(MARKER) == 1, f'ATS-216 note has {note.count(MARKER)} markers, expected 1'
@@ -226,7 +269,8 @@ def check_parses():
             row = r
             break
     assert row is not None, 'the ATS-216 row is not found by openpyxl'
-    assert ws.cell(row=row, column=14).value == '待审核', f'column N is {ws.cell(row=row, column=14).value!r}'
+    n_value = ws.cell(row=row, column=14).value
+    assert n_value in ('待审核', STATUS_DONE), f'column N is {n_value!r}'
     assert float(ws.cell(row=row, column=15).value) == 1, f'column O is {ws.cell(row=row, column=15).value!r}'
     # Column P keeps its formula; the cached value is what the sheet carries.
     p_formula = ws.cell(row=row, column=16).value
@@ -245,7 +289,11 @@ def check_parses():
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--verify-only', action='store_true')
-    ap.add_argument('--status', default='待审核')
+    ap.add_argument(
+        '--status', default='待审核',
+        help='the 状态 to write into the ATS-216 row (default: 待审核). '
+             'Use 已完成 once the review has returned PASS; the row then keeps '
+             'that status across later re-runs of this script.')
     args = ap.parse_args()
 
     if args.verify_only:

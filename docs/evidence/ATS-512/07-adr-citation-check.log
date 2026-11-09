@@ -1,8 +1,8 @@
 ================================================================================
 ATS-512 evidence log -- every file:line citation in the baseline ADR still resolves
 ================================================================================
-commit        : bb95e79d7bb39f14962928c09a123eda896d4ecb
-timestamp     : 2026-11-07T02:48:30Z (UTC)
+commit        : a227c8e7296f5cfbd7f60c630be58270cdf814ff
+timestamp     : 2026-11-09T05:43:37Z (UTC)
 repo root     : /d/ICHOR
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]

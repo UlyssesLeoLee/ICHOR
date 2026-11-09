@@ -410,6 +410,134 @@ test('IT-ATS602-API-011: a trusted project keeps its mobile cases', { skip: inst
   assert.equal(trusted.mobile.cases, 1);
 });
 
+/*
+ * The round-2 review counter-examples over HTTP (N1 / N2-cross / N3).
+ *
+ * Each test registers a project of its own, edits its files between two
+ * `GET /tests` calls, and asserts after EVERY call that no two cases of
+ * the catalogue share a uid -- the IT-007 rule, applied to an edit
+ * sequence instead of a fixture that never changes.
+ */
+function newProjectDir(name, files) {
+  const dir = path.join(WORK, name);
+  fs.mkdirSync(path.join(dir, 'flows'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'package.json'), `{"name":"${name}","private":true}`, 'utf8');
+  fs.writeFileSync(
+    path.join(dir, 'playwright.config.ts'),
+    "import { defineConfig } from '@playwright/test';\nexport default defineConfig({ testDir: './tests' });\n",
+    'utf8',
+  );
+  const write = (rel, body) => fs.writeFileSync(path.join(dir, rel), body, 'utf8');
+  for (const [rel, body] of Object.entries(files)) write(rel, body);
+  return { dir, write };
+}
+
+function assertNoDuplicateUids(catalog) {
+  const uids = catalog.tests.map((t) => t.uid);
+  assert.equal(new Set(uids).size, uids.length, `no two cases share a uid: ${JSON.stringify(catalog.tests.map((t) => [t.title, t.uid]))}`);
+}
+
+const WEB_HEAD = "import { test } from '@playwright/test';\n";
+
+test('IT-ATS602-API-012: a token a mobile case drops and a web case declares is not re-issued over HTTP (N2-cross)', async () => {
+  const { dir, write } = newProjectDir('n2-cross', {
+    'tests/a.spec.ts': WEB_HEAD + "test('web case', async ({ page }) => { const w = 1; });\n",
+    'flows/a.yaml': '---\n- name: "Login @TC-600"\n  steps:\n    - tapOn: "Login"\n',
+  });
+  const r = await api('/api/projects', 'POST', { path: dir });
+  assert.equal(r[0], 201);
+  const pid = r[1].project.id;
+
+  const [, first] = await api(`/api/projects/${pid}/tests`);
+  assertNoDuplicateUids(first);
+  assert.equal(first.tests.find((t) => t.source === 'mobile').uid, 'tc-600');
+
+  write('tests/a.spec.ts', WEB_HEAD + "test('web case @TC-600', async ({ page }) => { const w = 1; });\n");
+  write('flows/a.yaml', '---\n- name: Login\n  steps:\n    - tapOn: "Login"\n');
+  const [, second] = await api(`/api/projects/${pid}/tests`);
+  assertNoDuplicateUids(second);
+  const web = second.tests.find((t) => t.source === 'static');
+  const mobile = second.tests.find((t) => t.source === 'mobile');
+  assert.equal(web.uid, 'tc-600');
+  assert.equal(web.uidSource, 'explicit');
+  assert.notEqual(mobile.uid, 'tc-600', 'the registry does not hand the token back to the scenario');
+  assert.equal(mobile.uidSource, 'derived');
+  assert.equal(mobile.ambiguity?.reason, 'explicit-uid-claimed-by-another-case', 'the refused hit is reported');
+});
+
+test('IT-ATS602-API-013: copying a scenario and editing the original keeps the uids distinct over HTTP (N3)', async () => {
+  const { dir, write } = newProjectDir('n3-copy', {
+    'tests/a.spec.ts': WEB_HEAD + "test('a web case', async ({ page }) => {});\n",
+    'flows/dup.yaml': '---\n- name: Checkout\n  steps:\n    - launchApp: {appId: x}\n    - tapOn: "Pay"\n',
+  });
+  const r = await api('/api/projects', 'POST', { path: dir });
+  assert.equal(r[0], 201);
+  const pid = r[1].project.id;
+
+  const [, first] = await api(`/api/projects/${pid}/tests`);
+  assertNoDuplicateUids(first);
+  const old = first.tests.find((t) => t.title === 'Checkout').uid;
+
+  write('flows/dup.yaml', '---\n- name: Checkout\n  steps:\n    - launchApp: {appId: x}\n    - tapOn: "Pay"\n    - assertVisible: "Receipt"\n- name: Checkout copy\n  steps:\n    - launchApp: {appId: x}\n    - tapOn: "Pay"\n');
+  const [, second] = await api(`/api/projects/${pid}/tests`);
+  assertNoDuplicateUids(second);
+  const original = second.tests.find((t) => t.title === 'Checkout');
+  const copy = second.tests.find((t) => t.title === 'Checkout copy');
+  assert.equal(copy.uid, old, 'the copy keeps the uid the registry remembers for those steps');
+  assert.equal(copy.uidSource, 'registry');
+  assert.notEqual(original.uid, old, 'the edited original gets a uid of its own');
+  assert.equal(original.uidSource, 'derived-body');
+  assert.equal(original.uidStable, true);
+});
+
+test('IT-ATS602-API-014: a trusted project does not hand a deleted uid to a new case with the same body (N1)', { skip: installed ? false : 'no real Playwright' }, async () => {
+  // The authoritative index runs `playwright test --list` inside the
+  // project, so the project needs the scratch Playwright install (a
+  // junction, nothing is copied into the repository).
+  const ALPHA = "test('alpha', async () => { const a = 1; expect(a).toBe(1); });\n";
+  const BETA_BODY = 'async () => { const b = 2; expect(b + 40).toBe(42); }';
+  const HEAD = "import { test, expect } from '@playwright/test';\n";
+  const { dir, write } = newProjectDir('n1-trusted', {
+    'tests/a.spec.ts': HEAD + ALPHA + `test('beta', ${BETA_BODY});\n`,
+    'flows/login.yaml': 'appId: com.example.app\n---\n- name: Login\n  steps:\n    - launchApp\n    - tapOn: "Login"\n- name: Logout\n  steps:\n    - launchApp\n    - tapOn: "Logout"\n',
+  });
+  fs.symlinkSync(path.join(PW_DIR, 'node_modules'), path.join(dir, 'node_modules'), 'junction');
+  const r = await api('/api/projects', 'POST', { path: dir });
+  assert.equal(r[0], 201);
+  const pid = r[1].project.id;
+  const grant = await api(`/api/projects/${pid}/trust`, 'POST', { trust: 'trusted', reason: 'N1 over the authoritative path' });
+  assert.equal(grant[0], 200);
+
+  const [, c1] = await api(`/api/projects/${pid}/tests`);
+  assert.equal(c1.discovery, 'authoritative');
+  assertNoDuplicateUids(c1);
+  assert.equal(c1.tests.length, 4);
+  const beta = c1.tests.find((t) => t.title === 'beta');
+  const logout = c1.tests.find((t) => t.title === 'Logout');
+
+  // Discovery 2: beta and Logout are deleted.
+  write('tests/a.spec.ts', HEAD + ALPHA);
+  write('flows/login.yaml', 'appId: com.example.app\n---\n- name: Login\n  steps:\n    - launchApp\n    - tapOn: "Login"\n');
+  const [, c2] = await api(`/api/projects/${pid}/tests`);
+  assert.equal(c2.discovery, 'authoritative');
+  assertNoDuplicateUids(c2);
+  assert.equal(c2.tests.length, 2);
+
+  // Discovery 3: a NEW web test and a NEW scenario re-use the deleted bodies.
+  write('tests/a.spec.ts', HEAD + ALPHA + `test('gamma is a new test', ${BETA_BODY});\n`);
+  write('flows/login.yaml', 'appId: com.example.app\n---\n- name: Login\n  steps:\n    - launchApp\n    - tapOn: "Login"\n- name: A brand new scenario\n  steps:\n    - launchApp\n    - tapOn: "Logout"\n');
+  const [, c3] = await api(`/api/projects/${pid}/tests`);
+  assert.equal(c3.discovery, 'authoritative');
+  assertNoDuplicateUids(c3);
+  const gamma = c3.tests.find((t) => t.title === 'gamma is a new test');
+  const fresh = c3.tests.find((t) => t.title === 'A brand new scenario');
+  assert.notEqual(gamma.uid, beta.uid, 'a new web case does not inherit the uid of a deleted one');
+  assert.notEqual(gamma.uidSource, 'registry');
+  assert.notEqual(fresh.uid, logout.uid, 'a new scenario does not inherit the uid of a deleted one');
+  assert.notEqual(fresh.uidSource, 'registry');
+});
+
 test('IT-ATS602-API-CLEANUP: stop the bridge and remove the fixture', async () => {
   cp.kill();
   await new Promise((r) => setTimeout(r, 200));
