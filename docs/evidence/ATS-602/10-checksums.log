@@ -1,19 +1,9 @@
 === ATS-602 evidence: the release manifest ===
-tree : c51c4f30584927222e50a5d067a09e9c68b48891
-date : 2026-11-09T08:49:30Z
+tree : 664dcc7ef55fc1c1d05ffe6331f2f9925ba1a0fa
+date : 2026-11-09T08:58:46Z
 
-manifest entries : 772
-digest mismatches: 16
-    .quality/docs/server/core.mjs.md 098b6098d224019316c135fcb6d0c6c91edbe1f103462e4883c41a0d541478cd != ed19de6266f3f8e6d47730806f4ec8381bf0f46788935fec928d687fb5315d08
-    .quality/test-design/server/core.mjs.test.md c7d108ccb5f7935c54b1573750a6988ecd0d77d637cdf17c636f1ba3d4742bbe != ba01701a797db3e350f8d4a2a44f8ea670559326cbe404bd774bbcaf99d5bb3c
-    docs/07-UT-TEST-DESIGN.md d794b8082cb4d773d18b57caa914fb5709961140d843814dd97cdafa5064e5b9 != 4bc0fab071fababc4ca3c06521c214e2da3c5cb0df3af518681dc8cbd6b409f3
-    docs/08-IT-TEST-DESIGN.md 7cb9f3b1c84755672ebea7db77686e674e5dbc2a20b252b39d98569b4e5c0e7d != bc78b42a21bc3c90c6afe30e0f777987f4d479d4bcc79b35b7b4e6b6751c2e16
-    docs/10-RTM.md 24fa3bfea4696f0b9cad2e370aefb62ab53dd7eeb6981e6b04cd72f5b9000978 != 675e2a7068cc3114f4dbe02f7f61f41fa467d0eb2547152562a1c53651bf9dd9
-    docs/16-BASELINE-ADR.md 544e1f4b7521b955b18776edccb7b3e9ec0b75ab4dfa80bebe1873cd370bd77b != 68b0557d3c0880dd5b6af11f864f9118c72be324e4eecf3094d07036d059b5c9
-    docs/25-MOBILE-APP-TESTING.md 9c4ab3ba3e97e23435f28c6625558f22df19b515b3a277d9c7e739397011b63c != d51070835fd51ca06db0ef2072fd91fe97ab10f07a8407f8d3e5fe1144fdac0b
-    server/core.mjs bc1a7f41e58b711251c9112f053bba8526fd04706792292745aba0dda879d3bf != e970c2f86650cd44a303a706b2f5b6167a0173770074f9b2f40228f0a942be0d
-    server/discovery/authoritative.mjs 2a3ddd8d2b8ef3ad6e2567fae6f8201dd191a7ce2c9be50d49e60c9dab12426e != 100850456b767c6b56694124aee72b544f56be07f846a3bcc6d31831cdcc7274
-    tests/mobile-import-it.test.mjs ff8f58a7c2fa06279b4f0a381f8bab22ea4c020ba73923ff8d707af12eb78ca6 != 58d5f1724fef2d0cd37b89b70a2f6f07692802ac2f1eb14ecffdab572843890e
-tracked-not-listed: 3 ['.quality/docs/server/discovery/authoritative.mjs.md', '.quality/test-design/server/discovery/authoritative.mjs.test.md', 'tools/ats602-probes/probe-round3-counterexamples-e2e.mjs']
+manifest entries : 776
+digest mismatches: 0
+tracked-not-listed: 0 []
 listed-not-tracked: 0 []
-RESULT: MISMATCH
+RESULT: OK

@@ -1,18 +1,18 @@
 === ATS-602 evidence: the round-3 review probe (token rules on the trusted path: T1 / T2 / T3) ===
-tree : c51c4f30584927222e50a5d067a09e9c68b48891
-date : 2026-11-09T08:49:30Z
+tree : 664dcc7ef55fc1c1d05ffe6331f2f9925ba1a0fa
+date : 2026-11-09T08:58:46Z
 
 --- the end-to-end probe (node r3-e2e.mjs, the real Bridge over HTTP, mode=trusted) ---
-T1-N2-cross-rev OK :: discovery=authoritative [["authoritative","web case","tc_1_d_473226df316f1ca8","derived"],["mobile","Login @TC-650","tc-650","explicit"]] duplicates=[]
-T2-N2-cross OK :: discovery=authoritative [["authoritative","web case @TC-600","tc-600","explicit"],["mobile","Login","tc_1_d_0dc1a49dd04b095a","derived"]] duplicates=[]
-T4-web-only-control no duplicate :: discovery=authoritative [["authoritative","web one","tc_1_d_1b80c0af51bd5c1c","derived"],["authoritative","web two @TC-670","tc-670","explicit"]]
-T3-E12-both-unbound OK :: discovery=authoritative [["authoritative","web login @TC-100","tcp_1_4d149e6dfd10381a_1","provisional"],["mobile","mobile login @TC-100","tcp_1_ca6bc52d93fb4c01_1","provisional"]] bound-to-tc-100=[] duplicates=[]
+T1-N2-cross-rev OK :: discovery=authoritative [["authoritative","web case","tc_1_d_df96a03212245d8d","derived"],["mobile","Login @TC-650","tc-650","explicit"]] duplicates=[]
+T2-N2-cross OK :: discovery=authoritative [["authoritative","web case @TC-600","tc-600","explicit"],["mobile","Login","tc_1_d_2382615f23b0be6d","derived"]] duplicates=[]
+T4-web-only-control no duplicate :: discovery=authoritative [["authoritative","web one","tc_1_d_d43eb41b50b9ac75","derived"],["authoritative","web two @TC-670","tc-670","explicit"]]
+T3-E12-both-unbound OK :: discovery=authoritative [["authoritative","web login @TC-100","tcp_1_3a4ffa0fe7d025fa_1","provisional"],["mobile","mobile login @TC-100","tcp_1_fe0d52632cbacb12_1","provisional"]] bound-to-tc-100=[] duplicates=[]
 RESULT: OK
 
 --- the end-to-end probe (node r3-e2e.mjs, the real Bridge over HTTP, mode=untrusted) ---
-T1-N2-cross-rev OK :: discovery=static [["static","web case","tc_1_d_26d9fd5254bdb7a8","derived"],["mobile","Login @TC-650","tc-650","explicit"]] duplicates=[]
-T2-N2-cross OK :: discovery=static [["static","web case @TC-600","tc-600","explicit"],["mobile","Login","tc_1_d_a95916a9c0d2fc29","derived"]] duplicates=[]
-T4-web-only-control no duplicate :: discovery=static [["static","web one","tc_1_d_41763212b8662441","derived"],["static","web two @TC-670","tc-670","explicit"]]
-T3-E12-both-unbound OK :: discovery=static [["static","web login @TC-100","tcp_1_a2ac7b7965367fb6_1","provisional"],["mobile","mobile login @TC-100","tcp_1_363b58abef06c464_1","provisional"]] bound-to-tc-100=[] duplicates=[]
+T1-N2-cross-rev OK :: discovery=static [["static","web case","tc_1_d_41973dc30e7204f2","derived"],["mobile","Login @TC-650","tc-650","explicit"]] duplicates=[]
+T2-N2-cross OK :: discovery=static [["static","web case @TC-600","tc-600","explicit"],["mobile","Login","tc_1_d_10f80c30e24290f1","derived"]] duplicates=[]
+T4-web-only-control no duplicate :: discovery=static [["static","web one","tc_1_d_a245e766616802dc","derived"],["static","web two @TC-670","tc-670","explicit"]]
+T3-E12-both-unbound OK :: discovery=static [["static","web login @TC-100","tcp_1_e358b4bd547373e2_1","provisional"],["mobile","mobile login @TC-100","tcp_1_f27a2e1a5b1e1dac_1","provisional"]] bound-to-tc-100=[] duplicates=[]
 RESULT: OK
 

@@ -1,14 +1,14 @@
 === ATS-602 evidence: the round-2 review probes (N1 / N2-cross / N3) ===
-tree : c51c4f30584927222e50a5d067a09e9c68b48891
-date : 2026-11-09T08:49:30Z
+tree : 664dcc7ef55fc1c1d05ffe6331f2f9925ba1a0fa
+date : 2026-11-09T08:58:46Z
 
 --- the in-process probe (node r2.mjs) ---
-N2-mobile OK :: [["mobile","Login","tc_1_d_aad2b1cff9d89c86","derived"],["mobile","Other @TC-500","tc-500","explicit"]] duplicates=[]
-N2-cross OK :: [["static","web case @TC-600","tc-600","explicit"],["mobile","Login","tc_1_d_552957be873f9207","derived"]] duplicates=[]
-N2-cross-rev OK :: [["static","web case","tc_1_d_6ab4a904873a2ebb","derived"],["mobile","Login @TC-650","tc-650","explicit"]] duplicates=[]
-N2-web-control no duplicate :: [["static","login","tc_1_d_efbd22d9ca7ae619","derived"],["static","other @TC-700","tc-700","explicit"]]
-N3-mobile OK :: [["mobile","Login","tc_1_d_271037e75bb298d0","derived-body"],["mobile","Login copy","tc_1_d_04aad4accb603e23","registry"]] duplicates=[]
-N3-web-control no duplicate :: [["static","login","tc_1_d_bcb4b676082ad35f","derived-body"],["static","login copy","tc_1_d_9354a9cb81fe2c0c","registry"]]
+N2-mobile OK :: [["mobile","Login","tc_1_d_3b39b989202cd95e","derived"],["mobile","Other @TC-500","tc-500","explicit"]] duplicates=[]
+N2-cross OK :: [["static","web case @TC-600","tc-600","explicit"],["mobile","Login","tc_1_d_56a154b61bae384a","derived"]] duplicates=[]
+N2-cross-rev OK :: [["static","web case","tc_1_d_88c570123b68ee53","derived"],["mobile","Login @TC-650","tc-650","explicit"]] duplicates=[]
+N2-web-control no duplicate :: [["static","login","tc_1_d_ff047ee5df5c746a","derived"],["static","other @TC-700","tc-700","explicit"]]
+N3-mobile OK :: [["mobile","Login","tc_1_d_e94cf9923a3850d8","derived-body"],["mobile","Login copy","tc_1_d_09f6d56a276da49f","registry"]] duplicates=[]
+N3-web-control no duplicate :: [["static","login","tc_1_d_f03643df7a66fd86","derived-body"],["static","login copy","tc_1_d_850cd18e2c1a8ce3","registry"]]
 RESULT: OK
 
 --- the reader probe (node r2-reader.mjs) ---
@@ -21,15 +21,15 @@ RESULT: OK
 
 --- the end-to-end probe (node r2-e2e.mjs, the real Bridge over HTTP, mode=trusted) ---
 mode=trusted discovery=authoritative/authoritative/authoritative tests=4/2/4
-N1-web OK :: deleted beta=tc_1_d_544f029764a64c56/derived; later new gamma=tc_1_d_c1f007b7125bc149/derived
-N1-mobile OK :: deleted Logout=tc_1_d_0f5893812b297b22/derived; later new scenario=tc_1_d_2c8685b4dac5aec2/derived
-N3-http OK :: [["Checkout","tc_1_d_9bae60d45793c841","derived-body"],["Checkout copy","tc_1_d_c8a0ba34b1473bcd","registry"]] duplicates=[]
+N1-web OK :: deleted beta=tc_1_d_2523246520dc96ed/derived; later new gamma=tc_1_d_ee73bdf76240e304/derived
+N1-mobile OK :: deleted Logout=tc_1_d_67b16ae79065f36c/derived; later new scenario=tc_1_d_960bddc25481d61e/derived
+N3-http OK :: [["Checkout","tc_1_d_ae59a684d3b111a0","derived-body"],["Checkout copy","tc_1_d_9ba7357b9e1f35e4","registry"]] duplicates=[]
 RESULT: OK
 
 --- the end-to-end probe (node r2-e2e.mjs, the real Bridge over HTTP, mode=untrusted) ---
 mode=untrusted discovery=static/static/static tests=4/2/4
-N1-web OK :: deleted beta=tc_1_d_8594b45a875f9e2f/derived; later new gamma=tc_1_d_c33d761e78a70539/derived
-N1-mobile OK :: deleted Logout=tc_1_d_42fa1a1b976aa194/derived; later new scenario=tc_1_d_07e4e0e58498be8c/derived
-N3-http OK :: [["Checkout","tc_1_d_551304ea1039471e","derived-body"],["Checkout copy","tc_1_d_a90dd3fd84792dd4","registry"]] duplicates=[]
+N1-web OK :: deleted beta=tc_1_d_3dc64ee09cb2b234/derived; later new gamma=tc_1_d_66a656b6c62f0bb5/derived
+N1-mobile OK :: deleted Logout=tc_1_d_500049882b9d0406/derived; later new scenario=tc_1_d_2e035464f91df04a/derived
+N3-http OK :: [["Checkout","tc_1_d_ad385e89a6859e72","derived-body"],["Checkout copy","tc_1_d_de4ef70ebb134698","registry"]] duplicates=[]
 RESULT: OK
 
