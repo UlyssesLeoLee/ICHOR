@@ -1,0 +1,12 @@
+{
+  "name": "ats107-real-browser-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ATS-107 真实浏览器测试仓库：一条 PASS、一条 FAIL，依赖由 lockfile 固定。",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0"
+  }
+}

@@ -12,6 +12,10 @@ src-tauri/Cargo.lock
 !.env.example
 playwright-report/
 test-results/
+# The JSON report the Playwright CLI writes when PLAYWRIGHT_JSON_OUTPUT_FILE
+# points at it. Inside an example project it is a local run artefact, not
+# source; the run's own report lives in the Bridge's run folder.
+examples/*/report.json
 .atstest/
 __pycache__/
 *.pyc
@@ -24,6 +28,12 @@ examples/*/node_modules/
 # Locally produced lock files for the example projects. The repository's own
 # package-lock.json IS tracked (ATS-102 requires a reproducible install).
 examples/*/package-lock.json
+
+# ... EXCEPT the ATS-107 real-browser fixture: its lockfile IS the deliverable.
+# The acceptance criterion of ATS-107 requires the fixture to pin its
+# dependency tree with a lockfile, and a lockfile that is not tracked pins
+# nothing for anybody but the machine that generated it.
+!examples/real-browser-fixture/package-lock.json
 
 # Agent run metadata (Multica runtime), not product source.
 .multica/

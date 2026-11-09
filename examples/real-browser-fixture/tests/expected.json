@@ -1,0 +1,26 @@
+{
+  "_comment": "ATS-107 真实浏览器夹具的期望结论。这是夹具自己的契约：夹具的行为变了，这个文件必须一起变，否则探针会失败，而不是悄悄接受新的行为。",
+  "browser": "chromium",
+  "engine": "@playwright/test",
+  "engineVersion": "1.65.0",
+  "expectedFailureText": "ATS-107 FAIL — this text is intentionally absent",
+  "cases": [
+    {
+      "title": "ATS-107 passing case renders the offline page",
+      "file": "tests/passing.spec.ts",
+      "status": "passed"
+    },
+    {
+      "title": "ATS-107 failing case asserts a text that is absent",
+      "file": "tests/failing.spec.ts",
+      "status": "failed"
+    }
+  ],
+  "summary": {
+    "passed": 1,
+    "failed": 1,
+    "skipped": 0,
+    "flaky": 0,
+    "total": 2
+  }
+}
