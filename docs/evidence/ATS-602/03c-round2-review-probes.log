@@ -1,6 +1,6 @@
 === ATS-602 evidence: the round-2 review probes (N1 / N2-cross / N3) ===
-tree : 66e97efe698df4b0228b0791736ffb65f69d38d0
-date : 2026-11-09T06:25:57Z
+tree : 4b93cbec2d74d7f31d035e8d621cf976af3e6431
+date : 2026-11-09T06:31:19Z
 
 --- the in-process probe (node r2.mjs) ---
 N2-mobile OK :: [["mobile","Login","tc_1_d_c2fe4b42050b51f1","derived"],["mobile","Other @TC-500","tc-500","explicit"]] duplicates=[]
