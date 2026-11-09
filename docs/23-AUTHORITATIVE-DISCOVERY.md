@@ -394,7 +394,8 @@ S4 的 `onlyAuthoritative` 非空是**正确的**：那个用例在表达式体�
 | 边界 | 归属 |
 |---|---|
 | 文件/标题变化时的 UID 重识别与歧义提示的完整策略 | **ATS-204 已实现**（见 `docs/26-IDENTITY-MAPPER.md`） |
-| 动态/参数化/项目矩阵的索引回归数据集 | ATS-203 |
+| 动态/参数化/项目矩阵的索引回归数据集 | **ATS-203 已实现**（见 `tests/ats203-regression-dataset.test.mjs`、`tests/ats203-index-it.test.mjs`、`tests/ats203-index-api.test.mjs` 与 `docs/evidence/ATS-203/`） |
+| 静态索引对**模板标题**用例的处置（ATS-203 之前给的是一条「看起来稳定」的派生 UID） | **ATS-203 已实现**：这类用例改为不可判定（`uidStable=false`、`ambiguity.reason='dynamic-template-title'`），见 `docs/18-UID-SPEC.md` §3.2 |
 | `test.each` 参数化用例的**标题模板**与渲染标题的对应关系（当前以渲染标题为准） | 真实 Playwright 1.64.1 没有 `test.each`（实测），参数化在 Playwright 里是循环；标题模板的对应关系属其它引擎 |
 | 用例的 `describe` 路径参与 UID（当前只作兜底） | **ATS-204 已实现**（锚点含 describe 路径，见 `docs/26-IDENTITY-MAPPER.md` §4.1） |
 | 多项目矩阵下「一个逻辑用例」的跨 project 身份（当前一个用例携带每个 project 的 spec id，但 UID 按逻辑用例唯一） | **ATS-204 已实现**（矩阵是一个用例，见 `docs/26-IDENTITY-MAPPER.md` §5） |
