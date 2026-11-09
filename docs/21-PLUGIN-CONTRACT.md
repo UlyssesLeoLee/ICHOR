@@ -169,14 +169,14 @@ SDK 的每个方法按同一顺序做四件事：**授权判定 → 作用域判
 
 ### 5.1 单元测试（UT）
 
-`tests/plugins.test.mjs` —— 78 项，覆盖清单校验、权限解析、档位天花板、SDK 操作面、审计单调性与完整性、文件与项目作用域、证据来源、权威提案记录与评审规则。实测输出：`docs/evidence/ATS-512/01-plugin-ut.log`（78 通过 / 0 失败）。
+`tests/plugins.test.mjs` —— 87 项，覆盖清单校验、权限解析、档位天花板、SDK 操作面、审计单调性与完整性、文件与项目作用域、证据来源、权威提案记录与评审规则。实测输出：`docs/evidence/ATS-512/01-plugin-ut.log`（87 通过 / 0 失败）。
 
 **覆盖率**（`node --test --experimental-test-coverage --test-coverage-include='server/plugins/**' tests/plugins.test.mjs`）：
 
 | 文件 | 行覆盖率 |
 |---|---|
 | `server/plugins/contract.mjs` | 95.44% |
-| `server/plugins/sdk.mjs` | 90.37% |
+| `server/plugins/sdk.mjs` | 91.87% |
 
 实测输出：`docs/evidence/ATS-512/10-plugin-coverage.log`。
 
@@ -224,7 +224,7 @@ SDK 的每个方法按同一顺序做四件事：**授权判定 → 作用域判
 
 ### 5.4 全量套件与既有失败
 
-`npm test` 在**合并后的 dev 树**上：**1285 通过 / 0 失败 / 2 跳过**（`docs/evidence/ATS-512/04-full-test-suite.log`）。
+`npm test` 在**合并后的 dev 树**上：**1345 通过 / 0 失败 / 4 跳过**（`docs/evidence/ATS-512/04-full-test-suite.log`）。跳过数随环境里示例工程是否装了 `node_modules` 变化，**以日志为准**，不引用别处的数字。
 
 第 1 轮交付时，全量套件里有一个失败 **IT-API-013**，属 ATS-301：示例工程 `examples/sample-playwright/` 在那个检出里没有 `node_modules`，适配器因此把必需能力报为不支持，协商返回 409 而不是 200。当时用 `tools/ats512-probes/prove-baseline-regression.sh` 在不含本任务任何代码的参考树上复跑，确认它是既有失败。
 
@@ -238,7 +238,7 @@ SDK 的每个方法按同一顺序做四件事：**授权判定 → 作用域判
 | ATS-501 远程协议契约审计（本任务消费它） | 108/108 OK | `docs/evidence/ATS-512/06-ats501-protocol-audit.log` |
 | 基线 ADR 的 `file:line` 引用全部解析 | OK | `docs/evidence/ATS-512/07-adr-citation-check.log` |
 | ATS-101 硬编码端口审计 | OK | `docs/evidence/ATS-512/08-port-audit.log` |
-| 两个插件模块的行覆盖率（contract.mjs 95.44%、sdk.mjs 90.37%） | OK | `docs/evidence/ATS-512/10-plugin-coverage.log` |
+| 两个插件模块的行覆盖率（contract.mjs 95.44%、sdk.mjs 91.87%） | OK | `docs/evidence/ATS-512/10-plugin-coverage.log` |
 | 第 1 轮复核的 11 条反例全部不再复现 | OK | `docs/evidence/ATS-512/11-review-counterexamples.log` |
 
 ## 6. API 面

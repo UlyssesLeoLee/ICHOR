@@ -1,0 +1,112 @@
+================================================================================
+ATS-402 evidence log -- line/branch/function coverage of server/security/** (in-process tests; each file must be strictly above 90% line coverage)
+================================================================================
+commit        : d2a2f589d194631b198e6e2f7728a1c5e3f9168c
+timestamp     : 2026-11-09T04:44:02Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-d29f744e0733/worktree
+node          : v24.19.0
+python        : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command       : node --test --experimental-test-coverage --test-coverage-include=server/security/** tests/security.test.mjs tests/security-credentials.test.mjs tests/security-gate.test.mjs
+================================================================================
+
+✔ UT-CRD-001: put stores the secret in the vault and only a reference in the index (9.0912ms)
+✔ UT-CRD-002: three concurrent puts of the same name -> one wins, no orphan in the vault (33.6212ms)
+✔ UT-CRD-003: three concurrent puts of different names keep every reference (106.3871ms)
+✔ UT-CRD-004: concurrent remove + put serialise and stay consistent (60.4771ms)
+✔ UT-CRD-005: remove clears a reference whose vault entry is already gone (14.6492ms)
+✔ UT-CRD-006: remove keeps the reference when the vault fails for another reason (19.1885ms)
+✔ UT-CRD-007: a vault write failure is a declared code (never undefined) and leaves no reference (0.5707ms)
+✔ UT-CRD-008: when the index cannot be written the just-written secret is removed again (30.1455ms)
+✔ UT-CRD-009: input validation (0.92ms)
+✔ UT-CRD-010: resolve needs the matching purpose and a readable vault (2.2176ms)
+✔ UT-CRD-011: an unavailable vault refuses; there is no plaintext fallback (0.6294ms)
+✔ UT-CRD-012: a backend without an available() probe counts as available (1.2365ms)
+✔ UT-CRD-013: normalizeCredentialError maps everything into the declared vocabulary (0.1657ms)
+✔ UT-CRD-014: the index: missing file is empty, corrupt or malformed is refused, save round-trips (1.8002ms)
+✔ UT-CRD-015: describeCredentialStore names the provider and the codes, never a secret (0.1997ms)
+✔ UT-CRD-016: the Windows backend passes the secret over stdin, never argv (3.7396ms)
+✔ UT-CRD-017: the Windows backend retries a code-less helper failure once, never a coded one (0.8634ms)
+✔ UT-CRD-018: the macOS backend drives `security` with the secret on stdin (1.0676ms)
+✔ UT-CRD-019: the Linux backend drives `secret-tool` with the secret on stdin (0.9456ms)
+✔ UT-CRD-020: backend selection follows the host and never yields a plaintext backend (267.8407ms)
+✔ UT-GATE-001: file, requirement and run resolve through ONE resolver (5.7172ms)
+✔ UT-GATE-002: escapes are SCOPE_INVALID: ../, absolute, drive letter, out of .aitest (0.3169ms)
+✔ UT-GATE-003: a junction/symlink to outside the project is SCOPE_INVALID for file AND requirement (1.9826ms)
+✔ UT-GATE-004: malformed inputs are INPUT_INVALID / PROJECT_UNKNOWN (2.8166ms)
+✔ UT-GATE-005: isSubpath and describeRequestedRefs (0.4631ms)
+✔ UT-GATE-006: no consent -> refused before any file is read (0.5359ms)
+✔ UT-GATE-007: a valid consent allows exactly the confirmed scope (file + requirement + run) (5.5766ms)
+✔ UT-GATE-008: with a VALID consent, scope failures are refusals (not throws) carrying a code (2.159ms)
+✔ UT-GATE-009: changed content no longer matches the confirmed scope (2.4048ms)
+✔ UT-GATE-010: a consent store without check() is a programming error; one without checkConsent() still works (2.0566ms)
+✔ UT-CON-001: the listing reflects expiry as `expired`; find() keeps the raw record (1.1651ms)
+✔ UT-CON-002: the scope digest separates fields (no kind/ref/digest concatenation ambiguity) (0.3355ms)
+✔ UT-AUD-009: a flood of one class never evicts another class (denials, consents, grants) (30.4782ms)
+✔ UT-AUD-010: the grant class has its own cap and drops its own oldest (8.7948ms)
+✔ UT-AUD-011: a refusal item with no digest is recorded as digest:null and bytes:0 (0.3096ms)
+✔ UT-SEC-001: the credential store contract version is fixed (1.0459ms)
+✔ UT-SEC-002: a credential is stored in the credential store, not on disk (4.5179ms)
+✔ UT-SEC-003: the reference exposes a fingerprint but never the secret (1.5109ms)
+✔ UT-SEC-004: the secret can be read back byte-exactly (1.7343ms)
+✔ UT-SEC-005: an unknown credential id is CREDENTIAL_NOT_FOUND (0.6132ms)
+✔ UT-SEC-006: an invalid name, secret or purpose is rejected (0.5334ms)
+✔ UT-SEC-007: a duplicate credential name is refused (2.0786ms)
+✔ UT-SEC-008: an unavailable credential store refuses instead of falling back (0.6432ms)
+✔ UT-SEC-009: no backend at all means CREDENTIAL_STORE_UNAVAILABLE (0.9932ms)
+✔ UT-SEC-010: removing a credential clears both the vault and the index (4.3825ms)
+✔ UT-SEC-011: the index is written atomically and survives a reload (1.9709ms)
+✔ UT-SEC-012: a corrupted index is refused, not silently emptied (1.3204ms)
+✔ UT-SEC-013: the store description names the provider and never a secret (0.6178ms)
+✔ UT-SEC-014: the credential index path lives under the data directory (0.1138ms)
+✔ UT-SEC-015: saving and loading an index round-trips (1.7031ms)
+✔ UT-EGR-001: the egress consent contract version is fixed (0.095ms)
+✔ UT-EGR-002: with no consent, egress is refused (0.3531ms)
+✔ UT-EGR-003: a preview describes exactly what would leave (0.4315ms)
+✔ UT-EGR-004: a confirmation without a preview is refused (0.3334ms)
+✔ UT-EGR-005: a preview token is single-use (0.3171ms)
+✔ UT-EGR-006: confirming a different scope than the preview is refused (0.1736ms)
+✔ UT-EGR-007: a granted consent allows exactly the confirmed scope (0.2288ms)
+✔ UT-EGR-008: changed content does not match the confirmed scope (0.1932ms)
+✔ UT-EGR-009: an input kind outside the consent is refused (0.169ms)
+✔ UT-EGR-010: an expired consent is refused (0.1629ms)
+✔ UT-EGR-011: a revoked consent is refused immediately (0.2859ms)
+✔ UT-EGR-012: a malformed consent record is refused (0.0807ms)
+✔ UT-EGR-013: the consent record is persisted before it is handed back (0.1706ms)
+✔ UT-EGR-014: an invalid ttl is refused (0.1388ms)
+✔ UT-EGR-015: an unknown input kind is refused (0.0792ms)
+✔ UT-EGR-016: a malformed digest is refused (0.0603ms)
+✔ UT-EGR-017: the scope digest does not depend on the input order (0.1084ms)
+✔ UT-EGR-018: the consent description lists the flow and the error codes (0.107ms)
+✔ UT-AUD-001: the egress audit contract version is fixed (0.0421ms)
+✔ UT-AUD-002: a denied egress leaves a record (0.4093ms)
+✔ UT-AUD-003: a granted egress leaves a record too (0.1925ms)
+✔ UT-AUD-004: an audit record never carries the content (0.1531ms)
+✔ UT-AUD-005: an unknown audit event is refused (0.1428ms)
+✔ UT-AUD-006: the trail is append-only -- revoking does not erase the past (0.1291ms)
+✔ UT-AUD-007: the trail has a cap and drops the oldest records (11.0231ms)
+✔ UT-AUD-008: the audit description lists the events and never a secret (0.1423ms)
+ℹ tests 76
+ℹ suites 0
+ℹ pass 76
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 687.5755
+ℹ start of coverage report
+ℹ ---------------------------------------------------------------------------------------------------------------
+ℹ file                 | line % | branch % | funcs % | uncovered lines
+ℹ ---------------------------------------------------------------------------------------------------------------
+ℹ server               |        |          |         | 
+ℹ  security            |        |          |         | 
+ℹ   credentials.mjs    |  97.57 |    92.26 |   97.01 | 236-237 252-254 335-338 485-488
+ℹ   egress-audit.mjs   |  98.98 |    86.96 |   92.86 | 104-105
+ℹ   egress-consent.mjs |  92.16 |    83.33 |   90.48 | 68-71 87-90 93-96 103-106 155-156 185-188 300-301 321-324
+ℹ   egress-gate.mjs    |  98.44 |    96.39 |  100.00 | 93-96
+ℹ ---------------------------------------------------------------------------------------------------------------
+ℹ all files            |  96.51 |    90.73 |   95.50 | 
+ℹ ---------------------------------------------------------------------------------------------------------------
+ℹ end of coverage report
+
+--- exit code: 0 ---
