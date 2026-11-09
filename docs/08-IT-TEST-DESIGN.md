@@ -67,8 +67,8 @@
 |IT-PLG-015|NFR-002|安全|未知档位的错误体不泄漏内部细节|tier=toString|响应体不含 JS 内部错误文本，也不含本机路径|node --test|PASS|
 |IT-PLG-CLEANUP|NFR-005|清理|插件 API 子进程与夹清理|结束 IT suite|释放进程及临时目录|node --test|PASS|
 |IT-SEC-SETUP|NFR-011|正常|安全面 API 的 bridge 启动|隔离 ATS_DATA_DIR 与随机端口|/api/health=200 并取得 token|node --test|PASS|
-|IT-SEC-001|FR-027|正常|安全契约经 API 暴露|GET /api/security/contract|200 + credential-store/v1 + egress-consent/v1|node --test|PASS|
-|IT-SEC-002|NFR-002|安全|安全端点需要会话 token|不带 X-ATS-Token 访问三个端点|均 401 INVALID_SESSION|node --test|PASS|
+|IT-SEC-027|FR-027|正常|安全契约经 API 暴露|GET /api/security/contract|200 + credential-store/v1 + egress-consent/v1|node --test|PASS|
+|IT-SEC-028|NFR-002|安全|安全端点需要会话 token|不带 X-ATS-Token 访问三个端点|均 401 INVALID_SESSION|node --test|PASS|
 |IT-SEC-003|FR-027|安全|凭据清单只含引用|GET /api/security/credentials|每条引用无 secret 字段，指纹 8 位|node --test|PASS|
 |IT-SEC-004|FR-027|安全|秘密不出现在平台状态文件|写真实凭据库后扫描数据目录|目录内任何文件都不含秘密|node --test (real store)|PASS|
 |IT-SEC-005|FR-027|异常|重名被拒|同名写入两次|400 CREDENTIAL_DUPLICATE|node --test (real store)|PASS|
@@ -188,8 +188,8 @@
 |IT-SEC-022|FR-027|安全|requirement 经 junction 或出 .aitest 被拒|junction、../tests|400 SCOPE_INVALID|node --test|PASS|
 |IT-SEC-023|FR-027|正常|过期授权在列表中为 expired，/check 被拒并审计|ttlSeconds=1|state=expired；403 EGRESS_CONSENT_EXPIRED；审计+1|node --test|PASS|
 |IT-SEC-024|FR-027|异常|未知项目或空输入的 /check 被拒并审计|未知 projectId；inputs=[]|400；审计各 +1|node --test|PASS|
-|IT-SEC-025|FR-027|安全|并发写凭据保持索引与凭据库一致（真实凭据库）|三个并发同名 POST|1 个 201、2 个 CREDENTIAL_DUPLICATE；索引 1 条|ATS402_REAL_CREDENTIAL_STORE=1|PASS|
-|IT-SEC-026|FR-027|异常|凭据库条目消失后可删除；写失败为 503（真实凭据库）|cmdkey 删除后 DELETE；3000 字节密钥|200 且引用清掉；503 CREDENTIAL_STORE_FAILED|ATS402_REAL_CREDENTIAL_STORE=1|PASS|
+|IT-SEC-025|FR-027|安全|并发写凭据保持索引与凭据库一致（真实凭据库）|三个并发同名 POST|1 个 201、2 个 CREDENTIAL_DUPLICATE；索引 1 条|node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)|PASS|
+|IT-SEC-026|FR-027|异常|凭据库条目消失后可删除；写失败为 503（真实凭据库）|cmdkey 删除后 DELETE；3000 字节密钥|200 且引用清掉；503 CREDENTIAL_STORE_FAILED|node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)|PASS|
 
 ## 进入与退出条件
 

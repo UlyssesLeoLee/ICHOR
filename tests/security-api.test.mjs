@@ -83,7 +83,7 @@ test('IT-SEC-SETUP: start server', async () => {
   projectId = body.project.id;
 });
 
-test('IT-SEC-001: the security contract is exposed over HTTP', async () => {
+test('IT-SEC-027: the security contract is exposed over HTTP', async () => {
   const [status, body] = await api('/api/security/contract');
   assert.equal(status, 200);
   assert.equal(body.contract, 'credential-store/v1');
@@ -92,7 +92,7 @@ test('IT-SEC-001: the security contract is exposed over HTTP', async () => {
   assert.ok(body.egressConsent.errorCodes.includes('EGRESS_CONSENT_REQUIRED'));
 });
 
-test('IT-SEC-002: the security endpoints require a session token', async () => {
+test('IT-SEC-028: the security endpoints require a session token', async () => {
   for (const endpoint of ['/api/security/contract', '/api/security/credentials', '/api/security/egress/consents']) {
     const [status] = await api(endpoint, 'GET', undefined, false);
     assert.equal(status, 401, `${endpoint} must require a session token`);

@@ -1980,7 +1980,7 @@
     "level": "UT"
   },
   {
-    "id": "UT-SEC-001",
+    "id": "UT-SEC-016",
     "req": "FR-027",
     "category": "正常",
     "title": "凭据存储契约版本固定",
@@ -1991,7 +1991,7 @@
     "level": "UT"
   },
   {
-    "id": "UT-SEC-002",
+    "id": "UT-SEC-017",
     "req": "FR-027",
     "category": "安全",
     "title": "密钥进凭据库而不落盘",
@@ -2002,7 +2002,7 @@
     "level": "UT"
   },
   {
-    "id": "UT-SEC-003",
+    "id": "UT-SEC-018",
     "req": "FR-027",
     "category": "安全",
     "title": "引用带指纹但无密钥字段",
@@ -8360,7 +8360,7 @@
     "level": "IT"
   },
   {
-    "id": "IT-SEC-001",
+    "id": "IT-SEC-027",
     "req": "FR-027",
     "category": "正常",
     "title": "安全契约经 API 暴露",
@@ -8371,7 +8371,7 @@
     "level": "IT"
   },
   {
-    "id": "IT-SEC-002",
+    "id": "IT-SEC-028",
     "req": "NFR-002",
     "category": "安全",
     "title": "安全端点需要会话 token",
@@ -9697,7 +9697,7 @@
     "title": "并发写凭据保持索引与凭据库一致（真实凭据库）",
     "input": "三个并发同名 POST",
     "expected": "1 个 201、2 个 CREDENTIAL_DUPLICATE；索引 1 条",
-    "evidence": "ATS402_REAL_CREDENTIAL_STORE=1",
+    "evidence": "node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)",
     "status": "PASS",
     "level": "IT"
   },
@@ -9708,7 +9708,7 @@
     "title": "凭据库条目消失后可删除；写失败为 503（真实凭据库）",
     "input": "cmdkey 删除后 DELETE；3000 字节密钥",
     "expected": "200 且引用清掉；503 CREDENTIAL_STORE_FAILED",
-    "evidence": "ATS402_REAL_CREDENTIAL_STORE=1",
+    "evidence": "node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)",
     "status": "PASS",
     "level": "IT"
   },
@@ -9983,7 +9983,7 @@
     "title": "密钥入库后不出现在本机可读文件",
     "input": "在真实 Windows 上存入密钥后扫描数据目录与凭据索引",
     "expected": "秘密只存在于系统凭据库；索引只有引用与指纹",
-    "evidence": "ui-e2e.mjs 结果 + 截图 + trace（docs/evidence/ATS-402/ui/）",
+    "evidence": "node tools/ats402-probes/ui-e2e.mjs 结果 + 截图 + trace（docs/evidence/ATS-402/ui/）",
     "status": "PASS",
     "level": "ST"
   },
@@ -10005,7 +10005,7 @@
     "title": "无授权的外传请求被拒",
     "input": "清空授权后触发外传",
     "expected": "请求被拒并给出 EGRESS_CONSENT_REQUIRED",
-    "evidence": "ui-e2e.mjs 结果 + 接口日志（docs/evidence/ATS-402/ui/）",
+    "evidence": "node tools/ats402-probes/ui-e2e.mjs 结果 + 接口日志（docs/evidence/ATS-402/ui/）",
     "status": "PASS",
     "level": "ST"
   },

@@ -98,11 +98,11 @@ const sha256 = (text) => crypto.createHash('sha256').update(text, 'utf8').digest
 /* credential store -- unit                                             */
 /* ------------------------------------------------------------------ */
 
-test('UT-SEC-001: the credential store contract version is fixed', () => {
+test('UT-SEC-016: the credential store contract version is fixed', () => {
   assert.equal(CREDENTIAL_STORE_CONTRACT_VERSION, 'credential-store/v1');
 });
 
-test('UT-SEC-002: a credential is stored in the credential store, not on disk', async () => {
+test('UT-SEC-017: a credential is stored in the credential store, not on disk', async () => {
   const dir = tmpDir();
   const indexFile = path.join(dir, 'credentials.json');
   const backend = fakeBackend();
@@ -118,7 +118,7 @@ test('UT-SEC-002: a credential is stored in the credential store, not on disk', 
   assert.ok(!onDisk.includes('super-secret'), 'no fragment of the secret may reach the index file');
 });
 
-test('UT-SEC-003: the reference exposes a fingerprint but never the secret', async () => {
+test('UT-SEC-018: the reference exposes a fingerprint but never the secret', async () => {
   const dir = tmpDir();
   const store = createCredentialStore({ indexFile: path.join(dir, 'credentials.json'), backend: fakeBackend() });
   const reference = await store.put({ name: 'k', secret: 'sk-1234567890' });

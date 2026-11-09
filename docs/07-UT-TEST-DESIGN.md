@@ -188,9 +188,9 @@
 |UT-PLG-076|FR-028|边界|证据引用过多被拒|65 条 evidenceRefs|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
 |UT-PLG-077|FR-028|异常|形状不合法的结论被拒|outcome 不是对象 / summary 为空 / 引用不是字符串|报 PLUGIN_PROPOSAL_INVALID|node --test|PASS|
 |UT-PLG-078|FR-028|安全|跨项目上报结论被拒|projectId 不在授予列表里|报 PLUGIN_SCOPE_INVALID 并进审计|node --test|PASS|
-|UT-SEC-001|FR-027|正常|凭据存储契约版本固定|查询 credential-store/v1|contract 固定|node --test|PASS|
-|UT-SEC-002|FR-027|安全|密钥进凭据库而不落盘|写入一个密钥后检查索引文件|索引文件不含秘密与其片段|node --test|PASS|
-|UT-SEC-003|FR-027|安全|引用带指纹但无密钥字段|读取一个凭据引用|有 8 位指纹，无 secret 字段|node --test|PASS|
+|UT-SEC-016|FR-027|正常|凭据存储契约版本固定|查询 credential-store/v1|contract 固定|node --test|PASS|
+|UT-SEC-017|FR-027|安全|密钥进凭据库而不落盘|写入一个密钥后检查索引文件|索引文件不含秘密与其片段|node --test|PASS|
+|UT-SEC-018|FR-027|安全|引用带指纹但无密钥字段|读取一个凭据引用|有 8 位指纹，无 secret 字段|node --test|PASS|
 |UT-SEC-004|FR-027|正常|密钥字节精确回读|写入后读回|内容完全一致|node --test|PASS|
 |UT-SEC-005|FR-027|异常|未知凭据 id|读取不存在的 id|报 CREDENTIAL_NOT_FOUND|node --test|PASS|
 |UT-SEC-006|FR-027|异常|非法名称/秘密/用途|空名、含路径分隔符、空秘密、未知用途|分别报 CREDENTIAL_NAME_INVALID / CREDENTIAL_INVALID|node --test|PASS|
