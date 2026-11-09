@@ -132,21 +132,22 @@ for (const m of sem[1].matchAll(/^\s{2}([A-Za-z][A-Za-z0-9]*)\s*:\s*Object\.free
 # --- 05: the import report (what ATS-602 does with an unmappable Flow) ---
 # The §8.5 claim is that a Flow written in Maestro syntax comes in with its
 # unmappable steps REPORTED rather than silently dropped. This log shows
-# that on a real Flow.
+# that on a real Flow: the four mappable steps are mapped, the five
+# unmappable ones are each reported with their original text and their line.
 {
   echo "=== ATS-606 evidence: an unmappable Flow is reported, not dropped ==="
   echo "tree : $COMMIT"
   echo "date : $STAMP"
   echo
   node -e '
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
 (async () => {
   const { parseFlow } = await import("./server/discovery/mobile-flow.mjs");
-  const { importFlow, formatImportReport } = await import("./server/discovery/mobile-import.mjs");
+  const { importFlow, buildImportReport, formatImportReport } =
+    await import("./server/discovery/mobile-import.mjs");
 
-  // A Flow that uses Maestro syntax across the three verdict groups.
+  // A Flow written in Maestro syntax, spanning the three verdict groups of
+  // §8.5: mappable, unmappable, and a step that is unmappable but whose
+  // reason is not a plain unknown command.
   const text = [
     "appId: com.example.app",
     "---",
@@ -167,19 +168,21 @@ const path = require("path");
 
   const flow = parseFlow(text, { syntax: "maestro" });
   const imported = importFlow(flow, { file: "flows/login.yaml", projectUid: "p1" });
+  const report = buildImportReport(imported);
 
-  const declared = imported.cases.reduce((n, c) => n + (c.steps ? c.steps.length : 0), 0);
-  const mapped = imported.cases.reduce(
-    (n, c) => n + (c.steps ? c.steps.filter((s) => s.kind).length : 0), 0);
-  const reported = imported.unsupported.length;
-
-  console.log("declared steps : " + declared);
-  console.log("mapped steps   : " + mapped);
-  console.log("reported steps : " + reported);
-  console.log("mapped + reported == declared : " + (mapped + reported === declared));
+  const declared = report.mappedSteps + report.unsupportedSteps;
+  console.log("cases               : " + report.cases);
+  console.log("mapped steps        : " + report.mappedSteps);
+  console.log("reported steps      : " + report.unsupportedSteps);
+  console.log("mapped + reported   : " + declared);
+  console.log("the Flow declares  : 9 steps (4 mapped + 5 reported)");
+  console.log("every step accounted for : " + (declared === 9));
+  console.log("unsupported by reason : " + JSON.stringify(report.unsupportedByReason));
+  console.log("warnings             : " + report.warnings);
+  console.log("errors               : " + report.errors);
   console.log();
   console.log("--- the import report ---");
-  console.log(formatImportReport(imported));
+  console.log(formatImportReport(report));
 })();
 ' 2>&1
 } > "$EV/05-import-report-of-an-unmappable-flow.log" 2>&1

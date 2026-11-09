@@ -1,0 +1,85 @@
+=== ATS-606 evidence: the Maestro command inventory ===
+tree : 2c32e44468a033d87d065346e5636a66b9a6a9e2
+date : 2026-11-09T14:07:28Z
+
+=== ATS-606: the Maestro command inventory (behavioural) ===
+maestro : D:\AI-Tools\Maestro\bin\maestro.bat
+version : 2.12.1
+
+ok   command addMedia                 accepted
+ok   command assertDarkMode           accepted
+ok   command assertLightMode          accepted
+ok   command assertNoDefectsWithAI    accepted
+ok   command assertNotVisible         accepted
+ok   command assertScreenshot         accepted
+ok   command assertTrue               accepted
+ok   command assertVisible            accepted
+ok   command assertWithAI             accepted
+ok   command back                     accepted
+ok   command clearKeychain            accepted
+ok   command clearState               accepted
+ok   command copyTextFrom             accepted
+ok   command doubleTapOn              accepted
+ok   command eraseText                accepted
+ok   command evalScript               accepted
+ok   command extendedWaitUntil        accepted
+ok   command extractTextWithAI        accepted
+ok   command hideKeyboard             accepted
+ok   command inputText                accepted
+ok   command inputRandomCityName      accepted
+ok   command inputRandomColorName     accepted
+ok   command inputRandomCountryName   accepted
+ok   command inputRandomEmail         accepted
+ok   command inputRandomNumber        accepted
+ok   command inputRandomPersonName    accepted
+ok   command inputRandomText          accepted
+ok   command killApp                  accepted
+ok   command launchApp                accepted
+ok   command longPressOn              accepted
+ok   command openLink                 accepted
+ok   command pasteText                accepted
+ok   command pressKey                 accepted
+ok   command repeat                   accepted
+ok   command retry                    accepted
+ok   command runFlow                  accepted
+ok   command runScript                accepted
+ok   command scroll                   accepted
+ok   command scrollUntilVisible       accepted
+ok   command setAirplaneMode          accepted
+ok   command setClipboard             accepted
+ok   command setDarkMode              accepted
+ok   command setLocation              accepted
+ok   command setOrientation           accepted
+ok   command setPermissions           accepted
+ok   command startRecording           accepted
+ok   command stopApp                  accepted
+ok   command stopRecording            accepted
+ok   command swipe                    accepted
+ok   command takeScreenshot           accepted
+ok   command tapOn                    accepted
+ok   command toggleAirplaneMode       accepted
+ok   command toggleDarkMode           accepted
+ok   command travel                   accepted
+ok   command waitForAnimationToEnd    accepted
+
+--- negative controls (these MUST be rejected) ---
+ok   negative control "notARealCommand" rejected as expected
+ok   negative control "tapon" rejected as expected
+
+MAESTRO COMMAND INVENTORY: 55 commands accepted, 0 rejected
+
+--- the compatibility table (docs/25 §8.5) ---
+table: mappable=7 partial=3 unmappable=45
+ok   every accepted Maestro command (55) has a verdict in §8.5
+ok   every command named in §8.5 is a real Maestro command (55)
+ok   every rejected spelling is accounted for in §8.5
+ok   the stated counts (7/3/45) match the table
+
+--- the platform vocabulary (ATS-601 / ATS-602) ---
+ATS-601 step kinds: launchApp, tapOn, assertVisible, takeScreenshot, recordScreen, readLogs
+ok   every mappable row names a step kind that ATS-601 freezes
+
+COMPATIBILITY TABLE: OK
+MAESTRO COMMAND INVENTORY: OK (55 commands)
+
+exit : 0

@@ -1,0 +1,45 @@
+=== ATS-606 evidence: the iOS implementation status ===
+tree : 2c32e44468a033d87d065346e5636a66b9a6a9e2
+date : 2026-11-09T14:07:28Z
+
+=== ATS-606: the iOS implementation status (from the shipped byte-code) ===
+lib    : D:\AI-Tools\Maestro\lib
+version: 2.12.1
+
+ok   device/SimctlIOSDevice.class: 37 methods, 16 unimplemented
+ok   ios/xctest/XCTestIOSDevice.class: 54 methods, 0 unimplemented
+ok   ios/devicectl/DeviceControlIOSDevice.class: 33 methods, 25 unimplemented
+ok   ios/LocalIOSDevice.class: 34 methods, 0 unimplemented
+
+--- the routing of LocalIOSDevice ---
+to the XCTest driver (same code for simulator and device): 20
+  close, deviceInfo, eraseText, input, isDarkModeEnabled, isKeyboardVisible, isScreenStatic, isShutdown, longPress, open, pressButton, pressKey, scroll, setAppearance, setOrientation, setPermissions, stop, takeScreenshot, tap, viewHierarchy
+to the deviceController (simctl on a simulator, devicectl on a device): 9
+  addMedia, clearAppState, clearKeychain--HJRILA, install, launch, openLink-Zyo9ksc, setLocation-T3BZVFY, startScreenRecording, uninstall
+
+--- the six platform step kinds on the two iOS paths ---
+step kind        operation          simulator      device
+launchApp        launch            impl           NOT-IMPL
+tapOn            tap               impl           impl
+tapOn            viewHierarchy     impl           impl
+assertVisible    viewHierarchy     impl           impl
+takeScreenshot   takeScreenshot    impl           impl
+recordScreen     startScreenRecording impl           NOT-IMPL
+
+--- the design document claims (§8.4) ---
+ok   §8.4 launchApp: simulator="可自动化" device="**受限**" match the byte-code
+ok   §8.4 tapOn: simulator="可自动化" device="可自动化" match the byte-code
+ok   §8.4 assertVisible: simulator="可自动化" device="可自动化" match the byte-code
+ok   §8.4 takeScreenshot: simulator="可自动化" device="可自动化" match the byte-code
+ok   §8.4 recordScreen: simulator="可自动化" device="**受限**" match the byte-code
+
+the physical-device controller: 1 implemented, 8 not implemented
+ok   §8.4 claims the physical-device path is only partly implemented, and 8 of the 9 deviceController operations are indeed not implemented
+
+--- the two iOS no-ops ---
+ok   backPress is a no-op on iOS (the body is a single return)
+ok   setAirplaneMode only warns ("Airplane mode is not available on iOS simulators")
+
+IOS DRIVER SUPPORT: OK
+
+exit : 0
