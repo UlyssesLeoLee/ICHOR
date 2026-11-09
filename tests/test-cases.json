@@ -7370,6 +7370,28 @@
     "level": "UT"
   },
   {
+    "id": "UT-MOB-317",
+    "req": "FR-032",
+    "category": "安全",
+    "title": "可信路径：Web 用例丢掉的 token 被移动端场景声明后不经注册表发回",
+    "input": "authoritativeCatalog 三次发现：Web 带 @TC-650、场景无 token；Web 去掉、场景声明；再反向",
+    "expected": "无重复 UID；场景按显式持有 tc-650，Web 用例改走派生并报告 explicit-uid-claimed-by-another-case；告警含注册表不一致；cell 中 tc-650 唯一并指向 Flow 文件；反向同理且传入的 cell 不被改写",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-MOB-318",
+    "req": "FR-032",
+    "category": "异常",
+    "title": "可信路径：Web 用例与移动端场景同时声明同一 token 时两方都不绑定",
+    "input": "authoritativeCatalog 一次发现：Web @TC-100 与场景 @TC-100；再走静态路径对照；只有 Web 声明的对照",
+    "expected": "两方都是 provisional、uidStable=false、duplicate-explicit-uid 并带 explicitUid；告警计 2 个；cell 不记录 tc-100；静态路径同样判定；只有 Web 声明时 Web 绑定",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
     "id": "UT-CRD-001",
     "req": "FR-027",
     "category": "正常",
@@ -9488,6 +9510,17 @@
     "title": "经 HTTP：可信项目删除用例后同指纹新用例不继承旧 UID",
     "input": "可信项目三次读目录：删 beta 与 Logout，再新增同正文/同步骤的新用例（无真实 Playwright 时跳过并记录原因）",
     "expected": "三次都是 discovery=authoritative 且无重复 UID，新用例 UID 与被删的不同且非 registry",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-ATS602-API-015",
+    "req": "FR-032",
+    "category": "安全",
+    "title": "经 HTTP：可信项目上的 @TC- token 规则跨引擎成立",
+    "input": "两个可信项目（真实 Playwright，无则跳过并记录原因）：Web 去掉 @TC-650 同时场景声明；Web 与场景同时声明 @TC-100",
+    "expected": "都是 discovery=authoritative 且无重复 UID；场景持有 tc-650、Web 用例派生并报告 explicit-uid-claimed-by-another-case；tc-100 无人绑定，两方报告 duplicate-explicit-uid",
     "evidence": "node --test",
     "status": "PASS",
     "level": "IT"
