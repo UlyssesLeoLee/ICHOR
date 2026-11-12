@@ -392,7 +392,28 @@ function readRunEvents(id){
   return {events:[],unreadable:[],missing:false,truncated:false};
  }
 }
-async function body(req){let buf='';for await(const chunk of req){buf+=chunk;if(buf.length>1_200_000)throw new Error('PAYLOAD_TOO_LARGE');}return buf?JSON.parse(buf):{};}
+/**
+ * ATS-213 ｜ 读请求体。
+ *
+ * 请求体里可能带着**密钥**（`POST /api/security/credentials` 的 `secret`
+ * 字段），因此解析失败时**不能**把解析器的消息原样回显——V8 的
+ * `JSON.parse` 错误消息会带上一小段**原始输入**，那正是密钥的片段。
+ * 实测：`{"name":"k","secret":sk-live-LEAKCANARY}` 的解析错误是
+ * `Unexpected token 's', ...","secret":sk-live-LE"... is not valid JSON`
+ * ——密钥的前 10 个字符就出现在 HTTP 响应体里。
+ *
+ * 因此解析失败统一报 `INVALID_REQUEST_BODY`：一个**不含输入内容**的码。
+ * 调用方知道「请求体不是合法 JSON」，但拿不到任何请求体的片段。
+ *
+ * 上限超限仍是 `PAYLOAD_TOO_LARGE`，它本来就不含内容。
+ */
+async function body(req){
+ let buf='';
+ for await(const chunk of req){buf+=chunk;if(buf.length>1_200_000)throw new Error('PAYLOAD_TOO_LARGE');}
+ if(!buf)return {};
+ try{return JSON.parse(buf);}
+ catch{const error=new Error('INVALID_REQUEST_BODY');error.code='INVALID_REQUEST_BODY';throw error;}
+}
 function getProject(id){const p=store.projects.find(p=>p.id===id||p.uid===id);if(!p)throw new Error('PROJECT_NOT_FOUND');return p;}
 function getRun(id){const r=store.runs.find(r=>r.id===id||r.uid===id);if(!r)throw new Error('RUN_NOT_FOUND');return r;}
 function cleanProject(p){let git={branch:'-',commit:'-',dirty:false};try{git=gitInfo(p.root);}catch{} return {...p,uid:p.uid||projectUidOf(p),git};}
@@ -1415,6 +1436,20 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
  const credRm=p.match(/^\/api\/security\/credentials\/(cred_[0-9a-f]{24})$/);
  if(credRm&&req.method==='GET')return respond(res,200,{credential:await credentialStore.describe(credRm[1])});
  if(credRm&&req.method==='DELETE')return respond(res,200,{credential:await credentialStore.remove(credRm[1])});
+ // --- ATS-213: the credential STATUS surface --------------------------------
+ // The status says whether a stored secret can be fetched RIGHT NOW. It is
+ // measured against the OS credential store, not inferred from the index --
+ // the index and the store drift apart (the user deletes the entry in the
+ // system credential manager, the index keeps the reference), and an
+ // inferred status would report a credential as usable when it is not.
+ //
+ // The response carries the status, the reason code, the fingerprint and the
+ // provider. It NEVER carries a secret, and never a fragment of one.
+ if(p==='/api/security/credentials/status'&&req.method==='GET'){
+  return respond(res,200,{statuses:await credentialStore.statusAll(),provider:credentialStore.provider(),available:await credentialStore.available()});
+ }
+ const credStatusRm=p.match(/^\/api\/security\/credentials\/(cred_[0-9a-f]{24})\/status$/);
+ if(credStatusRm&&req.method==='GET')return respond(res,200,{status:await credentialStore.status(credStatusRm[1])});
  if(p==='/api/security/egress/preview'&&req.method==='POST'){
   // Step 1 of the informed consent: show the user EXACTLY what would leave.
   // The platform reads the real files and recomputes the digests, so the

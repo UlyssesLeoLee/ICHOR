@@ -1068,6 +1068,45 @@ IT+=[
 ('IT-SEC-026', 'FR-027', '异常', '凭据库条目消失后可删除；写失败为 503（真实凭据库）', 'cmdkey 删除后 DELETE；3000 字节密钥', '200 且引用清掉；503 CREDENTIAL_STORE_FAILED', 'node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)', 'PASS'),
 ]
 
+# --- ATS-213: the credential STATUS surface ---------------------------------
+# The status says whether a stored secret can be fetched RIGHT NOW. It is
+# measured against the OS credential store -- not inferred from the index,
+# which drifts apart from the store.
+#
+# These rows live in the GENERATOR, not only in docs/07~09: those documents
+# are generated, so a row added only to the generated file is wiped by the
+# next regeneration -- and a test case that exists only in the generated
+# document is a test case that does not exist.
+UT+=[
+('UT-ATS213-001', 'FR-027', '正常', '状态词汇表是三值闭集', 'CREDENTIAL_STATUSES / CREDENTIAL_STATUS_REASONS', '恰为 configured / not-configured / unavailable 与 4 个原因码；没有「未知」这个状态', 'node --test', 'PASS'),
+('UT-ATS213-002', 'FR-027', '正常', '已存入的凭据读回为 configured', '注入的内存凭据库', 'status=configured、reason=CREDENTIAL_FOUND、带 checkedAt', 'node --test', 'PASS'),
+('UT-ATS213-003', 'FR-027', '安全', '状态里没有密钥也没有密钥片段', '注入的内存凭据库', '序列化后不含密钥；无 secret 字段；指纹 8 位十六进制', 'node --test', 'PASS'),
+('UT-ATS213-004', 'FR-027', '异常', '凭据库条目消失而索引仍留着引用 → not-configured', '从注入的凭据库里删掉条目', 'status=not-configured、reason=CREDENTIAL_NOT_FOUND；名称与指纹仍在（它们是索引的事实）', 'node --test', 'PASS'),
+('UT-ATS213-005', 'FR-027', '异常', '凭据库读不出来 → unavailable，不与 not-configured 合并', '读取抛 CREDENTIAL_STORE_FAILED', 'status=unavailable、reason=CREDENTIAL_STORE_FAILED', 'node --test', 'PASS'),
+('UT-ATS213-006', 'FR-027', '异常', '后端不可达 → unavailable + 自己的原因码', 'available() 返回 false', 'status=unavailable、reason=CREDENTIAL_STORE_UNAVAILABLE', 'node --test', 'PASS'),
+('UT-ATS213-007', 'FR-027', '边界', '凭据库读回来是空的 → unavailable，不算 configured', '读回空字符串', 'status=unavailable、reason=CREDENTIAL_STORE_FAILED', 'node --test', 'PASS'),
+('UT-ATS213-008', 'FR-027', '异常', '未知 id 的状态被拒，不猜', '未知 id 与非法 id', '均抛 CREDENTIAL_NOT_FOUND', 'node --test', 'PASS'),
+('UT-ATS213-009', 'FR-027', '正常', '每条引用恰有一个状态', '一条可用 + 一条条目已消失', '两条都在列表里，各有一个落在闭集内的状态与原因码', 'node --test', 'PASS'),
+('UT-ATS213-010', 'FR-027', '边界', '一条坏的不让整个清单变成错误', '一条可读失败', '两条都有状态；不是「全坏了」', 'node --test', 'PASS'),
+('UT-ATS213-011', 'FR-027', '正常', '状态词汇表进契约描述', 'describeCredentialStore', 'statuses 与 statusReasons 都在契约里', 'node --test', 'PASS'),
+('UT-ATS213-012', 'FR-027', '边界', '原因映射把「条目不在」与「读失败」分开', '各类 CREDENTIAL_* 错误与未知错误', 'NOT_FOUND / UNAVAILABLE 各自归位；未知错误归 CREDENTIAL_STORE_FAILED，绝不归「条目不在」', 'node --test', 'PASS'),
+]
+IT+=[
+('IT-ATS213-001', 'FR-027', '安全', '状态接口需要会话 token', '无 X-ATS-Token', '401', 'node --test', 'PASS'),
+('IT-ATS213-002', 'FR-027', '正常', '状态清单经 HTTP 给出，每条恰有一个状态', 'GET /api/security/credentials/status', '200；每条 status 落在三值闭集内、带原因码、指纹 8 位、无 secret 字段', 'node --test', 'PASS'),
+('IT-ATS213-003', 'FR-027', '正常', '契约宣告状态词汇表', 'GET /api/security/contract', 'statuses 与 statusReasons 都在', 'node --test', 'PASS'),
+('IT-ATS213-004', 'FR-027', '异常', '未知凭据 id 的状态被拒', 'GET /api/security/credentials/<未知 id>/status', '404 CREDENTIAL_NOT_FOUND', 'node --test', 'PASS'),
+('IT-ATS213-005', 'NFR-009', '安全', '畸形请求体不回显请求体内容（密钥片段泄漏的回归）', 'POST 一个 secret 未加引号的畸形 JSON', '400 INVALID_REQUEST_BODY；响应里既无完整密钥也无其前 10 个字符', 'node --test', 'PASS'),
+('IT-ATS213-006', 'FR-027', '正常', '存入凭据后状态清单保持一致（真实系统凭据库）', 'POST 存入 → 查状态 → DELETE', '201 时状态读 configured，删除后清单为空；凭据库不可用时 POST 为 503 CREDENTIAL_STORE_UNAVAILABLE（两种结果都确定）', 'node --test（真实 Windows Credential Manager）', 'PASS'),
+('IT-ATS213-007', 'NFR-009', '安全', '密钥不进本机任何可读文件', '存入一个带标记的密钥后扫描数据目录', '数据目录里没有任何文件含该密钥；状态清单也不含', 'node --test（真实 Windows Credential Manager）', 'PASS'),
+]
+ST+=[
+('ST-ATS213-001', 'FR-027', '功能', '存入密钥后界面显示「已配置」', '真实 Bridge + 真实 Chromium + 真实 Windows Credential Manager', '状态行显示「已配置」与「已从系统凭据库取回」', 'node tools/ats213-probes/st-ats213.mjs', 'PASS'),
+('ST-ATS213-002', 'FR-027', '异常', '从系统凭据库删掉条目后界面显示「未配置」', '平台索引仍留着引用（分叉是真实存在的）', '状态行显示「未配置」与「系统凭据库里没有这一条」——状态是测出来的，不从索引推断', 'node tools/ats213-probes/st-ats213.mjs', 'PASS'),
+('ST-ATS213-003', 'NFR-009', '隐私', '界面上没有密钥明文', '页面正文与状态行', '正文既不含完整密钥也不含其前 8 个字符；密钥输入框存入后被清空', 'node tools/ats213-probes/st-ats213.mjs', 'PASS'),
+('ST-ATS213-004', 'FR-027', '异常', '状态接口报出原因码而不是假装成功', '条目已被删除时的单条状态查询', 'status=not-configured、reason=CREDENTIAL_NOT_FOUND', 'node tools/ats213-probes/st-ats213.mjs', 'PASS'),
+]
+
 def emit(file,title,purpose,cases):
  # The status column may qualify a PASS ("PASS（UT）" -- passed, but the
  # evidence is a unit test rather than a system test). Such a row IS

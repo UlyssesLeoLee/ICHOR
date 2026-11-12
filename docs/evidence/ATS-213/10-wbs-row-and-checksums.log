@@ -1,0 +1,43 @@
+================================================================================
+ATS-213 evidence log -- the WBS row and the checksum manifest
+================================================================================
+commit        : 14675286f91ade59f669a74c1f73a39d5f9fe2f7
+timestamp     : 2026-11-12T17:46:54Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-44eea8bbc9b6/worktree
+python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command       : bash tools/ats213-probes/collect-wbs-and-checksums.sh
+================================================================================
+
+--- 1. the WBS row update ---
+overview: 已完成=2 完成率=0.31137724550898205 剩余人日=345.0
+updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-44eea8bbc9b6\worktree\docs\WBS.xlsx
+the updater exit code: 0
+
+--- 2. the WBS row read back from the workbook ---
+row            : 34
+状态            : 待审核
+完成率          : 1
+剩余人日        : 0
+估算人日        : 5
+验证方式        : IT,ST
+关联要件        : FR-027,NFR-009
+备注长度        : 1407
+【ATS-213】×     : 1
+RESULT: OK -- the ATS-213 row reads 状态=待审核 完成率=1 剩余人日=0 marker×1
+the read-back exit code: 0
+
+--- 3. the overview totals (recomputed from the sheet) ---
+B8 已完成 count: 2
+B9 完成率: 0.31137724550898205
+B10 剩余人日: 345
+
+--- 4. the checksum manifest ---
+CHECKSUMS.sha256: 971 entries
+update_checksums exit code: 0
+manifest entries : 971
+digest mismatches: 0
+tracked-not-listed: 0 []
+listed-not-tracked: 0 []
+RESULT: OK
+verify_checksums exit code: 0

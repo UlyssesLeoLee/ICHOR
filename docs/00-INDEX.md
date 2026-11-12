@@ -46,8 +46,9 @@
 | 25-MOBILE-APP-TESTING.md | 移动端测试执行面 | S6 / v0.5.0：移动端目标抽象（设备/模拟器/远端会话）、Flow→TestDefinition 映射、Android Runner 与证据归档、能力矩阵与 iOS/Maestro 边界（ATS-601~606；ATS-601 的目标与会话**契约层**已实现并经 UT 实测，ATS-602 的导入映射层已实现并经 UT/IT 实测，ATS-606 的 iOS/Maestro 边界**已冻结并可机读复核**（§8 三张表；§8.5 的导入器行为与参数保真由脚本生成、复核脚本逐格比对），其余仍为 DESIGNED，仓库内无真实移动端执行，**也没有 iOS Runner**） |
 | 26-RUNNER-PREFLIGHT.md | Runner 预检与参数安全基线 | ATS-106：Playwright CLI 运行前环境检测（CLI/版本/Node/依赖/浏览器/配置）的错误码与修复提示、请求体白名单、过滤参数校验与整条参数向量自检、不经 shell |
 | 31-REAL-BROWSER-FIXTURE.md | 真实浏览器 PASS/FAIL 测试仓库 | ATS-107：独立工程夹具（依赖由入库 lockfile 精确固定）、真实 Chromium 上 1 PASS 1 FAIL、与独立 CLI 直跑逐条对账（判定/计数器/错误信息三项一致）、对账逻辑的变异负控（见 `docs/evidence/ATS-107/`） |
+| 32-CREDENTIAL-STATUS.md | 凭据可用状态 | ATS-213：OS Keychain/Windows Credential Manager 集成之上的**可用状态面**（状态是三值闭集且每条引用恰有一个：已配置/未配置/取不到；**状态对系统凭据库实测而不从索引推断**；「未配置」与「取不到」不合并；取失败报封闭原因码而不静默降级；界面显示状态词与原因且不回显明文；并修掉「请求体解析失败回显密钥片段」这一真实泄漏。Windows Credential Manager **已实测**，macOS/Linux 后端未在真机实测，Tauri 壳内未验证——见 `docs/evidence/ATS-213/`） |
 | dependencies/ | 依賴清單 | ATS-102 生成的依赖清单（机读 JSON + 人读 MD），由 lockfile 派生，可机读校验 |
-| evidence/ | 実行証跡 | ATS-101/ATS-102/ATS-103/ATS-106/ATS-201/ATS-202/ATS-205/ATS-301/ATS-401/ATS-402/ATS-403/ATS-501/ATS-502/ATS-506/ATS-512/ATS-208/ATS-216 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界、构建门禁与可重现性、UID 规范、权威发现契约、协议契约校验、前端静态导出与 Bridge API 契约、控制面边界、插件权限边界、执行模型与事件复演、AI 数据安全：凭据存储与外传知情授权、模型 API 适配层：协议翻译/错误分类/回退/密钥来源/工作区不变性、Runner 预检与参数安全基线：确定错误码与修复提示、请求体白名单与过滤参数校验） |
+| evidence/ | 実行証跡 | ATS-101/ATS-102/ATS-103/ATS-106/ATS-201/ATS-202/ATS-205/ATS-213/ATS-301/ATS-401/ATS-402/ATS-403/ATS-501/ATS-502/ATS-506/ATS-512/ATS-208/ATS-216 各结论的实际命令与输出（UT/IT、Runner 缺陷、构建约束、接口面、权限边界、构建门禁与可重现性、UID 规范、权威发现契约、协议契约校验、前端静态导出与 Bridge API 契约、控制面边界、插件权限边界、执行模型与事件复演、AI 数据安全：凭据存储与外传知情授权、凭据可用状态面与「请求体解析失败回显密钥片段」的泄漏修复、模型 API 适配层：协议翻译/错误分类/回退/密钥来源/工作区不变性、Runner 预检与参数安全基线：确定错误码与修复提示、请求体白名单与过滤参数校验） |
 | tools/ats101-probes/ | 再現スクリプト | ATS-101 全部阻断项与约束清单的仓库内可重跑复现脚本（见 `docs/evidence/ATS-101/`） |
 | tools/ats201-probes/ | 再現スクリプト | ATS-201 稳定 UID 规范的可重跑验证脚本，含真实 Playwright 报告契约测试（见 `docs/evidence/ATS-201/`） |
 | tools/ats202-probes/ | 再現スクリプト | ATS-202 权威发现的真实 Playwright `--list` 契约测量（33 项断言，含「`--list` 会执行项目代码」这条安全事实，见 `docs/evidence/ATS-202/`） |
@@ -58,6 +59,7 @@
 | tools/ats103-probes/ | 検証スクリプト | ATS-103 静态导出 → Bridge → 会话/项目/运行 全链的可重跑验证脚本：25 项 HTTP/运行时检查 + 真实 headless Chromium 的 8 项 UI 驱动检查 + 五变异证据（见 `docs/evidence/ATS-103/`） |
 | tools/ats506-probes/ | 検証スクリプト | ATS-506 控制面边界的负向夹具（11 个守护变异必须被对应用例捕获）与证据收集脚本（见 `docs/evidence/ATS-506/`） |
 | tools/ats402-probes/ | 検証スクリプト | ATS-402 AI 数据安全边界的仓库内可重跑探针（秘密不进文件/argv/日志的静态检查、真实系统凭据库回读、外传闸门判定、外传审计留痕，每项均带负控，见 `docs/evidence/ATS-402/`） |
+| tools/ats213-probes/ | 検証スクリプト | ATS-213 凭据可用状态面的仓库内可重跑探针（凭据边界探针：密钥不进 argv/文件/日志/HTTP 响应，含 2 项负控；真实浏览器的系统测试：状态在界面上可见、删掉系统凭据库条目后状态由「已配置」变「未配置」、页面无明文；证据收集脚本，见 `docs/evidence/ATS-213/`） |
 | tools/ats512-probes/ | 検証スクリプト | ATS-512 插件权限边界的仓库内可重跑探针（超权拒绝、审计不可抑制、证据不可伪造，含负控，见 `docs/evidence/ATS-512/`） |
 | tools/ats216-probes/ | 検証スクリプト | ATS-216 质量概览的可重跑探针（真实 Bridge + 真实 Playwright 的系统测试、变异检查、证据收集脚本，见 `docs/evidence/ATS-216/`） |
 | tools/ats208-probes/ | 検証スクリプト | ATS-208 执行模型的可重跑探针（重试用例的计数与 attempt 保留、事件流按 run+sequence 复演，含 Bridge 崩溃场景，见 `docs/evidence/ATS-208/`） |
