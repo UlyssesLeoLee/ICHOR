@@ -22,7 +22,7 @@
 | FR-002 | Git 上下文 | 展示项目 branch、short commit、dirty 标志 | P0 | IMPLEMENTED |
 | FR-003 | 现有脚本零迁移 | 扫描原仓库并直接显示 .spec/.test 文件 | P0 | IMPLEMENTED |
 | FR-004 | 测试项索引 | 常见静态 test/it 标题、文件、行号可展示；动态情况显式提示不完整 | P0 | IMPLEMENTED (limited) |
-| FR-005 | 测试检索 | 支持文件与用例标题关键字筛选 | P0 | IMPLEMENTED UI |
+| FR-005 | 测试检索 | 支持文件与用例标题关键字筛选 | P0 | IMPLEMENTED UI（ATS-214：按用例名/文件/标签检索；搜索与过滤按集合语义取交集；多标签口径「任一/全部」可见） |
 | FR-006 | 源码浏览 | 展示 UTF-8 TypeScript/JavaScript 测试源文件 | P0 | IMPLEMENTED |
 | FR-007 | 脚本保存 | SHA-256 版本匹配才允许保存；不自动 commit | P0 | IMPLEMENTED |
 | FR-008 | 非破坏性流程投影 | 识别 goto/click/fill/expect 等常见调用；不能覆盖原始代码 | P0 | IMPLEMENTED (heuristic) |
@@ -38,7 +38,7 @@
 | FR-018 | 执行事件审计 | 同一次运行生成事件顺序号与 JSONL | P0 | IMPLEMENTED（ATS-208：序号无空洞，事件可按 run+sequence 复演为 run 的状态） |
 | FR-019 | Git 一致性与冲突提示 | 源码变化导致 stale hash 时返回 409/错误提示 | P0 | IMPLEMENTED |
 | FR-020 | 编辑器多视图 | 代码与图切换不丢原始代码；复杂步骤降级显示 | P0 | IMPLEMENTED (not reversible) |
-| FR-021 | 完整 Playwright --list 发现 | 根据权威运行时发现动态测试与参数化用例 | P1 | IMPLEMENTED (v0.2.0, ATS-202；未可信仓库回退静态索引) |
+| FR-021 | 完整 Playwright --list 发现 | 根据权威运行时发现动态测试与参数化用例 | P1 | IMPLEMENTED (v0.2.0, ATS-202；未可信仓库回退静态索引；ATS-214：两个索引都携带标签，静态索引读源码、权威索引读 CLI，实测逐条一致) |
 | FR-022 | Graph Editor 受控反写 | 仅可视化子集能写回 AST；复杂代码原位保留 | P1 | DESIGNED |
 | FR-023 | WDIO Tauri Runner | 统一 Run/Test/Attempt schema，驱动桌面 E2E | P1 | DESIGNED |
 | FR-024 | AI 生成 | 需求→测试意图→脚本候选→审查后写入 | P1 | PARTIAL（契约层 ATS-401 + 模型 API 适配层 ATS-403 已实现：两种兼容协议、可配置提供商与错误回退链；**未用真实模型端到端验证**，模型输出仍不写入仓库，见 17-AGENT-CONTRACT 与 30-MODEL-ADAPTER） |

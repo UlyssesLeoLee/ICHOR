@@ -42,7 +42,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-106】', '【ATS-107】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
-           '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-215】', '【ATS-216】',
+           '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-214】', '【ATS-215】', '【ATS-216】',
            '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-403】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
            '【ATS-601】', '【ATS-602】', '【ATS-603】', '【ATS-606】')
 

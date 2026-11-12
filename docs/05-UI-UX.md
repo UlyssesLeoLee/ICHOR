@@ -7,7 +7,7 @@
 | 画面 ID | 画面 | 核心组件与交互 | 状态 |
 |---|---|---|---|
 | UI-001 | Workspace Header | 项目下拉、Git branch/sha/dirty、添加项目 | IMPLEMENTED |
-| UI-002 | Test Catalog | 左侧搜索 + 源文件、测试列表、总览统计 | IMPLEMENTED |
+| UI-002 | Test Catalog | 左侧搜索 + 源文件、测试列表、总览统计 | IMPLEMENTED（ATS-214：搜索按用例名/文件/标签；标签过滤标注「任一/全部」口径；勾选用例可批量运行，执行中心给出「选了什么/跑了什么」对账） |
 | UI-003 | Flow Projection | goto/click/fill/expect 路径图、定位行号 | IMPLEMENTED read-only |
 | UI-004 | Source Editor | Monaco TS 编辑、保存、源文件 SHA 校验 | Next 源码实现；依赖未在离线环境构建 |
 | UI-005 | Run Center | Run 历史、运行状态、stdout/stderr、停止按钮 | IMPLEMENTED |

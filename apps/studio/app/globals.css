@@ -13,3 +13,39 @@
 .warn{color:#f0ca7f}
 .selected-row{background:#18293c}
 .selected-row td{color:#d6e8f7}
+/* ATS-214: the CASE SEARCH / TAG / FILTER / SELECTION surface.
+ *
+ * The classes the catalogue's filter box and its selection affordances
+ * need on top of the shared ones:
+ *
+ *   * `.filter-box`  -- the criteria block under the search box;
+ *   * `.tag-chip`   -- a tickable tag or file, with its case count;
+ *   * `.pick-box`   -- the tick box of a case in the list;
+ *   * `.select-bar` -- the selection's count and its two actions;
+ *   * `.link-btn`   -- a text button (the actions of the select bar).
+ *
+ * They are appended as a separate rule so that the minified base sheet
+ * stays untouched -- the base sheet is one long line, and editing it in
+ * place would make the diff unreadable.
+ */
+.filter-box{margin:0 12px 10px;padding:10px 11px;background:#121d2b;border:1px solid #23364a;border-radius:8px}
+.filter-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+.filter-head .eyebrow{margin:0;font-size:9px}
+.mode-select{background:#18283a;color:#cfe3f6;border:1px solid #2e465e;border-radius:5px;font-size:10px;padding:2px 5px;outline:none;cursor:pointer}
+.tag-list{display:flex;flex-wrap:wrap;gap:5px}
+.tag-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;border:1px solid #2b4056;background:#16243a;color:#9fb8d0;border-radius:99px;padding:4px 9px;font-size:10px;line-height:1.3}
+.tag-chip:hover{border-color:#3d6288;color:#cfe3f6}
+.tag-chip.on{background:#22456b;border-color:#3f7cb5;color:#e2f0ff}
+.tag-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag-chip small{color:#7593af;font-size:9px}
+.tag-chip.on small{color:#a9ccec}
+.filter-report{margin-top:8px;padding-top:7px;border-top:1px solid #23364a;font-size:10px;color:#7f9bb6;line-height:1.6}
+.select-bar{display:flex;align-items:center;gap:10px;margin:0 12px 8px;padding:7px 11px;background:#14202f;border:1px solid #263a4f;border-radius:8px;font-size:11px;color:#93aec8}
+.select-bar span{flex:1;min-width:0}
+.link-btn{border:0;background:none;color:#79b7ea;font-size:11px;padding:0}
+.link-btn:hover:not(:disabled){color:#a8d4f6;text-decoration:underline}
+.link-btn:disabled{color:#5a7188;cursor:not-allowed}
+.pick-box{flex-shrink:0;width:13px;height:13px;border:1px solid #43607d;border-radius:3px;background:transparent;cursor:pointer;display:inline-block}
+.pick-box:hover{border-color:#6fa8d8}
+.pick-box.on{background:#4d9ad8;border-color:#6fb4ee;box-shadow:inset 0 0 0 2px #14202f}
+.tag-line{color:#8fb6d8!important;font-size:9px!important;margin-top:3px!important}
