@@ -7,7 +7,7 @@ import {api,cancellableApi,downloadArtifact,type Project,type TestDef,type TestC
 // cancelled / loading -- are defined ONCE, here, and the unit tests assert
 // on them (tests/workbench-state.test.mjs) without a browser. The view
 // below only renders what the model says.
-import {WORKBENCH_STATES,deriveWorkbenchState,isTextEntry,keyCommandFor,keyboardHelpLines,type WorkbenchStateKind} from '../lib/workbench-state.mjs';
+import {WORKBENCH_STATES,NO_PROJECT_STATE,deriveWorkbenchState,panelState,isTextEntry,hasNativeEnterAction,isComposing,keyCommandFor,keyboardHelpLines,type WorkbenchStateKind} from '../lib/workbench-state.mjs';
 // ATS-214: the CASE SEARCH / TAG / FILTER / SELECTION module. The SAME
 // module the portable UI imports, so the two interfaces cannot disagree
 // about what the catalogue shows -- and the SET semantics (a search and a
@@ -53,12 +53,25 @@ function formatTime(s?:string|null){return s?new Date(s).toLocaleString('zh-CN',
 // a failure is announced assertively, the other three politely.
 function StatePanel({kind,detail,onRetry,retryLabel}:{kind:WorkbenchStateKind,detail?:string,onRetry?:()=>void,retryLabel?:string}){
  const s=WORKBENCH_STATES[kind];
- const Icon=kind==='loading'?Loader2:kind==='error'?TriangleAlert:kind==='cancelled'?Inbox:Inbox;
+ const Icon=kind==='loading'?Loader2:kind==='error'?TriangleAlert:Inbox;
  return <div className={'state-panel state-'+kind} role={s.role} aria-live={s.ariaLive} aria-busy={s.busy?'true':'false'} data-state={kind} data-state-token={s.token}>
   <div className="state-head"><Icon size={16} className={kind==='loading'?'spin':''} aria-hidden="true"/><b>{s.label}</b></div>
   <p className="state-detail">{detail||s.detail}</p>
   <p className="state-hint">{s.hint}</p>
   {onRetry&&<button className="btn secondary small state-retry" onClick={onRetry}><RefreshCcw size={13}/> {retryLabel||'重试'}</button>}
+ </div>;
+}
+// ATS-111: the NO-PROJECT panel. It is a panel like the other four, but it
+// is about the WORKSPACE rather than about a request: there is no project
+// to load a catalogue for. It says so in its own words and points at the
+// action that helps -- importing a project -- instead of talking about a
+// filter that matched nothing.
+function NoProjectPanel({onAddProject}:{onAddProject:()=>void}){
+ return <div className="state-panel state-no-project" role="status" aria-live="polite" aria-busy="false" data-state="no-project" data-state-token={NO_PROJECT_STATE.token}>
+  <div className="state-head"><FolderGit2 size={16} aria-hidden="true"/><b>{NO_PROJECT_STATE.label}</b></div>
+  <p className="state-detail">{NO_PROJECT_STATE.detail}</p>
+  <p className="state-hint">{NO_PROJECT_STATE.hint}</p>
+  <button className="btn primary small state-retry" onClick={onAddProject}><FilePlus2 size={13}/> 添加项目</button>
  </div>;
 }
 function stepsOf(src:string){const arr:{line:number,name:string,kind:string}[]=[];src.split('\n').forEach((line,i)=>{
@@ -105,6 +118,15 @@ export default function Studio(){
  // load that is still in flight -- a cancellation is its OWN state, not
  // a failure and not an empty list.
  const [catalogueRequest,setCatalogueRequest]=useState<{phase:'idle'|'pending'|'settled'|'failed'|'cancelled',itemCount?:number,error?:string}>({phase:'idle'});
+ // ATS-111: the RELOAD counter.
+ //
+ // 「重新加载」 must really issue a new request. Setting the active
+ // project to the value it already has is not a state change, so React
+ // does not re-run the loading effect and no request is made -- the
+ // button would be a no-op. A counter in the effect's dependency list
+ // IS a change, so the effect re-runs and the request is issued again.
+ const [reloadToken,setReloadToken]=useState(0);
+ const reloadCatalogue=useCallback(()=>setReloadToken(n=>n+1),[]);
  // The abort handle is a REF, not state. A function passed to a state
  // setter is the state's UPDATER: React CALLS it, so `setAbort(fn)`
  // would have invoked `fn` -- aborting the request the instant it was
@@ -132,17 +154,43 @@ export default function Studio(){
   setRunsRequest({phase:'settled',itemCount:r.runs.length});
   if(!active&&p.projects.length)setActive(p.projects[0].id);
  }catch(e){setRunsRequest({phase:'failed',error:(e as Error).message});notify((e as Error).message)}},[active]);
- useEffect(()=>{refresh();const t=setInterval(()=>{api<{runs:Run[]}>('/api/runs').then(r=>setRuns(r.runs)).catch(()=>{})},1800);return()=>clearInterval(t)},[refresh]);
+ // ATS-111: the run list is POLLED, and a poll that FAILS is reported.
+ // A failed poll that is swallowed leaves the panel showing the last
+ // known run list as if it were current -- a silent stale read, which
+ // is the same class of defect as the catalogue's stale rows. The
+ // failure is recorded so the runs panel can show it.
+ useEffect(()=>{
+  refresh();
+  const t=setInterval(()=>{
+   api<{runs:Run[]}>('/api/runs')
+    .then(r=>{setRuns(r.runs);setRunsRequest({phase:'settled',itemCount:r.runs.length});})
+    .catch(e=>setRunsRequest({phase:'failed',error:(e as Error).message}));
+  },1800);
+  return()=>clearInterval(t);
+ },[refresh]);
  // ATS-111: the catalogue load is CANCELLABLE and reports its outcome.
  //
  // The request is aborted when the project changes, so the answer of the
  // project the reader left can never land on the project they are now
  // looking at -- and the reader is told the load was CANCELLED rather
  // than being left with a spinner that never resolves.
+ //
+ // The catalogue is CLEARED when the project changes. Holding the old
+ // project's cases while the new one loads would present another
+ // project's cases as the current project's -- the panel, the metrics
+ // and the footer would all name cases the reader did not ask for.
+ //
+ // `reloadToken` is what makes 「重新加载」 work. Asking for the same
+ // project again is not a state change, so React does not re-run the
+ // effect and no request is made; the counter changes, so the effect
+ // re-runs and the request is really issued again.
  useEffect(()=>{
-  if(!active){setCatalog({tests:[],files:[],warning:'',uidVersion:0,projectUid:''});
-   setCatalogueRequest({phase:'idle'});return;}
+  if(!active){
+   setCatalog({tests:[],files:[],warning:'',uidVersion:0,projectUid:''});
+   setCatalogueRequest({phase:'idle'});return;
+  }
   let cancelled=false;
+  setCatalog({tests:[],files:[],warning:'',uidVersion:0,projectUid:''});
   setCatalogueRequest({phase:'pending'});
   const controller=cancellableApi<TestCatalog>(`/api/projects/${active}/tests`);
   catalogueAbort.current=controller.abort;
@@ -152,7 +200,7 @@ export default function Studio(){
   api<typeof lineage>(`/api/projects/${active}/lineage`).then(setLineage).catch(()=>setLineage({requirements:[],links:[]}));
   setSelected(null);setSource(null);
   return()=>{cancelled=true;controller.abort();catalogueAbort.current=null;};
- },[active]);
+ },[active,reloadToken]);
  // ATS-111: Escape cancels the load that is in flight. The cancellation
  // is a state of its own, so the reader can tell it apart from a failure
  // and from an empty list.
@@ -200,7 +248,20 @@ export default function Studio(){
  },[]);
  useEffect(()=>{if(tab==='security')loadSecurity();},[tab,loadSecurity]);
  async function openFile(test:TestDef){setSelected(test);try{const s=await api<Source>(`/api/projects/${active}/source?file=${encodeURIComponent(test.file)}`);setSource(s);setDraft(s.content)}catch(e){notify((e as Error).message)}}
- async function addProject(){setBusy(true);try{const r=await api<{project:Project}>('/api/projects','POST',{path:projectPath});setDialog(false);setProjectPath('');setActive(r.project.id);await refresh();notify('项目添加成功：未修改原仓库')}catch(e){notify((e as Error).message)}finally{setBusy(false)}}
+ async function addProject(){setBusy(true);try{const r=await api<{project:Project}>('/api/projects','POST',{path:projectPath});closeDialog();setProjectPath('');setActive(r.project.id);await refresh();notify('项目添加成功：未修改原仓库')}catch(e){notify((e as Error).message)}finally{setBusy(false)}}
+ // ATS-111: closing the add-project dialog gives the focus BACK to the
+ // button that opened it. Without this the focus falls onto the
+ // <body>, and the document-level key commands still work -- but the
+ // reader who just cancelled now has to walk the whole tab order back
+ // to where they were.
+ const closeDialog=useCallback(()=>{
+  setDialog(false);
+  // The focus is restored in a microtask, because the dialog is still
+  // mounted when `setDialog(false)` is called and the browser would
+  // refuse to move the focus onto an element that is about to be
+  // replaced.
+  queueMicrotask(()=>addProjectRef.current?.focus());
+ },[]);
  // ATS-214: the BATCH run. The selection is sent as the uids of the
  // picked cases; the Bridge validates them against the catalogue, splits
  // them by file and chains one run per file. The selection itself is on
@@ -267,42 +328,131 @@ export default function Studio(){
  //   Escape        cancels what is in flight (the catalogue load, the
  //                  open dialog) -- and says so, instead of leaving a
  //                  spinner that never resolves;
- //   Enter         submits what is on screen (the project dialog, the
- //                  credential form);
+ //   Enter         submits what is on screen (the script editor's
+ //                  unsaved draft);
  //   Ctrl+Enter    runs the case that is selected;
  //   Ctrl+P        moves the focus to the script search.
  //
- // A plain Enter inside a TEXT FIELD is left to the browser (it is the
- // field's own "submit" behaviour), so typing a path and pressing Enter
- // still submits the form.
+ // The forms on the screen (the add-project dialog, the credential
+ // form) are REAL forms, so their own Enter behaviour is the browser's
+ // and the workbench does not have to reproduce it.
  const searchRef=React.useRef<HTMLInputElement|null>(null);
+ // ATS-111: the element that opened the add-project dialog. When the
+ // dialog closes, the focus goes BACK to it: without that, the focus
+ // falls onto the <body>, and a keyboard reader who then presses Ctrl+P
+ // finds that nothing happens -- and that Esc does not cancel the load
+ // either.
+ const addProjectRef=React.useRef<HTMLButtonElement|null>(null);
  const runCurrent=useCallback(async()=>{
   if(!active)return;if(live)return;
   await execute(selected?.file??null);
  },[active,live,selected?.file]);
- const onWorkbenchKey=useCallback((e:React.KeyboardEvent)=>{
-  const command=keyCommandFor(e.nativeEvent);
+ // ATS-111: the key handler.
+ //
+ // It is attached to the DOCUMENT, not to the app shell. A handler on a
+ // container only receives the keys that happen to be inside it, so a
+ // reader whose focus sits on the <body> -- which is where the focus
+ // lands after the page loads and after a dialog closes -- would find
+ // that Escape does not cancel the load and Ctrl+P does not move the
+ // focus, even though the loading panel says 「按 Esc 可以取消这次加载」.
+ //
+ // Three things are left to the browser on purpose:
+ //
+ //   1. an IME composition -- Escape belongs to the input method;
+ //   2. Enter inside a text field -- the browser submits the form;
+ //   3. Enter on a control with a NATIVE action -- a button, a link, a
+ //      summary. The browser fires the control's own click, and the
+ //      workbench must NOT perform a different write instead: focusing
+ //      「取消」 and pressing Enter has to CANCEL, not add the project.
+ const onWorkbenchKey=useCallback((e:KeyboardEvent)=>{
+  if(isComposing(e))return;
+  const command=keyCommandFor(e);
   if(!command)return;
+  const target=e.target as HTMLElement|null;
   if(command==='cancel'){
    // The dialog is the innermost thing that can be cancelled.
-   if(dialog){setDialog(false);e.preventDefault();return;}
+   if(dialog){closeDialog();e.preventDefault();return;}
    if(cancelCatalogue()){e.preventDefault();return;}
    return;
   }
-  if(command==='focus-search'){searchRef.current?.focus();e.preventDefault();return;}
-  if(command==='run-current'){void runCurrent();e.preventDefault();return;}
+  if(command==='focus-search'){
+   // The dialog is modal: the focus stays inside it.
+   if(dialog)return;
+   searchRef.current?.focus();e.preventDefault();return;
+  }
+  if(command==='run-current'){
+   // The dialog is modal: a key pressed in it must not start a run in
+   // the background behind it.
+   if(dialog)return;
+   // A text field keeps its own keys: pressing Ctrl+Enter while
+   // typing a path must not start a run.
+   if(isTextEntry(target))return;
+   void runCurrent();e.preventDefault();return;
+  }
   if(command==='submit'){
    // A text field keeps its own Enter behaviour.
-   if(isTextEntry(e.target))return;
-   if(dialog&&projectPath){void addProject();e.preventDefault();return;}
-   if(tab==='security'&&keyName&&keySecret){void saveKey();e.preventDefault();return;}
+   if(isTextEntry(target))return;
+   // A control with its own Enter action keeps it: the browser fires
+   // that control's click, and the workbench does not perform a
+   // different write on top of it. Focusing 「取消」 and pressing Enter
+   // has to CANCEL -- not add the project.
+   if(hasNativeEnterAction(target))return;
    if(selected&&source&&draft!==source.content){void save();e.preventDefault();return;}
   }
- },[dialog,projectPath,tab,keyName,keySecret,selected,source,draft,cancelCatalogue,runCurrent]);
+ },[dialog,selected,source,draft,cancelCatalogue,runCurrent]);
+ // ATS-111: the key commands are bound to the DOCUMENT.
+ //
+ // A handler on the app shell only receives the keys that land inside
+ // it, and the focus is not always inside it: after the page loads, and
+ // after a dialog closes, the focus sits on the <body>. The loading
+ // panel tells the reader 「按 Esc 可以取消这次加载」, so Escape has to
+ // work there -- and Ctrl+P has to move the focus to the search box
+ // from there too.
+ useEffect(()=>{
+  document.addEventListener('keydown',onWorkbenchKey);
+  return()=>document.removeEventListener('keydown',onWorkbenchKey);
+ },[onWorkbenchKey]);
+ // ATS-111: the FOCUS TRAP of the add-project dialog.
+ //
+ // The dialog declares `aria-modal="true"`, which promises the reader
+ // that the rest of the page is not reachable while it is open. Tab
+ // walking into the background breaks that promise: a screen-reader
+ // user would find themselves in the rail behind the dialog.
+ //
+ // The trap keeps the focus inside the dialog and wraps around at both
+ // ends. It is a CAPTURE-phase listener, so it runs before the browser
+ // moves the focus -- which is what makes the wrap-around work.
+ useEffect(()=>{
+  if(!dialog)return;
+  const onKeyDown=(e:KeyboardEvent)=>{
+   if(e.key!=='Tab')return;
+   const modal=document.querySelector('.modal[role="dialog"]');
+   if(!modal)return;
+   const focusable=[...modal.querySelectorAll<HTMLElement>('input,button,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')]
+    .filter(el=>!el.hasAttribute('disabled')&&el.offsetParent!==null);
+   if(!focusable.length)return;
+   const first=focusable[0],last=focusable[focusable.length-1];
+   const active=document.activeElement as HTMLElement|null;
+   if(e.shiftKey){
+    if(active===first||!modal.contains(active)){last.focus();e.preventDefault();}
+   }else if(active===last||!modal.contains(active)){
+    first.focus();e.preventDefault();
+   }
+  };
+  document.addEventListener('keydown',onKeyDown,true);
+  return()=>document.removeEventListener('keydown',onKeyDown,true);
+ },[dialog]);
  // ATS-111: the state of the catalogue panel, decided by the MODEL.
  // The panel component renders the ARIA attributes itself, from the same
  // model, so there is no second copy of them here to drift.
+ //
+ // The panel state has TWO axes: what the request did (the four states)
+ // and whether there is a project at all. Without a project the request
+ // is idle, so the four-state mapping alone would fall through to "the
+ // filter matched nothing" -- a message about a list that does not
+ // exist. The model composes the two axes.
  const catalogueState=deriveWorkbenchState(catalogueRequest);
+ const panel=panelState(catalogueRequest,{hasProject:Boolean(active)});
  // ATS-215: the EVIDENCE WORKBENCH. The view is computed by the SHARED
  // module, so the Next workbench and the portable UI locate a trace the
  // same way -- there is one implementation, not two.
@@ -320,11 +470,14 @@ export default function Studio(){
   api<EvidenceMaterial>(`/api/runs/${evidenceRunId}/workbench`).then(m=>{if(!cancelled){setEvidenceMaterial(m);setEvidenceSelected(0);}}).catch(e=>{if(!cancelled)notify((e as Error).message);});
   return()=>{cancelled=true;};
  },[tab,evidenceRunId]);
- // ATS-111: the workbench root carries the key handler, so the commands
- // work wherever the focus happens to be. The skip link is the first
- // focusable element: it lets a keyboard user jump straight to the
- // content instead of walking the rail.
- return <div className="app-shell" onKeyDown={onWorkbenchKey}>
+ // ATS-111: the workbench root. The skip link is the first focusable
+ // element: it lets a keyboard user jump straight to the content
+ // instead of walking the rail.
+ //
+ // The KEY HANDLER is NOT on this element -- it is on the document (see
+ // the effect above), so that it also works when the focus is on the
+ // <body>.
+ return <div className="app-shell">
   <a className="skip-link" href="#content">跳到主要内容</a>
   <aside className="rail" role="navigation" aria-label="主导航" data-region="rail"><div className="mark"><TestTube2 size={23}/></div>
    <button title="测试目录" aria-label="测试目录" aria-current={tab==='catalog'?'page':undefined} className={tab==='catalog'?'rail-btn active':'rail-btn'} onClick={()=>setTab('catalog')}><Layers3 size={20}/></button>
@@ -341,7 +494,7 @@ export default function Studio(){
     <div className="top-actions"><span className="chip subdued"><ShieldAlert size={13}/> 本地可信仓库模式</span><button className="icon-btn" onClick={()=>refresh()} title="刷新" aria-label="刷新" data-region="refresh"><RefreshCcw size={16}/></button></div></header>
    <section className="projectbar" aria-label="工作区"><div><span className="eyebrow">WORKSPACE</span><select value={active} onChange={e=>setActive(e.target.value)} className="project-select" aria-label="选择测试项目" data-region="project-select"><option value="">选择测试项目</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
     {selectedProject&&<div className="repo-meta"><span><GitBranch size={14}/>{selectedProject.git.branch}</span><span><GitCommitHorizontal size={14}/>{selectedProject.git.commit}</span>{selectedProject.git.dirty&&<span className="dirty">未提交修改</span>}</div>}
-    <button className="btn secondary" onClick={()=>setDialog(true)} data-region="add-project"><FilePlus2 size={15}/> 添加项目</button>
+    <button className="btn secondary" ref={addProjectRef} onClick={()=>setDialog(true)} data-region="add-project"><FilePlus2 size={15}/> 添加项目</button>
    </section>
    <section className="workspace">
     <aside className="sidebar" aria-label="资源列表" data-region="sidebar"><div className="sidebar-head"><div className="eyebrow">EXPLORER</div><h3>{tab==='catalog'?'测试资产':tab==='runs'?'运行记录':tab==='quality'?'质量概览':tab==='evidence'?'证据工作台':tab==='trace'?'需求列表':'模块概览'}</h3></div>
@@ -375,15 +528,18 @@ export default function Studio(){
          is shown at a time, and each says something different: the list
          is empty, the load failed, the load was cancelled, or the load is
          still running. */}
-     <div className="file-list" data-region="panel" data-catalogue-state={catalogueState||'ready'}>
-     {catalogueState==='loading'&&<StatePanel kind="loading"/>}
-     {catalogueState==='error'&&<StatePanel kind="error" detail={catalogueRequest.error?`原因：${catalogueRequest.error}`:undefined} onRetry={()=>setActive(a=>a)} retryLabel="重新加载"/>}
-     {catalogueState==='cancelled'&&<StatePanel kind="cancelled" onRetry={()=>setActive(a=>a)} retryLabel="重新加载"/>}
-     {catalogueState==='empty'&&<StatePanel kind="empty" detail="这个项目里没有可执行的测试用例。" onRetry={()=>setActive(a=>a)} retryLabel="重新加载"/>}
+     <div className="file-list" data-region="panel" data-catalogue-state={panel?panel.kind:'ready'}>
+     {panel&&panel.kind==='loading'&&<StatePanel kind="loading"/>}
+     {panel&&panel.kind==='error'&&<StatePanel kind="error" detail={catalogueRequest.error?`原因：${catalogueRequest.error}`:undefined} onRetry={reloadCatalogue} retryLabel="重新加载"/>}
+     {panel&&panel.kind==='cancelled'&&<StatePanel kind="cancelled" onRetry={reloadCatalogue} retryLabel="重新加载"/>}
+     {panel&&panel.kind==='empty'&&<StatePanel kind="empty" detail="这个项目里没有可执行的测试用例。" onRetry={reloadCatalogue} retryLabel="重新加载"/>}
+     {panel&&panel.kind==='no-project'&&<NoProjectPanel onAddProject={()=>setDialog(true)}/>}
      {shown.map(t=><button key={t.id} className={'file-item '+(selected?.id===t.id?'selected':'')} onClick={()=>openFile(t)}><span className={'pick-box'+(selectedUids.includes(t.uid)?' on':'')} onClick={e=>{e.stopPropagation();toggleSelect(t.uid);}} role="checkbox" aria-checked={selectedUids.includes(t.uid)} aria-label={`选中 ${t.title}`} title="选中以批量运行"/><FileCode2 size={16}/><span><b>{t.title}</b><small>{t.file}:{t.line}</small>{(t.tags&&t.tags.length)?<small className="tag-line">{t.tags.map(x=>'@'+x).join(' ')}</small>:null}<small className="uid-tag">{t.uid}{t.uidStable?'':' ⚠'}</small></span><ChevronRight size={14}/></button>)}
      {/* The filter matched nothing -- a DIFFERENT fact from "the project has
-         no cases at all", so it is a different message. */}
-     {!catalogueState&&!shown.length&&<div className="empty-small">{catalog.tests.length?'没有符合当前条件的用例<br/>搜索与过滤条件按「交集」叠加':'这个项目里没有可执行的测试用例。'}</div>}
+         no cases at all", so it is a different message. And it is only
+         shown when there IS a project and a catalogue to filter: without
+         a project the panel says so instead. */}
+     {!panel&&!shown.length&&<div className="empty-small">{catalog.tests.length?'没有符合当前条件的用例<br/>搜索与过滤条件按「交集」叠加':'这个项目里没有可执行的测试用例。'}</div>}
      </div></>}
      {tab==='runs'&&<div className="file-list" data-region="runs-panel" data-runs-state={runsRequest.phase==='failed'?'error':runsRequest.phase==='pending'&&!runs.length?'loading':!projectRuns.length?'empty':'ready'}>
      {runsRequest.phase==='failed'&&<StatePanel kind="error" detail={runsRequest.error?`原因：${runsRequest.error}`:undefined} onRetry={()=>refresh()} retryLabel="重新加载"/>}
@@ -498,7 +654,14 @@ export default function Studio(){
       <div className="metric-row"><div className="metric"><span>凭据库</span><strong className="small-value">{secContract?.provider||'不可用'}</strong><small>{secContract?'系统凭据库已就绪':'本机没有系统凭据库'}</small></div><div className="metric"><span>可用密钥</span><strong data-region="cred-configured-count">{credStatuses.filter(s=>s.status==='configured').length}</strong><small>共 {credentials.length} 条引用 · 本地只保留引用</small></div><div className="metric"><span>不可用密钥</span><strong data-region="cred-unavailable-count">{credStatuses.filter(s=>s.status!=='configured').length}</strong><small>{credStatuses.some(s=>s.status==='not-configured')?'未配置或取不到':'全部可用'}</small></div><div className="metric"><span>有效授权</span><strong>{consents.filter(c=>c.state==='granted').length}</strong><small>到期自动失效</small></div></div>
       <div className="split"><div className="card grow"><div className="card-title"><KeyRound size={16}/> 密钥存储</div>
        <p className="muted">密钥本体写入<b>系统凭据库</b>；本机索引只保留引用与指纹。没有任何接口会返回密钥原文。</p>
-       <div className="panel-right" style={{justifyContent:'flex-start',gap:8,margin:'10px 0'}}><input placeholder="密钥名称" value={keyName} onChange={e=>setKeyName(e.target.value)}/><input placeholder="密钥内容" type="password" value={keySecret} onChange={e=>setKeySecret(e.target.value)}/><button className="btn primary small" onClick={saveKey} disabled={busy||!keyName||!keySecret}><Save size={13}/> 存入</button></div>
+       {/* ATS-111: the credential form is a REAL form, so Enter in the
+           name field submits it the way the browser does it. The workbench
+          's own submit command does NOT reach it -- otherwise pressing
+           Enter on an unrelated button (a rail tab, say) would save a
+           draft the reader never asked to save. */}
+       <form className="cred-form" onSubmit={e=>{e.preventDefault();void saveKey();}}>
+        <div className="panel-right" style={{justifyContent:'flex-start',gap:8,margin:'10px 0'}}><input placeholder="密钥名称" value={keyName} onChange={e=>setKeyName(e.target.value)}/><input placeholder="密钥内容" type="password" value={keySecret} onChange={e=>setKeySecret(e.target.value)}/><button type="submit" className="btn primary small" disabled={busy||!keyName||!keySecret}><Save size={13}/> 存入</button></div>
+       </form>
        {/* ATS-213: the STATUS column. Each stored credential carries exactly
            one status, measured against the OS credential store. The status is
            a WORD, not only a colour (docs/05-UI-UX.md §4), and the reason
@@ -540,15 +703,19 @@ export default function Studio(){
    <details className="kbd-help" data-region="kbd-help"><summary>键盘操作</summary><ul>{keyboardHelpLines().map(l=><li key={l}>{l}</li>)}</ul></details>
   </footer>
   </div>
-  {dialog&&<div className="overlay" onClick={()=>setDialog(false)}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="add-project-title" onClick={e=>e.stopPropagation()}><h2 id="add-project-title">添加 Playwright 项目</h2><p>填写已有 Git 项目的本地绝对路径。系统不复制项目，也不会自动执行 npm install。</p>
+  {dialog&&<div className="overlay" onClick={()=>closeDialog()}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="add-project-title" onClick={e=>e.stopPropagation()}><h2 id="add-project-title">添加 Playwright 项目</h2><p>填写已有 Git 项目的本地绝对路径。系统不复制项目，也不会自动执行 npm install。</p>
    {/* ATS-111: the dialog is a REAL form, so the browser's own "submit
        the form" behaviour makes Enter work on the path field -- the key
        a reader presses after typing a path. The form's submit handler
        calls the same `addProject` the button calls, so the two paths
-       cannot disagree. */}
+       cannot disagree.
+       The focus is TRAPPED inside the dialog: the dialog says
+       `aria-modal="true"`, and a modal dialog that lets Tab walk into
+       the page behind it is a lie -- a screen-reader user who tabs past
+       the last control would find themselves in the background. */}
    <form onSubmit={e=>{e.preventDefault();void addProject();}}>
    <input autoFocus aria-label="项目本地绝对路径" value={projectPath} onChange={e=>setProjectPath(e.target.value)} placeholder="C:\\Projects\\MyApp 或 /workspace/my-app"/>
-   <div className="modal-actions"><button type="button" className="btn secondary" onClick={()=>setDialog(false)}>取消</button><button type="submit" className="btn primary" disabled={busy||!projectPath}>添加项目</button></div>
+   <div className="modal-actions"><button type="button" className="btn secondary" onClick={()=>closeDialog()}>取消</button><button type="submit" className="btn primary" disabled={busy||!projectPath}>添加项目</button></div>
    </form></div></div>}
   {message&&<div className="toast">{message}</div>}
  </div>
