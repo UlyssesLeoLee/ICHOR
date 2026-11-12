@@ -61,3 +61,50 @@ export async function downloadArtifact(id:string,file:string){
  const r=await fetch(root()+`/api/runs/${id}/artifact?file=${encodeURIComponent(file)}`,{headers:{'X-ATS-Token':token}});if(!r.ok)throw new Error('下载失败');
  const blob=await r.blob(),obj=URL.createObjectURL(blob),a=document.createElement('a');a.href=obj;a.download=file.split('/').pop()||'artifact';a.click();URL.revokeObjectURL(obj);
 }
+/**
+ * ATS-111: a CANCELLABLE request.
+ *
+ * The plain `api()` above cannot be cancelled: once the fetch is in
+ * flight the caller has no way to say "I no longer want this answer".
+ * That is what makes the CANCELLED state un-representable in the UI --
+ * a panel whose project was switched, or whose reader navigated away,
+ * would still be stuck waiting for the old answer, and the reader could
+ * not tell "still loading" from "the request I abandoned is still
+ * loading".
+ *
+ * `cancellableApi` therefore hands back a handle that carries BOTH the
+ * promise and an `abort()`. Aborting is reported as a CANCELLATION, not
+ * as a failure: the caller sees `cancelled: true`, and the rejection is
+ * the AbortError itself, so the UI can show the cancelled state rather
+ * than the failure state.
+ *
+ * The four states of a workbench panel are mapped from this handle by
+ * `apps/studio/lib/workbench-state.mjs` -- one model, one place.
+ */
+export type CancellableRequest<T>={promise:Promise<T>,abort:()=>void,cancelled:()=>boolean};
+/**
+ * The handle is returned SYNCHRONOUSLY -- it is not an `async` function
+ * wrapped in a promise, because the caller must be able to call
+ * `abort()` on it IMMEDIATELY, before the first await in its own body.
+ * A promise-of-a-handle would arrive one microtask too late to cancel
+ * the request it is meant to cancel.
+ *
+ * The session token is therefore fetched lazily INSIDE the promise: the
+ * handle exists before the token does, and `abort()` works from the very
+ * first moment.
+ */
+export function cancellableApi<T>(url:string,method='GET',payload?:unknown):CancellableRequest<T>{
+ const controller=new AbortController();
+ let cancelled=false;
+ const promise=(async()=>{
+  if(!token){const r=await fetch(root()+'/api/session');if(!r.ok)throw Error('无法连接本地执行服务。请先运行 npm start');token=(await r.json()).token;}
+  const r=await fetch(root()+url,{method,signal:controller.signal,headers:{'X-ATS-Token':token,'Content-Type':'application/json'},body:payload===undefined?undefined:JSON.stringify(payload)});
+  const value=await r.json();if(!r.ok)throw Error(value.error||`HTTP ${r.status}`);return value as T;
+ })();
+ // An abort must not surface as an unhandled rejection: the caller
+ // awaits the promise and decides what an abort means, so the rejection
+ // is delivered to whoever awaits it (and to nobody else).
+ promise.catch(()=>{});
+ return {promise,abort:()=>{cancelled=true;controller.abort();},cancelled:()=>cancelled};
+}
+

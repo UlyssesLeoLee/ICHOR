@@ -13,3 +13,69 @@
 .warn{color:#f0ca7f}
 .selected-row{background:#18293c}
 .selected-row td{color:#d6e8f7}
+
+/* ATS-111: WORKBENCH USABILITY -- the four states, the focus ring and the
+ * keyboard help.
+ *
+ * WHY THIS IS A SEPARATE RULE SET
+ * -------------------------------
+ * The base sheet above is one long minified line; editing it in place
+ * would make the diff unreadable. The same pattern the ATS-215 block
+ * uses.
+ *
+ * THE FOUR STATES MUST BE TELLABLE APART
+ * -------------------------------------
+ * docs/05-UI-UX.md §4 requires that a state is not conveyed by colour
+ * alone, so each state differs in MORE than its colour: it has its own
+ * ICON, its own LABEL (the text, which is what a screen reader reads),
+ * its own DETAIL sentence and its own HINT about what to do next. The
+ * colours below are an ADDITION to the text, never a substitute for it.
+ *
+ * THE FOCUS RING MUST BE VISIBLE
+ * ------------------------------
+ * Three elements in the base sheet set `outline:none` (the project
+ * select, the search input, the modal input) and NOTHING replaced it, so
+ * a keyboard user could not see where the focus was. The rule below puts
+ * a VISIBLE ring on every focusable element -- including those three --
+ * rather than restoring the browser default on the others alone.
+ */
+:root{--focus:#7cc6ff;--state-empty:#8fa8c0;--state-error:#f38e91;--state-cancelled:#f0ca7f;--state-loading:#8fc7f5}
+/* The focus ring. `:focus-visible` is used so a MOUSE click does not
+ * draw a ring a keyboard user does not need -- but `:focus` is kept as a
+ * fallback for the browsers that do not support `:focus-visible`. */
+button:focus,input:focus,select:focus,textarea:focus,a:focus,[tabindex]:focus{outline:2px solid var(--focus);outline-offset:2px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+/* The three elements whose `outline:none` is in the base sheet get the
+ * same ring -- the ring is never taken away from them. */
+.project-select:focus,.search input:focus,.modal input:focus{outline:2px solid var(--focus);outline-offset:2px}
+/* The skip link: the first focusable element on the page. It is off
+ * screen until it is focused, and then it is plainly visible. */
+.skip-link{position:absolute;left:-9999px;top:0;z-index:60;padding:10px 16px;background:#1d3550;color:#dff0ff;border:1px solid var(--focus);border-radius:8px;font-size:13px;text-decoration:none}
+.skip-link:focus{left:12px;top:12px;outline:2px solid var(--focus);outline-offset:2px}
+/* THE STATE PANEL. One panel, four states. */
+.state-panel{margin:8px;padding:12px 13px;border:1px solid var(--border);border-left-width:3px;border-radius:9px;background:#101a27;display:flex;flex-direction:column;gap:6px}
+.state-panel .state-head{display:flex;align-items:center;gap:7px;font-size:12px;letter-spacing:.3px}
+.state-panel .state-detail{margin:0;font-size:12px;color:#c3d6e8;line-height:1.55}
+.state-panel .state-hint{margin:0;font-size:11px;color:var(--muted);line-height:1.5}
+.state-panel .state-retry{align-self:flex-start;margin-top:3px}
+.state-empty{border-left-color:var(--state-empty)}
+.state-empty .state-head{color:var(--state-empty)}
+.state-error{border-left-color:var(--state-error);background:#1c1418}
+.state-error .state-head{color:var(--state-error)}
+.state-cancelled{border-left-color:var(--state-cancelled);background:#1b1a14}
+.state-cancelled .state-head{color:var(--state-cancelled)}
+.state-loading{border-left-color:var(--state-loading)}
+.state-loading .state-head{color:var(--state-loading)}
+/* The loading icon turns. A spinner that does not move is not a
+ * spinner -- and the reduced-motion query below stops it for the readers
+ * who asked for that. */
+.spin{animation:ats111-spin 1.1s linear infinite}
+@keyframes ats111-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+/* The keyboard help in the footer. */
+.kbd-help{margin-left:auto;font-size:11px;color:var(--muted)}
+.kbd-help summary{cursor:pointer;list-style:none}
+.kbd-help summary::-webkit-details-marker{display:none}
+.kbd-help summary::before{content:'⌨ ';}
+.kbd-help ul{margin:7px 0 0;padding:0 0 0 15px;position:absolute;bottom:26px;right:16px;background:#131f2d;border:1px solid var(--border);border-radius:9px;padding:9px 13px 9px 26px;min-width:250px;z-index:40}
+.kbd-help li{font-size:11px;line-height:1.7}
