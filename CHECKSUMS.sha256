@@ -154,7 +154,8 @@ c32cbe3db77d2da32d12dc5cfd527fbef5c03f112c11697bffc0c988bacf2839  docs/evidence/
 800bb510d7a610cba580f7c92a7c589ef0ed7a7040c2d40be768c34f66a45285  docs/evidence/ATS-104/01-cargo-build.log
 46b2be2a5bf347e5adda0130bd9502a9efa0caee320efd3c175868e446eaeda3  docs/evidence/ATS-104/02-st-022-probe.log
 69177c7298684602348c18ca1606fd37fdbd4b6997a972c07e6748bc509ef325  docs/evidence/ATS-104/03-negative-control.log
-669fc71d8b0f50abbbaf1c9ad9322706f61e50d0b0af73b2a67837ae0b5e261f  docs/evidence/ATS-104/README.md
+481c107762d1096b13b4e241e230b2a895a3d806d576679648d444396524dcb8  docs/evidence/ATS-104/05-regression.log
+29c5bc52353a0eb637bc25d315bbd52986b70a48b5cadfac34cc8e7f7ac15352  docs/evidence/ATS-104/README.md
 5211f88666cf8369c0cd9275e8ea249a98e737c98b0e503ce9878d96985d7dad  docs/evidence/ATS-106/01-preflight-ut.log
 8fc86a38d97f0c3d2330f9f176fa93eb279834411298b2e96570d7f5e6e4bbf4  docs/evidence/ATS-106/02-preflight-it.log
 c6d96ca9acb6a49fded1070c2c4dfea381f3209be61997d683c3fe905158fd5e  docs/evidence/ATS-106/03-real-cli-contract.log
@@ -738,7 +739,7 @@ d1157a401c7be8b882ef1946d106fa5be829e9d90e89e1f5825d334f45bbc072  tools/ats103-p
 fb51af675956a1416ce40e5252e8bfd04af6e8782b4761802aee0df1be792a31  tools/ats103-probes/ui-smoke.mjs
 5a1b04ddf35162c977128c14ef2f7fd45cf3e408205a7407198203e5558001c2  tools/ats103-probes/verify-export-and-proxy.mjs
 a7b6fef157845b76088d381a7649287153ccdf883ff42cb2976da388c2c4c6bd  tools/ats103-probes/verify-r4.sh
-92ba5249f78e72b0f69b7f4757d12b81cf6728a9f6678072b7021810c8b520e7  tools/ats104-probes/collect-evidence.sh
+ff8e9af2050f50aea66dcd291139e82933ae7bf4e793b2c0c5569f60118d5f75  tools/ats104-probes/collect-evidence.sh
 b15b54057467687deaa2c1d098eea97cb2480f4cb464bcc2e202c1c40b8bfa81  tools/ats104-probes/st-ats104.mjs
 6cdd4822b97bc6b4364d1324267de0a68281be58a033e7c4c2e9a03624e93927  tools/ats106-probes/collect-evidence.sh
 7977d75b2573055bcc4e135b08be83571ce9a6edb3d3104c85e228e7d8baa7e2  tools/ats106-probes/mutation-tests.mjs
