@@ -223,7 +223,14 @@ test('IT-ATS214-SETUP: start the bridge', async () => {
 
 test.after(async () => {
   await stopBridge();
-  fs.rmSync(WORK, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  // The removal is BEST EFFORT: a leftover fixture under the temp
+  // directory is harmless, but a teardown that throws turns a green run
+  // red -- and the reader then cannot tell which of the two happened.
+  try {
+    fs.rmSync(WORK, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  } catch (e) {
+    console.warn(`the fixture ${WORK} could not be removed (${e.code ?? e.message}); it is left under the temp directory`);
+  }
 });
 
 /* ================================================================== */

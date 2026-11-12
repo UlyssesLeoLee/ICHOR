@@ -1105,21 +1105,21 @@ warning: in the working copy of 'playwright.config.ts', LF will be replaced by C
 warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
 the served page references /_next/static/chunks/145srpo0cd-z0.css -- the tree under test.
-OK     ST-ATS214-001 loads-500-without-error  rows=500; footer="500 tests · 50 files |  | C:\tmp\multica-task-543838585\ats214-st-nC1qkl\p500"; consoleErrors=[]; pageErrors=[]
+OK     ST-ATS214-001 loads-500-without-error  rows=500; footer="500 tests · 50 files |  | C:\tmp\multica-task-543838585\ats214-st-gnj0Pt\p500"; consoleErrors=[]; pageErrors=[]
 OK     ST-ATS214-002 list-visible-and-clickable  list top=674px height=122px (scroll 42000px) in a 900px viewport, 55 filter chips; the first case is at 674px; clicked=true; aria-checked=true
-    type "module4" (7 keys) at 500 cases           n=8 p50=10ms p95=24ms max=24ms longtasks=[]
-    tag chips @smoke, @api, mode 全部 -> 任一          n=2 p50=16ms p95=17ms max=17ms longtasks=[]
-    全选当前 with 500 shown                            n=1 p50=54ms p95=54ms max=54ms longtasks=[]
-    untick one pick-box                            n=1 p50=29ms p95=29ms max=29ms longtasks=[]
-    [4x CPU, info only] type "module4" at 500      n=8 p50=53ms p95=90ms max=90ms longtasks=[76]
-OK     ST-ATS214-003 filtering-within-budget  budget 100ms; worst interaction max=54ms, worst long task=0ms (4x CPU info: max=90ms)
+    type "module4" (7 keys) at 500 cases           n=8 p50=13ms p95=17ms max=17ms longtasks=[]
+    tag chips @smoke, @api, mode 全部 -> 任一          n=2 p50=17ms p95=20ms max=20ms longtasks=[]
+    全选当前 with 500 shown                            n=1 p50=52ms p95=52ms max=52ms longtasks=[]
+    untick one pick-box                            n=1 p50=20ms p95=20ms max=20ms longtasks=[]
+    [4x CPU, info only] type "module4" at 500      n=8 p50=49ms p95=82ms max=82ms longtasks=[60]
+OK     ST-ATS214-003 filtering-within-budget  budget 100ms; worst interaction max=52ms, worst long task=0ms (4x CPU info: max=82ms)
 OK     ST-ATS214-004 search-by-title  "case 017" matched 1 row(s): ["case 017 module1 登录流程"]
 OK     ST-ATS214-005 tag-criterion-and-its-mode  任一 (@smoke + @api): 234 rows ("234 / 500 条标签 234"); 全部: 34 rows ("34 / 500 条标签 34")
-OK     ST-ATS214-006 selection-counts-the-uids  the selection bar says "已选 2 条 · 将执行 5 条"; the catalogue knows a1=tc_1_d_cee3d6ee506cd43e and b1=tc_1_d_37bb4add38ebb702
-OK     ST-ATS214-007 a-gone-selection-is-reported-and-blocks  the selection bar says "已选 2 条 · 将执行 3 条"; the warning says "已选中的 1 条用例已不在目录中：tc_1_d_37bb4add38ebb702 移除这些用例"; the toast says "1 条用例已不在目录中（tc_1_d_37bb4add38ebb702），请先移除后再运行"; runs submitted for the project: 0
+OK     ST-ATS214-006 selection-counts-the-uids  the selection bar says "已选 2 条 · 将执行 5 条"; the catalogue knows a1=tc_1_d_e7ba8b70da4b80df and b1=tc_1_d_ba0400e01dd01a3e
+OK     ST-ATS214-007 a-gone-selection-is-reported-and-blocks  the selection bar says "已选 2 条 · 将执行 3 条"; the warning says "已选中的 1 条用例已不在目录中：tc_1_d_ba0400e01dd01a3e 移除这些用例"; the toast says "1 条用例已不在目录中（tc_1_d_ba0400e01dd01a3e），请先移除后再运行"; runs submitted for the project: 0
 OK     ST-ATS214-008 project-switch-resets-the-filter  before the switch: "134 / 500 条标签 134" (134 rows, 1 pressed chip); after: 2 rows of 2, "2 / 2 条", 0 pressed chips, the selection bar says "已选 0 条"
 OK     ST-ATS214-009 the-wording-states-what-will-run  the bar says "已选 1 条 · 将执行 3 条" (3), the toast says "已提交运行：选中 1 条，实际执行 3 条，同文件的其余用例也会执行" (3), the engine ran 3 case(s)
-OK     ST-ATS214-011 the-request-carries-every-ticked-uid  the bar says "已选 2 条 · 将执行 5 条"; the request carried ["tc_1_d_cee3d6ee506cd43e","tc_1_d_37bb4add38ebb702"]; the two ticked uids are ["tc_1_d_cee3d6ee506cd43e","tc_1_d_37bb4add38ebb702"]; 1 run request(s) seen
-DEFECT ST-ATS214-010 the-pick-box-is-keyboard-reachable  the first .pick-box is a <SPAN> with tabIndex=-1, its parent is a <DIV>, nested in a STRICTLY outer <button>=false; focusable=false; SPACE toggled it=false
+OK     ST-ATS214-011 the-request-carries-every-ticked-uid  the bar says "已选 2 条 · 将执行 5 条"; the request carried ["tc_1_d_e7ba8b70da4b80df","tc_1_d_ba0400e01dd01a3e"]; the two ticked uids are ["tc_1_d_e7ba8b70da4b80df","tc_1_d_ba0400e01dd01a3e"]; 1 run request(s) seen
+OK     ST-ATS214-010 the-pick-box-is-keyboard-reachable  the first .pick-box is a <BUTTON> with tabIndex=0, its parent is a <DIV>, nested in a STRICTLY outer <button>=false; focusable=true; SPACE toggled it=true
 
-RESULT: 1 DEFECT(s)
+RESULT: 0 DEFECT(s)

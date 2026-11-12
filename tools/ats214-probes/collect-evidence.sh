@@ -212,6 +212,60 @@ else
 fi
 grep -E "^(PASS|FAIL|RESULT)" "$OUT/13-mutation-control.log" | head -20
 
+# --- 10. the ACCEPTANCE MAPPING: each completion definition -> evidence -
+# The issue's and the WBS row's completion definition is TWO sentences:
+#
+#   1. 「500 用例过滤无明显阻塞」
+#   2. 「选中准确映射 UID」
+#
+# This step reads the MEASURED logs and asserts that each definition has
+# evidence behind it. The mapping is not written by hand: every row below
+# is checked against a log that this same run produced, and a definition
+# whose evidence is missing is reported as NOT PROVEN.
+step "10. the acceptance mapping: every completion definition has measured evidence"
+{
+  echo "completion definition -> the measured evidence that backs it"
+  echo
+  fail=0
+  # 1. 「500 用例过滤无明显阻塞」 -- the ST must have loaded 500 cases
+  #    without an error and answered the interactions within the budget.
+  if grep -q "ST-ATS214-001 loads-500-without-error  rows=500" "$OUT/10-st-500-cases.log" 2>/dev/null \
+  && grep -q "ST-ATS214-003 filtering-within-budget" "$OUT/10-st-500-cases.log" 2>/dev/null; then
+    echo "  PROVEN  「500 用例过滤无明显阻塞」  <- 10-st-500-cases.log (ST-001: 500 rows, 0 console error; ST-003: within the 100 ms budget)"
+  else
+    echo "  NOT PROVEN  「500 用例过滤无明显阻塞」  <- 10-st-500-cases.log does not show it"
+    fail=1
+  fi
+  # 2. 「选中准确映射 UID」 -- the ST must have ticked two cases and the
+  #    REQUEST must have carried exactly those uids.
+  if grep -q "ST-ATS214-011 the-request-carries-every-ticked-uid" "$OUT/10-st-500-cases.log" 2>/dev/null; then
+    echo "  PROVEN  「选中准确映射 UID」  <- 10-st-500-cases.log (ST-011: the request carried every ticked uid)"
+  else
+    echo "  NOT PROVEN  「选中准确映射 UID」  <- 10-st-500-cases.log does not show it"
+    fail=1
+  fi
+  # The reviewer's own probes: the acceptance criteria of round 1.
+  if [ -f "$OUT/reviewer-probes/r1-api.log" ] && [ -f "$OUT/reviewer-probes/r1-ui.log" ]; then
+    if grep -q "^OK     B1 " "$OUT/reviewer-probes/r1-api.log" && grep -q "^OK     B2 " "$OUT/reviewer-probes/r1-api.log" \
+    && grep -q "^OK     X1 " "$OUT/reviewer-probes/r1-ui.log" && grep -q "^OK     X3 " "$OUT/reviewer-probes/r1-ui.log"; then
+      echo "  PROVEN  复核方第 1 轮的必过项 (r1-api B1/B2, r1-ui X1/X3)  <- reviewer-probes/"
+    else
+      echo "  NOT PROVEN  复核方第 1 轮的必过项  <- reviewer-probes/"
+      fail=1
+    fi
+  else
+    echo "  SKIPPED  复核方的探针日志不在本次采集里（reviewer-probes/ 是单独复跑的）"
+  fi
+  echo
+  if [ "$fail" = "0" ]; then echo "RESULT: OK -- every completion definition has measured evidence."; else echo "RESULT: FAILED -- a completion definition has no evidence."; fi
+} > "$OUT/09-acceptance-mapping.log" 2>&1
+if grep -q "RESULT: OK" "$OUT/09-acceptance-mapping.log"; then
+  note 0 "the acceptance mapping"
+else
+  note 1 "the acceptance mapping (see 09-acceptance-mapping.log)"
+fi
+cat "$OUT/09-acceptance-mapping.log"
+
 echo
 if [ "$FAILED" = "0" ]; then
   echo "RESULT: OK -- every step of the ATS-214 evidence was executed and passed."

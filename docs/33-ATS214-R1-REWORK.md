@@ -56,12 +56,12 @@
 |---|---|---|---|
 | 1 按真实完成定义重写 | — | `docs/32` §1、`case-search.mjs` 文件头、两份测试文件头改成 issue/WBS 的完成定义「500 用例过滤无明显阻塞；选中准确映射 UID」，并逐条挂到证据 | 文档本身 + `09-acceptance-mapping.log` |
 | 2 500 用例：修布局 + 实测 | `ui L1`、`ui P1/P2` | 侧栏筛选区有界（可滚动）+ 列表自身滚动；真实 Chromium 跑 500 用例夹具，阈值事先写明 | `10-st-500-cases.log`、`shots/` |
-| 3 执行 ST | `ui L1/X1/X3/X4` + 新增 | `tools/ats214-probes/st-ats214.mjs`：真实 Chromium + 真实 Bridge 跑 ST-ATS214-001~005 及新增 ST | `10-st-500-cases.log`、`11-st-selection.log` |
+| 3 执行 ST | `ui L1/X1/X3/X4` + 新增 | `tools/ats214-probes/st-ats214.mjs`：真实 Chromium + 真实 Bridge 跑 ST-ATS214-001~005 及新增 ST | `10-st-500-cases.log` |
 | 4 批次后续 run 继承请求上下文 | `api B1` | `startBatchRun` 继承 env 档案（经当前白名单过滤）、pinned runner、capabilities，并写进运行记录 | `12-batch-context-it.log` |
 | 5 批次必达终态 | `api N1/U1/R1` | 启动前对所有分组做 `readSource`+`assertSafeTestFilter`；预检失败/`adapter.start` 抛错时结束批次；Bridge 重启后在途批次标为中断 | `13-batch-terminal-it.log` |
 | 6 对账正确 | `api B2` | run#1 只记录本组；补批次级「选了什么/跑了什么」视图（`batches` 不再是死状态） | `12-batch-context-it.log`、`14-batch-view-it.log` |
-| 7 界面上的选择完整性 | `ui X1/X3` | 已选 UID 离开目录时显式提示并阻止提交；切换项目时重置过滤条件；选择按项目隔离 | `11-st-selection.log` |
-| 8 文案如实 | `ui X4` | 提交前后说明实际会执行多少条（整文件执行） | `11-st-selection.log` |
+| 7 界面上的选择完整性 | `ui X1/X3` | 已选 UID 离开目录时显式提示并阻止提交；切换项目时重置过滤条件；选择按项目隔离 | `10-st-500-cases.log` |
+| 8 文案如实 | `ui X4` | 提交前后说明实际会执行多少条（整文件执行） | `10-st-500-cases.log` |
 | 9 标签一致性 | `api T1` | 静态索引按 Playwright 规则读 test/describe 标题里的 `@标签`；探针覆盖标题标签写法 | `15-tag-parity.log` |
 | 10 收尾 | — | 修正 WBS T35 日志路径与数字；合并 `dev`；重算 CHECKSUMS；跑 WBS verify + 全量回归 | `06-wbs-row-and-updaters.log`、`07-verify-checksums.log`、`04-node-test-full.log` |
 

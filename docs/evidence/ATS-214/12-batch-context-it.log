@@ -710,42 +710,18 @@ warning: in the working copy of 'node_modules/playwright/types/testReporter.d.ts
 warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/p(1).spec.ts', LF will be replaced by CRLF the next time Git touches it
-✔ IT-ATS214-SETUP: start the bridge (965.3888ms)
-✖ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (6602.4769ms)
-✔ IT-ATS214-031: the second run of a batch records the profile it inherited (6814.5898ms)
-✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (2186.1725ms)
-✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (638.1601ms)
-✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (5610.0801ms)
-✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (6181.9239ms)
+✔ IT-ATS214-SETUP: start the bridge (659.6242ms)
+✔ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (5016.6665ms)
+✔ IT-ATS214-031: the second run of a batch records the profile it inherited (5070.2298ms)
+✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (1815.1574ms)
+✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (579.7266ms)
+✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (4683.8997ms)
+✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (4954.043ms)
 ℹ tests 7
 ℹ suites 0
-ℹ pass 6
-ℹ fail 1
+ℹ pass 7
+ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 38711.7879
-
-✖ failing tests:
-
-test at tests\ats214-batch-context.test.mjs:233:1
-✖ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (6602.4769ms)
-  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
-  + actual - expected
-  
-  + []
-  - [
-  -   'BASE_URL'
-  - ]
-  
-      at TestContext.<anonymous> (file:///C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-c24dbb0dc234/worktree/tests/ats214-batch-context.test.mjs:267:12)
-      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
-      at async Test.run (node:internal/test_runner/test:1389:7)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
-    generatedMessage: true,
-    code: 'ERR_ASSERTION',
-    actual: [],
-    expected: [ 'BASE_URL' ],
-    operator: 'deepStrictEqual',
-    diff: 'simple'
-  }
+ℹ duration_ms 30777.6082
