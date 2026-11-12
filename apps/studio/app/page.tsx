@@ -399,7 +399,7 @@ export default function Studio(){
    if(hasNativeEnterAction(target))return;
    if(selected&&source&&draft!==source.content){void save();e.preventDefault();return;}
   }
- },[dialog,selected,source,draft,cancelCatalogue,runCurrent]);
+ },[dialog,projectPath,tab,keyName,keySecret,selected,source,draft,cancelCatalogue,runCurrent]);
  // ATS-111: the key commands are bound to the DOCUMENT.
  //
  // A handler on the app shell only receives the keys that land inside

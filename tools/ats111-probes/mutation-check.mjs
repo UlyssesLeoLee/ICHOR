@@ -190,10 +190,10 @@ const VIEW_MUTATIONS = [
     replace: "const reloadCatalogue=useCallback(()=>setActive(a=>a),[]);",
   },
   {
-    id: 'V2 the Enter key swallows the focused control\'s own action',
+    id: 'V2 the Enter key swallows the focused control own action (the rejected behaviour, restored)',
     file: VIEW,
-    find: "   if(hasNativeEnterAction(target))return;\n",
-    replace: "",
+    find: "   // A text field keeps its own Enter behaviour.\n   if(isTextEntry(target))return;\n   // A control with its own Enter action keeps it: the browser fires\n   // that control's click, and the workbench does not perform a\n   // different write on top of it. Focusing 「取消」 and pressing Enter\n   // has to CANCEL -- not add the project.\n   if(hasNativeEnterAction(target))return;\n   if(selected&&source&&draft!==source.content){void save();e.preventDefault();return;}",
+    replace: "   // The rejected behaviour, restored: Enter is the workbench's own\n   // command wherever it lands, and it performs a write of its own.\n   if(dialog&&projectPath){void addProject();e.preventDefault();return;}\n   if(tab==='security'&&keyName&&keySecret){void saveKey();e.preventDefault();return;}\n   if(selected&&source&&draft!==source.content){void save();e.preventDefault();return;}",
   },
   {
     id: 'V3 the previous project\'s catalogue is not cleared on a switch',
