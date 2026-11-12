@@ -2,12 +2,17 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import dynamic from 'next/dynamic';
 import {Activity,BookOpen,Box,ChartNoAxesCombined,CheckCircle2,ChevronRight,Clock,Code2,Download,FileCode2,FilePlus2,FileSearch,FolderGit2,GitBranch,GitCommitHorizontal,Inbox,KeyRound,LayoutDashboard,Layers3,Loader2,Lock,Network,Play,RefreshCcw,Save,Search,ShieldAlert,Square,Terminal,TestTube2,Trash2,TriangleAlert,XCircle} from 'lucide-react';
-import {api,cancellableApi,downloadArtifact,type Project,type TestDef,type TestCatalog,type Run,type Source,type CredentialRef,type EgressScope,type EgressPreview,type EgressConsent,type SecurityContract,type EgressAuditRecord,type EvidenceMaterial} from '../lib/api';
+import {api,cancellableApi,downloadArtifact,type Project,type TestDef,type TestCatalog,type Run,type Source,type CredentialRef,type EgressScope,type EgressPreview,type EgressConsent,type SecurityContract,type EgressAuditRecord,type EvidenceMaterial,type Batch} from '../lib/api';
 // ATS-111: the WORKBENCH STATE MODEL. The four states -- empty / failed /
 // cancelled / loading -- are defined ONCE, here, and the unit tests assert
 // on them (tests/workbench-state.test.mjs) without a browser. The view
 // below only renders what the model says.
 import {WORKBENCH_STATES,deriveWorkbenchState,isTextEntry,keyCommandFor,keyboardHelpLines,type WorkbenchStateKind} from '../lib/workbench-state.mjs';
+// ATS-214: the CASE SEARCH / TAG / FILTER / SELECTION module. The SAME
+// module the portable UI imports, so the two interfaces cannot disagree
+// about what the catalogue shows -- and the SET semantics (a search and a
+// filter COMPOSE as an intersection) live in ONE place.
+import {filterCases,describeFilter,tagVocabulary,fileVocabulary,selectionSnapshot,selectionByFile,reconcileSelection,normalizeTag,TAG_MODE,type CaseFilter} from '../public/case-search.mjs';
 // ATS-216: the QUALITY OVERVIEW module. It lives in `public/` so that the
 // Next workbench and the zero-dependency portable UI import the SAME
 // implementation -- the metrics cannot drift apart between the two UIs.
@@ -56,7 +61,22 @@ export default function Studio(){
  const [projects,setProjects]=useState<Project[]>([]),[active,setActive]=useState(''),[catalog,setCatalog]=useState<TestCatalog>({tests:[],files:[],warning:'',uidVersion:0,projectUid:''});
  const [runs,setRuns]=useState<Run[]>([]),[runDetail,setRunDetail]=useState<Run|null>(null),[selected,setSelected]=useState<TestDef|null>(null);
  const [source,setSource]=useState<Source|null>(null),[draft,setDraft]=useState(''),[view,setView]=useState<'graph'|'code'>('graph');
- const [tab,setTab]=useState<Tab>('catalog'),[filter,setFilter]=useState(''),[projectPath,setProjectPath]=useState('');
+ const [tab,setTab]=useState<Tab>('catalog'),[projectPath,setProjectPath]=useState('');
+ // ATS-214: the FILTER and the SELECTION of the catalogue.
+ //
+ // The filter is the composition of the independent criteria (a text
+ // query, the tags, the files); the composition itself -- and the SET
+ // semantics of it -- is computed by the shared module, so this component
+ // only chooses the INPUT. The selection is the set of uids the user
+ // picked for the batch run.
+ //
+ // ATS-111's `filter` state (the plain text query of the search box) is
+ // GONE: the query now lives in the shared filter, so the search box and
+ // the tag criterion cannot drift apart. The search box writes into
+ // `caseFilter.query`; the two are the same criterion.
+ const [caseFilter,setCaseFilter]=useState<CaseFilter>({query:'',tags:[],tagMode:TAG_MODE.ANY,files:[],statuses:[]});
+ const [selectedUids,setSelectedUids]=useState<string[]>([]);
+ const [batches,setBatches]=useState<Batch[]>([]);
  const [dialog,setDialog]=useState(false),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const [secContract,setSecContract]=useState<SecurityContract|null>(null),[credentials,setCredentials]=useState<CredentialRef[]>([]);
  const [consents,setConsents]=useState<EgressConsent[]>([]),[preview,setPreview]=useState<EgressPreview|null>(null);
@@ -126,7 +146,22 @@ export default function Studio(){
   setCatalogueRequest({phase:'cancelled'});return true;
  },[catalogueRequest.phase]);
  const selectedProject=projects.find(p=>p.id===active),projectRuns=runs.filter(r=>r.projectId===active),live=projectRuns.find(r=>['running','queued','cancelling'].includes(r.status));
- const shown=catalog.tests.filter(t=>`${t.file} ${t.title}`.toLowerCase().includes(filter.toLowerCase()));
+ // ATS-214: the FILTERED catalogue. The composition of the criteria --
+ // and the SET semantics of it -- is the shared module's job; this only
+ // hands it the criteria. The result is a VIEW of the catalogue: the
+ // order is the catalogue's, and the result never holds a case the
+ // catalogue does not have.
+ const shown=useMemo(()=>filterCases(catalog.tests,caseFilter),[catalog.tests,caseFilter]);
+ const filterReport=useMemo(()=>describeFilter(catalog.tests,caseFilter),[catalog.tests,caseFilter]);
+ // The vocabularies: the tags the catalogue actually carries (with their
+ // counts) and the files it spans. A tag nobody carries is not offered --
+ // ticking it would change nothing and look broken.
+ const tagList=useMemo(()=>tagVocabulary(catalog.tests),[catalog.tests]);
+ const fileList=useMemo(()=>fileVocabulary(catalog.tests),[catalog.tests]);
+ // The SELECTION. It is a set of uids, and the snapshot is what the run
+ // request carries -- self-contained, so the record can be read on its own.
+ const selection=useMemo(()=>selectionSnapshot(catalog.tests,selectedUids),[catalog.tests,selectedUids]);
+ const selectionGroups=useMemo(()=>selectionByFile(selection),[selection]);
  const stats={passed:projectRuns.filter(r=>r.status==='passed').length,failed:projectRuns.filter(r=>r.status==='failed').length,total:projectRuns.length};
  const currentRun=runDetail && runDetail.projectId===active ? runDetail : projectRuns[0];
  useEffect(()=>{if(currentRun?.id&&tab==='runs')api<{run:Run}>(`/api/runs/${currentRun.id}`).then(r=>setRunDetail(r.run)).catch(()=>{});},[runs,tab,currentRun?.id]);
@@ -141,6 +176,28 @@ export default function Studio(){
  useEffect(()=>{if(tab==='security')loadSecurity();},[tab,loadSecurity]);
  async function openFile(test:TestDef){setSelected(test);try{const s=await api<Source>(`/api/projects/${active}/source?file=${encodeURIComponent(test.file)}`);setSource(s);setDraft(s.content)}catch(e){notify((e as Error).message)}}
  async function addProject(){setBusy(true);try{const r=await api<{project:Project}>('/api/projects','POST',{path:projectPath});setDialog(false);setProjectPath('');setActive(r.project.id);await refresh();notify('项目添加成功：未修改原仓库')}catch(e){notify((e as Error).message)}finally{setBusy(false)}}
+ // ATS-214: the BATCH run. The selection is sent as the uids of the
+ // picked cases; the Bridge validates them against the catalogue, splits
+ // them by file and chains one run per file. The selection itself is on
+ // the run record, so "what was selected" and "what ran" can be compared
+ // after the fact.
+ async function runSelection(){if(!active||!selection.uids.length)return;setBusy(true);
+  try{const {run}=await api<{run:Run}>(`/api/projects/${active}/run`,'POST',{selection:selection.uids});
+   setRunDetail(run);setTab('runs');await refresh();
+   const groups=selectionGroups.length;
+   notify(groups>1?`已提交批量运行：${selection.count} 个用例，分 ${groups} 个文件依次执行`:`已提交运行：${selection.count} 个用例`);
+  }catch(e){notify((e as Error).message)}finally{setBusy(false)}}
+ // The selection helpers. The selection is a SET: ticking a case that is
+ // already ticked removes it, and the order of the ticks is not part of
+ // it.
+ function toggleSelect(uid:string){setSelectedUids(u=>u.includes(uid)?u.filter(x=>x!==uid):[...u,uid]);}
+ function selectAllShown(){setSelectedUids(u=>[...new Set([...u,...shown.map(t=>t.uid)])]);}
+ function clearSelection(){setSelectedUids([]);}
+ // The tag filter: a tag is ticked or not, and the MODE decides what
+ // several ticked tags mean -- "任一" (any of them) or "全部" (all of
+ // them). The mode is shown, so the reader knows which one the list used.
+ function toggleTag(tag:string){setCaseFilter(f=>{const t=normalizeTag(tag);return {...f,tags:f.tags.includes(t)?f.tags.filter(x=>x!==t):[...f.tags,t]};});}
+ function toggleFile(file:string){setCaseFilter(f=>({...f,files:f.files.includes(file)?f.files.filter(x=>x!==file):[...f.files,file]}));}
  async function execute(file:string|null){if(!active)return;try{const {run}=await api<{run:Run}>(`/api/projects/${active}/run`,'POST',{file});setRunDetail(run);setTab('runs');await refresh();notify('已提交到本地 Playwright Runner')}catch(e){notify((e as Error).message)}}
  async function save(){if(!selected||!source)return;try{const r=await api<{hash:string}>(`/api/projects/${active}/source`,'PUT',{file:selected.file,content:draft,baseHash:source.hash});setSource({...source,content:draft,hash:r.hash});notify('已保存至原仓库工作区，未自动 Git commit')}catch(e){notify((e as Error).message)}}
  const steps=useMemo(()=>stepsOf(draft),[draft]);
@@ -263,7 +320,32 @@ export default function Studio(){
    </section>
    <section className="workspace">
     <aside className="sidebar" aria-label="资源列表" data-region="sidebar"><div className="sidebar-head"><div className="eyebrow">EXPLORER</div><h3>{tab==='catalog'?'测试资产':tab==='runs'?'运行记录':tab==='quality'?'质量概览':tab==='evidence'?'证据工作台':tab==='trace'?'需求列表':'模块概览'}</h3></div>
-     {tab==='catalog'&&<><div className="search" role="search" data-region="search"><Search size={15}/><input ref={searchRef} placeholder="查找脚本或测试用例" aria-label="查找脚本或测试用例" value={filter} onChange={e=>setFilter(e.target.value)}/></div>
+     {tab==='catalog'&&<><div className="search" role="search" data-region="search"><Search size={15}/><input ref={searchRef} placeholder="查找用例名 / 文件 / 标签" aria-label="查找用例名、文件或标签" value={caseFilter.query} onChange={e=>setCaseFilter(f=>({...f,query:e.target.value}))}/></div>
+     {/* ATS-214: the FILTERS. The tag criterion and the file criterion
+         are stated separately, and the mode of the tag criterion is
+         LABELLED -- the reader has to know whether several ticked tags
+         mean "any of them" or "all of them". */}
+     <div className="filter-box">
+      <div className="filter-head"><span className="eyebrow">TAGS</span>
+       {tagList.length>0&&<select value={caseFilter.tagMode} onChange={e=>setCaseFilter(f=>({...f,tagMode:e.target.value as 'any'|'all'}))} className="mode-select" aria-label="多个标签的口径" title="多个标签的口径"><option value="any">任一</option><option value="all">全部</option></select>}
+      </div>
+      <div className="tag-list">{tagList.map(t=><button key={t.tag} className={'tag-chip'+(caseFilter.tags.includes(t.tag)?' on':'')} onClick={()=>toggleTag(t.tag)} aria-pressed={caseFilter.tags.includes(t.tag)} title={`${t.count} 个用例`}><span>@{t.tag}</span><small>{t.count}</small></button>)}</div>
+      {!tagList.length&&<p className="muted" style={{fontSize:10,margin:'4px 0 0'}}>该项目没有标签。Playwright 用 <code>{'{ tag: "@smoke" }'}</code> 声明标签。</p>}
+      {fileList.length>1&&<><div className="filter-head" style={{marginTop:10}}><span className="eyebrow">FILES</span></div>
+      <div className="tag-list">{fileList.map(f=><button key={f.file} className={'tag-chip'+(caseFilter.files.includes(f.file)?' on':'')} onClick={()=>toggleFile(f.file)} aria-pressed={caseFilter.files.includes(f.file)} title={f.file}><span>{f.file}</span><small>{f.count}</small></button>)}</div></>}
+      {/* The criteria are reported SEPARATELY: a reader can see which
+          criterion narrowed the list and by how much. The list alone
+          cannot tell "nothing matched" from "the intersection was
+          empty". */}
+      <div className="filter-report">{filterReport.matched} / {filterReport.total} 条{filterReport.criteria.filter(c=>c.active).map(c=>`${c.kind === 'search' ? '搜索' : c.kind === 'tag' ? '标签' : c.kind === 'file' ? '文件' : '状态'} ${c.kept}`).join(' · ')}</div>
+     </div>
+     {/* ATS-214: the SELECTION. The count, the "select all shown" and the
+         "run the selection" are here, next to the list they act on. */}
+     <div className="select-bar">
+      <span>已选 {selection.count} 条</span>
+      <button className="link-btn" onClick={selectAllShown} disabled={!shown.length}>全选当前</button>
+      <button className="link-btn" onClick={clearSelection} disabled={!selection.count}>清空</button>
+     </div>
      {/* ATS-111: the four states of the catalogue panel. Only ONE of them
          is shown at a time, and each says something different: the list
          is empty, the load failed, the load was cancelled, or the load is
@@ -273,10 +355,10 @@ export default function Studio(){
      {catalogueState==='error'&&<StatePanel kind="error" detail={catalogueRequest.error?`原因：${catalogueRequest.error}`:undefined} onRetry={()=>setActive(a=>a)} retryLabel="重新加载"/>}
      {catalogueState==='cancelled'&&<StatePanel kind="cancelled" onRetry={()=>setActive(a=>a)} retryLabel="重新加载"/>}
      {catalogueState==='empty'&&<StatePanel kind="empty" detail="这个项目里没有可执行的测试用例。" onRetry={()=>setActive(a=>a)} retryLabel="重新加载"/>}
-     {shown.map(t=><button key={t.id} className={'file-item '+(selected?.id===t.id?'selected':'')} onClick={()=>openFile(t)}><FileCode2 size={16}/><span><b>{t.title}</b><small>{t.file}:{t.line}</small><small className="uid-tag">{t.uid}{t.uidStable?'':' ⚠'}</small></span><ChevronRight size={14}/></button>)}
+     {shown.map(t=><button key={t.id} className={'file-item '+(selected?.id===t.id?'selected':'')} onClick={()=>openFile(t)}><span className={'pick-box'+(selectedUids.includes(t.uid)?' on':'')} onClick={e=>{e.stopPropagation();toggleSelect(t.uid);}} role="checkbox" aria-checked={selectedUids.includes(t.uid)} aria-label={`选中 ${t.title}`} title="选中以批量运行"/><FileCode2 size={16}/><span><b>{t.title}</b><small>{t.file}:{t.line}</small>{(t.tags&&t.tags.length)?<small className="tag-line">{t.tags.map(x=>'@'+x).join(' ')}</small>:null}<small className="uid-tag">{t.uid}{t.uidStable?'':' ⚠'}</small></span><ChevronRight size={14}/></button>)}
      {/* The filter matched nothing -- a DIFFERENT fact from "the project has
          no cases at all", so it is a different message. */}
-     {!catalogueState&&!shown.length&&<div className="empty-small">没有匹配「{filter}」的用例<br/>清空筛选条件可查看全部</div>}
+     {!catalogueState&&!shown.length&&<div className="empty-small">{catalog.tests.length?'没有符合当前条件的用例<br/>搜索与过滤条件按「交集」叠加':'这个项目里没有可执行的测试用例。'}</div>}
      </div></>}
      {tab==='runs'&&<div className="file-list" data-region="runs-panel" data-runs-state={runsRequest.phase==='failed'?'error':runsRequest.phase==='pending'&&!runs.length?'loading':!projectRuns.length?'empty':'ready'}>
      {runsRequest.phase==='failed'&&<StatePanel kind="error" detail={runsRequest.error?`原因：${runsRequest.error}`:undefined} onRetry={()=>refresh()} retryLabel="重新加载"/>}
@@ -299,8 +381,20 @@ export default function Studio(){
      <div className="sidebar-footer">{catalog.tests.length} tests · {catalog.files.length} files<br/><span>{selectedProject?.root||'未连接 Git 项目'}</span></div>
     </aside>
     <main className="content" id="content" role="main" tabIndex={-1} aria-label="工作区内容" data-region="content">
-     {tab==='catalog'&&<><div className="section-top"><div><div className="eyebrow">TEST CATALOG / SOURCE OF TRUTH</div><h1>{selected?.title||'测试目录与脚本工作台'}</h1><p>{selected?.file||'在左侧选择一个测试用例，查看可视化步骤与 TypeScript 原始脚本。'}</p></div><div className="button-group"><button className="btn secondary" onClick={()=>execute(null)} disabled={!active||!!live}><Play size={15}/> 运行全部</button><button className="btn primary" onClick={()=>execute(selected?.file||null)} disabled={!active||!!live}><Play size={15}/> {selected?'运行脚本':'执行测试'}</button></div></div>
-     <div className="metric-row"><div className="metric"><span>可管理用例</span><strong>{catalog.tests.length}</strong><small>静态索引 · Git 原生</small></div><div className="metric"><span>成功运行</span><strong>{stats.passed}</strong><small>保留历史证据</small></div><div className="metric"><span>失败运行</span><strong>{stats.failed}</strong><small>可追踪与复现</small></div><div className="metric"><span>累计运行</span><strong>{stats.total}</strong><small>append-only execution</small></div></div>
+     {tab==='catalog'&&<><div className="section-top"><div><div className="eyebrow">TEST CATALOG / SOURCE OF TRUTH</div><h1>{selected?.title||'测试目录与脚本工作台'}</h1><p>{selected?.file||'在左侧选择一个测试用例，查看可视化步骤与 TypeScript 原始脚本。'}</p></div><div className="button-group">
+      {/* ATS-214: the BATCH run button. It is enabled when cases are
+          picked, and it says how many -- the user can see what is about
+          to run before it runs. */}
+      <button className="btn primary" onClick={runSelection} disabled={!active||!!live||busy||!selection.count} title={selectionGroups.length?`将分 ${selectionGroups.length} 个文件依次执行`:'运行选中的用例'}><Play size={15}/> 批量运行{selection.count?`（${selection.count}）`:''}</button>
+      <button className="btn secondary" onClick={()=>execute(null)} disabled={!active||!!live}><Play size={15}/> 运行全部</button><button className="btn secondary" onClick={()=>execute(selected?.file||null)} disabled={!active||!!live}><Play size={15}/> {selected?'运行脚本':'执行测试'}</button></div></div>
+     <div className="metric-row"><div className="metric"><span>可管理用例</span><strong>{catalog.tests.length}</strong><small>静态索引 · Git 原生</small></div><div className="metric"><span>当前筛选</span><strong>{filterReport.matched}</strong><small>搜索与过滤取交集</small></div><div className="metric"><span>已选中</span><strong>{selection.count}</strong><small>可批量运行</small></div><div className="metric"><span>累计运行</span><strong>{stats.total}</strong><small>append-only execution</small></div></div>
+     {/* ATS-214: the SELECTION RECORD. What was selected, in full, before
+         the run: the cases with their file, title and line, and how the
+         batch is split into runs. This is the same snapshot the run
+         record carries, so the two can be compared. */}
+     {selection.count>0&&<div className="card"><div className="card-title"><Layers3 size={16}/> 已选用例（{selection.count}）· 分 {selectionGroups.length} 个文件执行</div>
+      <table><thead><tr><th>用例</th><th>文件</th><th>行</th><th>UID</th></tr></thead><tbody>{selection.cases.map(c=><tr key={c.uid}><td><b>{c.title}</b></td><td><code className="mono">{c.file}</code></td><td>{c.line??'—'}</td><td><code className="mono">{c.uid}</code></td></tr>)}</tbody></table>
+      <div className="panel-foot">选择集合是快照：它记下了选中时每条用例的文件、标题与行号，因此即使目录随后变化，这条记录仍可独立阅读。引擎每次只接受一个测试文件过滤参数，所以跨文件的批量运行会按文件依次执行。</div></div>}
      {selected&&source?<div className="editor-panel"><div className="panel-head"><div className="panel-tabs"><button className={view==='graph'?'active':''} onClick={()=>setView('graph')}><Network size={15}/> 流程视图</button><button className={view==='code'?'active':''} onClick={()=>setView('code')}><Code2 size={15}/> 代码视图</button></div><div className="panel-right"><span className="quiet">{draft!==source.content?'● 未保存':'已同步 Git 工作区'}</span><button className="btn small" onClick={()=>setView('code')}><Code2 size={13}/> 编辑</button><button className="btn primary small" onClick={save} disabled={draft===source.content}><Save size={13}/> 保存</button></div></div>
      {view==='graph'?<div className="graph-view"><div className="graph-label">READ ONLY · 语义投影，不覆盖复杂 TS</div>{steps.map((s,i)=><React.Fragment key={i}><div className="flow-node"><span className="step-n">{String(i+1).padStart(2,'0')}</span><div><small>{s.kind} · L{s.line}</small><code>{s.name}</code></div></div>{i<steps.length-1&&<div className="flow-line"/>}</React.Fragment>)}{!steps.length&&<div className="empty-small">此脚本包含复杂或不支持的表达式，请使用代码视图编辑。</div>}</div>:<div className="code-editor"><Monaco height="420px" language="typescript" theme="vs-dark" value={draft} onChange={v=>setDraft(v||'')} options={{minimap:{enabled:false},fontSize:13,wordWrap:'on',automaticLayout:true}}/></div>}
      <div className="panel-foot">当前阶段的流程图为只读投影；复杂 TypeScript 始终由源代码保持完整表达。编辑保存采用 SHA-256 乐观并发检查。</div></div>:<div className="welcome"><div className="welcome-icon"><FolderGit2 size={35}/></div><h2>从 Git 到可视化测试</h2><p>保留已有 Playwright 工程结构。选择项目与脚本后，可以查看步骤、编辑源码、运行用例并收集证据。</p><button className="btn primary" onClick={()=>setDialog(true)}>导入本地 Git 项目</button></div>}
@@ -308,6 +402,21 @@ export default function Studio(){
      {tab==='runs'&&<><div className="section-top"><div><div className="eyebrow">EXECUTION CENTER</div><h1>执行中心</h1><p>保留每次运行的完整状态、错误日志与 Playwright 原始证据。</p></div>{live&&<button className="btn danger" onClick={async()=>{await api(`/api/runs/${live.id}/stop`,'POST');refresh()}}><Square size={14}/> 停止运行</button>}</div>
       {currentRun?<><div className="metric-row"><div className="metric"><span>当前运行</span><strong className="small-value">{label[currentRun.status]||currentRun.status}</strong><small>{currentRun.gitCommit}</small></div><div className="metric"><span>通过</span><strong>{currentRun.summary?.passed??'—'}</strong></div><div className="metric"><span>失败</span><strong>{currentRun.summary?.failed??'—'}</strong></div><div className="metric"><span>总用例</span><strong>{currentRun.summary?.total??'—'}</strong></div></div>
       <div className="split"><div className="card grow"><div className="card-title"><Terminal size={16}/> 实时输出与历史日志</div><pre className="console">{currentRun.log||currentRun.error||'正在等待执行输出…'}</pre></div><div className="card evidence"><div className="card-title"><Download size={16}/> 运行证据</div>{currentRun.artifacts?.length?currentRun.artifacts.map(a=><button key={a.file} className="artifact" onClick={()=>downloadArtifact(currentRun.id,a.file).catch(e=>notify(e.message))}><span>{a.file}</span><small>{Math.ceil(a.size/1024)} KB</small></button>):<p className="muted">测试完成后显示 JSON / HTML / trace.zip / 截图等原始附件。</p>}</div></div>
+      {/* ATS-214: the RECONCILIATION of the selection against what ran.
+          「选了什么、跑了什么，两边对得上」 -- the two facts are compared
+          here, and the difference is shown rather than smoothed away. */}
+      {currentRun.selection&&<div className="card"><div className="card-title"><Layers3 size={16}/> 选择集合与实际执行的对账</div>
+       {(()=>{const executed=(currentRun.attempts??[]).map(a=>a.testUid).filter((u):u is string=>Boolean(u));
+        const r=reconcileSelection({uids:currentRun.selection.uids},executed);
+        return <><table><thead><tr><th>核对项</th><th>数量</th><th>结论</th></tr></thead><tbody>
+        <tr><td>选中用例</td><td>{r.selected}</td><td>运行记录里的选择集合</td></tr>
+        <tr><td>实际执行的用例</td><td>{r.executed}</td><td>本次运行 attempt 绑定的 UID</td></tr>
+        <tr><td>选中但未执行</td><td>{r.missing.length}</td><td className={r.missing.length?'bad':'ok'}>{r.missing.length?'缺失：'+r.missing.join('、'):'无缺失'}</td></tr>
+        <tr><td>执行但未选中</td><td>{r.extra.length}</td><td className={r.extra.length?'warn':'ok'}>{r.extra.length?'多跑：'+r.extra.join('、'):'无多跑'}</td></tr>
+        <tr><td>选择可复现</td><td>—</td><td className={r.matches?'ok':'bad'}>{r.matches?'选中的用例全部执行':'选中的用例未全部执行'}</td></tr>
+        </tbody></table>
+        <div className="panel-foot">选择集合是运行开始时的快照，它与本次运行的 attempt 是两条独立的事实；上表是两者的比对。多跑不破坏「选择集合可复现」——选择集合仍然就是用户选中的那几条——但它必须被看见。</div></>})()}
+      </div>}
       {currentRun.summary?.cases?.length?<div className="card"><div className="card-title"><CheckCircle2 size={16}/> 详细结果</div>{currentRun.summary.cases.map((c,i)=><div key={i} className="result-item"><span className={c.status==='passed'?'ok':'bad'}>{c.status==='passed'?<CheckCircle2 size={16}/>:<XCircle size={16}/>}</span><div><b>{c.title}</b><small>{c.file} · {c.duration}ms · {c.attemptsCount} 次执行</small>{c.error&&<pre>{c.error.slice(0,450)}</pre>}</div></div>)}</div>:null}</>:<div className="welcome"><Activity size={32}/><h2>尚无运行记录</h2><p>从测试目录选择脚本并点击运行。</p></div>}</>}
      {tab==='quality'&&<><div className="section-top"><div><div className="eyebrow">QUALITY OVERVIEW</div><h1>质量概览</h1><p>失败、重试与取消分开计数；每个指标都能核对到原始用例与 attempt。</p></div><div className="button-group"><button className="btn secondary" onClick={()=>refresh()}><RefreshCcw size={15}/> 刷新</button></div></div>
       <div className="metric-row">{qualityCards.map(c=><div className="metric" key={c.key}><span>{c.label}</span><strong>{c.value}</strong><small>{c.subtitle}</small></div>)}</div>

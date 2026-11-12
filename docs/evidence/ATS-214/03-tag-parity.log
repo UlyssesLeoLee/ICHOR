@@ -1,0 +1,23 @@
+fixture: C:\Users\seiko\AppData\Local\Temp\multica-task-1139765988\ats214-parity-r37yvL\project
+playwright: D:/ICHOR/examples/sample-playwright/node_modules
+the CLI answered: ok=true outcome=OK version=1.64.1
+
+line | static index            | the real CLI              | same
+-----+-------------------------+--------------------------+-----
+   3 | []                      | []                       | yes
+   5 | ["smoke"]               | ["smoke"]                | yes
+   7 | ["a","b"]               | ["a","b"]                | yes
+  10 | ["group"]               | ["group"]                | yes
+  11 | ["group","own"]         | ["group","own"]          | yes
+  13 | ["group","inner"]       | ["group","inner"]        | yes
+
+cases: 6 · tags: 5 with tags · mismatches: 0
+
+--- the facts the design relies on (measured, not assumed) ---
+the source writes '@smoke', the CLI reports ["smoke"]  -> the '@' is not part of the tag
+a case under describe(...{tag:'@group'}) reports ["group"]  -> the describe's tag is inherited
+a case under two nested describes reports ["group","inner"]  -> the tags accumulate
+a case with its own tag under a tagged describe reports ["group","own"]  -> own + inherited
+a tag without '@' is refused by the CLI: ok=false "Error: Tag must start with '@'; Error: No tests found"
+
+RESULT: OK -- the static index and the real Playwright CLI carry the SAME tags for all 6 cases.
