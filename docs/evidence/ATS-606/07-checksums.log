@@ -1,11 +1,21 @@
 === ATS-606 evidence: the checksum manifest ===
-tree : 95f9c15d7edbd0274ecea303553bfbca42ecf12c
-date : 2026-11-12T12:22:02Z
+tree : 0a5be02c9f8a9e2b9d34383cb280ff67d17a6ff8
+date : 2026-11-12T19:44:41Z
 
-manifest entries : 922
-digest mismatches: 0
-tracked-not-listed: 0 []
+manifest entries : 986
+digest mismatches: 10
+    docs/00-INDEX.md c349933c7c99e6ff3109a22fab6b08097f38685f2a2d52bfbe9716b22e5ce6c1 != 1411e0781fa371b46432f7a627b9f261c7338cf2f06c753b7b77d2d6f848b1bb
+    docs/02-REQUIREMENTS.md c29fb4e747b0825494f94707a98e370e6ae5f49b8c72b35f9b553f7a2822e81d != 7f7c8c5cdc06ea46a935300062a34c5c69e6249af107a0277d3504ea998ec7a1
+    docs/15-REFERENCES-LICENSES.md 18d95a977687a8c31010c222c14bf8f50cbdf233d5c07c615a3f3eb464a5e6c0 != c0ca437be84e557619bf0b0d26eca217b9570f8982b10d6d1c9616d026cadabf
+    docs/25-MOBILE-APP-TESTING.md 4d9b6df5ce1c0e153ccb7c103e393bcf9db0b7258bb2f06c6a16d425dee0a4b5 != ac5096be694e499b028c8d5dd87632fea0556caea8e1a87134de64b70c9efc56
+    tools/ats606-probes/collect-evidence.sh d365bcee7c1c385068744317f331c147764a9c9fe2d353a812005de018aa3572 != 3effcba2487d0b5cf1288c22098c86addcb8fba2559f6920414bbbbb20492eff
+    tools/ats606-probes/gen-section-rows.mjs 7481b9eca7cc6ff444b08369871e430244becc58b20d10f0430c3bb653957340 != 32ba6424f0db1d510a06485b18beaa0fde37b3e40a875ebe714b72bda1dab431
+    tools/ats606-probes/probe-ios-driver-support.mjs 824115b815e78e749e67a0bc11dd623cd9ce2f4b51aaf9a86ebbe18d719bbdb3 != c559d7a6c644cc077cee8f44d5b3974eabd3312b0e95a25969447f1d3bb2649a
+    tools/ats606-probes/probe-maestro-compat.mjs 0d177e6d7148efe4f50e724f4d384971bc7bc23a019c0b31d1beec041b2ee55c != 1b3eb690eeaae901ef092f42f2ee7f827b5b916c033c5a10b349c95812602190
+    tools/update_wbs_ats606.py a747c6ed89c12da8414ccc5932431839a05c335d5f05396ca72318a6b93debcb != 8eba764b60c3e639e3a1642ba555233cd22a38235f7f0c9d3b6fea5aa470eb55
+    tools/wbs_common.py e0ebb4aa6562ceb8181a4a86b59f2a25c92c2740f03ac0d7dc2764183ea74e5d != db77d50a70dc60bd8eda878e9036afd08b2b06ca78e9bd469f106d9705a5083c
+tracked-not-listed: 2 ['tools/ats606-probes/probe-group-mutants.mjs', 'tools/ats606-probes/write-section-rows.mjs']
 listed-not-tracked: 0 []
-RESULT: OK
+RESULT: MISMATCH
 
 exit : 0
