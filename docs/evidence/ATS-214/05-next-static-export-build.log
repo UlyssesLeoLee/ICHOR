@@ -1,4 +1,1 @@
-npm notice run @ai-test-studio/ui@0.1.0 build
-npm notice run next build
-'next' is not recognized as an internal or external command,
-operable program or batch file.
+SKIPPED: apps/studio/node_modules is not installed.

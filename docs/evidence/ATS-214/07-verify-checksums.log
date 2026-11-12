@@ -1,15 +1,5 @@
-manifest entries : 922
-digest mismatches: 15
-    apps/studio/app/globals.css 7f1777b208f4151bfee566f49a685e84e715db37a368e57fcea6719a69400b26 != fd04561da23a4ceaa21502473cf837c4cc11c224da9813c9f3e875bbd3768398
-    apps/studio/app/page.tsx 3e01ac6d7612104e35de3fd3ee723ccbe086cc21517cfa5b0f61eda688f5e2ef != 6e8355c76626c29ec0902509ed870474b95236cab288f840c82975cd732e1650
-    apps/studio/lib/api.ts e037d6bb9372fec0459376e4f3056083bd7ff162e989a2f7c73d0ae2b22798b1 != a242aec28b9025ac0192fa090d1defdb081436ae50dd89527380e56f47676801
-    apps/studio/public/fallback.html f185e2a79639432770201c70baffbc53aecdf06c81ce168ded07099a1f0c7bb1 != 3e63783b1b0850c2f289095423461531495e514537b9771682f6b24d4713f57a
-    docs/00-INDEX.md 9c973bd1b1fc6052211739a890ecf8660a101325744a5fb9e9d7061c8f455430 != a784d740c32fea9104bfa2a8c2ac123b44d6af9156cd7c04df7526af754df5dd
-    docs/02-REQUIREMENTS.md 8b20a43ecd75c36102ead2b3ac4e6ca10d9b5fce00a8147c35b37e3ab32b5bb2 != 60912922203b4d306ebe2f47f1195db8dc2cfad936629276b7b8b95fb64eb241
-    docs/05-UI-UX.md e50b118a6cdf71e5c458e9595862ca6b772274be8d2e5b11a4d4e434f0f44376 != a23ae54a0059798bb14ddfb7c63aff0640e56a618158298a8fa9f1d5b827f90c
-    docs/07-UT-TEST-DESIGN.md 4bc0fab071fababc4ca3c06521c214e2da3c5cb0df3af518681dc8cbd6b409f3 != 6543d1b0a099142f7ba19477ae1cd5cb561bcb4f3618dc0d90abf88189266377
-    docs/08-IT-TEST-DESIGN.md 464edbadccfb5337fda26b183a291a0857565a6b80f3f957c459da699e0d9725 != ead5d772f4abae2c1f5dc7fcbf02a830a8e2689bd53a001e13daea61c0a3a99e
-    docs/09-ST-TEST-DESIGN.md 0299d962dbcd7df93989083e3fe603ef76b6251cbc1f62d08b157be6477f8125 != bb304b938b595a8c7d83d5dead47a92659da8e212f7d910f152d509ae6883613
-tracked-not-listed: 7 ['apps/studio/public/case-search.mjs', 'docs/32-CASE-SEARCH-SELECTION.md', 'tests/ats214-batch-run-api.test.mjs', 'tests/ats214-case-search.test.mjs', 'tools/ats214-probes/collect-evidence.sh']
+manifest entries : 950
+digest mismatches: 0
+tracked-not-listed: 0 []
 listed-not-tracked: 0 []
-RESULT: MISMATCH
+RESULT: OK
