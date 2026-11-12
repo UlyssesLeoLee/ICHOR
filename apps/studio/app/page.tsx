@@ -7,7 +7,7 @@ import {api,cancellableApi,downloadArtifact,type Project,type TestDef,type TestC
 // cancelled / loading -- are defined ONCE, here, and the unit tests assert
 // on them (tests/workbench-state.test.mjs) without a browser. The view
 // below only renders what the model says.
-import {WORKBENCH_STATES,deriveWorkbenchState,isTextEntry,keyCommandFor,keyboardHelpLines,type WorkbenchStateKind} from '../lib/workbench-state.mjs';
+import {WORKBENCH_STATES,NO_PROJECT_STATE,deriveWorkbenchState,panelState,isTextEntry,hasNativeEnterAction,isComposing,keyCommandFor,keyboardHelpLines,type WorkbenchStateKind} from '../lib/workbench-state.mjs';
 // ATS-214: the CASE SEARCH / TAG / FILTER / SELECTION module. The SAME
 // module the portable UI imports, so the two interfaces cannot disagree
 // about what the catalogue shows -- and the SET semantics (a search and a
@@ -61,7 +61,19 @@ function StatePanel({kind,detail,onRetry,retryLabel}:{kind:WorkbenchStateKind,de
   {onRetry&&<button className="btn secondary small state-retry" onClick={onRetry}><RefreshCcw size={13}/> {retryLabel||'重试'}</button>}
  </div>;
 }
-function stepsOf(src:string){const arr:{line:number,name:string,kind:string}[]=[];src.split('\n').forEach((line,i)=>{
+// ATS-111: the NO-PROJECT panel. It is a panel like the other four, but it
+// is about the WORKSPACE rather than about a request: there is no project
+// to load a catalogue for. It says so in its own words and points at the
+// action that helps -- importing a project -- instead of talking about a
+// filter that matched nothing.
+function NoProjectPanel({onAddProject}:{onAddProject:()=>void}){
+ return <div className="state-panel state-no-project" role="status" aria-live="polite" aria-busy="false" data-state="no-project" data-state-token={NO_PROJECT_STATE.token}>
+  <div className="state-head"><FolderGit2 size={16} aria-hidden="true"/><b>{NO_PROJECT_STATE.label}</b></div>
+  <p className="state-detail">{NO_PROJECT_STATE.detail}</p>
+  <p className="state-hint">{NO_PROJECT_STATE.hint}</p>
+  <button className="btn primary small state-retry" onClick={onAddProject}><FilePlus2 size={13}/> 添加项目</button>
+ </div>;
+}function stepsOf(src:string){const arr:{line:number,name:string,kind:string}[]=[];src.split('\n').forEach((line,i)=>{
  const kind=/\bexpect\s*\(/.test(line)?'断言':/\.goto\s*\(/.test(line)?'导航':/\.fill\s*\(/.test(line)?'输入':/\.click\s*\(/.test(line)?'点击':/test\.step\s*\(/.test(line)?'步骤组':null;
  if(kind)arr.push({line:i+1,name:line.trim().slice(0,94),kind});
  });return arr;}
@@ -127,6 +139,12 @@ export default function Studio(){
  // made, and storing `undefined` as the new state. The handle is not
  // state (it never changes what is rendered), so a ref is the right
  // home for it.
+ // ATS-111: `reloadToken` is what makes 「重新加载」 work. Asking for the
+ // same project again is not a state change, so React does not re-run the
+ // effect and no request is made; the counter changes, so the effect
+ // re-runs and the request is really issued again.
+ const [reloadToken,setReloadToken]=useState(0);
+ const reloadCatalogue=useCallback(()=>setReloadToken(n=>n+1),[]);
  const catalogueAbort=React.useRef<(()=>void)|null>(null);
  // ATS-111: the load state of the RUN LIST. The run list is polled, so it
  // has its own failure mode: a poll that fails must not be confused with
@@ -168,7 +186,7 @@ export default function Studio(){
   api<typeof lineage>(`/api/projects/${active}/lineage`).then(setLineage).catch(()=>setLineage({requirements:[],links:[]}));
   setSelected(null);setSource(null);
   return()=>{cancelled=true;controller.abort();catalogueAbort.current=null;};
- },[active]);
+ },[active,reloadToken]);
  // ATS-111: Escape cancels the load that is in flight. The cancellation
  // is a state of its own, so the reader can tell it apart from a failure
  // and from an empty list.
@@ -448,7 +466,7 @@ export default function Studio(){
  // ATS-111: the state of the catalogue panel, decided by the MODEL.
  // The panel component renders the ARIA attributes itself, from the same
  // model, so there is no second copy of them here to drift.
- const catalogueState=deriveWorkbenchState(catalogueRequest);
+ const panel=panelState(catalogueRequest,{hasProject:Boolean(active)});
  // ATS-215: the EVIDENCE WORKBENCH. The view is computed by the SHARED
  // module, so the Next workbench and the portable UI locate a trace the
  // same way -- there is one implementation, not two.
@@ -533,11 +551,12 @@ export default function Studio(){
          is shown at a time, and each says something different: the list
          is empty, the load failed, the load was cancelled, or the load is
          still running. */}
-     <div className="file-list" data-region="panel" data-catalogue-state={catalogueState||'ready'}>
-     {catalogueState==='loading'&&<StatePanel kind="loading"/>}
-     {catalogueState==='error'&&<StatePanel kind="error" detail={catalogueRequest.error?`原因：${catalogueRequest.error}`:undefined} onRetry={()=>setActive(a=>a)} retryLabel="重新加载"/>}
-     {catalogueState==='cancelled'&&<StatePanel kind="cancelled" onRetry={()=>setActive(a=>a)} retryLabel="重新加载"/>}
-     {catalogueState==='empty'&&<StatePanel kind="empty" detail="这个项目里没有可执行的测试用例。" onRetry={()=>setActive(a=>a)} retryLabel="重新加载"/>}
+     <div className="file-list" data-region="panel" data-catalogue-state={panel?panel.kind:'ready'}>
+     {panel&&panel.kind==='loading'&&<StatePanel kind="loading"/>}
+     {panel&&panel.kind==='error'&&<StatePanel kind="error" detail={catalogueRequest.error?`原因：${catalogueRequest.error}`:undefined} onRetry={reloadCatalogue} retryLabel="重新加载"/>}
+     {panel&&panel.kind==='cancelled'&&<StatePanel kind="cancelled" onRetry={reloadCatalogue} retryLabel="重新加载"/>}
+     {panel&&panel.kind==='empty'&&<StatePanel kind="empty" detail="这个项目里没有可执行的测试用例。" onRetry={reloadCatalogue} retryLabel="重新加载"/>}
+     {panel&&panel.kind==='no-project'&&<NoProjectPanel onAddProject={()=>setDialog(true)}/>}
      {shown.map(t=><div key={t.id} className={'file-item '+(selected?.id===t.id?'selected':'')}>
       {/* ATS-214: the pick-box is a REAL `<button role="checkbox">`, not a
           `<span>` nested inside the row's button.
@@ -555,7 +574,7 @@ export default function Studio(){
      </div>)}
      {/* The filter matched nothing -- a DIFFERENT fact from "the project has
          no cases at all", so it is a different message. */}
-     {!catalogueState&&!shown.length&&<div className="empty-small">{catalog.tests.length?'没有符合当前条件的用例<br/>搜索与过滤条件按「交集」叠加':'这个项目里没有可执行的测试用例。'}</div>}
+     {!panel&&!shown.length&&<div className="empty-small">{catalog.tests.length?'没有符合当前条件的用例<br/>搜索与过滤条件按「交集」叠加':'这个项目里没有可执行的测试用例。'}</div>}
      </div></>}
      {tab==='runs'&&<div className="file-list" data-region="runs-panel" data-runs-state={runsRequest.phase==='failed'?'error':runsRequest.phase==='pending'&&!runs.length?'loading':!projectRuns.length?'empty':'ready'}>
      {runsRequest.phase==='failed'&&<StatePanel kind="error" detail={runsRequest.error?`原因：${runsRequest.error}`:undefined} onRetry={()=>refresh()} retryLabel="重新加载"/>}

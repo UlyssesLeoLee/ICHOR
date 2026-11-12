@@ -1,3 +1,4 @@
+=== the model mutations (the unit tests must go red) ===
 PASS M1 the cancelled state is folded into the error state -- caught (0 failing test(s))
 PASS M2 the empty state is folded into the cancelled state -- caught (0 failing test(s))
 PASS M3 the loading state is folded into the empty state -- caught (0 failing test(s))
@@ -8,6 +9,19 @@ PASS M7 the Enter binding is removed -- caught (0 failing test(s))
 PASS M8 the text-entry guard always answers false -- caught (0 failing test(s))
 PASS M9 an unknown outcome is swallowed instead of reported -- caught (0 failing test(s))
 PASS M10 the focus order is reversed -- caught (0 failing test(s))
+PASS M11 the no-project state is folded into the request states -- caught (0 failing test(s))
+PASS M12 the native-Enter guard always answers false -- caught (0 failing test(s))
+PASS M13 an IME composition is treated as a command -- caught (0 failing test(s))
 
-scratch: D:\ats111-evidence-mut\mut111-gXeQGj
-RESULT: 10/10
+=== the view mutations (the system test must go red) ===
+  (each mutation is built and driven in a real browser -- this takes a while)
+  copying the studio dependencies into the base tree ...
+PASS the control build succeeds
+PASS the CONTROL run is GREEN (the system test passes on the delivered tree) -- 62/62
+PASS V1 the 「重新加载」 button issues no request (the retry is a no-op) -- caught (58/62; failing: ST-111-10b the retry in the CANCELLED state REALLY re-issues the request -- requests 5 -> 5 | ST-111-10c after the retry the panel is LOADING again -- {"kind":"cancelled","role":"status","live":"polite","busy" | ST-111-10e the retry in the ERROR state REALLY re-issues the request -- requests 7 -> 7 | ST-111-10g the retry in the EMPTY state REALLY re-issues the request -- requests 8 -> 8)
+PASS V2 the Enter key swallows the focused control own action (the rejected behaviour, restored) -- caught (58/62; failing: ST-111-11c Enter on 「取消」 CLOSES the dialog -- 1 dialog(s) still open | ST-111-15 the focus returned to the 「添加项目」 button after the dialog closed -- BUTTON| | ST-111-14b Ctrl+P moves the focus to the search box with the focus on the BODY -- BODY| | ST-111-14d Escape cancels the load with the focus on the BODY -- {"kind":"loading","role":"status","live":"polite",)
+PASS V3 the previous project's catalogue is not cleared on a switch -- caught (59/62; failing: ST-111-13b switching to another project shows NO cases of the previous one -- items=2 | ST-111-13c the 「可管理用例」 metric is 0 while the new project loads -- manageable=2 | ST-111-13d the footer counts no cases of the previous project -- footer=2 tests · 1 filesC:\Users\seiko\ats111-evid)
+PASS V4 the key handler is bound to the app shell, not to the document -- caught (52/62; failing: ST-111-5a Escape cancels the load and the panel says 「已取消」 -- {"kind":"loading","role":"status","live":"polite","bu | ST-111-2i the four states carry FOUR DIFFERENT labels -- 暂无内容 / 加载失败 / 加载中 / 加载中 | ST-111-10a the CANCELLED state offers a retry -- {"kind":"loading","role":"status","live":"polite","busy":"true","l | ST-111-10b the retry in the CANCELLED state REALLY re-issues the request -- requests 5 -> 5 | ST-111-14b Ctrl+P moves the focus to the search box with the focus on the BODY -- BODY| | ST-111-14d Escape cancels the load with the focus on the BODY -- {"kind":"loading","role":"status","live":"polite", | ST-111-7b Ctrl+P moves the focus to the search box -- the focus is on BUTTON| | ST-111-7e the selected case can be RUN with Ctrl+Enter -- no run was started | ST-111-7f the run reaches a TERMINAL state -- the run did not reach a terminal state in 60s | ST-111-7g the run list shows the run and is not in an error/empty state -- the run list state is empty)
+
+scratch: C:\Users\seiko\ats111-evidence-mut\mut111-dTxUJ3
+RESULT: 19/19
