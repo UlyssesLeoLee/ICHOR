@@ -1212,6 +1212,6 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
 | `tools/ats606-probes/maestro-command-fixtures.json` | 每条 Maestro 命令的最小 Flow 夹具（命令清单与导入器比对的输入） |
 | `tools/ats606-probes/write-section-rows.mjs` | 把生成器产出的 §8.5 整块写回设计文档的 `<!-- ATS606-ROWS-START -->` … `END` 之间（行终止符随文档本身，CRLF / LF 都不漂移） |
 | `tools/ats606-probes/probe-group-mutants.mjs` | **分组负控**：把行挪到别的组并改掉全部计数（M1–M6），逐条跑交付的探针，**每一条都必须变红**，未改动的 control 必须仍然通过 |
-| `tools/ats606-probes/probe-ios-driver-support.mjs` | 从 Maestro 的**字节码**复核 §8.4 的每条 iOS 结论（模拟器路径 vs 真机路径的路由与实现状态、七项 capability 表、两条 iOS 空操作、三个硬前提的常量），并**逐个 jar 列表核对**两个设备侧 runner 构建（`driver-iPhoneSimulator/` / `driver-iphoneos/`）的出处，以及「没有任何 jar 含 `driver-ios/`」 |
+| `tools/ats606-probes/probe-ios-driver-support.mjs` | 从 Maestro 的**字节码**复核 §8.4 的每条 iOS 结论（模拟器路径 vs 真机路径的路由与实现状态、七项 capability 表、两条 iOS 空操作），并**把三条硬前提逐条核到产物上**（`RealIOSDeviceDriver` 的字节码里真有那条 Apple team ID 报错与 `MissingAppleTeamId`；`LocalIOSDeviceController` 的字节码里真有 xcrun/devicectl/install/app/launch 序列；设备侧 `XCTestHTTPServer.swift` 真绑 `127.0.0.1:22087`，且**没有任何 jar 带 iproxy / usbmux 端口转发**），并**逐个 jar 列表核对**两个设备侧 runner 构建（`driver-iPhoneSimulator/` / `driver-iphoneos/`）的出处，以及「没有任何 jar 含 `driver-ios/`」 |
 | `tools/ats606-probes/collect-evidence.sh` | 证据采集脚本：7 份日志写入 `docs/evidence/ATS-606/`，每份头部写明所描述的树 |
 | `tools/update_wbs_ats606.py` | WBS 行的同步脚本（只写 ATS-606 行） |
