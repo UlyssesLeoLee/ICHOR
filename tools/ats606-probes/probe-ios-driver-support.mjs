@@ -481,11 +481,89 @@ if (claimsPartial && devNotImpl === 0) {
 // The claim that the "same implementation" is the HOST-SIDE code must be
 // scoped in the document, and the document must name the two device-side
 // builds.
+// builds.
 if (/宿主侧/.test(section) && /driver-iPhoneSimulator/.test(section) && /driver-iphoneos/.test(section)) {
   ok('§8.4 scopes the "same implementation" claim to the host side and names the two device-side builds');
 } else {
   fail('§8.4 does not scope the "same implementation" claim to the host side (or does not name the two device-side builds)');
 }
+
+/* ------------------------------------------------------------------ */
+/* 4b. WHERE THE DEVICE-SIDE BUILDS LIVE                              */
+/* ------------------------------------------------------------------ */
+// The two device-side runner builds are the ones the round-2 review
+// caught: the document attributed them to `maestro-cli-2.12.1.jar`, but
+// that jar holds only the Swift SOURCES under `driver/ios/`. The
+// prebuilt runners are in `maestro-ios-driver.jar`, under
+// `driver-iPhoneSimulator/` and `driver-iphoneos/`.
+//
+// This is checked against the JAR LISTS, not against the document: the
+// probe reads every jar's entries and reports which jar really holds
+// which directory. A document that names the wrong jar is caught here,
+// and so is a claim that some jar holds `driver-ios/`.
+console.log('');
+console.log('--- where the device-side runner builds live (the jar lists) ---');
+
+const JARS = fs.readdirSync(LIB).filter((f) => f.endsWith('.jar'));
+const jarEntries = new Map();
+for (const jar of JARS) {
+  try {
+    const out = execFileSync('jar', ['tf', path.join(LIB, jar)], {
+      encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120000,
+    });
+    jarEntries.set(jar, out.split(/\r?\n/).filter(Boolean));
+  } catch {
+    jarEntries.set(jar, []);
+  }
+}
+
+/** The jars that hold an entry starting with the given prefix. */
+const jarsHolding = (prefix) => [...jarEntries.entries()]
+  .filter(([, entries]) => entries.some((e) => e.startsWith(prefix)))
+  .map(([jar]) => jar)
+  .sort();
+
+const DEVICE_BUILD_DIRS = ['driver-iPhoneSimulator/', 'driver-iphoneos/'];
+const deviceBuildOwners = {};
+for (const dir of DEVICE_BUILD_DIRS) {
+  const owners = jarsHolding(dir);
+  deviceBuildOwners[dir] = owners;
+  console.log(`${dir.padEnd(24)} -> ${owners.join(', ') || '(no jar holds it)'}`);
+  if (owners.length === 1) {
+    ok(`${dir} is held by exactly one jar: ${owners[0]}`);
+  } else {
+    fail(`${dir} is held by ${owners.length} jars (${owners.join(', ') || 'none'}) -- the attribution cannot be a single jar`);
+  }
+}
+
+// The Swift source of the device-side runner is in the CLI jar -- and
+// NOT in a `driver-ios/` directory, because no jar has one.
+const swiftOwners = jarsHolding('driver/ios/maestro-driver-iosUITests/Routes/XCTestHTTPServer.swift');
+console.log(`the XCTestHTTPServer.swift source -> ${swiftOwners.join(', ') || '(no jar holds it)'}`);
+if (swiftOwners.length === 1) {
+  ok(`the XCTestHTTPServer.swift source is in ${swiftOwners[0]}`);
+} else {
+  fail(`the XCTestHTTPServer.swift source is in ${swiftOwners.length} jars -- expected exactly one`);
+}
+
+const driverIosHolders = jarsHolding('driver-ios/');
+if (driverIosHolders.length === 0) {
+  ok('no jar holds a `driver-ios/` directory -- so any document that cites `driver-ios/` as a jar path is wrong');
+} else {
+  fail(`these jars hold a \`driver-ios/\` directory (${driverIosHolders.join(', ')}) -- the §8.4 attribution must be re-checked`);
+}
+
+// And the document must name the RIGHT jar for the two device-side
+// builds.
+const expectedOwner = deviceBuildOwners['driver-iPhoneSimulator/'][0];
+if (!expectedOwner) {
+  fail('the device-side builds could not be located in any jar -- the §8.4 attribution cannot be checked');
+} else if (section.includes(expectedOwner)) {
+  ok(`§8.4 attributes the two device-side builds to ${expectedOwner}, which is where the jar list really puts them`);
+} else {
+  fail(`§8.4 does NOT attribute the two device-side builds to ${expectedOwner} (the jar that really holds them)`);
+}
+
 
 // The three hard preconditions of the physical-device path must be stated.
 for (const [needle, what] of [

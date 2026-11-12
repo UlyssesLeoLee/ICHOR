@@ -513,34 +513,80 @@ if (rowsByCommand.size !== Object.keys(fixtures.commands).length) {
   fail(`the table holds ${rowsByCommand.size} rows but the inventory has ${Object.keys(fixtures.commands).length} commands -- some rows are unreadable`);
 }
 
-// The table must be the GENERATED table, byte for byte. The generator is
-// what measures the importer behaviour and the parameters; a hand-edited
-// row would silently become a claim nobody measured.
+// The table must be the GENERATED table, byte for byte.
+//
+// WHY THE WHOLE BLOCK, NOT THE ROWS
+// ----------------------------------
+// The first version compared the rows as an UNORDERED SET: it collected
+// the rows of the document and the rows of the generator and checked
+// that both sets held the same lines. That check cannot see WHICH GROUP
+// a row is in -- moving a row from "可映射" to "不映射" and updating
+// every stated count left the set unchanged, so the probe stayed green.
+// That is the defect the round-2 review found (its mutants M1-M5 all
+// passed).
+//
+// The block comparison below compares the WHOLE generated block -- the
+// three group headings, every row in its group, and the TALLY line --
+// against the document's block, character for character. The group
+// headings and the TALLY are part of the comparison, so a row moved
+// into another group changes the block and the probe goes red.
+//
+// The line terminators are normalised first: the document is CRLF on a
+// Windows checkout and LF everywhere else, and the generator always
+// writes LF. Comparing the raw bytes would report a difference on every
+// Windows checkout, which would make the probe unusable there.
 {
   const generator = path.join(HERE, 'gen-section-rows.mjs');
-  const gen = spawnSync(process.execPath, [generator, REPO], { encoding: 'utf8', timeout: 300000 });
+  const gen = spawnSync(process.execPath, [generator, REPO], { encoding: 'utf8', timeout: 600000 });
   if (gen.error || gen.status !== 0) {
     fail(`the row generator could not be run (${gen.error?.message ?? `exit ${gen.status}`}) -- the table is NOT verified against the measurement`);
   } else {
-    // Only the three VERDICT GROUPS are compared: §8.5.4 and §8.5.5
-    // carry the statistics and the conclusion, and their tables restate
-    // command names in a different shape.
-    const s85 = groups.filter((g) => groupOf(g.title)).map((g) => g.body).join('\n');
-    const isInventoryRow = (l) => {
-      const m = /^\| `([A-Za-z][A-Za-z0-9]*)`/.exec(l);
-      return m ? Object.prototype.hasOwnProperty.call(fixtures.commands, m[1]) : false;
-    };
-    const genSet = gen.stdout.split(/\r?\n/).filter((l) => l.startsWith('| `') && isInventoryRow(l)).map((l) => l.trim());
-    const docSet = s85.split(/\r?\n/).filter((l) => l.startsWith('| `') && isInventoryRow(l)).map((l) => l.trim());
-    const onlyGen = genSet.filter((l) => !docSet.includes(l));
-    const onlyDoc = docSet.filter((l) => !genSet.includes(l));
-    if (onlyGen.length || onlyDoc.length) {
-      for (const l of onlyGen) fail(`the generator produces a row the document does not have: ${l.slice(0, 120)}`);
-      for (const l of onlyDoc) fail(`the document has a row the generator does not produce (it was hand-edited): ${l.slice(0, 120)}`);
+    const generated = gen.stdout.replace(/\r\n/g, '\n').replace(/^\s+/, '').replace(/\s+$/, '');
+    const inDocument = blockOf(md);
+    if (!inDocument) {
+      fail('the document has no ATS606-ROWS block -- the generated rows cannot be compared with it');
     } else {
-      ok(`the §8.5 rows are exactly the generated rows (${docSet.length}) -- the table was not hand-edited`);
+      const doc = inDocument.replace(/\r\n/g, '\n').replace(/^\s+/, '').replace(/\s+$/, '');
+      if (doc !== generated) {
+        // Point at the FIRST differing line: "something differs" is not
+        // actionable, and the reviewer has to see WHICH line moved.
+        const a = doc.split('\n');
+        const b = generated.split('\n');
+        let at = 0;
+        while (at < a.length && at < b.length && a[at] === b[at]) at += 1;
+        const where = at < a.length
+          ? `line ${at + 1} of the block: the document says "${(a[at] ?? '').slice(0, 100)}", the generator says "${(b[at] ?? '').slice(0, 100)}"`
+          : `the document's block has ${a.length} lines, the generator's has ${b.length}`;
+        fail(`the §8.5 block differs from the generated block -- ${where}. The group headings, the group of every row and the TALLY are all part of the comparison, so a row moved into another group is caught here.`);
+      } else {
+        ok(`the §8.5 block is exactly the generated block (${b0Lines(doc)} lines: the three group headings, all 55 rows and the TALLY) -- the table was not hand-edited`);
+      }
     }
   }
+}
+
+/**
+ * The generated block of the document: everything between the two
+ * ATS606-ROWS markers, WITHOUT the markers themselves.
+ *
+ * The markers are the contract between the generator and the document:
+ * the generator writes the block, the document holds it between the
+ * markers, and the probe compares the two.
+ */
+function blockOf(text) {
+  // The markers must stand ALONE on their line. A prose sentence that
+  // mentions them in backticks (the §8.5 introduction does) would
+  // otherwise be found first, and the "block" would be the sentence
+  // between that mention and the real marker.
+  const start = /^<!-- ATS606-ROWS-START -->[ \t]*$/m.exec(text);
+  const end = /^<!-- ATS606-ROWS-END -->[ \t]*$/m.exec(text);
+  if (!start || !end || end.index < start.index) return null;
+  return text.slice(start.index + start[0].length, end.index);
+}
+
+/** The number of lines of a block, for the success message. */
+function b0Lines(text) {
+  return text.split('\n').length;
 }
 
 // Every command the inventory found must have a verdict.
@@ -662,7 +708,23 @@ if (paramProblems.length) {
   ok('every parameter cell matches STEP_ARGUMENTS');
 }
 
-// Every "mappable" verdict must name a step kind ATS-601 actually froze.
+// THE GROUPING INVARIANTS
+// -----------------------
+// The block comparison above proves the document holds the GENERATED
+// block. It does not prove the grouping is RIGHT -- the generator could
+// be wrong in the same way the document is wrong.
+//
+// So the grouping is checked against the CRITERION of §8.3, which is
+// about the platform's own model:
+//
+//   可映射 / 部分可映射  the row names a step kind ATS-601 froze -- the
+//                        platform's model CAN express the action;
+//   不映射                the row names NO step kind -- the platform's
+//                        model has no such action.
+//
+// The check is deliberately about the GROUP a row is in, not about the
+// cell text: a row moved into the wrong group is exactly what must be
+// caught.
 const stepKinds = readStepKinds();
 console.log('');
 console.log('--- the platform vocabulary (ATS-601 / ATS-602) ---');
@@ -670,18 +732,38 @@ if (!stepKinds) {
   fail('cannot read the ATS-601 step vocabulary from server/adapters/mobile-target.mjs');
 } else {
   console.log(`ATS-601 step kinds: ${stepKinds.join(', ')}`);
-  const badTargets = [];
-  for (const command of verdicts.mappable) {
-    const row = rowsByCommand.get(command);
-    if (!row) continue;
+  const problems = [];
+
+  /** The step kind a row names, or null when it names none. */
+  const kindOf = (row) => {
     const target = row.kind.replace(/`/g, '').split(' ')[0].split('+')[0].trim();
-    if (target === '' || target === '—') continue;
-    if (!stepKinds.includes(target)) badTargets.push(`${command} -> ${target}`);
+    if (target === '' || target === '—') return null;
+    return target;
+  };
+
+  for (const [command, row] of rowsByCommand) {
+    const target = kindOf(row);
+    if (row.verdict === 'unmappable') {
+      // An unmappable row must NOT name a step kind: the platform's model
+      // has no such action, so there is no kind to point at.
+      if (target !== null) {
+        problems.push(`${command} is in the unmappable group but names the step kind "${target}"`);
+      }
+      continue;
+    }
+    // A mappable / partially mappable row MUST name a frozen step kind.
+    if (target === null) {
+      problems.push(`${command} is in the ${row.verdict} group but names no step kind`);
+      continue;
+    }
+    if (!stepKinds.includes(target)) {
+      problems.push(`${command} names the step kind "${target}", which ATS-601 does not freeze`);
+    }
   }
-  if (badTargets.length) {
-    fail(`these mappable rows name a step kind that ATS-601 does not freeze: ${badTargets.join(', ')}`);
+  if (problems.length) {
+    for (const p of problems) fail(`the grouping breaks the §8.3 criterion: ${p}`);
   } else {
-    ok('every mappable row names a step kind that ATS-601 freezes');
+    ok(`the grouping breaks no §8.3 invariant: every mappable / partially mappable row names a step kind ATS-601 freezes, every unmappable row names none (${rowsByCommand.size} rows)`);
   }
 }
 
@@ -704,34 +786,164 @@ function readStepKinds() {
 
 if (SELF_TEST) {
   console.log('');
-  console.log('--- self-test: a deliberately corrupted table MUST be rejected ---');
+  console.log('--- self-test: deliberately corrupted tables MUST be rejected ---');
 
-  // Take the document, move one command into the wrong group and change
-  // its importer cell. The checks above must then fail.
-  const corrupted = md.replace(
-    '| `launchApp` | `launchApp` | 映射成功 → `launchApp` |',
-    '| `launchApp` | `assertVisible` | 映射成功 → `assertVisible` |',
-  );
-  if (corrupted === md) {
-    fail('the self-test could not corrupt the table -- the row format changed');
-  } else {
-    const tmp = path.join(os.tmpdir(), `ats606-corrupt-${process.pid}.md`);
-    fs.writeFileSync(tmp, corrupted, 'utf8');
+  /**
+   * Runs the probe against a MUTATED copy of the document and reports
+   * whether the mutation was caught.
+   *
+   * A probe that only ever says OK is not evidence. Each mutation below
+   * breaks the document in a specific way; the probe has to go red for
+   * each of them, and the CONTROL (an unmutated copy) has to stay green
+   * -- otherwise a probe that fails on everything would "pass" the
+   * self-test.
+   */
+  const runOn = (text, label) => {
+    const tmp = path.join(os.tmpdir(), `ats606-corrupt-${process.pid}-${label}.md`);
+    fs.writeFileSync(tmp, text, 'utf8');
     const res = spawnSync(process.execPath, [path.join(HERE, 'probe-maestro-compat.mjs'), '--md', tmp], {
       encoding: 'utf8',
-      timeout: 600000,
+      timeout: 900000,
       env: { ...process.env, ATS606_SKIP_MAESTRO: '1' },
     });
     fs.rmSync(tmp, { force: true });
     const out = `${res.stdout ?? ''}${res.stderr ?? ''}`;
-    if (res.status === 0) {
-      fail('the self-test FAILED: a corrupted table still passed -- the probe cannot detect a wrong verdict');
-    } else if (!/FAIL/.test(out)) {
-      fail(`the self-test could not confirm WHY the corrupted table failed (exit ${res.status})`);
+    return { status: res.status, out, caught: res.status !== 0 && /FAIL/.test(out) };
+  };
+
+  /**
+   * Moves a row from one verdict group to another INSIDE the generated
+   * block, and rewrites the group headings and the TALLY to match.
+   *
+   * This is the mutation the round-2 review used, and it is the one the
+   * FIRST version of this probe could not catch: the rows were compared
+   * as an unordered set, so moving one between groups -- and updating
+   * every stated count -- left the set unchanged and the probe stayed
+   * green. The block comparison now makes it visible.
+   */
+  const moveRow = (command, fromHeading, toHeading, counts) => {
+    const block = blockOf(md);
+    if (!block) return null;
+    const ls = block.split(/\r?\n/);
+    const rowAt = ls.findIndex((l) => l.startsWith(`| \`${command}\` |`));
+    if (rowAt < 0) return null;
+    const [row] = ls.splice(rowAt, 1);
+    const h = ls.findIndex((l) => l.startsWith(toHeading));
+    if (h < 0) return null;
+    const sep = ls.findIndex((l, j) => j > h && l.startsWith('|---|'));
+    if (sep < 0) return null;
+    ls.splice(sep + 1, 0, row);
+    const moved = ls.join('\n')
+      .replace(/#### 8\.5\.1 可映射（\d+ 条）/, `#### 8.5.1 可映射（${counts[0]} 条）`)
+      .replace(/#### 8\.5\.2 部分可映射（\d+ 条）/, `#### 8.5.2 部分可映射（${counts[1]} 条）`)
+      .replace(/#### 8\.5\.3 不映射（\d+ 条）/, `#### 8.5.3 不映射（${counts[2]} 条）`)
+      .replace(/<!-- TALLY mappable=\d+ partial=\d+ unmappable=\d+ total=\d+ imported=\d+ reported=\d+ -->/,
+        `<!-- TALLY mappable=${counts[0]} partial=${counts[1]} unmappable=${counts[2]} total=${counts[0] + counts[1] + counts[2]} imported=${measuredMapped} reported=${measuredReported} -->`);
+    // The markers must stand ALONE on their line -- the §8.5
+    // introduction mentions them in backticks, and a plain indexOf
+    // would find that mention first.
+    const startMark = /^<!-- ATS606-ROWS-START -->[ \t]*$/m.exec(md);
+    const endMark = /^<!-- ATS606-ROWS-END -->[ \t]*$/m.exec(md);
+    if (!startMark || !endMark) return null;
+    const head = md.slice(0, startMark.index + startMark[0].length);
+    const tail = md.slice(endMark.index);
+    // The counts stated in §8.5.4 are updated too, so that the
+    // "stated counts match the table" check ALSO passes: the mutation is
+    // CONSISTENT in every visible way, and the ONLY thing wrong with it
+    // is WHICH GROUP the row is in. Only the block comparison can see
+    // that -- which is exactly what has to be proven.
+    const tailFixed = tail.replace(
+      /可映射\s*\d+\s*条\s*\/\s*部分可映射\s*\d+\s*条\s*\/\s*不映射\s*\d+\s*条/,
+      `可映射 ${counts[0]} 条 / 部分可映射 ${counts[1]} 条 / 不映射 ${counts[2]} 条`,
+    );
+    return head + moved + tailFixed;
+  };
+
+  /**
+   * The counts a group move implies.
+   *
+   * The counts are derived from the LIVE table, so the mutation is a
+   * CONSISTENT move: the group headings, the TALLY and the counts all
+   * agree with each other. That is what makes the mutation hard -- the
+   * only thing that is wrong about it is WHICH GROUP the row is in, and
+   * only the block comparison can see that.
+   */
+  const movedCounts = (command, from, to) => {
+    const counts = {
+      mappable: verdicts.mappable.length,
+      partial: verdicts.partial.length,
+      unmappable: verdicts.unmappable.length,
+    };
+    if (!counts[from] || !counts[to]) return null;
+    counts[from] -= 1;
+    counts[to] += 1;
+    return [counts.mappable, counts.partial, counts.unmappable];
+  };
+
+  const mutations = [];
+
+  // The CONTROL: an unmutated copy must still pass, or the self-test
+  // would be satisfied by a probe that rejects everything.
+  mutations.push({
+    label: 'control (unchanged)',
+    text: md,
+    mustBeRejected: false,
+  });
+
+  // M1: a row moved between groups, with every stated count updated.
+  // The counts are consistent with the move, so ONLY the block
+  // comparison can catch it.
+  mutations.push({
+    label: 'a row moved to another group (counts updated)',
+    text: moveRow('assertNotVisible', '#### 8.5.2 ', '#### 8.5.1 ', movedCounts('assertNotVisible', 'partial', 'mappable')),
+    mustBeRejected: true,
+  });
+
+  // M2: a row moved to the group of the commands the platform has no
+  // semantics for. Its kind cell stays, so the §8.3 invariant must
+  // catch it too.
+  mutations.push({
+    label: 'a row moved to the unmappable group (counts updated)',
+    text: moveRow('tapOn', '#### 8.5.1 ', '#### 8.5.3 ', movedCounts('tapOn', 'mappable', 'unmappable')),
+    mustBeRejected: true,
+  });
+
+  // M3: a cell edited by hand -- the importer cell states the wrong
+  // behaviour.
+  mutations.push({
+    label: 'an importer cell edited by hand',
+    text: md.replace(
+      '| `launchApp` | `launchApp` | 映射成功 → `launchApp` |',
+      '| `launchApp` | `launchApp` | 进导入报告：`unknown-command` |',
+    ),
+    mustBeRejected: true,
+  });
+
+  for (const m of mutations) {
+    if (m.text === null || m.text === undefined) {
+      fail(`the self-test could not build the mutation "${m.label}" -- the table format changed`);
+      continue;
+    }
+    if (!m.mustBeRejected && m.text === md) {
+      // The control is the document itself.
+    }
+    const r = runOn(m.text, m.label.replace(/[^A-Za-z0-9]+/g, '-').slice(0, 40));
+    if (!m.mustBeRejected) {
+      if (r.status === 0) {
+        ok(`the self-test control: an unmutated document still passes (exit 0)`);
+      } else {
+        fail(`the self-test control FAILED: an unmutated document was rejected (exit ${r.status}) -- the probe rejects the correct document`);
+        const why = r.out.split('\n').filter((l) => l.startsWith('FAIL')).slice(0, 3);
+        for (const l of why) console.log(`     ${l}`);
+      }
+      continue;
+    }
+    if (r.caught) {
+      ok(`the self-test: "${m.label}" was rejected (exit ${r.status})`);
+      const why = r.out.split('\n').filter((l) => l.startsWith('FAIL')).slice(0, 2);
+      for (const l of why) console.log(`     ${l.slice(0, 160)}`);
     } else {
-      ok(`the self-test: a corrupted table was rejected (exit ${res.status})`);
-      const why = out.split('\n').filter((l) => l.startsWith('FAIL')).slice(0, 3);
-      for (const l of why) console.log(`     ${l}`);
+      fail(`the self-test FAILED: "${m.label}" was NOT caught (exit ${r.status}) -- the probe cannot detect this corruption`);
     }
   }
 }
