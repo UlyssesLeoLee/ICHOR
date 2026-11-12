@@ -2,7 +2,7 @@
 
 Source: `tools/wbs_common.py`
 
-Source-SHA256: `6282eca1a6dbbc1abf355051d1b0fc5c8031461721dfe678f6755ac144a62594`
+Source-SHA256: `9b7bd8f888e75983d500f0fe2d3efef46e31d7df398179062d2ca9a70d2d79d3`
 
 ## Test Strategy
 

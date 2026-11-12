@@ -2,7 +2,7 @@
 
 Source: `tools/wbs_common.py`
 
-Source-SHA256: `6282eca1a6dbbc1abf355051d1b0fc5c8031461721dfe678f6755ac144a62594`
+Source-SHA256: `9b7bd8f888e75983d500f0fe2d3efef46e31d7df398179062d2ca9a70d2d79d3`
 
 ## Responsibility
 
@@ -35,3 +35,5 @@ ATS-207 registers its marker (canonical position after `【ATS-206】`) and its 
 ATS-506 registers its marker and narrative fragments; no function changes. The ATS-501 D6/D7 fragments stay true because the remote execution plane (queue, nodes) still has no implementation. A concurrent task that also appends a marker produces a textual merge conflict on the `MARKERS` line; the resolution is the union in WBS-ID order.
 
 ATS-106 registers `【ATS-106】` (the marker of `tools/update_wbs_ats106.py`); no function changes.
+
+ATS-104 registers `【ATS-104】` (the marker of `tools/update_wbs_ats104.py`) and its D6/D7 fragments. The D7 base loses the sentence 「Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、仓库缺 icons/icon.ico，且成因清单尚未穷尽）」, because ATS-104 built the Tauri shell on a real Windows machine and that sentence is no longer true; the sentence moves to the `stale` list so it stops being part of the base and does not linger beside the new fragments. No function changes. A concurrent task that also appends a marker produces a textual merge conflict on the `MARKERS` line; the resolution is the union in WBS-ID order.

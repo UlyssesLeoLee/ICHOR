@@ -10390,8 +10390,8 @@
     "title": "Tauri Windows 开发构建",
     "input": "Windows+Rust+WebView2",
     "expected": "桌面窗口打开，bridge 连接成功",
-    "evidence": "编译+运行记录",
-    "status": "PENDING",
+    "evidence": "node tools/ats104-probes/st-ats104.mjs 结果（docs/evidence/ATS-104/）",
+    "status": "PASS",
     "level": "ST"
   },
   {
@@ -10711,6 +10711,17 @@
     "expected": "界面显示「定位不到」与原因，不给一条打不开的链接",
     "evidence": "tests/evidence-workbench.test.mjs（UT 覆盖；界面形态未单独 ST）",
     "status": "PASS（UT）",
+    "level": "ST"
+  },
+  {
+    "id": "ST-046",
+    "req": "TOOL",
+    "category": "可靠性",
+    "title": "孤儿检查非恒真（产品变异负控）",
+    "input": "在产品源码副本上移除 RunEvent::Exit 里结束 Bridge 的那一段，使关窗后子进程存活",
+    "expected": "探针在孤儿检查上失败并点名存活进程；未变异的产品仍通过",
+    "evidence": "node tools/ats104-probes/st-ats104.mjs（负控段由 tools/ats104-probes/collect-evidence.sh 驱动）",
+    "status": "PASS",
     "level": "ST"
   },
   {

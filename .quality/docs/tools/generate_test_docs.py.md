@@ -2,7 +2,7 @@
 
 Source: `tools/generate_test_docs.py`
 
-Source-SHA256: `00b4135cbe734ad6d42d9f4c376a75b7ff8f63b0d8b99b81185e02dd63612e5c`
+Source-SHA256: `e90c7fc9da82dd0e21b3646db3a30f593e50f9002c1a54b0833157c9d8caaddf`
 
 ## Responsibility
 
@@ -24,3 +24,5 @@ Single source of the UT/IT/ST test catalog. Running it regenerates `docs/07-UT-T
 ## Change Notes
 
 ATS-207 adds catalog rows and flips three statuses; the generator logic is unchanged. The new rows are appended with `UT += [...]` / `IT += [...]` / `ST += [...]` after the last block. The status flips (UT-DATA-001, ST-017) edit their rows in place. The lines that `docs/16-BASELINE-ADR.md` §3.1 and `tools/check_adr_citations.py` cite by position therefore do not move.
+
+ATS-104 flips ST-022 from `PENDING` to `PASS` and names the probe that produced the result in the evidence column, and adds ST-046 (the orphan check's negative control, 关联要件 `TOOL` so the RTM does not claim requirement coverage for a self-check). The generator logic is unchanged: ST-022's row is edited in place, and ST-046 is appended with `ST += [...]` after the last block, so the lines cited by position do not move.

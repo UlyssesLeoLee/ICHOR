@@ -1,0 +1,27 @@
+=== ATS-104 evidence 01 -- toolchain and cargo build ===
+
+commit  : 3de624fdf5e3dcc1f9c521bb6bcfb4c7271c6336
+branch  : agent/m3/seikoist-150-5f9b702282ab
+dev tip : 550ddfa601c3872e10a98c6f4f07cea395967f72
+date    : 2026-11-12T18:06:46Z
+host    : MINGW64_NT-10.0-26300 3.6.9-b4195d69.x86_64
+node    : v24.19.0
+rustc   : rustc 1.99.1 (58cf8f9c3 2026-10-13)
+cargo   : cargo 1.99.1 (5f94df478 2026-08-27)
+tauri   : tauri-cli 2.12.4
+toolchain: stable-x86_64-pc-windows-gnu
+cargo PATH        : /c/msys64/mingw64/bin:$HOME/.cargo/bin (prepended)
+
+--- MSVC C++ build tools (the msvc chain's precondition) ---
+(no output above = the VC/Tools/MSVC workload is NOT installed)
+
+--- the gnu chain's linker ---
+x86_64-w64-mingw32-gcc = /c/msys64/mingw64/bin/x86_64-w64-mingw32-gcc
+
+--- cargo build (the final link; a type check does NOT link) ---
+   Compiling ai-test-studio v0.1.0 (C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-15-5f9b702282ab\worktree\src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 14.95s
+cargo build exit = 0
+
+--- the artefact ---
+-rwxr-xr-x 2 seiko 197610 217738030 11月 13 03:07 /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-15-5f9b702282ab/worktree/src-tauri/target/debug/ai-test-studio.exe

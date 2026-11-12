@@ -1,0 +1,48 @@
+=== ATS-104 evidence 04 -- full regression and the WBS coexistence ===
+commit  : 7cee18b017b625aa986efe097d57de82a45f4108
+branch  : agent/m3/seikoist-150-5f9b702282ab
+dev tip : 550ddfa601c3872e10a98c6f4f07cea395967f72
+date    : 2026-11-12T18:36:16Z
+
+--- 1. the full node regression (--test-concurrency=2) ---
+✔ the focus order starts at the rail and ends at the content (0.0406ms)
+✔ every region of the focus order has a landmark role (0.0514ms)
+ℹ tests 1752
+ℹ suites 0
+ℹ pass 1721
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 31
+ℹ todo 0
+ℹ duration_ms 135881.9061
+
+--- 2. the WBS updaters coexistence ---
+RESULT: OK -- the 35 WBS updaters coexist, are idempotent, do not undo
+
+--- 3. the Rust unit tests of the child lifecycle ---
+
+--- 3. the Rust unit tests of the Bridge child lifecycle ---
+     Running tests\bridge_lifecycle.rs (target\debug\deps\bridge_lifecycle-8d88d791d39d0e01.exe)
+
+running 3 tests
+test stop_is_safe_to_call_twice ... ok
+test drop_ends_the_child ... ok
+test stop_ends_the_child_and_leaves_other_processes_alone ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+cargo test exit = 0
+
+--- 4. the 31 skipped cases, with the reason each one carries ---
+A skip is not a PASS and not a FAIL: it is reported with the reason the
+test itself states. The reasons in this tree:
+      5 'examples/sample-playwright has no node_modules'
+      4 'examples/sample-wdio has no node_modules'
+      1 'junction not creatable'
+      4 'needs ATS402_REAL_CREDENTIAL_STORE=1'
+      1 'the fixtures have no node_modules'
+
+The first two groups are the example projects' dependencies:
+examples/sample-playwright and examples/sample-wdio have no node_modules in
+this worktree (they are installed on D:/ICHOR, not here). The credential
+store group needs ATS402_REAL_CREDENTIAL_STORE=1. 'junction not creatable'
+is a filesystem capability of the worktree's drive.
