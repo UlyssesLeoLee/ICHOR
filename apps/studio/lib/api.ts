@@ -45,6 +45,12 @@ export type Source={file:string,content:string,hash:string};
 // carries the secret -- only the name, the provider and a short
 // fingerprint the user can compare by eye.
 export type CredentialRef={id:string,name:string,purpose:string,provider:string,fingerprint:string,createdAt:string,updatedAt:string};
+// ATS-213: the AVAILABILITY STATUS of a stored credential. It says whether
+// the secret can be fetched RIGHT NOW, and it is measured against the OS
+// credential store -- not inferred from the index, which drifts apart from
+// the store. It carries no secret and no fragment of one: the fingerprint is
+// the same 8 hex characters the reference carries.
+export type CredentialStatus={id:string,name:string,purpose:string,provider:string,fingerprint:string,status:'configured'|'not-configured'|'unavailable',reason:string,checkedAt:string};
 export type EgressScopeItem={kind:string,ref:string,digest:string,bytes:number};
 export type EgressScope={kinds:string[],count:number,totalBytes:number,items:EgressScopeItem[],scopeDigest:string};
 export type EgressPreview={previewId:string,scope:EgressScope,note:string};
