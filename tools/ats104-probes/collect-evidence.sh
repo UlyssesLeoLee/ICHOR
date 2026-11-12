@@ -330,5 +330,32 @@ PYEOF
 } > "$EVIDENCE_DIR/03-negative-control.log" 2>&1
 log "03-negative-control.log written"
 
+# ---------------------------------------------------------------------------
+# 4. the Rust unit tests of the child lifecycle
+#
+# The probe observes the whole shell; these tests observe the method that
+# both the exit handler and the Drop impl call. They are cheap (the child is
+# a short-lived node process) and they fail loudly if that method stops
+# ending the child.
+# ---------------------------------------------------------------------------
+{
+  log "=== ATS-104 evidence 04 -- Rust unit tests of the Bridge child lifecycle ==="
+  log ""
+  provenance
+  log ""
+  cd "$REPO_ROOT/src-tauri" || exit 1
+  TEST_OUTPUT="$(PATH="$MINGW_BIN:$HOME/.cargo/bin:$PATH" \
+  RUSTUP_TOOLCHAIN="$TOOLCHAIN" \
+    cargo test --test bridge_lifecycle --jobs 2 2>&1)"
+  TEST_STATUS=$?
+  printf '%s\n' "$TEST_OUTPUT" | tail -15
+  log "cargo test exit = $TEST_STATUS"
+  if [ "$TEST_STATUS" -ne 0 ]; then
+    log "--- the Rust unit tests FAILED; their full output follows ---"
+    printf '%s\n' "$TEST_OUTPUT"
+  fi
+} > "$EVIDENCE_DIR/04-rust-unit-tests.log" 2>&1
+log "04-rust-unit-tests.log written"
+
 log ""
 log "done. the logs are in $EVIDENCE_DIR"

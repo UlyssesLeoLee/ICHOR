@@ -20,9 +20,11 @@ ATS-104 的完成定义是两句，因此证据也分两半：
 
 | 文件 | 内容 | 复跑命令 |
 |---|---|---|
-| `01-cargo-build.log` | 工具链事实（cargo/rustc/tauri 版本、MSVC 工作负载是否在、gnu 链的链接器是哪���个）与 `cargo build`（**含最终链接**）的退出码 | `bash tools/ats104-probes/collect-evidence.sh`（第 1 段） |
+| `01-cargo-build.log` | 工具链事实（cargo/rustc/tauri 版本、MSVC 工作负载是否在、gnu 链的链接器是哪个）与 `cargo build`（**含最终链接**）的退出码 | `bash tools/ats104-probes/collect-evidence.sh`（第 1 段） |
 | `02-st-022-probe.log` | ST-022 探针的完整输出：`cargo tauri dev` → 窗口出现 → Bridge 应答 → **真关窗** → 孤儿检查 | `node tools/ats104-probes/st-ats104.mjs`（`ATS104_SKIP_BUILD=1` 可跳过构建） |
 | `03-negative-control.log` | **负控**：把 `RunEvent::Exit` 里结束 Bridge 的那一段从**产品源码副本**里去掉，重编，跑**同一个探针** | `bash tools/ats104-probes/collect-evidence.sh`（第 3 段） |
+| `04-rust-unit-tests.log` | 子进程生命周期的 **Rust 单元测试**（3 例）：`stop()` 结束它自己拥有的那个子进程、第二次 `stop()` 不 panic、`Drop` 结束子进程 | `cargo test --test bridge_lifecycle`（在 `src-tauri/`） |
+| `05-regression.log` | 全仓库回归（`node --test --test-concurrency=2`）与 35 个 WBS 更新器的共存回归 | `node --test --test-concurrency=2 tests/*.test.mjs` + `bash tools/ats501-probes/check-wbs-updaters.sh` |
 
 ## 第 2 步读什么
 
