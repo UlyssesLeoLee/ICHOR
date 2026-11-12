@@ -48,15 +48,22 @@ import assert from 'node:assert/strict';
 import {
   FOCUS_ORDER,
   KEY_COMMANDS,
+  LANDMARK_REGIONS,
   LANDMARK_ROLES,
+  NO_PROJECT_STATE,
+  PANEL_STATE_KINDS,
   WORKBENCH_STATE_KINDS,
   WORKBENCH_STATES,
   deriveWorkbenchState,
   focusOrderIsCorrect,
+  hasNativeEnterAction,
+  isComposing,
   isTextEntry,
   keyCommandFor,
   keyboardHelpIsComplete,
   keyboardHelpLines,
+  observedFocusOrderIsConsistent,
+  panelState,
   statesAreDistinguishable,
   workbenchState,
   workbenchStateAria,
@@ -398,7 +405,7 @@ test('the focus order is the reading order', () => {
   // refresh button lives there), then the project bar, then the
   // sidebar, then the content. The refresh button is in the TOPBAR,
   // which is rendered above the project bar -- so the keyboard reaches
-  // it before the project select. The ST probe measured this in a real
+  // it before the project select. The ST probe measures this in a real
   // browser (tools/ats111-probes/st-ats111.mjs), and this list follows
   // the measurement rather than an assumption.
   assert.deepEqual([...FOCUS_ORDER], [
@@ -407,6 +414,7 @@ test('the focus order is the reading order', () => {
     'project-select',
     'add-project',
     'search',
+    'sidebar',
     'panel',
     'content',
   ]);
@@ -433,4 +441,143 @@ test('every region of the focus order has a landmark role', () => {
   assert.equal(LANDMARK_ROLES.content, 'main');
   assert.equal(LANDMARK_ROLES.rail, 'navigation');
   assert.equal(LANDMARK_ROLES.search, 'search');
+});
+
+test('a region that is NOT a landmark declares the role "none"', () => {
+  // A role the markup does not carry is a false description of the page:
+  // a screen reader announces the role it finds. The controls that carry
+  // a `data-region` are NOT landmarks, and the table must say so
+  // instead of claiming a role that is not there.
+  for (const region of ['project-select', 'add-project', 'refresh', 'panel', 'sidebar']) {
+    assert.equal(LANDMARK_ROLES[region], 'none', `the region ${region} claims a role it does not have`);
+    assert.ok(!LANDMARK_REGIONS.includes(region), `the region ${region} is listed as a landmark`);
+  }
+  // And the real landmarks are listed.
+  assert.deepEqual([...LANDMARK_REGIONS].sort(), ['content', 'rail', 'search']);
+});
+
+/* ------------------------------------------------------------------ */
+/* 6. the observed focus order: the comparison really uses the ORDER  */
+/* ------------------------------------------------------------------ */
+
+test('the observed focus order must agree with the declared one', () => {
+  assert.equal(observedFocusOrderIsConsistent([...FOCUS_ORDER]), true);
+  // The DOM has more stops inside a region (the six rail buttons, the
+  // list items), so the observed sequence repeats regions.
+  assert.equal(
+    observedFocusOrderIsConsistent(['rail', 'rail', 'rail', 'refresh', 'project-select', 'content']),
+    true,
+  );
+  // A region the model does not declare is a mismatch.
+  assert.equal(observedFocusOrderIsConsistent(['rail', 'nowhere']), false);
+  assert.equal(observedFocusOrderIsConsistent([]), false);
+  assert.equal(focusOrderIsCorrect(null), false);
+});
+
+test('a SCRAMBLED focus order is detected -- the check is not a tautology', () => {
+  // The counterexample: the same regions, in the WRONG order. If the
+  // comparison did not use the order, this would still pass.
+  const scrambled = [...FOCUS_ORDER].reverse();
+  assert.equal(observedFocusOrderIsConsistent(scrambled), false);
+  // And a single swap is enough to fail it: the panel comes before the
+  // sidebar in the wrong order.
+  const swapped = [...FOCUS_ORDER];
+  const panelAt = swapped.indexOf('panel');
+  const sidebarAt = swapped.indexOf('sidebar');
+  swapped[panelAt] = 'sidebar';
+  swapped[sidebarAt] = 'panel';
+  assert.equal(observedFocusOrderIsConsistent(swapped), false);
+});
+
+/* ------------------------------------------------------------------ */
+/* 7. the NO-PROJECT state                                            */
+/* ------------------------------------------------------------------ */
+
+test('the four request states are still EXACTLY four', () => {
+  // The no-project state lives OUTSIDE the request states: it is a fact
+  // about the workspace, not about a request's outcome.
+  assert.equal(WORKBENCH_STATE_KINDS.length, 4);
+  assert.equal(PANEL_STATE_KINDS.length, 5);
+  assert.ok(!WORKBENCH_STATE_KINDS.includes('no-project'));
+  assert.ok(PANEL_STATE_KINDS.includes('no-project'));
+});
+
+test('the NO-PROJECT state has its own words', () => {
+  assert.ok(NO_PROJECT_STATE.label);
+  assert.ok(NO_PROJECT_STATE.detail);
+  assert.ok(NO_PROJECT_STATE.hint);
+  assert.equal(NO_PROJECT_STATE.kind, 'no-project');
+  // It must not read like any of the four request states.
+  for (const kind of WORKBENCH_STATE_KINDS) {
+    const s = WORKBENCH_STATES[kind];
+    assert.notEqual(NO_PROJECT_STATE.label, s.label);
+    assert.notEqual(NO_PROJECT_STATE.detail, s.detail);
+  }
+  // And it must point at the action that helps.
+  assert.ok(/添加项目|导入/.test(NO_PROJECT_STATE.hint));
+});
+
+test('without a project the panel shows the NO-PROJECT state', () => {
+  const p = panelState({ phase: 'idle' }, { hasProject: false });
+  assert.ok(p);
+  assert.equal(p.kind, 'no-project');
+  assert.equal(p.label, NO_PROJECT_STATE.label);
+});
+
+test('with a project the panel shows the REQUEST state', () => {
+  assert.equal(panelState({ phase: 'pending' }, { hasProject: true }).kind, 'loading');
+  assert.equal(panelState({ phase: 'failed' }, { hasProject: true }).kind, 'error');
+  assert.equal(panelState({ phase: 'cancelled' }, { hasProject: true }).kind, 'cancelled');
+  assert.equal(panelState({ phase: 'settled', itemCount: 0 }, { hasProject: true }).kind, 'empty');
+  assert.equal(panelState({ phase: 'settled', itemCount: 3 }, { hasProject: true }), null);
+  // And the workspace axis defaults to "there is a project".
+  assert.equal(panelState({ phase: 'pending' }).kind, 'loading');
+});
+
+test('the NO-PROJECT state wins over a request state', () => {
+  // Even a failed request: there is no project, so the panel says so.
+  // A reader must not be told "the load failed" when nothing was loaded.
+  assert.equal(panelState({ phase: 'failed' }, { hasProject: false }).kind, 'no-project');
+  assert.equal(panelState({ phase: 'pending' }, { hasProject: false }).kind, 'no-project');
+});
+
+/* ------------------------------------------------------------------ */
+/* 8. the keyboard: the focused control keeps its own Enter action    */
+/* ------------------------------------------------------------------ */
+
+test('a BUTTON has a native Enter action', () => {
+  // This is the guard that keeps the workbench from stealing Enter:
+  // focusing 「取消」 and pressing Enter has to CANCEL.
+  assert.equal(hasNativeEnterAction({ tagName: 'BUTTON' }), true);
+  assert.equal(hasNativeEnterAction({ tagName: 'BUTTON', type: 'submit' }), true);
+  assert.equal(hasNativeEnterAction({ tagName: 'BUTTON', type: 'button' }), true);
+});
+
+test('a LINK with an href has a native Enter action', () => {
+  assert.equal(hasNativeEnterAction({ tagName: 'A', hasAttribute: (n) => n === 'href' }), true);
+  // A link WITHOUT an href is not a control, so Enter on it does
+  // nothing natively.
+  assert.equal(hasNativeEnterAction({ tagName: 'A', hasAttribute: () => false }), false);
+});
+
+test('a SUMMARY has a native Enter action', () => {
+  assert.equal(hasNativeEnterAction({ tagName: 'SUMMARY' }), true);
+});
+
+test('a plain area has NO native Enter action', () => {
+  // The submit command is allowed to act here: there is no control to
+  // press.
+  assert.equal(hasNativeEnterAction({ tagName: 'DIV' }), false);
+  assert.equal(hasNativeEnterAction({ tagName: 'BODY' }), false);
+  assert.equal(hasNativeEnterAction(null), false);
+});
+
+test('an IME composition is NOT a command', () => {
+  // While the reader is choosing a candidate word, Escape belongs to
+  // the input method.
+  assert.equal(isComposing({ isComposing: true, key: 'Escape' }), true);
+  assert.equal(isComposing({ keyCode: 229, key: 'Escape' }), true);
+  assert.equal(isComposing({ isComposing: false, key: 'Escape' }), false);
+  assert.equal(isComposing({ key: 'Escape' }), false);
+  assert.equal(isComposing(null), false);
 });

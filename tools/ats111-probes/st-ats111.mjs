@@ -17,7 +17,9 @@
  *     handler, so Escape does nothing;
  *   - the focus order can be correct in the model and wrong in the DOM;
  *   - the focus ring can be declared and then overridden by a later
- *     `outline:none`.
+ *     `outline:none`;
+ *   - a "reload" button can be rendered and do NOTHING, because the
+ *     state it would set is already set.
  *
  * So this probe drives the REAL static export in the REAL Chromium and
  * asserts what a KEYBOARD USER actually gets.
@@ -32,7 +34,9 @@
  *              labels are four different strings;
  *   ST-111-3  the FOCUS ORDER is the reading order: the rail comes
  *              first, the content last, and the DOM order agrees with
- *              the model's FOCUS_ORDER;
+ *              the model's FOCUS_ORDER. The comparison is on the ORDER,
+ *              and the check is falsifiable -- a deliberately scrambled
+ *              DOM order is asserted to FAIL it;
  *   ST-111-4  the focus is VISIBLE: the focused element really has an
  *              outline (the base stylesheet removes it from three
  *              elements, so this is the check that catches the
@@ -48,7 +52,25 @@
  *              controls anywhere in this check);
  *   ST-111-8  the skip link is the FIRST focusable element, so a
  *              keyboard user can jump to the content;
- *   ST-111-9  no console error and no page error were produced.
+ *   ST-111-9  no console error and no page error were produced;
+ *   ST-111-10 the 「重新加载」 entry REALLY re-issues the request, in
+ *              all three states that offer it (failed / cancelled /
+ *              empty). A button that changes nothing is not a retry;
+ *   ST-111-11 Enter on a focused BUTTON does not swallow that button's
+ *              own action: focusing 「取消」 in the add-project dialog
+ *              and pressing Enter CANCELS, and does NOT register the
+ *              project;
+ *   ST-111-12 with NO project at all the panel shows the NO-PROJECT
+ *              state with its import guidance -- not "the filter
+ *              matched nothing";
+ *   ST-111-13 switching project CLEARS the previous project's cases:
+ *              while the new project loads, the panel, the metrics and
+ *              the footer show none of the old project's cases;
+ *   ST-111-14 the key commands work when the focus is on the <body>:
+ *              Escape cancels the load and Ctrl+P moves the focus to
+ *              the search box;
+ *   ST-111-15 closing the dialog returns the focus to the button that
+ *              opened it.
  *
  * THE FOUR STATES ARE PROVEN BY EXECUTION, NOT BY A FIXTURE
  * --------------------------------------------------------
@@ -150,14 +172,6 @@ try {
     return [r.status, await r.json()];
   };
 
-  // --- the two projects ----------------------------------------------------
-  const [, added] = await api('/api/projects', 'POST', { path: project });
-  const projectId = added.project.id;
-  const [, addedEmpty] = await api('/api/projects', 'POST', { path: emptyProject });
-  const emptyProjectId = addedEmpty.project.id;
-  check('both fixture projects are registered', Boolean(projectId && emptyProjectId),
-    `${projectId} / ${emptyProjectId}`);
-
   // --- the browser ---------------------------------------------------------
   const pw = await import(
     pathToFileURL(path.join(path.resolve(nodeModulesArg), 'playwright-core', 'index.js')).href);
@@ -172,11 +186,61 @@ try {
   page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   page.on('pageerror', (e) => pageErrors.push(String(e)));
 
+  const readState = async () => page.evaluate(() => {
+    const el = document.querySelector('[data-region="panel"] .state-panel');
+    if (!el) return null;
+    return {
+      kind: el.getAttribute('data-state'),
+      role: el.getAttribute('role'),
+      live: el.getAttribute('aria-live'),
+      busy: el.getAttribute('aria-busy'),
+      label: (el.querySelector('.state-head b')?.textContent || '').trim(),
+      detail: (el.querySelector('.state-detail')?.textContent || '').trim(),
+      hint: (el.querySelector('.state-hint')?.textContent || '').trim(),
+    };
+  });
+
+  /* ================================================================== */
+  /* ST-111-12  NO project at all -> the NO-PROJECT state                  */
+  /* ================================================================== */
+  // The page is loaded BEFORE the fixture projects are registered, so the
+  // workbench really has no project to show. This is the state a reader
+  // is in the first time they open the platform -- and it is a DIFFERENT
+  // fact from "the project's catalogue is empty" and from "the filter
+  // matched nothing".
+  await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'load' });
+  await sleep(2500);
+  const noProjectState = await readState();
+  check('ST-111-12a with NO project the panel shows the NO-PROJECT state',
+    noProjectState && noProjectState.kind === 'no-project', JSON.stringify(noProjectState));
+  check('ST-111-12b the NO-PROJECT state does NOT say 「没有匹配」',
+    noProjectState && !/没有匹配/.test(`${noProjectState.detail}${noProjectState.hint}`),
+    noProjectState && `${noProjectState.detail} | ${noProjectState.hint}`);
+  check('ST-111-12c the NO-PROJECT state points at importing a project',
+    noProjectState && /添加项目|导入/.test(`${noProjectState.hint}${noProjectState.detail}`),
+    noProjectState && noProjectState.hint);
+  const noProjectBody = await page.evaluate(() =>
+    document.querySelector('[data-region="panel"]')?.textContent || '');
+  check('ST-111-12d the NO-PROJECT state is not the "filter matched nothing" message',
+    !/没有符合当前条件的用例/.test(noProjectBody), noProjectBody.replace(/\s+/g, ' ').slice(0, 120));
+
+  // --- the two projects ----------------------------------------------------
+  const [, added] = await api('/api/projects', 'POST', { path: project });
+  const projectId = added.project.id;
+  const [, addedEmpty] = await api('/api/projects', 'POST', { path: emptyProject });
+  const emptyProjectId = addedEmpty.project.id;
+  check('both fixture projects are registered', Boolean(projectId && emptyProjectId),
+    `${projectId} / ${emptyProjectId}`);
+  // The page picks the first project up on its next refresh.
+  await page.evaluate(() => {
+    const btn = document.querySelector('button[data-region="refresh"]');
+    btn?.click();
+  });
+  await sleep(2500);
+
   /* ================================================================== */
   /* ST-111-1  the page loads                                            */
   /* ================================================================== */
-  await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'load' });
-  await sleep(2500);
   check('ST-111-1 the exported workbench loads in a real browser',
     (await page.locator('.app-shell').count()) === 1);
   check('ST-111-9a the page produced no page error on load',
@@ -207,7 +271,7 @@ try {
   /* ST-111-3  the focus order is the reading order                      */
   /* ================================================================== */
   // The regions the model declares, in the order it declares them.
-  const { FOCUS_ORDER } = await import(
+  const { FOCUS_ORDER, observedFocusOrderIsConsistent } = await import(
     pathToFileURL(path.join(repo, 'apps', 'studio', 'lib', 'workbench-state.mjs')).href);
 
   // Walk the Tab order and record the REGION each stop belongs to. The
@@ -224,20 +288,28 @@ try {
       return holder ? holder.getAttribute('data-region') : null;
     });
     if (region === null) continue;
-    if (observed.length === 0 || observed[observed.length - 1] !== region) observed.push(region);
+    observed.push(region);
     // The content is the last region in the order: once it is reached,
     // the walk has covered the declared order.
     if (observed.length >= 2 && observed[observed.length - 1] === 'content') break;
   }
-  // The observed order must be a SUBSEQUENCE of the declared one: the
-  // DOM may have more stops inside a region (the six rail buttons, the
-  // list items), but the REGIONS must be visited in the declared order.
-  const declaredOrder = FOCUS_ORDER.filter((r) => observed.includes(r));
+  // The comparison is on the ORDER. `observedFocusOrderIsConsistent`
+  // compares the sequence of DISTINCT regions, in the order they were
+  // first reached, against the declared order -- so a DOM whose regions
+  // were reordered produces a DIFFERENT sequence and fails.
   check('ST-111-3 the regions are visited in the DECLARED reading order',
-    JSON.stringify(declaredOrder) === JSON.stringify([...FOCUS_ORDER].filter((r) => observed.includes(r))),
+    observedFocusOrderIsConsistent(observed),
     `observed=${observed.join(' > ')}; declared=${FOCUS_ORDER.join(' > ')}`);
   check('ST-111-3b the walk reached the CONTENT region',
     observed.includes('content'), observed.join(' > '));
+
+  // The negative control: the SAME check, applied to a deliberately
+  // scrambled order. It MUST fail -- otherwise the check above cannot
+  // fail either, and "the order was verified" would be an empty claim.
+  const scrambled = ['content', 'panel', 'search', 'add-project', 'project-select', 'refresh', 'rail'];
+  check('ST-111-3c the order check REJECTS a scrambled DOM order (the negative control)',
+    observedFocusOrderIsConsistent(scrambled) === false,
+    `scrambled=${scrambled.join(' > ')}`);
 
   /* ================================================================== */
   /* ST-111-4  the focus is VISIBLE                                      */
@@ -292,17 +364,27 @@ try {
     }, [id, otherId]);
   };
 
-  const readState = async () => page.evaluate(() => {
-    const el = document.querySelector('[data-region="panel"] .state-panel');
-    if (!el) return null;
+  /** Set the project select to a value, the way a reader would. */
+  const selectProject = async (id) => {
+    await page.evaluate((v) => {
+      const sel = document.querySelector('select.project-select');
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+      setter.call(sel, v);
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }, id);
+  };
+
+  /** What the panel, the metrics and the footer say about the cases. */
+  const readCatalogueCounts = async () => page.evaluate(() => {
+    const panelItems = [...document.querySelectorAll('[data-region="panel"] .file-item')]
+      .map((el) => el.textContent || '');
+    const metric = [...document.querySelectorAll('.metric')]
+      .find((el) => (el.querySelector('span')?.textContent || '') === '可管理用例');
+    const footer = document.querySelector('.sidebar-footer')?.textContent || '';
     return {
-      kind: el.getAttribute('data-state'),
-      role: el.getAttribute('role'),
-      live: el.getAttribute('aria-live'),
-      busy: el.getAttribute('aria-busy'),
-      label: (el.querySelector('.state-head b')?.textContent || '').trim(),
-      detail: (el.querySelector('.state-detail')?.textContent || '').trim(),
-      hint: (el.querySelector('.state-hint')?.textContent || '').trim(),
+      panelItems,
+      manageable: metric?.querySelector('strong')?.textContent?.trim() || '',
+      footer,
     };
   });
 
@@ -324,7 +406,9 @@ try {
   // CANCELLED checks measure the ERROR state instead.
   let routeMode = 'pass';
   let releaseHold = null;
+  let requestCount = 0;
   await page.route('**/api/projects/*/tests', async (route) => {
+    if (route.request().url().includes('/tests')) requestCount++;
     if (routeMode === 'fail') {
       await route.fulfill({
         status: 500,
@@ -389,17 +473,120 @@ try {
     new Set(labels).size === 4, labels.join(' / '));
 
   /* ================================================================== */
+  /* ST-111-10  「重新加载」 REALLY re-issues the request                  */
+  /* ================================================================== */
+  // In each of the three states that offer it, the retry must make a NEW
+  // request. A button that sets the state it is already in issues no
+  // request at all -- it is a no-op wearing the word 「重试」.
+  const retryButton = '[data-region="panel"] .state-retry';
+
+  // -- the CANCELLED state
+  routeMode = 'hold';
+  await reloadCatalogue(projectId, emptyProjectId);
+  await sleep(2000);
+  const beforeCancelRetry = requestCount;
+  await page.keyboard.press('Escape');
+  await sleep(1200);
+  const cancelledAgain = await readState();
+  const cancelRetryButton = await page.locator(retryButton).count();
+  if (cancelRetryButton) {
+    await page.click(retryButton);
+    await sleep(1500);
+  }
+  const afterCancelRetry = requestCount;
+  check('ST-111-10a the CANCELLED state offers a retry',
+    cancelledAgain && cancelledAgain.kind === 'cancelled', JSON.stringify(cancelledAgain));
+  check('ST-111-10b the retry in the CANCELLED state REALLY re-issues the request',
+    afterCancelRetry > beforeCancelRetry,
+    `requests ${beforeCancelRetry} -> ${afterCancelRetry}`);
+  // The retried request is in flight again -- so the panel is loading,
+  // not stuck on 「已取消」.
+  const afterCancelRetryState = await readState();
+  check('ST-111-10c after the retry the panel is LOADING again',
+    afterCancelRetryState && afterCancelRetryState.kind === 'loading',
+    JSON.stringify(afterCancelRetryState));
+  if (releaseHold) { releaseHold(); releaseHold = null; }
+  routeMode = 'pass';
+  await sleep(1500);
+
+  // -- the ERROR state
+  routeMode = 'fail';
+  await reloadCatalogue(projectId, emptyProjectId);
+  await sleep(3000);
+  const errorAgain = await readState();
+  const beforeErrorRetry = requestCount;
+  const errorRetryButton = await page.locator(retryButton).count();
+  if (errorRetryButton) {
+    await page.click(retryButton);
+    await sleep(2000);
+  }
+  const afterErrorRetry = requestCount;
+  check('ST-111-10d the ERROR state offers a retry',
+    errorAgain && errorAgain.kind === 'error', JSON.stringify(errorAgain));
+  check('ST-111-10e the retry in the ERROR state REALLY re-issues the request',
+    afterErrorRetry > beforeErrorRetry,
+    `requests ${beforeErrorRetry} -> ${afterErrorRetry}`);
+  routeMode = 'pass';
+  await sleep(1500);
+
+  // -- the EMPTY state
+  await reloadCatalogue(emptyProjectId, projectId);
+  await sleep(3000);
+  const emptyAgain = await readState();
+  const beforeEmptyRetry = requestCount;
+  const emptyRetryButton = await page.locator(retryButton).count();
+  if (emptyRetryButton) {
+    await page.click(retryButton);
+    await sleep(2000);
+  }
+  const afterEmptyRetry = requestCount;
+  check('ST-111-10f the EMPTY state offers a retry',
+    emptyAgain && emptyAgain.kind === 'empty', JSON.stringify(emptyAgain));
+  check('ST-111-10g the retry in the EMPTY state REALLY re-issues the request',
+    afterEmptyRetry > beforeEmptyRetry,
+    `requests ${beforeEmptyRetry} -> ${afterEmptyRetry}`);
+
+  /* ================================================================== */
+  /* ST-111-13  switching project CLEARS the previous project's cases     */
+  /* ================================================================== */
+  // The project with cases is loaded first, so its cases are on screen.
+  await reloadCatalogue(projectId, emptyProjectId);
+  await sleep(3000);
+  const withCases = await readCatalogueCounts();
+  const oldCaseVisible = withCases.panelItems.some((t) => /home\.spec|tests\//.test(t));
+  check('ST-111-13a the project WITH cases shows them',
+    oldCaseVisible && withCases.manageable !== '0',
+    `manageable=${withCases.manageable} items=${withCases.panelItems.length}`);
+
+  // Now switch to the EMPTY project and HOLD the request, so the panel
+  // is caught in its loading state -- the state in which the old
+  // project's cases used to stay on screen.
+  routeMode = 'hold';
+  await selectProject(emptyProjectId);
+  await sleep(1500);
+  const duringSwitch = await readCatalogueCounts();
+  const duringSwitchState = await readState();
+  check('ST-111-13b switching to another project shows NO cases of the previous one',
+    duringSwitch.panelItems.length === 0,
+    `items=${duringSwitch.panelItems.length}`);
+  check('ST-111-13c the 「可管理用例」 metric is 0 while the new project loads',
+    duringSwitch.manageable === '0',
+    `manageable=${duringSwitch.manageable}`);
+  check('ST-111-13d the footer counts no cases of the previous project',
+    !/\d+ tests/.test(duringSwitch.footer.replace(/^0 tests/, '')) || /0 tests/.test(duringSwitch.footer),
+    `footer=${duringSwitch.footer.replace(/\s+/g, ' ')}`);
+  check('ST-111-13e the panel is in the LOADING state while the new project loads',
+    duringSwitchState && duringSwitchState.kind === 'loading',
+    JSON.stringify(duringSwitchState));
+  if (releaseHold) { releaseHold(); releaseHold = null; }
+  routeMode = 'pass';
+  await sleep(2000);
+
+  /* ================================================================== */
   /* ST-111-6  Enter SUBMITS the dialog                                   */
   /* ================================================================== */
   // The dialog is opened with the KEYBOARD (the button is focused and
   // activated with Enter -- no `click()`).
-  await page.evaluate(() => {
-    const sel = document.querySelector('select.project-select');
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-    setter.call(sel, '');
-    sel.dispatchEvent(new Event('change', { bubbles: true }));
-  });
-  await sleep(1500);
   await page.focus('button[data-region="add-project"]');
   await page.keyboard.press('Enter');
   await sleep(600);
@@ -428,6 +615,97 @@ try {
   const registered = (await api('/api/projects'))[1].projects.length;
   check('ST-111-6c the keyboard-submitted project was REGISTERED',
     registered >= 3, `${registered} project(s)`);
+
+  /* ================================================================== */
+  /* ST-111-11  Enter on a focused BUTTON does not swallow its action     */
+  /* ================================================================== */
+  // The dialog is opened again, the path is typed, and the focus is
+  // moved to 「取消」. Pressing Enter there must CANCEL the dialog --
+  // and must NOT register the project. A workbench that intercepts
+  // Enter on a button performs its OWN write instead, so the reader
+  // who meant to cancel ends up adding a project.
+  const projectsBeforeCancel = (await api('/api/projects'))[1].projects.length;
+  await page.focus('button[data-region="add-project"]');
+  await page.keyboard.press('Enter');
+  await sleep(600);
+  const cancelDialogOpen = await page.locator('.modal[role="dialog"]').count();
+  await page.focus('.modal input');
+  await page.keyboard.type(secondProject);
+  // Move the focus to the CANCEL button -- with the keyboard, by
+  // tabbing to it, so the probe does not place the focus itself.
+  await page.keyboard.press('Tab');
+  await sleep(200);
+  const focusedInDialog = await page.evaluate(() => {
+    const el = document.activeElement;
+    return el ? `${el.tagName}|${el.textContent || ''}` : '(none)';
+  });
+  await page.keyboard.press('Enter');
+  await sleep(2500);
+  const dialogAfterCancel = await page.locator('.modal[role="dialog"]').count();
+  const projectsAfterCancel = (await api('/api/projects'))[1].projects.length;
+  check('ST-111-11a the dialog is open for the cancel check',
+    cancelDialogOpen === 1, `${cancelDialogOpen} dialog(s)`);
+  check('ST-111-11b the focus reached the cancel button by TAB',
+    /取消/.test(focusedInDialog), focusedInDialog);
+  check('ST-111-11c Enter on 「取消」 CLOSES the dialog',
+    dialogAfterCancel === 0, `${dialogAfterCancel} dialog(s) still open`);
+  check('ST-111-11d Enter on 「取消」 did NOT register the project',
+    projectsAfterCancel === projectsBeforeCancel,
+    `${projectsBeforeCancel} -> ${projectsAfterCancel}`);
+
+  /* ================================================================== */
+  /* ST-111-15  closing the dialog returns the focus                     */
+  /* ================================================================== */
+  // The focus must go back to the button that opened the dialog.
+  const focusAfterClose = await page.evaluate(() => {
+    const el = document.activeElement;
+    return el ? `${el.tagName}|${el.getAttribute('data-region') || ''}` : '(none)';
+  });
+  check('ST-111-15 the focus returned to the 「添加项目」 button after the dialog closed',
+    /add-project/.test(focusAfterClose), focusAfterClose);
+
+  /* ================================================================== */
+  /* ST-111-14  the key commands work with the focus on the <body>       */
+  /* ================================================================== */
+  // The focus is put on the body -- which is where it lands after a
+  // page load and after a dialog closes -- and the commands must work
+  // there. A handler bound to the app shell never sees these keys.
+  await page.evaluate(() => { document.activeElement?.blur?.(); document.body.focus?.(); });
+  await sleep(200);
+  const focusOnBody = await page.evaluate(() => document.activeElement?.tagName || '(none)');
+  check('ST-111-14a the focus is on the BODY for this check',
+    focusOnBody === 'BODY', focusOnBody);
+
+  // Ctrl+P moves the focus to the search box, from the body.
+  await page.keyboard.press('Control+p');
+  await sleep(500);
+  const searchFocus = await page.evaluate(() => {
+    const el = document.activeElement;
+    return el ? `${el.tagName}|${el.getAttribute('placeholder') || ''}` : '(none)';
+  });
+  check('ST-111-14b Ctrl+P moves the focus to the search box with the focus on the BODY',
+    /INPUT/.test(searchFocus), searchFocus);
+
+  // Escape cancels the load that is in flight, with the focus on the
+  // body. The loading panel says 「按 Esc 可以取消这次加载」, so it has
+  // to work from there.
+  await page.evaluate(() => { document.activeElement?.blur?.(); document.body.focus?.(); });
+  routeMode = 'hold';
+  await reloadCatalogue(projectId, emptyProjectId);
+  await sleep(2000);
+  const bodyLoadingState = await readState();
+  await page.evaluate(() => { document.activeElement?.blur?.(); document.body.focus?.(); });
+  await page.keyboard.press('Escape');
+  await sleep(1500);
+  const bodyCancelledState = await readState();
+  check('ST-111-14c the load is in flight for the body-Escape check',
+    bodyLoadingState && bodyLoadingState.kind === 'loading', JSON.stringify(bodyLoadingState));
+  check('ST-111-14d Escape cancels the load with the focus on the BODY',
+    bodyCancelledState && bodyCancelledState.kind === 'cancelled',
+    JSON.stringify(bodyCancelledState));
+  if (releaseHold) { releaseHold(); releaseHold = null; }
+  routeMode = 'pass';
+  await sleep(1500);
 
   /* ================================================================== */
   /* ST-111-7  the core flow is completable with the KEYBOARD alone       */

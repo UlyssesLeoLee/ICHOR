@@ -143,6 +143,60 @@ export const WORKBENCH_STATE_KINDS = Object.freeze([
 ]);
 
 /**
+ * The state of a workbench that has NO PROJECT AT ALL.
+ *
+ * This is NOT a fifth outcome of a catalogue request -- the four states
+ * above describe what a REQUEST did, and a request that was never made
+ * has no outcome. "There is no project" is a fact about the WORKSPACE,
+ * and it needs its own words: it is not "the catalogue is empty" (the
+ * catalogue of what? there is nothing to list), and it is not "the load
+ * failed" (nothing was loaded).
+ *
+ * So it lives OUTSIDE `WORKBENCH_STATES`, which stays exactly four
+ * entries. The panel composes the two axes: which state the request is
+ * in, and whether there is a project to make a request about.
+ */
+export const NO_PROJECT_STATE = Object.freeze({
+  kind: 'no-project',
+  label: '尚未选择项目',
+  detail: '工作区里还没有 Playwright 项目，所以没有用例可以列出。',
+  hint: '点击「添加项目」导入本地 Git 项目，然后即可查看它的测试用例。',
+  role: 'status',
+  ariaLive: 'polite',
+  busy: false,
+  actionable: true,
+  token: 'workbench-no-project',
+});
+
+/**
+ * The states a catalogue PANEL can be in.
+ *
+ * The four request outcomes, plus the workspace-level "no project".
+ *
+ * @type {readonly string[]}
+ */
+export const PANEL_STATE_KINDS = Object.freeze([
+  ...WORKBENCH_STATE_KINDS,
+  'no-project',
+]);
+
+/**
+ * The state object a PANEL renders.
+ *
+ * @typedef {object} PanelState
+ * @property {WorkbenchStateKind|'no-project'} kind
+ * @property {string} label
+ * @property {string} detail
+ * @property {string} hint
+ * @property {string} role
+ * @property {string} ariaLive
+ * @property {boolean} busy
+ * @property {boolean} actionable
+ * @property {string} token
+ * @property {boolean} [staleData]
+ */
+
+/**
  * The outcome of a request, as the caller reports it.
  *
  * @typedef {object} WorkbenchRequest
@@ -239,6 +293,31 @@ export function workbenchStateAria(request) {
     'data-state': s.kind,
     'aria-busy': s.busy ? 'true' : 'false',
   };
+}
+
+/**
+ * The state of the WHOLE PANEL, given the request's outcome AND whether
+ * there is a project at all.
+ *
+ * The two axes are separate facts:
+ *
+ *   - the REQUEST outcome (one of the four states above), and
+ *   - the WORKSPACE: is there a project whose catalogue could be listed?
+ *
+ * Without a project there is nothing to load, so the request state is
+ * `idle` and the panel must NOT fall through to the "the filter matched
+ * nothing" message -- that message talks about a list that does not
+ * exist. It gets the workspace-level words instead, with the guidance
+ * that actually helps ("import a project").
+ *
+ * @param {WorkbenchRequest} request
+ * @param {{hasProject?:boolean}} [workspace]
+ * @returns {(PanelState|null)}
+ */
+export function panelState(request, workspace = {}) {
+  const hasProject = workspace?.hasProject !== false;
+  if (!hasProject) return { ...NO_PROJECT_STATE };
+  return workbenchState(request);
 }
 
 /**
@@ -387,17 +466,102 @@ export function isTextEntry(target) {
 }
 
 /**
+ * Whether the focused element has a NATIVE action that Enter would
+ * trigger on its own.
+ *
+ * This is the guard that keeps the workbench's submit command from
+ * STEALING the Enter key. A `<button>`, an `<a href>` and a `<summary>`
+ * all act on Enter by themselves: the browser fires `click`, and the
+ * element's own handler runs. If the workbench also intercepts Enter and
+ * performs a different write -- say, "add the project" -- then the
+ * reader who focused 「取消」 (Cancel) and pressed Enter would ADD a
+ * project instead of cancelling. The key must reach the focused
+ * control.
+ *
+ * So the rule is: the submit command only applies when the focused
+ * element has NO native Enter action of its own. The command then means
+ * "submit the form that contains the focus", which is what the reader
+ * expects when the focus is on a plain area or on the body.
+ *
+ * @param {EventTarget|null} target
+ * @returns {boolean} true when the focus has its own Enter action
+ */
+export function hasNativeEnterAction(target) {
+  if (!target || typeof target !== 'object') return false;
+  const el = /** @type {HTMLElement} */ (target);
+  const tag = typeof el.tagName === 'string' ? el.tagName.toLowerCase() : '';
+  if (tag === 'button') return true;
+  if (tag === 'a') return el.hasAttribute('href');
+  if (tag === 'summary') return true;
+  if (tag === 'input') {
+    const type = /** @type {HTMLInputElement} */ (el).type;
+    // A submit button acts on Enter; a text field submits the form it is
+    // in (that is `isTextEntry`, handled by the caller); the rest do
+    // not.
+    return ['button', 'submit', 'reset'].includes((type || 'text').toLowerCase());
+  }
+  if (el.isContentEditable === true) return true;
+  return false;
+}
+
+/**
+ * Whether the event is an INPUT COMPOSITION (an IME candidate window).
+ *
+ * While a reader is choosing a candidate word, Escape belongs to the
+ * IME: it dismisses the candidate list. If the workbench also treats
+ * that Escape as "cancel the load", the reader's act of dismissing a
+ * candidate window would cancel the workbench's work as well -- and in
+ * the add-project dialog it would close the dialog.
+ *
+ * @param {{isComposing?:boolean,keyCode?:number}} event
+ * @returns {boolean}
+ */
+export function isComposing(event) {
+  if (!event || typeof event !== 'object') return false;
+  if (event.isComposing === true) return true;
+  // 229 is the legacy "IME is processing this key" code, still reported
+  // by Chromium for the composition keystrokes.
+  return event.keyCode === 229;
+}
+
+/**
+ * Whether the event should be handled by the workbench AT ALL.
+ *
+ * Two things disqualify it:
+ *
+ *   1. the reader is choosing an IME candidate -- the key belongs to
+ *      the input method (see `isComposing`);
+ *   2. the reader is typing into a text field and pressed Enter -- the
+ *      browser's own form submission is the right behaviour (see
+ *      `isTextEntry`).
+ *
+ * @param {{isComposing?:boolean,keyCode?:number}} event
+ * @param {EventTarget|null} target
+ * @returns {boolean}
+ */
+export function shouldHandleKey(event, target) {
+  if (isComposing(event)) return false;
+  if (isTextEntry(target)) return false;
+  return true;
+}
+
+/**
  * The FOCUS ORDER of the workbench.
  *
  * The order is the READING order, and it is a property of the model
- * rather than of the markup: the DOM order and this order must agree,
- * and the unit test asserts that they do by reading the rendered page
- * (see the ST probe) and by checking this list against the rail/panel
- * structure.
+ * rather than of the markup: the DOM order and this order must agree.
+ * The ST probe measures the real Tab order in a real browser
+ * (tools/ats111-probes/st-ats111.mjs) and compares it with this list
+ * -- and the comparison is on the ORDER, so a DOM whose regions were
+ * moved fails the check.
  *
  * The list is grouped by the region it belongs to, so a reader can be
  * told "the rail comes first, then the header, then the sidebar, then
  * the content" -- which is also the order the eye takes.
+ *
+ * The `sidebar` region is the resource list itself; the `panel` region
+ * is the catalogue list inside it. The sidebar comes first because it
+ * is the outer element.
  *
  * @type {readonly string[]}
  */
@@ -407,6 +571,7 @@ export const FOCUS_ORDER = Object.freeze([
   'project-select',
   'add-project',
   'search',
+  'sidebar',
   'panel',
   'content',
 ]);
@@ -430,23 +595,105 @@ export function focusOrderIsCorrect(order) {
 }
 
 /**
+ * Whether the observed order is CONSISTENT with the declared one.
+ *
+ * The DOM may have more stops inside a region -- the six rail buttons,
+ * the list items, the tag chips -- so the observed sequence is a
+ * sequence of REGIONS with repetitions. The check is therefore:
+ *
+ *   1. every observed region is one the model declares;
+ *   2. the DISTINCT regions, in the order they were first reached, must
+ *      sit at STRICTLY INCREASING indices in the declared order -- so
+ *      the walk moves FORWARD through the reading order.
+ *
+ * The comparison uses the ORDER. It is not "the declared order
+ * restricted to the observed regions": that formulation compares the
+ * observed sequence with itself, so a fully REVERSED sequence would
+ * pass and the check could not fail. A DOM whose regions were
+ * reordered produces a different sequence and fails -- which is the
+ * whole point: a check that compares a list with itself cannot fail.
+ *
+ * @param {readonly string[]} observed the regions, in the order the
+ *   keyboard reached them (with repetitions)
+ * @returns {boolean}
+ */
+export function observedFocusOrderIsConsistent(observed) {
+  if (!Array.isArray(observed)) return false;
+  // The observed sequence is the sequence of DISTINCT regions, in the
+  // order the keyboard first reached them. Each of them must sit at a
+  // STRICTLY INCREASING index in the declared order.
+  //
+  // That is the comparison that uses the ORDER. It is not "the declared
+  // order restricted to the observed regions": that formulation
+  // compares the observed sequence with itself, so a fully REVERSED
+  // sequence would pass and the check could not fail.
+  let previousIndex = -1;
+  const seen = new Set();
+  for (const region of observed) {
+    const index = FOCUS_ORDER.indexOf(region);
+    // A region the model does not declare is a mismatch.
+    if (index === -1) return false;
+    // The same region reached twice in a row is not a new stop.
+    if (seen.has(region)) continue;
+    seen.add(region);
+    // The order must move FORWARD.
+    if (index <= previousIndex) return false;
+    previousIndex = index;
+  }
+  return seen.size > 0;
+}
+
+/**
  * The regions of the workbench, and the ARIA landmark role each carries.
  *
  * The landmarks are what let a screen-reader user skip to the region
  * they want -- the equivalent of "Tab order is sensible", for a reader
  * who navigates by landmark rather than by Tab.
  *
+ * A role that the markup does NOT carry is a claim the reader cannot
+ * check: a screen reader announces the role, so a declared role that the
+ * DOM does not have is a false description of the page. So the table
+ * below lists only roles that the markup REALLY has, and the unit test
+ * asserts that each declared role is present on the declared element.
+ *
+ * The elements that carry a region are:
+ *
+ *   rail            the <aside role="navigation">
+ *   refresh         the top bar's refresh <button> (a plain button --
+ *                   it is not a landmark, and calling it one would be a
+ *                   false description)
+ *   project-select  the <select> in the project bar
+ *   add-project     the 「添加项目」 <button>
+ *   search          the <div role="search"> around the search input
+ *   panel           the catalogue's <div> (a plain region, not a
+ *                   landmark)
+ *   content         the <main role="main">
+ *
  * @type {Readonly<Record<string,string>>}
  */
 export const LANDMARK_ROLES = Object.freeze({
   rail: 'navigation',
-  'project-select': 'region',
-  'add-project': 'region',
-  refresh: 'region',
+  'project-select': 'none',
+  'add-project': 'none',
+  refresh: 'none',
   search: 'search',
-  panel: 'region',
+  sidebar: 'none',
+  panel: 'none',
   content: 'main',
 });
+
+/**
+ * The regions that ARE landmarks.
+ *
+ * A landmark is a region a screen reader can jump to by role. The
+ * others are ordinary controls that happen to carry a `data-region` so
+ * that the focus order can be measured.
+ *
+ * @type {readonly string[]}
+ */
+export const LANDMARK_REGIONS = Object.freeze(
+  Object.keys(LANDMARK_ROLES).filter((r) => LANDMARK_ROLES[r] !== 'none'),
+);
 
 /**
  * The DOM order of the regions, by their position in the markup.
