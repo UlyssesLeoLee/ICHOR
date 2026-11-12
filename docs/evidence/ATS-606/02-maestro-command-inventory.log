@@ -1,6 +1,6 @@
 === ATS-606 evidence: the Maestro command inventory ===
-tree : 95f9c15d7edbd0274ecea303553bfbca42ecf12c
-date : 2026-11-12T12:22:02Z
+tree : 87c4656e2fc4ccb277831378a521e0d13c356060
+date : 2026-11-12T19:52:57Z
 
 === ATS-606: the Maestro command inventory (behavioural) ===
 maestro : D:\AI-Tools\Maestro\bin\maestro.bat
@@ -72,19 +72,19 @@ MAESTRO COMMAND INVENTORY: 55 commands accepted, 0 rejected
 mapped=4 reported=51 (measured by running the importer)
 
 --- the compatibility table (docs/25 §8.5) ---
-table: mappable=4 partial=3 unmappable=48
-ok   the §8.5 rows are exactly the generated rows (55) -- the table was not hand-edited
+table: mappable=5 partial=2 unmappable=48
+ok   the §8.5 block is exactly the generated block (71 lines: the three group headings, all 55 rows and the TALLY) -- the table was not hand-edited
 ok   every accepted Maestro command (55) has a verdict in §8.5
 ok   every command named in §8.5 is a real Maestro command (55)
 ok   every rejected spelling is accounted for in §8.5
-ok   the stated counts (4/3/48) match the table
+ok   the stated counts (5/2/48) match the table
 ok   the stated importer counts (4/51) match the measured behaviour
 ok   every row states the importer behaviour the importer actually has (55 rows)
 ok   every parameter cell matches STEP_ARGUMENTS
 
 --- the platform vocabulary (ATS-601 / ATS-602) ---
 ATS-601 step kinds: launchApp, tapOn, assertVisible, takeScreenshot, recordScreen, readLogs
-ok   every mappable row names a step kind that ATS-601 freezes
+ok   the grouping breaks no §8.3 invariant: every mappable / partially mappable row names a step kind ATS-601 freezes, every unmappable row names none (55 rows)
 
 COMPATIBILITY TABLE: OK
 MAESTRO COMMAND INVENTORY: OK (55 commands)

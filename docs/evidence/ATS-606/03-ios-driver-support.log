@@ -1,6 +1,6 @@
 === ATS-606 evidence: the iOS implementation status ===
-tree : 95f9c15d7edbd0274ecea303553bfbca42ecf12c
-date : 2026-11-12T12:22:02Z
+tree : 87c4656e2fc4ccb277831378a521e0d13c356060
+date : 2026-11-12T19:52:57Z
 
 === ATS-606: the iOS implementation status (from the shipped byte-code) ===
 lib    : D:\AI-Tools\Maestro\lib
@@ -50,6 +50,16 @@ ok   §8.4 log.read: simulator="可满足" device="**不可满足**" match the b
 the physical-device controller: 1 implemented, 8 not implemented
 ok   §8.4 claims the physical-device path is only partly implemented, and 8 of the 9 deviceController operations are indeed not implemented
 ok   §8.4 scopes the "same implementation" claim to the host side and names the two device-side builds
+
+--- where the device-side runner builds live (the jar lists) ---
+driver-iPhoneSimulator/  -> maestro-ios-driver.jar
+ok   driver-iPhoneSimulator/ is held by exactly one jar: maestro-ios-driver.jar
+driver-iphoneos/         -> maestro-ios-driver.jar
+ok   driver-iphoneos/ is held by exactly one jar: maestro-ios-driver.jar
+the XCTestHTTPServer.swift source -> maestro-cli-2.12.1.jar
+ok   the XCTestHTTPServer.swift source is in maestro-cli-2.12.1.jar
+ok   no jar holds a `driver-ios/` directory -- so any document that cites `driver-ios/` as a jar path is wrong
+ok   §8.4 attributes the two device-side builds to maestro-ios-driver.jar, which is where the jar list really puts them
 ok   §8.4 states the the Apple team ID precondition
 ok   §8.4 states the the devicectl runner install
 ok   §8.4 states the the 127.0.0.1:22087 reachability

@@ -96,6 +96,21 @@ hdr() {
   echo "exit : $?"
 } > "$EV/03-ios-driver-support.log" 2>&1
 
+# --- 03b: the GROUPING negative controls ---------------------------------
+# The §8.5 claim is that the three verdict groups are the ones the
+# generator produces. A probe that only ever says OK is not evidence, so
+# this log shows the MUTANTS: each one moves a row into another group
+# and rewrites every count, and the probe has to go red for each.
+{
+  echo "=== ATS-606 evidence: the grouping negative controls ==="
+  echo "tree : $COMMIT"
+  echo "date : $STAMP"
+  echo
+  node tools/ats606-probes/probe-group-mutants.mjs . 2>&1
+  echo
+  echo "exit : $?"
+} > "$EV/03b-group-mutants.log" 2>&1
+
 # --- 04: the ATS-601 / ATS-602 vocabulary ---------------------------------
 # The compatibility table's verdicts are stated against the platform's own
 # vocabulary. This log records that vocabulary as it stands on THIS tree,
@@ -246,8 +261,18 @@ for (const m of args[1].matchAll(/^\s{2}([A-Za-z][A-Za-z0-9]*)\s*:\s*Object\.fre
   console.log("total    : " + (mapped + reported));
   console.log("by reason: " + JSON.stringify(byReason));
   console.log();
-  console.log("The counts §8.5 states are: 可映射 4 / 部分可映射 3 / 不映射 48,");
-  console.log("and 映射成功 4 条 / 进导入报告 51 条.");
+  // The SEMANTIC counts are read out of the table of the document itself, so
+  // this log can never disagree with the document: the group headings
+  // ARE the counts.
+  const md = fs.readFileSync("docs/25-MOBILE-APP-TESTING.md", "utf8");
+  const block = md.slice(md.indexOf("<!-- ATS606-ROWS-START -->"), md.indexOf("<!-- ATS606-ROWS-END -->"));
+  const heading = /^#### 8\.5\.\d (可映射|部分可映射|不映射)（(\d+) 条）$/gm;
+  const stated = {};
+  let h;
+  while ((h = heading.exec(block)) !== null) stated[h[1]] = Number(h[2]);
+  console.log("the counts §8.5 states, read out of the group headings of the table:");
+  console.log("  可映射 " + stated["可映射"] + " / 部分可映射 " + stated["部分可映射"] + " / 不映射 " + stated["不映射"]);
+  console.log("the importer counts are: 映射成功 " + mapped + " 条 / 进导入报告 " + reported + " 条");
   console.log("measured mapped   : " + mapped + " (must be 4)");
   console.log("measured reported : " + reported + " (must be 51)");
 })();

@@ -1,6 +1,6 @@
 === ATS-606 evidence: the import report over every Maestro command ===
-tree : 95f9c15d7edbd0274ecea303553bfbca42ecf12c
-date : 2026-11-12T12:22:02Z
+tree : 87c4656e2fc4ccb277831378a521e0d13c356060
+date : 2026-11-12T19:52:57Z
 
 --- (a) a Flow written in Maestro syntax, imported end to end ---
 
@@ -99,7 +99,8 @@ reported : 51
 total    : 55
 by reason: {"unknown-command":51}
 
-The counts §8.5 states are: 可映射 4 / 部分可映射 3 / 不映射 48,
-and 映射成功 4 条 / 进导入报告 51 条.
+the counts §8.5 states, read out of the group headings of the table:
+  可映射 undefined / 部分可映射 undefined / 不映射 undefined
+the importer counts are: 映射成功 4 条 / 进导入报告 51 条
 measured mapped   : 4 (must be 4)
 measured reported : 51 (must be 51)
