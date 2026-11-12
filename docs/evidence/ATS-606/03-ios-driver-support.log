@@ -1,6 +1,6 @@
 === ATS-606 evidence: the iOS implementation status ===
-tree : 0a5be02c9f8a9e2b9d34383cb280ff67d17a6ff8
-date : 2026-11-12T19:44:41Z
+tree : 87c4656e2fc4ccb277831378a521e0d13c356060
+date : 2026-11-12T19:52:57Z
 
 === ATS-606: the iOS implementation status (from the shipped byte-code) ===
 lib    : D:\AI-Tools\Maestro\lib
