@@ -1,38 +1,19 @@
-✔ IT-ATS214-SETUP: start the bridge and register the fixture (685.0901ms)
-✔ IT-ATS214-001: the STATIC index carries the tags it reads from the source (81.3462ms)
-✔ IT-ATS214-002: the AUTHORITATIVE index carries the CLI's own tags (680.3023ms)
-✔ IT-ATS214-003: the two indexes carry the SAME tags for the same cases (562.7302ms)
-✔ IT-ATS214-010: a selection that names an unknown case is REFUSED, not skipped (453.5748ms)
-✔ IT-ATS214-011: an empty selection is refused (13.1557ms)
-✔ IT-ATS214-012: a selection that is not an array is refused (2.4891ms)
-✔ IT-ATS214-013: the run request still refuses the fields outside the whitelist (1.4123ms)
-✔ IT-ATS214-020: a selection of ONE file becomes a run that carries the selection (1943.3965ms)
-✔ IT-ATS214-021: a selection that spans SEVERAL files becomes a BATCH, split by file (1921.8259ms)
-✔ IT-ATS214-022: the batches endpoint can be narrowed to one project (17.8584ms)
-✖ C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-c24dbb0dc234\worktree\tests\ats214-batch-run-api.test.mjs (16.0355ms)
-ℹ tests 12
+✔ IT-ATS214-SETUP: start the bridge and register the fixture (746.1408ms)
+✔ IT-ATS214-001: the STATIC index carries the tags it reads from the source (82.6199ms)
+✔ IT-ATS214-002: the AUTHORITATIVE index carries the CLI's own tags (727.5369ms)
+✔ IT-ATS214-003: the two indexes carry the SAME tags for the same cases (582.7208ms)
+✔ IT-ATS214-010: a selection that names an unknown case is REFUSED, not skipped (483.6855ms)
+✔ IT-ATS214-011: an empty selection is refused (2.3371ms)
+✔ IT-ATS214-012: a selection that is not an array is refused (2.306ms)
+✔ IT-ATS214-013: the run request still refuses the fields outside the whitelist (2.8173ms)
+✔ IT-ATS214-020: a selection of ONE file becomes a run that carries the selection (2044.548ms)
+✔ IT-ATS214-021: a selection that spans SEVERAL files becomes a BATCH, split by file (2152.1269ms)
+✔ IT-ATS214-022: the batches endpoint can be narrowed to one project (11.6707ms)
+ℹ tests 11
 ℹ suites 0
 ℹ pass 11
-ℹ fail 1
+ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 11483.9942
-
-✖ failing tests:
-
-test at tests\ats214-batch-run-api.test.mjs:172:6
-✖ C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-c24dbb0dc234\worktree\tests\ats214-batch-run-api.test.mjs (16.0355ms)
-  Error: EPERM, Permission denied: \\?\C:\Users\seiko\AppData\Local\Temp\multica-task-543838585\ats-214-it-nD6sTp '\\?\C:\Users\seiko\AppData\Local\Temp\multica-task-543838585\ats-214-it-nD6sTp'
-      at Object.rmSync (node:fs:1283:18)
-      at TestContext.<anonymous> (file:///C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-c24dbb0dc234/worktree/tests/ats214-batch-run-api.test.mjs:184:6)
-      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
-      at async TestHook.run (node:internal/test_runner/test:1389:7)
-      at async Test.runHook (node:internal/test_runner/test:1269:9)
-      at async after (node:internal/test_runner/test:1322:9)
-      at async Test.run (node:internal/test_runner/test:1408:7) {
-    errno: 1,
-    code: 'EPERM',
-    path: '\\\\?\\C:\\Users\\seiko\\AppData\\Local\\Temp\\multica-task-543838585\\ats-214-it-nD6sTp',
-    syscall: 'rm'
-  }
+ℹ duration_ms 12773.9297

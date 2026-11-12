@@ -1,15 +1,5 @@
-manifest entries : 989
-digest mismatches: 23
-    apps/studio/app/globals.css 74385c816e23ac51aa33ec06464f7e9b7ffc819c760fa91572b225f5368d3cf8 != e9a8101e1e94f83c298e7ebdd9eb1ddaa032162a32d251d0f2f260c91a821c0a
-    apps/studio/app/page.tsx 457e88e87fe65295642d06704cc014e2faf438f48ab843caf7422ca6620c6ca0 != efd840a7fff2371f7c4600d469a2679a2e195113f22d6597a675349d14e8b5d2
-    apps/studio/lib/api.ts 26a62a1d6ac209f0b4a5af7f711610f9846189dc317b83c2269330f5d446aaf6 != c6552a8b682126c61674ace9a37664cf23affe909f7efea969ed488e23355671
-    apps/studio/public/case-search.mjs fb2264685a3970c0e0a8cf9c4a168548ac0c14bdfbff8a5a534617bd7ea3567b != 8df23dcf3244504515d30e2c419cfb77c97eb2d8ac6a6a4f69847d8c3a891d81
-    apps/studio/public/fallback.html 3e63783b1b0850c2f289095423461531495e514537b9771682f6b24d4713f57a != 0b30182a3bff6f78b984285a2c47349965efb8f667f0deabf8a81c34f16f6d3c
-    docs/07-UT-TEST-DESIGN.md fa5590fdb6f5d47d43c3691c4f3b107eda87e2c36868f6dd114bb08c2b8be401 != 36f3f6fb997cafa03ea8ca9c718e028e1c0524ed7bfaa693bd6cf92432073d58
-    docs/08-IT-TEST-DESIGN.md 3865f791a44bb82a3af1aa9599897ecbf9550b69b6c015ddae7482d2c3eef225 != 8e42aad4bc6cebb05a3060619f0a1a4568937318b4667759034a386e1c9ff5a6
-    docs/09-ST-TEST-DESIGN.md 260d3e3dcea1afef7cdd1861fd0fc8639d43c16cd32bee7c2468a48d7f67fc6f != 3100e4659bfff74557f2fd73c3d62c3c283cc3959e6ae7f9ce54e54e82028aea
-    docs/32-CASE-SEARCH-SELECTION.md c49f0b157e2734add3ab4141be0e4c0f57ef0f25842f600e70bae077d5c57bb0 != 1b310856c9392019c0d4e6e8186c39ab64bbd89c5ac6a3d63d586f6fae5ff19c
-    docs/evidence/ATS-214/01-node-test-case-search-ut.log 3d3bf9d8065d53f1bad6c19582b8b2ea2eb91a4e16fd61d5e17c2fdfc46b2a0e != 18e80df1ca0ea54c1785ad3ec2d574bf93fc231f5a560199e587b51136893dc4
-tracked-not-listed: 10 ['docs/33-ATS214-R1-REWORK.md', 'docs/evidence/ATS-214/10-st-500-cases.log', 'docs/evidence/ATS-214/12-batch-context-it.log', 'docs/evidence/ATS-214/13-mutation-control.log', 'docs/evidence/ATS-214/reviewer-probes/README.md']
+manifest entries : 999
+digest mismatches: 0
+tracked-not-listed: 0 []
 listed-not-tracked: 0 []
-RESULT: MISMATCH
+RESULT: OK
