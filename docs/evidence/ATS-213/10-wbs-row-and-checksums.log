@@ -1,8 +1,8 @@
 ================================================================================
 ATS-213 evidence log -- the WBS row and the checksum manifest
 ================================================================================
-commit        : a3b4480da8097cab31ef9b2995dc22accc55ed3b
-timestamp     : 2026-11-12T17:02:33Z (UTC)
+commit        : 387dbdd06a6e2e46e8cdcc6621187d994bd46436
+timestamp     : 2026-11-12T17:23:11Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-44eea8bbc9b6/worktree
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -12,7 +12,7 @@ command       : bash tools/ats213-probes/collect-wbs-and-checksums.sh
 ================================================================================
 
 --- 1. the WBS row update ---
-overview: 已完成=2 完成率=0.27234042553191484 剩余人日=342.0
+overview: 已完成=2 完成率=0.28297872340425534 剩余人日=337.0
 updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-44eea8bbc9b6\worktree\docs\WBS.xlsx
 the updater exit code: 0
 
@@ -31,17 +31,27 @@ the read-back exit code: 0
 
 --- 3. the overview totals (recomputed from the sheet) ---
 B8 已完成 count: 2
-B9 完成率: 0.27234042553191484
-B10 剩余人日: 342
+B9 完成率: 0.28297872340425534
+B10 剩余人日: 337
 
 --- 4. the checksum manifest ---
-CHECKSUMS.sha256: 944 entries
-update_checksums exit code: 0
-manifest entries : 944
-digest mismatches: 0
-tracked-not-listed: 0 []
+docs/evidence/ATS-213/01-credential-status-ut.log: the working tree differs from the committed blob -- commit the change before regenerating the manifest
+update_checksums exit code: 1
+manifest entries : 951
+digest mismatches: 17
+    apps/studio/app/page.tsx ecb008698d9644e015bb0a5d39be01ebb071931006a77e6f0c46029aaa798a6c != 457e88e87fe65295642d06704cc014e2faf438f48ab843caf7422ca6620c6ca0
+    apps/studio/lib/api.ts b834ad74404b44014cb18642f805d146e43a58939e7b6e0516cec910cbbdd88b != 26a62a1d6ac209f0b4a5af7f711610f9846189dc317b83c2269330f5d446aaf6
+    docs/00-INDEX.md a784d740c32fea9104bfa2a8c2ac123b44d6af9156cd7c04df7526af754df5dd != c349933c7c99e6ff3109a22fab6b08097f38685f2a2d52bfbe9716b22e5ce6c1
+    docs/02-REQUIREMENTS.md 60912922203b4d306ebe2f47f1195db8dc2cfad936629276b7b8b95fb64eb241 != c29fb4e747b0825494f94707a98e370e6ae5f49b8c72b35f9b553f7a2822e81d
+    docs/07-UT-TEST-DESIGN.md 6543d1b0a099142f7ba19477ae1cd5cb561bcb4f3618dc0d90abf88189266377 != fa5590fdb6f5d47d43c3691c4f3b107eda87e2c36868f6dd114bb08c2b8be401
+    docs/08-IT-TEST-DESIGN.md ead5d772f4abae2c1f5dc7fcbf02a830a8e2689bd53a001e13daea61c0a3a99e != 3865f791a44bb82a3af1aa9599897ecbf9550b69b6c015ddae7482d2c3eef225
+    docs/09-ST-TEST-DESIGN.md bb304b938b595a8c7d83d5dead47a92659da8e212f7d910f152d509ae6883613 != 53a22a61fdee58fc1e7a3d704ea58d33bf1e0e31db64a805defc9172872c80fd
+    docs/10-RTM.md e6dabcee6fe1fb720865f117a1f2e13da8bb08765d133e6db23c574464586f27 != 0ad931c573ee8aa5ad0d1cd85e49efb861b5fc4d06f5e2aa9ee641bb3e98f18d
+    docs/11-SECURITY-RISK.md b6b97bc9ace86ad2cb25965b50ce283e27dcc6e4c8dbe3129592383bd1920700 != d0b08143eae0ff789482f66ae3ff6d2dfe0c2c2cbca889ab351b73949a003630
+    docs/16-BASELINE-ADR.md 6c5e4e37590214e836afb8d14d49d77f6ded5a1d927fb19801fae291f654d008 != 449c1ee77d16692ff501b765ab970292b9a6e93dbbc1aac0a47ec2ec3652856e
+tracked-not-listed: 19 ['docs/32-CREDENTIAL-STATUS.md', 'docs/evidence/ATS-213/01-credential-status-ut.log', 'docs/evidence/ATS-213/02-credential-status-api-it.log', 'docs/evidence/ATS-213/03-credential-status-api-it-real-store.log', 'docs/evidence/ATS-213/04-security-regression.log']
 listed-not-tracked: 0 []
-RESULT: OK
-verify_checksums exit code: 0
+RESULT: MISMATCH
+verify_checksums exit code: 1
 
 --- exit code: 0 ---

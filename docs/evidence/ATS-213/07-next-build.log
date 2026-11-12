@@ -1,8 +1,8 @@
 ================================================================================
 ATS-213 evidence log -- the Next.js static export build
 ================================================================================
-commit        : a3b4480da8097cab31ef9b2995dc22accc55ed3b
-timestamp     : 2026-11-12T16:59:53Z (UTC)
+commit        : 387dbdd06a6e2e46e8cdcc6621187d994bd46436
+timestamp     : 2026-11-12T17:19:27Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-44eea8bbc9b6/worktree
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -34,15 +34,15 @@ tsc exit code: 1
 
 --- 2. the static export build (next build) ---
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 26ms
+✓ Running next.config.mjs took 36ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 157ms
+✓ Compiled successfully in 202ms
   Running TypeScript ...
-  Finished TypeScript in 1203ms ...
+  Finished TypeScript in 1600ms ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 426ms
+✓ Generating static pages using 4 workers (3/3) in 667ms
   Finalizing page optimization ...
 
 Route (app)
@@ -55,7 +55,7 @@ Route (app)
 next build exit code: 0
 
 --- 3. the export artefact ---
-out/index.html exists (15679 bytes)
+out/index.html exists (16544 bytes)
 
 --- 4. the build side effects on tracked files ---
 error: Could not access 'apps/studio/next-env.d.ts'

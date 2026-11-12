@@ -58,7 +58,17 @@ const watched = createCredentialStore({
       await new Promise((resolve) => child.on('close', resolve));
     },
     async read() { return ''; },
-    async remove() {},
+    // The probe writes into the REAL credential store, so it must remove
+    // what it wrote -- a probe that leaves entries behind pollutes the
+    // machine it runs on (and the entries outlive the probe's directory).
+    async remove(id) {
+      const child = realSpawn('powershell.exe', [
+        '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
+        path.join(repo, 'server', 'security', 'wincred.ps1'),
+        'delete', '-Target', `ATS:ai-test-studio:${id}`, '-User', 'ai-test-studio',
+      ], { stdio: ['ignore', 'pipe', 'pipe'] });
+      await new Promise((resolve) => child.on('close', resolve));
+    },
   },
 });
 await watched.put({ name: 'ats213-boundary', secret: SECRET });
@@ -67,13 +77,21 @@ const responseCarriesSecret = (text) => text.includes(SECRET) || text.includes(S
 check('B1', 'the secret never appears in the helper process arguments',
   !argvCarriesSecret(seenArgv) && !seenArgv.join(' ').includes(SECRET.slice(0, 8)),
   `argv=${seenArgv.slice(-6).join(' ')}`);
+// The entry the probe just wrote into the REAL store is removed again.
+await watched.remove((await watched.list())[0].id);
 
 // --- B2: the secret never lands in a file ------------------------------------
 const ref = await store.put({ name: 'ats213-boundary', secret: SECRET });
+// The index is read BEFORE the removal: `remove()` clears the reference
+// (that is what it is for), and the assertion below is about what the index
+// holds WHILE the reference is live.
 const indexText = fs.readFileSync(path.join(scratch, 'credentials.json'), 'utf8');
 check('B2a', 'the credential index holds the reference and the fingerprint only',
   !indexText.includes(SECRET) && indexText.includes(ref.fingerprint) && !('secret' in ref),
   'the index carries id / name / purpose / provider / fingerprint / timestamps');
+// The entry the probe wrote into the REAL store is removed again, so a probe
+// run leaves no credential behind on the machine it ran on.
+await store.remove(ref.id);
 
 // The whole data directory is scanned: no file may contain the secret.
 const offenders = [];
@@ -164,6 +182,9 @@ try {
     && parsed.status?.status === 'not-configured'
     && parsed.status?.reason === 'CREDENTIAL_NOT_FOUND',
     `helper exit=${helperCode} stillReferenced=${stillReferenced} status=${parsed.status?.status} reason=${parsed.status?.reason}`);
+  // The platform's reference is removed as well, so the probe leaves neither
+  // a store entry nor an index entry behind.
+  await call(`/api/security/credentials/${driftId}`, 'DELETE');
 } finally {
   bridge.kill();
   await new Promise((r) => setTimeout(r, 300));

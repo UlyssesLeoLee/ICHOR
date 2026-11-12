@@ -254,9 +254,12 @@ ATS-401/ATS-512 都立过同一条规矩：**新映射的作用域只限自己�
 | `06-system-test.log` | 真实浏览器里的 11 项 ST + 截图 + trace |
 | `07-next-build.log` | `tsc --noEmit` + Next.js 静态导出构建 |
 | `08-quality-gates.log` | ATS-301 门禁（WBS 助手 + ADR 引用 + 端口审计） |
-| `09-full-regression.log` | 全量回归 |
+| `09-full-regression.log` | 全量回归（1752 例 / 0 失败 / 18 跳过，跳过原因逐条标注） |
 | `10-wbs-row-and-checksums.log` | WBS 行与校验和清单 |
 | `ui/` | 真实浏览器的截图与 trace |
+
+证据目录另有一份 `README.md`，逐份写明每一步的**内容与复跑命令**，以及第 9 步
+的 18 个 skip 的**逐条原因**（skip 不是 PASS，也不是 FAIL）。
 
 复现命令：
 

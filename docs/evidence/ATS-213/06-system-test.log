@@ -1,8 +1,8 @@
 ================================================================================
 ATS-213 evidence log -- the system test in a REAL browser (the status is visible in the UI)
 ================================================================================
-commit        : a3b4480da8097cab31ef9b2995dc22accc55ed3b
-timestamp     : 2026-11-12T16:59:44Z (UTC)
+commit        : 387dbdd06a6e2e46e8cdcc6621187d994bd46436
+timestamp     : 2026-11-12T17:19:11Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-44eea8bbc9b6/worktree
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
@@ -13,13 +13,13 @@ command       : node tools/ats213-probes/st-ats213.mjs /c/Users/seiko/multica_wo
 
 PASS  UI-LOAD  the studio loads and the AI data security tab renders
 PASS  UI-STORE  the credential status endpoint answers over HTTP -- 200
-PASS  ST-ATS213-001  a key stored in the OS credential store shows as 已配置 -- data-cred-status=configured label=已配置 · 已从系统凭据库取回 · 查于 2026/11/13 01:59:48
+PASS  ST-ATS213-001  a key stored in the OS credential store shows as 已配置 -- data-cred-status=configured label=已配置 · 已从系统凭据库取回 · 查于 2026/11/13 02:19:19
 PASS  ST-ATS213-003  the page shows no secret and no fragment of it -- the status row carries the name, the provider and the 8-char fingerprint only
 PASS  ST-ATS213-003b  the secret input is cleared after the store accepted it
 PASS  ST-ATS213-002a  the entry was deleted from the OS credential store -- helper exit=0 
 PASS  ST-ATS213-002b  the platform index still holds the reference (the drift case is real)
-PASS  ST-ATS213-002  after the entry is gone the UI shows 未配置 (measured, not inferred) -- data-cred-status=not-configured label=未配置 · 系统凭据库里没有这一条 · 查于 2026/11/13 01:59:50
-PASS  ST-ATS213-004  the status endpoint reports not-configured with its reason code -- {"id":"cred_37163f5130c5480c8270e2e3","name":"ats213-ui-key","purpose":"ai-provider","provider":"windows-credential-manager","fingerprint":"e71202ba","checkedAt
+PASS  ST-ATS213-002  after the entry is gone the UI shows 未配置 (measured, not inferred) -- data-cred-status=not-configured label=未配置 · 系统凭据库里没有这一条 · 查于 2026/11/13 02:19:22
+PASS  ST-ATS213-004  the status endpoint reports not-configured with its reason code -- {"id":"cred_21cf21361996496b975c52c8","name":"ats213-ui-key","purpose":"ai-provider","provider":"windows-credential-manager","fingerprint":"e71202ba","checkedAt
 PASS  UI-CLEANUP  the reference is removed from the platform and the UI shows an empty list
 PASS  UI-NOERR  the page raised no uncaught error
 
