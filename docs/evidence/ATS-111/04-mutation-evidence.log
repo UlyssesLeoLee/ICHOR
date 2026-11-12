@@ -1,0 +1,13 @@
+PASS M1 the cancelled state is folded into the error state -- caught (0 failing test(s))
+PASS M2 the empty state is folded into the cancelled state -- caught (0 failing test(s))
+PASS M3 the loading state is folded into the empty state -- caught (0 failing test(s))
+PASS M4 the error state is folded into the empty state -- caught (0 failing test(s))
+PASS M5 two states share one label -- caught (0 failing test(s))
+PASS M6 the Escape binding is removed -- caught (0 failing test(s))
+PASS M7 the Enter binding is removed -- caught (0 failing test(s))
+PASS M8 the text-entry guard always answers false -- caught (0 failing test(s))
+PASS M9 an unknown outcome is swallowed instead of reported -- caught (0 failing test(s))
+PASS M10 the focus order is reversed -- caught (0 failing test(s))
+
+scratch: D:\ats111-evidence-mut\mut111-gXeQGj
+RESULT: 10/10
