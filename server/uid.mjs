@@ -481,6 +481,298 @@ function findTestCalls(src) {
 }
 
 /**
+ * ATS-214: the TAGS of a source file, per case.
+ *
+ * WHY THE STATIC INDEX HAS TO READ THE TAGS ITSELF
+ * --------------------------------------------------
+ * The authoritative index gets the tags for free: `playwright test --list`
+ * reports `spec.tags` for every case it enumerates. The STATIC index reads
+ * the source itself, so it has to read them out of the source -- and if it
+ * does not, a tag filter would work on a trusted project and silently
+ * match NOTHING on an untrusted one. That asymmetry is the kind of thing
+ * that reads as "the filter is broken" rather than "the filter saw no
+ * tags", so the static index reads them too.
+ *
+ * WHAT IS READ
+ * ------------
+ * The Playwright details object of a case:
+ *
+ *     test('case', { tag: '@smoke' }, async () => {})
+ *     test('case', { tag: ['@a', '@b'] }, async () => {})
+ *
+ * and the same object on a `describe`, whose tags the cases INSIDE it
+ * inherit (measured: the CLI reports the describe's tag on every case
+ * below it, merged with the case's own tags -- see
+ * `docs/32-CASE-SEARCH-SELECTION.md` §3).
+ *
+ * The scanner is LEXICAL, like the rest of the static index: it reads the
+ * literal `tag:` property of a details object and nothing else. A tag
+ * that is computed (`{ tag: someVar }`) is NOT read -- the static index
+ * cannot know what it is, and a tag it guessed would be a tag the filter
+ * would then match against wrongly.
+ *
+ * THE '@' PREFIX
+ * --------------
+ * Playwright REQUIRES a tag to start with '@' (the CLI refuses the file
+ * otherwise: "Tag must start with '@'") but REPORTS it WITHOUT the '@'
+ * (`{tag:'@smoke'}` is reported as `['smoke']`). So the scanner strips the
+ * prefix here too, and the two indexes then carry the SAME tag string --
+ * which is what lets a tag filter work on either of them.
+ *
+ * @param {string} content the source of one file
+ * @returns {Map<number, string[]>} the tags by the LINE of the case's call
+ */
+export function scanCaseTags(content) {
+  const src = String(content ?? '');
+  const byLine = new Map();
+  // The tags of the `describe` blocks that are OPEN at a line. A describe
+  // opens a scope and closes it at the end of its callback body, so the
+  // scope is tracked with the same brace counting the describe-path
+  // reader uses (see `describePathAt` in server/discovery/index.mjs).
+  const describeTags = describeTagsAt(src);
+  for (const call of findTestCalls(src)) {
+    const own = readDetailsTags(src, call.afterTitle);
+    const inherited = describeTags.get(call.line) ?? [];
+    const tags = [...inherited, ...own];
+    if (!tags.length) continue;
+    byLine.set(call.line, dedupeTags(tags));
+  }
+  return byLine;
+}
+
+/**
+ * The tags of a details object, read lexically.
+ *
+ * The reader looks for the property `tag` (or `tags`) of the SECOND
+ * argument of the call -- the details object -- and reads its value when
+ * it is a string literal or an array of string literals. A value that is
+ * computed is NOT read: the static index does not evaluate code.
+ *
+ * `afterTitle` is the offset just AFTER the title argument, so the reader
+ * finds the details object in the second position.
+ */
+function readDetailsTags(src, afterTitle) {
+  let i = skipSpace(src, afterTitle);
+  if (src[i] !== ',') return [];
+  i = skipSpace(src, i + 1);
+  return readTagsOfObjectLiteral(src, i);
+}
+
+/**
+ * The tags of a DETAILS OBJECT that starts at `i`.
+ *
+ * The object has to be an object LITERAL for its tags to be readable
+ * without evaluating anything. A variable (`test('x', details, fn)`)
+ * contributes no tags: the static index does not evaluate code, and a tag
+ * it guessed would be a tag the filter would then match against wrongly.
+ */
+function readTagsOfObjectLiteral(src, i) {
+  if (src[i] !== '{') return [];
+  const end = skipBalancedBraces(src, i);
+  const body = src.slice(i + 1, end);
+  const tags = [];
+  // `tag: 'x'` / `tags: 'x'` / `tag: ['x', 'y']`
+  const re = /\b(?:tag|tags)\s*:\s*(\[[^\]]*\]|'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/g;
+  let m;
+  while ((m = re.exec(body)) !== null) {
+    const value = m[1];
+    if (value.startsWith('[')) {
+      const inner = value.slice(1, -1);
+      const item = /'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g;
+      let im;
+      while ((im = item.exec(inner)) !== null) {
+        const tag = decodeEscapes(im[0].slice(1, -1));
+        if (tag) tags.push(tag);
+      }
+    } else {
+      const tag = decodeEscapes(value.slice(1, -1));
+      if (tag) tags.push(tag);
+    }
+  }
+  return tags.map(stripTagPrefix);
+}
+
+/**
+ * The tags of the `describe` blocks that are open at each line.
+ *
+ * The reader is the same lexical one the describe-path reader uses: it
+ * finds the `describe` calls, reads their details object, and closes the
+ * scope when the callback body's brace closes.
+ *
+ * THE DETAILS OBJECT OF A DESCRIBE
+ * -------------------------------
+ * A `describe` has the SAME argument shape as a test -- title, then the
+ * optional details object, then the callback:
+ *
+ *     describe('group', { tag: '@group' }, () => { ... })
+ *
+ * So the details object is found by reading the TITLE first and then
+ * looking at what follows it. Looking straight after the open parenthesis
+ * would find the title, not the object, and the describe's tags would be
+ * silently lost -- which is exactly what the first version of this reader
+ * did.
+ *
+ * @returns {Map<number, string[]>} the inherited tags by line
+ */
+function describeTagsAt(src) {
+  const out = new Map();
+  const newlines = newlineOffsets(src);
+  // The scopes are walked as (openLine, closeLine, tags). The close line
+  // is found by counting the braces of the callback body.
+  const scopes = [];
+  const re = /\bdescribe(?:\.(?:only|skip|fixme|parallel|serial))?\s*\(/g;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const open = src.indexOf('(', m.index);
+    // The title, then the optional details object.
+    const title = readTitleLiteral(src, skipSpace(src, open + 1));
+    if (!title) continue;
+    const details = readDetailsTags(src, title.end);
+    if (!details.length) continue;
+    const close = describeBodyEnd(src, title.end);
+    if (close < 0) continue;
+    scopes.push({ from: lineAt(newlines, m.index), to: close, tags: details });
+  }
+  if (!scopes.length) return out;
+  const lastLine = src.split('\n').length;
+  for (let line = 1; line <= lastLine; line += 1) {
+    const tags = [];
+    for (const s of scopes) {
+      if (line >= s.from && line <= s.to) tags.push(...s.tags);
+    }
+    if (tags.length) out.set(line, dedupeTags(tags));
+  }
+  return out;
+}
+
+/**
+ * The line the `describe` block's body ends on.
+ *
+ * The body starts at the callback's brace and ends at the brace that
+ * closes it. A block whose body cannot be found contributes NO tags: a
+ * wrong scope would give the cases below it tags that do not belong to
+ * them, and a wrong tag is worse than a missing one.
+ *
+ * `afterTitle` is the offset just AFTER the title argument, so the
+ * optional details object that sits between the title and the callback is
+ * skipped on the way to the arrow.
+ */
+function describeBodyEnd(src, afterTitle) {
+  // The callback's arrow, then the brace of its body.
+  let i = afterTitle;
+  let depth = 0;
+  let arrow = -1;
+  while (i < src.length) {
+    const c = src[i];
+    if (c === '/' && src[i + 1] === '/') { i = skipLineComment(src, i); continue; }
+    if (c === '/' && src[i + 1] === '*') { i = skipBlockComment(src, i); continue; }
+    if (c === '"' || c === "'") { i = skipStringLiteral(src, i, c); continue; }
+    if (c === '`') { i = skipTemplate(src, i); continue; }
+    if (c === '/' && regexAllowedAt(src, i)) { i = skipRegexLiteral(src, i); continue; }
+    if (c === '(' || c === '[' || c === '{') { depth += 1; i += 1; continue; }
+    if (c === ')' || c === ']' || c === '}') {
+      if (depth === 0) break;
+      depth -= 1;
+      i += 1;
+      continue;
+    }
+    if (c === '=' && src[i + 1] === '>') {
+      if (depth === 0) arrow = i;
+      i += 2;
+      continue;
+    }
+    i += 1;
+  }
+  if (arrow < 0) return -1;
+  let j = skipSpace(src, arrow + 2);
+  if (src[j] === '(') {
+    j = skipBalancedParens(src, j);
+    j = skipSpace(src, j);
+  }
+  if (src[j] !== '{') return -1;
+  // The end of the body: the matching closing brace.
+  const newlines = newlineOffsets(src);
+  let level = 0;
+  let k = j;
+  while (k < src.length) {
+    const c = src[k];
+    if (c === '/' && src[k + 1] === '/') { k = skipLineComment(src, k); continue; }
+    if (c === '/' && src[k + 1] === '*') { k = skipBlockComment(src, k); continue; }
+    if (c === '"' || c === "'") { k = skipStringLiteral(src, k, c); continue; }
+    if (c === '`') { k = skipTemplate(src, k); continue; }
+    if (c === '/' && regexAllowedAt(src, k)) { k = skipRegexLiteral(src, k); continue; }
+    if (c === '{') level += 1;
+    else if (c === '}') {
+      level -= 1;
+      if (level === 0) return lineAt(newlines, k);
+    }
+    k += 1;
+  }
+  return -1;
+}
+
+/** The offset just after the `}` that closes the `{` at `i`. */
+function skipBalancedBraces(src, i) {
+  let level = 0;
+  let k = i;
+  while (k < src.length) {
+    const c = src[k];
+    if (c === '/' && src[k + 1] === '/') { k = skipLineComment(src, k); continue; }
+    if (c === '/' && src[k + 1] === '*') { k = skipBlockComment(src, k); continue; }
+    if (c === '"' || c === "'") { k = skipStringLiteral(src, k, c); continue; }
+    if (c === '`') { k = skipTemplate(src, k); continue; }
+    if (c === '{') level += 1;
+    else if (c === '}') {
+      level -= 1;
+      if (level === 0) return k;
+    }
+    k += 1;
+  }
+  return src.length;
+}
+
+/** The offset just after the `)` that closes the `(` at `i`. */
+function skipBalancedParens(src, i) {
+  let level = 0;
+  let k = i;
+  while (k < src.length) {
+    const c = src[k];
+    if (c === '/' && src[k + 1] === '/') { k = skipLineComment(src, k); continue; }
+    if (c === '/' && src[k + 1] === '*') { k = skipBlockComment(src, k); continue; }
+    if (c === '"' || c === "'") { k = skipStringLiteral(src, k, c); continue; }
+    if (c === '`') { k = skipTemplate(src, k); continue; }
+    if (c === '(') level += 1;
+    else if (c === ')') {
+      level -= 1;
+      if (level === 0) return k + 1;
+    }
+    k += 1;
+  }
+  return src.length;
+}
+
+/** The '@' prefix of a tag, stripped -- the CLI reports tags without it. */
+function stripTagPrefix(tag) {
+  const raw = String(tag ?? '').trim();
+  if (!raw) return '';
+  return (raw.startsWith('@') ? raw.slice(1) : raw).trim();
+}
+
+/** The tags of a case, de-duplicated and in a stable order. */
+function dedupeTags(tags) {
+  const seen = new Set();
+  const out = [];
+  for (const t of tags) {
+    const tag = stripTagPrefix(t);
+    if (!tag || seen.has(tag)) continue;
+    seen.add(tag);
+    out.push(tag);
+  }
+  out.sort();
+  return out;
+}
+
+/**
  * Scans one source file for the test cases it declares.
  *
  * The scanner recognises the common `test()` / `it()` forms, including the
@@ -493,14 +785,21 @@ function findTestCalls(src) {
  * that is cut or mis-read is a title the CLI does not report, and the UID
  * derived from it is therefore a UID the other index cannot reproduce.
  *
+ * ATS-214: the case also carries its TAGS (its own and the ones its
+ * enclosing `describe` blocks give it). The tags are read lexically from
+ * the details object; a tag that is computed is not read, because the
+ * static index does not evaluate code.
+ *
  * It is pure: it reads the source text that is handed to it and touches
  * nothing else.
  */
 export function scanTestCases(content) {
   const src = String(content ?? '');
   const cases = [];
+  const tagsByLine = scanCaseTags(src);
   for (const call of findTestCalls(src)) {
     const body = extractCallbackBody(src, call.afterTitle);
+    const tags = tagsByLine.get(call.line) ?? [];
     cases.push({
       title: call.title,
       line: call.line,
@@ -509,6 +808,9 @@ export function scanTestCases(content) {
       // that really runs carries a RENDERED title. The static index cannot
       // know it, so the case is reported as indeterminable.
       placeholder: Boolean(call.placeholder),
+      // ATS-214: the tags of the case. An empty list is a case with no
+      // tag, which is different from a case whose tags are unknown.
+      ...(tags.length ? { tags } : {}),
     });
   }
   return cases;

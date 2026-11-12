@@ -10,6 +10,20 @@ export type TestDef={id:string,uid:string,uidSource:string,uidStable:boolean,fil
 export type FlowImportReport={file:string,syntax:string|null,appId:string|null,cases:number,mappedSteps:number,unsupportedSteps:number,unsupportedByReason:Record<string,number>,warnings:number,errors:number,unsupportedSteps_detail:{file:string,line:number,raw:string,command:string,reason:string,reasonText:string,suggestion:string|null}[],warnings_detail:{line:number,message:string,raw:string}[],errors_detail:{line:number,message:string}[]};
 export type MobileSection={files:string[],cases:number,unsupportedSteps:number,errors:number,imports:FlowImportReport[]};
 export type TestCatalog={tests:TestDef[],files:string[],warning:string,uidVersion:number,projectUid:string,mobile?:MobileSection};
+// ATS-214: the SELECTION -- the set of cases the user picked for a batch
+// run. The snapshot is SELF-CONTAINED: it carries the file, the title and
+// the line of every selected case, so the record can be read on its own
+// after the catalogue has changed.
+export type SelectionCase={uid:string,file:string,title:string,line:number|null};
+export type SelectionSnapshot={uids:string[],cases:SelectionCase[],count:number,unknown:string[],at?:string};
+// ATS-214: the BATCH -- the record of a selection that spanned several
+// files. The engine takes at most ONE test-file filter (ATS-106's
+// argument baseline), so the batch is one run per file, chained.
+export type BatchGroup={file:string,uids:string[],count:number};
+export type BatchRun={runId:string,file:string,groupIndex:number,status:string};
+export type Batch={uid:string,projectId:string,projectUid:string,selectionUid:string,uids:string[],cases:SelectionCase[],files:string[],groups:BatchGroup[],status:string,createdAt:string,finishedAt:string|null,runs:BatchRun[],error?:string};
+// ATS-214: the run carries the selection it was started for.
+export type RunSelection={uids:string[],cases:SelectionCase[],count:number,files:string[],groups:BatchGroup[]};
 export type Attempt={uid:string,runUid:string,testUid:string|null,uidBasis:string,file:string,title:string,line:number|null,retry:number,status:string,caseStatus:string,duration:number,error:string};
 // ATS-208: the attempt of a case -- ONE execution of it. A case that was
 // retried has SEVERAL attempts, and the first one is not overwritten by the
@@ -21,7 +35,11 @@ export type CaseAttempt={status:string,retry:number,duration:number,error:string
 // line and the case key -- so that two same-titled cases of one file are
 // two cases and not one.
 export type CaseResult={title:string,file:string,status:string,duration:number,error:string,attemptsCount:number,scope?:string[],line?:number|null,column?:number|null,caseKey?:string|null,attempts:CaseAttempt[]};
-export type Run={id:string,uid:string,seq:number,projectId:string,projectUid:string,projectName:string,file:string|null,gitCommit:string,status:string,createdAt:string,startedAt:string|null,finishedAt:string|null,log?:string,error?:string,summary?:{passed:number,failed:number,skipped:number,flaky:number,total:number,executions:number,cases:CaseResult[]},artifacts?:{file:string,size:number,sha256:string}[],attempts?:Attempt[]};
+export type Run={id:string,uid:string,seq:number,projectId:string,projectUid:string,projectName:string,file:string|null,gitCommit:string,status:string,createdAt:string,startedAt:string|null,finishedAt:string|null,log?:string,error?:string,summary?:{passed:number,failed:number,skipped:number,flaky:number,total:number,executions:number,cases:CaseResult[]},artifacts?:{file:string,size:number,sha256:string}[],attempts?:Attempt[],
+// ATS-214: the SELECTION the run was started for, and the batch it is a
+// part of. Both are on the record so that "what was selected" and "what
+// ran" can be compared after the fact.
+selection?:RunSelection,selectionUids?:string[],batchUid?:string,batchIndex?:number};
 export type Source={file:string,content:string,hash:string};
 // ATS-402: the AI data security surface. A credential reference NEVER
 // carries the secret -- only the name, the provider and a short

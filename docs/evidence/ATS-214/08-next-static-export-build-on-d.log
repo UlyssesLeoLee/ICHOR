@@ -1,0 +1,43 @@
+# ATS-214 :: the Next.js 16 static export build
+#
+# WHY IT WAS MEASURED ON THE D: DRIVE
+# ------------------------------------
+# The Turbopack build resolves `next/package.json` INSIDE the filesystem
+# root it is given (apps/studio). A JUNCTION to the dependency tree on
+# another volume is not resolved by it -- the build fails with "Could
+# not find the Next.js package (next/package.json)" even though the file
+# is reachable through the junction. The build therefore ran on a copy
+# of THIS TREE on D:, where apps/studio/node_modules is a real directory
+# (a copy of the repository's own examples/sample-playwright
+# dependency tree, the same one the other evidence collectors use).
+#
+# The sources in the D: tree are THIS TASK'S sources, byte for byte
+# (the same files that are committed on the task branch):
+#   apps/studio/app/page.tsx, apps/studio/app/globals.css,
+#   apps/studio/lib/api.ts, apps/studio/public/case-search.mjs,
+#   apps/studio/public/fallback.html
+#
+# The build includes the TypeScript check, so the type errors the new
+# code would cause are caught here.
+#
+# ---------------------------------------------------------------
+npm notice run @ai-test-studio/ui@0.1.0 build
+npm notice run next build
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 17ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 139ms
+  Running TypeScript ...
+  Finished TypeScript in 986ms ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/3) ...
+✓ Generating static pages using 4 workers (3/3) in 367ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content

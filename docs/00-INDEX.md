@@ -27,6 +27,7 @@
 | 22-FRONTEND-EXPORT.md | 前端交付・検証 | ATS-103：Next.js 16 静态导出构建、Bridge 静态提供与 API 契约实测、实测证据与未验证项 |
 | 17-AGENT-CONTRACT.md | Agent 契約 | Agent 契约 v1：作用域、预算、输入出处、角色能力、提案与评审状态机、权限边界与实测证据 |
 | 18-UID-SPEC.md | 稳定 UID 规范 | Project/TestDefinition/Run/Attempt 的标识符规则、迁移脚本与已知边界 |
+| 32-CASE-SEARCH-SELECTION.md | 用例检索・标签・过滤・批量运行选择设计书 | ATS-214：按用例名/文件/标签检索；多标签的「任一/全部」口径与可见标注；搜索与过滤按**交集**（集合语义）叠加；标签进入目录（静态索引读源码、权威索引读 CLI，实测逐条一致）；选择集合的自含快照、未知 UID 拒绝、按文件分组的批次链；「选了什么/跑了什么」对账；实测证据与已知边界 |
 | 28-QUALITY-OVERVIEW.md | 质量概览设计书 | ATS-216：失败聚类/Flaky 基础指标（非 AI）；失败/重试/取消的分组、指标与原始结果的对账、确定性聚类与跨运行不稳定用例、两个界面共用一份实现、变异测试的可证伪性证据与已知边界 |
 | 24-EXECUTION-MODEL.md | 执行模型设计书 | ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试、事件可按 run+sequence 复演；修复前的实测缺陷与修复后的对照、状态机与复演的接口面、实测证据与已知边界 |
 | 23-AUTHORITATIVE-DISCOVERY.md | 权威发现设计书 | ATS-202：`playwright test --list` 权威索引、信任闸门（未可信仓库不可调用 `--list`）、身份阶梯、CLI 一致性的度量、实测证据与已知边界 |
