@@ -1,0 +1,31 @@
+Next: p500 selected -> 500 rows rendered in 39 ms (includes static discovery)
+  layout at 1440x900: {"listTop":674,"listHeight":104,"viewport":900,"fileChips":55}
+OK     L1 next-500-list-visible  case list height=104px, top=674px of a 900px viewport, pushed down by 55 filter chips
+  type "module4" (7 keys) at 500 cases           n=8 p50=10ms p95=16ms max=16ms longtasks=[]
+    filter-report: 110 / 500 条搜索 110
+  clear the query (Ctrl+A, Backspace)            n=3 p50=46ms p95=55ms max=55ms longtasks=[]
+  tag chips @smoke, @api, mode 全部, 任一            n=4 p50=17ms p95=20ms max=20ms longtasks=[]
+    filter-report: 234 / 500 条标签 234
+  全选当前 with 500 shown                            n=1 p50=51ms p95=51ms max=51ms longtasks=[]
+    select-bar: 已选 500 条
+  type "case 4" with 500 selected                n=7 p50=16ms p95=30ms max=30ms longtasks=[]
+  untick one pick-box (synthetic click: list is 0px) n=1 p50=15ms p95=15ms max=15ms longtasks=[]
+  [4x CPU, info] type "module4" at 500 sel       n=8 p50=66ms p95=74ms max=74ms longtasks=[50,58,50]
+OK     P1 next-500-within-budget  budget 100 ms; worst max=55 ms; worst long task=0 ms (4x CPU info: max=74 ms)
+X1: in p500 with @smoke on: 134 / 500 条标签 134
+  switched to "other" (2 cases, tag @billing): rows=2; filter-report="2 / 2 条"; chips=["@billing\n1"]; pressed chips=0
+OK     X1 switch-does-not-hide-new-project  rows=2 of 2, no chip left to untick the stale @smoke criterion: true
+K: first .pick-box: {"tag":"BUTTON","tabIndex":0,"hasAttr":false,"insideButton":false,"parentTag":"DIV"}
+OK     K1 pick-box-keyboard-reachable  the first .pick-box is a <BUTTON> with tabIndex=0, its parent is a <DIV>, nested in a STRICTLY outer <button>=false
+X3: ticked a1+b1 -> "已选 2 条 · 将执行 5 条"; b1 deleted from the file; catalogue reloaded -> "已选 2 条 · 将执行 3 条"; any warning on the page: true
+  批量运行 toast: "1 条用例已不在目录中（tc_1_d_62d03459c5771a2e），请先移除后再运行"; runs submitted for the project: 0; run.selection.count=undefined; attempts executed=0
+OK     X3 dropped-selection-is-reported  selection went 已选 2 条 · 将执行 5 条 -> 已选 2 条 · 将执行 3 条; a warning is on the page: true; runs submitted for the project: 0
+OK     X4 toast-states-what-runs  toast "1 条用例已不在目录中（tc_1_d_62d03459c5771a2e），请先移除后再运行" while the engine executed 0 cases
+fallback: p500 -> 500 rows in 20 ms
+  [fallback] type "module4" at 500 cases         n=8 p50=23ms p95=37ms max=37ms longtasks=[]
+    #filter-report: 110 / 500 条
+  [fallback] chips @smoke, @api                  n=2 p50=15ms p95=17ms max=17ms longtasks=[]
+OK     P2 fallback-500-within-budget  worst max=37 ms; worst long task=0 ms
+fallback selection surface: checkboxes=234, "已选 0 条"
+
+RESULT: 0 DEFECT(s)

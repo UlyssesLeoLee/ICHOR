@@ -332,6 +332,11 @@ for (const mutation of MUTATIONS) {
     // The tree is restored whatever happened: the delivery must not
     // depend on the probe having run.
     fs.writeFileSync(target, original, 'utf8');
+    // The static export is REBUILT from the restored source. The export
+    // is a build output of the mutated source, so leaving it behind
+    // would make the NEXT probe measure the mutation -- a green build
+    // of a broken interface, which is the worst way to be wrong.
+    if (mutation.probes.includes('st')) buildStaticExport();
   }
   check(
     mutation.id,
