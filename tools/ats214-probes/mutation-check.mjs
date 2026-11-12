@@ -75,7 +75,6 @@ if (!repoArg || !scratchArg) {
 const REPO = path.resolve(repoArg);
 const SCRATCH = path.resolve(scratchArg);
 fs.mkdirSync(SCRATCH, { recursive: true });
-const WORK = fs.mkdtempSync(path.join(SCRATCH, 'ats214-mut-'));
 
 let passed = 0;
 let total = 0;
@@ -181,25 +180,25 @@ const MUTATIONS = [
 const PROBES = {
   it: {
     label: 'the integration tests',
-    run(tree) {
-      return runNodeTests(tree, ['tests/ats214-batch-run-api.test.mjs', 'tests/ats214-batch-context.test.mjs']);
+    run() {
+      return runNodeTests(['tests/ats214-batch-run-api.test.mjs', 'tests/ats214-batch-context.test.mjs']);
     },
   },
   st: {
     label: 'the ST probe (real Chromium)',
-    run(tree) {
+    run() {
       const pw = findPlaywrightModules();
       if (!pw) return { skipped: 'the real @playwright/test could not be reached' };
       // The ST drives the BUILT static export, so the mutation has to be
       // BUILT before the ST runs -- otherwise the ST measures the
       // unmutated build and reports GREEN for every mutation, which is
       // exactly the failure mode this probe exists to expose.
-      const build = buildStaticExport(tree);
+      const build = buildStaticExport();
       if (!build.ok) return { skipped: `the static export could not be built (${build.detail})` };
       const r = spawnSync(process.execPath, [
-        path.join(tree, 'tools', 'ats214-probes', 'st-ats214.mjs'),
-        tree, WORK, pw,
-      ], { cwd: tree, encoding: 'utf8', env: { ...process.env, ATS214_ST_MUTANT: '1' } });
+        path.join(REPO, 'tools', 'ats214-probes', 'st-ats214.mjs'),
+        REPO, SCRATCH, pw,
+      ], { cwd: REPO, encoding: 'utf8', env: { ...process.env, ATS214_ST_MUTANT: '1' } });
       const out = `${r.stdout || ''}${r.stderr || ''}`;
       // A ST that CRASHED (ENOSPC, a build that failed, a browser that
       // would not start) is NOT a green ST: it printed no verdict at
@@ -229,28 +228,10 @@ const PROBES = {
  * delivery) -- the copy is a junction-free directory copy, which the
  * Next/Turbopack build resolves.
  */
-function buildStaticExport(tree) {
-  const appDir = path.join(tree, 'apps', 'studio');
-  const deps = path.join(appDir, 'node_modules');
-  if (!fs.existsSync(path.join(deps, 'next', 'package.json'))) {
-    const src = path.join(REPO, 'apps', 'studio', 'node_modules');
-    if (!fs.existsSync(src)) return { ok: false, detail: 'apps/studio/node_modules is missing' };
-    // A JUNCTION, not a copy: the dependencies are several hundred
-    // megabytes, and copying them per mutation fills the scratch disk
-    // (the probe then dies with ENOSPC, which the caller would read as
-    // "the ST passed" -- a silently green mutation).
-    //
-    // A junction is the right thing here: it is a directory the OS
-    // resolves, so the Next build reads the files exactly as it would
-    // from the real tree.
-    const made = linkDirectory(src, deps);
-    if (!made) {
-      try {
-        fs.cpSync(src, deps, { recursive: true, dereference: true });
-      } catch (e) {
-        return { ok: false, detail: `the dependencies could not be linked (${e.message})` };
-      }
-    }
+function buildStaticExport() {
+  const appDir = path.join(REPO, 'apps', 'studio');
+  if (!fs.existsSync(path.join(appDir, 'node_modules', 'next', 'package.json'))) {
+    return { ok: false, detail: 'apps/studio/node_modules is missing' };
   }
   const r = spawnSync('npm', ['run', 'build'], {
     cwd: appDir, encoding: 'utf8', shell: true,
@@ -261,28 +242,6 @@ function buildStaticExport(tree) {
     return { ok: false, detail: `the build produced no out/index.html (exit ${r.status})` };
   }
   return { ok: true, out };
-}
-
-/**
- * A DIRECTORY JUNCTION (or a symlink, where junctions are not allowed).
- *
- * `mklink /J` works on Windows without a privilege; a symlink needs one.
- * On a POSIX host a symlink is the only option. Both are tried, and the
- * caller falls back to a copy when neither works.
- */
-function linkDirectory(src, dst) {
-  if (process.platform === 'win32') {
-    const r = spawnSync('cmd', ['/c', 'mklink', '/J', dst, src], { encoding: 'utf8' });
-    if (r.status === 0) return true;
-  }
-  try {
-    fs.symlinkSync(src, dst, 'junction');
-    return true;
-  } catch { /* fall through */ }
-  try {
-    fs.symlinkSync(src, dst, 'dir');
-    return true;
-  } catch { return false; }
 }
 
 function findPlaywrightModules() {
@@ -303,127 +262,84 @@ function countDefects(out) {
   return m ? m.length : 0;
 }
 
-function runNodeTests(tree, files) {
+function runNodeTests(files) {
   const r = spawnSync(process.execPath, ['--test', ...files], {
-    cwd: tree,
+    cwd: REPO,
     encoding: 'utf8',
     env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=1536' },
   });
   const out = `${r.stdout || ''}${r.stderr || ''}`;
-  const failed = /^# fail (\d+)$/m.exec(out);
-  const failCount = failed ? Number(failed[1]) : (/not ok/.test(out) ? 1 : 0);
+  // The node test runner prints its summary in two shapes: the TAP
+  // reporter (`# tests 7`) and the default spec reporter (`ℹ tests 7`).
+  // BOTH are recognised -- a summary that is not recognised would look
+  // like a crash, and a crash that is not recognised would look like a
+  // pass.
+  const failed = /^(?:# |ℹ )fail (\d+)$/m.exec(out);
+  const failCount = failed ? Number(failed[1]) : (/(not ok|✖)/.test(out) ? 1 : 0);
   // A test run that CRASHED (a module that would not load, a full disk)
   // is not a green test run: it ran no test at all. It is reported as a
   // BROKEN PROBE, never as "the mutation was not caught".
-  const ran = (out.match(/^# tests \d+$/m) || [])[0];
-  if (!ran) {
+  if (!/^(?:# |ℹ )tests \d+$/m.test(out)) {
     return { code: r.status, failCount: 0, out, broken: 'the test run reported no test at all (it crashed)' };
   }
   return { code: r.status, failCount, out };
 }
 
-/**
- * Copy the tree the mutation runs against.
- *
- * Only the files the tests and the probes need are copied: the whole
- * repository is large, and the probes only read the source.
- */
-function makeTree() {
-  const tree = path.join(WORK, `tree-${Math.random().toString(36).slice(2, 8)}`);
-  const copy = (rel) => {
-    const from = path.join(REPO, rel);
-    const to = path.join(tree, rel);
-    fs.mkdirSync(path.dirname(to), { recursive: true });
-    fs.copyFileSync(from, to);
-  };
-  // The whole apps/studio tree: the Next build needs the app's own
-  // files (the layout, the config, the fonts), not only the files a
-  // mutation touches. `node_modules` and `out` are excluded -- the
-  // dependencies are installed by the builder and the export is built.
-  const appSrc = path.join(REPO, 'apps', 'studio');
-  const appDst = path.join(tree, 'apps', 'studio');
-  fs.mkdirSync(appDst, { recursive: true });
-  for (const entry of fs.readdirSync(appSrc, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name === 'out' || entry.name === '.next') continue;
-    const from = path.join(appSrc, entry.name);
-    const to = path.join(appDst, entry.name);
-    if (entry.isDirectory()) fs.cpSync(from, to, { recursive: true });
-    else fs.copyFileSync(from, to);
-  }
-  // The whole server tree: the Bridge imports its modules by relative
-  // path, so a copy of three files would not even start.
-  const serverSrc = path.join(REPO, 'server');
-  const serverDst = path.join(tree, 'server');
-  fs.cpSync(serverSrc, serverDst, { recursive: true });
-  for (const rel of [
-    'tests/ats214-case-search.test.mjs',
-    'tests/ats214-batch-run-api.test.mjs',
-    'tests/ats214-batch-context.test.mjs',
-    'tests/helpers/free-port.mjs',
-    'tools/ats214-probes/st-ats214.mjs',
-    'package.json',
-  ]) copy(rel);
-  return tree;
-}
-
 for (const mutation of MUTATIONS) {
-  const tree = makeTree();
-  const target = path.join(tree, mutation.file);
+  const target = path.join(REPO, mutation.file);
   // The source is normalised to LF for the match: the checkout is CRLF
   // on Windows (core.autocrlf=true) and LF elsewhere, and a mutation
   // that is written with the other line ending would silently not
   // apply -- which the probe must report as a broken probe, never as a
   // result.
-  const before = fs.readFileSync(target, 'utf8').replace(/\r\n/g, '\n');
+  const original = fs.readFileSync(target, 'utf8');
+  const before = original.replace(/\r\n/g, '\n');
   if (!before.includes(mutation.find)) {
     check(mutation.id, false, 'the mutation did not apply -- the probe is broken');
-    try { fs.rmSync(tree, { recursive: true, force: true }); } catch { /* best effort */ }
     continue;
   }
   const after = before.replace(mutation.find, mutation.replace);
   if (after === before) {
     check(mutation.id, false, 'the mutation did not change the file');
-    try { fs.rmSync(tree, { recursive: true, force: true }); } catch { /* best effort */ }
     continue;
   }
-  fs.writeFileSync(target, after, 'utf8');
 
   // The probe that must catch it. The ST is the one that catches the
   // mutations of the interface; the IT catches the mutations of the
-  // server. BOTH are run for a server mutation, because the ST also
-  // drives the server.
+  // server.
   let caught = false;
   const details = [];
-  for (const kind of mutation.probes) {
-    const probe = PROBES[kind];
-    const result = probe.run(tree);
-    if (result.skipped) {
-      details.push(`${probe.label}: SKIPPED (${result.skipped})`);
-      continue;
+  try {
+    fs.writeFileSync(target, after, 'utf8');
+    for (const kind of mutation.probes) {
+      const probe = PROBES[kind];
+      const result = probe.run();
+      if (result.skipped) {
+        details.push(`${probe.label}: SKIPPED (${result.skipped})`);
+        continue;
+      }
+      if (result.broken) {
+        details.push(`${probe.label}: BROKEN (${result.broken})`);
+        continue;
+      }
+      const red = kind === 'st'
+        ? (result.code !== 0 && result.failCount > 0)
+        : (result.code !== 0 || result.failCount > 0);
+      details.push(`${probe.label}: ${red ? 'RED' : 'GREEN'}`);
+      if (red) caught = true;
     }
-    if (result.broken) {
-      details.push(`${probe.label}: BROKEN (${result.broken})`);
-      continue;
-    }
-    const red = kind === 'st'
-      ? (result.code !== 0 && result.failCount > 0)
-      : (result.code !== 0 || result.failCount > 0);
-    details.push(`${probe.label}: ${red ? 'RED' : 'GREEN'}`);
-    if (red) caught = true;
+  } finally {
+    // The tree is restored whatever happened: the delivery must not
+    // depend on the probe having run.
+    fs.writeFileSync(target, original, 'utf8');
   }
   check(
     mutation.id,
     caught,
     caught ? `caught (${details.join('; ')})` : `NOT CAUGHT (${details.join('; ')})`,
   );
-  // The tree is removed AFTER the mutation is measured: ten trees, each
-  // with a built static export, is a lot of disk -- and a full scratch
-  // disk makes the next probe die with ENOSPC, which reads as "the
-  // mutation was not caught" (a silently green mutation).
-  try { fs.rmSync(tree, { recursive: true, force: true }); } catch { /* best effort */ }
 }
 
 console.log('');
-console.log(`scratch: ${WORK}`);
 console.log(`RESULT: ${passed}/${total}`);
 process.exitCode = passed === total ? 0 : 1;
