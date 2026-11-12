@@ -24,7 +24,7 @@ import shutil
 import zipfile
 from pathlib import Path
 
-from wbs_common import cell_number, cell_text, set_cell_in_row, set_marked_cell
+from wbs_common import read_parts, set_cell_in_row, set_marked_cell, totals
 
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 SHEET2 = 'xl/worksheets/sheet2.xml'
@@ -79,17 +79,20 @@ def summarise(xml2):
       B8  = COUNTIF('开发WBS'!N6:N94,"已完成")
       B9  = IFERROR(1-SUM('开发WBS'!P6:P94)/SUM('开发WBS'!K6:K94),0)
       B10 = SUM('开发WBS'!P6:P94)
+
+    THE ROW RANGE FOLLOWS THE SHEET, not a hardcoded constant. The sheet grew
+    when ATS-601 appended the mobile rows (the last data row is now 100), so
+    a derivation over the old constant would leave the cached 总览 value
+    disagreeing with its own formula -- and two updaters would then report
+    DIFFERENT totals for the SAME workbook.
+
+    The shared helper `wbs_common.totals()` already derives the range from
+    the sheet, so this function DELEGATES to it instead of computing the
+    range a second time: one derivation, one answer.
     """
-    done = 0
-    sum_p = 0.0
-    sum_k = 0.0
-    for rid in range(FIRST_ROW, LAST_ROW + 1):
-        if cell_text(xml2, rid, 'N') == '已完成':
-            done += 1
-        sum_p += cell_number(xml2, rid, 'P')
-        sum_k += cell_number(xml2, rid, 'K')
-    rate = 0.0 if sum_k == 0 else 1 - sum_p / sum_k
-    return done, rate, sum_p
+    parts = read_parts()
+    derived = totals(parts)
+    return derived['completed'], derived['completion_rate'], derived['sum_remaining']
 
 
 def main():
