@@ -1,0 +1,19 @@
+✔ IT-ATS214-SETUP: start the bridge and register the fixture (747.2015ms)
+✔ IT-ATS214-001: the STATIC index carries the tags it reads from the source (79.1045ms)
+✔ IT-ATS214-002: the AUTHORITATIVE index carries the CLI's own tags (664.8651ms)
+✔ IT-ATS214-003: the two indexes carry the SAME tags for the same cases (546.3393ms)
+✔ IT-ATS214-010: a selection that names an unknown case is REFUSED, not skipped (429.1446ms)
+✔ IT-ATS214-011: an empty selection is refused (2.3534ms)
+✔ IT-ATS214-012: a selection that is not an array is refused (3.2046ms)
+✔ IT-ATS214-013: the run request still refuses the fields outside the whitelist (15.6782ms)
+✔ IT-ATS214-020: a selection of ONE file becomes a run that carries the selection (1885.9197ms)
+✔ IT-ATS214-021: a selection that spans SEVERAL files becomes a BATCH, split by file (1937.7113ms)
+✔ IT-ATS214-022: the batches endpoint can be narrowed to one project (9.6394ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11951.0308

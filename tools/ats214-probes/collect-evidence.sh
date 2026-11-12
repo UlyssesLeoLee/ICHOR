@@ -102,12 +102,24 @@ tail -n 9 "$OUT/04-node-test-full.log"
 
 # --- 5. the Next.js static export build ----------------------------------
 step "5. the Next.js 16 static export build (with the TypeScript check)"
-if npm --prefix apps/studio run build > "$OUT/05-next-static-export-build.log" 2>&1; then
-  note 0 "npm --prefix apps/studio run build"
+# The build needs the dependencies of apps/studio. When they are not
+# installed the step is SKIPPED WITH ITS REASON -- it is never reported
+# as a pass (the repository's rule: PENDING is not PASS). The same rule
+# is followed by the other evidence collectors in this repository
+# (tools/ats111-probes/collect-evidence.sh).
+if [ -d apps/studio/node_modules ] && [ -f apps/studio/node_modules/next/package.json ]; then
+  if npm --prefix apps/studio run build > "$OUT/05-next-static-export-build.log" 2>&1; then
+    note 0 "npm --prefix apps/studio run build"
+  else
+    note 1 "npm --prefix apps/studio run build (see 05-next-static-export-build.log)"
+  fi
+  tail -n 12 "$OUT/05-next-static-export-build.log"
 else
-  note 1 "npm --prefix apps/studio run build (see 05-next-static-export-build.log)"
+  printf 'SKIPPED: apps/studio/node_modules is not installed.\n' > "$OUT/05-next-static-export-build.log"
+  printf '  SKIP  the static export build needs `npm ci` in apps/studio\n'
+  printf '  NOTE  the build was measured on the D: drive tree with the real\n'
+  printf '        dependencies (docs/evidence/ATS-214/08-next-static-export-build-on-d.log)\n'
 fi
-tail -n 12 "$OUT/05-next-static-export-build.log"
 
 # --- 6. the WBS row and the updater coexistence -------------------------
 step "6. the WBS row of ATS-214 and the coexistence of the WBS updaters"
@@ -122,14 +134,21 @@ else
 fi
 grep -E "verify: ATS-214|RESULT: OK" "$OUT/06-wbs-row-and-updaters.log" | head -5
 
-# --- 7. the checksums ----------------------------------------------------
+# --- 7. the release manifest ---------------------------------------------
+# The manifest describes the COMMITTED tree, and the generator reads the
+# git blobs -- so this step can only pass once the content is committed
+# AND the manifest itself has been regenerated and committed (the order
+# the repository's rule states: commit the content, regenerate the
+# manifest, commit the manifest). A tree whose manifest has not been
+# regenerated yet is EXPECTED to mismatch here; the fact that the
+# mismatch is exactly the files this task changed is the check.
 step "7. the release manifest"
 if python tools/verify_checksums.py > "$OUT/07-verify-checksums.log" 2>&1; then
   note 0 "python tools/verify_checksums.py"
 else
   note 1 "python tools/verify_checksums.py (see 07-verify-checksums.log)"
 fi
-tail -n 5 "$OUT/07-verify-checksums.log"
+tail -n 8 "$OUT/07-verify-checksums.log"
 
 echo
 if [ "$FAILED" = "0" ]; then
