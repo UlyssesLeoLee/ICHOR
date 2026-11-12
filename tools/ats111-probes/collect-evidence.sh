@@ -183,6 +183,14 @@ if [ -n "$PREFIX_COMMIT" ]; then
   if [ ! -d "$PREFIX_TREE/apps/studio/node_modules" ]; then
     cp -r apps/studio/node_modules "$PREFIX_TREE/apps/studio/node_modules" 2>/dev/null
   fi
+  # The FIXTURE's dependencies are not in the archive -- they are not
+  # under version control. The system test copies the fixture into its
+  # scratch and runs a REAL engine with it, so the dependencies have to
+  # be there.
+  if [ ! -d "$PREFIX_TREE/examples/sample-playwright/node_modules" ]; then
+    mkdir -p "$PREFIX_TREE/examples/sample-playwright"
+    cp -r examples/sample-playwright/node_modules "$PREFIX_TREE/examples/sample-playwright/node_modules" 2>/dev/null
+  fi
   if [ -d "$PREFIX_TREE/apps/studio/node_modules" ]; then
     ( cd "$PREFIX_TREE/apps/studio" && node node_modules/next/dist/bin/next build ) > "$OUT/04b-prefix-build.log" 2>&1
     if [ $? -eq 0 ]; then
