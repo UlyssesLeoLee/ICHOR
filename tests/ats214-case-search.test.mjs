@@ -3,20 +3,28 @@
  *
  * WHAT IS UNDER TEST
  * ------------------
- * The acceptance criterion of ATS-214 is four sentences, and the tests
- * below cover one of them each:
+ * The ACCEPTANCE CRITERION of ATS-214 is the one the issue and the WBS
+ * row state:
  *
- *   1. 「能按用例名 / 文件 / 标签检索，检索结果与用例清单一致」
- *      -- the search finds by title, by file and by tag, and the result is
- *         a SUBSET of the catalogue (never a case that is not there);
- *   2. 「能按标签过滤，标签口径要写清（多标签是「任一」还是「全部」）」
- *      -- the two tag modes are DIFFERENT and each is what it says;
- *   3. 「过滤条件与搜索条件叠加时，结果必须符合集合语义」
- *      -- the criteria COMPOSE as an intersection, and neither a union nor
- *         a replacement is accepted;
- *   4. 「选中多个用例后能发起批量运行；选择集合要能被复现」
- *      -- the selection is a set, the snapshot is self-contained, and the
- *         reconciliation reports the difference instead of hiding it.
+ *   「500 用例过滤无明显阻塞；选中准确映射 UID」
+ *
+ * and the tests below cover the parts of it that a unit test CAN cover:
+ *
+ *   * 「过滤」 -- the search finds by title, by file and by tag, and the
+ *     result is a SUBSET of the catalogue (never a case that is not
+ *     there); the two tag modes are DIFFERENT and each is what it says;
+ *     the criteria COMPOSE as an intersection, and neither a union nor a
+ *     replacement is accepted;
+ *   * 「选中准确映射 UID」 -- the selection is a set, the snapshot is
+ *     self-contained, the reconciliation reports the difference instead
+ *     of hiding it, a ticked uid that has LEFT the catalogue is REPORTED
+ *     (`selectionDiffs`), and the number of cases a selection will
+ *     REALLY run is the number of the SELECTED FILES (`plannedExecutions`).
+ *
+ * The 500-case half of the criterion is a LAYOUT and a LATENCY question,
+ * so it cannot be checked here: it is measured in a real browser by
+ * `tools/ats214-probes/st-ats214.mjs`
+ * (`docs/evidence/ATS-214/10-st-500-cases.log`).
  *
  * THE TESTS ARE FALSIFIABLE
  * -------------------------
@@ -43,10 +51,12 @@ import {
   filterCases,
   normalizeTag,
   normalizeTags,
+  plannedExecutions,
   reconcileSelection,
   searchHaystack,
   searchSet,
   selectionByFile,
+  selectionDiffs,
   selectionSet,
   selectionSnapshot,
   tagSet,
@@ -413,4 +423,95 @@ test('UT-ATS214-035: a catalogue with no cases does not break the module', () =>
   assert.equal(described.matched, 0);
   const snapshot = selectionSnapshot([], []);
   assert.equal(snapshot.count, 0);
+});
+
+/* ================================================================== */
+/* 「选中准确映射 UID」 -- the selection against the catalogue          */
+/* ================================================================== */
+
+test('UT-ATS214-036: a ticked uid that has LEFT the catalogue is REPORTED', () => {
+  // 'gone' is a uid the catalogue does not know: the case was renamed,
+  // moved or deleted.
+  const diffs = selectionDiffs(CATALOGUE, ['u1', 'gone-1']);
+  assert.deepEqual(diffs.gone, ['gone-1'], 'the uid that left the catalogue is reported');
+  assert.equal(diffs.ok, false, 'the selection does NOT map accurately');
+  assert.equal(diffs.count, 1);
+  // The ones that are still there are not reported as gone.
+  assert.deepEqual(selectionDiffs(CATALOGUE, ['u1', 'u2']).gone, []);
+  assert.equal(selectionDiffs(CATALOGUE, ['u1', 'u2']).ok, true);
+});
+
+test('UT-ATS214-037: an empty selection has nothing gone', () => {
+  const diffs = selectionDiffs(CATALOGUE, []);
+  assert.deepEqual(diffs.gone, []);
+  assert.deepEqual(diffs.stale, []);
+  assert.deepEqual(diffs.moved, []);
+  assert.equal(diffs.ok, true);
+  assert.equal(diffs.count, 0);
+});
+
+test('UT-ATS214-042: a uid that now names a DIFFERENT case is REPORTED', () => {
+  // The snapshot says u1 was 「用户登录」 in tests/login.spec.ts. The
+  // catalogue now says u1 is 「其他用例」 -- the uid resolved, but to the
+  // WRONG case. That is worse than not resolving at all, so it is
+  // reported.
+  const snapshot = { cases: [{ uid: 'u1', title: '用户登录', file: 'tests/login.spec.ts' }] };
+  const moved = CATALOGUE.map((t) => (t.uid === 'u1' ? { ...t, title: '其他用例' } : t));
+  const diffs = selectionDiffs(moved, ['u1'], snapshot);
+  assert.deepEqual(diffs.gone, [], 'the uid still resolves');
+  assert.deepEqual(diffs.moved, ['u1'], 'but it names another case now');
+  assert.equal(diffs.ok, false, 'the selection does NOT map accurately');
+});
+
+test('UT-ATS214-043: a uid that still names the SAME case is not moved', () => {
+  const snapshot = { cases: [{ uid: 'u1', title: '用户登录', file: 'tests/login.spec.ts' }] };
+  const diffs = selectionDiffs(CATALOGUE, ['u1'], snapshot);
+  assert.deepEqual(diffs.moved, []);
+  assert.equal(diffs.ok, true);
+});
+
+test('UT-ATS214-044: a case whose identity is not stable is reported as stale', () => {
+  // A provisional uid (assigned by ORDINAL) is not stable: deleting the
+  // case before it shifts the ones after it.
+  const withProvisional = CATALOGUE.map((t) => (t.uid === 'u1' ? { ...t, uidStable: false } : t));
+  const diffs = selectionDiffs(withProvisional, ['u1', 'u2']);
+  assert.deepEqual(diffs.stale, ['u1']);
+  assert.deepEqual(diffs.gone, []);
+  assert.equal(diffs.count, 1);
+});
+
+test('UT-ATS214-038: a selection of cases in ONE file will run EVERY case of that file', () => {
+  // The engine takes one test-file filter, and a file filter runs the
+  // whole file. So ticking one case of a three-case file runs three.
+  const plan = plannedExecutions(CATALOGUE, ['u1']);
+  assert.equal(plan.selected, 1);
+  assert.equal(plan.willRun, 3, 'the whole file will run');
+  assert.deepEqual(plan.files, ['tests/login.spec.ts']);
+  assert.equal(plan.extra.length, 2, 'the other two cases of the file are reported as extra');
+  assert.ok(!plan.extra.includes('u1'));
+});
+
+test('UT-ATS214-039: a selection of TWO files will run the cases of BOTH', () => {
+  // u1 is in the login file (3 cases), u4 in the cart file (3 cases).
+  const plan = plannedExecutions(CATALOGUE, ['u1', 'u4']);
+  assert.equal(plan.selected, 2);
+  assert.equal(plan.willRun, 6, 'three cases of the login file plus three of the cart file');
+  assert.deepEqual(plan.files.slice().sort(), ['tests/cart.spec.ts', 'tests/login.spec.ts']);
+});
+
+test('UT-ATS214-040: the plan of an empty selection runs nothing', () => {
+  const plan = plannedExecutions(CATALOGUE, []);
+  assert.equal(plan.selected, 0);
+  assert.equal(plan.willRun, 0);
+  assert.deepEqual(plan.files, []);
+  assert.deepEqual(plan.extra, []);
+});
+
+test('UT-ATS214-041: the plan ignores a uid that is not in the catalogue', () => {
+  // A uid that has left the catalogue contributes no file, so it cannot
+  // make the plan claim a run that will not happen.
+  const plan = plannedExecutions(CATALOGUE, ['gone-1']);
+  assert.equal(plan.selected, 1);
+  assert.equal(plan.willRun, 0);
+  assert.deepEqual(plan.files, []);
 });

@@ -79,6 +79,15 @@ else
 fi
 tail -n 9 "$OUT/02-node-test-batch-run-it.log"
 
+# --- 2b. the Node IT of the batch's context and terminal states ---------
+step "2b. the Node IT of the batch's request context and terminal states"
+if node --test tests/ats214-batch-context.test.mjs > "$OUT/12-batch-context-it.log" 2>&1; then
+  note 0 "node --test tests/ats214-batch-context.test.mjs"
+else
+  note 1 "node --test tests/ats214-batch-context.test.mjs (see 12-batch-context-it.log)"
+fi
+tail -n 9 "$OUT/12-batch-context-it.log"
+
 # --- 3. the tag parity --------------------------------------------------
 step "3. the tag parity: the static index vs the real Playwright --list"
 if node tools/ats214-probes/tag-parity.mjs > "$OUT/03-tag-parity.log" 2>&1; then
@@ -149,6 +158,59 @@ else
   note 1 "python tools/verify_checksums.py (see 07-verify-checksums.log)"
 fi
 tail -n 8 "$OUT/07-verify-checksums.log"
+
+# --- 8. the ST in a REAL browser ----------------------------------------
+# The ST drives the REAL static export in the REAL Chromium against the
+# REAL Bridge, with a 500-case fixture. It needs three things that may be
+# missing on a machine: the built static export, the real Playwright
+# (for the engine and for the browser), and a free Bridge port.
+#
+# When one of them is missing the step is SKIPPED WITH ITS REASON -- it
+# is never reported as a pass (the repository's rule: PENDING is not
+# PASS).
+step "8. the ST: the case search / the tag filter / the selection in a REAL browser"
+ST_PW=""
+for candidate in \
+  "${ATS214_PLAYWRIGHT_MODULES:-}" \
+  "examples/sample-playwright/node_modules" \
+  "D:/ICHOR/examples/sample-playwright/node_modules"; do
+  if [ -n "$candidate" ] && [ -f "$candidate/playwright-core/index.js" ]; then
+    ST_PW="$candidate"
+    break
+  fi
+done
+if [ ! -f apps/studio/out/index.html ]; then
+  printf 'SKIPPED: apps/studio/out is not built.\n' > "$OUT/10-st-500-cases.log"
+  printf '  SKIP  the ST drives the built static export; run `npm --prefix apps/studio run build` first\n'
+elif [ -z "$ST_PW" ]; then
+  printf 'SKIPPED: the real playwright-core could not be reached.\n' > "$OUT/10-st-500-cases.log"
+  printf '  SKIP  set ATS214_PLAYWRIGHT_MODULES to the directory that holds playwright-core/index.js\n'
+else
+  echo "playwright-core: $ST_PW"
+  # A Bridge left over from ANOTHER tree would make the ST measure a
+  # STALE build -- a false defect. The probe refuses to run in that
+  # case (it compares the served page's css chunk with the file on
+  # disk), so the step fails loudly rather than reporting a wrong
+  # measurement.
+  if node tools/ats214-probes/st-ats214.mjs . "$TMPDIR" "$ST_PW" > "$OUT/10-st-500-cases.log" 2>&1; then
+    note 0 "node tools/ats214-probes/st-ats214.mjs (the ST in a real browser)"
+  else
+    note 1 "the ST probe (see 10-st-500-cases.log)"
+  fi
+  grep -E "^(OK|DEFECT|RESULT|the served)" "$OUT/10-st-500-cases.log" | head -20
+fi
+
+# --- 9. the NEGATIVE CONTROL: the mutations must turn the suite red ----
+# A test suite that cannot fail is not evidence. The mutation probe
+# breaks the delivered code in ten ways and asserts that the ATS-214
+# tests GO RED for each of them.
+step "9. the negative control: every mutation of the delivered code must turn the suite red"
+if node tools/ats214-probes/mutation-check.mjs . "$TMPDIR" > "$OUT/13-mutation-control.log" 2>&1; then
+  note 0 "node tools/ats214-probes/mutation-check.mjs (every mutation caught)"
+else
+  note 1 "the mutation probe (see 13-mutation-control.log)"
+fi
+grep -E "^(PASS|FAIL|RESULT)" "$OUT/13-mutation-control.log" | head -20
 
 echo
 if [ "$FAILED" = "0" ]; then

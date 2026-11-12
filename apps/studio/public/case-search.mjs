@@ -3,23 +3,36 @@
  *
  * WHAT THIS MODULE IS
  * -------------------
- * The acceptance criterion of this task is four sentences:
+ * The ACCEPTANCE CRITERION of this task is the one the WBS row (the
+ * 「开发WBS」 sheet, row 35) and the issue state:
  *
- *   1. 「能按用例名 / 文件 / 标签检索，检索结果与用例清单一致」
- *      ("search by case name / file / tag; the result agrees with the case list")
- *   2. 「能按标签过滤，标签口径要写清（多标签是「任一」还是「全部」）」
- *      ("filter by tag; the tag semantics must be stated -- is a multi-tag
- *       selection 'any' or 'all'?")
- *   3. 「过滤条件与搜索条件叠加时，结果必须符合集合语义」
- *      ("a filter and a search composed together must obey SET semantics")
- *   4. 「选中多个用例后能发起批量运行；选择集合要能被复现」
- *      ("select several cases, start a batch run; the selection must be
- *       reproducible")
+ *   「500 用例过滤无明显阻塞；选中准确映射 UID」
  *
- * Three of the four are requirements about SEMANTICS rather than about code:
- * the reader has to be able to predict what the list will show. So the
- * semantics live in ONE place -- here -- and the two user interfaces import
- * this one module.
+ *   ("filtering 500 cases has no obvious blocking; the selection maps
+ *    to the UIDs accurately")
+ *
+ * Two clauses, and BOTH of them are about what a reader can observe:
+ *
+ *   1. 500 CASES, NO OBVIOUS BLOCKING. The catalogue of a real project
+ *      has hundreds of cases; filtering them has to stay responsive,
+ *      and the list has to remain visible and clickable while it does.
+ *      The measurement is in `docs/evidence/ATS-214/10-st-500-cases.log`
+ *      (real Chromium, 500 cases in 50 files, 1440x900).
+ *
+ *   2. THE SELECTION MAPS TO THE UIDs ACCURATELY. What the user ticked
+ *      is a SET OF UIDS, and the batch run must carry exactly that set
+ *      -- no case silently dropped, no case silently added, and a case
+ *      that has LEFT the catalogue reported rather than skipped.
+ *
+ * The four clauses that the FIRST delivery of this task checked were
+ * the search semantics, the tag semantics, the set semantics and the
+ * reproducibility of the selection. They are still implemented here and
+ * still covered by the unit tests -- but they are NOT the acceptance
+ * criterion, and the design doc no longer claims that they are.
+ *
+ * The semantics live in ONE place -- here -- and the two user
+ * interfaces import this one module, so the two interfaces cannot
+ * disagree about what the list shows.
  *
  * WHY THE FILE LIVES IN `public/`
  * -------------------------------
@@ -41,8 +54,8 @@
  *   * importable by the portable UI in the browser (ES modules),
  * without a build step of its own.
  *
- * THE SET SEMANTICS (clause 3 -- the one most easily got wrong)
- * ---------------------------------------------------------------
+ * THE SET SEMANTICS (the composition of the criteria)
+ * ----------------------------------------------------
  * The result of the catalogue is the INTERSECTION of the independent
  * criteria:
  *
@@ -62,8 +75,8 @@
  * list alone cannot tell "nothing matched" from "the intersection was
  * empty".
  *
- * THE TAG SEMANTICS (clause 2 -- must be stated, not guessed)
- * ----------------------------------------------------------
+ * THE TAG SEMANTICS (must be stated, not guessed)
+ * -------------------------------------------------
  * A tag filter over several tags has two possible readings, and a UI that
  * does not say which one it uses is lying by omission:
  *
@@ -87,12 +100,12 @@
  * still find the tag, so the leading '@' is stripped from BOTH sides
  * before comparing.
  *
- * THE SELECTION (clause 4 -- reproducible)
- * -----------------------------------------
+ * THE SELECTION (maps to the UIDs accurately)
+ * --------------------------------------------
  * A selection is a SET of case uids. It is stored, not derived: the set is
  * snapshotted at the moment the batch run starts, and the snapshot is
- * what the run record carries. So "what did I select" and "what ran" are
- * two facts that can be compared -- and a selection that is recomputed
+ * what the run record carries. So "what did I select" and "what ran"
+ * are two facts that can be compared -- and a selection that is recomputed
  * from the catalogue at read time could drift (the catalogue is re-read
  * on every poll, and a case may have been renamed or removed since).
  *
@@ -101,6 +114,11 @@
  * readable on its own even after the catalogue changed. And
  * `reconcileSelection()` compares the selected set against the set that
  * actually ran, and REPORTS the difference -- it does not smooth it away.
+ *
+ * `selectionDiffs()` answers the question the UI must ask BEFORE it
+ * submits: which of the ticked uids are no longer in the catalogue? A
+ * selection that silently loses a case is a selection that no longer
+ * maps to the UIDs the user picked.
  */
 
 /* ------------------------------------------------------------------ */
@@ -565,7 +583,7 @@ export function selectionByFile(snapshot) {
 }
 
 /**
- * The RECONCILIATION of a selection against what actually ran.
+ * The RECONCILIATION of a selection against what ran.
  *
  * 「选了什么、跑了什么，两边对得上」 -- what was selected and what ran must
  * agree. This is the comparison that makes the two facts checkable: the
@@ -609,5 +627,118 @@ export function reconcileSelection(snapshot, executedUids) {
     // needs.
     matches: missing.length === 0,
     exact: missing.length === 0 && extra.length === 0,
+  };
+}
+
+/**
+ * The DIFFERENCE between a selection and the catalogue it was made in.
+ *
+ * The acceptance criterion of this task is 「选中准确映射 UID」 -- the
+ * selection maps to the UIDs accurately. A selection stops mapping
+ * accurately the moment a ticked case LEAVES the catalogue: the case was
+ * renamed, moved or deleted, and the catalogue no longer knows the uid.
+ *
+ * The UI must not discover that by submitting the run and reading the
+ * refusal -- by then the reader has already been told "run submitted"
+ * and the batch is a partial execution. So the difference is computed
+ * HERE, against the catalogue, and the UI asks before it submits.
+ *
+ * The two lists are:
+ *
+ *   * `gone`   -- the ticked uids the catalogue does not know. These are
+ *                the cases that would be SILENTLY DROPPED;
+ *   * `stale`  -- the ticked uids the catalogue knows, but whose identity
+ *                is not stable (`uidStable === false`). A provisional uid
+ *                is assigned by ORDINAL, so deleting the case before it
+ *                shifts the ones after it: the uid still resolves, but it
+ *                now names a DIFFERENT case. That is a selection that no
+ *                longer maps to the case the reader ticked, so it is
+ *                reported as well.
+ *
+ * @param {CaseView[]} tests the catalogue
+ * @param {string[]} uids the ticked uids
+ * @param {{cases?:{uid?:string,title?:string,file?:string}[]}} [snapshot] the
+ *        selection's own snapshot, so a re-pointed uid can be detected by
+ *        comparing the case the uid names NOW with the case it named THEN
+ * @returns {{gone:string[],stale:string[],moved:string[],ok:boolean,count:number}}
+ */
+export function selectionDiffs(tests, uids, snapshot = null) {
+  const list = Array.isArray(tests) ? tests : [];
+  const byUid = new Map(list.map((t) => [t.uid, t]));
+  const wanted = selectionSet(uids);
+  const gone = [];
+  const stale = [];
+  const moved = [];
+  // The facts of the selection at the moment it was made, so a uid that
+  // now names a DIFFERENT case can be told from one that still names
+  // the same one.
+  const was = new Map();
+  for (const c of snapshot?.cases ?? []) was.set(c.uid, c);
+  for (const uid of wanted) {
+    const t = byUid.get(uid);
+    if (!t) { gone.push(uid); continue; }
+    // A case that is still in the catalogue but carries a warning is one
+    // whose identity the index could not resolve -- it is not gone, but
+    // it is not a stable uid either.
+    if (t.uidStable === false) stale.push(uid);
+    // The uid now names a case whose title or file is NOT the one it
+    // named when the reader ticked it. The uid resolved, but to the
+    // WRONG case -- which is worse than not resolving at all.
+    const before = was.get(uid);
+    if (before) {
+      const sameTitle = !before.title || before.title === t.title;
+      const sameFile = !before.file || before.file === t.file;
+      if (!sameTitle || !sameFile) moved.push(uid);
+    }
+  }
+  return {
+    gone,
+    stale,
+    moved,
+    // The selection maps accurately when nothing is gone and nothing
+    // re-pointed.
+    ok: gone.length === 0 && moved.length === 0,
+    count: gone.length + stale.length + moved.length,
+  };
+}
+
+/**
+ * How many cases a selection will ACTUALLY run.
+ *
+ * The engine takes ONE test-file filter at a time, so a selection is
+ * executed as one run per file -- and a file filter runs EVERY case of
+ * that file, not only the ones that were ticked. So the number of cases
+ * that will really run is the number of cases in the SELECTED FILES, and
+ * it is usually LARGER than the number of ticked cases.
+ *
+ * The UI must say so BEFORE the run: a toast that says "1 case" while
+ * the engine runs 3 is a promise the product does not keep. This
+ * function is the number the UI shows.
+ *
+ * @param {CaseView[]} tests the catalogue
+ * @param {string[]} uids the ticked uids
+ * @returns {{selected:number,willRun:number,files:string[],extra:string[]}}
+ */
+export function plannedExecutions(tests, uids) {
+  const list = Array.isArray(tests) ? tests : [];
+  const byUid = new Map(list.map((t) => [t.uid, t]));
+  const wanted = selectionSet(uids);
+  const files = new Set();
+  const ticked = new Set();
+  for (const uid of wanted) {
+    const t = byUid.get(uid);
+    if (!t) continue;
+    ticked.add(uid);
+    if (t.file) files.add(t.file);
+  }
+  // Every case of every selected FILE will run -- that is what a file
+  // filter means.
+  const willRun = list.filter((t) => files.has(t.file));
+  const extra = willRun.filter((t) => !ticked.has(t.uid)).map((t) => t.uid);
+  return {
+    selected: wanted.size,
+    willRun: willRun.length,
+    files: [...files],
+    extra,
   };
 }

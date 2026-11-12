@@ -64,6 +64,17 @@
 |ST-ATS213-002|FR-027|异常|从系统凭据库删掉条目后界面显示「未配置」|平台索引仍留着引用（分叉是真实存在的）|状态行显示「未配置」与「系统凭据库里没有这一条」——状态是测出来的，不从索引推断|node tools/ats213-probes/st-ats213.mjs|PASS|
 |ST-ATS213-003|NFR-009|隐私|界面上没有密钥明文|页面正文与状态行|正文既不含完整密钥也不含其前 8 个字符；密钥输入框存入后被清空|node tools/ats213-probes/st-ats213.mjs|PASS|
 |ST-ATS213-004|FR-027|异常|状态接口报出原因码而不是假装成功|条目已被删除时的单条状态查询|status=not-configured、reason=CREDENTIAL_NOT_FOUND|node tools/ats213-probes/st-ats213.mjs|PASS|
+|ST-ATS214-001|FR-005|正常|500 用例的目录在真实浏览器里加载且无报错|真实 Bridge + 真实 Chromium + 静态导出；500 用例 / 50 文件的夹具|500 行用例渲染出来；没有 console error，也没有 page error|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-002|FR-005|可用性|500 用例时用例列表**可见且可点**|同上，视口 1440x900|列表高度 > 0、顶部在视口内、第一条用例在屏幕上且真的点得动（aria-checked 变 true）|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-003|FR-005|性能|500 用例的过滤在预算内（预算事先写明）|同上；逐键输入、标签口径切换、「全选当前」、取消勾选|每次交互 ≤ 100ms，且没有 > 100ms 的 long task；4 倍 CPU 降速的数字只作参考|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-004|FR-005|功能|按标题搜索用例|输入「case 017」|只留下标题含该串的用例（1 条）|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-005|FR-005|功能|标签过滤，且「任一」与「全部」给出不同的结果|勾 @smoke + @api，切口径|「任一」234 条、「全部」34 条——两个口径不同，口径不是装饰|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-006|FR-005|功能|选择映射到用例的 UID|勾选 a1 与 b1|选择栏显示「已选 2 条」；两条的 UID 就是目录里的 UID|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-007|FR-005|异常|已选但离开目录的用例被报出，且运行被阻止|把 b1 从文件里删掉后重读目录|页面出现 role=alert 的提示并点名该 UID；点批量运行只弹提示，**没有**提交任何运行|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-008|FR-005|可用性|切换项目时过滤条件被重置并告知|在 p500 勾 @smoke，再切到 other（2 条、只有 @billing）|列表回到 2/2 条，没有残留的按下芯片，选择栏「已选 0 条」|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-009|FR-005|正常|界面如实说明实际会执行多少条|只勾 a1（a 文件有 3 条）|选择栏「将执行 3 条」、toast「实际执行 3 条」，引擎真的跑了 3 条——三个数字一致|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-010|FR-005|可用性|勾选框键盘可达|真实 Chromium 的 Tab / Space|勾选框是自己的 <button role=checkbox>（不是嵌在 button 里的 span），能拿到焦点，空格能切换|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-011|TOOL|可靠性|交付的代码被变异时测试必须变红（负控）|对 page.tsx 与 server/index.mjs 做 10 个变异（关掉过滤、只发第一个 UID、不渲染警告、不阻止运行、承诺选中条数、不重置过滤、把勾选框放回 button 里、不继承环境档案、不整单校验、预检失败不结束批次）|每个变异都被抓住（界面变异由 ST 抓住，服务端变异由 IT 抓住）；未变异的代码仍然通过|node tools/ats214-probes/mutation-check.mjs|PASS|
 
 ## 进入与退出条件
 

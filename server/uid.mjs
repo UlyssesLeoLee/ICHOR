@@ -495,29 +495,45 @@ function findTestCalls(src) {
  *
  * WHAT IS READ
  * ------------
- * The Playwright details object of a case:
+ * TWO sources, and the engine's rule is the contract for both:
  *
- *     test('case', { tag: '@smoke' }, async () => {})
- *     test('case', { tag: ['@a', '@b'] }, async () => {})
+ * 1. THE TITLES. Playwright reads a tag out of the TITLE PATH -- the
+ *    case's own title plus the title of every enclosing `describe` --
+ *    by matching `/@[\S]+/g` over the joined text
+ *    (`playwright/lib/common/index.js:2765-2775`):
  *
- * and the same object on a `describe`, whose tags the cases INSIDE it
- * inherit (measured: the CLI reports the describe's tag on every case
- * below it, merged with the case's own tags -- see
- * `docs/32-CASE-SEARCH-SELECTION.md` §3).
+ *        test('case @smoke', ...)          -> ['smoke']
+ *        test.describe('group @fast', ...) -> every case below it is @fast
+ *
+ *    This is the COMMON spelling -- writing the tag in the title -- and
+ *    a static index that misses it reports a project with no tags at
+ *    all, which reads as "the filter is broken" rather than "the filter
+ *    saw no tags".
+ *
+ * 2. THE DETAILS OBJECT:
+ *
+ *        test('case', { tag: '@smoke' }, async () => {})
+ *        test('case', { tag: ['@a', '@b'] }, async () => {})
+ *
+ *    and the same object on a `describe`, whose tags the cases INSIDE it
+ *    inherit (measured: the CLI reports the describe's tag on every case
+ *    below it, merged with the case's own tags -- see
+ *    `docs/32-CASE-SEARCH-SELECTION.md` §3).
  *
  * The scanner is LEXICAL, like the rest of the static index: it reads the
- * literal `tag:` property of a details object and nothing else. A tag
- * that is computed (`{ tag: someVar }`) is NOT read -- the static index
- * cannot know what it is, and a tag it guessed would be a tag the filter
- * would then match against wrongly.
+ * literal `tag:` property of a details object and the literal text of the
+ * titles, and nothing else. A tag that is COMPUTED (`{ tag: someVar }`)
+ * is NOT read -- the static index cannot know what it is, and a tag it
+ * guessed would be a tag the filter would then match against wrongly.
  *
  * THE '@' PREFIX
  * --------------
  * Playwright REQUIRES a tag to start with '@' (the CLI refuses the file
  * otherwise: "Tag must start with '@'") but REPORTS it WITHOUT the '@'
- * (`{tag:'@smoke'}` is reported as `['smoke']`). So the scanner strips the
- * prefix here too, and the two indexes then carry the SAME tag string --
- * which is what lets a tag filter work on either of them.
+ * (`{tag:'@smoke'}` is reported as `['smoke']`, and a title's `@smoke` is
+ * reported as `['smoke']` too). So the scanner strips the prefix here as
+ * well, and the two indexes then carry the SAME tag string -- which is
+ * what lets a tag filter work on either of them.
  *
  * @param {string} content the source of one file
  * @returns {Map<number, string[]>} the tags by the LINE of the case's call
@@ -530,14 +546,55 @@ export function scanCaseTags(content) {
   // scope is tracked with the same brace counting the describe-path
   // reader uses (see `describePathAt` in server/discovery/index.mjs).
   const describeTags = describeTagsAt(src);
+  // The TITLES of the `describe` blocks that are OPEN at a line: the
+  // engine joins them with the case's own title and matches the whole
+  // text for `@标签`, so a describe's TITLE tags its cases exactly like
+  // its DETAILS tags do.
+  const describeTitles = describeTitlesAt(src);
   for (const call of findTestCalls(src)) {
     const own = readDetailsTags(src, call.afterTitle);
     const inherited = describeTags.get(call.line) ?? [];
-    const tags = [...inherited, ...own];
+    // The TITLE PATH: the case's own title, then the titles of the
+    // describes it is inside. The engine joins them into ONE text and
+    // matches `/@[\S]+/g` over it, so a tag in a describe's title is
+    // inherited by the cases below it.
+    const titlePath = [call.title, ...(describeTitles.get(call.line) ?? [])];
+    const titleTags = titleTagsOf(titlePath.join(' '));
+    const tags = [...titleTags, ...inherited, ...own];
     if (!tags.length) continue;
     byLine.set(call.line, dedupeTags(tags));
   }
   return byLine;
+}
+
+/**
+ * The tags a TITLE PATH carries, read the way the engine reads them.
+ *
+ * The engine joins the title path into one text and matches
+ * `/@[\S]+/g` over it (`playwright/lib/common/index.js:2770`). The '@'
+ * is then stripped, because the engine REPORTS the tag without it
+ * (`playwright/lib/runner/index.js:4352`).
+ *
+ * The match is deliberately the engine's: `@[\S]+` runs to the next
+ * whitespace, so `@smoke` is one tag, and `tag: @notatag` in a title is
+ * ALSO one tag -- the engine does not know what a "tag" is supposed to
+ * look like beyond the '@'. A static index that second-guessed the
+ * engine here would disagree with the authoritative index on exactly
+ * the cases a reader is most likely to write.
+ *
+ * @param {string} text the joined title path
+ * @returns {string[]} the tags, without the '@'
+ */
+export function titleTagsOf(text) {
+  const src = String(text ?? '');
+  const out = [];
+  const re = /@[\S]+/g;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const tag = m[0].slice(1);
+    if (tag) out.push(tag);
+  }
+  return out;
 }
 
 /**
@@ -641,6 +698,50 @@ function describeTagsAt(src) {
       if (line >= s.from && line <= s.to) tags.push(...s.tags);
     }
     if (tags.length) out.set(line, dedupeTags(tags));
+  }
+  return out;
+}
+
+/**
+ * The TITLES of the `describe` blocks that are OPEN at a line.
+ *
+ * The engine builds the title path of a case by joining the titles of
+ * every enclosing `describe` with the case's own title, and then matches
+ * `/@[\S]+/g` over that text
+ * (`playwright/lib/common/index.js:2768-2770`). So a tag written in a
+ * describe's TITLE is inherited by the cases below it, exactly like a
+ * tag written in the describe's details object.
+ *
+ * The scopes are the same ones `describeTagsAt` walks -- the same
+ * `describe(...)` calls, the same body extents -- so the two readers
+ * cannot disagree about which cases a describe covers. The difference is
+ * only in WHAT is read out of it: the details object there, the title
+ * here.
+ *
+ * @returns {Map<number, string[]>} the describe titles by line
+ */
+function describeTitlesAt(src) {
+  const out = new Map();
+  const newlines = newlineOffsets(src);
+  const scopes = [];
+  const re = /\bdescribe(?:\.(?:only|skip|fixme|parallel|serial))?\s*\(/g;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const open = src.indexOf('(', m.index);
+    const title = readTitleLiteral(src, skipSpace(src, open + 1));
+    if (!title) continue;
+    const close = describeBodyEnd(src, title.end);
+    if (close < 0) continue;
+    scopes.push({ from: lineAt(newlines, m.index), to: close, title: title.value });
+  }
+  if (!scopes.length) return out;
+  const lastLine = src.split('\n').length;
+  for (let line = 1; line <= lastLine; line += 1) {
+    const titles = [];
+    for (const s of scopes) {
+      if (line >= s.from && line <= s.to) titles.push(s.title);
+    }
+    if (titles.length) out.set(line, titles);
   }
   return out;
 }

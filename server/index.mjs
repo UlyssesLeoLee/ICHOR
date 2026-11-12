@@ -264,6 +264,37 @@ for(const run of store.runs){
   run.status=RUN_STATUS.INTERRUPTED;run.finishedAt=now();run.error='Server restarted while run was active';
  }
 }
+// ATS-214: a BATCH that was in flight when the Bridge died is INTERRUPTED.
+//
+// The recovery above marks the RUN interrupted. The batch that the run
+// belonged to would otherwise stay `running` for ever -- the chain that
+// would have advanced it died with the Bridge, so nothing will ever
+// advance it. A batch that claims to be running while every one of its
+// runs is interrupted is a claim the reader cannot verify, so the batch
+// is marked `interrupted` with the same reason.
+//
+// A batch whose runs are ALL terminal is not touched here: it reached
+// its own terminal status before the crash, and rewriting it would
+// destroy the record of how it ended.
+for(const batch of (Array.isArray(store.batches)?store.batches:[])){
+ if(batch.status!=='running')continue;
+ const runs=(batch.runs??[]).map(r=>store.runs.find(x=>x.id===r.runId)).filter(Boolean);
+ const allTerminal=runs.length>0&&runs.every(r=>isTerminalStatus(r.status));
+ if(allTerminal){
+  // The chain finished before the crash: the batch keeps the status its
+  // own runs imply.
+  batch.status=runs.every(r=>r.status===RUN_STATUS.PASSED)?'passed':'failed';
+  batch.finishedAt=batch.finishedAt||now();
+  continue;
+ }
+ batch.status='interrupted';
+ batch.finishedAt=now();
+ batch.error='Server restarted while the batch was in flight';
+ for(const entry of (batch.runs??[])){
+  const r=store.runs.find(x=>x.id===entry.runId);
+  if(r&&!isTerminalStatus(r.status))entry.status=r.status;
+ }
+}
 for(const problem of recoveryProblems)console.error(`the recovery of a run was degraded: ${problem}`);
 saveState(store);
 // ATS-207: the holder check. The Bridge holds the lock for its whole
@@ -730,14 +761,24 @@ function finishRun(run,code,signal){
     if(!preflight.ok){
      const first=preflight.errors[0];
      writeEvent(run,EVENT_TYPE.ERROR,{error:first.code,hint:first.hint,preflight});
-     run.status=RUN_STATUS.ERROR;run.error=first.code;run.errorHint=first.hint;run.finishedAt=now();saveState(store);return;
+     run.status=RUN_STATUS.ERROR;run.error=first.code;run.errorHint=first.hint;run.finishedAt=now();saveState(store);
+     // ATS-214: the batch this run belongs to must not stay `running`.
+     // The run never reached the engine, so there is nothing to wait for,
+     // and a batch that claims to be running for ever is a claim nobody
+     // can verify.
+     if(run.batchUid)finishBatchOf(run,'failed',first.code);
+     return;
     }
    }
    try{handle=adapter.start({project,run,file:run.file,outputDir:folder,env:sealedEnv});}
-  catch(e){
-   writeEvent(run,EVENT_TYPE.ERROR,{error:e.message});
-   run.status=RUN_STATUS.ERROR;run.error=e.message;run.finishedAt=now();saveState(store);return;
-  }
+   catch(e){
+    writeEvent(run,EVENT_TYPE.ERROR,{error:e.message});
+    run.status=RUN_STATUS.ERROR;run.error=e.message;run.finishedAt=now();saveState(store);
+    // ATS-214: same as the preflight failure -- the batch ends with the
+    // reason on the record.
+    if(run.batchUid)finishBatchOf(run,'failed',e.message);
+    return;
+   }
   const cp=handle.child;
   writeEvent(run,EVENT_TYPE.STARTED,{pid:cp.pid,runner:run.runner});
   run.status=RUN_STATUS.RUNNING;run.pid=cp.pid;run.startedAt=now();run.command=[handle.command,...handle.args];
@@ -766,14 +807,29 @@ function finishRun(run,code,signal){
  * WHY THE CHAIN IS ADVANCED HERE
  * -------------------------------
  * The next run must not start while the previous one still holds the
- * project -- the Bridge refuses a second run of a project that is already
- * running -- and the end of a run is the one moment at which the previous
- * run has provably released it. A timer or a poller would have to guess
- * when the project became free.
+ * project -- the Bridge refuses a second run of a project that is
+ * already running -- and the end of a run is the one moment at which the
+ * previous run has provably released it. A timer or a poller would have
+ * to guess when the project became free.
  *
  * A CANCELLED run stops the chain: the user asked for the run to stop,
- * and continuing with the next file would run cases the user did not ask
- * to run any more.
+ * and continuing with the next file would run cases the user did not
+ * ask to run any more.
+ *
+ * THE BATCH ALWAYS REACHES A TERMINAL STATUS
+ * ------------------------------------------
+ * A batch that stays `running` for ever is worse than a failed batch: it
+ * is a claim that work is in flight when nothing is, and a reader of
+ * `/api/batches` cannot tell it apart from a batch that really is. So
+ * EVERY path that ends a run without advancing the chain ends the batch
+ * too:
+ *
+ *   * a run that ended in `error` (the preflight failed, the adapter
+ *     threw) -- `finishBatch`;
+ *   * a chain that cannot start its next run -- the batch fails with the
+ *     reason on the record;
+ *   * a bridge that died with a batch in flight -- the batch is marked
+ *     `interrupted` during the recovery.
  *
  * The chain's own record is updated as it goes, so a reader can see which
  * file is running, which files have run and what each of them did.
@@ -790,6 +846,14 @@ function advanceBatch(run){
  if(run.status===RUN_STATUS.CANCELLED||run.status===RUN_STATUS.INTERRUPTED){
   batch.status='cancelled';batch.finishedAt=now();saveState(store);return;
  }
+ // ATS-214: a run that ENDED IN ERROR does not advance the chain -- the
+ // next file would run under the same broken conditions (the engine is
+ // missing, the preflight failed). The batch ends, and the reason is on
+ // the record, so a reader sees WHY the batch stopped.
+ if(run.status===RUN_STATUS.ERROR){
+  finishBatch(batch,'failed',run.error||'the run failed before it could start');
+  return;
+ }
  const nextIndex=batch.runs.length;
  const next=batch.groups[nextIndex];
  if(!next){
@@ -801,7 +865,7 @@ function advanceBatch(run){
   batch.finishedAt=now();saveState(store);return;
  }
  const project=getProject(run.projectId);
- if(!project){batch.status='failed';batch.finishedAt=now();saveState(store);return;}
+ if(!project){finishBatch(batch,'failed','the project of the batch is gone');return;}
  // The next run of the batch: the same shape as the first one, with the
  // next FILE and the group's uids.
  try{
@@ -810,9 +874,47 @@ function advanceBatch(run){
  }catch(e){
   // A batch that cannot start its next run is REPORTED, not swallowed:
   // the batch's status says it failed, and the reason is on the record.
-  batch.status='failed';batch.error=String(e.message||e);batch.finishedAt=now();
+  finishBatch(batch,'failed',String(e.message||e));
  }
  saveState(store);
+}
+
+/**
+ * ATS-214: end a batch with a status and a reason.
+ *
+ * The one place that writes a batch's terminal status. Every path that
+ * ends a batch goes through it, so a batch always has a `finishedAt`
+ * and a reason -- a batch that stopped without saying why is a dead end
+ * for the reader.
+ */
+function finishBatch(batch,status,error){
+ if(!batch)return;
+ batch.status=status;
+ batch.finishedAt=now();
+ if(error)batch.error=String(error);
+ saveState(store);
+}
+
+/**
+ * ATS-214: end the batch a run belongs to.
+ *
+ * The batch is found by the run's `batchUid`; a run that is not part of
+ * a batch (a single run) simply has no batch to end.
+ *
+ * @param {object} run the run that ended
+ * @param {string} status the terminal status of the batch
+ * @param {string} error why the batch stopped
+ */
+function finishBatchOf(run,status,error){
+ const batches=Array.isArray(store.batches)?store.batches:[];
+ const batch=batches.find(b=>b.uid===run.batchUid);
+ if(!batch)return;
+ // The entry of the run is updated too: the batch's own list of runs
+ // must agree with the run records, or a reader sees a run that is still
+ // `queued` inside a batch that has already failed.
+ const entry=batch.runs.find(r=>r.runId===run.id);
+ if(entry)entry.status=run.status;
+ finishBatch(batch,status,error);
 }
 
 /**
@@ -821,6 +923,23 @@ function advanceBatch(run){
  * It is the same run the single-run path creates -- the same runner
  * negotiation, the same uid scheme, the same event stream -- with the
  * file and the group's uids taken from the batch.
+ *
+ * THE REQUEST CONTEXT IS INHERITED
+ * -------------------------------
+ * The second file of a batch must run under the SAME conditions as the
+ * first one. The batch therefore carries the request context -- the
+ * environment profile (already filtered by the current whitelist), the
+ * pinned runner and the requested capabilities -- and every run of the
+ * batch starts with it.
+ *
+ * This is not a convenience: ATS-212 forbids a silent fallback to "no
+ * profile". A batch whose first run went to staging and whose second run
+ * went to the default base URL is exactly that silent fallback, spread
+ * over two runs, and the reader of the run records would have no way to
+ * tell it apart from two deliberate runs. The environment variables that
+ * reach the runner are the WHITELIST-FILTERED ones the first run got
+ * (`batch.context.envVariables`), so the inheritance cannot smuggle a
+ * variable the whitelist has since taken away.
  *
  * @returns {object} the run record
  */
@@ -832,15 +951,37 @@ function startBatchRun(project,batch,group,index,previous){
  store.runCounters=store.runCounters??{};
  store.runCounters[project.id]=seq;
  const uid=runUidFor({projectUid,gitCommit,file:group.file,seq});
- const chosen=selectAdapter(project,['discover','start','stop','collect']);
+ // The runner is chosen the way the FIRST run of the batch chose it: a
+ // PINNED runner must not fall back to another engine (the caller asked
+ // for that engine), and an EXPLICIT capability request that nobody can
+ // satisfy is a refusal, not a silent default.
+ const ctx=batch.context??{};
+ const requested=Array.isArray(ctx.capabilities)&&ctx.capabilities.length?ctx.capabilities:['discover','start','stop','collect'];
+ const pinned=typeof ctx.runner==='string'&&ctx.runner?ctx.runner:null;
+ let chosen;
+ try{
+  chosen=pinned
+   ? selectAdapterOrThrow(project,requested,{preferred:pinned})
+   : selectAdapter(project,requested);
+ }catch(e){
+  if(!(e instanceof AdapterError))throw e;
+  chosen={adapter:getAdapter('playwright'),negotiation:{requested}};
+ }
  // The selection of THIS run: the uids of the group's cases. The batch
  // carries the whole selection; each run carries its own part, so "what
  // ran in this run" and "what was selected in the batch" are both on the
  // record.
  const selection={uids:group.uids,cases:batch.cases.filter(c=>group.uids.includes(c.uid)),count:group.count,files:[group.file],groups:[{file:group.file,uids:group.uids,count:group.count}]};
- const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file:group.file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,batchUid:batch.uid,batchIndex:index,selection,selectionUids:group.uids};
+ const envVariables=ctx.envVariables&&typeof ctx.envVariables==='object'?ctx.envVariables:{};
+ const envVarNameList=Object.keys(envVariables).sort();
+ const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file:group.file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,batchUid:batch.uid,batchIndex:index,selection,selectionUids:group.uids,
+  // ATS-214: the INHERITED context. The run records the environment it
+  // ran under exactly like a single run does, so a reader of run #2 can
+  // see that it ran under the same profile as run #1 -- and the NAMES of
+  // the variables, never their values (ATS-212).
+  envUid:ctx.envUid??null,envName:ctx.envName??null,envTier:ctx.envTier??null,envVariables:envVarNameList};
  store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);
- startRun(project,run,chosen.adapter,null,{});
+ startRun(project,run,chosen.adapter,null,envVariables);
  return run;
 }
 
@@ -1128,6 +1269,24 @@ const server=http.createServer(async(req,res)=>{
    // for the same thing, and the two could disagree.
    const file=selection?selection.groups[0].file:(b.file||null);
    if(file){readSource(project,file);assertSafeTestFilter(file);}
+   // ATS-214: EVERY GROUP OF A BATCH IS VALIDATED BEFORE ANYTHING RUNS.
+   //
+   // The single-file path validates the file it is about to run. A batch
+   // must validate EVERY file it is about to run: otherwise the first
+   // group runs, the second group is refused by the ATS-106 filter check
+   // and the batch dies half-way through -- which is a DIFFERENT answer
+   // for the SAME file depending on whether it was selected alone or
+   // together with another one.
+   //
+   // The refusal is the same code the single-file path uses
+   // (`INVALID_TEST_FILTER`), so the two paths cannot disagree about
+   // what a file name is allowed to be.
+   if(selection&&selection.groups.length>1){
+    for(const group of selection.groups){
+     try{readSource(project,group.file);assertSafeTestFilter(group.file);}
+     catch(e){return err(res,400,e&&e.code?e.code:'INVALID_TEST_FILTER',{file:group.file,reason:e&&e.reason?e.reason:String(e&&e.message||e)});}
+    }
+   }
    // Pick the runner by capability negotiation, not by a hardcoded name. A
    // caller may pin one with `runner`; otherwise the first runner that
    // supports the required operations wins.
@@ -1215,12 +1374,41 @@ const server=http.createServer(async(req,res)=>{
    // The run also carries the selection's own uids as `selectionUids`, so
    // the reconciliation does not have to dig into the nested record.
    const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null,...(envFiltered.refused.length?{envRefused:envFiltered.refused}:{}),...(selection?{selection,selectionUids:selection.uids}:{})};
-   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter,envProfile,envFiltered.variables);
+   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);
    // ATS-214: a selection that spans SEVERAL files is a BATCH. The first
    // run of the batch is the one that starts here; the rest are chained to
    // it (see `advanceBatch`).
+   //
+   // THE BATCH IS CREATED BEFORE THE FIRST RUN STARTS.
+   //
+   // The order matters: the first run can fail BEFORE it reaches the
+   // engine (the preflight fails, the adapter throws), and a failure at
+   // that point must end the batch. A batch that is created after the run
+   // has already failed has no batch to end, and the batch stays
+   // `running` for ever -- which is exactly the defect the first
+   // delivery had.
+   let batch=null;
    if(selection&&selection.groups.length>1){
-    const batch={uid:`batch_${crypto.randomUUID()}`,projectId:project.id,projectUid,selectionUid:`sel_${crypto.randomUUID()}`,uids:selection.uids,cases:selection.cases,files:selection.files,groups:selection.groups,status:'running',createdAt:now(),runs:[],finishedAt:null};
+    batch={uid:`batch_${crypto.randomUUID()}`,projectId:project.id,projectUid,selectionUid:`sel_${crypto.randomUUID()}`,uids:selection.uids,cases:selection.cases,files:selection.files,groups:selection.groups,status:'running',createdAt:now(),runs:[],finishedAt:null,
+     // ATS-214: the REQUEST CONTEXT of the batch. Every run of the batch
+     // starts under it, so the second file runs under the same
+     // environment profile, the same pinned runner and the same
+     // requested capabilities as the first one.
+     //
+     // The environment variables stored here are the WHITELIST-FILTERED
+     // ones (`envFiltered.variables`), so the inheritance cannot carry a
+     // variable the current whitelist no longer permits -- and the
+     // profile's own values never travel with the batch record: only the
+     // variables that actually reach the runner, plus the profile's
+     // identity.
+     context:{
+      envUid:envProfile?(envProfile.uid||envProfile.id):null,
+      envName:envProfile?envProfile.name:null,
+      envTier:envProfile?envProfile.environment:null,
+      envVariables:envFiltered.variables??{},
+      runner:pinned,
+      capabilities:explicit?b.capabilities:null,
+     }};
     // The batch record is STORED, so the selection survives the bridge:
     // a reader can ask "which batch was this run part of" and get the
     // whole selection back, not only the part that has run so far.
@@ -1234,6 +1422,7 @@ const server=http.createServer(async(req,res)=>{
     run.batchIndex=0;
     saveState(store);
    }
+   startRun(project,run,chosen.adapter,envProfile,envFiltered.variables);
    return respond(res,202,{run});
   }
   if(action==='lineage'&&req.method==='GET'){
@@ -1250,11 +1439,37 @@ const server=http.createServer(async(req,res)=>{
  //
  // The endpoint is a READ: a batch is a record, not something that can be
  // changed after the fact.
+ //
+ // THE RECONCILIATION
+ // ------------------
+ // Each batch carries the answer to 「选了什么、跑了什么」: the selected
+ // uids against the uids the attempts of its runs actually ran. Without
+ // it the per-run card can only report ONE group's cases -- and a card
+ // that says "the selected cases did not all run" for a batch whose
+ // second file has not started yet is a FALSE report.
+ //
+ // The reconciliation is computed from the RUN RECORDS (the facts), not
+ // from the batch's own bookkeeping, so a reader can check it.
  if(p==='/api/batches'&&req.method==='GET'){
   const batches=Array.isArray(store.batches)?store.batches:[];
   const projectId=u.searchParams.get('projectId');
   const list=projectId?batches.filter(b=>b.projectId===projectId):batches;
-  return respond(res,200,{batches:list});
+  const withReconciliation=list.map(b=>{
+   const runs=(b.runs??[]).map(entry=>{
+    const run=store.runs.find(x=>x.id===entry.runId);
+    return run?{...entry,runId:run.id,file:run.file,status:run.status,envName:run.envName??null,envUid:run.envUid??null,runner:run.runner??null,selectionUids:run.selectionUids??[]}:entry;
+   });
+   const executed=new Set();
+   for(const entry of runs){
+    const run=store.runs.find(x=>x.id===entry.runId);
+    for(const attempt of (run?.attempts??[]))if(attempt.testUid)executed.add(attempt.testUid);
+   }
+   const selected=new Set(b.uids??[]);
+   const missing=[...selected].filter(x=>!executed.has(x));
+   const extra=[...executed].filter(x=>!selected.has(x));
+   return {...b,runs,reconciliation:{selected:selected.size,executed:executed.size,missing,extra,matches:missing.length===0,exact:missing.length===0&&extra.length===0}};
+  });
+  return respond(res,200,{batches:withReconciliation});
  }
  const rm=p.match(/^\/api\/runs\/(run_(?:[0-9a-f-]{36}|1_[0-9a-f]{24}))(?:\/(.*))?$/);
  if(rm){const r=getRun(rm[1]),action=rm[2]||'';
