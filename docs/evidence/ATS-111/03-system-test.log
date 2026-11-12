@@ -1,0 +1,39 @@
+PASS the Bridge starts
+PASS both fixture projects are registered -- proj_1_6627e2c1d0fe7edf4b26f752 / proj_1_7e30ab60f29db76755f47d90
+PASS ST-111-1 the exported workbench loads in a real browser
+PASS ST-111-9a the page produced no page error on load
+PASS ST-111-8a the skip link exists
+PASS ST-111-8b the FIRST Tab reaches the skip link -- A.skip-link
+PASS ST-111-8c the focused skip link is VISIBLE (not off screen) -- {"left":12,"top":12,"width":112}
+PASS ST-111-3 the regions are visited in the DECLARED reading order -- observed=rail > refresh > project-select > add-project > search > panel > content; declared=rail > refresh > project-select > add-project > search > panel > content
+PASS ST-111-3b the walk reached the CONTENT region -- rail > refresh > project-select > add-project > search > panel > content
+PASS ST-111-4a a focused rail button has a VISIBLE outline -- {"outlineStyle":"solid","outlineWidth":"2px","outlineColor":"rgb(124, 198, 255)"}
+PASS ST-111-4b the focused project select has a VISIBLE outline (the base sheet removes it) -- {"outlineStyle":"solid","outlineWidth":"2px","outlineColor":"rgb(124, 198, 255)"}
+PASS ST-111-4c the focused search input has a VISIBLE outline (the base sheet removes it) -- {"outlineStyle":"solid","outlineWidth":"2px","outlineColor":"rgb(124, 198, 255)"}
+PASS ST-111-2a the EMPTY state is rendered -- {"kind":"empty","role":"status","live":"polite","busy":"false","label":"暂无内容","detail":"这个项目里没有可执行的测试用例。","hint":"选择一个项目或调整筛选条件，或运行一次测试来生成内容。"}
+PASS ST-111-2b the EMPTY state says 「暂无内容」 -- 暂无内容
+PASS ST-111-2c the ERROR state is rendered -- {"kind":"error","role":"alert","live":"assertive","busy":"false","label":"加载失败","detail":"原因：PROBE_INJECTED_FAILURE","hint":"重试；如果仍然失败，请检查本地执行服务是否在运行。"}
+PASS ST-111-2d the ERROR state says 「加载失败」 -- 加载失败
+PASS ST-111-2e the ERROR state is an assertive live region -- alert/assertive
+PASS ST-111-2f the LOADING state is rendered -- {"kind":"loading","role":"status","live":"polite","busy":"true","label":"加载中","detail":"正在取数据，请稍候。","hint":"按 Esc 可以取消这次加载。"}
+PASS ST-111-2g the LOADING state says 「加载中」 -- 加载中
+PASS ST-111-2h the LOADING state is marked busy -- true
+PASS ST-111-5a Escape cancels the load and the panel says 「已取消」 -- {"kind":"cancelled","role":"status","live":"polite","busy":"false","label":"已取消","detail":"这次加载被取消了，没有拿到数据。","hint":"重新加载以继续。取消不等于失败，也不等于空。"}
+PASS ST-111-5b the CANCELLED state does NOT claim a failure -- 已取消
+PASS ST-111-5c the CANCELLED state does NOT claim emptiness -- 已取消
+PASS ST-111-2i the four states carry FOUR DIFFERENT labels -- 暂无内容 / 加载失败 / 加载中 / 已取消
+PASS ST-111-6a the dialog opens with the KEYBOARD alone (Enter on the button) -- 1 dialog(s)
+PASS ST-111-6b Enter SUBMITS the dialog (no mouse click) -- 0 dialog(s) still open
+PASS ST-111-6c the keyboard-submitted project was REGISTERED -- 3 project(s)
+PASS ST-111-7a the project can be chosen with the KEYBOARD
+PASS ST-111-7b Ctrl+P moves the focus to the search box
+PASS ST-111-7c the search filters the catalogue with the KEYBOARD
+PASS ST-111-7d a test case can be OPENED with the KEYBOARD
+PASS ST-111-7e the selected case can be RUN with Ctrl+Enter
+PASS ST-111-7f the run reaches a TERMINAL state
+PASS ST-111-7g the run list shows the run and is not in an error/empty state
+  (the probe injected 1 console error(s) on purpose)
+PASS ST-111-9b the page produced no console error over the whole flow
+PASS ST-111-9c the page produced no page error over the whole flow
+scratch: D:\ats111-evidence\st111-D1yoJX
+RESULT: 36/36
