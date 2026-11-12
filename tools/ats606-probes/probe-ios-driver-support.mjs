@@ -565,7 +565,67 @@ if (!expectedOwner) {
 }
 
 
-// The three hard preconditions of the physical-device path must be stated.
+// THE THREE HARD PRECONDITIONS
+// ---------------------------
+// Each precondition must be true of the SHIPPED ARTIFACTS, not merely
+// mentioned in the document: a document keyword search proves only that
+// the prose says so. So each precondition is checked against the
+// byte-code (or the source) it claims to come from, and the document is
+// then checked to STATE it.
+console.log('');
+console.log('--- the three hard preconditions (verified against the artifacts) ---');
+
+// (1) The Apple team ID precondition: RealIOSDeviceDriver must really
+//     carry the message and the exception.
+const realDriverFile = extract('maestro-cli-2.12.1.jar', 'maestro/cli/driver/RealIOSDeviceDriver.class');
+const realDriverText = javap(realDriverFile);
+const teamIdMessage = 'Apple account team ID must be specified to build drivers for connected iPhone.';
+if (realDriverText.includes(teamIdMessage)) {
+  ok(`the byte-code of RealIOSDeviceDriver really carries "${teamIdMessage}"`);
+} else {
+  fail('RealIOSDeviceDriver does NOT carry the expected Apple team ID message -- the §8.4 precondition is not what the artifact says');
+}
+if (/MissingAppleTeamId/.test(realDriverText)) {
+  ok('the byte-code of RealIOSDeviceDriver really carries the MissingAppleTeamId exception');
+} else {
+  fail('RealIOSDeviceDriver does NOT carry the MissingAppleTeamId exception -- the §8.4 precondition is not what the artifact says');
+}
+
+// (2) The devicectl runner install: LocalIOSDeviceController must really
+//     run `xcrun devicectl ...`.
+const controllerFile = extract('maestro-ios-driver.jar', 'util/LocalIOSDeviceController.class');
+const controllerText = javap(controllerFile);
+const controllerUses = ['xcrun', 'devicectl', 'install', 'app', 'launch']
+  .filter((needle) => controllerText.includes(needle));
+if (controllerUses.length === 5) {
+  ok('the byte-code of LocalIOSDeviceController really runs the xcrun / devicectl / install / app / launch sequence');
+} else {
+  fail(`LocalIOSDeviceController carries only ${controllerUses.join(', ')} of the expected xcrun/devicectl/install/app/launch strings`);
+}
+
+// (3) The 127.0.0.1:22087 reachability: the device-side listener must
+//     really bind that address, and no jar may carry a port-forward
+//     implementation that would make the reachability obvious.
+const swiftFile = extract('maestro-cli-2.12.1.jar', 'driver/ios/maestro-driver-iosUITests/Routes/XCTestHTTPServer.swift');
+const swiftText = fs.readFileSync(swiftFile, 'utf8');
+if (/127\.0\.0\.1/.test(swiftText) && /22087/.test(swiftText)) {
+  ok('the device-side XCTestHTTPServer really binds 127.0.0.1:22087');
+} else {
+  fail('the device-side XCTestHTTPServer does NOT bind 127.0.0.1:22087 -- the §8.4 precondition is not what the source says');
+}
+const forwarders = [];
+for (const [jar, entries] of jarEntries) {
+  for (const needle of ['iproxy', 'usbmux']) {
+    if (entries.some((e) => e.toLowerCase().includes(needle))) forwarders.push(`${jar}:${needle}`);
+  }
+}
+if (forwarders.length === 0) {
+  ok('no jar carries an iproxy / usbmux port-forward implementation -- the reachability really is unproven');
+} else {
+  fail(`these jars carry a port-forward implementation (${forwarders.join(', ')}) -- the §8.4 "not verifiable here" claim must be re-checked`);
+}
+
+// And the document must STATE all three.
 for (const [needle, what] of [
   ['Apple account team ID', 'the Apple team ID precondition'],
   ['devicectl', 'the devicectl runner install'],

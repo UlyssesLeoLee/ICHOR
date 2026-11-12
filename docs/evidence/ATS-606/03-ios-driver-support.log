@@ -1,6 +1,6 @@
 === ATS-606 evidence: the iOS implementation status ===
-tree : 87c4656e2fc4ccb277831378a521e0d13c356060
-date : 2026-11-12T19:52:57Z
+tree : a120e1d7c1264779e2f8ace99a515f6680139421
+date : 2026-11-12T20:12:02Z
 
 === ATS-606: the iOS implementation status (from the shipped byte-code) ===
 lib    : D:\AI-Tools\Maestro\lib
@@ -60,6 +60,13 @@ the XCTestHTTPServer.swift source -> maestro-cli-2.12.1.jar
 ok   the XCTestHTTPServer.swift source is in maestro-cli-2.12.1.jar
 ok   no jar holds a `driver-ios/` directory -- so any document that cites `driver-ios/` as a jar path is wrong
 ok   §8.4 attributes the two device-side builds to maestro-ios-driver.jar, which is where the jar list really puts them
+
+--- the three hard preconditions (verified against the artifacts) ---
+ok   the byte-code of RealIOSDeviceDriver really carries "Apple account team ID must be specified to build drivers for connected iPhone."
+ok   the byte-code of RealIOSDeviceDriver really carries the MissingAppleTeamId exception
+ok   the byte-code of LocalIOSDeviceController really runs the xcrun / devicectl / install / app / launch sequence
+ok   the device-side XCTestHTTPServer really binds 127.0.0.1:22087
+ok   no jar carries an iproxy / usbmux port-forward implementation -- the reachability really is unproven
 ok   §8.4 states the the Apple team ID precondition
 ok   §8.4 states the the devicectl runner install
 ok   §8.4 states the the 127.0.0.1:22087 reachability
