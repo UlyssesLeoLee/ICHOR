@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：707；已执行通过：691；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：719；已执行通过：703；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -715,6 +715,18 @@
 |UT-AUD-009|FR-027|安全|某一类的洪泛不挤掉另一类的记录|先记 granted/consent，再灌 525 条 denied 与 525 条 consent|egress.granted 仍在；denied、consent 各只留 500 条且丢本类最旧|node --test|PASS|
 |UT-AUD-010|FR-027|边界|放行类有自己的上限|503 条 egress.granted|只留 500 条，丢本类最旧|node --test|PASS|
 |UT-AUD-011|FR-027|正常|拒绝记录无摘要时记为 digest:null、bytes:0|denied 条目无 digest|null / 0|node --test|PASS|
+|UT-ATS213-001|FR-027|正常|状态词汇表是三值闭集|CREDENTIAL_STATUSES / CREDENTIAL_STATUS_REASONS|恰为 configured / not-configured / unavailable 与 4 个原因码；没有「未知」这个状态|node --test|PASS|
+|UT-ATS213-002|FR-027|正常|已存入的凭据读回为 configured|注入的内存凭据库|status=configured、reason=CREDENTIAL_FOUND、带 checkedAt|node --test|PASS|
+|UT-ATS213-003|FR-027|安全|状态里没有密钥也没有密钥片段|注入的内存凭据库|序列化后不含密钥；无 secret 字段；指纹 8 位十六进制|node --test|PASS|
+|UT-ATS213-004|FR-027|异常|凭据库条目消失而索引仍留着引用 → not-configured|从注入的凭据库里删掉条目|status=not-configured、reason=CREDENTIAL_NOT_FOUND；名称与指纹仍在（它们是索引的事实）|node --test|PASS|
+|UT-ATS213-005|FR-027|异常|凭据库读不出来 → unavailable，不与 not-configured 合并|读取抛 CREDENTIAL_STORE_FAILED|status=unavailable、reason=CREDENTIAL_STORE_FAILED|node --test|PASS|
+|UT-ATS213-006|FR-027|异常|后端不可达 → unavailable + 自己的原因码|available() 返回 false|status=unavailable、reason=CREDENTIAL_STORE_UNAVAILABLE|node --test|PASS|
+|UT-ATS213-007|FR-027|边界|凭据库读回来是空的 → unavailable，不算 configured|读回空字符串|status=unavailable、reason=CREDENTIAL_STORE_FAILED|node --test|PASS|
+|UT-ATS213-008|FR-027|异常|未知 id 的状态被拒，不猜|未知 id 与非法 id|均抛 CREDENTIAL_NOT_FOUND|node --test|PASS|
+|UT-ATS213-009|FR-027|正常|每条引用恰有一个状态|一条可用 + 一条条目已消失|两条都在列表里，各有一个落在闭集内的状态与原因码|node --test|PASS|
+|UT-ATS213-010|FR-027|边界|一条坏的不让整个清单变成错误|一条可读失败|两条都有状态；不是「全坏了」|node --test|PASS|
+|UT-ATS213-011|FR-027|正常|状态词汇表进契约描述|describeCredentialStore|statuses 与 statusReasons 都在契约里|node --test|PASS|
+|UT-ATS213-012|FR-027|边界|原因映射把「条目不在」与「读失败」分开|各类 CREDENTIAL_* 错误与未知错误|NOT_FOUND / UNAVAILABLE 各自归位；未知错误归 CREDENTIAL_STORE_FAILED，绝不归「条目不在」|node --test|PASS|
 
 ## 进入与退出条件
 

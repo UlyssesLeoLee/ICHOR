@@ -42,7 +42,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-106】', '【ATS-107】', '【ATS-111】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
-           '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-215】', '【ATS-216】',
+           '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-213】', '【ATS-215】', '【ATS-216】',
            '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-403】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
            '【ATS-601】', '【ATS-602】', '【ATS-603】', '【ATS-606】')
 
@@ -177,6 +177,14 @@ NARRATIVE_FRAGMENTS = {
               '（此时报「定位不到」而不是猜）；'
               '跨运行并排对照目前只有模块能力与接口基础，界面未提供（P1）；'
               '详见 docs/29-EVIDENCE-WORKBENCH.md',
+    },
+    '【ATS-213】': {
+        'D6': '凭据可用状态面已实现（ATS-213：状态是三值闭集且每条引用恰有一个；'
+              '状态对系统凭据库实测而不从索引推断；未配置与取不到不合并；'
+              '界面显示状态词与原因，不回显明文）',
+        'D7': 'macOS Keychain / Linux Secret Service 后端未在真机实测（Windows Credential Manager 已实测）；'
+              'Tauri 壳内凭据存取未验证（src-tauri/src/lib.rs 未改动）；'
+              '详见 docs/32-CREDENTIAL-STATUS.md',
     },
     '【ATS-111】': {
         'D6': '工作台可用性已实现（ATS-111：四态可辨识、核心流程可纯键盘完成）',

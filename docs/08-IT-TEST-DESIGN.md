@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：197；已执行通过：183；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：204；已执行通过：190；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -205,6 +205,13 @@
 |IT-SEC-024|FR-027|异常|未知项目或空输入的 /check 被拒并审计|未知 projectId；inputs=[]|400；审计各 +1|node --test|PASS|
 |IT-SEC-025|FR-027|安全|并发写凭据保持索引与凭据库一致（真实凭据库）|三个并发同名 POST|1 个 201、2 个 CREDENTIAL_DUPLICATE；索引 1 条|node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)|PASS|
 |IT-SEC-026|FR-027|异常|凭据库条目消失后可删除；写失败为 503（真实凭据库）|cmdkey 删除后 DELETE；3000 字节密钥|200 且引用清掉；503 CREDENTIAL_STORE_FAILED|node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)|PASS|
+|IT-ATS213-001|FR-027|安全|状态接口需要会话 token|无 X-ATS-Token|401|node --test|PASS|
+|IT-ATS213-002|FR-027|正常|状态清单经 HTTP 给出，每条恰有一个状态|GET /api/security/credentials/status|200；每条 status 落在三值闭集内、带原因码、指纹 8 位、无 secret 字段|node --test|PASS|
+|IT-ATS213-003|FR-027|正常|契约宣告状态词汇表|GET /api/security/contract|statuses 与 statusReasons 都在|node --test|PASS|
+|IT-ATS213-004|FR-027|异常|未知凭据 id 的状态被拒|GET /api/security/credentials/<未知 id>/status|404 CREDENTIAL_NOT_FOUND|node --test|PASS|
+|IT-ATS213-005|NFR-009|安全|畸形请求体不回显请求体内容（密钥片段泄漏的回归）|POST 一个 secret 未加引号的畸形 JSON|400 INVALID_REQUEST_BODY；响应里既无完整密钥也无其前 10 个字符|node --test|PASS|
+|IT-ATS213-006|FR-027|正常|存入凭据后状态清单保持一致（真实系统凭据库）|POST 存入 → 查状态 → DELETE|201 时状态读 configured，删除后清单为空；凭据库不可用时 POST 为 503 CREDENTIAL_STORE_UNAVAILABLE（两种结果都确定）|node --test（真实 Windows Credential Manager）|PASS|
+|IT-ATS213-007|NFR-009|安全|密钥不进本机任何可读文件|存入一个带标记的密钥后扫描数据目录|数据目录里没有任何文件含该密钥；状态清单也不含|node --test（真实 Windows Credential Manager）|PASS|
 
 ## 进入与退出条件
 

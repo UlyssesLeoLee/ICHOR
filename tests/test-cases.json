@@ -7777,6 +7777,138 @@
     "level": "UT"
   },
   {
+    "id": "UT-ATS213-001",
+    "req": "FR-027",
+    "category": "正常",
+    "title": "状态词汇表是三值闭集",
+    "input": "CREDENTIAL_STATUSES / CREDENTIAL_STATUS_REASONS",
+    "expected": "恰为 configured / not-configured / unavailable 与 4 个原因码；没有「未知」这个状态",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-ATS213-002",
+    "req": "FR-027",
+    "category": "正常",
+    "title": "已存入的凭据读回为 configured",
+    "input": "注入的内存凭据库",
+    "expected": "status=configured、reason=CREDENTIAL_FOUND、带 checkedAt",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-ATS213-003",
+    "req": "FR-027",
+    "category": "安全",
+    "title": "状态里没有密钥也没有密钥片段",
+    "input": "注入的内存凭据库",
+    "expected": "序列化后不含密钥；无 secret 字段；指纹 8 位十六进制",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-ATS213-004",
+    "req": "FR-027",
+    "category": "异常",
+    "title": "凭据库条目消失而索引仍留着引用 → not-configured",
+    "input": "从注入的凭据库里删掉条目",
+    "expected": "status=not-configured、reason=CREDENTIAL_NOT_FOUND；名称与指纹仍在（它们是索引的事实）",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-ATS213-005",
+    "req": "FR-027",
+    "category": "异常",
+    "title": "凭据库读不出来 → unavailable，不与 not-configured 合并",
+    "input": "读取抛 CREDENTIAL_STORE_FAILED",
+    "expected": "status=unavailable、reason=CREDENTIAL_STORE_FAILED",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-ATS213-006",
+    "req": "FR-027",
+    "category": "异常",
+    "title": "后端不可达 → unavailable + 自己的原因码",
+    "input": "available() 返回 false",
+    "expected": "status=unavailable、reason=CREDENTIAL_STORE_UNAVAILABLE",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-ATS213-007",
+    "req": "FR-027",
+    "category": "边界",
+    "title": "凭据库读回来是空的 → unavailable，不算 configured",
+    "input": "读回空字符串",
+    "expected": "status=unavailable、reason=CREDENTIAL_STORE_FAILED",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-ATS213-008",
+    "req": "FR-027",
+    "category": "异常",
+    "title": "未知 id 的状态被拒，不猜",
+    "input": "未知 id 与非法 id",
+    "expected": "均抛 CREDENTIAL_NOT_FOUND",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-ATS213-009",
+    "req": "FR-027",
+    "category": "正常",
+    "title": "每条引用恰有一个状态",
+    "input": "一条可用 + 一条条目已消失",
+    "expected": "两条都在列表里，各有一个落在闭集内的状态与原因码",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-ATS213-010",
+    "req": "FR-027",
+    "category": "边界",
+    "title": "一条坏的不让整个清单变成错误",
+    "input": "一条可读失败",
+    "expected": "两条都有状态；不是「全坏了」",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-ATS213-011",
+    "req": "FR-027",
+    "category": "正常",
+    "title": "状态词汇表进契约描述",
+    "input": "describeCredentialStore",
+    "expected": "statuses 与 statusReasons 都在契约里",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
+    "id": "UT-ATS213-012",
+    "req": "FR-027",
+    "category": "边界",
+    "title": "原因映射把「条目不在」与「读失败」分开",
+    "input": "各类 CREDENTIAL_* 错误与未知错误",
+    "expected": "NOT_FOUND / UNAVAILABLE 各自归位；未知错误归 CREDENTIAL_STORE_FAILED，绝不归「条目不在」",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
     "id": "IT-API-SETUP",
     "req": "NFR-011",
     "category": "正常",
@@ -9944,6 +10076,83 @@
     "level": "IT"
   },
   {
+    "id": "IT-ATS213-001",
+    "req": "FR-027",
+    "category": "安全",
+    "title": "状态接口需要会话 token",
+    "input": "无 X-ATS-Token",
+    "expected": "401",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-ATS213-002",
+    "req": "FR-027",
+    "category": "正常",
+    "title": "状态清单经 HTTP 给出，每条恰有一个状态",
+    "input": "GET /api/security/credentials/status",
+    "expected": "200；每条 status 落在三值闭集内、带原因码、指纹 8 位、无 secret 字段",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-ATS213-003",
+    "req": "FR-027",
+    "category": "正常",
+    "title": "契约宣告状态词汇表",
+    "input": "GET /api/security/contract",
+    "expected": "statuses 与 statusReasons 都在",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-ATS213-004",
+    "req": "FR-027",
+    "category": "异常",
+    "title": "未知凭据 id 的状态被拒",
+    "input": "GET /api/security/credentials/<未知 id>/status",
+    "expected": "404 CREDENTIAL_NOT_FOUND",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-ATS213-005",
+    "req": "NFR-009",
+    "category": "安全",
+    "title": "畸形请求体不回显请求体内容（密钥片段泄漏的回归）",
+    "input": "POST 一个 secret 未加引号的畸形 JSON",
+    "expected": "400 INVALID_REQUEST_BODY；响应里既无完整密钥也无其前 10 个字符",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-ATS213-006",
+    "req": "FR-027",
+    "category": "正常",
+    "title": "存入凭据后状态清单保持一致（真实系统凭据库）",
+    "input": "POST 存入 → 查状态 → DELETE",
+    "expected": "201 时状态读 configured，删除后清单为空；凭据库不可用时 POST 为 503 CREDENTIAL_STORE_UNAVAILABLE（两种结果都确定）",
+    "evidence": "node --test（真实 Windows Credential Manager）",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-ATS213-007",
+    "req": "NFR-009",
+    "category": "安全",
+    "title": "密钥不进本机任何可读文件",
+    "input": "存入一个带标记的密钥后扫描数据目录",
+    "expected": "数据目录里没有任何文件含该密钥；状态清单也不含",
+    "evidence": "node --test（真实 Windows Credential Manager）",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
     "id": "ST-001",
     "req": "FR-001",
     "category": "功能",
@@ -10502,6 +10711,50 @@
     "expected": "界面显示「定位不到」与原因，不给一条打不开的链接",
     "evidence": "tests/evidence-workbench.test.mjs（UT 覆盖；界面形态未单独 ST）",
     "status": "PASS（UT）",
+    "level": "ST"
+  },
+  {
+    "id": "ST-ATS213-001",
+    "req": "FR-027",
+    "category": "功能",
+    "title": "存入密钥后界面显示「已配置」",
+    "input": "真实 Bridge + 真实 Chromium + 真实 Windows Credential Manager",
+    "expected": "状态行显示「已配置」与「已从系统凭据库取回」",
+    "evidence": "node tools/ats213-probes/st-ats213.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-ATS213-002",
+    "req": "FR-027",
+    "category": "异常",
+    "title": "从系统凭据库删掉条目后界面显示「未配置」",
+    "input": "平台索引仍留着引用（分叉是真实存在的）",
+    "expected": "状态行显示「未配置」与「系统凭据库里没有这一条」——状态是测出来的，不从索引推断",
+    "evidence": "node tools/ats213-probes/st-ats213.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-ATS213-003",
+    "req": "NFR-009",
+    "category": "隐私",
+    "title": "界面上没有密钥明文",
+    "input": "页面正文与状态行",
+    "expected": "正文既不含完整密钥也不含其前 8 个字符；密钥输入框存入后被清空",
+    "evidence": "node tools/ats213-probes/st-ats213.mjs",
+    "status": "PASS",
+    "level": "ST"
+  },
+  {
+    "id": "ST-ATS213-004",
+    "req": "FR-027",
+    "category": "异常",
+    "title": "状态接口报出原因码而不是假装成功",
+    "input": "条目已被删除时的单条状态查询",
+    "expected": "status=not-configured、reason=CREDENTIAL_NOT_FOUND",
+    "evidence": "node tools/ats213-probes/st-ats213.mjs",
+    "status": "PASS",
     "level": "ST"
   }
 ]

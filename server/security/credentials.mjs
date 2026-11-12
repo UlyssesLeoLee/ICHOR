@@ -46,6 +46,58 @@ export const CREDENTIAL_ERROR_CODES = Object.freeze([
 export const CREDENTIAL_INDEX_FILE = 'credentials.json';
 
 /**
+ * ATS-213 ｜ 凭据的**可用状态**（credential status）
+ *
+ * 界面上要回答的问题是「这个密钥现在能不能用」，而不是「这个密钥是什么」。
+ * 因此状态是一个**封闭的三值**，每一条引用都恰好落在其中一个：
+ *
+ *   - `configured` —— 凭据库里能取回这个密钥；
+ *   - `not-configured` —— 这条引用在凭据库里**没有**对应的条目
+ *     （索引还在、条目没了；或者这一条根本还没存过）；
+ *   - `unavailable` —— 凭据库**本身**取不到（后端不可用、helper 失败、
+ *     条目存在但读不出来）。
+ *
+ * 三个值是**互相排斥**的，而且**每一条引用都有且只有一个**。没有第四个
+ * 「未知」：状态是**测出来的**，不是猜的——`not-configured` 与
+ * `unavailable` 的区别正是「条目不在」与「条目在但读不出来」，这两件事
+ * 对使用者的处置完全不同（前者要重新录入，后者是环境问题）。
+ *
+ * 状态里**不含密钥本体**，也不含密钥的任何片段：它只有状态、原因码与
+ * 指纹（8 位十六进制），指纹用来让人核对「是不是同一个密钥」，不能用来
+ * 还原密钥。
+ */
+export const CREDENTIAL_STATUSES = Object.freeze(['configured', 'not-configured', 'unavailable']);
+
+/**
+ * 状态的原因码。它是**封闭词汇表**：调用方按它分支，不解析消息文本。
+ *
+ *   - `CREDENTIAL_FOUND`        —— 条目在凭据库里，且读得出来；
+ *   - `CREDENTIAL_NOT_FOUND`    —— 条目不在凭据库里；
+ *   - `CREDENTIAL_STORE_UNAVAILABLE` —— 凭据库本身不可用；
+ *   - `CREDENTIAL_STORE_FAILED` —— 凭据库可用，但读这一条时失败。
+ */
+export const CREDENTIAL_STATUS_REASONS = Object.freeze([
+  'CREDENTIAL_FOUND',
+  'CREDENTIAL_NOT_FOUND',
+  'CREDENTIAL_STORE_UNAVAILABLE',
+  'CREDENTIAL_STORE_FAILED',
+]);
+
+/**
+ * 把后端抛出的错误归到「状态原因码」上。
+ *
+ * 与 `normalizeCredentialError()` 的区别是**粒度**：后者把错误规整成
+ * `CREDENTIAL_*` 的错误码（供调用方 `throw`），这一个把错误**分类**成
+ * 「条目不在」与「条目在但读不出来」——这两者对使用者是不同的事实。
+ */
+export function credentialStatusReasonOf(error) {
+  const normalized = normalizeCredentialError(error);
+  if (normalized.code === 'CREDENTIAL_NOT_FOUND') return 'CREDENTIAL_NOT_FOUND';
+  if (normalized.code === 'CREDENTIAL_STORE_UNAVAILABLE') return 'CREDENTIAL_STORE_UNAVAILABLE';
+  return 'CREDENTIAL_STORE_FAILED';
+}
+
+/**
  * 凭据引用的形状。
  *
  * 注意这里**没有** `secret` 字段：引用里**不可能**有秘密。`fingerprint`
@@ -350,6 +402,88 @@ export function createCredentialStore({ indexFile, backend } = {}) {
     return index.credentials.map(describeCredentialReference);
   }
 
+  /**
+   * ATS-213 ｜ 一条凭据的**可用状态**。
+   *
+   * 状态是**测出来的**：真的去凭据库里读一次，而不是从索引推断。索引只
+   * 说明「本机记着这个引用」，凭据库才说明「这个密钥现在还在不在」。两者
+   * 会分叉——用户在系统凭据管理器里删了条目，索引还留着引用；从索引推断
+   * 会报出一个「已配置」的假状态，而使用者在真正要用的时候才失败。
+   *
+   * **不静默降级**：读不出来就报出原因码，不吞异常、不假装成功。取失败
+   * 时状态是 `unavailable`，原因码说明是「条目不在」（`not-configured`）
+   * 还是「读不出来」（`unavailable`）——这两件事的处置完全不同。
+   *
+   * 状态里**没有密钥**，也**没有密钥的片段**：只回引用、状态、原因码与
+   * 指纹。指纹是索引里那 8 位十六进制（读不出来时它仍然可用——它记在索引
+   * 里，与凭据库无关），用途是让人核对「是不是同一个密钥」。
+   *
+   * @param {string} id  凭据 id
+   * @returns {Promise<{id,name,purpose,provider,fingerprint,status,reason,checkedAt}>}
+   */
+  async function status(id) {
+    if (!CREDENTIAL_ID.test(String(id))) {
+      const error = new Error('CREDENTIAL_NOT_FOUND');
+      error.code = 'CREDENTIAL_NOT_FOUND';
+      throw error;
+    }
+    const index = loadCredentialIndex(indexFile);
+    const entry = index.credentials.find((c) => c.id === id);
+    if (!entry) {
+      const error = new Error('CREDENTIAL_NOT_FOUND');
+      error.code = 'CREDENTIAL_NOT_FOUND';
+      throw error;
+    }
+    const base = {
+      id: entry.id,
+      name: entry.name,
+      purpose: entry.purpose,
+      provider: entry.provider,
+      fingerprint: entry.fingerprint,
+      checkedAt: now(),
+    };
+    // The backend itself may be missing (no OS credential store on this
+    // machine). That is NOT "not configured": the user may well have stored
+    // the secret, and the platform simply cannot reach the store right now.
+    let store;
+    try {
+      store = await requireBackend();
+    } catch {
+      return { ...base, status: 'unavailable', reason: 'CREDENTIAL_STORE_UNAVAILABLE' };
+    }
+    try {
+      const secret = await store.read(id);
+      if (typeof secret !== 'string' || !secret.length) {
+        // The store answered but handed back nothing usable. That is a
+        // failure of the READ, not a missing entry.
+        return { ...base, status: 'unavailable', reason: 'CREDENTIAL_STORE_FAILED' };
+      }
+      return { ...base, status: 'configured', reason: 'CREDENTIAL_FOUND' };
+    } catch (error) {
+      const reason = credentialStatusReasonOf(error);
+      if (reason === 'CREDENTIAL_NOT_FOUND') {
+        return { ...base, status: 'not-configured', reason };
+      }
+      return { ...base, status: 'unavailable', reason };
+    }
+  }
+
+  /**
+   * ATS-213 ｜ 全部凭据的可用状态。
+   *
+   * 每一条引用都有且只有一个状态。**一条失败不影响其它条**：每条的状态是
+   * 各自测出来的，因此一条读不出来的引用不会让整个清单变成一个错误——
+   * 否则界面上就看不到「哪一条坏了」，只能看到「全坏了」。
+   */
+  async function statusAll() {
+    const index = loadCredentialIndex(indexFile);
+    const out = [];
+    for (const entry of index.credentials) {
+      out.push(await status(entry.id));
+    }
+    return out;
+  }
+
   /** 按 id 读取引用。找不到抛 CREDENTIAL_NOT_FOUND。 */
   async function describe(id) {
     const index = loadCredentialIndex(indexFile);
@@ -508,6 +642,10 @@ export function createCredentialStore({ indexFile, backend } = {}) {
     put,
     resolve,
     remove,
+    /** ATS-213: the availability status of one credential. */
+    status,
+    /** ATS-213: the availability status of every credential. */
+    statusAll,
     /** 后端的可用性——界面上要显示「系统凭据库是否可用」。 */
     available: async () => {
       if (!resolvedBackend) return false;
@@ -531,6 +669,11 @@ export function describeCredentialStore(store) {
     provider: store.provider(),
     purposes: [...CREDENTIAL_PURPOSES],
     errorCodes: [...CREDENTIAL_ERROR_CODES],
+    // ATS-213: the status vocabulary and its reason codes are part of the
+    // CONTRACT, not an implementation detail: a caller must be able to
+    // branch on them without reading a message.
+    statuses: [...CREDENTIAL_STATUSES],
+    statusReasons: [...CREDENTIAL_STATUS_REASONS],
     note: 'Secrets live in the OS credential store. The index file holds references only; no secret is ever written to disk.',
   };
 }

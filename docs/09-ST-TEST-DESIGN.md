@@ -1,6 +1,6 @@
 # ATS-ST-001 システムテスト設計書
 
-> 设计总数：51；已执行通过：27；待执行/未实现：24。**PENDING 不是测试通过**。
+> 设计总数：55；已执行通过：31；待执行/未实现：24。**PENDING 不是测试通过**。
 
 系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。
 
@@ -59,6 +59,10 @@
 |ST-036|FR-015|异常|归档后被改动的附件|把 trace.zip 改掉后再查|校验报出 changed（应有与实际两个摘要）；工作台仍显示归档时的摘要，还原后重新一致|node tools/ats215-probes/st-ats215.mjs|PASS|
 |ST-037|FR-014|功能|两个界面共用同一份 Trace 定位实现|便携 UI 与 Next 工作台|两者显示同一个 Trace 文件、同一份摘要与同一个时间|node tools/ats215-probes/st-ats215.mjs|PASS|
 |ST-038|FR-014|异常|定位不到 Trace 的用例|没有 trace 的用例|界面显示「定位不到」与原因，不给一条打不开的链接|tests/evidence-workbench.test.mjs（UT 覆盖；界面形态未单独 ST）|PASS（UT）|
+|ST-ATS213-001|FR-027|功能|存入密钥后界面显示「已配置」|真实 Bridge + 真实 Chromium + 真实 Windows Credential Manager|状态行显示「已配置」与「已从系统凭据库取回」|node tools/ats213-probes/st-ats213.mjs|PASS|
+|ST-ATS213-002|FR-027|异常|从系统凭据库删掉条目后界面显示「未配置」|平台索引仍留着引用（分叉是真实存在的）|状态行显示「未配置」与「系统凭据库里没有这一条」——状态是测出来的，不从索引推断|node tools/ats213-probes/st-ats213.mjs|PASS|
+|ST-ATS213-003|NFR-009|隐私|界面上没有密钥明文|页面正文与状态行|正文既不含完整密钥也不含其前 8 个字符；密钥输入框存入后被清空|node tools/ats213-probes/st-ats213.mjs|PASS|
+|ST-ATS213-004|FR-027|异常|状态接口报出原因码而不是假装成功|条目已被删除时的单条状态查询|status=not-configured、reason=CREDENTIAL_NOT_FOUND|node tools/ats213-probes/st-ats213.mjs|PASS|
 
 ## 进入与退出条件
 
