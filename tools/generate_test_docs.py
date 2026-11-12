@@ -555,7 +555,7 @@ ST=[
 ('ST-019','NFR-006','性能','大仓库用例索引性能','500 tests / 100 files / SSD','目标 3 秒内（项目目标，待确认）','计时 log','PENDING'),
 ('ST-020','NFR-007','兼容性','三 OS 便携 UI','Windows/macOS/Linux Node 22+','可启动并导入本地工程','测试记录','PENDING'),
 ('ST-021','FR-020','兼容性','Next.js 静态构建','npm install 后运行 next build','静态 out 目录，浏览器可用','CI build log','PENDING'),
-('ST-022','FR-020','兼容性','Tauri Windows 开发构建','Windows+Rust+WebView2','桌面窗口打开，bridge 连接成功','编译+运行记录','PENDING'),
+('ST-022','FR-020','兼容性','Tauri Windows 开发构建','Windows+Rust+WebView2','桌面窗口打开，bridge 连接成功','node tools/ats104-probes/st-ats104.mjs 结果（docs/evidence/ATS-104/）','PASS'),
 ('ST-023','NFR-009','隐私','数据不自动离开本地','操作工作台并抓包','未主动请求 AI/SaaS endpoints','网络流量','PENDING'),
 ('ST-024','NFR-011','运行维护','错误信息可用于故障定位','停掉 server、损坏 state、缺 browser','明确错误而非模拟成功','录屏与日志','PENDING'),
 ('ST-031','FR-027','隐私','密钥入库后不出现在本机可读文件','在真实 Windows 上存入密钥后扫描数据目录与凭据索引','秘密只存在于系统凭据库；索引只有引用与指纹','node tools/ats402-probes/ui-e2e.mjs 结果 + 截图 + trace（docs/evidence/ATS-402/ui/）','PASS'),
@@ -819,6 +819,22 @@ ST+=[
 ('ST-036','FR-015','异常','归档后被改动的附件','把 trace.zip 改掉后再查','校验报出 changed（应有与实际两个摘要）；工作台仍显示归档时的摘要，还原后重新一致','node tools/ats215-probes/st-ats215.mjs','PASS'),
 ('ST-037','FR-014','功能','两个界面共用同一份 Trace 定位实现','便携 UI 与 Next 工作台','两者显示同一个 Trace 文件、同一份摘要与同一个时间','node tools/ats215-probes/st-ats215.mjs','PASS'),
 ('ST-038','FR-014','异常','定位不到 Trace 的用例','没有 trace 的用例','界面显示「定位不到」与原因，不给一条打不开的链接','tests/evidence-workbench.test.mjs（UT 覆盖；界面形态未单独 ST）','PASS（UT）'),
+]
+
+# --- ATS-104: the Tauri 2 Windows desktop shell ---
+#
+# ST-022 is the acceptance criterion of ATS-104 itself:
+#   「Windows 实机完成 cargo tauri dev；关闭窗口后无孤儿窗口」
+# The probe drives the REAL shell: `cargo tauri dev` starts the desktop
+# shell, the WebView2 runtime loads the page, the Bridge the shell spawns
+# answers on the loopback port, and the window is closed FOR REAL (a
+# WM_CLOSE to the main window -- the same message the X button sends) and
+# the process tree is then observed.
+#
+# ST-046 is the probe's self-check, not product coverage: it establishes
+# that the orphan check has teeth, so it carries the 关联要件 column `TOOL`.
+ST+=[
+('ST-046','TOOL','可靠性','孤儿检查非恒真（产品变异负控）','在产品源码副本上移除 RunEvent::Exit 里结束 Bridge 的那一段，使关窗后子进程存活','探针在孤儿检查上失败并点名存活进程；未变异的产品仍通过','node tools/ats104-probes/st-ats104.mjs（负控段由 tools/ats104-probes/collect-evidence.sh 驱动）','PASS'),
 ]
 
 # --- ATS-601: the mobile target and session contract ---

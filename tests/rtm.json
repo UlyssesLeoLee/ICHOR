@@ -182,7 +182,7 @@
   {
     "requirement": "TOOL",
     "design": "工具自检（不计入要件覆盖）",
-    "tests": "ST-042、ST-043、ST-044、ST-045",
+    "tests": "ST-042、ST-043、ST-044、ST-045、ST-046",
     "status": "SELF-CHECK"
   },
   {

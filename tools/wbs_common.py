@@ -41,7 +41,7 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-106】', '【ATS-107】', '【ATS-111】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-104】', '【ATS-106】', '【ATS-107】', '【ATS-111】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
            '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-213】', '【ATS-214】', '【ATS-215】', '【ATS-216】',
            '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-403】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
            '【ATS-601】', '【ATS-602】', '【ATS-603】', '【ATS-606】')
@@ -70,14 +70,18 @@ NARRATIVE = {
         # old "the real browser ST was never executed" claim is no longer
         # true. The cell is rebuilt from the base and every task's fragment,
         # so the old sentence simply stops being part of the base.
+        #
+        # ATS-104 then built the Tauri shell on a real Windows machine, so
+        # the "Tauri Windows 编译未通过" sentence is no longer true either
+        # and stops being part of the base for the same reason.
         'base': '真实浏览器 Playwright ST 已开始实测（B-01 已由 ATS-106 修复，'
-                'ATS-107 起在真实 Chromium 上执行）；'
-                'Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、'
-                '仓库缺 icons/icon.ico，且成因清单尚未穷尽）',
+                'ATS-107 起在真实 Chromium 上执行）',
         'stale': (
             'CI workflow 未在真实 runner 上跑过（ATS-102）',
             '详见 docs/16-BASELINE-ADR.md、docs/17-BUILD-CI.md 与 docs/17-AGENT-CONTRACT.md。',
             '详见 docs/16-BASELINE-ADR.md。',
+            'Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、'
+            '仓库缺 icons/icon.ico，且成因清单尚未穷尽）',
         ),
     },
 }
@@ -99,6 +103,14 @@ NARRATIVE_FRAGMENTS = {
               '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112；'
               'Bridge 静态路由只覆盖 /，目录索引与 404 未实现；'
               '详见 docs/22-FRONTEND-EXPORT.md',
+    },
+    '【ATS-104】': {
+        'D6': 'Tauri 2 Windows dev build 已实测通过（ATS-104：cargo tauri dev 起桌面壳，'
+              'WebView2 加载页面，Bridge 应答，关窗后无孤儿进程与孤儿窗口）',
+        'D7': 'msvc 链的最终链接未在本机验证（本机无 MSVC C++ 构建工具工作负载），'
+              '结论建立在 gnu 链实机结果上；macOS/Linux 的桌面壳未实测；'
+              'Bridge 的 node 不可用时 spawn().ok() 静默失败（属 ATS-105）；'
+              '详见 docs/16-BASELINE-ADR.md §4 B-02',
     },
     '【ATS-401】': {
         'D6': 'Agent 契约层已实现',

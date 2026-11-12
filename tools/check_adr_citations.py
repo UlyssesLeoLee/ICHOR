@@ -112,7 +112,7 @@ EXPECTED = {
     # The crate-type declaration. It is NOT a port reference, so the ATS-101
     # port audit does NOT cover it -- this script checks it itself.
     'src-tauri/Cargo.toml': {
-        11: 'crate-type = ["staticlib", "cdylib", "rlib"]',
+        21: 'crate-type = ["staticlib", "rlib"]',
     },
     # The NON-runtime port mentions. The ATS-101 port audit only asserts that
     # these FILES are listed in 16 §3.1; it does not validate the positions
@@ -175,7 +175,7 @@ PORT_AUDITED = {
     'apps/studio/lib/api.ts': {74: 'the API base URL'},
     'apps/studio/app/page.tsx': {536: 'the workbench footer text'},
     'apps/studio/public/fallback.html': {14: 'the portable UI footer text'},
-    'src-tauri/src/lib.rs': {19: 'the ATS_PORT environment default'},
+    'src-tauri/src/lib.rs': {45: 'the ATS_PORT environment default'},
 }
 
 # A `path:line` reference. The path may contain slashes, dots, dashes and

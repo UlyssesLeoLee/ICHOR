@@ -130,7 +130,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    | 3 | `apps/studio/lib/api.ts:74` | API Base |
    | 4 | `apps/studio/app/page.tsx:536` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
    | 5 | `apps/studio/public/fallback.html:14` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
-   | 6 | `src-tauri/src/lib.rs:19` | `ATS_PORT` 环境变量默认值 |
+   | 6 | `src-tauri/src/lib.rs:45` | `ATS_PORT` 环境变量默认值 |
 
    另有 8 个文件**非运行时数据**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）、`tools/generate_test_docs.py:416,422,550`（`tests/test-cases.json` 的生成器，重新生成会把旧端口写回去）、`test-cases.xlsx`（3 处，测试用例输入数据）、`tools/update_wbs_ats216.py`（WBS 备注**文本**里的端口，值不生效）、
    文档类的端口提及另计，见下。
@@ -296,7 +296,7 @@ GNU_BUILD_EXIT=101
   **成因 4 的判定只来自 build 步骤**：`cargo check` 非 0 退出时，判定段只陈述 check 失败本身，不对成因 4 下结论——因此 check 失败与 build 的判定不会互相矛盾（`check-fails-ordinal` 形态即覆盖该组合）。
   **桩 cargo 实际能复现的只是前 3 类判定形态**（成因 4 / 其他链接错误 / 链接前失败）及其与 check 失败的组合——**第 4 类「cargo 无法启动」无法由桩产生**（桩一旦被调用，cargo 就已经启动了），该类用**不存在或不可执行的 `ATS_PROBE_CARGO` 路径**复现（如 `ATS_PROBE_CARGO=tools/ats101-probes/nope.sh` → 127、`ATS_PROBE_CARGO=README.md` → 126）；第 5 类由真实 cargo 的非 101 非 0 退出码产生。桩模式共 **7 个**（`ordinal` / `other-link` / `compile-error` / `check-fails` / `check-fails-ordinal` / `rustc-crash` / `ok`），**桩模式个数与判定形态个数不是一回事**。
 - **本项的准确口径**：`cargo check` 只做类型检查与元数据生成，**不链接最终产物**；因此 `cargo check` 退出码 0 **不能证明该 crate 可以链接**，也**不能证明「Rust 源码本身没有问题」**。
-- **成因 4**：`src-tauri/Cargo.toml:11` 声明 `crate-type = ["staticlib","cdylib","rlib"]`，cdylib 产物的导出符号数超过 PE 格式的导出序号上限 65535，链接器报 `export ordinal too large: 90774`。
+- **成因 4**：`src-tauri/Cargo.toml:21` 声明 `crate-type = ["staticlib","cdylib","rlib"]`，cdylib 产物的导出符号数超过 PE 格式的导出序号上限 65535，链接器报 `export ordinal too large: 90774`。
 - **成因清单状态**：已定位成因 (1) msvc 链缺 MSVC C++ 工作负载、(2) 仓库缺 `icons/icon.ico`、(3) gnu 链编译器/运行时不匹配、(4) gnu 链 cdylib 导出序号超限。
   **该清单不视为穷尽**：msvc 链的**最终链接**在本机无法验证（无 MSVC 工具链），msvc 链 `cargo build` 通过之前不能断言「修完这 4 项即可出包」。
 - **注意**：该 `.ico` 仅为本次探针的构建产物，**只删除本次运行自己生成的那一个**；若 `.ico` 预先存在（例如 ATS-104 把它补进仓库之后），脚本保留它并在输出中注明，不会删除受版本控制的产品资产。是否补入图标属 ATS-104 的范围。
@@ -308,6 +308,25 @@ GNU_BUILD_EXIT=101
   3. gnu 链非 Tauri Windows 的目标工具链，修复优先级低于 msvc 链；
   4. **验收必须以 `cargo build`（含最终链接）为准，不能以 `cargo check` 为准**；若 msvc 链同样暴露 cdylib 导出序号问题，需调整 `crate-type`（如仅保留 `staticlib`+`rlib`）或裁剪导出符号。
   > 以上是**已知的必要条件**，不是**充分条件**：成因清单尚未穷尽（§4 B-02）。
+
+**ATS-104 的实测结论（gnu 链，Windows 11 实机）**
+
+ATS-104 在本机用 **gnu 链**（`stable-x86_64-pc-windows-gnu` + MSYS2 的 MinGW GCC 16.1.0）把上述成因 2 与成因 4 修掉，并把成因 1 的**替代路径**走通：
+
+| 成因 | 处理 | 结果 |
+|---|---|---|
+| (2) 仓库缺 `icons/icon.ico` | 把 `src-tauri/icons/icon.ico` **补进仓库**（由 `256x256.png` 转出的多尺寸 PE 图标） | `tauri-build` 的 Windows 资源编译通过 |
+| (4) cdylib 导出序号超限 | `src-tauri/Cargo.toml` 的 `crate-type` 去掉 `cdylib`，只留 `staticlib` + `rlib` | 最终链接通过，产出 `ai-test-studio.exe` |
+| (1) msvc 链缺 MSVC 工作负载 | **未修复（本机装不了）**，改走 gnu 链 | gnu 链 `cargo build` 退出码 0 |
+| (3) gnu 链编译器/运行时不匹配 | PATH 上把 MSYS2 的 `x86_64-w64-mingw32-gcc` 排在 LLVM-MinGW 之前 | 链接期不再报 `-lgcc_eh` 缺失 |
+
+**实测数字**：`cargo build` 退出码 0；`cargo tauri dev` 起桌面壳，窗口标题 `AI Test Studio` 约 7~14 秒出现；壳拉起的 Bridge 在回环端口应答 `GET /api/health` → 200；向主窗口发 `WM_CLOSE`（与用户点 X 同一条路径）后，**壳进程已退出、可见窗口数为 0、进程树中无残留成员、端口 3~4 毫秒内可重新绑定**。
+
+**另有一个与编译无关的运行期缺陷（B-02 之外的第五项，ATS-104 实测发现并修复）**：壳原先只在 `Drop` 里杀 Bridge 子进程，而 **Windows 的窗口事件循环以 `std::process::exit` 收尾**（`tao-0.37.2` 的 `platform_impl/windows/event_loop.rs`），该路径**不运行任何析构函数**——于是「Drop 会杀子进程」是对代码的声明，不是对机器的观察：实测关窗后 `node` 子进程存活、端口仍被占。修法是在 Tauri 的 `RunEvent::Exit`（窗口事件循环销毁前投递）里显式结束并等待 Bridge 子进程。
+
+**边界（本机未能验证的部分）**：msvc 链的**最终链接**仍未在本机验证（本机无 MSVC C++ 构建工具工作负载），因此 **B-02 的成因清单在 msvc 链 `cargo build` 通过之前仍不视为穷尽**；上表的结论建立在 gnu 链实机结果上。macOS/Linux 的桌面壳亦未实测。
+
+**证据**：`docs/evidence/ATS-104/`（构建日志、ST-022 探针输出、负控）；复现脚本 `tools/ats104-probes/collect-evidence.sh`，探针 `tools/ats104-probes/st-ats104.mjs`。
 
 ### B-03（严重 / P0）重启后 Run 卡在 `cancelling`，永久占用同项目运行锁且 API 无法解除
 
