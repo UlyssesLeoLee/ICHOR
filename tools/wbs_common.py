@@ -237,9 +237,14 @@ NARRATIVE_FRAGMENTS = {
     },
     '【ATS-606】': {
         'D6': 'iOS 支持范围与 Maestro 兼容性边界已冻结（ATS-606：逐类步骤的 iOS 支持范围、'
-              'Maestro 命令逐条兼容性判定与不承诺清单；未做 iOS 实测）',
-        'D7': '移动端执行面仍无任何实现（ATS-606 只交付设计与边界；'
-              'iOS 真机路径按能力分层，真实 Android 冒烟属 ATS-603）；'
+              'Maestro 命令逐条兼容性判定与不承诺清单；§8.5 的导入器行为与参数保真由'
+              '逐条实跑导入器得出并由脚本生成、复核脚本逐格比对；未做 iOS 实测）',
+        'D7': 'iOS 真实执行属本阶段 OUT（ATS-606 只交付设计与边界冻结：'
+              '§8.4 写的是以 Maestro 2.12.1 为参照的可行性，本平台没有 iOS Runner，'
+              '仓库内无任何 iOS 实现）；'
+              'iOS 真机路径另有三条硬前提（需 Apple team ID 签名构建 driver-iphoneos、'
+              'runner 经 devicectl 装到设备、宿主到设备的 127.0.0.1:22087 可达性未验证），'
+              '且与 local-device 契约冲突（平台不接管真机安装与配对）；'
               '详见 docs/25-MOBILE-APP-TESTING.md',
     },
     '【ATS-203】': {

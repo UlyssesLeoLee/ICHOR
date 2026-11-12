@@ -1,33 +1,53 @@
 /**
- * ATS-606: the Maestro command inventory, established BEHAVIOURALLY.
+ * ATS-606: the Maestro command inventory (BEHAVIOURAL), the platform's
+ * import behaviour (MEASURED), and the compatibility table in
+ * docs/25-MOBILE-APP-TESTING.md §8.5.
  *
- * The official documentation lists 48 commands on its "Commands available"
- * index page. That list is a page of prose, and a prose list drifts. This
- * probe does not trust it: it asks MAESTRO ITSELF whether each command is a
- * real command, by running `maestro check-syntax` on a minimal Flow that uses
- * it. A command Maestro accepts is a command; one it rejects with
- * "Invalid Command" is not.
+ * WHAT THIS PROBE CHECKS
+ * ----------------------
+ * 1. THE INVENTORY. The official documentation lists 48 commands on its
+ *    "Commands available" index page. That list is a page of prose, and a
+ *    prose list drifts. This probe does not trust it: it asks MAESTRO ITSELF
+ *    whether each command is a real command, by running `maestro
+ *    check-syntax` on a minimal Flow that uses it. A command Maestro
+ *    accepts is a command; one it rejects with "Invalid Command" is not.
  *
- * Two negative controls are included on purpose. Without them, a probe that
- * accepted everything would look identical to a probe that works. The
- * controls are two spellings that are NOT commands (`notARealCommand`, and
- * `tapon` -- Maestro's commands are camelCase, and `tapOn` is the real one).
- * If the probe ever reports a control as a command, the probe is broken and
- * says so.
+ *    Two negative controls are included on purpose. Without them, a probe
+ *    that accepted everything would look identical to a probe that works.
+ *    The controls are two spellings that are NOT commands (`notARealCommand`,
+ *    and `tapon` -- Maestro's commands are camelCase, and `tapOn` is the
+ *    real one). If the probe ever reports a control as a command, the probe
+ *    is broken and says so.
+ *
+ * 2. THE IMPORT BEHAVIOUR. For every one of the 55 fixtures, the probe runs
+ *    the platform's REAL importer (`parseFlow` + `importFlow` +
+ *    `buildImportReport` from ATS-602) and records what actually happened:
+ *    did the Maestro spelling become a platform step, or did it land in the
+ *    import report as an unsupported step? This is the fact that round 1 of
+ *    the review was about: the delivered table claimed 7 mappable commands
+ *    while the importer actually maps 4.
+ *
+ * 3. THE TABLE. The §8.5 table is compared against 1 and 2 cell by cell:
+ *    every command has a verdict, every verdict group is one of the three,
+ *    the "importer behaviour" cell states what the importer really does,
+ *    the parameter cell matches ATS-602's `STEP_ARGUMENTS`, and the stated
+ *    counts match both the table and the measurement.
+ *
+ * 4. THE NEGATIVE CONTROL FOR THE TABLE ITSELF. A probe that only ever
+ *    says OK is not evidence. `--self-test` deliberately corrupts the table
+ *    (moves a command into the wrong group and changes its importer cell)
+ *    and asserts that the checks then FAIL. If a corrupted table still
+ *    passes, the probe is broken and says so.
  *
  * WHY BEHAVIOURAL RATHER THAN BYTE-CODE: the byte-code inventory (the
  * `Yaml*Command` classes in maestro-orchestra.jar) is a second, independent
  * source, but it is derived from the same release. The behavioural check
  * asks the shipped parser, which is what a user actually hits.
  *
- * The command inventory is only HALF of ATS-606. The other half is the
- * platform's judgment: which of those commands the platform can map. That
- * judgment is checked here too -- the compatibility table lives in
- * docs/25-MOBILE-APP-TESTING.md §8.5, and this probe asserts that it covers
- * EVERY command the inventory found, that its counts add up, and that every
- * "mappable" verdict names a step kind that ATS-601 actually froze.
- *
- * usage: node tools/ats606-probes/probe-maestro-compat.mjs [--md docs/25-MOBILE-APP-TESTING.md]
+ * usage: node tools/ats606-probes/probe-maestro-compat.mjs [--md <file>] [--self-test]
+ * env:   ATS606_SKIP_MAESTRO=1  skip the 55 Maestro CLI invocations (the
+ *        table checks do not need them). The summary then says the
+ *        inventory was NOT verified -- a skip is never a pass.
  * exit:  0 all checks passed, 1 a check failed, 2 the probe could not run
  *        (no Maestro CLI / no Node) -- a skip is never reported as a pass.
  */
@@ -40,6 +60,8 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..');
 const FIXTURES = path.join(HERE, 'maestro-command-fixtures.json');
+
+const SELF_TEST = process.argv.includes('--self-test');
 
 /**
  * The Maestro CLI to interrogate, as a COMMAND plus its ARGV PREFIX.
@@ -86,14 +108,43 @@ function findMaestro() {
   return null;
 }
 
-const MAESTRO = findMaestro();
+/** The Maestro installation whose jars hold the command classes. */
+function findMaestroHome() {
+  const roots = [
+    process.env.ATS606_MAESTRO_HOME,
+    'D:/AI-Tools/Maestro',
+    path.join(os.homedir(), '.maestro'),
+    '/usr/local',
+    '/opt/homebrew',
+  ].filter(Boolean);
+  for (const r of roots) {
+    const lib = path.join(r, 'lib');
+    if (fs.existsSync(lib) && fs.existsSync(path.join(lib, 'maestro-orchestra.jar'))) return lib;
+  }
+  return null;
+}
 
+const MAESTRO = findMaestro();
+const MAESTRO_HOME = findMaestroHome();
+
+/**
+ * Whether to skip the 55 Maestro CLI invocations.
+ *
+ * The inventory is the SLOW part of this probe (55 JVM starts, minutes).
+ * The table checks below do not need it -- they need the fixture list and
+ * the platform's own code. `ATS606_SKIP_MAESTRO=1` skips the CLI calls and
+ * takes the fixture list as the inventory.
+ *
+ * A run that skipped the CLI does NOT claim the inventory was verified:
+ * the summary says so, and the exit code still distinguishes the two.
+ */
+const SKIP_MAESTRO = process.env.ATS606_SKIP_MAESTRO === '1';
+
+const failures = [];
 function fail(msg) {
   console.log(`FAIL ${msg}`);
   failures.push(msg);
 }
-const failures = [];
-
 function ok(msg) {
   console.log(`ok   ${msg}`);
 }
@@ -153,22 +204,25 @@ function checkSyntax(body, retryOnce = false) {
   }
 }
 
-if (!MAESTRO) {
+if (!MAESTRO && !SKIP_MAESTRO) {
   console.log('SKIP no Maestro CLI found.');
   console.log('     Set ATS606_MAESTRO_BIN to the maestro executable to run this probe.');
   console.log('     The command inventory was NOT verified on this machine.');
   process.exit(2);
 }
 
-console.log(`=== ATS-606: the Maestro command inventory (behavioural) ===`);
-console.log(`maestro : ${MAESTRO.cmd}`);
+console.log('=== ATS-606: the Maestro command inventory (behavioural) ===');
+if (MAESTRO) console.log(`maestro : ${MAESTRO.cmd}`);
+else console.log('maestro : SKIPPED (ATS606_SKIP_MAESTRO=1) -- the inventory was NOT behaviourally verified in this run');
 let version = '(unknown)';
 try {
-  version = execFileSync(MAESTRO.cmd, [...MAESTRO.args, '--version'], {
-    encoding: 'utf8',
-    timeout: 120000,
-    shell: process.platform === 'win32' && MAESTRO.cmd.endsWith('.bat'),
-  }).trim();
+  if (MAESTRO) {
+    version = execFileSync(MAESTRO.cmd, [...MAESTRO.args, '--version'], {
+      encoding: 'utf8',
+      timeout: 120000,
+      shell: process.platform === 'win32' && MAESTRO.cmd.endsWith('.bat'),
+    }).trim();
+  }
 } catch {
   /* the version is nice to have, not a check */
 }
@@ -176,24 +230,36 @@ console.log(`version : ${version}`);
 console.log('');
 
 const inventory = new Map();
-for (const [name, body] of Object.entries(fixtures.commands)) {
-  const r = checkSyntax(body);
-  inventory.set(name, r.accepted);
-  const mark = r.accepted ? 'ok  ' : 'FAIL';
-  console.log(`${mark} command ${name.padEnd(24)} ${r.accepted ? 'accepted' : 'REJECTED'}`);
-  if (!r.accepted) console.log(`       ${r.output.split('\n')[0]}`);
+if (SKIP_MAESTRO) {
+  // The fixture list stands in for the inventory. The command names are
+  // the SAME list the behavioural check walks, so the table checks are
+  // unaffected; only the "these really are Maestro commands" claim is
+  // not made in this run.
+  for (const name of Object.keys(fixtures.commands)) inventory.set(name, true);
+} else {
+  for (const [name, body] of Object.entries(fixtures.commands)) {
+    const r = checkSyntax(body);
+    inventory.set(name, r.accepted);
+    const mark = r.accepted ? 'ok  ' : 'FAIL';
+    console.log(`${mark} command ${name.padEnd(24)} ${r.accepted ? 'accepted' : 'REJECTED'}`);
+    if (!r.accepted) console.log(`       ${r.output.split('\n')[0]}`);
+  }
 }
 
 console.log('');
 console.log('--- negative controls (these MUST be rejected) ---');
-for (const [name, body] of Object.entries(fixtures.negativeControls)) {
-  if (name.startsWith('_')) continue;
-  const r = checkSyntax(body);
-  if (r.accepted) {
-    fail(`negative control "${name}" was ACCEPTED by Maestro -- the check cannot tell a real command from a typo`);
-  } else {
-    ok(`negative control "${name}" rejected as expected`);
+if (!SKIP_MAESTRO) {
+  for (const [name, body] of Object.entries(fixtures.negativeControls)) {
+    if (name.startsWith('_')) continue;
+    const r = checkSyntax(body);
+    if (r.accepted) {
+      fail(`negative control "${name}" was ACCEPTED by Maestro -- the check cannot tell a real command from a typo`);
+    } else {
+      ok(`negative control "${name}" rejected as expected`);
+    }
   }
+} else {
+  console.log('     SKIPPED (ATS606_SKIP_MAESTRO=1)');
 }
 
 const accepted = [...inventory.entries()].filter(([, v]) => v).map(([k]) => k).sort();
@@ -206,7 +272,124 @@ if (rejected.length) {
 }
 
 /* ------------------------------------------------------------------ */
-/* 2. The compatibility table in docs/25 §8.5                          */
+/* 2. The platform's REAL import behaviour, per command                */
+/* ------------------------------------------------------------------ */
+
+const { parseFlow } = await import(new URL('../../server/discovery/mobile-flow.mjs', import.meta.url).href);
+const { importFlow, buildImportReport, STEP_ARGUMENTS } = await import(
+  new URL('../../server/discovery/mobile-import.mjs', import.meta.url).href,
+);
+
+console.log('');
+console.log('--- the platform importer, run over every fixture ---');
+
+/** The measured behaviour of the importer for one command. */
+const behaviour = {};
+for (const [name, body] of Object.entries(fixtures.commands)) {
+  const text = `${HEADER}${body}\n`;
+  const flow = parseFlow(text, { syntax: 'maestro' });
+  const imported = importFlow(flow, { file: `flows/${name}.yaml`, projectUid: 'p1' });
+  const report = buildImportReport(imported);
+  const kinds = [...new Set((imported.cases ?? []).flatMap((c) => c.steps.map((s) => s.kind)))];
+  const reasons = Object.keys(report.unsupportedByReason ?? {});
+  behaviour[name] = {
+    mapped: report.mappedSteps > 0,
+    kinds,
+    reasons,
+    /** The cell the table must state for this command. */
+    cell: report.mappedSteps > 0
+      ? `映射成功 → \`${kinds.join('`/`')}\``
+      : `进导入报告：\`${reasons.join('+')}\``,
+  };
+}
+
+const measuredMapped = Object.values(behaviour).filter((b) => b.mapped).length;
+const measuredReported = Object.keys(behaviour).length - measuredMapped;
+console.log(`mapped=${measuredMapped} reported=${measuredReported} (measured by running the importer)`);
+
+/* ------------------------------------------------------------------ */
+/* 3. The Maestro parameter lists, read out of the byte-code           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The Maestro class that declares each command's parameters.
+ *
+ * The same table the row generator uses; the two must not drift, so the
+ * generator is the single source and this reads the SAME classes.
+ */
+const YAML_CLASS = {
+  launchApp: 'YamlLaunchApp',
+  takeScreenshot: 'YamlTakeScreenshot',
+  startRecording: 'YamlStartRecording',
+  stopRecording: 'YamlStopRecording',
+  clearState: 'YamlClearState',
+  killApp: 'YamlKillApp',
+  stopApp: 'YamlStopApp',
+  setPermissions: 'YamlSetPermissions',
+  extendedWaitUntil: 'YamlExtendedWaitUntil',
+  scrollUntilVisible: 'YamlScrollUntilVisible',
+  openLink: 'YamlOpenLink',
+  pressKey: 'YamlPressKey',
+  assertScreenshot: 'YamlAssertScreenshot',
+  setClipboard: 'YamlSetClipboard',
+  setLocation: 'YamlSetLocation',
+  addMedia: 'YamlAddMedia',
+  runScript: 'YamlRunScript',
+  evalScript: 'YamlEvalScript',
+  repeat: 'YamlRepeatCommand',
+  retry: 'YamlRetryCommand',
+  travel: 'YamlTravelCommand',
+  waitForAnimationToEnd: 'YamlWaitForAnimationToEndCommand',
+  runFlow: 'YamlRunFlow',
+  assertWithAI: 'YamlAssertWithAI',
+  setOrientation: 'YamlSetOrientation',
+  setAirplaneMode: 'YamlSetAirplaneMode',
+  setDarkMode: 'YamlSetDarkMode',
+  eraseText: 'YamlEraseText',
+  inputText: 'YamlInputText',
+  back: 'YamlActionBack',
+  hideKeyboard: 'YamlActionHideKeyboard',
+  pasteText: 'YamlActionPasteText',
+  clearKeychain: 'YamlActionClearKeychain',
+  scroll: 'YamlActionScroll',
+  swipe: 'YamlSwipe',
+};
+/** The element selector is shared by the tap / assert commands. */
+const SELECTOR_COMMANDS = ['tapOn', 'assertVisible', 'assertNotVisible', 'doubleTapOn', 'longPressOn', 'copyTextFrom'];
+
+const maestroParamsCache = new Map();
+/** The Maestro parameter names of a command, or null when unavailable. */
+function maestroParamsOf(command) {
+  if (maestroParamsCache.has(command)) return maestroParamsCache.get(command);
+  const cls = SELECTOR_COMMANDS.includes(command) ? 'YamlElementSelector' : YAML_CLASS[command];
+  if (!cls || !MAESTRO_HOME) {
+    maestroParamsCache.set(command, null);
+    return null;
+  }
+  let params = null;
+  try {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats606-params-'));
+    const target = path.join(dir, `${cls}.class`);
+    execFileSync('jar', ['xf', path.join(MAESTRO_HOME, 'maestro-orchestra.jar'), `maestro/orchestra/yaml/${cls}.class`], { cwd: dir, timeout: 120000 });
+    if (fs.existsSync(target)) {
+      const text = execFileSync('javap', ['-p', target], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+      params = text.split(/\r?\n/)
+        .filter((l) => /^\s{2}private final /.test(l))
+        .map((l) => /private final ([\w.$<>\[\], ?]+) (\w+);/.exec(l.trim()))
+        .filter(Boolean)
+        .map((m) => m[2])
+        .filter((p) => !['label', 'optional'].includes(p));
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {
+    params = null;
+  }
+  maestroParamsCache.set(command, params);
+  return params;
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. The compatibility table in docs/25 §8.5                           */
 /* ------------------------------------------------------------------ */
 
 const mdArgIndex = process.argv.indexOf('--md');
@@ -223,45 +406,93 @@ const md = fs.readFileSync(MD, 'utf8');
 console.log('');
 console.log('--- the compatibility table (docs/25 §8.5) ---');
 
-/**
- * Reads the §8.5 section out of the design document and extracts every
- * command the table mentions. The table is markdown, so the commands are
- * the backticked names in the command column of each sub-table.
- */
 const section = md.slice(md.indexOf('## 8. iOS'), md.indexOf('## 9. 安全与信任边界'));
 if (!section) fail('§8 of the design document is missing');
 
-/** The three verdict groups, by their heading. */
+/**
+ * The three verdict groups, by their heading.
+ *
+ * The heading order matters: "部分可映射" contains "可映射", so the
+ * partial group must be tested FIRST or every partial row would be
+ * counted as mappable.
+ *
+ * The heading must NAME the group and nothing else: §8.5.4's heading
+ * ("统计与「两个数字为什么不一样」") does not, but §8.5.4's BODY repeats
+ * the word "可映射", so a heading that merely CONTAINS the word would
+ * swallow §8.5.5's table as verdict rows. The three verdict headings
+ * are exactly "<group>（N 条）", so the pattern is anchored on that.
+ *
+ * A heading that names NONE of the three groups is NOT a verdict group
+ * (§8.5.4 and §8.5.5 carry the statistics and the conclusion). Such a
+ * heading yields `null` and its rows are skipped.
+ */
+const GROUP_HEADING = /^(部分可映射|可映射|不映射)（\d+ 条）$/;
 function groupOf(heading) {
-  if (/可映射/.test(heading) && !/部分可映射/.test(heading)) return 'mappable';
-  if (/部分可映射/.test(heading)) return 'partial';
+  const m = GROUP_HEADING.exec(heading.trim());
+  if (!m) return null;
+  if (m[1] === '部分可映射') return 'partial';
+  if (m[1] === '可映射') return 'mappable';
   return 'unmappable';
 }
 
 const verdicts = { mappable: [], partial: [], unmappable: [] };
-const groupRe = /####\s+8\.5\.(\d)\s+(.+)/g;
+const rowsByCommand = new Map();
+
+const groupRe = /####\s+8\.5\.\d\s+(.+)/g;
 let gm;
 const groups = [];
 while ((gm = groupRe.exec(section)) !== null) {
-  groups.push({ index: gm[1], title: gm[2], at: gm.index });
+  // The pattern has ONE capture group -- the heading text. `gm[2]` would
+  // be undefined, and every group would then be unrecognised (and so
+  // skipped), which would leave the table EMPTY rather than wrong.
+  groups.push({ index: gm[1], title: gm[1], at: gm.index });
 }
-groups.forEach((g, i) => {
-  const end = i + 1 < groups.length ? groups[i + 1].at : section.length;
+/**
+ * Where each group ENDS.
+ *
+ * A group's body runs to the next `####` heading of ANY kind -- not just
+ * the next verdict group. Otherwise the LAST verdict group would swallow
+ * §8.5.4 and §8.5.5, and their tables (which restate command names in a
+ * different shape) would be read as verdict rows.
+ */
+const anyHeadingRe = /^####\s+/gm;
+groups.forEach((g) => {
+  const rest = section.slice(g.at + 1);
+  // The regex is GLOBAL, so its lastIndex persists between calls -- it
+  // must be reset, or the second search starts where the first stopped
+  // and every group after the first gets the wrong body.
+  anyHeadingRe.lastIndex = 0;
+  const m = anyHeadingRe.exec(rest);
+  const end = m ? g.at + 1 + m.index : section.length;
   g.body = section.slice(g.at, end);
 });
 
+/**
+ * The command name in the first cell of a table row.
+ *
+ * The cell is trimmed, so it carries no trailing carriage return; the
+ * pattern anchors the closing backtick at the END of the cell.
+ */
+const COMMAND_CELL = /^`([A-Za-z][A-Za-z0-9]*)`$/;
+
 for (const g of groups) {
   const verdict = groupOf(g.title);
-  // The command column of a row may list SEVERAL commands separated by
-  // '/' -- the table groups the ones that share a reason. Every backticked
-  // name in that column counts, or a grouped row would count as one and
-  // the totals would not add up.
+  if (!verdict) continue;   // §8.5.4 / §8.5.5 are not verdict groups
   for (const line of g.body.split('\n')) {
-    const firstCell = /^\|(.*?)\|/.exec(line);
-    if (!firstCell) continue;
-    for (const m of firstCell[1].matchAll(/`([A-Za-z][A-Za-z0-9]*)`/g)) {
-      verdicts[verdict].push(m[1]);
-    }
+    if (!line.startsWith('|')) continue;
+    const cells = line.split('|').map((c) => c.trim());
+    if (cells.length < 6) continue;
+    // | command | platform kind | importer behaviour | parameter | note |
+    const name = COMMAND_CELL.exec(cells[1]);
+    if (!name) continue;
+    const command = name[1];
+    verdicts[verdict].push(command);
+    rowsByCommand.set(command, {
+      verdict,
+      kind: cells[2],
+      importer: cells[3],
+      parameter: cells[4],
+    });
   }
 }
 
@@ -269,6 +500,48 @@ const allVerdicts = [...verdicts.mappable, ...verdicts.partial, ...verdicts.unma
 const uniqVerdicts = [...new Set(allVerdicts)].sort();
 
 console.log(`table: mappable=${verdicts.mappable.length} partial=${verdicts.partial.length} unmappable=${verdicts.unmappable.length}`);
+
+// The table must not be EMPTY. A probe that finds no rows would otherwise
+// report "every accepted command has a verdict" over an empty set -- a
+// vacuous pass that looks exactly like a clean run.
+if (rowsByCommand.size === 0) {
+  fail('§8.5 contains NO parseable table rows -- the check would pass vacuously, so no verdict is reported');
+  console.log('COMPATIBILITY TABLE: FAIL (the table could not be read)');
+  process.exit(1);
+}
+if (rowsByCommand.size !== Object.keys(fixtures.commands).length) {
+  fail(`the table holds ${rowsByCommand.size} rows but the inventory has ${Object.keys(fixtures.commands).length} commands -- some rows are unreadable`);
+}
+
+// The table must be the GENERATED table, byte for byte. The generator is
+// what measures the importer behaviour and the parameters; a hand-edited
+// row would silently become a claim nobody measured.
+{
+  const generator = path.join(HERE, 'gen-section-rows.mjs');
+  const gen = spawnSync(process.execPath, [generator, REPO], { encoding: 'utf8', timeout: 300000 });
+  if (gen.error || gen.status !== 0) {
+    fail(`the row generator could not be run (${gen.error?.message ?? `exit ${gen.status}`}) -- the table is NOT verified against the measurement`);
+  } else {
+    // Only the three VERDICT GROUPS are compared: §8.5.4 and §8.5.5
+    // carry the statistics and the conclusion, and their tables restate
+    // command names in a different shape.
+    const s85 = groups.filter((g) => groupOf(g.title)).map((g) => g.body).join('\n');
+    const isInventoryRow = (l) => {
+      const m = /^\| `([A-Za-z][A-Za-z0-9]*)`/.exec(l);
+      return m ? Object.prototype.hasOwnProperty.call(fixtures.commands, m[1]) : false;
+    };
+    const genSet = gen.stdout.split(/\r?\n/).filter((l) => l.startsWith('| `') && isInventoryRow(l)).map((l) => l.trim());
+    const docSet = s85.split(/\r?\n/).filter((l) => l.startsWith('| `') && isInventoryRow(l)).map((l) => l.trim());
+    const onlyGen = genSet.filter((l) => !docSet.includes(l));
+    const onlyDoc = docSet.filter((l) => !genSet.includes(l));
+    if (onlyGen.length || onlyDoc.length) {
+      for (const l of onlyGen) fail(`the generator produces a row the document does not have: ${l.slice(0, 120)}`);
+      for (const l of onlyDoc) fail(`the document has a row the generator does not produce (it was hand-edited): ${l.slice(0, 120)}`);
+    } else {
+      ok(`the §8.5 rows are exactly the generated rows (${docSet.length}) -- the table was not hand-edited`);
+    }
+  }
+}
 
 // Every command the inventory found must have a verdict.
 const missingVerdict = accepted.filter((c) => !uniqVerdicts.includes(c));
@@ -291,7 +564,7 @@ const unexplained = rejected.filter((c) => !uniqVerdicts.includes(c));
 if (unexplained.length) {
   fail(`these commands were REJECTED by Maestro but §8.5 does not mention them: ${unexplained.join(', ')}`);
 } else {
-  ok(`every rejected spelling is accounted for in §8.5`);
+  ok('every rejected spelling is accounted for in §8.5');
 }
 
 // The counts the document states must match the table.
@@ -310,6 +583,85 @@ if (!stated) {
   }
 }
 
+// The counts must ALSO match the measurement -- this is the check that
+// catches "the table says 7 are mappable while the importer maps 4".
+const statedImport = /映射成功\s*(\d+)\s*条\s*\/\s*进导入报告\s*(\d+)\s*条/.exec(section);
+if (!statedImport) {
+  fail('§8.5 does not state the importer counts in the form "映射成功 N 条 / 进导入报告 N 条"');
+} else {
+  const s = Number(statedImport[1]);
+  const r = Number(statedImport[2]);
+  if (s !== measuredMapped || r !== measuredReported) {
+    fail(`§8.5 states 映射成功 ${s} / 进导入报告 ${r}, but the importer really does 映射成功 ${measuredMapped} / 进导入报告 ${measuredReported}`);
+  } else {
+    ok(`the stated importer counts (${s}/${r}) match the measured behaviour`);
+  }
+}
+
+// EVERY ROW must state the importer behaviour the importer really has.
+// This is the cell-by-cell check of the table against the measurement.
+const wrongImporter = [];
+for (const [command, row] of rowsByCommand) {
+  const b = behaviour[command];
+  if (!b) continue;
+  if (row.importer.replace(/\s+/g, '') !== b.cell.replace(/\s+/g, '')) {
+    wrongImporter.push(`${command}: table says "${row.importer}", the importer does "${b.cell}"`);
+  }
+}
+if (wrongImporter.length) {
+  for (const w of wrongImporter) fail(w);
+} else {
+  ok(`every row states the importer behaviour the importer actually has (${rowsByCommand.size} rows)`);
+}
+
+// The parameter cell must match ATS-602's own argument table.
+//
+// What is checked: every parameter MAESTRO declares for the command (read
+// out of its byte-code) that is INSIDE the platform's model must be
+// mentioned in the cell, and every parameter the cell calls "模型外" must
+// really be outside.
+//
+// The platform's ALIASES (e.g. `package` / `packageName` / `bundleId` for
+// `appId`) are NOT required to appear: Maestro does not declare them, so
+// requiring them would make the cell describe the platform's vocabulary
+// rather than the parameter fidelity.
+const paramProblems = [];
+for (const [command, row] of rowsByCommand) {
+  const kind = row.kind.replace(/`/g, '').split(' ')[0].split('+')[0].trim();
+  const spec = STEP_ARGUMENTS[kind];
+  if (!spec) continue;
+  const inModel = new Set([
+    spec.primary,
+    ...(spec.required ?? []),
+    ...(spec.requiredAny ?? []).flat(),
+    ...(spec.optional ?? []),
+  ]);
+  // The Maestro parameter names that the platform's model covers.
+  const maestroParams = maestroParamsOf(command);
+  if (!maestroParams) continue;
+  for (const p of maestroParams) {
+    if (!inModel.has(p)) continue;
+    if (row.parameter === '—') continue;
+    if (!row.parameter.includes(p) && !row.parameter.includes('全部在模型内')) {
+      paramProblems.push(`${command}: the cell does not mention the in-model parameter "${p}"`);
+    }
+  }
+  // And the reverse: a parameter the cell calls "模型外" must really be outside.
+  const outClaims = [...row.parameter.matchAll(/模型外[^：]*：([^（]+)/g)];
+  for (const m of outClaims) {
+    for (const p of m[1].split('/').map((x) => x.trim().replace(/`/g, ''))) {
+      if (p && inModel.has(p)) {
+        paramProblems.push(`${command}: the cell calls "${p}" outside the model, but STEP_ARGUMENTS has it`);
+      }
+    }
+  }
+}
+if (paramProblems.length) {
+  for (const p of paramProblems) fail(p);
+} else {
+  ok('every parameter cell matches STEP_ARGUMENTS');
+}
+
 // Every "mappable" verdict must name a step kind ATS-601 actually froze.
 const stepKinds = readStepKinds();
 console.log('');
@@ -319,21 +671,12 @@ if (!stepKinds) {
 } else {
   console.log(`ATS-601 step kinds: ${stepKinds.join(', ')}`);
   const badTargets = [];
-  for (const line of verdicts.mappable.map(() => null) ? [] : []) void line;
-  // A mappable row's second column is the platform's step kind. It must be
-  // one of the ATS-601 kinds, or an explicit "no such step".
-  for (const g of groups.filter((x) => groupOf(x.title) === 'mappable')) {
-    for (const line of g.body.split('\n')) {
-      const cells = line.split('|').map((c) => c.trim());
-      if (cells.length < 3) continue;
-      const name = /^`([A-Za-z][A-Za-z0-9]*)$/.exec(cells[1]);
-      if (!name) continue;
-      const target = cells[2].replace(/`/g, '').trim();
-      if (target === '' || target === '—' || target.startsWith('不映射')) continue;
-      if (!stepKinds.includes(target)) {
-        badTargets.push(`${name[1]} -> ${target}`);
-      }
-    }
+  for (const command of verdicts.mappable) {
+    const row = rowsByCommand.get(command);
+    if (!row) continue;
+    const target = row.kind.replace(/`/g, '').split(' ')[0].split('+')[0].trim();
+    if (target === '' || target === '—') continue;
+    if (!stepKinds.includes(target)) badTargets.push(`${command} -> ${target}`);
   }
   if (badTargets.length) {
     fail(`these mappable rows name a step kind that ATS-601 does not freeze: ${badTargets.join(', ')}`);
@@ -355,11 +698,56 @@ function readStepKinds() {
   return [...m[1].matchAll(/^\s{2}([A-Za-z][A-Za-z0-9]*)\s*:/gm)].map((x) => x[1]);
 }
 
+/* ------------------------------------------------------------------ */
+/* 5. The negative control FOR THE TABLE ITSELF                        */
+/* ------------------------------------------------------------------ */
+
+if (SELF_TEST) {
+  console.log('');
+  console.log('--- self-test: a deliberately corrupted table MUST be rejected ---');
+
+  // Take the document, move one command into the wrong group and change
+  // its importer cell. The checks above must then fail.
+  const corrupted = md.replace(
+    '| `launchApp` | `launchApp` | 映射成功 → `launchApp` |',
+    '| `launchApp` | `assertVisible` | 映射成功 → `assertVisible` |',
+  );
+  if (corrupted === md) {
+    fail('the self-test could not corrupt the table -- the row format changed');
+  } else {
+    const tmp = path.join(os.tmpdir(), `ats606-corrupt-${process.pid}.md`);
+    fs.writeFileSync(tmp, corrupted, 'utf8');
+    const res = spawnSync(process.execPath, [path.join(HERE, 'probe-maestro-compat.mjs'), '--md', tmp], {
+      encoding: 'utf8',
+      timeout: 600000,
+      env: { ...process.env, ATS606_SKIP_MAESTRO: '1' },
+    });
+    fs.rmSync(tmp, { force: true });
+    const out = `${res.stdout ?? ''}${res.stderr ?? ''}`;
+    if (res.status === 0) {
+      fail('the self-test FAILED: a corrupted table still passed -- the probe cannot detect a wrong verdict');
+    } else if (!/FAIL/.test(out)) {
+      fail(`the self-test could not confirm WHY the corrupted table failed (exit ${res.status})`);
+    } else {
+      ok(`the self-test: a corrupted table was rejected (exit ${res.status})`);
+      const why = out.split('\n').filter((l) => l.startsWith('FAIL')).slice(0, 3);
+      for (const l of why) console.log(`     ${l}`);
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+
 console.log('');
 if (failures.length) {
   console.log(`COMPATIBILITY TABLE: FAIL (${failures.length} problem(s))`);
   process.exit(1);
 }
 console.log('COMPATIBILITY TABLE: OK');
-console.log(`MAESTRO COMMAND INVENTORY: OK (${accepted.length} commands)`);
+if (SELF_TEST) console.log('SELF-TEST: OK');
+if (SKIP_MAESTRO) {
+  console.log(`MAESTRO COMMAND INVENTORY: NOT VERIFIED (the CLI was skipped; ${accepted.length} fixture names used)`);
+} else {
+  console.log(`MAESTRO COMMAND INVENTORY: OK (${accepted.length} commands)`);
+}
 process.exit(0);
