@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：197；已执行通过：183；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：207；已执行通过：193；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -205,6 +205,16 @@
 |IT-SEC-024|FR-027|异常|未知项目或空输入的 /check 被拒并审计|未知 projectId；inputs=[]|400；审计各 +1|node --test|PASS|
 |IT-SEC-025|FR-027|安全|并发写凭据保持索引与凭据库一致（真实凭据库）|三个并发同名 POST|1 个 201、2 个 CREDENTIAL_DUPLICATE；索引 1 条|node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)|PASS|
 |IT-SEC-026|FR-027|异常|凭据库条目消失后可删除；写失败为 503（真实凭据库）|cmdkey 删除后 DELETE；3000 字节密钥|200 且引用清掉；503 CREDENTIAL_STORE_FAILED|node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)|PASS|
+|IT-ATS214-001|FR-005|正常|静态索引携带它从源码读出的标签|未可信项目，6 条用例的夹具|每个用例的 tags 与源码里的 details 对象一致；无标签的用例不带该字段|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-002|FR-021|正常|权威索引携带 CLI 自己的标签|授予信任后重读同一项目|discovery=authoritative、outcome=OK、CLI 1.64.1；标签与 CLI 报告一致|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-003|FR-021|边界|两个索引对同一用例的标签一致|同一夹具，静态与权威两套索引|逐条用例比对，两个索引的标签集合相同|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-010|FR-021|异常|目录不认识的 UID 被拒绝而非跳过|selection 里放一个不存在的 UID|400 SELECTION_UNKNOWN_CASE，响应带 unknown 数组|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-011|FR-021|异常|空选择被拒绝|selection=[]|400 SELECTION_EMPTY|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-012|FR-021|异常|不是数组的选择被拒绝|selection='u1'|400 SELECTION_NOT_AN_ARRAY|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-013|FR-010|安全|ATS-106 的请求白名单未被削弱|run 请求里放 grep|400 RUN_PARAMETER_NOT_ALLOWED，rejected=['grep']|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-020|FR-021|正常|单文件选择成为带选择集合的运行|选中登录文件的全部用例|202；运行带 selection/selectionUids；快照自带 file/title/line；run.file 等于该文件|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-021|FR-021|正常|跨文件选择成为按文件拆分的批次|每个文件选一条|202；批次记录 groups 为 2 组；run.batchUid 与批次互指|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-022|FR-021|正常|批次可按项目过滤|/api/batches?projectId=…|只返回该项目的批次|node --test tests/ats214-batch-run-api.test.mjs|PASS|
 
 ## 进入与退出条件
 

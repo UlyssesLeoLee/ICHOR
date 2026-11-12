@@ -1,0 +1,105 @@
+=== ATS-606 evidence: the import report over every Maestro command ===
+tree : 95f9c15d7edbd0274ecea303553bfbca42ecf12c
+date : 2026-11-12T12:22:02Z
+
+--- (a) a Flow written in Maestro syntax, imported end to end ---
+
+cases               : 1
+mapped steps        : 4
+reported steps      : 5
+mapped + reported   : 9
+the Flow declares  : 9 steps (4 mapped + 5 reported)
+every step accounted for : true
+unsupported by reason : {"unknown-command":5}
+warnings             : 0
+errors               : 0
+
+--- the import report ---
+导入报告：flows/login.yaml
+  语法          ：maestro
+  App           ：com.example.app
+  用例数        ：1
+  已映射步骤数  ：4
+  不支持步骤数  ：5
+  参数告警数    ：0
+  读取错误数    ：0
+
+不支持的步骤（保留原文，未静默丢弃）：
+  第 7 行：- inputText: "a@b.com"
+      原因：unknown-command — the command "inputText" names no action the unified mobile case model knows
+  第 9 行：- scroll
+      原因：unknown-command — the command "scroll" names no action the unified mobile case model knows
+  第 10 行：- swipe:
+      原因：unknown-command — the command "swipe" names no action the unified mobile case model knows
+  第 12 行：- evalScript: ${output.x = 1}
+      原因：unknown-command — the command "evalScript" names no action the unified mobile case model knows
+  第 14 行：- hideKeyboard
+      原因：unknown-command — the command "hideKeyboard" names no action the unified mobile case model knows
+
+--- (b) every one of the 55 Maestro commands, through the importer ---
+
+  addMedia                 REPORTED  -> line 3: unknown-command -- - addMedia: "./a.png"
+  assertDarkMode           REPORTED  -> line 3: unknown-command -- - assertDarkMode
+  assertLightMode          REPORTED  -> line 3: unknown-command -- - assertLightMode
+  assertNoDefectsWithAI    REPORTED  -> line 3: unknown-command -- - assertNoDefectsWithAI
+  assertNotVisible         REPORTED  -> line 3: unknown-command -- - assertNotVisible: "Welcome"
+  assertScreenshot         REPORTED  -> line 3: unknown-command -- - assertScreenshot: "splash.png"
+  assertTrue               REPORTED  -> line 3: unknown-command -- - assertTrue: ${true}
+  assertVisible            MAPPED    -> assertVisible
+  assertWithAI             REPORTED  -> line 3: unknown-command -- - assertWithAI:
+  back                     REPORTED  -> line 3: unknown-command -- - back
+  clearKeychain            REPORTED  -> line 3: unknown-command -- - clearKeychain
+  clearState               REPORTED  -> line 3: unknown-command -- - clearState
+  copyTextFrom             REPORTED  -> line 3: unknown-command -- - copyTextFrom: "Welcome"
+  doubleTapOn              REPORTED  -> line 3: unknown-command -- - doubleTapOn: "Login"
+  eraseText                REPORTED  -> line 3: unknown-command -- - eraseText
+  evalScript               REPORTED  -> line 3: unknown-command -- - evalScript: ${output.x = 1}
+  extendedWaitUntil        REPORTED  -> line 3: unknown-command -- - extendedWaitUntil:
+  extractTextWithAI        REPORTED  -> line 3: unknown-command -- - extractTextWithAI: "the total"
+  hideKeyboard             REPORTED  -> line 3: unknown-command -- - hideKeyboard
+  inputText                REPORTED  -> line 3: unknown-command -- - inputText: "hello"
+  inputRandomCityName      REPORTED  -> line 3: unknown-command -- - inputRandomCityName
+  inputRandomColorName     REPORTED  -> line 3: unknown-command -- - inputRandomColorName
+  inputRandomCountryName   REPORTED  -> line 3: unknown-command -- - inputRandomCountryName
+  inputRandomEmail         REPORTED  -> line 3: unknown-command -- - inputRandomEmail
+  inputRandomNumber        REPORTED  -> line 3: unknown-command -- - inputRandomNumber
+  inputRandomPersonName    REPORTED  -> line 3: unknown-command -- - inputRandomPersonName
+  inputRandomText          REPORTED  -> line 3: unknown-command -- - inputRandomText
+  killApp                  REPORTED  -> line 3: unknown-command -- - killApp
+  launchApp                MAPPED    -> launchApp
+  longPressOn              REPORTED  -> line 3: unknown-command -- - longPressOn: "Login"
+  openLink                 REPORTED  -> line 3: unknown-command -- - openLink: "https://example.com"
+  pasteText                REPORTED  -> line 3: unknown-command -- - pasteText
+  pressKey                 REPORTED  -> line 3: unknown-command -- - pressKey: Home
+  repeat                   REPORTED  -> line 3: unknown-command -- - repeat:
+  retry                    REPORTED  -> line 3: unknown-command -- - retry:
+  runFlow                  REPORTED  -> line 3: unknown-command -- - runFlow: other.yaml
+  runScript                REPORTED  -> line 3: unknown-command -- - runScript: script.js
+  scroll                   REPORTED  -> line 3: unknown-command -- - scroll
+  scrollUntilVisible       REPORTED  -> line 3: unknown-command -- - scrollUntilVisible:
+  setAirplaneMode          REPORTED  -> line 3: unknown-command -- - setAirplaneMode: on
+  setClipboard             REPORTED  -> line 3: unknown-command -- - setClipboard: "text"
+  setDarkMode              REPORTED  -> line 3: unknown-command -- - setDarkMode: on
+  setLocation              REPORTED  -> line 3: unknown-command -- - setLocation:
+  setOrientation           REPORTED  -> line 3: unknown-command -- - setOrientation: LANDSCAPE_LEFT
+  setPermissions           REPORTED  -> line 3: unknown-command -- - setPermissions:
+  startRecording           REPORTED  -> line 3: unknown-command -- - startRecording: recording
+  stopApp                  REPORTED  -> line 3: unknown-command -- - stopApp
+  stopRecording            REPORTED  -> line 3: unknown-command -- - stopRecording
+  swipe                    REPORTED  -> line 3: unknown-command -- - swipe:
+  takeScreenshot           MAPPED    -> takeScreenshot
+  tapOn                    MAPPED    -> tapOn
+  toggleAirplaneMode       REPORTED  -> line 3: unknown-command -- - toggleAirplaneMode
+  toggleDarkMode           REPORTED  -> line 3: unknown-command -- - toggleDarkMode
+  travel                   REPORTED  -> line 3: unknown-command -- - travel:
+  waitForAnimationToEnd    REPORTED  -> line 3: unknown-command -- - waitForAnimationToEnd
+
+mapped   : 4
+reported : 51
+total    : 55
+by reason: {"unknown-command":51}
+
+The counts §8.5 states are: 可映射 4 / 部分可映射 3 / 不映射 48,
+and 映射成功 4 条 / 进导入报告 51 条.
+measured mapped   : 4 (must be 4)
+measured reported : 51 (must be 51)

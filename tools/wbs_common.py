@@ -41,8 +41,8 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-106】', '【ATS-107】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
-           '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-215】', '【ATS-216】',
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-106】', '【ATS-107】', '【ATS-111】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
+           '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-214】', '【ATS-215】', '【ATS-216】',
            '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-403】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
            '【ATS-601】', '【ATS-602】', '【ATS-603】', '【ATS-606】')
 
@@ -178,6 +178,11 @@ NARRATIVE_FRAGMENTS = {
               '跨运行并排对照目前只有模块能力与接口基础，界面未提供（P1）；'
               '详见 docs/29-EVIDENCE-WORKBENCH.md',
     },
+    '【ATS-111】': {
+        'D6': '工作台可用性已实现（ATS-111：四态可辨识、核心流程可纯键盘完成）',
+        'D7': 'ATS-111 只覆盖 Next 工作台，便携 UI 未同步；屏幕阅读器未实机验证；'
+              '详见 docs/05-UI-UX.md §4',
+    },
     '【ATS-216】': {
         'D6': '质量概览模块已实现（ATS-216：失败聚类/Flaky 基础指标，非 AI；'
               '失败/重试/取消分开计数，指标与原始结果可核对）',
@@ -237,9 +242,14 @@ NARRATIVE_FRAGMENTS = {
     },
     '【ATS-606】': {
         'D6': 'iOS 支持范围与 Maestro 兼容性边界已冻结（ATS-606：逐类步骤的 iOS 支持范围、'
-              'Maestro 命令逐条兼容性判定与不承诺清单；未做 iOS 实测）',
-        'D7': '移动端执行面仍无任何实现（ATS-606 只交付设计与边界；'
-              'iOS 真机路径按能力分层，真实 Android 冒烟属 ATS-603）；'
+              'Maestro 命令逐条兼容性判定与不承诺清单；§8.5 的导入器行为与参数保真由'
+              '逐条实跑导入器得出并由脚本生成、复核脚本逐格比对；未做 iOS 实测）',
+        'D7': 'iOS 真实执行属本阶段 OUT（ATS-606 只交付设计与边界冻结：'
+              '§8.4 写的是以 Maestro 2.12.1 为参照的可行性，本平台没有 iOS Runner，'
+              '仓库内无任何 iOS 实现）；'
+              'iOS 真机路径另有三条硬前提（需 Apple team ID 签名构建 driver-iphoneos、'
+              'runner 经 devicectl 装到设备、宿主到设备的 127.0.0.1:22087 可达性未验证），'
+              '且与 local-device 契约冲突（平台不接管真机安装与配对）；'
               '详见 docs/25-MOBILE-APP-TESTING.md',
     },
     '【ATS-203】': {

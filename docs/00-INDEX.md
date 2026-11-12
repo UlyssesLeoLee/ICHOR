@@ -27,6 +27,7 @@
 | 22-FRONTEND-EXPORT.md | 前端交付・検証 | ATS-103：Next.js 16 静态导出构建、Bridge 静态提供与 API 契约实测、实测证据与未验证项 |
 | 17-AGENT-CONTRACT.md | Agent 契約 | Agent 契约 v1：作用域、预算、输入出处、角色能力、提案与评审状态机、权限边界与实测证据 |
 | 18-UID-SPEC.md | 稳定 UID 规范 | Project/TestDefinition/Run/Attempt 的标识符规则、迁移脚本与已知边界 |
+| 32-CASE-SEARCH-SELECTION.md | 用例检索・标签・过滤・批量运行选择设计书 | ATS-214：按用例名/文件/标签检索；多标签的「任一/全部」口径与可见标注；搜索与过滤按**交集**（集合语义）叠加；标签进入目录（静态索引读源码、权威索引读 CLI，实测逐条一致）；选择集合的自含快照、未知 UID 拒绝、按文件分组的批次链；「选了什么/跑了什么」对账；实测证据与已知边界 |
 | 28-QUALITY-OVERVIEW.md | 质量概览设计书 | ATS-216：失败聚类/Flaky 基础指标（非 AI）；失败/重试/取消的分组、指标与原始结果的对账、确定性聚类与跨运行不稳定用例、两个界面共用一份实现、变异测试的可证伪性证据与已知边界 |
 | 24-EXECUTION-MODEL.md | 执行模型设计书 | ATS-208：Run/Test/Attempt 与事件序号统一模型；重试不覆盖初次尝试、事件可按 run+sequence 复演；修复前的实测缺陷与修复后的对照、状态机与复演的接口面、实测证据与已知边界 |
 | 23-AUTHORITATIVE-DISCOVERY.md | 权威发现设计书 | ATS-202：`playwright test --list` 权威索引、信任闸门（未可信仓库不可调用 `--list`）、身份阶梯、CLI 一致性的度量、实测证据与已知边界 |
@@ -42,7 +43,7 @@
 | 21-PLUGIN-CONTRACT.md | 插件契約 | ATS-512 插件契约 v1：插件 Manifest、封闭权限清单、宿主策略档位、Runner SDK 操作面、审计与证据边界、**宿主持有的权威提案记录**、文件与项目两层作用域、协议样例（ADR-024~028；契约层已实现，插件宿主与沙箱未实现） |
 | 23-AI-DATA-SECURITY.md | AI 数据安全 | ATS-402：AI API Key 存储与数据外传知情授权（系统凭据库 + 引用式落盘、preview→confirm→grant 三步授权、平台侧复算内容摘要、放行与拒绝都进外传审计、错误码与实测证据；模型提供商接入见 ATS-403） |
 | 30-MODEL-ADAPTER.md | 模型 API 适配层 | ATS-403：可替换模型 API 适配器与错误回退（两种兼容协议、协议/传输/提供商/回退/编排五层分离、稳定的 AI_* 错误码与表驱动状态映射、可配置的回退顺序、密钥只在发请求时从凭据库取、外传闸门前置、失败不污染工作区；**未用真实模型与真实密钥端到端验证**） |
-| 25-MOBILE-APP-TESTING.md | 移动端测试执行面 | S6 / v0.5.0：移动端目标抽象（设备/模拟器/远端会话）、Flow→TestDefinition 映射、Android Runner 与证据归档、能力矩阵与 iOS/Maestro 边界（ATS-601~606；ATS-601 的目标与会话**契约层**已实现并经 UT 实测，ATS-602 的导入映射层已实现并经 UT/IT 实测，ATS-606 的 iOS/Maestro 边界**已冻结并可机读复核**（§8 三张表 + 复核脚本），其余仍为 DESIGNED，仓库内无真实移动端执行） |
+| 25-MOBILE-APP-TESTING.md | 移动端测试执行面 | S6 / v0.5.0：移动端目标抽象（设备/模拟器/远端会话）、Flow→TestDefinition 映射、Android Runner 与证据归档、能力矩阵与 iOS/Maestro 边界（ATS-601~606；ATS-601 的目标与会话**契约层**已实现并经 UT 实测，ATS-602 的导入映射层已实现并经 UT/IT 实测，ATS-606 的 iOS/Maestro 边界**已冻结并可机读复核**（§8 三张表；§8.5 的导入器行为与参数保真由脚本生成、复核脚本逐格比对），其余仍为 DESIGNED，仓库内无真实移动端执行，**也没有 iOS Runner**） |
 | 26-RUNNER-PREFLIGHT.md | Runner 预检与参数安全基线 | ATS-106：Playwright CLI 运行前环境检测（CLI/版本/Node/依赖/浏览器/配置）的错误码与修复提示、请求体白名单、过滤参数校验与整条参数向量自检、不经 shell |
 | 31-REAL-BROWSER-FIXTURE.md | 真实浏览器 PASS/FAIL 测试仓库 | ATS-107：独立工程夹具（依赖由入库 lockfile 精确固定）、真实 Chromium 上 1 PASS 1 FAIL、与独立 CLI 直跑逐条对账（判定/计数器/错误信息三项一致）、对账逻辑的变异负控（见 `docs/evidence/ATS-107/`） |
 | dependencies/ | 依賴清單 | ATS-102 生成的依赖清单（机读 JSON + 人读 MD），由 lockfile 派生，可机读校验 |

@@ -10,6 +10,20 @@ export type TestDef={id:string,uid:string,uidSource:string,uidStable:boolean,fil
 export type FlowImportReport={file:string,syntax:string|null,appId:string|null,cases:number,mappedSteps:number,unsupportedSteps:number,unsupportedByReason:Record<string,number>,warnings:number,errors:number,unsupportedSteps_detail:{file:string,line:number,raw:string,command:string,reason:string,reasonText:string,suggestion:string|null}[],warnings_detail:{line:number,message:string,raw:string}[],errors_detail:{line:number,message:string}[]};
 export type MobileSection={files:string[],cases:number,unsupportedSteps:number,errors:number,imports:FlowImportReport[]};
 export type TestCatalog={tests:TestDef[],files:string[],warning:string,uidVersion:number,projectUid:string,mobile?:MobileSection};
+// ATS-214: the SELECTION -- the set of cases the user picked for a batch
+// run. The snapshot is SELF-CONTAINED: it carries the file, the title and
+// the line of every selected case, so the record can be read on its own
+// after the catalogue has changed.
+export type SelectionCase={uid:string,file:string,title:string,line:number|null};
+export type SelectionSnapshot={uids:string[],cases:SelectionCase[],count:number,unknown:string[],at?:string};
+// ATS-214: the BATCH -- the record of a selection that spanned several
+// files. The engine takes at most ONE test-file filter (ATS-106's
+// argument baseline), so the batch is one run per file, chained.
+export type BatchGroup={file:string,uids:string[],count:number};
+export type BatchRun={runId:string,file:string,groupIndex:number,status:string};
+export type Batch={uid:string,projectId:string,projectUid:string,selectionUid:string,uids:string[],cases:SelectionCase[],files:string[],groups:BatchGroup[],status:string,createdAt:string,finishedAt:string|null,runs:BatchRun[],error?:string};
+// ATS-214: the run carries the selection it was started for.
+export type RunSelection={uids:string[],cases:SelectionCase[],count:number,files:string[],groups:BatchGroup[]};
 export type Attempt={uid:string,runUid:string,testUid:string|null,uidBasis:string,file:string,title:string,line:number|null,retry:number,status:string,caseStatus:string,duration:number,error:string};
 // ATS-208: the attempt of a case -- ONE execution of it. A case that was
 // retried has SEVERAL attempts, and the first one is not overwritten by the
@@ -21,7 +35,11 @@ export type CaseAttempt={status:string,retry:number,duration:number,error:string
 // line and the case key -- so that two same-titled cases of one file are
 // two cases and not one.
 export type CaseResult={title:string,file:string,status:string,duration:number,error:string,attemptsCount:number,scope?:string[],line?:number|null,column?:number|null,caseKey?:string|null,attempts:CaseAttempt[]};
-export type Run={id:string,uid:string,seq:number,projectId:string,projectUid:string,projectName:string,file:string|null,gitCommit:string,status:string,createdAt:string,startedAt:string|null,finishedAt:string|null,log?:string,error?:string,summary?:{passed:number,failed:number,skipped:number,flaky:number,total:number,executions:number,cases:CaseResult[]},artifacts?:{file:string,size:number,sha256:string}[],attempts?:Attempt[]};
+export type Run={id:string,uid:string,seq:number,projectId:string,projectUid:string,projectName:string,file:string|null,gitCommit:string,status:string,createdAt:string,startedAt:string|null,finishedAt:string|null,log?:string,error?:string,summary?:{passed:number,failed:number,skipped:number,flaky:number,total:number,executions:number,cases:CaseResult[]},artifacts?:{file:string,size:number,sha256:string}[],attempts?:Attempt[],
+// ATS-214: the SELECTION the run was started for, and the batch it is a
+// part of. Both are on the record so that "what was selected" and "what
+// ran" can be compared after the fact.
+selection?:RunSelection,selectionUids?:string[],batchUid?:string,batchIndex?:number};
 export type Source={file:string,content:string,hash:string};
 // ATS-402: the AI data security surface. A credential reference NEVER
 // carries the secret -- only the name, the provider and a short
@@ -61,3 +79,50 @@ export async function downloadArtifact(id:string,file:string){
  const r=await fetch(root()+`/api/runs/${id}/artifact?file=${encodeURIComponent(file)}`,{headers:{'X-ATS-Token':token}});if(!r.ok)throw new Error('下载失败');
  const blob=await r.blob(),obj=URL.createObjectURL(blob),a=document.createElement('a');a.href=obj;a.download=file.split('/').pop()||'artifact';a.click();URL.revokeObjectURL(obj);
 }
+/**
+ * ATS-111: a CANCELLABLE request.
+ *
+ * The plain `api()` above cannot be cancelled: once the fetch is in
+ * flight the caller has no way to say "I no longer want this answer".
+ * That is what makes the CANCELLED state un-representable in the UI --
+ * a panel whose project was switched, or whose reader navigated away,
+ * would still be stuck waiting for the old answer, and the reader could
+ * not tell "still loading" from "the request I abandoned is still
+ * loading".
+ *
+ * `cancellableApi` therefore hands back a handle that carries BOTH the
+ * promise and an `abort()`. Aborting is reported as a CANCELLATION, not
+ * as a failure: the caller sees `cancelled: true`, and the rejection is
+ * the AbortError itself, so the UI can show the cancelled state rather
+ * than the failure state.
+ *
+ * The four states of a workbench panel are mapped from this handle by
+ * `apps/studio/lib/workbench-state.mjs` -- one model, one place.
+ */
+export type CancellableRequest<T>={promise:Promise<T>,abort:()=>void,cancelled:()=>boolean};
+/**
+ * The handle is returned SYNCHRONOUSLY -- it is not an `async` function
+ * wrapped in a promise, because the caller must be able to call
+ * `abort()` on it IMMEDIATELY, before the first await in its own body.
+ * A promise-of-a-handle would arrive one microtask too late to cancel
+ * the request it is meant to cancel.
+ *
+ * The session token is therefore fetched lazily INSIDE the promise: the
+ * handle exists before the token does, and `abort()` works from the very
+ * first moment.
+ */
+export function cancellableApi<T>(url:string,method='GET',payload?:unknown):CancellableRequest<T>{
+ const controller=new AbortController();
+ let cancelled=false;
+ const promise=(async()=>{
+  if(!token){const r=await fetch(root()+'/api/session');if(!r.ok)throw Error('无法连接本地执行服务。请先运行 npm start');token=(await r.json()).token;}
+  const r=await fetch(root()+url,{method,signal:controller.signal,headers:{'X-ATS-Token':token,'Content-Type':'application/json'},body:payload===undefined?undefined:JSON.stringify(payload)});
+  const value=await r.json();if(!r.ok)throw Error(value.error||`HTTP ${r.status}`);return value as T;
+ })();
+ // An abort must not surface as an unhandled rejection: the caller
+ // awaits the promise and decides what an abort means, so the rejection
+ // is delivered to whoever awaits it (and to nobody else).
+ promise.catch(()=>{});
+ return {promise,abort:()=>{cancelled=true;controller.abort();},cancelled:()=>cancelled};
+}
+

@@ -67,7 +67,7 @@ const PORT=Number(process.env.ATS_PORT||4577);
 const TOKEN=crypto.randomBytes(24).toString('hex');
 const jobs=new Map();
 // ATS-106: the only fields a run request may carry.
-const RUN_REQUEST_FIELDS=new Set(['file','capabilities','runner','env']);
+const RUN_REQUEST_FIELDS=new Set(['file','capabilities','runner','env','selection']);
 // The data directory is locked for the whole lifetime of the Bridge. The
 // migration script (tools/migrate_uids.mjs) rewrites the state file AND
 // renames the run folders; a Bridge that is running at that moment would
@@ -663,6 +663,20 @@ function finishRun(run,code,signal){
  if(dedup.refused.length)run.dedupRefused=dedup.refused;
  run.evidence=manifest.evidence;
  jobs.delete(run.id);saveState(store);
+ // ATS-214: the BATCH chain. A selection that spans several files is
+ // executed as one run per file, and the next file's run starts when this
+ // one reaches a terminal status.
+ //
+ // The chain is advanced HERE -- at the end of the run -- rather than by a
+ // timer or a poller: the next run must not start while the previous one
+ // still holds the project (the Bridge refuses a second run of a project
+ // that is already running), and this is the one moment at which the
+ // previous run has provably released it.
+ //
+ // A chain that is CANCELLED stops here: the user asked for the run to
+ // stop, and continuing with the next file would run cases the user did
+ // not ask to run any more.
+ advanceBatch(run);
 }
  function startRun(project,run,adapter,envProfile,envVariables){
    const folder=runDir(run.id);fs.mkdirSync(folder,{recursive:true});
@@ -719,8 +733,98 @@ function finishRun(run,code,signal){
   cp.on('error',e=>{run.error=e.message;finishRun(run,127,'spawn-error');});
   cp.on('close',(code,signal)=>finishRun(run,code,signal));
  }
- function cancelRun(run){
-  const job=jobs.get(run.id);
+ /**
+ * ATS-214: the BATCH chain.
+ *
+ * A selection that spans several files is executed as one run per file,
+ * because the engine takes at most ONE test-file filter (ATS-106's
+ * argument baseline refuses a second positional filter). The runs are
+ * chained: the next file's run starts when the previous one reaches a
+ * terminal status.
+ *
+ * WHY THE CHAIN IS ADVANCED HERE
+ * -------------------------------
+ * The next run must not start while the previous one still holds the
+ * project -- the Bridge refuses a second run of a project that is already
+ * running -- and the end of a run is the one moment at which the previous
+ * run has provably released it. A timer or a poller would have to guess
+ * when the project became free.
+ *
+ * A CANCELLED run stops the chain: the user asked for the run to stop,
+ * and continuing with the next file would run cases the user did not ask
+ * to run any more.
+ *
+ * The chain's own record is updated as it goes, so a reader can see which
+ * file is running, which files have run and what each of them did.
+ */
+function advanceBatch(run){
+ if(!run.batchUid)return;
+ const batches=Array.isArray(store.batches)?store.batches:[];
+ const batch=batches.find(b=>b.uid===run.batchUid);
+ if(!batch)return;
+ // The entry of the run that just finished.
+ const entry=batch.runs.find(r=>r.runId===run.id);
+ if(entry)entry.status=run.status;
+ // A cancelled or interrupted run ends the chain.
+ if(run.status===RUN_STATUS.CANCELLED||run.status===RUN_STATUS.INTERRUPTED){
+  batch.status='cancelled';batch.finishedAt=now();saveState(store);return;
+ }
+ const nextIndex=batch.runs.length;
+ const next=batch.groups[nextIndex];
+ if(!next){
+  // The batch is done. Its status follows the runs: a batch whose runs
+  // all passed PASSED, and a batch with a failed run FAILED. The reader
+  // sees one status for the whole batch, and the per-run statuses below
+  // it for the detail.
+  batch.status=batch.runs.every(r=>r.status===RUN_STATUS.PASSED)?'passed':'failed';
+  batch.finishedAt=now();saveState(store);return;
+ }
+ const project=getProject(run.projectId);
+ if(!project){batch.status='failed';batch.finishedAt=now();saveState(store);return;}
+ // The next run of the batch: the same shape as the first one, with the
+ // next FILE and the group's uids.
+ try{
+  const started=startBatchRun(project,batch,next,nextIndex,run);
+  batch.runs.push({runId:started.id,file:next.file,groupIndex:nextIndex,status:started.status});
+ }catch(e){
+  // A batch that cannot start its next run is REPORTED, not swallowed:
+  // the batch's status says it failed, and the reason is on the record.
+  batch.status='failed';batch.error=String(e.message||e);batch.finishedAt=now();
+ }
+ saveState(store);
+}
+
+/**
+ * ATS-214: start ONE run of a batch.
+ *
+ * It is the same run the single-run path creates -- the same runner
+ * negotiation, the same uid scheme, the same event stream -- with the
+ * file and the group's uids taken from the batch.
+ *
+ * @returns {object} the run record
+ */
+function startBatchRun(project,batch,group,index,previous){
+ const gitCommit=gitInfo(project.root).commit;
+ const projectUid=projectUidOf(project);
+ const history=store.runs.filter(x=>x.projectId===project.id);
+ const seq=nextRunSeq(history,store.runCounters?.[project.id]??0);
+ store.runCounters=store.runCounters??{};
+ store.runCounters[project.id]=seq;
+ const uid=runUidFor({projectUid,gitCommit,file:group.file,seq});
+ const chosen=selectAdapter(project,['discover','start','stop','collect']);
+ // The selection of THIS run: the uids of the group's cases. The batch
+ // carries the whole selection; each run carries its own part, so "what
+ // ran in this run" and "what was selected in the batch" are both on the
+ // record.
+ const selection={uids:group.uids,cases:batch.cases.filter(c=>group.uids.includes(c.uid)),count:group.count,files:[group.file],groups:[{file:group.file,uids:group.uids,count:group.count}]};
+ const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file:group.file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,batchUid:batch.uid,batchIndex:index,selection,selectionUids:group.uids};
+ store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);
+ startRun(project,run,chosen.adapter,null,{});
+ return run;
+}
+
+function cancelRun(run){
+   const job=jobs.get(run.id);
   // A run that is ALREADY terminal cannot be stopped: it is over. The old
   // code answered RUN_NOT_ACTIVE for every run without a live job, which
   // covered two very different situations:
@@ -956,13 +1060,53 @@ const server=http.createServer(async(req,res)=>{
   if(action==='source'&&req.method==='PUT'){const b=await body(req);return respond(res,200,writeSource(project,b.file,b.content,b.baseHash));}
   if(action==='run'&&req.method==='POST'){
    if(store.runs.some(x=>x.projectId===project.id&&['running','queued','cancelling'].includes(x.status)))throw new Error('PROJECT_ALREADY_RUNNING');
-   const b=await body(req),file=b.file||null;
+   const b=await body(req);
    // ATS-106: the run request carries only these fields. Anything else --
    // `config`, `project`, `grep`, `args` -- is REFUSED, not ignored: a caller
    // that sent `config` must not believe it took effect.
    const rejected=Object.keys(b&&typeof b==='object'&&!Array.isArray(b)?b:{}).filter(k=>!RUN_REQUEST_FIELDS.has(k));
    if(rejected.length)return err(res,400,'RUN_PARAMETER_NOT_ALLOWED',{rejected});
-   if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');if(file){readSource(project,file);assertSafeTestFilter(file);}
+   if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');
+   // ATS-214: the SELECTION -- the set of cases the user picked.
+   //
+   // The selection is validated against the CATALOGUE before anything is
+   // started, and a selection that names a case the catalogue does not
+   // know is REFUSED. Skipping it would start a run that covers fewer
+   // cases than the user asked for, and the run record would then say it
+   // covered all of them -- the selection would be a claim, not a record.
+   //
+   // The catalogue is read with the SAME discovery the catalogue endpoint
+   // uses, so the selection is validated against the cases the user was
+   // actually looking at.
+   let selection=null;
+   if(b.selection!==undefined&&b.selection!==null){
+    if(!Array.isArray(b.selection))return err(res,400,'SELECTION_NOT_AN_ARRAY');
+    const wanted=[...new Set(b.selection.map(u=>String(u??'')).filter(Boolean))];
+    if(!wanted.length)return err(res,400,'SELECTION_EMPTY');
+    const catalog=await discoverTestsAsync(project,store,store.uidRegistry,{});
+    const known=new Map(catalog.tests.map(t=>[t.uid,t]));
+    const unknown=wanted.filter(u=>!known.has(u));
+    if(unknown.length)return err(res,400,'SELECTION_UNKNOWN_CASE',{unknown});
+    // The snapshot is SELF-CONTAINED: it carries the file, the title and
+    // the line of every selected case, so the run record can be read on
+    // its own -- after the catalogue has changed.
+    const cases=wanted.map(u=>{const t=known.get(u);return {uid:u,file:t.file??'',title:t.title??'',line:Number.isInteger(t.line)?t.line:null};});
+    // The GROUPING BY FILE is part of the selection's meaning: the engine
+    // takes at most ONE test-file filter (ATS-106's argument baseline), so
+    // a selection that spans several files is executed as one run per
+    // file. The groups are recorded so that the run and the selection
+    // agree on how the batch was split.
+    const groups=new Map();
+    for(const c of cases){if(!groups.has(c.file))groups.set(c.file,[]);groups.get(c.file).push(c);}
+    selection={uids:wanted,cases,count:cases.length,files:[...groups.keys()],groups:[...groups.entries()].map(([f,cs])=>({file:f,uids:cs.map(c=>c.uid),count:cs.length}))};
+   }
+   // The FILE of the run. With a selection, the file is NOT the caller's
+   // to choose: the selection decides which file(s) run, and the first
+   // group is the first file of the batch. A caller that sent both a
+   // `file` and a `selection` would otherwise have two sources of truth
+   // for the same thing, and the two could disagree.
+   const file=selection?selection.groups[0].file:(b.file||null);
+   if(file){readSource(project,file);assertSafeTestFilter(file);}
    // Pick the runner by capability negotiation, not by a hardcoded name. A
    // caller may pin one with `runner`; otherwise the first runner that
    // supports the required operations wins.
@@ -1039,8 +1183,37 @@ const server=http.createServer(async(req,res)=>{
    // The names are the ones that ACTUALLY reached the runner, so the record
    // does not claim a variable the whitelist took away.
    const envVarNameList=envFiltered.variables?Object.keys(envFiltered.variables).sort():[];
-   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null,...(envFiltered.refused.length?{envRefused:envFiltered.refused}:{})};
-   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter,envProfile,envFiltered.variables);return respond(res,202,{run});
+   // ATS-214: the SELECTION goes on the run record.
+   //
+   // The record is what makes the selection REPRODUCIBLE: it says which
+   // cases were picked, with their file, title and line, and it says how
+   // the batch was split into per-file runs. A reader can then compare the
+   // selection with the attempts the run produced -- the two are two
+   // independent facts, and `reconcileSelection` is what compares them.
+   //
+   // The run also carries the selection's own uids as `selectionUids`, so
+   // the reconciliation does not have to dig into the nested record.
+   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null,...(envFiltered.refused.length?{envRefused:envFiltered.refused}:{}),...(selection?{selection,selectionUids:selection.uids}:{})};
+   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter,envProfile,envFiltered.variables);
+   // ATS-214: a selection that spans SEVERAL files is a BATCH. The first
+   // run of the batch is the one that starts here; the rest are chained to
+   // it (see `advanceBatch`).
+   if(selection&&selection.groups.length>1){
+    const batch={uid:`batch_${crypto.randomUUID()}`,projectId:project.id,projectUid,selectionUid:`sel_${crypto.randomUUID()}`,uids:selection.uids,cases:selection.cases,files:selection.files,groups:selection.groups,status:'running',createdAt:now(),runs:[],finishedAt:null};
+    // The batch record is STORED, so the selection survives the bridge:
+    // a reader can ask "which batch was this run part of" and get the
+    // whole selection back, not only the part that has run so far.
+    store.batches=Array.isArray(store.batches)?store.batches:[];
+    store.batches.unshift(batch);store.batches=store.batches.slice(0,200);
+    // The batch is linked to the run that carries the selection, and the
+    // run carries the batch's uid -- the two point at each other, so a
+    // reader who has either one can find the other.
+    batch.runs.push({runId:run.id,file:run.file,groupIndex:0,status:run.status});
+    run.batchUid=batch.uid;
+    run.batchIndex=0;
+    saveState(store);
+   }
+   return respond(res,202,{run});
   }
   if(action==='lineage'&&req.method==='GET'){
    const dir=path.join(project.root,'.aitest');let requirements=[],links=[];
@@ -1050,6 +1223,18 @@ const server=http.createServer(async(req,res)=>{
   }
  }
  if(p==='/api/runs'&&req.method==='GET')return respond(res,200,{runs:store.runs.map(({log,...r})=>({...r,logLength:log?.length||0}))});
+ // ATS-214: the BATCHES of the bridge. A batch is the record of a selection
+ // that spanned several files: it says which cases were selected, how the
+ // batch was split, and what each of its runs did.
+ //
+ // The endpoint is a READ: a batch is a record, not something that can be
+ // changed after the fact.
+ if(p==='/api/batches'&&req.method==='GET'){
+  const batches=Array.isArray(store.batches)?store.batches:[];
+  const projectId=u.searchParams.get('projectId');
+  const list=projectId?batches.filter(b=>b.projectId===projectId):batches;
+  return respond(res,200,{batches:list});
+ }
  const rm=p.match(/^\/api\/runs\/(run_(?:[0-9a-f-]{36}|1_[0-9a-f]{24}))(?:\/(.*))?$/);
  if(rm){const r=getRun(rm[1]),action=rm[2]||'';
   if(action===''&&req.method==='GET')return respond(res,200,{run:r});
