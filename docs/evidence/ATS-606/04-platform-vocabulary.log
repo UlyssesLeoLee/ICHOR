@@ -1,6 +1,6 @@
 === ATS-606 evidence: the platform vocabulary (ATS-601 / ATS-602) ===
-tree : a683fc5c2a9d362f1ab211157c4fc3e1eb396fd5
-date : 2026-11-09T17:12:51Z
+tree : 95f9c15d7edbd0274ecea303553bfbca42ecf12c
+date : 2026-11-12T12:22:02Z
 
 --- ATS-601: the step kinds and the capabilities each one needs ---
   launchApp       any: ['app.install', 'app.launch'], all: []
@@ -19,3 +19,35 @@ date : 2026-11-09T17:12:51Z
   takeScreenshot  'takeScreenshot', 'screenshot'
   recordScreen    'recordScreen', 'record'
   readLogs        'readLogs', 'logs'
+
+--- ATS-602: the argument model (STEP_ARGUMENTS) ---
+  launchApp
+      primary     : appId
+      required    : 'appId'
+      requiredAny : -
+      optional    : 'clearState', 'clearAppState', 'arguments', 'permissions'
+  tapOn
+      primary     : text
+      required    : 
+      requiredAny : 'text', 'id'
+      optional    : 'id', 'index', 'point', 'retryTapIfNoChange', 'waitToSettleTimeoutMs'
+  assertVisible
+      primary     : text
+      required    : 
+      requiredAny : 'text', 'id'
+      optional    : 'id', 'index'
+  takeScreenshot
+      primary     : name
+      required    : 
+      requiredAny : -
+      optional    : 'path'
+  recordScreen
+      primary     : name
+      required    : 
+      requiredAny : -
+      optional    : 'path'
+  readLogs
+      primary     : path
+      required    : 
+      requiredAny : -
+      optional    : 'since', 'until'
