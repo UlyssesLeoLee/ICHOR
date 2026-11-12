@@ -1373,7 +1373,21 @@ const server=http.createServer(async(req,res)=>{
    //
    // The run also carries the selection's own uids as `selectionUids`, so
    // the reconciliation does not have to dig into the nested record.
-   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null,...(envFiltered.refused.length?{envRefused:envFiltered.refused}:{}),...(selection?{selection,selectionUids:selection.uids}:{})};
+   // ATS-214: when a selection spans SEVERAL files, it becomes a BATCH --
+   // one run per file. The FIRST run of that batch carries only ITS OWN
+   // GROUP, exactly like every run that follows it.
+   //
+   // It used to carry the WHOLE selection, and that made its card lie:
+   // 「选中但未执行」 listed the cases of the OTHER files, which had not
+   // started yet -- a run cannot be blamed for the cases of a file that
+   // comes after it. The whole selection lives on the BATCH record
+   // (`batch.uids` / `batch.cases` / `batch.groups`), and the batch's own
+   // reconciliation is where 「选了什么、跑了什么」 is compared across all
+   // of its runs.
+   const runSelection=selection&&selection.groups.length>1
+    ?{uids:selection.groups[0].uids,cases:selection.cases.filter(c=>selection.groups[0].uids.includes(c.uid)),count:selection.groups[0].count,files:[selection.groups[0].file],groups:[selection.groups[0]]}
+    :selection;
+   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null,...(envFiltered.refused.length?{envRefused:envFiltered.refused}:{}),...(runSelection?{selection:runSelection,selectionUids:runSelection.uids}:{})};
    store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);
    // ATS-214: a selection that spans SEVERAL files is a BATCH. The first
    // run of the batch is the one that starts here; the rest are chained to
