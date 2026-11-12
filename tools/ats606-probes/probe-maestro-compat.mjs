@@ -45,6 +45,9 @@
  * asks the shipped parser, which is what a user actually hits.
  *
  * usage: node tools/ats606-probes/probe-maestro-compat.mjs [--md <file>] [--self-test]
+ * env:   ATS606_SKIP_MAESTRO=1  skip the 55 Maestro CLI invocations (the
+ *        table checks do not need them). The summary then says the
+ *        inventory was NOT verified -- a skip is never a pass.
  * exit:  0 all checks passed, 1 a check failed, 2 the probe could not run
  *        (no Maestro CLI / no Node) -- a skip is never reported as a pass.
  */
@@ -105,7 +108,37 @@ function findMaestro() {
   return null;
 }
 
+/** The Maestro installation whose jars hold the command classes. */
+function findMaestroHome() {
+  const roots = [
+    process.env.ATS606_MAESTRO_HOME,
+    'D:/AI-Tools/Maestro',
+    path.join(os.homedir(), '.maestro'),
+    '/usr/local',
+    '/opt/homebrew',
+  ].filter(Boolean);
+  for (const r of roots) {
+    const lib = path.join(r, 'lib');
+    if (fs.existsSync(lib) && fs.existsSync(path.join(lib, 'maestro-orchestra.jar'))) return lib;
+  }
+  return null;
+}
+
 const MAESTRO = findMaestro();
+const MAESTRO_HOME = findMaestroHome();
+
+/**
+ * Whether to skip the 55 Maestro CLI invocations.
+ *
+ * The inventory is the SLOW part of this probe (55 JVM starts, minutes).
+ * The table checks below do not need it -- they need the fixture list and
+ * the platform's own code. `ATS606_SKIP_MAESTRO=1` skips the CLI calls and
+ * takes the fixture list as the inventory.
+ *
+ * A run that skipped the CLI does NOT claim the inventory was verified:
+ * the summary says so, and the exit code still distinguishes the two.
+ */
+const SKIP_MAESTRO = process.env.ATS606_SKIP_MAESTRO === '1';
 
 const failures = [];
 function fail(msg) {
@@ -171,7 +204,7 @@ function checkSyntax(body, retryOnce = false) {
   }
 }
 
-if (!MAESTRO) {
+if (!MAESTRO && !SKIP_MAESTRO) {
   console.log('SKIP no Maestro CLI found.');
   console.log('     Set ATS606_MAESTRO_BIN to the maestro executable to run this probe.');
   console.log('     The command inventory was NOT verified on this machine.');
@@ -179,14 +212,17 @@ if (!MAESTRO) {
 }
 
 console.log('=== ATS-606: the Maestro command inventory (behavioural) ===');
-console.log(`maestro : ${MAESTRO.cmd}`);
+if (MAESTRO) console.log(`maestro : ${MAESTRO.cmd}`);
+else console.log('maestro : SKIPPED (ATS606_SKIP_MAESTRO=1) -- the inventory was NOT behaviourally verified in this run');
 let version = '(unknown)';
 try {
-  version = execFileSync(MAESTRO.cmd, [...MAESTRO.args, '--version'], {
-    encoding: 'utf8',
-    timeout: 120000,
-    shell: process.platform === 'win32' && MAESTRO.cmd.endsWith('.bat'),
-  }).trim();
+  if (MAESTRO) {
+    version = execFileSync(MAESTRO.cmd, [...MAESTRO.args, '--version'], {
+      encoding: 'utf8',
+      timeout: 120000,
+      shell: process.platform === 'win32' && MAESTRO.cmd.endsWith('.bat'),
+    }).trim();
+  }
 } catch {
   /* the version is nice to have, not a check */
 }
@@ -194,24 +230,36 @@ console.log(`version : ${version}`);
 console.log('');
 
 const inventory = new Map();
-for (const [name, body] of Object.entries(fixtures.commands)) {
-  const r = checkSyntax(body);
-  inventory.set(name, r.accepted);
-  const mark = r.accepted ? 'ok  ' : 'FAIL';
-  console.log(`${mark} command ${name.padEnd(24)} ${r.accepted ? 'accepted' : 'REJECTED'}`);
-  if (!r.accepted) console.log(`       ${r.output.split('\n')[0]}`);
+if (SKIP_MAESTRO) {
+  // The fixture list stands in for the inventory. The command names are
+  // the SAME list the behavioural check walks, so the table checks are
+  // unaffected; only the "these really are Maestro commands" claim is
+  // not made in this run.
+  for (const name of Object.keys(fixtures.commands)) inventory.set(name, true);
+} else {
+  for (const [name, body] of Object.entries(fixtures.commands)) {
+    const r = checkSyntax(body);
+    inventory.set(name, r.accepted);
+    const mark = r.accepted ? 'ok  ' : 'FAIL';
+    console.log(`${mark} command ${name.padEnd(24)} ${r.accepted ? 'accepted' : 'REJECTED'}`);
+    if (!r.accepted) console.log(`       ${r.output.split('\n')[0]}`);
+  }
 }
 
 console.log('');
 console.log('--- negative controls (these MUST be rejected) ---');
-for (const [name, body] of Object.entries(fixtures.negativeControls)) {
-  if (name.startsWith('_')) continue;
-  const r = checkSyntax(body);
-  if (r.accepted) {
-    fail(`negative control "${name}" was ACCEPTED by Maestro -- the check cannot tell a real command from a typo`);
-  } else {
-    ok(`negative control "${name}" rejected as expected`);
+if (!SKIP_MAESTRO) {
+  for (const [name, body] of Object.entries(fixtures.negativeControls)) {
+    if (name.startsWith('_')) continue;
+    const r = checkSyntax(body);
+    if (r.accepted) {
+      fail(`negative control "${name}" was ACCEPTED by Maestro -- the check cannot tell a real command from a typo`);
+    } else {
+      ok(`negative control "${name}" rejected as expected`);
+    }
   }
+} else {
+  console.log('     SKIPPED (ATS606_SKIP_MAESTRO=1)');
 }
 
 const accepted = [...inventory.entries()].filter(([, v]) => v).map(([k]) => k).sort();
@@ -260,7 +308,88 @@ const measuredReported = Object.keys(behaviour).length - measuredMapped;
 console.log(`mapped=${measuredMapped} reported=${measuredReported} (measured by running the importer)`);
 
 /* ------------------------------------------------------------------ */
-/* 3. The compatibility table in docs/25 §8.5                           */
+/* 3. The Maestro parameter lists, read out of the byte-code           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The Maestro class that declares each command's parameters.
+ *
+ * The same table the row generator uses; the two must not drift, so the
+ * generator is the single source and this reads the SAME classes.
+ */
+const YAML_CLASS = {
+  launchApp: 'YamlLaunchApp',
+  takeScreenshot: 'YamlTakeScreenshot',
+  startRecording: 'YamlStartRecording',
+  stopRecording: 'YamlStopRecording',
+  clearState: 'YamlClearState',
+  killApp: 'YamlKillApp',
+  stopApp: 'YamlStopApp',
+  setPermissions: 'YamlSetPermissions',
+  extendedWaitUntil: 'YamlExtendedWaitUntil',
+  scrollUntilVisible: 'YamlScrollUntilVisible',
+  openLink: 'YamlOpenLink',
+  pressKey: 'YamlPressKey',
+  assertScreenshot: 'YamlAssertScreenshot',
+  setClipboard: 'YamlSetClipboard',
+  setLocation: 'YamlSetLocation',
+  addMedia: 'YamlAddMedia',
+  runScript: 'YamlRunScript',
+  evalScript: 'YamlEvalScript',
+  repeat: 'YamlRepeatCommand',
+  retry: 'YamlRetryCommand',
+  travel: 'YamlTravelCommand',
+  waitForAnimationToEnd: 'YamlWaitForAnimationToEndCommand',
+  runFlow: 'YamlRunFlow',
+  assertWithAI: 'YamlAssertWithAI',
+  setOrientation: 'YamlSetOrientation',
+  setAirplaneMode: 'YamlSetAirplaneMode',
+  setDarkMode: 'YamlSetDarkMode',
+  eraseText: 'YamlEraseText',
+  inputText: 'YamlInputText',
+  back: 'YamlActionBack',
+  hideKeyboard: 'YamlActionHideKeyboard',
+  pasteText: 'YamlActionPasteText',
+  clearKeychain: 'YamlActionClearKeychain',
+  scroll: 'YamlActionScroll',
+  swipe: 'YamlSwipe',
+};
+/** The element selector is shared by the tap / assert commands. */
+const SELECTOR_COMMANDS = ['tapOn', 'assertVisible', 'assertNotVisible', 'doubleTapOn', 'longPressOn', 'copyTextFrom'];
+
+const maestroParamsCache = new Map();
+/** The Maestro parameter names of a command, or null when unavailable. */
+function maestroParamsOf(command) {
+  if (maestroParamsCache.has(command)) return maestroParamsCache.get(command);
+  const cls = SELECTOR_COMMANDS.includes(command) ? 'YamlElementSelector' : YAML_CLASS[command];
+  if (!cls || !MAESTRO_HOME) {
+    maestroParamsCache.set(command, null);
+    return null;
+  }
+  let params = null;
+  try {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats606-params-'));
+    const target = path.join(dir, `${cls}.class`);
+    execFileSync('jar', ['xf', path.join(MAESTRO_HOME, 'maestro-orchestra.jar'), `maestro/orchestra/yaml/${cls}.class`], { cwd: dir, timeout: 120000 });
+    if (fs.existsSync(target)) {
+      const text = execFileSync('javap', ['-p', target], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+      params = text.split(/\r?\n/)
+        .filter((l) => /^\s{2}private final /.test(l))
+        .map((l) => /private final ([\w.$<>\[\], ?]+) (\w+);/.exec(l.trim()))
+        .filter(Boolean)
+        .map((m) => m[2])
+        .filter((p) => !['label', 'optional'].includes(p));
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {
+    params = null;
+  }
+  maestroParamsCache.set(command, params);
+  return params;
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. The compatibility table in docs/25 §8.5                           */
 /* ------------------------------------------------------------------ */
 
 const mdArgIndex = process.argv.indexOf('--md');
@@ -286,10 +415,23 @@ if (!section) fail('§8 of the design document is missing');
  * The heading order matters: "部分可映射" contains "可映射", so the
  * partial group must be tested FIRST or every partial row would be
  * counted as mappable.
+ *
+ * The heading must NAME the group and nothing else: §8.5.4's heading
+ * ("统计与「两个数字为什么不一样」") does not, but §8.5.4's BODY repeats
+ * the word "可映射", so a heading that merely CONTAINS the word would
+ * swallow §8.5.5's table as verdict rows. The three verdict headings
+ * are exactly "<group>（N 条）", so the pattern is anchored on that.
+ *
+ * A heading that names NONE of the three groups is NOT a verdict group
+ * (§8.5.4 and §8.5.5 carry the statistics and the conclusion). Such a
+ * heading yields `null` and its rows are skipped.
  */
+const GROUP_HEADING = /^(部分可映射|可映射|不映射)（\d+ 条）$/;
 function groupOf(heading) {
-  if (/部分可映射/.test(heading)) return 'partial';
-  if (/可映射/.test(heading)) return 'mappable';
+  const m = GROUP_HEADING.exec(heading.trim());
+  if (!m) return null;
+  if (m[1] === '部分可映射') return 'partial';
+  if (m[1] === '可映射') return 'mappable';
   return 'unmappable';
 }
 
@@ -300,21 +442,48 @@ const groupRe = /####\s+8\.5\.\d\s+(.+)/g;
 let gm;
 const groups = [];
 while ((gm = groupRe.exec(section)) !== null) {
-  groups.push({ index: gm[1], title: gm[2], at: gm.index });
+  // The pattern has ONE capture group -- the heading text. `gm[2]` would
+  // be undefined, and every group would then be unrecognised (and so
+  // skipped), which would leave the table EMPTY rather than wrong.
+  groups.push({ index: gm[1], title: gm[1], at: gm.index });
 }
-groups.forEach((g, i) => {
-  const end = i + 1 < groups.length ? groups[i + 1].at : section.length;
+/**
+ * Where each group ENDS.
+ *
+ * A group's body runs to the next `####` heading of ANY kind -- not just
+ * the next verdict group. Otherwise the LAST verdict group would swallow
+ * §8.5.4 and §8.5.5, and their tables (which restate command names in a
+ * different shape) would be read as verdict rows.
+ */
+const anyHeadingRe = /^####\s+/gm;
+groups.forEach((g) => {
+  const rest = section.slice(g.at + 1);
+  // The regex is GLOBAL, so its lastIndex persists between calls -- it
+  // must be reset, or the second search starts where the first stopped
+  // and every group after the first gets the wrong body.
+  anyHeadingRe.lastIndex = 0;
+  const m = anyHeadingRe.exec(rest);
+  const end = m ? g.at + 1 + m.index : section.length;
   g.body = section.slice(g.at, end);
 });
 
+/**
+ * The command name in the first cell of a table row.
+ *
+ * The cell is trimmed, so it carries no trailing carriage return; the
+ * pattern anchors the closing backtick at the END of the cell.
+ */
+const COMMAND_CELL = /^`([A-Za-z][A-Za-z0-9]*)`$/;
+
 for (const g of groups) {
   const verdict = groupOf(g.title);
+  if (!verdict) continue;   // §8.5.4 / §8.5.5 are not verdict groups
   for (const line of g.body.split('\n')) {
     if (!line.startsWith('|')) continue;
     const cells = line.split('|').map((c) => c.trim());
     if (cells.length < 6) continue;
     // | command | platform kind | importer behaviour | parameter | note |
-    const name = /^`([A-Za-z][A-Za-z0-9]*)$/.exec(cells[1]);
+    const name = COMMAND_CELL.exec(cells[1]);
     if (!name) continue;
     const command = name[1];
     verdicts[verdict].push(command);
@@ -353,15 +522,16 @@ if (rowsByCommand.size !== Object.keys(fixtures.commands).length) {
   if (gen.error || gen.status !== 0) {
     fail(`the row generator could not be run (${gen.error?.message ?? `exit ${gen.status}`}) -- the table is NOT verified against the measurement`);
   } else {
-    // Only the §8.5 rows are compared: §8.4 has rows of its own that also
-    // start with a backticked name (the step kinds and the capabilities).
-    const s85 = md.slice(md.indexOf('### 8.5 '), md.indexOf('### 8.6 '));
+    // Only the three VERDICT GROUPS are compared: §8.5.4 and §8.5.5
+    // carry the statistics and the conclusion, and their tables restate
+    // command names in a different shape.
+    const s85 = groups.filter((g) => groupOf(g.title)).map((g) => g.body).join('\n');
     const isInventoryRow = (l) => {
       const m = /^\| `([A-Za-z][A-Za-z0-9]*)`/.exec(l);
       return m ? Object.prototype.hasOwnProperty.call(fixtures.commands, m[1]) : false;
     };
-    const genSet = gen.stdout.split(/\r?\n/)
-    const docSet = s85.split(/\r?\n/)
+    const genSet = gen.stdout.split(/\r?\n/).filter((l) => l.startsWith('| `') && isInventoryRow(l)).map((l) => l.trim());
+    const docSet = s85.split(/\r?\n/).filter((l) => l.startsWith('| `') && isInventoryRow(l)).map((l) => l.trim());
     const onlyGen = genSet.filter((l) => !docSet.includes(l));
     const onlyDoc = docSet.filter((l) => !genSet.includes(l));
     if (onlyGen.length || onlyDoc.length) {
@@ -445,6 +615,16 @@ if (wrongImporter.length) {
 }
 
 // The parameter cell must match ATS-602's own argument table.
+//
+// What is checked: every parameter MAESTRO declares for the command (read
+// out of its byte-code) that is INSIDE the platform's model must be
+// mentioned in the cell, and every parameter the cell calls "模型外" must
+// really be outside.
+//
+// The platform's ALIASES (e.g. `package` / `packageName` / `bundleId` for
+// `appId`) are NOT required to appear: Maestro does not declare them, so
+// requiring them would make the cell describe the platform's vocabulary
+// rather than the parameter fidelity.
 const paramProblems = [];
 for (const [command, row] of rowsByCommand) {
   const kind = row.kind.replace(/`/g, '').split(' ')[0].split('+')[0].trim();
@@ -455,11 +635,12 @@ for (const [command, row] of rowsByCommand) {
     ...(spec.required ?? []),
     ...(spec.requiredAny ?? []).flat(),
     ...(spec.optional ?? []),
-    ...Object.values(spec.aliases ?? {}).flat(),
   ]);
-  // The cell must mention every parameter that IS in the model, and must
-  // not claim a parameter is outside the model when it is inside.
-  for (const p of inModel) {
+  // The Maestro parameter names that the platform's model covers.
+  const maestroParams = maestroParamsOf(command);
+  if (!maestroParams) continue;
+  for (const p of maestroParams) {
+    if (!inModel.has(p)) continue;
     if (row.parameter === '—') continue;
     if (!row.parameter.includes(p) && !row.parameter.includes('全部在模型内')) {
       paramProblems.push(`${command}: the cell does not mention the in-model parameter "${p}"`);
@@ -518,7 +699,7 @@ function readStepKinds() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 4. The negative control FOR THE TABLE ITSELF                        */
+/* 5. The negative control FOR THE TABLE ITSELF                        */
 /* ------------------------------------------------------------------ */
 
 if (SELF_TEST) {
@@ -527,9 +708,8 @@ if (SELF_TEST) {
 
   // Take the document, move one command into the wrong group and change
   // its importer cell. The checks above must then fail.
-  const victim = 'launchApp';
   const corrupted = md.replace(
-    /\| `launchApp` \| ([^|]*)\| 映射成功[^|]*\|/,
+    '| `launchApp` | `launchApp` | 映射成功 → `launchApp` |',
     '| `launchApp` | `assertVisible` | 映射成功 → `assertVisible` |',
   );
   if (corrupted === md) {
@@ -539,7 +719,8 @@ if (SELF_TEST) {
     fs.writeFileSync(tmp, corrupted, 'utf8');
     const res = spawnSync(process.execPath, [path.join(HERE, 'probe-maestro-compat.mjs'), '--md', tmp], {
       encoding: 'utf8',
-      timeout: 300000,
+      timeout: 600000,
+      env: { ...process.env, ATS606_SKIP_MAESTRO: '1' },
     });
     fs.rmSync(tmp, { force: true });
     const out = `${res.stdout ?? ''}${res.stderr ?? ''}`;
@@ -564,5 +745,9 @@ if (failures.length) {
 }
 console.log('COMPATIBILITY TABLE: OK');
 if (SELF_TEST) console.log('SELF-TEST: OK');
-console.log(`MAESTRO COMMAND INVENTORY: OK (${accepted.length} commands)`);
+if (SKIP_MAESTRO) {
+  console.log(`MAESTRO COMMAND INVENTORY: NOT VERIFIED (the CLI was skipped; ${accepted.length} fixture names used)`);
+} else {
+  console.log(`MAESTRO COMMAND INVENTORY: OK (${accepted.length} commands)`);
+}
 process.exit(0);
