@@ -74,7 +74,8 @@
 |ST-ATS214-008|FR-005|可用性|切换项目时过滤条件被重置并告知|在 p500 勾 @smoke，再切到 other（2 条、只有 @billing）|列表回到 2/2 条，没有残留的按下芯片，选择栏「已选 0 条」|node tools/ats214-probes/st-ats214.mjs|PASS|
 |ST-ATS214-009|FR-005|正常|界面如实说明实际会执行多少条|只勾 a1（a 文件有 3 条）|选择栏「将执行 3 条」、toast「实际执行 3 条」，引擎真的跑了 3 条——三个数字一致|node tools/ats214-probes/st-ats214.mjs|PASS|
 |ST-ATS214-010|FR-005|可用性|勾选框键盘可达|真实 Chromium 的 Tab / Space|勾选框是自己的 <button role=checkbox>（不是嵌在 button 里的 span），能拿到焦点，空格能切换|node tools/ats214-probes/st-ats214.mjs|PASS|
-|ST-ATS214-011|TOOL|可靠性|交付的代码被变异时测试必须变红（负控）|对 page.tsx 与 server/index.mjs 做 10 个变异（关掉过滤、只发第一个 UID、不渲染警告、不阻止运行、承诺选中条数、不重置过滤、把勾选框放回 button 里、不继承环境档案、不整单校验、预检失败不结束批次）|每个变异都被抓住（界面变异由 ST 抓住，服务端变异由 IT 抓住）；未变异的代码仍然通过|node tools/ats214-probes/mutation-check.mjs|PASS|
+|ST-ATS214-011|FR-021|功能|发出去的请求带着**每一个**被勾选的 UID|勾选两个不同文件里的用例，拦截浏览器发出的请求|请求体里的 selection 带着两个 UID（读的是网络上的请求，不是界面自己的算术——只读界面只能证明界面没算错，证明不了它发对了）|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-012|TOOL|可靠性|交付的代码被变异时测试必须变红（负控）|对 page.tsx 与 server/index.mjs 做 10 个变异（关掉过滤、只发第一个 UID、不渲染警告、不阻止运行、承诺选中条数、不重置过滤、把勾选框放回 button 里、不继承环境档案、不整单校验、预检失败不结束批次）|每个变异都被抓住（界面变异由 ST 抓住，服务端变异由 IT 抓住）；未变异的代码仍然通过|node tools/ats214-probes/mutation-check.mjs|PASS|
 
 ## 进入与退出条件
 

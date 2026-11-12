@@ -503,20 +503,33 @@ await sleep(500);
     await sleep(200);
   }
   await page.locator('.tag-chip', { hasText: '@smoke' }).click();
-  await sleep(300);
+  await sleep(400);
   const before = await page.locator('.filter-report').first().innerText();
-  await sel.selectOption(ids.other);
-  await page.waitForFunction(() => /2 tests/.test(document.querySelector('.sidebar-footer')?.textContent ?? ''), null, { timeout: 30000 });
-  await sleep(800);
-  const rows = await page.locator('.pick-box').count();
-  const report = await page.locator('.filter-report').first().innerText();
-  const pressed = await page.locator('.tag-chip[aria-pressed="true"]').count();
-  // The selection is PER PROJECT: the p500 selection must NOT appear on
-  // the "other" project (its uids belong to p500).
-  const bar = await page.locator('.select-bar span').first().innerText();
-  verdict('ST-ATS214-008 project-switch-resets-the-filter',
-    rows === 2 && pressed === 0 && /已选 0 条/.test(bar),
-    `before the switch: "${before}"; after: ${rows} rows of 2, "${report}", ${pressed} pressed chips, the selection bar says "${bar}"`);
+  // The filter MUST be in force before the switch -- otherwise the
+  // switch would be tested against an empty filter, and the check would
+  // pass whether or not the filter is reset.
+  const beforeRows = await page.locator('.pick-box').count();
+  const beforePressed = await page.locator('.tag-chip[aria-pressed="true"]').count();
+  if (beforePressed !== 1) {
+    verdict('ST-ATS214-008 project-switch-resets-the-filter', false,
+      `the precondition failed: the @smoke chip is not pressed (${beforePressed} pressed chips), so the switch is not tested against a live filter`);
+  } else {
+    await sel.selectOption(ids.other);
+    await page.waitForFunction(() => /2 tests/.test(document.querySelector('.sidebar-footer')?.textContent ?? ''), null, { timeout: 30000 });
+    await sleep(800);
+    const rows = await page.locator('.pick-box').count();
+    const report = await page.locator('.filter-report').first().innerText();
+    const pressed = await page.locator('.tag-chip[aria-pressed="true"]').count();
+    // The selection is PER PROJECT: the p500 selection must NOT appear on
+    // the "other" project (its uids belong to p500).
+    const bar = await page.locator('.select-bar span').first().innerText();
+    // The "other" project has two cases and NEITHER of them carries
+    // @smoke, so a filter that survived the switch would leave 0 rows.
+    // The row count is therefore the sharp part of the check.
+    verdict('ST-ATS214-008 project-switch-resets-the-filter',
+      rows === 2 && pressed === 0 && /已选 0 条/.test(bar),
+      `before the switch: "${before}" (${beforeRows} rows, ${beforePressed} pressed chip); after: ${rows} rows of 2, "${report}", ${pressed} pressed chips, the selection bar says "${bar}"`);
+  }
 }
 
 /* ================================================================== */
@@ -556,6 +569,56 @@ await sleep(500);
   verdict('ST-ATS214-009 the-wording-states-what-will-run',
     barNumber === attempts && toastNumber === attempts && attempts > 1,
     `the bar says "${bar}" (${barNumber}), the toast says "${toast}" (${toastNumber}), the engine ran ${attempts} case(s)`);
+}
+
+/* ================================================================== */
+/* ST-ATS214-011: the REQUEST carries EVERY ticked uid                */
+/* ================================================================== */
+{
+  await backToCatalog(page);
+  await sel.selectOption(ids.batch);
+  await page.waitForFunction(() => /5 tests/.test(document.querySelector('.sidebar-footer')?.textContent ?? ''), null, { timeout: 30000 });
+  await sleep(400);
+  const clearBatch = page.getByRole('button', { name: '清空' });
+  if (await clearBatch.isEnabled()) {
+    await clearBatch.click();
+    await sleep(300);
+  }
+  // Tick TWO cases in TWO DIFFERENT files. The request that the browser
+  // sends is read off the wire -- not off the interface -- so a
+  // `runSelection` that quietly sends only the FIRST uid is caught
+  // here. (Reading the interface would only prove the interface's own
+  // arithmetic, which is the thing under suspicion.)
+  await page.getByRole('checkbox', { name: '选中 a1' }).click();
+  await page.getByRole('checkbox', { name: '选中 b1' }).click();
+  await sleep(300);
+  const bar = await page.locator('.select-bar span').first().innerText();
+
+  const seen = [];
+  const listener = (request) => {
+    const url = request.url();
+    if (!/\/api\/projects\/[^/]+\/run$/.test(url)) return;
+    try {
+      const body = JSON.parse(request.postData() || '{}');
+      const sel = body.selection;
+      if (Array.isArray(sel)) seen.push(sel.slice());
+      else if (sel && Array.isArray(sel.uids)) seen.push(sel.uids.slice());
+    } catch { /* a body that is not JSON is not a selection request */ }
+  };
+  page.on('request', listener);
+  await page.getByRole('button', { name: /批量运行/ }).click();
+  await sleep(2500);
+  page.off('request', listener);
+
+  const catalog = await api(`/api/projects/${ids.batch}/tests`);
+  const byTitle = Object.fromEntries(catalog[1].tests.map((t) => [t.title, t]));
+  const wanted = [byTitle.a1?.uid, byTitle.b1?.uid].filter(Boolean);
+  const sent = seen.length ? seen[seen.length - 1] : [];
+  // The request must carry BOTH uids. A request that carries only the
+  // first one would run one file and silently skip the other.
+  verdict('ST-ATS214-011 the-request-carries-every-ticked-uid',
+    wanted.length === 2 && sent.length === 2 && wanted.every((u) => sent.includes(u)),
+    `the bar says "${bar}"; the request carried ${JSON.stringify(sent)}; the two ticked uids are ${JSON.stringify(wanted)}; ${seen.length} run request(s) seen`);
 }
 
 /* ================================================================== */
