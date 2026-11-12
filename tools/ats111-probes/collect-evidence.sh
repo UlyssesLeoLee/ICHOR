@@ -97,7 +97,26 @@ else
 fi
 tail -n 8 "$OUT/02-node-test-full.log"
 
-# --- 3. the system test ------------------------------------------------------
+# --- 3. the Next.js static export build -------------------------------------
+# The build comes BEFORE the system test: the probe drives the REAL
+# static export, so the export has to exist. Running the test first
+# would measure a Bridge that serves no UI at all -- the probe would
+# report a broken page, and the failure would have nothing to do with
+# the code under test.
+step '3. the Next.js 16 static export build'
+if [ -d apps/studio/node_modules ]; then
+  if npm --prefix apps/studio run build > "$OUT/05-next-static-export-build.log" 2>&1; then
+    ok 'npm --prefix apps/studio run build'
+  else
+    bad 'npm --prefix apps/studio run build (see 05-next-static-export-build.log)'
+  fi
+  tail -n 12 "$OUT/05-next-static-export-build.log"
+else
+  printf 'SKIPPED: apps/studio/node_modules is not installed.\n' > "$OUT/05-next-static-export-build.log"
+  printf '  SKIP  the static export build needs `npm ci` in apps/studio\n'
+fi
+
+# --- 4. the system test ------------------------------------------------------
 # The system test needs the fixture's dependencies for a REAL engine run.
 # When they are absent the probe cannot run, and that is reported as
 # SKIPPED -- never as a pass.
@@ -114,7 +133,7 @@ else
   printf '  SKIP  the system test needs `npm install` in examples/sample-playwright\n'
 fi
 
-# --- 4. the mutation check ---------------------------------------------------
+# --- 5. the mutation check ---------------------------------------------------
 # The mutation probe now covers the MODEL and the VIEW wiring: the model
 # mutations are caught by the unit tests, the view mutations (the retry
 # that issues no request, the Enter that swallows a button's own action,
@@ -125,7 +144,7 @@ fi
 # It is slow: it builds the static export once for the control and once
 # per view mutation, and drives a real browser each time. The scratch
 # directory has to hold those trees, so it gets its own.
-step '4. the mutation check (the tests must fail when the code is broken)'
+step '5. the mutation check (the tests must fail when the code is broken)'
 if node tools/ats111-probes/mutation-check.mjs . "$SCRATCH-mut" "examples/sample-playwright/node_modules" > "$OUT/04-mutation-evidence.log" 2>&1; then
   ok 'tools/ats111-probes/mutation-check.mjs'
 else
@@ -133,7 +152,7 @@ else
 fi
 tail -n 24 "$OUT/04-mutation-evidence.log"
 
-# --- 4b. the FALSIFIABILITY of the new view-level checks --------------------
+# --- 6. the FALSIFIABILITY of the new view-level checks --------------------
 # The view-level checks are only evidence if they can FAIL. This step
 # runs the CURRENT system test against the PRE-FIX tree -- the code as
 # it was before this round's corrections -- and asserts that the new
@@ -146,7 +165,7 @@ tail -n 24 "$OUT/04-mutation-evidence.log"
 # The expectation is: the system test FAILS on the pre-fix tree, and the
 # failing checks are the ones this round added. A run that passes on the
 # pre-fix tree would mean the new checks do not discriminate.
-step '4b. the new view-level checks FAIL on the pre-fix tree'
+step '6. the new view-level checks FAIL on the pre-fix tree'
 PREFIX_COMMIT="${ATS111_PREFIX_COMMIT:-}"
 if [ -z "$PREFIX_COMMIT" ]; then
   PREFIX_COMMIT="$(git log --oneline --all --grep='merge(ATS-111)' --format=%H | head -1)"
@@ -190,22 +209,8 @@ else
   bad 'the pre-fix commit could not be found (set ATS111_PREFIX_COMMIT)'
 fi
 
-# --- 5. the Next.js static export build -------------------------------------
-step '5. the Next.js 16 static export build'
-if [ -d apps/studio/node_modules ]; then
-  if npm --prefix apps/studio run build > "$OUT/05-next-static-export-build.log" 2>&1; then
-    ok 'npm --prefix apps/studio run build'
-  else
-    bad 'npm --prefix apps/studio run build (see 05-next-static-export-build.log)'
-  fi
-  tail -n 12 "$OUT/05-next-static-export-build.log"
-else
-  printf 'SKIPPED: apps/studio/node_modules is not installed.\n' > "$OUT/05-next-static-export-build.log"
-  printf '  SKIP  the static export build needs `npm ci` in apps/studio\n'
-fi
-
-# --- 6. the WBS row and the shared-workbook regression ----------------------
-step '6. the WBS row and the shared-workbook regression'
+# --- 7. the WBS row and the shared-workbook regression ----------------------
+step '7. the WBS row and the shared-workbook regression'
 {
   printf -- '--- the ATS-111 row ---\n'
   python tools/update_wbs_ats111.py --verify-only
@@ -219,8 +224,8 @@ else
 fi
 grep -E '^(RESULT|verify:|  PASS|  FAIL)' "$OUT/06-wbs-row-and-updaters.log" | tail -n 20
 
-# --- 7. the ATS-301 gate -----------------------------------------------------
-step '7. the ATS-301 gate (WBS helper + ADR citations + the port audit)'
+# --- 8. the ATS-301 gate -----------------------------------------------------
+step '8. the ATS-301 gate (WBS helper + ADR citations + the port audit)'
 if bash tools/ats301-probes/check-ats301-gate.sh > "$OUT/07-quality-gates.log" 2>&1; then
   ok 'tools/ats301-probes/check-ats301-gate.sh'
 else
