@@ -2,7 +2,7 @@
 
 Source: `tools/update_wbs_ats104.py`
 
-Source-SHA256: `ca641df874b532fef83d685c86819334ca059856e81c1f919180370db9a901c1`
+Source-SHA256: `6c96176a9bc560db7c838705a538848233979b007675776aebea563c72a0ca41`
 
 ## Test Strategy
 
@@ -26,8 +26,8 @@ updater's own idempotency check against a copy.
 | TC-001 | the updater runs against a copy of the workbook | row ATS-104 (row 9) has N=待审核, O=1, P=0; T carries `【ATS-104】` exactly once and names `cargo tauri dev` | `tools/test_wbs_common.py` |
 | TC-002 | the updater runs twice against the same copy | the second run leaves row ATS-104 byte-identical; the marker still appears once | `tools/test_wbs_common.py` |
 | TC-003 | the marker of `tools/update_wbs_ats104.py` | exactly one marker is declared, and it is registered in `wbs_common.MARKERS` | `tools/test_wbs_common.py` |
-| TC-004 | every `tools/update_wbs_ats*.py` runs in sequence against one copy | all of them coexist: 34 updaters, each idempotent, the 总览 cache matches 开发WBS after every step, and D6/D7 keep every task's contribution | `tools/ats501-probes/check-wbs-updaters.sh` |
-| TC-005 | openpyxl loads the updated copy in the normal and the `data_only` mode | both load; the ATS-104 row is found; column P keeps its formula | `tools/update_wbs_ats104.py` (`check_parses`) |
+| TC-004 | every `tools/update_wbs_ats*.py` runs in sequence against one copy | all of them coexist: 34 updaters, each idempotent, the 总览 cache matches 开发WBS after every step, and D6/D7 keep every task's contribution | `tools/test_update_wbs_ats104.py` |
+| TC-005 | openpyxl loads the updated copy in the normal and the `data_only` mode | both load; the ATS-104 row is found; column P keeps its formula | `tools/test_update_wbs_ats104.py` |
 | TC-006 | row ATS-104 pre-set to 已完成 / 1 / 0 (an accepted row), then the updater runs with 待审核 | N/O/P stay 已完成 / 1 / 0; the note is refreshed | `tools/test_wbs_common.py` |
 | TC-007 | a foreign marked block already in T | the foreign block survives next to the ATS-104 block | `tools/test_wbs_common.py` |
 

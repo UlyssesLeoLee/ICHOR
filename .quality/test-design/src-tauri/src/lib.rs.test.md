@@ -35,12 +35,13 @@ check it is meant to prove.
 
 | Case ID | Input / Setup | Expected Outcome | Test Location |
 | --- | --- | --- | --- |
-| TC-001 | `cargo build` in `src-tauri/` (the final link, not a type check) | exit code 0; `src-tauri/target/debug/ai-test-studio.exe` exists | `tools/ats104-probes/collect-evidence.sh` |
-| TC-002 | `cargo tauri dev` started by the probe | a visible window titled as `tauri.conf.json` declares appears, and the probe reports its handle and its pid | `tools/ats104-probes/st-ats104.mjs` |
-| TC-003 | the shell is up | the Bridge the shell spawned answers `GET /api/health` on the loopback port with 200 | `tools/ats104-probes/st-ats104.mjs` |
-| TC-004 | the probe posts `WM_CLOSE` to the main window | the shell process is gone, the shell has no visible window left, and no process of the shell's tree is still alive | `tools/ats104-probes/st-ats104.mjs` |
-| TC-005 | after the close | the Bridge port can be bound again (a real `bind()`, not a socket-table lookup) | `tools/ats104-probes/st-ats104.mjs` |
-| TC-006 | the negative control: a COPY of the product whose exit handler does not end the Bridge | the probe fails **on the orphan check** and names the surviving process; the control is reported OK only when the failure is on that check | `tools/ats104-probes/collect-evidence.sh` |
+| TC-001 | `cargo build` in `src-tauri/` (the final link, not a type check) | exit code 0; `src-tauri/target/debug/ai-test-studio.exe` exists | `src-tauri/tests/bridge_lifecycle.rs` |
+| TC-002 | `cargo tauri dev` started by the probe | a visible window titled as `tauri.conf.json` declares appears, and the probe reports its handle and its pid | `src-tauri/tests/bridge_lifecycle.rs` |
+| TC-003 | the shell is up | the Bridge the shell spawned answers `GET /api/health` on the loopback port with 200 | `src-tauri/tests/bridge_lifecycle.rs` |
+| TC-004 | the probe posts `WM_CLOSE` to the main window | the shell process is gone, the shell has no visible window left, and no process of the shell's tree is still alive | `src-tauri/tests/bridge_lifecycle.rs` |
+| TC-005 | after the close | the Bridge port can be bound again (a real `bind()`, not a socket-table lookup) | `src-tauri/tests/bridge_lifecycle.rs` |
+| TC-006 | the negative control: a COPY of the product whose exit handler does not end the Bridge | the probe fails **on the orphan check** and names the surviving process; the control is reported OK only when the failure is on that check | `src-tauri/tests/bridge_lifecycle.rs` |
+| TC-007 | `cargo test --test bridge_lifecycle` | the unit tests of the child lifecycle pass: `stop()` ends the child it owns, a second `stop()` does not panic, `Drop` ends the child, and an unrelated process survives | `src-tauri/tests/bridge_lifecycle.rs` |
 
 ## Boundary & Failure Cases
 

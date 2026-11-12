@@ -117,9 +117,10 @@ def self_consistent(xml, rid):
     return rate >= 1 and remaining <= 0
 
 
-def patch_workbook(status='待审核'):
-    shutil.copy2(XLSX, XLSX.with_suffix('.xlsx.bak'))
-    zin = zipfile.ZipFile(XLSX)
+def patch_workbook(status='待审核', xlsx_path=None):
+    xlsx_path = Path(xlsx_path) if xlsx_path else XLSX
+    shutil.copy2(xlsx_path, xlsx_path.with_suffix('.xlsx.bak'))
+    zin = zipfile.ZipFile(xlsx_path)
     parts = {n: zin.read(n) for n in zin.namelist()}
     infos = {i.filename: i for i in zin.infolist()}
     zin.close()
@@ -165,7 +166,7 @@ def patch_workbook(status='待审核'):
           f'完成率={derived["completion_rate"]} 剩余人日={derived["sum_remaining"]}')
 
     # --- rewrite the archive, preserving every other part byte-for-byte -----
-    tmp = XLSX.with_suffix('.xlsx.tmp')
+    tmp = xlsx_path.with_suffix('.xlsx.tmp')
     with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zout:
         for name, data in parts.items():
             info = infos[name]
@@ -174,23 +175,23 @@ def patch_workbook(status='待审核'):
             zi.external_attr = info.external_attr
             zout.writestr(zi, data)
     # os.replace() can fail on Windows when the target is held open; copy then unlink
-    shutil.copy2(tmp, XLSX)
+    shutil.copy2(tmp, xlsx_path)
     tmp.unlink()
-    print('updated', XLSX)
+    print('updated', xlsx_path)
 
 
-def row_signature():
+def row_signature(xlsx_path=None):
     """The ATS-104 row's cells, for the idempotency check."""
-    zin = zipfile.ZipFile(XLSX)
+    zin = zipfile.ZipFile(Path(xlsx_path) if xlsx_path else XLSX)
     xml2 = zin.read(SHEET2).decode('utf-8')
     zin.close()
     rid, rm = find_ats_row(xml2, 'ATS-104')
     return rm.group(0)
 
 
-def verify():
+def verify(xlsx_path=None):
     """Assert the workbook still parses and row ATS-104 is exactly as intended."""
-    zin = zipfile.ZipFile(XLSX)
+    zin = zipfile.ZipFile(Path(xlsx_path) if xlsx_path else XLSX)
     names = zin.namelist()
     assert 'xl/worksheets/sheet2.xml' in names, 'sheet2 missing'
     xml2 = zin.read(SHEET2).decode('utf-8')
@@ -212,7 +213,7 @@ def verify():
     print(f'verify: ATS-104 row {rid} 状态={status} 完成率={rate} 剩余人日={remain} marker×{note.count(MARKER)}')
 
 
-def check_parses():
+def check_parses(xlsx_path=None):
     """Assert the workbook is loadable -- in both openpyxl modes.
 
     A note that was written into the sheet XML without XML escaping makes the
@@ -221,7 +222,8 @@ def check_parses():
     """
     import openpyxl
 
-    wb = openpyxl.load_workbook(XLSX, data_only=False)
+    workbook = Path(xlsx_path) if xlsx_path else XLSX
+    wb = openpyxl.load_workbook(workbook, data_only=False)
     ws = wb['开发WBS']
     row = None
     for r in range(1, ws.max_row + 1):
@@ -240,7 +242,7 @@ def check_parses():
     assert 'cargo tauri dev' in note, 'column T is missing the delivered scope'
     wb.close()
 
-    wb = openpyxl.load_workbook(XLSX, data_only=True)
+    wb = openpyxl.load_workbook(workbook, data_only=True)
     assert '开发WBS' in wb.sheetnames, 'the 开发WBS sheet is missing in the data_only mode'
     wb.close()
     print('verify: openpyxl loads the workbook in the normal and the data_only mode')
@@ -250,6 +252,10 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--verify-only', action='store_true')
     ap.add_argument(
+        '--xlsx', default=str(XLSX),
+        help='the workbook to edit (default: docs/WBS.xlsx). A copy can be '
+             'given so that the repository workbook is not written.')
+    ap.add_argument(
         '--status', default='待审核',
         help='the 状态 to write into the ATS-104 row (default: 待审核). '
              'Use 已完成 once the review has returned PASS; the row then keeps '
@@ -257,21 +263,21 @@ if __name__ == '__main__':
     args = ap.parse_args()
 
     if args.verify_only:
-        verify()
-        check_parses()
+        verify(args.xlsx)
+        check_parses(args.xlsx)
     else:
-        before = row_signature()
-        patch_workbook(args.status)
-        after = row_signature()
+        before = row_signature(args.xlsx)
+        patch_workbook(args.status, args.xlsx)
+        after = row_signature(args.xlsx)
         if before == after:
             print('IDEMPOTENT: row ATS-104 unchanged')
         else:
             print('CHANGED (first run applied the update)')
         # A second run must be a no-op.
-        second_before = row_signature()
-        patch_workbook(args.status)
-        second_after = row_signature()
+        second_before = row_signature(args.xlsx)
+        patch_workbook(args.status, args.xlsx)
+        second_after = row_signature(args.xlsx)
         assert second_before == second_after, 'the updater is NOT idempotent'
         print('IDEMPOTENT: a second run leaves row ATS-104 byte-identical')
-        verify()
-        check_parses()
+        verify(args.xlsx)
+        check_parses(args.xlsx)

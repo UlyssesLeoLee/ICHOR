@@ -1,0 +1,66 @@
+=== ATS-104 evidence 02 -- ST-022 probe (cargo tauri dev, WebView2, no orphan) ===
+
+commit  : 3de624fdf5e3dcc1f9c521bb6bcfb4c7271c6336
+branch  : agent/m3/seikoist-150-5f9b702282ab
+dev tip : 550ddfa601c3872e10a98c6f4f07cea395967f72
+date    : 2026-11-12T18:07:03Z
+host    : MINGW64_NT-10.0-26300 3.6.9-b4195d69.x86_64
+node    : v24.19.0
+rustc   : rustc 1.99.1 (58cf8f9c3 2026-10-13)
+cargo   : cargo 1.99.1 (5f94df478 2026-08-27)
+tauri   : tauri-cli 2.12.4
+toolchain: stable-x86_64-pc-windows-gnu
+cargo PATH        : /c/msys64/mingw64/bin:$HOME/.cargo/bin (prepended)
+
+=== ATS-104 ST-022: Tauri 2 Windows dev build and WebView2 ===
+repo root  : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-15-5f9b702282ab\worktree
+exe        : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-15-5f9b702282ab\worktree\src-tauri\target\debug\ai-test-studio.exe
+title      : AI Test Studio
+bridge port: 4577
+timeout    : 180000ms
+
+--- 1. cargo build (skipped: ATS104_SKIP_BUILD=1) ---
+artefact   : 217738030 bytes
+
+--- 2. the Bridge port is free before the run: yes ---
+--- 3. cargo tauri dev ---
+--- 4. waiting for the desktop window ---
+window     : hwnd=1577218 pid=14104 title="AI Test Studio" visible=true
+appeared in: 22873ms
+
+--- 5. the Bridge the shell spawned answers on the loopback port ---
+  GET /api/health -> 200
+  body: {"ok":true,"version":"0.1.0","mode":"local","node":"v24.19.0"}
+
+--- 6. closing the window (WM_CLOSE, the same message the X button sends) ---
+  the shell tree before the close: 4644, 14104, 18756, 18828, 23616, 24092, 24140, 27276
+  PostMessage(WM_CLOSE) -> sent
+--- 7. no orphan window and no orphan process after the close ---
+  the shell process is alive: no
+  the shell's visible windows: 0
+  the shell tree after the close: 14104
+  settled in: 2221ms
+  the shell's tree members still alive: (none)
+  the Bridge port is bindable again: yes (waited 3ms)
+
+--- 8. cargo tauri dev exit code: 0 ---
+
+--- the dev output tail ---
+     Running BeforeDevCommand (`npm --prefix apps/studio run dev`)
+npm notice run @ai-test-studio/ui@0.1.0 dev
+npm notice run next dev -p 3000
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.79s
+[1m[92m     Running[0m `target\debug\ai-test-studio.exe`
+▲ Next.js 16.4.5 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.253.0.29:3000
+✓ Ready in 611ms
+✓ Running next.config.mjs took 30ms
+
+ GET / 200 in 522ms (next.js: 252ms, application-code: 270ms)
+
+
+RESULT: OK -- the dev build opened the window, the Bridge answered, and closing the window left no orphan.
+
+probe exit = 0
