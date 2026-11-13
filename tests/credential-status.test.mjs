@@ -215,3 +215,126 @@ test('ATS213-UT-012: the reason mapping keeps "entry missing" apart from "read f
   assert.equal(credentialStatusReasonOf(new Error('CREDENTIAL_STORE_FAILED')), 'CREDENTIAL_STORE_FAILED');
   assert.equal(credentialStatusReasonOf(new Error('something else')), 'CREDENTIAL_STORE_FAILED');
 });
+
+test('ATS213-UT-013: a reference deleted WHILE the list is walked does not break the list', async () => {
+  // The index and the credential store are two different systems, and a
+  // DELETE can land between the two reads of a status walk. Before the fix
+  // the whole list failed with CREDENTIAL_NOT_FOUND; the reader then saw
+  // "every key is broken" instead of "two keys are fine and one is gone".
+  const indexFile = freshIndex();
+  const vault = fakeVault();
+  let store;
+  let victim = null;
+  let fired = false;
+  const backend = {
+    name: 'racing-vault',
+    available: async () => true,
+    async write(id, secret) { vault.entries.set(id, secret); },
+    async read(id) {
+      // The concurrent DELETE lands in the middle of the walk.
+      if (victim && !fired) { fired = true; await store.remove(victim); }
+      if (!vault.entries.has(id)) throw new Error('CREDENTIAL_NOT_FOUND');
+      return vault.entries.get(id);
+    },
+    async remove(id) { vault.entries.delete(id); },
+  };
+  store = createCredentialStore({ indexFile, backend });
+  const ids = [];
+  for (const n of ['a', 'b', 'c']) {
+    ids.push((await store.put({ name: `r2-${n}`, secret: `sk-r2-${n}`, purpose: 'other' })).id);
+  }
+  victim = ids[2];
+  const all = await store.statusAll();
+  // The list is a list, not an error.
+  assert.ok(Array.isArray(all), 'statusAll must not throw when a reference is deleted mid-walk');
+  // The two surviving references still have a MEASURED status.
+  assert.equal(all.length, 2);
+  for (const s of all) {
+    assert.equal(s.status, 'configured', `unexpected status ${s.status} for ${s.id}`);
+    assert.equal(s.reason, 'CREDENTIAL_FOUND');
+  }
+});
+
+test('ATS213-UT-014: a malformed reference gets its own status, not a broken list', async () => {
+  // An index entry whose id is not a credential id cannot be measured. It
+  // gets a status of its own -- the list around it stays intact.
+  const indexFile = freshIndex();
+  const store = createCredentialStore({ indexFile, backend: fakeVault() });
+  await seed(store, 'ats213-good');
+  const index = JSON.parse(fs.readFileSync(indexFile, 'utf8'));
+  index.credentials.push({ ...index.credentials[0], id: 'cred_LEGACY', name: 'legacy' });
+  fs.writeFileSync(indexFile, JSON.stringify(index));
+
+  const listed = await store.list();
+  assert.equal(listed.length, 2, 'list() still reports both references');
+  const all = await store.statusAll();
+  assert.equal(all.length, 2, 'statusAll() must not throw on a malformed entry');
+  const legacy = all.find((s) => s.id === 'cred_LEGACY');
+  assert.ok(legacy, 'the malformed entry is still reported');
+  assert.equal(legacy.status, 'unavailable');
+  assert.equal(legacy.reason, 'CREDENTIAL_STORE_FAILED');
+  // The good one is still measured -- the malformed one did not poison it.
+  assert.equal(all.find((s) => s.id !== 'cred_LEGACY').status, 'configured');
+});
+
+test('ATS213-UT-015: the store health is MEASURED, not predicted from the files', async () => {
+  // A backend whose files are all there but which cannot answer is
+  // `failed`, not `ok`. A UI that says 「已就绪」 on the strength of a file
+  // that exists is stating something nobody measured.
+  const indexFile = freshIndex();
+  const store = createCredentialStore({
+    indexFile,
+    backend: {
+      name: 'broken-vault',
+      available: async () => true,
+      async write() {},
+      async read() { throw new Error('CREDENTIAL_STORE_FAILED'); },
+      async remove() {},
+      async probe() { throw new Error('CREDENTIAL_STORE_FAILED'); },
+    },
+  });
+  const health = await store.health();
+  assert.equal(health.state, 'failed');
+  assert.equal(health.reason, 'CREDENTIAL_STORE_FAILED');
+  // The PREDICTION and the MEASUREMENT are two different facts.
+  assert.equal(await store.available(), true, 'the files are there, so the prediction says available');
+});
+
+test('ATS213-UT-016: a store that answers reports itself healthy', async () => {
+  const indexFile = freshIndex();
+  const vault = fakeVault();
+  const store = createCredentialStore({
+    indexFile,
+    backend: {
+      name: 'probing-vault',
+      available: async () => true,
+      async write(id, secret) { vault.entries.set(id, secret); },
+      async read(id) {
+        if (!vault.entries.has(id)) throw new Error('CREDENTIAL_NOT_FOUND');
+        return vault.entries.get(id);
+      },
+      async remove(id) { vault.entries.delete(id); },
+      // The probe reports "no such entry" -- which PROVES the store answered.
+      async probe() { throw new Error('CREDENTIAL_NOT_FOUND'); },
+    },
+  });
+  const health = await store.health();
+  assert.equal(health.state, 'ok');
+  assert.equal(health.reason, 'CREDENTIAL_FOUND');
+});
+
+test('ATS213-UT-017: a store that cannot be reached at all reports unavailable', async () => {
+  const store = createCredentialStore({
+    indexFile: freshIndex(),
+    backend: {
+      name: 'absent-vault',
+      available: async () => false,
+      async write() {},
+      async read() {},
+      async remove() {},
+    },
+  });
+  const health = await store.health();
+  assert.equal(health.state, 'unavailable');
+  assert.equal(health.reason, 'CREDENTIAL_STORE_UNAVAILABLE');
+});

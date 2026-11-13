@@ -191,9 +191,10 @@ NARRATIVE_FRAGMENTS = {
               '详见 docs/29-EVIDENCE-WORKBENCH.md',
     },
     '【ATS-213】': {
-        'D6': '凭据可用状态面已实现（ATS-213：状态是三值闭集且每条引用恰有一个；'
+        'D6': '凭据引用与可用状态面已实现（ATS-213：密钥仅以引用传递——档案只留引用，'
+              '运行启动时解析并注入封口环境，解析不了拒绝启动；状态是三值闭集且每条引用恰有一个；'
               '状态对系统凭据库实测而不从索引推断；未配置与取不到不合并；'
-              '界面显示状态词与原因，不回显明文）',
+              '整张清单基于同一份索引快照；界面显示状态词与原因，不回显明文）',
         'D7': 'macOS Keychain / Linux Secret Service 后端未在真机实测（Windows Credential Manager 已实测）；'
               'Tauri 壳内凭据存取未验证（src-tauri/src/lib.rs 未改动）；'
               '详见 docs/32-CREDENTIAL-STATUS.md',

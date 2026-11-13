@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：719；已执行通过：703；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：724；已执行通过：708；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -727,6 +727,11 @@
 |UT-ATS213-010|FR-027|边界|一条坏的不让整个清单变成错误|一条可读失败|两条都有状态；不是「全坏了」|node --test|PASS|
 |UT-ATS213-011|FR-027|正常|状态词汇表进契约描述|describeCredentialStore|statuses 与 statusReasons 都在契约里|node --test|PASS|
 |UT-ATS213-012|FR-027|边界|原因映射把「条目不在」与「读失败」分开|各类 CREDENTIAL_* 错误与未知错误|NOT_FOUND / UNAVAILABLE 各自归位；未知错误归 CREDENTIAL_STORE_FAILED，绝不归「条目不在」|node --test|PASS|
+|UT-ATS213-013|FR-027|异常|遍历中被删除的引用不让整张清单变成错误|statusAll() 走到一半时并发 DELETE 一条引用|清单不抛错；存活的两条各有 configured 状态（清单基于同一份索引快照）|node --test|PASS|
+|UT-ATS213-014|FR-027|异常|索引里 id 不合规的条目单独得到一个状态|索引里塞一条 id=cred_LEGACY 的记录|整张清单不抛错；该条是 unavailable + CREDENTIAL_STORE_FAILED；好的一条仍是 configured|node --test|PASS|
+|UT-ATS213-015|FR-027|异常|凭据库的「可用」是实测的，不是文件在不在推断的|helper 存在但调用失败的后端|health().state=failed；available()（预测）仍是 true——两者是两个事实|node --test|PASS|
+|UT-ATS213-016|FR-027|正常|凭据库回答了就是健康的|探测报「没有这一条」（证明它答了）|health().state=ok|node --test|PASS|
+|UT-ATS213-017|FR-027|异常|本机没有可用的凭据库|后端报告自己不可用|health().state=unavailable、reason=CREDENTIAL_STORE_UNAVAILABLE|node --test|PASS|
 
 ## 进入与退出条件
 

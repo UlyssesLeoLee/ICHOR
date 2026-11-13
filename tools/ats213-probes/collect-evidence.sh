@@ -12,13 +12,17 @@
 #   01  the credential status unit tests (the closed status vocabulary)
 #   02  the credential status integration tests over HTTP
 #   03  the SAME integration tests against the REAL Windows Credential Manager
-#   04  the ATS-402 security tests (the credential store must not regress)
-#   05  the boundary probe (no secret in argv / files / logs / responses)
-#   06  the system test in a REAL browser (the status is visible in the UI)
+#   04  the credential-reference integration tests (a run resolves a reference)
+#   05  the ATS-402 security tests (the credential store must not regress)
+#   06  the boundary probe (no secret in argv / files / logs / responses)
 #   07  the Next.js static export build + tsc --noEmit
-#   08  the ATS-301 gate (WBS helper + ADR citations + port audit)
-#   09  the full repository regression suite
-#   10  the WBS row update and the checksum manifest
+#   08  the system test in a REAL browser (the status is visible in the UI)
+#   09  the credential-reference system test (a REAL Playwright run reads it)
+#   10  the failure-path system test (the store unreachable / the read fails)
+#   11  the mutants (the new checks go RED when the defect is back)
+#   12  the ATS-301 gate (WBS helper + ADR citations + port audit)
+#   13  the full repository regression suite
+#   14  the WBS row update and the checksum manifest
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -73,17 +77,32 @@ run_step "credential-status-api-it" "the credential status integration tests" \
 run_step "credential-status-api-it-real-store" "the SAME integration tests against the REAL Windows Credential Manager" \
   env ATS213_REAL_CREDENTIAL_STORE=1 node --test tests/credential-status-api.test.mjs
 
+run_step "credential-reference-it" "the credential-reference integration tests (a run resolves a reference, or is refused)" \
+  node --test tests/credential-reference-api.test.mjs
+
 run_step "security-regression" "the ATS-402 security tests (the credential store must not regress)" \
   node --test tests/security.test.mjs tests/security-credentials.test.mjs tests/security-gate.test.mjs tests/security-api.test.mjs
 
 run_step "credential-boundary-probe" "the boundary probe: no secret in argv / files / logs / responses" \
   node tools/ats213-probes/probe-credential-boundary.mjs
 
+# The build comes BEFORE the browser steps: the system tests drive the
+# static export, and an export that was not built is a missing page, not a
+# defect of the delivery.
+run_step "next-build" "the Next.js static export build" \
+  bash tools/ats213-probes/collect-build.sh
+
 run_step "system-test" "the system test in a REAL browser (the status is visible in the UI)" \
   node tools/ats213-probes/st-ats213.mjs "$OUT/ui"
 
-run_step "next-build" "the Next.js static export build" \
-  bash tools/ats213-probes/collect-build.sh
+run_step "credential-reference-st" "the credential-reference system test (a REAL Playwright run reads the injected secret)" \
+  node tools/ats213-probes/st-credential-ref.mjs "$OUT/ref"
+
+run_step "status-failures-st" "the failure-path system test (the store unreachable / the status read fails)" \
+  node tools/ats213-probes/st-credential-status-failures.mjs "$OUT/failures"
+
+run_step "status-mutants" "the mutants: the new checks go RED when the defect is back" \
+  node tools/ats213-probes/probe-credential-status-mutants.mjs
 
 run_step "quality-gates" "the ATS-301 gate (WBS helper + ADR citations + port audit)" \
   bash tools/ats301-probes/check-ats301-gate.sh

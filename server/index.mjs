@@ -39,6 +39,10 @@ import { assertSafeTestFilter } from './adapters/playwright-cli.mjs';
 // and the runner receives the SEALED environment (the profile's variables
 // plus the platform base keys -- never the host's own environment).
 import { ENVIRONMENTS, buildRunnerEnv, envVarNames, filterProfileVariables } from './env/profiles.mjs';
+// ATS-213: the credential references of an environment profile are resolved
+// against the system credential store when the run starts. The resolved
+// secret goes into the sealed runner environment and into nothing else.
+import { resolveCredentialRefs } from './env/credential-refs.mjs';
 import {
   envStoreOf, profilesOfProject, findProfile, whitelistForProject,
   upsertProfile, removeProfile, setWhitelist, publicProfile, projectKeyOf,
@@ -1198,12 +1202,33 @@ const server=http.createServer(async(req,res)=>{
    // run still happens, with exactly the variables that are still allowed.
    const envWhitelist=whitelistForProject(envStore_,project);
    const envFiltered=envProfile?filterProfileVariables(envProfile,envWhitelist.names):{variables:{},refused:[]};
+   // ATS-213: the CREDENTIAL REFERENCES of the profile are resolved HERE,
+   // at run start, and only here.
+   //
+   // A profile may carry a reference to the system credential store
+   // instead of a secret. The reference is resolved against the store, and
+   // the resolved value goes into the SEALED runner environment -- and into
+   // nothing else. The profile keeps the reference, the run record keeps
+   // the NAMES, and the archive keeps neither.
+   //
+   // A reference that cannot be resolved REFUSES the run: an unresolved
+   // credential means the system under test would be called with a missing
+   // or empty token, which is a worse outcome than not running at all.
+   let envResolved={values:envFiltered.variables??{},names:[],referenced:[]};
+   if(envProfile&&envFiltered.variables){
+    try{
+     envResolved=await resolveCredentialRefs(envFiltered.variables,{credentialStore,purpose:'other'});
+    }catch(e){
+     // The refusal names the VARIABLE and the REFERENCE, never the secret.
+     return err(res,404,e.code||'CREDENTIAL_REF_RESOLVE_FAILED',{variable:e.variable||null,credentialRef:e.credentialRef||null});
+    }
+   }
    // The names of the variables the run carried -- NEVER their values. The
    // run record is archived, mirrored into SQLite and shipped as evidence;
    // a value may be sensitive, a name is what a reader of the run needs.
    // The names are the ones that ACTUALLY reached the runner, so the record
    // does not claim a variable the whitelist took away.
-   const envVarNameList=envFiltered.variables?Object.keys(envFiltered.variables).sort():[];
+   const envVarNameList=envResolved.names?envResolved.names:[];
    // ATS-214: the SELECTION goes on the run record.
    //
    // The record is what makes the selection REPRODUCIBLE: it says which
@@ -1214,8 +1239,8 @@ const server=http.createServer(async(req,res)=>{
    //
    // The run also carries the selection's own uids as `selectionUids`, so
    // the reconciliation does not have to dig into the nested record.
-   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null,...(envFiltered.refused.length?{envRefused:envFiltered.refused}:{}),...(selection?{selection,selectionUids:selection.uids}:{})};
-   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter,envProfile,envFiltered.variables);
+   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null,...(envResolved.referenced.length?{envCredentialRefs:envResolved.referenced}:{}),...(envFiltered.refused.length?{envRefused:envFiltered.refused}:{}),...(selection?{selection,selectionUids:selection.uids}:{})};
+   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter,envProfile,envResolved.values);
    // ATS-214: a selection that spans SEVERAL files is a BATCH. The first
    // run of the batch is the one that starts here; the rest are chained to
    // it (see `advanceBatch`).
@@ -1423,7 +1448,12 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
  }
  if(p==='/api/security/credentials'&&req.method==='GET'){
   // The credential REFERENCES. There is no endpoint that returns a secret.
-  return respond(res,200,{credentials:await credentialStore.list(),provider:credentialStore.provider(),available:await credentialStore.available()});
+  //
+  // `available` is the MEASURED health of the store, not the backend's
+  // prediction about its own files: the helper may be present on disk and
+  // still not answer.
+  const health=await credentialStore.health();
+  return respond(res,200,{credentials:await credentialStore.list(),provider:credentialStore.provider(),available:health.state==='ok',storeHealth:health});
  }
  if(p==='/api/security/credentials'&&req.method==='POST'){
   // Store a secret in the OS credential store. The secret arrives in the
@@ -1446,7 +1476,12 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
  // The response carries the status, the reason code, the fingerprint and the
  // provider. It NEVER carries a secret, and never a fragment of one.
  if(p==='/api/security/credentials/status'&&req.method==='GET'){
-  return respond(res,200,{statuses:await credentialStore.statusAll(),provider:credentialStore.provider(),available:await credentialStore.available()});
+  // The `available` flag is the MEASURED health of the store, not the
+  // backend's prediction about its own files. A UI that says 「已就绪」
+  // while every reference reads 「取不到」 is stating something nobody
+  // measured.
+  const health=await credentialStore.health();
+  return respond(res,200,{statuses:await credentialStore.statusAll(),provider:credentialStore.provider(),available:health.state==='ok',storeHealth:health});
  }
  const credStatusRm=p.match(/^\/api\/security\/credentials\/(cred_[0-9a-f]{24})\/status$/);
  if(credStatusRm&&req.method==='GET')return respond(res,200,{status:await credentialStore.status(credStatusRm[1])});
