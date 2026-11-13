@@ -1,30 +1,37 @@
 === ATS-606 evidence: the grouping negative controls ===
-tree : a120e1d7c1264779e2f8ace99a515f6680139421
-date : 2026-11-12T20:12:02Z
+tree : 8ee2fced797bca1d451ec238b91bef866fe89ed8
+date : 2026-11-13T01:28:46Z
 
 === ATS-606: the negative controls for the §8.5 GROUPING ===
-repo : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-49-4eda0c7806b7\worktree
+repo : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-49-7b6ee8cd1fd6\worktree
 every mutant moves a row into another group and rewrites EVERY count,
 so the only thing wrong with it is WHICH GROUP the row is in.
 
 M0 control (unchanged)                   exit=0  => OK (control passes)
-M1 assertNotVisible -> 可映射               exit=1  => caught
-     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（6 条）", the generator says "#### 8.5.1 可映射（5 条）". The group 
-     FAIL §8.5 states 6/1/48 but the table holds 5/2/48
+M1 assertNotVisible -> 部分可映射             exit=1  => caught
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
+     FAIL the grouping contradicts the byte-code: assertNotVisible: the document puts it in the partial group, the byte-code implies 可映射 (it compiles into AssertConditionComma
 M2 swipe -> 可映射                          exit=1  => caught
-     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（6 条）", the generator says "#### 8.5.1 可映射（5 条）". The group 
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（7 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
      FAIL the grouping breaks the §8.3 criterion: swipe is in the mappable group but names no step kind
 M3 assertVisible -> 不映射                  exit=1  => caught
-     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（4 条）", the generator says "#### 8.5.1 可映射（5 条）". The group 
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
      FAIL the grouping breaks the §8.3 criterion: assertVisible is in the unmappable group but names the step kind "assertVisible"
 M4 startRecording -> 不映射                 exit=1  => caught
-     FAIL the §8.5 block differs from the generated block -- line 11 of the block: the document says "#### 8.5.2 部分可映射（1 条）", the generator says "#### 8.5.2 部分可映射（2 条）". The g
+     FAIL the §8.5 block differs from the generated block -- line 12 of the block: the document says "#### 8.5.2 部分可映射（1 条）", the generator says "#### 8.5.2 部分可映射（2 条）". The g
      FAIL the grouping breaks the §8.3 criterion: startRecording is in the unmappable group but names the step kind "recordScreen"
 M5 launchApp -> 部分可映射                    exit=1  => caught
-     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（4 条）", the generator says "#### 8.5.1 可映射（5 条）". The group 
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
+     FAIL the grouping contradicts the byte-code: launchApp: the document puts it in the partial group, the byte-code implies 可映射 (it compiles into LaunchAppCommand)
 M6 tapOn -> 不映射                          exit=1  => caught
-     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（4 条）", the generator says "#### 8.5.1 可映射（5 条）". The group 
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
      FAIL the grouping breaks the §8.3 criterion: tapOn is in the unmappable group but names the step kind "tapOn"
+M7 extendedWaitUntil -> 不映射              exit=1  => caught
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
+     FAIL the grouping breaks the §8.3 criterion: extendedWaitUntil is in the unmappable group but names the step kind "assertVisible"
+M8 takeScreenshot -> 部分可映射               exit=1  => caught
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
+     FAIL the grouping contradicts the byte-code: takeScreenshot: the document puts it in the partial group, the byte-code implies 可映射 (it compiles into TakeScreenshotCommand)
 
 GROUP MUTANTS: OK (every group mutation was caught, and the control still passes)
 

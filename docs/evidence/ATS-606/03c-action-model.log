@@ -1,0 +1,66 @@
+=== ATS-606 evidence: the Maestro action model (byte-code) ===
+tree : 8ee2fced797bca1d451ec238b91bef866fe89ed8
+date : 2026-11-13T01:28:46Z
+
+=== ATS-606: the Maestro action model (measured from the byte-code) ===
+lib   : D:\AI-Tools\Maestro\lib
+fields: 56
+
+launchApp                  LaunchAppCommand  
+setPermissions             SetPermissionsCommand  
+tapOn                      TapOnElementCommand,TapOnPointV2Command  tap
+longPressOn                TapOnElementCommand,TapOnPointV2Command  long-press
+assertVisible              AssertConditionCommand  visible
+assertNotVisible           AssertConditionCommand  notVisible
+assertTrue                 AssertConditionCommand  expression
+assertNoDefectsWithAI      AssertNoDefectsWithAICommand  
+assertWithAI               AssertWithAICommand  
+extractTextWithAI          ExtractTextWithAICommand  
+assertScreenshot           AssertScreenshotCommand  
+addMedia                   AddMediaCommand  
+inputText                  InputTextCommand  
+inputRandomText            InputRandomCommand  
+inputRandomNumber          InputRandomCommand  
+inputRandomEmail           InputRandomCommand  
+inputRandomPersonName      InputRandomCommand  
+inputRandomCityName        InputRandomCommand  
+inputRandomCountryName     InputRandomCommand  
+inputRandomColorName       InputRandomCommand  
+swipe                      SwipeCommand  
+openLink                   OpenLinkCommand  
+pressKey                   PressKeyCommand  
+eraseText                  EraseTextCommand  
+action                     BackPressCommand,HideKeyboardCommand,ScrollCommand,ClearKeychainCommand,PasteTextCommand  
+back                       BackPressCommand  
+clearKeychain              ClearKeychainCommand  
+hideKeyboard               HideKeyboardCommand  
+pasteText                  PasteTextCommand  
+scroll                     ScrollCommand  
+takeScreenshot             TakeScreenshotCommand  
+extendedWaitUntil          AssertConditionCommand  extended-wait
+stopApp                    StopAppCommand  
+killApp                    KillAppCommand  
+clearState                 ClearStateCommand  
+runFlow                    RunFlowCommand  
+setLocation                SetLocationCommand  
+setOrientation             SetOrientationCommand  
+repeat                     RepeatCommand  
+retry                      RetryCommand  
+copyTextFrom               CopyTextFromCommand  
+setClipboard               SetClipboardCommand  
+runScript                  RunScriptCommand  expression
+waitForAnimationToEnd      WaitForAnimationToEndCommand  
+evalScript                 EvalScriptCommand  
+scrollUntilVisible         ScrollUntilVisibleCommand  
+travel                     TravelCommand  
+startRecording             StartRecordingCommand  
+stopRecording              StopRecordingCommand  
+doubleTapOn                TapOnElementCommand,TapOnPointV2Command  double-tap
+setAirplaneMode            SetAirplaneModeCommand  
+toggleAirplaneMode         ToggleAirplaneModeCommand  
+setDarkMode                SetDarkModeCommand  
+toggleDarkMode             ToggleDarkModeCommand  
+assertDarkMode             AssertDarkModeCommand  
+assertLightMode            AssertLightModeCommand  
+
+exit : 0

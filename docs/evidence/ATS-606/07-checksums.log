@@ -1,12 +1,10 @@
 === ATS-606 evidence: the checksum manifest ===
-tree : a120e1d7c1264779e2f8ace99a515f6680139421
-date : 2026-11-12T20:12:02Z
+tree : 8ee2fced797bca1d451ec238b91bef866fe89ed8
+date : 2026-11-13T01:28:46Z
 
-manifest entries : 989
-digest mismatches: 3
-    docs/25-MOBILE-APP-TESTING.md ac5096be694e499b028c8d5dd87632fea0556caea8e1a87134de64b70c9efc56 != dc4d5608d9b0761588c1d4adb231a8098128c86d97edf37a40e88acf0a575ad3
-    tools/ats606-probes/probe-ios-driver-support.mjs c559d7a6c644cc077cee8f44d5b3974eabd3312b0e95a25969447f1d3bb2649a != 9817cd19f3d8d387aebafda4494ffe9a9ff214139d131d9ec10c2a6b658c3996
-    tools/update_wbs_ats606.py 8eba764b60c3e639e3a1642ba555233cd22a38235f7f0c9d3b6fea5aa470eb55 != e45b4f350c8d6fb8dc03623dc557356edf6b00845bbb4027d6ee5c66065ef580
+manifest entries : 993
+digest mismatches: 1
+    docs/25-MOBILE-APP-TESTING.md a25efacafe8fa5bf110567db6cf056ef679fd499b09f7274531f62ec62f033ba != d46aca941f459cbeed7d3c1f4c317bb35eb1e2fb225cc04908e373975f4a2859
 tracked-not-listed: 0 []
 listed-not-tracked: 0 []
 RESULT: MISMATCH

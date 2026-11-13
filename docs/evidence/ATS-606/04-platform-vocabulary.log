@@ -1,6 +1,6 @@
 === ATS-606 evidence: the platform vocabulary (ATS-601 / ATS-602) ===
-tree : a120e1d7c1264779e2f8ace99a515f6680139421
-date : 2026-11-12T20:12:02Z
+tree : 8ee2fced797bca1d451ec238b91bef866fe89ed8
+date : 2026-11-13T01:28:46Z
 
 --- ATS-601: the step kinds and the capabilities each one needs ---
   launchApp       any: ['app.install', 'app.launch'], all: []
