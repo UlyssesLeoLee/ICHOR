@@ -1,9 +1,9 @@
 ================================================================================
 ATS-213 evidence log -- the Next.js static export build
 ================================================================================
-commit        : 387dbdd06a6e2e46e8cdcc6621187d994bd46436
-timestamp     : 2026-11-12T17:19:27Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-44eea8bbc9b6/worktree
+commit        : cb3ad6823917c8846bfefd0cff42814e6600bf0c
+timestamp     : 2026-11-13T01:38:33Z (UTC)
+repo root     : /d/ICHOR
 node          : v24.19.0
 python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
@@ -16,7 +16,7 @@ node:internal/modules/cjs/loader:1520
   throw err;
   ^
 
-Error: Cannot find module 'C:\c\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-17-44eea8bbc9b6\worktree\apps\studio\node_modules\typescript\bin\tsc'
+Error: Cannot find module 'D:\d\ICHOR\apps\studio\node_modules\typescript\bin\tsc'
     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
@@ -34,15 +34,15 @@ tsc exit code: 1
 
 --- 2. the static export build (next build) ---
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 36ms
+✓ Running next.config.mjs took 20ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 202ms
+✓ Compiled successfully in 393ms
   Running TypeScript ...
-  Finished TypeScript in 1600ms ...
+  Finished TypeScript in 2.2s ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 667ms
+✓ Generating static pages using 4 workers (3/3) in 418ms
   Finalizing page optimization ...
 
 Route (app)
@@ -55,11 +55,11 @@ Route (app)
 next build exit code: 0
 
 --- 3. the export artefact ---
-out/index.html exists (16544 bytes)
+out/index.html exists (17831 bytes)
 
 --- 4. the build side effects on tracked files ---
-error: Could not access 'apps/studio/next-env.d.ts'
-error: Could not access 'apps/studio/next-env.d.ts'
+fatal: cannot change to '/d/ICHOR': No such file or directory
+fatal: cannot change to '/d/ICHOR': No such file or directory
 the build touched the two files the baseline document names; nothing else.
 
 --- exit code: 0 ---
