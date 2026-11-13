@@ -158,18 +158,24 @@ tail -n 24 "$OUT/04-mutation-evidence.log"
 # it was before this round's corrections -- and asserts that the new
 # checks go RED there.
 #
-# The pre-fix tree is the merge base of this branch and its first
-# parent, i.e. the delivery the review rejected. It is exported with
-# `git archive`, so it is the COMMITTED code and not a hand-made copy.
+# The pre-fix tree is the merge commit of the FIRST delivery of ATS-111:
+# the tree the round-1 review rejected. It is PINNED (see
+# tools/ats111-probes/lib/pre-fix-commit.sh), not searched for with
+# `git log --grep`: a search moves forward as soon as another commit
+# whose message mentions ATS-111 is merged, and then this step would
+# run the new checks against the FIXED tree, they would all pass, and
+# the step would report "they do not discriminate" about a tree where
+# nothing was broken. That is exactly what happened after the round-1
+# merge, and the round-2 review reported it.
 #
-# The expectation is: the system test FAILS on the pre-fix tree, and the
-# failing checks are the ones this round added. A run that passes on the
-# pre-fix tree would mean the new checks do not discriminate.
+# The expectation is: the view-level checks FAIL on the pre-fix tree. A
+# run that passes on the pre-fix tree would mean the new checks do not
+# discriminate -- and the step checks the SPECIFIC ids, not just "some
+# check failed", because an unrelated failure would be a false green.
 step '6. the new view-level checks FAIL on the pre-fix tree'
-PREFIX_COMMIT="${ATS111_PREFIX_COMMIT:-}"
-if [ -z "$PREFIX_COMMIT" ]; then
-  PREFIX_COMMIT="$(git log --oneline --all --grep='merge(ATS-111)' --format=%H | head -1)"
-fi
+# shellcheck source=tools/ats111-probes/lib/pre-fix-commit.sh
+. "$ROOT/tools/ats111-probes/lib/pre-fix-commit.sh"
+PREFIX_COMMIT="$(ats111_prefix_commit)" || exit 1
 if [ -n "$PREFIX_COMMIT" ]; then
   PREFIX_TREE="$SCRATCH-prefix"
   rm -rf "$PREFIX_TREE"; mkdir -p "$PREFIX_TREE"
@@ -197,11 +203,27 @@ if [ -n "$PREFIX_COMMIT" ]; then
       ( cd "$PREFIX_TREE" && node tools/ats111-probes/st-ats111.mjs . "$SCRATCH-prefix-st" "examples/sample-playwright/node_modules" ) > "$OUT/04b-prefix-system-test.log" 2>&1
       PREFIX_RESULT="$(grep -oE 'RESULT: [0-9]+/[0-9]+' "$OUT/04b-prefix-system-test.log" | tail -1)"
       PREFIX_FAILS="$(grep -c '^FAIL ' "$OUT/04b-prefix-system-test.log")"
-      printf '\n--- the pre-fix tree is %s ---\n' "$PREFIX_COMMIT" >> "$OUT/04b-prefix-system-test.log"
+      printf '\n--- the pre-fix tree is %s (%s) ---\n' "$PREFIX_COMMIT" "$(ats111_prefix_label)" >> "$OUT/04b-prefix-system-test.log"
       printf 'the pre-fix result : %s\n' "$PREFIX_RESULT" >> "$OUT/04b-prefix-system-test.log"
       printf 'the failing checks : %s\n' "$PREFIX_FAILS" >> "$OUT/04b-prefix-system-test.log"
+      # The step passes only when the SPECIFIC view-level checks this
+      # delivery added are among the failures. "Some check failed" is
+      # not enough: an unrelated failure would be a false green, and a
+      # check that cannot fail is not evidence.
+      MISSING=""
+      for id in ST-111-10b ST-111-10e ST-111-10g ST-111-11c ST-111-11d \
+                ST-111-12a ST-111-12d ST-111-13b ST-111-13c ST-111-13d \
+                ST-111-14b ST-111-14d ST-111-16d ST-111-17b; do
+        if ! grep -q "^FAIL $id " "$OUT/04b-prefix-system-test.log"; then
+          MISSING="$MISSING $id"
+        fi
+      done
       if grep -q '^FAIL ' "$OUT/04b-prefix-system-test.log" && [ "$PREFIX_FAILS" -gt 0 ]; then
-        ok "the new view-level checks FAIL on the pre-fix tree ($PREFIX_RESULT, $PREFIX_FAILS failing)"
+        if [ -n "$MISSING" ]; then
+          bad "the pre-fix tree does NOT fail these view-level checks: $MISSING"
+        else
+          ok "the view-level checks FAIL on the pre-fix tree ($PREFIX_RESULT, $PREFIX_FAILS failing)"
+        fi
       else
         bad "the new view-level checks did NOT fail on the pre-fix tree -- they do not discriminate"
       fi

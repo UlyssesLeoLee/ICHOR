@@ -70,9 +70,30 @@
  *              Escape cancels the load and Ctrl+P moves the focus to
  *              the search box;
  *   ST-111-15 closing the dialog returns the focus to the button that
- *              opened it.
+ *              opened it;
+ *   ST-111-16 Escape STOPS the run that is in flight -- the footer
+ *              promises it, so it has to work. The run is really in
+ *              flight (the fixture's test sleeps), and the keydown is
+ *              observed at the window level;
+ *   ST-111-17 Ctrl+P inside the open dialog is CONSUMED by the
+ *              workbench -- a key the footer documents must not fall
+ *              through to the browser's own Print command.
  *
- * THE FOUR STATES ARE PROVEN BY EXECUTION, NOT BY A FIXTURE
+ * ROUND 3 (the round-2 review)
+ * -----------------------------
+ * Two of the checks above were rewritten because the review showed they
+ * COULD NOT FAIL, and two were added for the defects the review found:
+ *
+ *   - ST-111-11d now types a path that has NEVER been registered. The
+ *     old one typed the path ST-111-6 had already registered, so the
+ *     Bridge rejected the duplicate and the count stayed the same even
+ *     when Enter wrongly submitted the form.
+ *   - ST-111-12d now asserts that the no-project panel renders a STATE
+ *     PANEL. The old one asserted the absence of a string that can
+ *     never appear in that state.
+ *   - ST-111-16 and ST-111-17 are new.
+ *
+ * The four states are proven by EXECUTION, NOT BY A FIXTURE
  * --------------------------------------------------------
  * Each state is produced by MAKING IT HAPPEN:
  *
@@ -185,6 +206,35 @@ try {
   const pageErrors = [];
   page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   page.on('pageerror', (e) => pageErrors.push(String(e)));
+  // ATS-111 (round 3): the KEYDOWN RECORD.
+  //
+  // A listener on the WINDOW runs AFTER every listener on the document
+  // and on the elements, so by the time it sees the event it can tell
+  // whether the workbench CONSUMED the key (`defaultPrevented === true`)
+  // or let it through to the browser.
+  //
+  // That is the only way to observe the two regressions the round-2
+  // review found from the OUTSIDE:
+  //
+  //   - Escape during a run was not handled at all (defaultPrevented
+  //     stayed false and the run kept going);
+  //   - Ctrl+P inside the open dialog was not intercepted, so the
+  //     browser's own Print command was still reachable.
+  //
+  // The listener is installed before the first navigation, so every key
+  // the probe presses is recorded.
+  await page.addInitScript(() => {
+    window.__ats111Keys = [];
+    window.addEventListener('keydown', (e) => {
+      window.__ats111Keys.push({
+        key: e.key,
+        ctrl: e.ctrlKey,
+        shift: e.shiftKey,
+        prevented: e.defaultPrevented,
+        target: e.target && e.target.tagName ? e.target.tagName : '(none)',
+      });
+    });
+  });
 
   const readState = async () => page.evaluate(() => {
     const el = document.querySelector('[data-region="panel"] .state-panel');
@@ -219,10 +269,43 @@ try {
   check('ST-111-12c the NO-PROJECT state points at importing a project',
     noProjectState && /添加项目|导入/.test(`${noProjectState.hint}${noProjectState.detail}`),
     noProjectState && noProjectState.hint);
-  const noProjectBody = await page.evaluate(() =>
-    document.querySelector('[data-region="panel"]')?.textContent || '');
-  check('ST-111-12d the NO-PROJECT state is not the "filter matched nothing" message',
-    !/没有符合当前条件的用例/.test(noProjectBody), noProjectBody.replace(/\s+/g, ' ').slice(0, 120));
+  // ST-111-12d.
+  //
+  // The round-2 review found that the ORIGINAL 12d asserted the panel
+  // does not contain 「没有符合当前条件的用例」 -- a string that can
+  // never appear in the no-project state, because without a project the
+  // panel renders the NO-PROJECT panel and the filter-miss branch is
+  // never reached. So the check was PASS on the pre-fix tree too: it
+  // could not fail, and it was listed as evidence anyway.
+  //
+  // The replacement asserts something that IS reachable in the
+  // no-project state and IS broken in the pre-fix tree: the no-project
+  // panel is a STATE PANEL, so the panel carries a `.state-panel`
+  // element with `data-state="no-project"`. On the pre-fix tree there
+  // is no no-project panel at all -- the panel renders the filter-miss
+  // message instead -- so the element is absent and the check FAILS.
+  //
+  // It is also a NEGATIVE CONTROL in its own right: the panel must
+  // carry a state panel and must NOT carry the filter-miss text.
+  const noProjectPanel = await page.evaluate(() => {
+    const panel = document.querySelector('[data-region="panel"]');
+    if (!panel) return null;
+    const state = panel.querySelector('.state-panel');
+    return {
+      hasStatePanel: Boolean(state),
+      stateKind: state ? state.getAttribute('data-state') : null,
+      hasFilterMiss: /没有符合当前条件的用例/.test(panel.textContent || ''),
+      hasEmptySmall: Boolean(panel.querySelector('.empty-small')),
+    };
+  });
+  check('ST-111-12d the NO-PROJECT state renders a STATE PANEL (not the filter-miss text)',
+    noProjectPanel && noProjectPanel.hasStatePanel
+      && noProjectPanel.stateKind === 'no-project'
+      && !noProjectPanel.hasFilterMiss,
+    JSON.stringify(noProjectPanel));
+  check('ST-111-12e the NO-PROJECT state does not fall back to the filter-miss block',
+    noProjectPanel && !noProjectPanel.hasEmptySmall,
+    JSON.stringify(noProjectPanel));
 
   // --- the two projects ----------------------------------------------------
   const [, added] = await api('/api/projects', 'POST', { path: project });
@@ -624,13 +707,34 @@ try {
   // and must NOT register the project. A workbench that intercepts
   // Enter on a button performs its OWN write instead, so the reader
   // who meant to cancel ends up adding a project.
+  //
+  // ST-111-11d -- THE PATH MUST NEVER HAVE BEEN REGISTERED.
+  //
+  // The round-2 review found that the original 11d typed the SAME path
+  // as ST-111-6, which had already been registered. The Bridge rejects
+  // a second registration with PROJECT_ALREADY_REGISTERED, so the
+  // project count stayed the same EVEN IF Enter had wrongly submitted
+  // the form -- the check could not fail. On the pre-fix tree, where the
+  // bug really existed, 11d was PASS while 11c failed.
+  //
+  // So this check uses a THIRD, never-registered path. The probe
+  // creates the directory on disk (the Bridge validates that the path
+  // exists, has a package.json and a playwright config) but never
+  // registers it, so a submission WOULD register it and the count
+  // WOULD go up.
   const projectsBeforeCancel = (await api('/api/projects'))[1].projects.length;
+  // A path that has never been registered: the directory exists on
+  // disk, but the Bridge has never seen it.
+  const cancelProjectPath = path.join(scratch, 'cancel-only-playwright');
+  fs.cpSync(path.join(repo, 'examples', 'sample-playwright'), cancelProjectPath,
+    { recursive: true, filter: (src) => !src.includes('node_modules') });
+  fs.symlinkSync(path.resolve(nodeModulesArg), path.join(cancelProjectPath, 'node_modules'), 'junction');
   await page.focus('button[data-region="add-project"]');
   await page.keyboard.press('Enter');
   await sleep(600);
   const cancelDialogOpen = await page.locator('.modal[role="dialog"]').count();
   await page.focus('.modal input');
-  await page.keyboard.type(secondProject);
+  await page.keyboard.type(cancelProjectPath);
   // Move the focus to the CANCEL button -- with the keyboard, by
   // tabbing to it, so the probe does not place the focus itself.
   await page.keyboard.press('Tab');
@@ -649,9 +753,11 @@ try {
     /取消/.test(focusedInDialog), focusedInDialog);
   check('ST-111-11c Enter on 「取消」 CLOSES the dialog',
     dialogAfterCancel === 0, `${dialogAfterCancel} dialog(s) still open`);
-  check('ST-111-11d Enter on 「取消」 did NOT register the project',
+  // The path typed here has NEVER been registered, so a submission would
+  // have increased the count. The count must be unchanged.
+  check('ST-111-11d Enter on 「取消」 did NOT register the NEVER-REGISTERED project',
     projectsAfterCancel === projectsBeforeCancel,
-    `${projectsBeforeCancel} -> ${projectsAfterCancel}`);
+    `${projectsBeforeCancel} -> ${projectsAfterCancel} (path=${cancelProjectPath})`);
 
   /* ================================================================== */
   /* ST-111-15  closing the dialog returns the focus                     */
@@ -663,6 +769,51 @@ try {
   });
   check('ST-111-15 the focus returned to the 「添加项目」 button after the dialog closed',
     /add-project/.test(focusAfterClose), focusAfterClose);
+
+  /* ================================================================== */
+  /* ST-111-17  Ctrl+P inside the open dialog is CONSUMED               */
+  /* ================================================================== */
+  // The round-2 review found a REGRESSION this round introduced: the
+  // key handler returned early when the dialog was open, WITHOUT calling
+  // preventDefault(). So Ctrl+P fell through to the browser's own Print
+  // command -- the workbench was no longer intercepting a key it
+  // documents in its footer.
+  //
+  // The check observes the keydown at the WINDOW level, which runs after
+  // every listener on the document: `defaultPrevented === true` means
+  // the workbench consumed it.
+  //
+  // It must FAIL on 9e305e7 (the tree the round-2 review rejected).
+  await page.focus('button[data-region="add-project"]');
+  await page.keyboard.press('Enter');
+  await sleep(600);
+  const ctrlPDialogOpen = await page.locator('.modal[role="dialog"]').count();
+  check('ST-111-17a the dialog is open for the Ctrl+P check',
+    ctrlPDialogOpen === 1, `${ctrlPDialogOpen} dialog(s)`);
+  await page.keyboard.press('Control+p');
+  await sleep(500);
+  const ctrlPKey = await page.evaluate(() => {
+    const keys = window.__ats111Keys || [];
+    for (let i = keys.length - 1; i >= 0; i--) {
+      const k = keys[i];
+      if (k.ctrl && k.key.toLowerCase() === 'p') return k;
+    }
+    return null;
+  });
+  check('ST-111-17b Ctrl+P inside the dialog IS consumed by the workbench',
+    ctrlPKey && ctrlPKey.prevented === true,
+    JSON.stringify(ctrlPKey));
+  // And the focus must stay INSIDE the dialog: the modal promise.
+  const focusInDialogAfterCtrlP = await page.evaluate(() => {
+    const el = document.activeElement;
+    return el && el.closest('.modal') ? 'in-dialog' : `outside:${el ? el.tagName : '(none)'}`;
+  });
+  check('ST-111-17c Ctrl+P inside the dialog does NOT move the focus out of it',
+    focusInDialogAfterCtrlP === 'in-dialog', focusInDialogAfterCtrlP);
+  // Close the dialog again so the rest of the probe starts from a clean
+  // state.
+  await page.keyboard.press('Escape');
+  await sleep(500);
 
   /* ================================================================== */
   /* ST-111-14  the key commands work with the focus on the <body>       */
@@ -810,6 +961,108 @@ try {
       const items = await page.locator('[data-region="runs-panel"] .run-item').count();
       if (items < 1) throw new Error('the run list is empty');
     });
+
+  /* ================================================================== */
+  /* ST-111-16  Escape STOPS the run that is in flight                   */
+  /* ================================================================== */
+  // The footer promises 「关闭弹窗，或取消正在进行的加载或运行」. The
+  // round-2 review measured that pressing Escape during a RUNNING test
+  // did nothing: the keydown was not even handled (`defaultPrevented`
+  // stayed false) and the run kept running. That is a capability
+  // described on the screen but not implemented.
+  //
+  // So the run has to be REALLY in flight. The fixture project used for
+  // this check has a test that SLEEPS, so the run stays alive long
+  // enough for the key to be pressed against it.
+  //
+  // This check runs LAST, after the keyboard-only flow: starting a run
+  // switches the workbench to the execution centre, so a check that
+  // needs the catalogue panel has to come before it.
+  const slowProject = path.join(scratch, 'slow-playwright');
+  fs.cpSync(path.join(repo, 'examples', 'sample-playwright'), slowProject,
+    { recursive: true, filter: (src) => !src.includes('node_modules') });
+  fs.rmSync(path.join(slowProject, 'tests'), { recursive: true, force: true });
+  fs.mkdirSync(path.join(slowProject, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(slowProject, 'playwright.config.ts'),
+    "import { defineConfig } from '@playwright/test';\nexport default defineConfig({testDir:'./tests',timeout:90000,retries:0});\n");
+  fs.writeFileSync(path.join(slowProject, 'tests', 'slow.spec.ts'),
+    "import { test } from '@playwright/test';\ntest('slow sleeper', async () => { await new Promise((r) => setTimeout(r, 60000)); });\n");
+  fs.symlinkSync(path.resolve(nodeModulesArg), path.join(slowProject, 'node_modules'), 'junction');
+  const [, addedSlow] = await api('/api/projects', 'POST', { path: slowProject });
+  const slowProjectId = addedSlow.project.id;
+  check('ST-111-16a the slow fixture project is registered',
+    Boolean(slowProjectId), `${slowProjectId}`);
+  // The page loaded BEFORE this project was registered, so the project
+  // list on the screen does not name it yet. The refresh button pulls it
+  // in -- without this the select cannot hold the new id and the run
+  // button stays disabled.
+  await page.evaluate(() => {
+    document.querySelector('button[data-region="refresh"]')?.click();
+  });
+  await sleep(2500);
+  // Back to the catalogue tab, so the run buttons are on screen.
+  await page.evaluate(() => {
+    document.querySelector('button[title="测试目录"]')?.click();
+  });
+  await sleep(800);
+  await selectProject(slowProjectId);
+  await sleep(3000);
+  const slowSelected = await page.evaluate(() =>
+    document.querySelector('select.project-select')?.value || '');
+  check('ST-111-16a2 the slow project is the selected one',
+    slowSelected === slowProjectId, `${slowSelected} vs ${slowProjectId}`);
+  await page.evaluate(() => {
+    const btn = document.querySelector('.button-group .btn.secondary');
+    if (btn) btn.click();
+  });
+  let liveRun = null;
+  for (let end = Date.now() + 40000; Date.now() < end;) {
+    const runs = (await api('/api/runs'))[1].runs;
+    liveRun = runs.find((r) => r.projectId === slowProjectId && ['running', 'queued'].includes(r.status));
+    if (liveRun && liveRun.status === 'running') break;
+    await sleep(500);
+  }
+  check('ST-111-16b a run is in flight for the Escape check',
+    liveRun && liveRun.status === 'running',
+    liveRun ? `${liveRun.id} ${liveRun.status}` : 'no run reached the running state');
+  // The focus goes to the <body>: that is where it lands in real use,
+  // and a handler bound to a container would never see the key.
+  await page.evaluate(() => { document.activeElement?.blur?.(); document.body.focus?.(); });
+  await sleep(200);
+  await page.keyboard.press('Escape');
+  await sleep(500);
+  const escKey = await page.evaluate(() => {
+    const keys = window.__ats111Keys || [];
+    for (let i = keys.length - 1; i >= 0; i--) {
+      if (keys[i].key === 'Escape') return keys[i];
+    }
+    return null;
+  });
+  check('ST-111-16c the Escape keydown IS consumed by the workbench',
+    escKey && escKey.prevented === true, JSON.stringify(escKey));
+  // The run must actually LEAVE the running state. The stop is
+  // requested; the engine's exit decides the final status.
+  let stoppedRun = null;
+  for (let end = Date.now() + 30000; Date.now() < end;) {
+    const runs = (await api('/api/runs'))[1].runs;
+    stoppedRun = runs.find((r) => r.id === (liveRun && liveRun.id));
+    if (stoppedRun && !['running', 'queued', 'cancelling'].includes(stoppedRun.status)) break;
+    await sleep(500);
+  }
+  check('ST-111-16d Escape STOPS the run that was in flight',
+    stoppedRun && !['running', 'queued', 'cancelling'].includes(stoppedRun.status),
+    stoppedRun ? `${stoppedRun.id} ${stoppedRun.status}` : 'no run record');
+  check('ST-111-16e the stopped run is reported as CANCELLED (not as a failure)',
+    stoppedRun && stoppedRun.status === 'cancelled',
+    stoppedRun && `${stoppedRun.status} error=${stoppedRun.error || '(none)'}`);
+  // The footer must not promise more than the workbench does. This is
+  // the claim the round-2 review called a violation of the "do not
+  // claim unimplemented capabilities" rule.
+  const helpLines = await page.evaluate(() =>
+    [...document.querySelectorAll('[data-region="kbd-help"] li')].map((l) => l.textContent || ''));
+  const escapeHelp = helpLines.find((l) => l.startsWith('Escape')) || '';
+  check('ST-111-16f the footer describes what Escape really does',
+    /运行/.test(escapeHelp) && /加载/.test(escapeHelp), escapeHelp);
 
   /* ================================================================== */
   /* ST-111-9b no console error over the whole run                        */

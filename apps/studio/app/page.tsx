@@ -7,7 +7,7 @@ import {api,cancellableApi,downloadArtifact,type Project,type TestDef,type TestC
 // cancelled / loading -- are defined ONCE, here, and the unit tests assert
 // on them (tests/workbench-state.test.mjs) without a browser. The view
 // below only renders what the model says.
-import {WORKBENCH_STATES,NO_PROJECT_STATE,deriveWorkbenchState,panelState,isTextEntry,hasNativeEnterAction,isComposing,keyCommandFor,keyboardHelpLines,type WorkbenchStateKind} from '../lib/workbench-state.mjs';
+import {WORKBENCH_STATES,NO_PROJECT_STATE,deriveWorkbenchState,panelState,isTextEntry,hasNativeEnterAction,isComposing,escapeTarget,keyCommandFor,keyboardHelpLines,type WorkbenchStateKind} from '../lib/workbench-state.mjs';
 // ATS-214: the CASE SEARCH / TAG / FILTER / SELECTION module. The SAME
 // module the portable UI imports, so the two interfaces cannot disagree
 // about what the catalogue shows -- and the SET semantics (a search and a
@@ -422,14 +422,36 @@ export default function Studio(){
   if(!command)return;
   const target=e.target as HTMLElement|null;
   if(command==='cancel'){
-   // The dialog is the innermost thing that can be cancelled.
-   if(dialog){closeDialog();e.preventDefault();return;}
-   if(cancelCatalogue()){e.preventDefault();return;}
+   // The three things Escape can cancel are NESTED, and the innermost
+   // one wins: the dialog, then the load, then the run. The decision is
+   // the MODEL's (`escapeTarget`), so the order is asserted by the unit
+   // tests and the view only carries it out.
+   //
+   // The RUN is the third one, and it is the one the footer PROMISES:
+   // the help line says 「关闭弹窗，或取消正在进行的加载或运行」, so
+   // pressing Escape during a running test has to stop that test -- the
+   // same endpoint the 「停止运行」 button uses. The round-2 review
+   // rejected the delivery because the help claimed this and the key
+   // did nothing.
+   const target_=escapeTarget({dialogOpen:dialog,loadPending:catalogueRequest.phase==='pending',runActive:Boolean(live)});
+   if(target_==='dialog'){closeDialog();e.preventDefault();return;}
+   if(target_==='load'){if(cancelCatalogue()){e.preventDefault();return;}return;}
+   if(target_==='run'){
+    // The stop is REQUESTED, and the run's final status is decided by
+    // the engine when the process closes -- the same contract as the
+    // 「停止运行」 button.
+    if(live)void api(`/api/runs/${live.id}/stop`,'POST').then(()=>refresh()).catch(err=>notify((err as Error).message));
+    e.preventDefault();return;
+   }
    return;
   }
   if(command==='focus-search'){
-   // The dialog is modal: the focus stays inside it.
-   if(dialog)return;
+   // The dialog is modal: the focus stays inside it, and the key must
+   // NOT leak to the browser. The round-2 review found that the
+   // handler returned EARLY without preventDefault(), so Ctrl+P fell
+   // through to the browser's own Print command. The key is consumed
+   // here -- the focus simply does not move.
+   if(dialog){e.preventDefault();return;}
    searchRef.current?.focus();e.preventDefault();return;
   }
   if(command==='run-current'){
@@ -451,7 +473,7 @@ export default function Studio(){
    if(hasNativeEnterAction(target))return;
    if(selected&&source&&draft!==source.content){void save();e.preventDefault();return;}
   }
- },[dialog,projectPath,tab,keyName,keySecret,selected,source,draft,cancelCatalogue,runCurrent]);
+ },[dialog,projectPath,tab,keyName,keySecret,selected,source,draft,catalogueRequest.phase,live,closeDialog,refresh,cancelCatalogue,runCurrent]);
  // ATS-111: the key commands are bound to the DOCUMENT.
  //
  // A handler on the app shell only receives the keys that land inside
