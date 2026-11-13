@@ -1,4 +1,15 @@
-fixture: C:\Users\seiko\AppData\Local\Temp\multica-task-2633306620\ats214-parity-doswbG\project
+================================================================================
+ATS-214 evidence log -- the tag parity: the static index vs the real Playwright --list
+================================================================================
+commit        : 05b5400c47767e145253c1d94eedbf3f526d9ee1
+timestamp     : 2026-11-13T13:57:28Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+platform      : win32 x64
+command       : node tools/ats214-probes/tag-parity.mjs
+================================================================================
+
+fixture: C:\Users\seiko\AppData\Local\Temp\multica-task-738115636\ats214-parity-CKsZKm\project
 playwright: D:/ICHOR/examples/sample-playwright/node_modules
 the CLI answered: ok=true outcome=OK version=1.64.1
 
@@ -27,3 +38,5 @@ a case with its own tag under a tagged describe reports ["group","own"]  -> own 
 a tag without '@' is refused by the CLI: ok=false "Error: Tag must start with '@'; Error: No tests found"
 
 RESULT: OK -- the static index and the real Playwright CLI carry the SAME tags for all 12 cases.
+
+--- exit code: 0 ---

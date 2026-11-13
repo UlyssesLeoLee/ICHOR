@@ -1,14 +1,25 @@
-✔ IT-ATS214-SETUP: start the bridge and register the fixture (481.9947ms)
-✔ IT-ATS214-001: the STATIC index carries the tags it reads from the source (115.7729ms)
-✔ IT-ATS214-002: the AUTHORITATIVE index carries the CLI's own tags (642.723ms)
-✔ IT-ATS214-003: the two indexes carry the SAME tags for the same cases (596.0575ms)
-✔ IT-ATS214-010: a selection that names an unknown case is REFUSED, not skipped (521.7655ms)
-✔ IT-ATS214-011: an empty selection is refused (1.8284ms)
-✔ IT-ATS214-012: a selection that is not an array is refused (1.6641ms)
-✔ IT-ATS214-013: the run request still refuses the fields outside the whitelist (12.4776ms)
-✔ IT-ATS214-020: a selection of ONE file becomes a run that carries the selection (1968.0318ms)
-✔ IT-ATS214-021: a selection that spans SEVERAL files becomes a BATCH, split by file (2143.341ms)
-✔ IT-ATS214-022: the batches endpoint can be narrowed to one project (2.7482ms)
+================================================================================
+ATS-214 evidence log -- the batch run API against a REAL Bridge
+================================================================================
+commit        : 05b5400c47767e145253c1d94eedbf3f526d9ee1
+timestamp     : 2026-11-13T13:56:00Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+platform      : win32 x64
+command       : node --test tests/ats214-batch-run-api.test.mjs
+================================================================================
+
+✔ IT-ATS214-SETUP: start the bridge and register the fixture (1152.3544ms)
+✔ IT-ATS214-001: the STATIC index carries the tags it reads from the source (78.7595ms)
+✔ IT-ATS214-002: the AUTHORITATIVE index carries the CLI's own tags (740.8199ms)
+✔ IT-ATS214-003: the two indexes carry the SAME tags for the same cases (729.3675ms)
+✔ IT-ATS214-010: a selection that names an unknown case is REFUSED, not skipped (651.5472ms)
+✔ IT-ATS214-011: an empty selection is refused (4.6661ms)
+✔ IT-ATS214-012: a selection that is not an array is refused (16.6092ms)
+✔ IT-ATS214-013: the run request still refuses the fields outside the whitelist (16.2609ms)
+✔ IT-ATS214-020: a selection of ONE file becomes a run that carries the selection (2322.6201ms)
+✔ IT-ATS214-021: a selection that spans SEVERAL files becomes a BATCH, split by file (2381.6175ms)
+✔ IT-ATS214-022: the batches endpoint can be narrowed to one project (17.116ms)
 ℹ tests 11
 ℹ suites 0
 ℹ pass 11
@@ -16,4 +27,6 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 12027.5088
+ℹ duration_ms 13575.8361
+
+--- exit code: 0 ---

@@ -1,47 +1,58 @@
-✔ UT-ATS214-001: an empty search keeps the whole catalogue (2.3096ms)
-✔ UT-ATS214-002: the search finds by the case title (0.1613ms)
-✔ UT-ATS214-003: the search finds by the file (0.136ms)
-✔ UT-ATS214-004: the search finds by the tag (0.1192ms)
-✔ UT-ATS214-005: the search is case-insensitive (0.2919ms)
-✔ UT-ATS214-006: the search result is a SUBSET of the catalogue -- never a case that is not there (0.2645ms)
-✔ UT-ATS214-007: the search haystack is the title, the file and the tags -- and nothing else (0.1039ms)
-✔ UT-ATS214-008: the tag criterion with one tag keeps the cases that carry it (0.1597ms)
-✔ UT-ATS214-009: the ANY mode is the UNION of the tag sets (0.1167ms)
-✔ UT-ATS214-010: the ALL mode is the INTERSECTION of the tag sets (0.1627ms)
-✔ UT-ATS214-011: the two tag modes are DIFFERENT -- the mode is not a decoration (0.1607ms)
-✔ UT-ATS214-012: the default tag mode is ANY, and it is the one the module reports (0.1911ms)
-✔ UT-ATS214-013: a tag is compared without its @ and without its case (0.0788ms)
-✔ UT-ATS214-014: the tag list is de-duplicated and ordered (0.042ms)
-✔ UT-ATS214-015: a tag that no case carries keeps nothing -- and the vocabulary does not offer it (0.1681ms)
-✔ UT-ATS214-016: the criteria COMPOSE as an INTERSECTION, not a union (0.0864ms)
-✔ UT-ATS214-017: the intersection can be EMPTY while neither criterion is empty (0.0656ms)
-✔ UT-ATS214-018: clearing one criterion does not clear the other (0.0765ms)
-✔ UT-ATS214-019: the file criterion composes with the others the same way (0.0592ms)
-✔ UT-ATS214-020: three criteria compose as the intersection of three sets (0.0588ms)
-✔ UT-ATS214-021: the status criterion composes with the others, and a case with no known status is excluded (0.1068ms)
-✔ UT-ATS214-022: the description reports every criterion SEPARATELY, so the composition is visible (0.0989ms)
-✔ UT-ATS214-023: the order of the result is the order of the catalogue (0.0523ms)
-✔ UT-ATS214-024: the search criterion keeps everything when the query is blank (0.0364ms)
-✔ UT-ATS214-025: the selection is a SET -- the order of the ticks does not matter (0.0522ms)
-✔ UT-ATS214-026: the snapshot carries the file, the title and the line of every selected case (0.1243ms)
-✔ UT-ATS214-027: the snapshot REPORTS a uid the catalogue does not know, instead of skipping it (0.0752ms)
-✔ UT-ATS214-028: two identical selections produce IDENTICAL snapshots (0.0773ms)
-✔ UT-ATS214-029: the selection is grouped by file, because the engine runs one file at a time (0.1232ms)
-✔ UT-ATS214-030: the reconciliation says the selection MATCHED when every selected case ran (0.0909ms)
-✔ UT-ATS214-031: the reconciliation REPORTS a selected case that did not run (0.0486ms)
-✔ UT-ATS214-032: the reconciliation REPORTS an executed case that was not selected (0.0709ms)
-✔ UT-ATS214-033: the reconciliation of an empty execution says NOTHING ran (0.0532ms)
-✔ UT-ATS214-034: the file vocabulary counts the cases of each file (0.1244ms)
-✔ UT-ATS214-035: a catalogue with no cases does not break the module (0.1159ms)
-✔ UT-ATS214-036: a ticked uid that has LEFT the catalogue is REPORTED (0.1702ms)
-✔ UT-ATS214-037: an empty selection has nothing gone (0.0577ms)
-✔ UT-ATS214-042: a uid that now names a DIFFERENT case is REPORTED (0.0738ms)
+================================================================================
+ATS-214 evidence log -- the shared search / tag / filter / selection module
+================================================================================
+commit        : 05b5400c47767e145253c1d94eedbf3f526d9ee1
+timestamp     : 2026-11-13T13:56:00Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+platform      : win32 x64
+command       : node --test tests/ats214-case-search.test.mjs
+================================================================================
+
+✔ UT-ATS214-001: an empty search keeps the whole catalogue (1.4372ms)
+✔ UT-ATS214-002: the search finds by the case title (0.1787ms)
+✔ UT-ATS214-003: the search finds by the file (0.7378ms)
+✔ UT-ATS214-004: the search finds by the tag (0.1932ms)
+✔ UT-ATS214-005: the search is case-insensitive (0.1592ms)
+✔ UT-ATS214-006: the search result is a SUBSET of the catalogue -- never a case that is not there (0.3524ms)
+✔ UT-ATS214-007: the search haystack is the title, the file and the tags -- and nothing else (0.1372ms)
+✔ UT-ATS214-008: the tag criterion with one tag keeps the cases that carry it (0.1952ms)
+✔ UT-ATS214-009: the ANY mode is the UNION of the tag sets (0.1326ms)
+✔ UT-ATS214-010: the ALL mode is the INTERSECTION of the tag sets (0.2017ms)
+✔ UT-ATS214-011: the two tag modes are DIFFERENT -- the mode is not a decoration (0.229ms)
+✔ UT-ATS214-012: the default tag mode is ANY, and it is the one the module reports (0.2423ms)
+✔ UT-ATS214-013: a tag is compared without its @ and without its case (0.1001ms)
+✔ UT-ATS214-014: the tag list is de-duplicated and ordered (0.0502ms)
+✔ UT-ATS214-015: a tag that no case carries keeps nothing -- and the vocabulary does not offer it (0.1654ms)
+✔ UT-ATS214-016: the criteria COMPOSE as an INTERSECTION, not a union (0.1986ms)
+✔ UT-ATS214-017: the intersection can be EMPTY while neither criterion is empty (0.0966ms)
+✔ UT-ATS214-018: clearing one criterion does not clear the other (0.0885ms)
+✔ UT-ATS214-019: the file criterion composes with the others the same way (0.0691ms)
+✔ UT-ATS214-020: three criteria compose as the intersection of three sets (0.0644ms)
+✔ UT-ATS214-021: the status criterion composes with the others, and a case with no known status is excluded (0.1167ms)
+✔ UT-ATS214-022: the description reports every criterion SEPARATELY, so the composition is visible (0.0974ms)
+✔ UT-ATS214-023: the order of the result is the order of the catalogue (0.0468ms)
+✔ UT-ATS214-024: the search criterion keeps everything when the query is blank (0.0352ms)
+✔ UT-ATS214-025: the selection is a SET -- the order of the ticks does not matter (0.0565ms)
+✔ UT-ATS214-026: the snapshot carries the file, the title and the line of every selected case (0.1254ms)
+✔ UT-ATS214-027: the snapshot REPORTS a uid the catalogue does not know, instead of skipping it (0.077ms)
+✔ UT-ATS214-028: two identical selections produce IDENTICAL snapshots (0.0805ms)
+✔ UT-ATS214-029: the selection is grouped by file, because the engine runs one file at a time (0.1306ms)
+✔ UT-ATS214-030: the reconciliation says the selection MATCHED when every selected case ran (0.0862ms)
+✔ UT-ATS214-031: the reconciliation REPORTS a selected case that did not run (0.0436ms)
+✔ UT-ATS214-032: the reconciliation REPORTS an executed case that was not selected (0.0604ms)
+✔ UT-ATS214-033: the reconciliation of an empty execution says NOTHING ran (0.0454ms)
+✔ UT-ATS214-034: the file vocabulary counts the cases of each file (0.1502ms)
+✔ UT-ATS214-035: a catalogue with no cases does not break the module (0.1164ms)
+✔ UT-ATS214-036: a ticked uid that has LEFT the catalogue is REPORTED (0.1647ms)
+✔ UT-ATS214-037: an empty selection has nothing gone (0.0657ms)
+✔ UT-ATS214-042: a uid that now names a DIFFERENT case is REPORTED (0.0731ms)
 ✔ UT-ATS214-043: a uid that still names the SAME case is not moved (0.0473ms)
-✔ UT-ATS214-044: a case whose identity is not stable is reported as stale (0.0641ms)
-✔ UT-ATS214-038: a selection of cases in ONE file will run EVERY case of that file (0.1037ms)
-✔ UT-ATS214-039: a selection of TWO files will run the cases of BOTH (0.0482ms)
-✔ UT-ATS214-040: the plan of an empty selection runs nothing (0.0395ms)
-✔ UT-ATS214-041: the plan ignores a uid that is not in the catalogue (0.0419ms)
+✔ UT-ATS214-044: a case whose identity is not stable is reported as stale (0.0697ms)
+✔ UT-ATS214-038: a selection of cases in ONE file will run EVERY case of that file (0.1027ms)
+✔ UT-ATS214-039: a selection of TWO files will run the cases of BOTH (0.0504ms)
+✔ UT-ATS214-040: the plan of an empty selection runs nothing (0.0472ms)
+✔ UT-ATS214-041: the plan ignores a uid that is not in the catalogue (0.035ms)
 ℹ tests 44
 ℹ suites 0
 ℹ pass 44
@@ -49,4 +60,6 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 98.1442
+ℹ duration_ms 112.0878
+
+--- exit code: 0 ---

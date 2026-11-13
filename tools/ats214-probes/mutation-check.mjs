@@ -171,8 +171,13 @@ const MUTATIONS = [
   {
     id: 'M11 the batch record carries the environment VARIABLES again',
     file: 'server/index.mjs',
-    find: '      envTier:envProfile?envProfile.environment:null,\n      runner:pinned,',
-    replace: '      envTier:envProfile?envProfile.environment:null,\n      envVariables:envFiltered.variables??{},\n      runner:pinned,',
+    // The batch context records the profile's REFERENCE. The mutation puts
+    // the profile's VALUES back into that record, so `GET /api/batches`
+    // serves them again. The values in scope at that point are
+    // `envResolved.values` (the filtered variable map); `envResolved.names`
+    // holds only the NAMES, and it is what the record may carry.
+    find: '     envTier:envProfile?envProfile.environment:null,\n     runner:pinned,',
+    replace: '     envTier:envProfile?envProfile.environment:null,\n     envVariables:envResolved.values??{},\n     runner:pinned,',
     probes: ['it'],
   },
   {
@@ -342,6 +347,43 @@ function runNodeTests(files) {
   return { code: r.status, failCount, out };
 }
 
+/**
+ * Apply a mutation to the source.
+ *
+ * The EXACT match is tried first, so a mutation written against the
+ * current source keeps behaving exactly as written.
+ *
+ * The FALLBACK match is indentation-tolerant: the source is re-indented
+ * by whoever touched it, and a mutation whose `find` string carries the
+ * old indentation would then no longer match -- the probe would report
+ * "the mutation did not apply", the negative control would quietly stop
+ * testing one defect, and the delivery's "every mutation is caught"
+ * claim would keep standing on a mutation that never ran. The fallback
+ * matches each line's CONTENT and re-indents the replacement to the
+ * indentation of the first matched line.
+ *
+ * @returns {string|null} the mutated source, or null when nothing matched
+ */
+function applyMutation(text, find, replace) {
+  if (text.includes(find)) {
+    const after = text.replace(find, replace);
+    return after === text ? null : after;
+  }
+  const strip = (s) => s.replace(/^[ \t]+/, '');
+  const findLines = find.split('\n').map(strip);
+  const replaceLines = replace.split('\n').map(strip);
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = findLines.map(escape).join('\\n[ \\t]*');
+  const m = new RegExp(pattern).exec(text);
+  if (!m) return null;
+  const at = text.indexOf(m[0]);
+  const lineStart = text.lastIndexOf('\n', at) + 1;
+  const indent = (text.slice(lineStart, at).match(/^[ \t]*/) || [''])[0];
+  const out = replaceLines.map((l) => indent + l).join('\n');
+  const after = text.slice(0, at) + out + text.slice(at + m[0].length);
+  return after === text ? null : after;
+}
+
 for (const mutation of MUTATIONS) {
   const target = path.join(REPO, mutation.file);
   // The source is normalised to LF for the match: the checkout is CRLF
@@ -351,13 +393,9 @@ for (const mutation of MUTATIONS) {
   // result.
   const original = fs.readFileSync(target, 'utf8');
   const before = original.replace(/\r\n/g, '\n');
-  if (!before.includes(mutation.find)) {
+  const after = applyMutation(before, mutation.find, mutation.replace);
+  if (after === null) {
     check(mutation.id, false, 'the mutation did not apply -- the probe is broken');
-    continue;
-  }
-  const after = before.replace(mutation.find, mutation.replace);
-  if (after === before) {
-    check(mutation.id, false, 'the mutation did not change the file');
     continue;
   }
 
