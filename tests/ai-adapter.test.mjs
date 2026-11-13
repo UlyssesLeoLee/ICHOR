@@ -503,7 +503,13 @@ test('UT-AIF-008: an empty chain fails immediately', async () => {
 test('UT-AIF-009: the retryable codes are exactly the transient ones', () => {
   assert.deepEqual([...RETRYABLE_AI_ERROR_CODES], [
     'AI_PROVIDER_TIMEOUT', 'AI_PROVIDER_RATE_LIMITED', 'AI_PROVIDER_UNAVAILABLE', 'AI_PROVIDER_SERVER_ERROR',
+    'AI_PROVIDER_OUTPUT_INVALID',
   ]);
+  // An endpoint that does not speak the protocol at all is NOT retryable:
+  // it would not start speaking it for the next provider either.
+  assert.ok(!RETRYABLE_AI_ERROR_CODES.includes('AI_PROVIDER_RESPONSE_INVALID'));
+  assert.ok(!RETRYABLE_AI_ERROR_CODES.includes('AI_PROVIDER_AUTH_FAILED'));
+  assert.ok(!RETRYABLE_AI_ERROR_CODES.includes('AI_CREDENTIAL_UNAVAILABLE'));
   for (const code of AI_ERROR_CODES) {
     const retryable = isRetryableAiError(aiError(code));
     assert.equal(retryable, RETRYABLE_AI_ERROR_CODES.includes(code), `${code}`);
@@ -569,12 +575,17 @@ test('UT-AIS-001: the service requires a credential store, a consent store and a
 });
 
 test('UT-AIS-002: without a consent the request is never sent', async () => {
+  // The fetch is INJECTED into the transport, so "the request was never
+  // sent" is measured by the fetch not being called. An array that nothing
+  // ever writes to would make this assertion vacuously true.
   const sent = [];
+  const credentials = stubCredentialStore();
   const service = createModelService({
-    credentialStore: stubCredentialStore(),
+    credentialStore: credentials,
     consentStore: { check: () => ({ allowed: false, code: 'EGRESS_CONSENT_REQUIRED', reason: 'no consent' }), checkConsent: () => ({ allowed: false, code: 'EGRESS_CONSENT_REQUIRED' }), find: async () => null },
     auditStore: stubAuditStore(),
     getProject: () => ({ id: 'p1', root: '/tmp/p' }),
+    transport: createTransport({ fetch: async (url, init) => { sent.push({ url, init }); return { status: 200, text: async () => '{}' }; } }),
   });
   await assert.rejects(
     () => service.complete({
@@ -585,7 +596,10 @@ test('UT-AIS-002: without a consent the request is never sent', async () => {
     }),
     (e) => e.code === 'AI_EGRESS_DENIED',
   );
-  assert.equal(sent.length, 0);
+  // The fetch was NOT called: no request left the machine.
+  assert.equal(sent.length, 0, 'the transport fetch must not be called without a consent');
+  // And the credential was never resolved either.
+  assert.equal(credentials.calls.length, 0, 'the credential must not be resolved without a consent');
 });
 
 test('UT-AIS-003: a denied egress is audited', async () => {
@@ -672,31 +686,210 @@ test('UT-AIS-006: a failure leaves the working tree byte-identical', async () =>
     auditStore: stubAuditStore(),
     getProject: () => ({ id: 'p1', root: work }),
   });
-  await service.complete({
-    projectId: 'p1',
-    inputs: [{ kind: 'file', ref: 'a.spec.ts' }],
-    providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://127.0.0.1:1/v1' } }],
-    request: request(),
-  }).catch(() => {});
+  // The error is ASSERTED, not swallowed: a `.catch(() => {})` would let a
+  // crash in the gate pass as "the workspace is unchanged".
+  let code = null;
+  try {
+    await service.complete({
+      projectId: 'p1',
+      inputs: [{ kind: 'file', ref: 'a.spec.ts' }],
+      providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://127.0.0.1:1/v1' } }],
+      request: request(),
+    });
+  } catch (error) {
+    code = error.code;
+  }
+  // The endpoint refuses the connection, so the call fails INSIDE the
+  // provider -- that is the failure this test is about. Every attempt
+  // failed with the same code, so THAT code is reported (the generic
+  // "exhausted" would hide the actionable reason).
+  assert.equal(code, 'AI_PROVIDER_UNAVAILABLE', `expected a provider failure, got ${code}`);
+  const after = fs.readdirSync(work).map((f) => [f, sha(fs.readFileSync(path.join(work, f)))]);
+  assert.deepEqual(after, before);
+});
+
+test('UT-AIS-006B: a RATE LIMIT leaves the working tree byte-identical', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-ws429-'));
+  fs.writeFileSync(path.join(work, 'a.spec.ts'), 'test("a");\n');
+  const before = fs.readdirSync(work).map((f) => [f, sha(fs.readFileSync(path.join(work, f)))]);
+  const service = createModelService({
+    credentialStore: stubCredentialStore(),
+    consentStore: stubConsentStore(),
+    auditStore: stubAuditStore(),
+    getProject: () => ({ id: 'p1', root: work }),
+    transport: createTransport({ fetch: async () => ({ status: 429, text: async () => 'slow down' }) }),
+  });
+  let code = null;
+  try {
+    await service.complete({
+      projectId: 'p1',
+      inputs: [{ kind: 'file', ref: 'a.spec.ts' }],
+      providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://127.0.0.1:1/v1' } }],
+      request: request(),
+    });
+  } catch (error) {
+    code = error.code;
+  }
+  assert.equal(code, 'AI_PROVIDER_RATE_LIMITED', `expected a rate limit, got ${code}`);
+  const after = fs.readdirSync(work).map((f) => [f, sha(fs.readFileSync(path.join(work, f)))]);
+  assert.deepEqual(after, before);
+});
+
+test('UT-AIS-006C: a TIMEOUT leaves the working tree byte-identical', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-wsto-'));
+  fs.writeFileSync(path.join(work, 'a.spec.ts'), 'test("a");\n');
+  const before = fs.readdirSync(work).map((f) => [f, sha(fs.readFileSync(path.join(work, f)))]);
+  // A fetch that never answers: the transport's own timeout must abort it.
+  const transport = createTransport({
+    timeoutMs: 40,
+    fetch: (url, init) => new Promise((resolve, reject) => {
+      init.signal.addEventListener('abort', () => reject(new Error('aborted')));
+    }),
+  });
+  const service = createModelService({
+    credentialStore: stubCredentialStore(),
+    consentStore: stubConsentStore(),
+    auditStore: stubAuditStore(),
+    getProject: () => ({ id: 'p1', root: work }),
+    transport,
+  });
+  let code = null;
+  try {
+    await service.complete({
+      projectId: 'p1',
+      inputs: [{ kind: 'file', ref: 'a.spec.ts' }],
+      providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://127.0.0.1:1/v1' } }],
+      request: request(),
+    });
+  } catch (error) {
+    code = error.code;
+  }
+  assert.equal(code, 'AI_PROVIDER_TIMEOUT', `expected a timeout, got ${code}`);
   const after = fs.readdirSync(work).map((f) => [f, sha(fs.readFileSync(path.join(work, f)))]);
   assert.deepEqual(after, before);
 });
 
 test('UT-AIS-007: the step budget is enforced', async () => {
+  // The budget is enforced by RUNNING the steps: the previous version of
+  // this test passed because `executeSteps` crashed on the first step
+  // (it called `complete()` without a projectId, so the egress gate
+  // refused and the refusal was relabelled as AI_STEPS_EXCEEDED). Here the
+  // gate is satisfied, the provider is reachable, and the number of steps
+  // that actually ran is asserted.
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-steps-'));
+  fs.writeFileSync(path.join(work, 'a.spec.ts'), 'test("a");\n');
   const service = createModelService({
     credentialStore: stubCredentialStore(),
     consentStore: stubConsentStore(),
     auditStore: stubAuditStore(),
-    getProject: () => ({ id: 'p1', root: '/tmp/p' }),
+    getProject: () => ({ id: 'p1', root: work }),
   });
-  await assert.rejects(
-    () => service.executeSteps({
+  // Every call fails with a RETRYABLE error, so the budget is what stops it.
+  let calls = 0;
+  const transport = createTransport({
+    fetch: async () => { calls += 1; return { status: 503, text: async () => 'down' }; },
+  });
+  const stepped = createModelService({
+    credentialStore: stubCredentialStore(),
+    consentStore: stubConsentStore(),
+    auditStore: stubAuditStore(),
+    getProject: () => ({ id: 'p1', root: work }),
+    transport,
+  });
+  let error = null;
+  try {
+    await stepped.executeSteps({
+      projectId: 'p1',
+      inputs: [{ kind: 'file', ref: 'a.spec.ts' }],
       providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://127.0.0.1:1/v1' } }],
       request: request(),
       maxSteps: 2,
-    }),
-    (e) => e.code === 'AI_STEPS_EXCEEDED',
-  );
+    });
+  } catch (e) {
+    error = e;
+  }
+  assert.ok(error, 'the step budget must be reported as a failure');
+  assert.equal(error.code, 'AI_STEPS_EXCEEDED');
+  // The budget is EXACTLY maxSteps: the provider was called twice, not once
+  // and not three times.
+  assert.equal(calls, 2, `expected exactly maxSteps (2) calls, got ${calls}`);
+  assert.equal(error.details.steps, 2);
+  assert.equal(error.details.attempts.length, 2, 'every step must be recorded');
+  assert.equal(error.details.attempts[0].step, 1);
+  assert.equal(error.details.attempts[1].step, 2);
+  // The cause is the real reason the last step failed (the chain's wrapper
+  // code is unwrapped to the provider's own code).
+  assert.equal(error.details.cause, 'AI_PROVIDER_UNAVAILABLE', `got ${error.details.cause}`);
+  assert.equal(error.details.attempts[0].code, 'AI_PROVIDER_UNAVAILABLE');
+  assert.ok(service, 'the service was built');
+});
+
+test('UT-AIS-007B: a step that fails with a recoverable error may still succeed', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-steps2-'));
+  fs.writeFileSync(path.join(work, 'a.spec.ts'), 'test("a");\n');
+  // The first call is rate limited, the second one answers. The step budget
+  // of 2 therefore ends in a SUCCESS, on the second step.
+  let calls = 0;
+  const transport = createTransport({
+    fetch: async () => {
+      calls += 1;
+      if (calls === 1) return { status: 429, text: async () => 'slow down' };
+      return { status: 200, text: async () => JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }) };
+    },
+  });
+  const service = createModelService({
+    credentialStore: stubCredentialStore(),
+    consentStore: stubConsentStore(),
+    auditStore: stubAuditStore(),
+    getProject: () => ({ id: 'p1', root: work }),
+    transport,
+  });
+  const result = await service.executeSteps({
+    projectId: 'p1',
+    inputs: [{ kind: 'file', ref: 'a.spec.ts' }],
+    providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://127.0.0.1:1/v1' } }],
+    request: request(),
+    maxSteps: 2,
+  });
+  assert.equal(result.steps, 2);
+  assert.equal(result.text, 'ok');
+  assert.equal(calls, 2);
+  assert.equal(result.attempts.length, 2);
+  assert.equal(result.attempts[0].ok, false);
+  assert.equal(result.attempts[0].code, 'AI_PROVIDER_RATE_LIMITED');
+  assert.equal(result.attempts[1].ok, true);
+});
+
+test('UT-AIS-007C: an unrecoverable step failure keeps its OWN error code', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-steps3-'));
+  fs.writeFileSync(path.join(work, 'a.spec.ts'), 'test("a");\n');
+  // A 401 is NOT recoverable: relabelling it as AI_STEPS_EXCEEDED would
+  // send the caller looking for a budget problem instead of a bad key.
+  const transport = createTransport({
+    fetch: async () => ({ status: 401, text: async () => 'bad key' }),
+  });
+  const service = createModelService({
+    credentialStore: stubCredentialStore(),
+    consentStore: stubConsentStore(),
+    auditStore: stubAuditStore(),
+    getProject: () => ({ id: 'p1', root: work }),
+    transport,
+  });
+  let error = null;
+  try {
+    await service.executeSteps({
+      projectId: 'p1',
+      inputs: [{ kind: 'file', ref: 'a.spec.ts' }],
+      providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://127.0.0.1:1/v1' } }],
+      request: request(),
+      maxSteps: 3,
+    });
+  } catch (e) {
+    error = e;
+  }
+  assert.ok(error);
+  assert.equal(error.code, 'AI_PROVIDER_AUTH_FAILED', `the own code must survive, got ${error.code}`);
+  assert.notEqual(error.code, 'AI_STEPS_EXCEEDED');
 });
 
 test('UT-AIS-008: a non-positive step budget is refused', async () => {
@@ -719,4 +912,300 @@ test('UT-AIS-009: the adapter description states the policies and carries no sec
   assert.ok(described.fallbackPolicy.length > 0);
   assert.ok(described.secretPolicy.includes('credential'));
   assert.ok(!JSON.stringify(described).match(/sk-[A-Za-z0-9]/));
+});
+
+
+/* ==================================================================== */
+/* the round-2 regression cases (ATS-403, Opus review round 1)          */
+/*                                                                       */
+/* Every case below reproduces a counterexample the reviewer ran against */
+/* the round-1 delivery. They are here so the defect cannot come back   */
+/* silently: the id in the test name is the reviewer's finding id.     */
+/* ==================================================================== */
+
+/* --- P1 / S4 / S4b: the payload is bound to the consent --------------- */
+
+test('R2-P1: the provider receives the CONSENTED content, not the caller\'s', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-p1-'));
+  fs.writeFileSync(path.join(work, 'a.spec.ts'), 'CONSENTED-AAA\n');
+  const sent = [];
+  const consents = [];
+  const audit = [];
+  const service = createModelService({
+    credentialStore: stubCredentialStore(),
+    consentStore: createEgressConsentStore({
+      list: async () => consents,
+      persist: async (records) => { consents.splice(0, consents.length, ...records); },
+    }),
+    auditStore: { record: async (r) => { audit.push(r); } },
+    getProject: () => ({ id: 'p1', root: work }),
+    transport: createTransport({
+      fetch: async (url, init) => {
+        sent.push(String(init.body));
+        return { status: 200, text: async () => JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }) };
+      },
+    }),
+  });
+  const inputs = [{ kind: 'file', ref: 'a.spec.ts' }];
+  const scope = buildEgressScope({ project: { id: 'p1', root: work }, inputs });
+  const consentStore = createEgressConsentStore({
+    list: async () => consents,
+    persist: async (records) => { consents.splice(0, consents.length, ...records); },
+  });
+  const consent = await consentStore.confirm({ previewId: consentStore.preview(scope.items).previewId, inputs: scope.items });
+  await service.complete({
+    projectId: 'p1',
+    inputs,
+    consentId: consent.id,
+    providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://probe.invalid/v1' } }],
+    // The caller asks for a DIFFERENT content under the same consent.
+    request: { instructions: 'i', inputs: [{ kind: 'file', ref: 'other/.env', content: 'UNCONSENTED-BBB' }] },
+  });
+  assert.equal(sent.length, 1, 'exactly one request must be sent');
+  const body = sent[0];
+  assert.ok(!body.includes('UNCONSENTED-BBB'), 'the caller\'s content must never be sent');
+  assert.ok(body.includes('CONSENTED-AAA'), 'the consented content must be sent');
+  // The audit trail describes what was ACTUALLY sent.
+  const granted = audit.filter((r) => r.event === 'egress.granted').at(-1);
+  assert.deepEqual(granted.items.map((i) => i.ref), ['a.spec.ts']);
+  assert.ok(!JSON.stringify(granted).includes('UNCONSENTED-BBB'));
+});
+
+test('R2-S4B: the audit trail names exactly what left the machine', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-s4b-'));
+  fs.writeFileSync(path.join(work, 'a.spec.ts'), 'CONSENTED-SPEC-CONTENT\n');
+  const consents = [];
+  const audit = [];
+  const service = createModelService({
+    credentialStore: stubCredentialStore(),
+    consentStore: createEgressConsentStore({
+      list: async () => consents,
+      persist: async (records) => { consents.splice(0, consents.length, ...records); },
+    }),
+    auditStore: { record: async (r) => { audit.push(r); } },
+    getProject: () => ({ id: 'p1', root: work }),
+    transport: createTransport({
+      fetch: async () => ({ status: 200, text: async () => JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }) }),
+    }),
+  });
+  const inputs = [{ kind: 'file', ref: 'a.spec.ts' }];
+  const scope = buildEgressScope({ project: { id: 'p1', root: work }, inputs });
+  const consentStore = createEgressConsentStore({
+    list: async () => consents,
+    persist: async (records) => { consents.splice(0, consents.length, ...records); },
+  });
+  const consent = await consentStore.confirm({ previewId: consentStore.preview(scope.items).previewId, inputs: scope.items });
+  await service.complete({
+    projectId: 'p1',
+    inputs,
+    consentId: consent.id,
+    providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://probe.invalid/v1' } }],
+    request: { instructions: 'i', inputs: [{ kind: 'file', ref: 'C:/Users/someone/.ssh/id_ed25519', content: 'UNCONSENTED-PRIVATE-KEY' }] },
+  });
+  const granted = audit.filter((r) => r.event === 'egress.granted').at(-1);
+  assert.deepEqual(granted.items.map((i) => i.ref), ['a.spec.ts'], 'the audit must name the consented file');
+  assert.ok(!JSON.stringify(granted).includes('id_ed25519'), 'the audit must not name the caller\'s ref');
+});
+
+/* --- P2: executeSteps succeeds and keeps the real error code ----------- */
+
+test('R2-P2: executeSteps runs the steps it claims to run', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-p2-'));
+  fs.writeFileSync(path.join(work, 'a.spec.ts'), 'test("a");\n');
+  let calls = 0;
+  const service = createModelService({
+    credentialStore: stubCredentialStore(),
+    consentStore: stubConsentStore(),
+    auditStore: stubAuditStore(),
+    getProject: () => ({ id: 'p1', root: work }),
+    transport: createTransport({
+      fetch: async () => { calls += 1; return { status: 200, text: async () => JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }) }; },
+    }),
+  });
+  // A provider that ALWAYS answers 200 must make executeSteps SUCCEED, on
+  // the first step. Before the fix it crashed inside the egress gate and
+  // reported AI_STEPS_EXCEEDED with zero requests sent.
+  const result = await service.executeSteps({
+    projectId: 'p1',
+    inputs: [{ kind: 'file', ref: 'a.spec.ts' }],
+    providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://probe.invalid/v1' } }],
+    request: { instructions: 'i', inputs: [] },
+    maxSteps: 2,
+  });
+  assert.equal(result.steps, 1);
+  assert.equal(result.text, 'ok');
+  assert.equal(calls, 1, 'the provider must actually be called');
+  assert.ok(!JSON.stringify(result).includes('AI_STEPS_EXCEEDED'));
+});
+
+/* --- P3: the anthropic protocol ---------------------------------------- */
+
+test('R2-P3a: the anthropic body always carries the temperature', () => {
+  const config = validateProtocolConfig('anthropic-messages', { model: 'm' });
+  const body = buildProtocolBody('anthropic-messages', { instructions: 'INSTR', inputs: [] }, config);
+  assert.ok('temperature' in body, 'temperature 0 must be sent, not omitted (the provider default is 1.0)');
+  assert.equal(body.temperature, 0);
+});
+
+test('R2-P3b: the anthropic instructions and inputs stay apart', () => {
+  const config = validateProtocolConfig('anthropic-messages', { model: 'm' });
+  const body = buildProtocolBody('anthropic-messages',
+    { instructions: 'INSTR', inputs: [{ kind: 'file', ref: 'a', content: 'INPUT' }] }, config);
+  assert.equal(body.system, 'INSTR');
+  assert.ok(!body.messages[0].content.includes('INSTR'), 'the instructions must not be repeated in the user message');
+  assert.ok(body.messages[0].content.includes('INPUT'));
+});
+
+test('R2-P3c: the anthropic temperature range is enforced', () => {
+  assert.throws(() => validateProtocolConfig('anthropic-messages', { model: 'm', temperature: 1.7 }),
+    (e) => e.code === 'AI_PROVIDER_CONFIG_INVALID');
+  // The openai range is wider and must still accept 1.7.
+  assert.equal(validateProtocolConfig('openai-chat', { model: 'm', temperature: 1.7 }).temperature, 1.7);
+});
+
+/* --- P4: a truncated answer is not retried ----------------------------- */
+
+test('R2-P4: a truncated answer moves the chain on to the next provider', async () => {
+  const tried = [];
+  const mk = (id, res) => createAiProvider({
+    id,
+    protocol: 'openai-chat',
+    config: { model: 'm', baseUrl: 'https://p.invalid/v1' },
+    transport: createTransport({ fetch: async () => { tried.push(id); return res; } }),
+  });
+  const chain = createFallbackChain({
+    providers: [
+      mk('A', { status: 200, text: async () => JSON.stringify({ choices: [{ message: { content: 'half' }, finish_reason: 'length' }] }) }),
+      mk('B', { status: 200, text: async () => JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }) }),
+    ],
+  });
+  const result = await chain.run({ instructions: 'i', inputs: [] }, {});
+  // The truncation is a property of THIS provider's output cap, so the next
+  // provider (with its own cap) IS tried. The transport comment and the code
+  // now agree.
+  assert.deepEqual(tried, ['A', 'B']);
+  assert.equal(result.provider, 'B');
+  assert.equal(result.text, 'ok');
+  assert.equal(result.attempts[0].code, 'AI_PROVIDER_OUTPUT_INVALID');
+  assert.equal(result.attempts[0].ok, false);
+  assert.equal(result.attempts[1].ok, true);
+});
+
+test('R2-P4B: a truncated answer on EVERY provider still reports its own code', async () => {
+  const mk = (id) => createAiProvider({
+    id,
+    protocol: 'openai-chat',
+    config: { model: 'm', baseUrl: 'https://p.invalid/v1' },
+    transport: createTransport({
+      fetch: async () => ({ status: 200, text: async () => JSON.stringify({ choices: [{ message: { content: 'half' }, finish_reason: 'length' }] }) }),
+    }),
+  });
+  let error = null;
+  try { await createFallbackChain({ providers: [mk('A'), mk('B')] }).run({ instructions: 'i', inputs: [] }, {}); } catch (e) { error = e; }
+  assert.ok(error, 'the chain must fail');
+  // Every attempt failed with the same code, so THAT code is reported --
+  // the actionable one -- and the attempts carry the detail.
+  assert.equal(error.code, 'AI_PROVIDER_OUTPUT_INVALID');
+  assert.equal(error.details.attempts.length, 2);
+  assert.equal(error.details.attempts[0].code, 'AI_PROVIDER_OUTPUT_INVALID');
+  assert.equal(error.details.attempts[1].code, 'AI_PROVIDER_OUTPUT_INVALID');
+});
+
+/* --- P5: the secret never reaches the error ---------------------------- */
+
+test('R2-P5: a provider that echoes the key does not leak it', async () => {
+  const KEY = 'sk-live-THIS-MUST-NOT-LEAK';
+  const echoFetch = async (url, init) => ({
+    status: 401,
+    text: async () => JSON.stringify({ error: { message: `Incorrect API key provided: ${init.headers.authorization.slice(7)}` } }),
+  });
+  const provider = createAiProvider({
+    id: 'A',
+    protocol: 'openai-chat',
+    config: { model: 'm', baseUrl: 'https://p.invalid/v1', credentialId: `cred_${'a'.repeat(24)}` },
+    resolveKey: async () => KEY,
+    transport: createTransport({ fetch: echoFetch }),
+  });
+  let error = null;
+  try { await createFallbackChain({ providers: [provider] }).run({ instructions: 'i', inputs: [] }, {}); } catch (e) { error = e; }
+  const serialised = JSON.stringify({ error: error?.code, message: error?.message, details: error?.details });
+  assert.ok(!serialised.includes(KEY), `the key leaked into the error: ${serialised}`);
+  assert.ok(error?.message.includes('[redacted]'), 'the echoed key must be redacted');
+});
+
+/* --- P6: the deadline is shared between the providers ------------------- */
+
+test('R2-P6: a hanging provider does not consume the whole deadline', async () => {
+  const tried = [];
+  const hang = (id) => createAiProvider({
+    id,
+    protocol: 'openai-chat',
+    config: { model: 'm', baseUrl: 'https://p.invalid/v1' },
+    transport: createTransport({
+      fetch: (u, init) => { tried.push(id); return new Promise((_, rej) => init.signal.addEventListener('abort', () => rej(new Error('aborted')))); },
+    }),
+  });
+  const ok = createAiProvider({
+    id: 'B',
+    protocol: 'openai-chat',
+    config: { model: 'm', baseUrl: 'https://p.invalid/v1' },
+    transport: createTransport({
+      fetch: async () => { tried.push('B'); return { status: 200, text: async () => JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }) }; },
+    }),
+  });
+  const result = await createFallbackChain({ providers: [hang('A'), ok] }).run(
+    { instructions: 'i', inputs: [] },
+    { deadlineAt: Date.now() + 300 },
+  );
+  assert.equal(result.provider, 'B', 'the healthy provider must be reached');
+  assert.ok(tried.includes('B'), 'the second provider must actually receive a request');
+});
+
+/* --- P7: the audit store is required ------------------------------------ */
+
+test('R2-P7: a missing audit store is VISIBLE, not silently swallowed', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-p7-'));
+  fs.writeFileSync(path.join(work, 'a.spec.ts'), 'test("a");\n');
+  // The service is built WITHOUT an audit store. The construction must not
+  // throw (authorize() has a documented shape: it RETURNS a verdict), but
+  // the missing store must be visible in that verdict.
+  const service = createModelService({
+    credentialStore: stubCredentialStore(),
+    consentStore: stubConsentStore(),
+    getProject: () => ({ id: 'p1', root: work }),
+  });
+  const verdict = await service.authorize({
+    projectId: 'p1',
+    inputs: [{ kind: 'file', ref: 'a.spec.ts' }],
+  });
+  // `allowed === null` means NO DECISION was made. It is deliberately NOT
+  // `false`: a refusal is a decision about the content, this is a failure of
+  // the platform, and the two must not be confused.
+  assert.equal(verdict.allowed, null, 'the missing audit store must be reported, not swallowed');
+  assert.equal(verdict.code, 'AI_AUDIT_UNAVAILABLE');
+  assert.equal(verdict.auditRecorded, false);
+  // And a call whose decision could not be recorded does NOT go out.
+  const sent = [];
+  const withTransport = createModelService({
+    credentialStore: stubCredentialStore(),
+    consentStore: stubConsentStore(),
+    getProject: () => ({ id: 'p1', root: work }),
+    transport: createTransport({
+      fetch: async (url, init) => { sent.push({ url, init }); return { status: 200, text: async () => '{}' }; },
+    }),
+  });
+  let error = null;
+  try {
+    await withTransport.complete({
+      projectId: 'p1',
+      inputs: [{ kind: 'file', ref: 'a.spec.ts' }],
+      providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://probe.invalid/v1' } }],
+      request: request(),
+    });
+  } catch (e) {
+    error = e;
+  }
+  assert.ok(error, 'an unrecorded egress must be refused');
+  assert.equal(error.code, 'AI_AUDIT_UNAVAILABLE');
+  assert.equal(sent.length, 0, 'no request may leave the machine');
 });

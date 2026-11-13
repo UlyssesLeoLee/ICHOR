@@ -48,6 +48,11 @@ run 02-ai-api-it node --test tests/ai-api.test.mjs
 # 3. the boundary probe (with its negative controls)
 run 03-ai-boundary-probe node tools/ats403-probes/probe-ai-boundary.mjs
 
+# 3b. the round-2 regression probe: every counterexample from the round-1
+# review, turned into a check that must stay green (plus its negative
+# controls).
+run 03b-ai-round2-probe node tools/ats403-probes/probe-ai-round2.mjs
+
 # 4. the full suite -- the ATS-403 tests must not break anything else
 run 04-full-test-suite npm test
 

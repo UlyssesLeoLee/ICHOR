@@ -17,7 +17,7 @@
  * 内存里的响应文本；超时或限流时它**什么都不产出**——不会有半截文件、不会
  * 有临时文件、不会有「下次继续」的残状态。
  */
-import { aiError, classifyProviderStatus } from './errors.mjs';
+import { aiError, classifyProviderStatus, redactSecret } from './errors.mjs';
 import {
   buildProtocolBody, buildProtocolHeaders, defaultPath,
   extractProtocolText, extractStopReason, isTruncatedStopReason,
@@ -104,10 +104,17 @@ export function createTransport({ fetch: fetchImpl, timeoutMs = DEFAULT_TRANSPOR
       }
       if (status < 200 || status >= 300) {
         const code = classifyProviderStatus(status);
-        // The provider's own body may name the reason; it never contains the
-        // secret (the secret is in a header), and it is truncated so a huge
-        // error page cannot flood the logs.
-        const reason = String(text || '').slice(0, 500).replace(/\s+/g, ' ').trim();
+        // The provider's own body may name the reason; it is truncated so a
+        // huge error page cannot flood the logs.
+        //
+        // The body is REDACTED against the key this request actually used:
+        // a provider that echoes the key back (many compatible gateways do)
+        // would otherwise put the secret into `message`, and from there into
+        // `details.attempts[].reason` and straight to the client.
+        const reason = redactSecret(
+          String(text || '').slice(0, 500).replace(/\s+/g, ' ').trim(),
+          apiKey,
+        );
         throw aiError(code, reason || `the provider answered with status ${status}`, { status });
       }
       if (text.length > MAX_RESPONSE_CHARS) {
@@ -123,8 +130,13 @@ export function createTransport({ fetch: fetchImpl, timeoutMs = DEFAULT_TRANSPOR
       const stopReason = extractStopReason(config.protocol, payload);
       if (isTruncatedStopReason(stopReason)) {
         // A truncated answer is NOT a short answer: it is an incomplete one,
-        // and the contract layer would reject the broken JSON anyway. Report it
-        // as a provider output problem so a fallback provider can be tried.
+        // and the contract layer would reject the broken JSON anyway. It is
+        // reported as a provider output problem.
+        //
+        // This error IS retryable: the truncation is usually a property of
+        // THIS provider's output cap (the caps differ between providers), so
+        // the fallback chain moves on to the next provider, which may answer
+        // within its own cap.
         throw aiError('AI_PROVIDER_OUTPUT_INVALID', 'the response was truncated by the provider', {
           stopReason,
         });

@@ -53,7 +53,8 @@ service.mjs     编排：外传闸门(ATS-402) → 凭据解析(ATS-402) → 回
 |---|---|---|
 | 端点 | `https://api.openai.com/v1/chat/completions` | `https://api.anthropic.com/v1/messages` |
 | 指令 | `messages[0]`（role `system`） | 顶层 `system` 字段 |
-| 输入 | `messages[1]`（role `user`） | `messages[0]`（role `user`） |
+| 输入 | `messages[1]`（role `user`） | `messages[0]`（role `user`，**不含**指令） |
+| temperature | 总是发送（含 `0`） | 总是发送（含 `0`） |
 | 认证头 | `authorization: Bearer <key>` | `x-api-key: <key>` + `anthropic-version: 2023-06-01` |
 | 取文 | `choices[0].message.content` | `content[]` 里 `type === "text"` 的块拼接 |
 | 截断 | `choices[0].finish_reason === "length"` | `stop_reason === "max_tokens"` |
@@ -66,24 +67,42 @@ JSON 换个字段名，而是各自一套翻译。协议层把 ATS-401 的统一
 **截断的输出不可用**：`finish_reason`/`stop_reason` 表示长度截断时，文本是半个
 JSON，传输层直接判为 `AI_PROVIDER_OUTPUT_INVALID`，不把半个提案交给上层。
 
+**temperature 总是发送**（包括 `0`）：省略它会让提供商用自己的默认值
+（Anthropic 的默认是 `1.0`），于是调用方拿到的采样与它要求的不是同一个。
+`anthropic-messages` 的 temperature 取值范围被限制在 `0..1`（该协议的上限），
+超出即 `AI_PROVIDER_CONFIG_INVALID`。
+
 ## 4. 密钥：从凭据库取，不进配置
 
 ATS-402 已经把「密钥本体在系统凭据库、磁盘只留引用」这件事做完了。ATS-403
 **只消费**那个引用：
 
 - provider 配置里**只允许** `credentialId`（引用）。出现 `apiKey`、`secret`
-  等明文字段，或配置自带 `Authorization` / `x-api-key` 头，一律
-  `AI_PROVIDER_CONFIG_INVALID`（协议层 `validateProtocolConfig`）。
+  等明文字段，一律 `AI_PROVIDER_CONFIG_INVALID`（协议层
+  `validateProtocolConfig`）。
+- 配置里的**额外请求头是一份白名单**（`ALLOWED_PROVIDER_HEADERS`：
+  `anthropic-version`、`openai-organization`、`openai-project`、`x-request-id`、
+  `x-correlation-id`、`x-tenant`）。**不在名单里的头一律拒绝**，因此
+  `Authorization`、`x-api-key`、`api-key`、`x-goog-api-key` 等**所有**认证类
+  的头都进不来（第 1 轮用的是黑名单，只能挡住已经想到的名字）。
 - 密钥在**发请求的那一刻**由 `credentialStore.resolve(id, 'ai-provider')` 取出，
   只进入认证头。它**不进** URL、**不进**请求体、**不进**状态文件、**不进**日志、
   **不进**错误消息；provider 的 `describe()` 也不带它（`server/ai/provider.mjs`）。
 - 凭据库不可用 → `AI_CREDENTIAL_UNAVAILABLE`，**不是** provider 错误，因此
   **不触发回退**（回退到下一个提供商也拿不到密钥，只会再失败一次）。
 
-这条链路的证据：IT `IT-AIE-004`（明文密钥的配置被拒且**未落库**）、UT
-`UT-AIP-002`（构造 provider 时**不**解析密钥，只在调用时解析一次）、
-`UT-AIP-006`（provider 的描述里没有密钥）、探针 signal 2（密钥只在认证头里，
-URL 与请求体里都没有）。
+这条链路的证据：IT `IT-AIE-004`（明文密钥的配置被拒且**未落库**）、
+IT `IT-AIE-004B`（**认证类请求头**里的密钥被拒，且既不出现在响应里、也不落进
+状态文件）、UT `UT-AIP-002`（构造 provider 时**不**解析密钥，只在调用时解析
+一次）、`UT-AIP-006`（provider 的描述里没有密钥）、探针 signal 2（密钥只在
+认证头里，URL 与请求体里都没有）。
+
+**提供方回显密钥的情况**：不少兼容网关在错误正文里**回显**它收到的密钥
+（`Incorrect API key provided: sk-…`）。传输层因此在**本次请求实际解析出的那把
+密钥**上把错误正文抹掉（`redactSecret`），因此「密钥不进错误消息」这条声明
+成立——它不是「密钥在请求头里所以不会出现在正文里」这种推理，而是**实测**：
+UT `R2-P5` 与探针 `P5` 用一个**回显密钥**的假端点验证，IT `IT-AIE-023`
+在真实 HTTP 上验证。
 
 ## 5. 外传闸门前置
 
@@ -93,7 +112,47 @@ URL 与请求体里都没有）。
    不读文件、不取密钥、不发请求。
 2. 密钥解析 —— 每个 provider 在自己发请求时解析自己的凭据引用。
 3. 回退链 —— 只在可恢复错误上换提供商。
-4. 契约收敛 —— ATS-401 的提案形状由契约层负责。
+
+**（第 1 轮这里写的第 4 步「契约收敛（ATS-401）」已删除。）** 事实是：
+`complete()` **不经过** ATS-401 的契约层，`asContractProvider()` 在仓库里
+**没有任何调用方**。契约收敛仍是 ATS-401 的事，ATS-403 **不声称**已经接入。
+
+被拒绝的调用**照常写外传审计**（`egress.denied`），所以「拦住了」和「留了痕」
+是同一段代码的两面。
+
+### 5.1 发出去的就是被授权的那一份（第 2 轮新增）
+
+**授权绑定的是内容，不是「一份请求」。** 因此：
+
+- **发出去的输入**来自闸门判定结果里的 `verdict.inputs`——那是平台侧从项目里
+  **读出来的真实内容**，摘要已由平台复算并与同意书核对过。
+- **调用方给的 `request.inputs[].content` 一律不采用**。调用方的正文完全由
+  它自己控制；如果直接发出去，一份针对 `tests/home.spec.ts` 的授权就能用来
+  发送任意文本。
+- **`/api/ai/complete` 不接受请求体里的 `providers`**（连同随之而来的
+  `baseUrl`）：临时指定的提供商等于让调用方**自选目的地**，而同意书覆盖的
+  从来不是那个目的地。调用只使用**已配置**的提供商。
+- 因此外传审计里记录的 `items` 与**实际发出的内容**必然一致——审计不是一句
+  与实际行为无关的声明。
+
+证据：UT `R2-P1` / `R2-S4B`（单元层：假提供商收到的是被授权的内容，审计记的
+也是它）、IT `IT-AIE-020`（真实 HTTP + 回环假提供商：请求正文里的
+`id_ed25519` 内容**没有**被发出，被授权文件的内容**被**发出，审计的
+`items[].ref` 是 `tests/home.spec.ts`）、IT `IT-AIE-021`（请求体里的提供商
+列表被拒，且**没有任何请求**到达它）、探针 `P1` / `S4` / `S4b` / `S4c`。
+
+### 5.2 审计不可用时不外发
+
+外传审计存储**不存在**时，闸门**不做出决定**，而不是做出一个「拒绝」：
+`authorize()` 返回 `allowed === null`（第三种状态，与「拒绝」不同），错误码
+`AI_AUDIT_UNAVAILABLE`（HTTP 503）。`complete()` 因此**不发送任何请求**。
+
+理由：一次「放行但没有留痕」的外发，事后既无法被证明、也无法被追查。因此
+**没有审计存储就不外发**。这条在代码里是显式的检查（`service.mjs` 的
+`audit()` 返回记录是否真的写下了，`authorize()` 把它写进判定结果），
+不是注释里的一句承诺。
+
+证据：UT `R2-P7`、探针 `P7`。
 
 被拒绝的调用**照常写外传审计**（`egress.denied`），所以「拦住了」和「留了痕」
 是同一段代码的两面。
@@ -101,6 +160,42 @@ URL 与请求体里都没有）。
 证据：UT `UT-AIS-002`/`003`（无授权 → `AI_EGRESS_DENIED` + 审计一条）、
 IT `IT-AIE-006`/`007`/`008`（真实 HTTP：无授权时请求在到达提供商之前就被拒，
 拒绝进了审计）、探针 signal 3（永远放行的闸门作为负控，证明这条检查不是恒真）。
+
+## 5.3 步数预算（maxSteps）
+
+`maxSteps` 被落成硬约束：步数用尽即 `AI_STEPS_EXCEEDED`。
+
+第 1 轮的这个声明**不成立**：`executeSteps()` 调用 `complete()` 时没有传
+`projectId` / `inputs` / `consentId`，于是闸门拒绝后崩在 `inputs.map`，
+**每一次都报 `AI_STEPS_EXCEEDED`，而实际的 fetch 次数是 0**。第 1 轮的
+`UT-AIS-007` 「通过」正是因为这个崩溃。
+
+第 2 轮把 `executeSteps()` **修好并接入**（方案 A）：
+
+- `projectId` / `inputs` / `consentId` **透传**给 `complete()`，因此每一步都
+  同样受外传闸门约束；
+- **不可回退的错误保留自己的错误码**（鉴权失败、配置非法、请求非法立刻原样
+  抛出），不再一律改标成 `AI_STEPS_EXCEEDED`——把「密钥错了」说成「步数用尽」
+  会把排查方向带偏；
+- 步数预算**精确**地消耗 `maxSteps` 步：第 1 步可回退失败、第 2 步成功时，
+  调用**成功**，返回 `steps: 2`。
+
+证据：UT `UT-AIS-007`（断言实际执行步数 == `maxSteps`、断言 `cause` 的错误码）、
+`UT-AIS-007B`（第 1 步限流、第 2 步成功 → 调用成功）、`UT-AIS-007C`（401 保留
+自己的码）、`R2-P2`（一个**永远答 200** 的提供商必须让 `executeSteps`
+**成功**）、探针 `P2`。
+
+## 5.4 截止时间在提供商之间的分配
+
+设了截止时间时，回退链把**剩余时间**分给链上**还没试**的提供商：每个提供商
+拿到「剩余时间 ÷ 还没试的提供商数」。因此**一个挂起的提供商不会吃掉整个
+预算**，下一个健康的提供商不会从一个**已经过期**的截止时间开始。
+
+第 1 轮的 `provider.mjs` 文件头写着「剩下的时间先留给回退链里的下一个提供商」，
+而代码里**没有**这个机制——实测：截止时间 150 ms、第一个提供商挂起时，健康的
+第二个提供商得到「deadline had already passed」，请求**根本没有发出**。
+
+证据：UT `R2-P6`、探针 `P6`（挂起的 A 之后，B 必须**真的收到请求**）。
 
 ## 6. 错误分类与回退
 
@@ -110,25 +205,52 @@ IT `IT-AIE-006`/`007`/`008`（真实 HTTP：无授权时请求在到达提供商
 |---|---|---|---|
 | `AI_PROVIDER_TIMEOUT` | 超时 | **是** | 504 |
 | `AI_PROVIDER_RATE_LIMITED` | 限流（429） | **是** | 429 |
-| `AI_PROVIDER_UNAVAILABLE` | 提供商不可用（5xx/网络失败） | **是** | 503 |
-| `AI_PROVIDER_SERVER_ERROR` | 提供商服务端错误 | **是** | 502 |
-| `AI_PROVIDER_AUTH_FAILED` | 鉴权失败（401/403） | 否 | 401 |
+| `AI_PROVIDER_UNAVAILABLE` | 提供商不可用（503 / 网络失败） | **是** | 503 |
+| `AI_PROVIDER_SERVER_ERROR` | 提供商服务端错误（5xx） | **是** | 502 |
+| `AI_PROVIDER_AUTH_FAILED` | 鉴权失败（401/403） | 否 | 502 |
 | `AI_PROVIDER_CONFIG_INVALID` | 配置非法 | 否 | 400 |
-| `AI_PROVIDER_REQUEST_INVALID` | 请求非法（400 等） | 否 | 400 |
+| `AI_PROVIDER_REQUEST_INVALID` | 请求非法（400/422 等） | 否 | 400 |
 | `AI_PROVIDER_RESPONSE_INVALID` | 响应不是 JSON | 否 | 502 |
-| `AI_PROVIDER_OUTPUT_INVALID` | 响应没有可用文本 / 被截断 | 否 | 502 |
+| `AI_PROVIDER_OUTPUT_INVALID` | 响应没有可用文本 / 被截断 | **是** | 502 |
 | `AI_CREDENTIAL_UNAVAILABLE` | 凭据库不可用 | 否 | 503 |
+| `AI_AUDIT_UNAVAILABLE` | 外传审计不可用（平台侧失败） | 否 | 503 |
 | `AI_EGRESS_DENIED` | 外传未获授权 | 否 | 403 |
-| `AI_FALLBACK_EXHAUSTED` | 链上全部可恢复错误 | 否 | 502 |
-| `AI_STEPS_EXCEEDED` | 步数预算用尽 | 否 | 400 |
+| `AI_FALLBACK_EXHAUSTED` | 链上全部失败且原因不一致 | 否 | 502 |
+| `AI_STEPS_EXCEEDED` | 步数预算用尽 | 否 | 429 |
 
 分类是**表驱动**的（`server/ai/errors.mjs` 的 `AI_STATUS_FOR_CODE` 与
 `classifyProviderStatus`），不靠解析错误消息文本——上游换个措辞不会改变分类。
+**这张表由代码直接发布**：`GET /api/ai/contract` 的 `statusByCode` 字段就是
+`AI_STATUS_FOR_CODE` 本身，因此文档不再需要人工同步（IT `IT-AIE-024` 逐条
+核对）。本表与该字段一致。
+
+三处与第 1 轮不同的口径，都是按「**代码是事实**」改正的：
+
+- `AI_PROVIDER_AUTH_FAILED` 是 **502**（提供方拒绝凭据是**上游**失败，不是
+  调用方的请求非法）；第 1 轮的表写的是 401。
+- `AI_STEPS_EXCEEDED` 是 **429**（步数预算用尽意味着「稍后再试」，与限流同类）；
+  第 1 轮的表写的是 400。
+- `AI_PROVIDER_UNAVAILABLE` 只覆盖 **503 与网络失败**；第 1 轮写成「5xx」，
+  而 5xx 中的其它情形归 `AI_PROVIDER_SERVER_ERROR`。
+
+另外两条**行为**也变了（第 1 轮的说明与代码不符）：
+
+- `AI_PROVIDER_OUTPUT_INVALID` 现在**可恢复**：截断通常是**该提供商**的输出
+  上限造成的（不同提供商的实际上限不同），换一家有可能答得出来。它不可恢复
+  的话，传输层注释里「可以换下一个提供商」那句就是假的。
+- 回退链走完时，若**每一次尝试都是同一个可恢复错误**，报那个错误本身
+  （例如 429、504、503），而不是笼统的 `AI_FALLBACK_EXHAUSTED`（502）：限流
+  必须以 429 回到调用方，调用方才知道「稍后重试」。原因不一致时才报
+  `AI_FALLBACK_EXHAUSTED`。
 
 ### 6.2 回退链的规则
 
 - **只有可恢复错误才换提供商。** 鉴权失败、配置非法、请求非法、凭据不可用
-  **立即失败**：换到下一个提供商也解决不了同一个坏密钥或同一份坏配置。
+  **立即失败**：换到下一个提供商也解决不了同一份坏配置。
+  **注意**：鉴权失败的理由**不是**「另一个提供商也会用同样的密钥失败」——
+  回退链上的每个提供商**各自**用自己的 `credentialId`，下一家的密钥可能是
+  好的。它不触发回退，是因为**策略**上不值得为一次凭据错误再烧一次调用
+  预算，而不是因为它必然再失败一次。
 - **每个提供商在链上最多尝试一次。** 重试与供应商切换是两种语义：传输层
   **不做重试**（`transport.mjs` 明确不重试），回退是换供应商，不是重复打同一个。
 - 链上全败 → `AI_FALLBACK_EXHAUSTED`，`details.attempts` 带上每一次尝试
@@ -144,8 +266,15 @@ IT `IT-AIE-006`/`007`/`008`（真实 HTTP：无授权时请求在到达提供商
 限流、超时、链路失败之后，项目目录的**文件清单**与**逐文件 SHA-256** 与调用前
 完全一致。
 
-证据：UT `UT-AIS-006`、探针 signal 4（负控：故意往项目里写文件的坏提供商，
-必须被检测到——否则「目录没变」这条检查就是恒真的）。
+证据：UT `UT-AIS-006`（连接被拒）、`UT-AIS-006B`（**429 限流**）、
+`UT-AIS-006C`（**超时**，用注入的挂起 fetch 让传输层自己的超时中止它）——
+三者都**断言了错误码**，不再用 `.catch(() => {})` 把失败吞掉；探针 signal 4
+（负控：故意往项目里写文件的坏提供商，必须被检测到——否则「目录没变」这条
+检查就是恒真的）。
+
+**IT 层也有覆盖**（第 1 轮缺这一段）：IT `IT-AIE-022` 在**真实 HTTP** 上让
+一个回环提供商返回 429，断言响应是 429，且项目目录的逐文件摘要与调用前
+逐字节一致。
 
 ## 7. API
 
@@ -153,7 +282,7 @@ IT `IT-AIE-006`/`007`/`008`（真实 HTTP：无授权时请求在到达提供商
 |---|---|---|
 | `/api/ai/contract` | GET | 契约：协议、错误码、可重试错误码、密钥策略、回退策略 |
 | `/api/ai/providers` | GET | 已配置的提供商与回退顺序 |
-| `/api/ai/providers` | POST | 配置一个提供商（**不允许**明文密钥） |
+| `/api/ai/providers` | POST | 配置一个提供商（**不允许**明文密钥或认证类请求头；配置在**落库前**被完整校验） |
 | `/api/ai/providers/{id}` | DELETE | 移除一个提供商 |
 | `/api/ai/complete` | POST | 一次真实调用（先过闸门，再走回退链） |
 | `/api/ai/egress/check` | POST | **只判闸门**，不发请求（诊断用） |
@@ -163,6 +292,22 @@ IT `IT-AIE-006`/`007`/`008`（真实 HTTP：无授权时请求在到达提供商
 
 **默认没有连接任何提供商**：`store.aiProviders` 初始为空数组，所以不配置就没有
 任何外发路径。
+
+**提供商的配置在写盘前被完整校验**（第 2 轮新增）。`POST /api/ai/providers`
+先跑一遍 `validateProtocolConfig()`，因此非 http(s) 端点、非法 `maxTokens`、
+格式错误的 `credentialId`、不在白名单里的请求头**都返回 400 且绝不落库**；
+落库的是**校验后的**配置（归一化后的端点、模型、清洗过的请求头），因此
+`GET /api/ai/providers` 读回来的就是**将要发出去的那一份**。
+
+第 1 轮只检查了 `apiKey` / `secret` 两个字段，校验要等到调用时才发生——非法
+配置与**请求头里的密钥**都会先写进 `state.json`，再由 `GET` 原样返回。
+
+证据：IT `IT-AIE-004B`（认证类请求头里的密钥：400，且既不在响应里、也不在
+状态文件里）、`IT-AIE-004C`（非法端点 / 非法 `maxTokens` / 非法凭据引用：
+400 且未落库）、探针 `S1` / `S2` / `S3`。
+
+**`/api/ai/complete` 只使用已配置的提供商**：请求体里带 `providers` 会被拒绝
+（400）。
 
 ## 8. 未实现与未验证
 
@@ -174,6 +319,9 @@ IT `IT-AIE-006`/`007`/`008`（真实 HTTP：无授权时请求在到达提供商
 | 模型输出落地 | 未实现 | 仓库中仍不存在把模型输出写入仓库的代码路径；适配层只产出文本 |
 | 流式响应 / 工具调用往返 | 未实现 | 只处理非流式响应；`anthropic-messages` 的 `tool_use` 块被跳过而不是执行 |
 | 令牌计量与成本 | 未实现 | `budget.maxOutputBytes` 等上限被校验，但响应里的实际用量未采集 |
+| 与 ATS-401 契约层的接线 | **未实现** | `complete()` 不经过契约层，`asContractProvider()` 没有调用方。ATS-401 的提案形状仍由契约层负责，ATS-403 未接入（第 1 轮曾写成「已接入契约收敛」，该说法不成立，已删除） |
+| `anthropic-messages` 的 `tool_use` 块 | 未实现 | 文本块被拼接，工具调用块被跳过 |
+| 外传授权与**目的地**的绑定 | **未实现** | ATS-402 的同意书绑定的是**内容**，不绑定目的地。ATS-403 只保证「内容就是被授权的那一份」；换一个目的地仍需另立跟进项（第 1 轮复核指出，超出 ATS-403 范围） |
 | macOS / Linux 凭据库后端真机实测 | 未验证 | 属 ATS-402 的同一缺口，本次不依赖它 |
 
 **不得声称的能力**：**没有**用真实模型验证过任何一条链路。已验证的是**适配层
@@ -182,12 +330,18 @@ IT `IT-AIE-006`/`007`/`008`（真实 HTTP：无授权时请求在到达提供商
 ## 9. 复现命令
 
 ```
-node --test tests/ai-adapter.test.mjs            # UT 58 项
-node --test tests/ai-api.test.mjs                # IT 13 项
+node --test tests/ai-adapter.test.mjs            # UT 73 项
+node --test tests/ai-api.test.mjs                # IT 20 项
 node tools/ats403-probes/probe-ai-boundary.mjs   # 边界探针 37 项
+node tools/ats403-probes/probe-ai-round2.mjs     # 第 2 轮回归探针 23 项（含 4 个负控）
 python tools/ats403-probes/check-wbs-ats403.py   # WBS 行与总览叙述的只读核对
-npm test                                         # 全量 1571 项（1554 通过 / 17 跳过 / 0 失败）
+npm test                                         # 全量（见证据日志 04-full-test-suite.log）
 ```
+
+第 2 轮回归探针 `probe-ai-round2.mjs` 是**第 1 轮复核的反例**固化下来的
+产物：P1/P2/P3a/P3b/P3c/P4/P5/P6/P7/S1/S2/S3/S4/S4b/S5 每一项对应复核意见里
+的一条反例，外加 4 个**负控**（证明这些检查不是恒真）。复核者可以直接用它
+复核，也可以用自己附带的 `r1.mjs` / `r1-api.mjs` 复核。
 
 证据日志在 `docs/evidence/ATS-403/`。整份证据可由一条命令重采：
 

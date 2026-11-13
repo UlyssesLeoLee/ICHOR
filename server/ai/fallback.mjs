@@ -54,10 +54,29 @@ export function createFallbackChain({ providers = [], onAttempt } = {}) {
     if (!providers.length) {
       throw aiError('AI_FALLBACK_EXHAUSTED', 'the fallback chain is empty', { attempts });
     }
-    for (const provider of providers) {
+    // The remaining deadline is DIVIDED among the providers that are still
+    // left on the chain: each one gets the remaining time divided by the
+    // number of providers still to try. Without this the first provider can
+    // consume the whole budget, and every provider after it would start from
+    // an already expired deadline -- the request would never be sent even
+    // though a healthy provider was next on the chain.
+    //
+    // The share is computed from the time that is LEFT when the provider is
+    // reached, so the sum of the shares can never exceed the deadline.
+    const now = typeof ctx.now === 'function' ? ctx.now : () => Date.now();
+    for (let index = 0; index < providers.length; index += 1) {
+      const provider = providers[index];
+      const remainingProviders = providers.length - index;
+      const providerCtx = { ...ctx };
+      if (typeof ctx.deadlineAt === 'number') {
+        const left = ctx.deadlineAt - now();
+        const share = Math.floor(left / remainingProviders);
+        providerCtx.deadlineAt = now() + share;
+        providerCtx.remainingMs = left;
+      }
       const startedAt = Date.now();
       try {
-        const result = await provider.complete(request, ctx);
+        const result = await provider.complete(request, providerCtx);
         const record = {
           provider: provider.id,
           ok: true,
@@ -87,6 +106,16 @@ export function createFallbackChain({ providers = [], onAttempt } = {}) {
         }
       }
     }
+    // The chain is exhausted. When EVERY attempt failed with the SAME
+    // retryable code, that code is reported instead of the generic
+    // "exhausted": a rate limit must reach the client as 429 (retry later)
+    // and a timeout as 504, not as an opaque 502. When the attempts
+    // disagree, there is no single actionable reason and the generic code
+    // is the honest one.
+    const codes = [...new Set(attempts.map((a) => a.code).filter(Boolean))];
+    if (codes.length === 1 && isRetryableAiError({ code: codes[0] })) {
+      throw aiError(codes[0], 'every provider in the chain failed with the same error', { attempts });
+    }
     throw aiError('AI_FALLBACK_EXHAUSTED', 'every provider in the chain failed', { attempts });
   }
 
@@ -115,7 +144,7 @@ export function explainAiError(code) {
     case 'AI_PROVIDER_SERVER_ERROR':
       return 'the provider failed with a server error; retry later or use another provider';
     case 'AI_PROVIDER_AUTH_FAILED':
-      return 'the provider rejected the credentials; the key must be fixed, another provider will fail the same way';
+      return 'the provider rejected the credentials; the key must be fixed. Another provider may use a DIFFERENT credential and still succeed, so the chain stops here by policy rather than because it must fail again';
     case 'AI_PROVIDER_REQUEST_INVALID':
       return 'the provider rejected the request itself; the request must be fixed';
     case 'AI_PROVIDER_CONFIG_INVALID':
@@ -124,6 +153,8 @@ export function explainAiError(code) {
       return 'the secret could not be read from the credential store';
     case 'AI_EGRESS_DENIED':
       return 'the egress was refused: there is no valid informed consent for this content';
+    case 'AI_AUDIT_UNAVAILABLE':
+      return 'the platform could not record the egress decision, so no content was sent';
     case 'AI_PROVIDER_OUTPUT_INVALID':
       return 'the provider answered with something the contract cannot accept';
     case 'AI_FALLBACK_EXHAUSTED':
