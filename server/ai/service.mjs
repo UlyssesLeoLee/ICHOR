@@ -10,19 +10,28 @@
  * `asContractProvider()` 在仓库里没有调用方。契约收敛仍是 ATS-401 的事，
  * 本模块不声称已经接入。
  *
- * 三条硬规则，每一条都在本模块里有对应代码与可机读的断言：
+ * 四条硬规则，每一条都在本模块里有对应代码与可机读的断言：
  *
  *   1. **没有授权就不发请求。** 外传闸门先判（`authorizeEgress`），判不过
  *      就**不读文件、不取密钥、不发请求**，并把这次拒绝写进外传审计。
- *   2. **密钥只来自凭据库。** `credentialStore.resolve(id, 'ai-provider')`
+ *   2. **发出去的就是被授权的那一份。** 发给提供商的输入取自闸门读出并
+ *      复算过摘要的 `verdict.inputs`，**不采用**调用方给的
+ *      `request.inputs[].content`（那完全由调用方控制）。于是外传审计记的
+ *      与实际发出的必然一致（见 `bindRequestToConsent`）。
+ *   3. **密钥只来自凭据库。** `credentialStore.resolve(id, 'ai-provider')`
  *      是唯一入口；配置里不允许有明文密钥（见 `protocols.mjs`）。
- *   3. **失败不污染工作区。** 本模块**不写任何文件**：没有缓存、没有临时
+ *   4. **失败不污染工作区。** 本模块**不写任何文件**：没有缓存、没有临时
  *      文件、没有「失败也留一份」的痕迹。超时或限流时，工作区一个字节都
  *      不变——这一点由 `tools/ats403-probes/probe-ai-boundary.mjs` 用
  *      「调用前后目录摘要逐字节相同」实测。
  *
+ * **审计不可用时不外发**：审计存储缺失时闸门**不做出决定**
+ * （`allowed === null`，`AI_AUDIT_UNAVAILABLE`），`complete()` 因此不发送
+ * 任何请求——一次「放行但没有留痕」的外发事后既无法证明也无法追查。
+ *
  * **多步执行**（`maxSteps`）：ATS-401 只校验 `maxSteps` 的上限，没有施加它；
- * 本模块把它落成「最多几步」的硬约束，步数用尽即 `AI_STEPS_EXCEEDED`。
+ * 本模块把它落成「最多几步」的硬约束，步数用尽即 `AI_STEPS_EXCEEDED`；
+ * 不可回退的错误**保留自己的错误码**，不被改标成「步数用尽」。
  */
 import { aiError, isRetryableAiError } from './errors.mjs';
 import { asContractProvider, createAiProvider } from './provider.mjs';
@@ -214,8 +223,8 @@ export function createModelService({
    * 写一条外传审计。
    *
    * 审计存储**不存在**时**不静默吞掉**：那会让「都留痕」变成谎话。缺失被
-   * 报成一个**可见的失败**——`audit()` 返回 `false`，调用方（`authorize()`）
-   * 把它写进判定结果，`complete()` 则据此**拒绝**这次外发。
+   * 报成一个**可见的失败**——`audit()` 返回 `false`，`authorize()` 把它写进
+   * 判定结果（`auditRecorded: false`），`complete()` 则据此**不外发**。
    *
    * 理由：一条没有落盘的审计记录等于没有记录；而「授权放行但没有留痕」的
    * 那一次外发，事后是无法被证明或被追责的。因此**没有审计存储就不外发**。
