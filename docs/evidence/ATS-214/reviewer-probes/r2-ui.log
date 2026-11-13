@@ -1,34 +1,47 @@
-served by my Bridge pid 10424; page has role="checkbox" button markup: n/a (client-rendered)
-Next: p500 selected -> 500 rows rendered in 59 ms (includes static discovery)
+================================================================================
+ATS-214 evidence log -- the external probe: r2-ui
+================================================================================
+commit        : 8021be4dd833c1cbfcad31e902d8191c29151d24
+timestamp     : 2026-11-13T15:24:31Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-3830379009a5/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : env R2_PORT=8953 node .probe-work/all/r2/probes/r2-ui.mjs . D:\hermes-multica\home\cache\scratch/ats214-probe-fx D:\hermes-multica\home\cache\scratch/ats214-probe-data-ui D:/ICHOR/examples/sample-playwright/node_modules/playwright-core
+================================================================================
+
+served by my Bridge pid 28552; page has role="checkbox" button markup: n/a (client-rendered)
+Next: p500 selected -> 500 rows rendered in 42 ms (includes static discovery)
   layout at 1440x900: {"listTop":674,"listHeight":104,"viewport":900,"fileChips":55}
   rows fully visible in the list at 1440x900: 1
 OK     L1 next-500-list-visible  case list height=104px, top=674px of a 900px viewport, pushed down by 55 filter chips
-  type "module4" (7 keys) at 500 cases           n=8 p50=13ms p95=17ms max=17ms longtasks=[]
+  type "module4" (7 keys) at 500 cases           n=8 p50=8ms p95=19ms max=19ms longtasks=[]
     filter-report: 110 / 500 条搜索 110
-  clear the query (Ctrl+A, Backspace)            n=3 p50=64ms p95=76ms max=76ms longtasks=[52]
-  tag chips @smoke, @api, mode 全部, 任一            n=4 p50=35ms p95=64ms max=64ms longtasks=[]
+  clear the query (Ctrl+A, Backspace)            n=3 p50=47ms p95=54ms max=54ms longtasks=[]
+  tag chips @smoke, @api, mode 全部, 任一            n=4 p50=16ms p95=25ms max=25ms longtasks=[]
     filter-report: 234 / 500 条标签 234
-  全选当前 with 500 shown                            n=1 p50=70ms p95=70ms max=70ms longtasks=[62]
+  全选当前 with 500 shown                            n=1 p50=74ms p95=74ms max=74ms longtasks=[66]
     select-bar: 已选 500 条
-  type "case 4" with 500 selected                n=7 p50=18ms p95=31ms max=31ms longtasks=[]
-  untick one pick-box (synthetic click: list is 0px) n=1 p50=19ms p95=19ms max=19ms longtasks=[]
-  [4x CPU, info] type "module4" at 500 sel       n=8 p50=88ms p95=233ms max=233ms longtasks=[66,51,50,61,52,162,66]
-OK     P1 next-500-within-budget  budget 100 ms; worst max=76 ms; worst long task=62 ms (4x CPU info: max=233 ms)
+  type "case 4" with 500 selected                n=7 p50=13ms p95=22ms max=22ms longtasks=[]
+  untick one pick-box (synthetic click: list is 0px) n=1 p50=9ms p95=9ms max=9ms longtasks=[]
+  [4x CPU, info] type "module4" at 500 sel       n=8 p50=38ms p95=274ms max=274ms longtasks=[]
+OK     P1 next-500-within-budget  budget 100 ms; worst max=74 ms; worst long task=66 ms (4x CPU info: max=274 ms)
 X1: in p500 with @smoke on: 134 / 500 条标签 134
   switched to "other" (2 cases, tag @billing): rows=2; filter-report="2 / 2 条"; chips=["@billing\n1"]; pressed chips=0
 OK     X1 switch-does-not-hide-new-project  rows=2 of 2, no chip left to untick the stale @smoke criterion: true
 K: first .pick-box: {"tag":"BUTTON","tabIndex":0,"hasAttr":false,"insideButton":false}
 OK     K1 pick-box-keyboard-reachable  tabIndex=0, nested in <button>=false
 X3: ticked a1+b1 -> "已选 2 条 · 将执行 5 条"; b1 deleted from the file; catalogue reloaded -> "已选 2 条 · 将执行 3 条"; any warning on the page: true
-  批量运行 with the stale selection: toast "1 条用例已不在目录中（tc_1_d_29400f89352d7b70），请先移除后再运行"; runs submitted: 0
+  批量运行 with the stale selection: toast "1 条用例已不在目录中（tc_1_d_0961b4f85c5d3c29），请先移除后再运行"; runs submitted: 0
 OK     X3 dropped-selection-is-reported  selection 已选 2 条 · 将执行 5 条 -> 已选 2 条 · 将执行 3 条; warning shown=true; runs submitted=0
 X4: select-bar "已选 1 条 · 将执行 3 条"; toast "已提交运行：选中 1 条，实际执行 3 条，同文件的其余用例也会执行"; run.selection.count=1; attempts executed=3 (a1,a2,a3)
 OK     X4 toast-states-what-runs  toast states 3; engine executed 3
-fallback: p500 -> 500 rows in 25 ms
-  [fallback] type "module4" at 500 cases         n=9 p50=28ms p95=37ms max=37ms longtasks=[]
+fallback: p500 -> 500 rows in 23 ms
+  [fallback] type "module4" at 500 cases         n=9 p50=24ms p95=33ms max=33ms longtasks=[]
     #filter-report: 110 / 500 条
-  [fallback] chips @smoke, @api                  n=2 p50=15ms p95=16ms max=16ms longtasks=[]
-OK     P2 fallback-500-within-budget  worst max=37 ms; worst long task=0 ms
+  [fallback] chips @smoke, @api                  n=2 p50=14ms p95=14ms max=14ms longtasks=[]
+OK     P2 fallback-500-within-budget  worst max=33 ms; worst long task=0 ms
 fallback selection surface: checkboxes=234, "已选 0 条"
 
 RESULT: 0 DEFECT(s)
+
+--- exit code: 0 ---

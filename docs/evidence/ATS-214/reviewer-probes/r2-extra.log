@@ -1,10 +1,21 @@
+================================================================================
+ATS-214 evidence log -- the external probe: r2-extra
+================================================================================
+commit        : 8021be4dd833c1cbfcad31e902d8191c29151d24
+timestamp     : 2026-11-13T15:24:16Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-3830379009a5/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node .probe-work/all/r2/probes/r2-extra.mjs . D:\hermes-multica\home\cache\scratch D:/ICHOR/examples/sample-playwright/node_modules 8952
+================================================================================
+
 warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
 profile written: 200; GET /env shows values? false
 POST batch -> 202; run#1 running
-  GET /api/batches context: {"envUid":"env_1_59848bed9f865a04cf973b06","envName":"staging","envTier":"staging","runner":null,"capabilities":null}
+  GET /api/batches context: {"envUid":"env_1_451a30f8a7170c556cc2de23","envName":"staging","envTier":"staging","runner":null,"capabilities":null}
 OK     E1 batches-api-serves-no-env-values  value of BASE_URL present in GET /api/batches: false
   PUT env-whitelist without BASE_URL while run#1 runs -> 200 
   batch passed; seen.txt: ["a1=<value>","b1=<unset>"]
@@ -12,3 +23,5 @@ OK     E2 whitelist-tightened-before-run2-applies  run#2 started after BASE_URL 
   files in the data dir that carry the value: ["state.json"] (the profile store itself legitimately holds it)
 
 RESULT: 0 DEFECT(s)
+
+--- exit code: 0 ---

@@ -138,8 +138,29 @@ function NoProjectPanel({onAddProject}:{onAddProject:()=>void}){
  */
 const SELECTION_ROWS_PER_FILE=3;
 
-const CaseRow=React.memo(function CaseRow({t,ticked,selected,onToggle,onOpen}:{
- t:TestDef;ticked:boolean;selected:boolean;
+/**
+ * The ticked uids, as a CONTEXT.
+ *
+ * The tick state of a case does NOT change the ROW: the pick-box is a
+ * small square whose colour and `aria-checked` change, while the row's
+ * box, its title and its file stay the same.
+ *
+ * The tick travelled through the ROW's props, so every tick re-rendered
+ * the row -- and "select all 500" ticks 500 of them. Measured: that
+ * reconcile cost 34 ms of script time and 24 ms of style recalc, and the
+ * interaction did not fit into the 100 ms budget.
+ *
+ * The state lives in a context that only the PICK-BOXES consume:
+ *
+ *   * the rows do not re-render (their props do not change);
+ *   * the pick-boxes re-render, and each of them is ONE node;
+ *   * `aria-checked` stays correct, because it is still RENDERED from the
+ *     state -- the accessibility tree is not patched by hand.
+ */
+const TickedContext=React.createContext<ReadonlySet<string>>(new Set<string>());
+
+const CaseRow=React.memo(function CaseRow({t,selected,onToggle,onOpen}:{
+ t:TestDef;selected:boolean;
  onToggle:(uid:string)=>void;onOpen:(test:TestDef)=>void;
 }){
  return <div className={'file-item '+(selected?'selected':'')}>
@@ -152,7 +173,7 @@ const CaseRow=React.memo(function CaseRow({t,ticked,selected,onToggle,onOpen}:{
       button of its own, and the row's click handler is on the TITLE
       (which is a button too) -- so every control is reachable and
       every control is a control. */}
-  <PickBox ticked={ticked} uid={t.uid} title={t.title} onToggle={onToggle}/>
+  <PickBox uid={t.uid} title={t.title} onToggle={onToggle}/>
   <CaseTitle t={t} onOpen={onOpen}/>
  </div>;
 });
@@ -160,16 +181,22 @@ const CaseRow=React.memo(function CaseRow({t,ticked,selected,onToggle,onOpen}:{
 /**
  * The pick-box of ONE row.
  *
- * It is a component of its own because the tick state is the ONLY thing
- * that changes when the reader ticks a case: the title, the file, the
- * line and the two icons of that row say nothing about the tick. Keeping
- * them in a separate memoised component means that ticking a case (or
- * ticking all 500 of them) re-renders 500 tiny buttons instead of 500
- * rows with 1000 SVG icon components.
+ * It is a component of its own, and it reads the tick state from the
+ * CONTEXT, because the tick is the ONLY thing that changes when the
+ * reader ticks a case: the title, the file, the line and the two icons
+ * of that row say nothing about the tick.
+ *
+ * The tick does NOT travel through the row's props. If it did, ticking a
+ * case would re-render the ROW -- and ticking all 500 of them would
+ * re-render 500 rows. It re-renders 500 tiny buttons instead, and the
+ * rows (with their titles and icons) are not touched at all.
  */
-const PickBox=React.memo(function PickBox({ticked,uid,title,onToggle}:{
- ticked:boolean;uid:string;title:string;onToggle:(uid:string)=>void;
+const PickBox=React.memo(function PickBox({uid,title,onToggle}:{
+ uid:string;title:string;onToggle:(uid:string)=>void;
 }){
+ // The tick state comes from the context, so the ROW above does not have
+ // to re-render when the reader ticks a case.
+ const ticked=React.useContext(TickedContext).has(uid);
  return <button className={'pick-box'+(ticked?' on':'')} onClick={()=>onToggle(uid)} role="checkbox" aria-checked={ticked} aria-label={`选中 ${title}`} title="选中以批量运行" type="button"/>;
 });
 
@@ -846,7 +873,9 @@ export default function Studio(){
      {panel&&panel.kind==='cancelled'&&<StatePanel kind="cancelled" onRetry={reloadCatalogue} retryLabel="重新加载"/>}
      {panel&&panel.kind==='empty'&&<StatePanel kind="empty" detail="这个项目里没有可执行的测试用例。" onRetry={reloadCatalogue} retryLabel="重新加载"/>}
      {panel&&panel.kind==='no-project'&&<NoProjectPanel onAddProject={()=>setDialog(true)}/>}
-     {shown.map(t=><CaseRow key={t.id} t={t} ticked={selectedUidSet.has(t.uid)} selected={selected?.id===t.id} onToggle={toggleSelect} onOpen={handleOpenFile}/>)}
+     <TickedContext.Provider value={selectedUidSet}>
+     {shown.map(t=><CaseRow key={t.id} t={t} selected={selected?.id===t.id} onToggle={toggleSelect} onOpen={handleOpenFile}/>)}
+     </TickedContext.Provider>
      {/* The filter matched nothing -- a DIFFERENT fact from "the project has
          no cases at all", so it is a different message. And it is only
          shown when there IS a project and a catalogue to filter: without
