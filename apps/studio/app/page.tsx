@@ -301,11 +301,29 @@ export default function Studio(){
  useEffect(()=>{if(tab==='security')loadSecurity();},[tab,loadSecurity]);
  async function openFile(test:TestDef){setSelected(test);try{const s=await api<Source>(`/api/projects/${active}/source?file=${encodeURIComponent(test.file)}`);setSource(s);setDraft(s.content)}catch(e){notify((e as Error).message)}}
  async function addProject(){setBusy(true);try{const r=await api<{project:Project}>('/api/projects','POST',{path:projectPath});closeDialog();setProjectPath('');setActive(r.project.id);await refresh();notify('项目添加成功：未修改原仓库')}catch(e){notify((e as Error).message)}finally{setBusy(false)}}
- // ATS-111: closing the add-project dialog gives the focus BACK to the
- // button that opened it. Without this the focus falls onto the
+ // ATS-111: closing the add-project dialog gives the focus BACK to a
+ // button the reader can act on. Without this the focus falls onto the
  // <body>, and the document-level key commands still work -- but the
  // reader who just cancelled now has to walk the whole tab order back
  // to where they were.
+ //
+ // WHERE THE FOCUS GOES, EXACTLY
+ // ----------------------------
+ // It goes to the 「添加项目」 button in the project bar -- NOT to
+ // whichever control opened the dialog. The dialog can be opened from
+ // three places: the project bar's button, the no-project panel's
+ // button, and the welcome screen's button. Restoring the focus to
+ // "the opener" would need the opener to be remembered, and the first
+ // two of those three openers do not survive the dialog's own
+ // re-render reliably.
+ //
+ // The project bar's button is the one that is ALWAYS on screen, so it
+ // is the one the focus goes to. The round-2 review observed the
+ // difference (R2-8) and did not count it as a blocker -- but the code
+ // comment used to claim "the button that opened it", which is not
+ // what the code does. A comment that describes a behaviour the code
+ // does not have is the same class of defect as a help line that
+ // promises a capability the workbench does not have.
  const closeDialog=useCallback(()=>{
   setDialog(false);
   // The focus is restored in a microtask, because the dialog is still
@@ -624,9 +642,17 @@ export default function Studio(){
      </div></>}
      {tab==='runs'&&<div className="file-list" data-region="runs-panel" data-runs-state={runsRequest.phase==='failed'?'error':runsRequest.phase==='pending'&&!runs.length?'loading':!projectRuns.length?'empty':'ready'}>
      {runsRequest.phase==='failed'&&<StatePanel kind="error" detail={runsRequest.error?`原因：${runsRequest.error}`:undefined} onRetry={()=>refresh()} retryLabel="重新加载"/>}
+     {/* ATS-111: the runs list is POLLED. When a poll FAILS, the rows
+         below are the LAST KNOWN ones, not the current ones -- and the
+         round-2 review observed (R2-7) that they were listed without
+         any mark, so the reader could take a stale run for a current
+         one. The model's `staleData` annotation is now wired to the
+         DOM: the panel carries `data-stale="true"` and the rows say
+         「已过期」. */}
+     {runsRequest.phase==='failed'&&projectRuns.length>0&&<div className="note stale-note" role="status" data-region="runs-stale"><TriangleAlert size={15}/>下面的运行记录是<b>上次读取到的</b>，本次读取失败，不能当作当前状态。</div>}
      {runsRequest.phase==='pending'&&!runs.length&&<StatePanel kind="loading"/>}
      {runsRequest.phase==='settled'&&!projectRuns.length&&<StatePanel kind="empty" detail="这个项目还没有运行记录。"/>}
-     {projectRuns.map(r=><button className={'run-item '+(currentRun?.id===r.id?'selected':'')} key={r.id} onClick={()=>setRunDetail(r)}><span className={'status-dot '+r.status}/><span><b>{r.file||'全部测试'}</b><small>{formatTime(r.createdAt)}</small><small className="uid-tag">{r.uid}</small></span><small>{label[r.status]||r.status}</small></button>)}</div>}
+     {projectRuns.map(r=><button className={'run-item '+(currentRun?.id===r.id?'selected':'')+(runsRequest.phase==='failed'?' stale':'')} data-stale={runsRequest.phase==='failed'?'true':undefined} key={r.id} onClick={()=>setRunDetail(r)}><span className={'status-dot '+r.status}/><span><b>{r.file||'全部测试'}</b><small>{formatTime(r.createdAt)}</small><small className="uid-tag">{r.uid}</small></span><small>{label[r.status]||r.status}{runsRequest.phase==='failed'?' · 已过期':''}</small></button>)}</div>}
      {tab==='quality'&&<><div className="search" style={{padding:'0 12px 10px'}}><select value={qualityScope} onChange={e=>{setQualityScope(e.target.value as 'project'|'all'|'run');if(e.target.value==='run'&&!qualityRunId)setQualityRunId(projectRuns[0]?.id||'');}} className="project-select" style={{fontSize:13,minWidth:0,width:'100%'}}><option value="project">当前项目</option><option value="all">全部项目</option><option value="run">单次运行</option></select></div>
      {qualityScope==='run'&&<div className="file-list">{projectRuns.map(r=><button key={r.id} className={'run-item '+(qualityRunId===r.id?'selected':'')} onClick={()=>setQualityRunId(r.id)}><span className={'status-dot '+r.status}/><span><b>{r.file||'全部测试'}</b><small>{formatTime(r.createdAt)}</small></span><small>{label[r.status]||r.status}</small></button>)}</div>}
      <div className="sidebar-hint">失败、重试与取消分开计数。质量概览页的「原始结果」列出每个数字的来源用例与 attempt。</div></> }

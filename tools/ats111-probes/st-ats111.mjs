@@ -80,12 +80,15 @@
  *              through to the browser's own Print command;
  *   ST-111-18 the "no case matches the filter" message is TEXT: it
  *              must not show the characters 「<br/>」 (the round-2
- *              review's R2-6 observation).
+ *              review's R2-6 observation);
+ *   ST-111-19 a failed run POLL marks the run rows as stale (the
+ *              round-2 review's R2-7 observation): the rows below are
+ *              the last known ones, and the panel says so.
  *
  * ROUND 3 (the round-2 review)
  * -----------------------------
  * Two of the checks above were rewritten because the review showed they
- * COULD NOT FAIL, and three were added for the defects the review found:
+ * COULD NOT FAIL, and four were added for the defects the review found:
  *
  *   - ST-111-11d now types a path that has NEVER been registered. The
  *     old one typed the path ST-111-6 had already registered, so the
@@ -94,7 +97,7 @@
  *   - ST-111-12d now asserts that the no-project panel renders a STATE
  *     PANEL. The old one asserted the absence of a string that can
  *     never appear in that state.
- *   - ST-111-16, ST-111-17 and ST-111-18 are new.
+ *   - ST-111-16, ST-111-17, ST-111-18 and ST-111-19 are new.
  *
  * The four states are proven by EXECUTION, NOT BY A FIXTURE
  * --------------------------------------------------------
@@ -992,6 +995,68 @@ try {
       const items = await page.locator('[data-region="runs-panel"] .run-item').count();
       if (items < 1) throw new Error('the run list is empty');
     });
+
+  /* ================================================================== */
+  /* ST-111-19  a failed run poll MARKS the rows as stale                 */
+  /* ================================================================== */
+  // The round-2 review observed (R2-7) that when the run list's POLL
+  // fails, the panel shows 「加载失败」 but the old run rows are listed
+  // below it with no mark -- so the reader could take a stale run for a
+  // current one. The model's `staleData` annotation existed but was
+  // never wired to the DOM.
+  //
+  // The check fails the poll and looks for the mark.
+  await page.evaluate(() => {
+    document.querySelector('button[title="执行中心"]')?.click();
+  });
+  await sleep(2500);
+  const runsHealthy = await page.evaluate(() => ({
+    rows: document.querySelectorAll('[data-region="runs-panel"] .run-item').length,
+    stale: document.querySelectorAll('[data-region="runs-panel"] [data-stale="true"]').length,
+  }));
+  check('ST-111-19a the run rows are NOT marked stale while the poll works',
+    runsHealthy.rows > 0 && runsHealthy.stale === 0,
+    `rows=${runsHealthy.rows} stale=${runsHealthy.stale}`);
+  // Fail the poll. The handler is named so it can be REMOVED again --
+  // an inline handler cannot be unrouted, and a poll that stays broken
+  // would make the checks after this one measure the wrong thing.
+  const failRunsPoll = async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'PROBE_INJECTED_RUNS_FAILURE' }),
+      });
+      return;
+    }
+    await route.continue();
+  };
+  await page.route('**/api/runs', failRunsPoll);
+  // The panel polls every 1.8s.
+  await sleep(5000);
+  const runsFailed = await page.evaluate(() => ({
+    state: document.querySelector('[data-region="runs-panel"]')?.getAttribute('data-runs-state'),
+    rows: document.querySelectorAll('[data-region="runs-panel"] .run-item').length,
+    stale: document.querySelectorAll('[data-region="runs-panel"] [data-stale="true"]').length,
+    note: document.querySelector('[data-region="runs-stale"]')?.textContent || '',
+  }));
+  check('ST-111-19b the failed poll is reported as an ERROR state',
+    runsFailed.state === 'error', `${runsFailed.state}`);
+  check('ST-111-19c the run rows are MARKED as stale when the poll fails',
+    runsFailed.rows > 0 && runsFailed.stale === runsFailed.rows,
+    `rows=${runsFailed.rows} stale=${runsFailed.stale}`);
+  check('ST-111-19d the panel SAYS the rows are stale',
+    /过期|上次读取/.test(runsFailed.note), runsFailed.note.replace(/\s+/g, ' ').slice(0, 90));
+  // The poll works again from here on.
+  await page.unroute('**/api/runs', failRunsPoll);
+  await sleep(2500);
+  const runsRecovered = await page.evaluate(() => ({
+    state: document.querySelector('[data-region="runs-panel"]')?.getAttribute('data-runs-state'),
+    stale: document.querySelectorAll('[data-region="runs-panel"] [data-stale="true"]').length,
+  }));
+  check('ST-111-19e the rows are NOT marked stale once the poll works again',
+    runsRecovered.state !== 'error' && runsRecovered.stale === 0,
+    `state=${runsRecovered.state} stale=${runsRecovered.stale}`);
 
   /* ================================================================== */
   /* ST-111-16  Escape STOPS the run that is in flight                   */
