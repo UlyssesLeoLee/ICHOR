@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：204；已执行通过：190；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：208；已执行通过：194；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -212,6 +212,10 @@
 |IT-ATS213-005|NFR-009|安全|畸形请求体不回显请求体内容（密钥片段泄漏的回归）|POST 一个 secret 未加引号的畸形 JSON|400 INVALID_REQUEST_BODY；响应里既无完整密钥也无其前 10 个字符|node --test|PASS|
 |IT-ATS213-006|FR-027|正常|存入凭据后状态清单保持一致（真实系统凭据库）|POST 存入 → 查状态 → DELETE|201 时状态读 configured，删除后清单为空；凭据库不可用时 POST 为 503 CREDENTIAL_STORE_UNAVAILABLE（两种结果都确定）|node --test（真实 Windows Credential Manager）|PASS|
 |IT-ATS213-007|NFR-009|安全|密钥不进本机任何可读文件|存入一个带标记的密钥后扫描数据目录|数据目录里没有任何文件含该密钥；状态清单也不含|node --test（真实 Windows Credential Manager）|PASS|
+|IT-ATS213-008|FR-027|正常|凭据形状的变量名带**引用**时档案存得下|POST /api/projects/<id>/env，API_TOKEN={"credentialRef":"cred_…"}|200；档案的公开视图带变量名 API_TOKEN，不带任何值|node --test|PASS|
+|IT-ATS213-009|FR-027|安全|凭据形状的变量名带**明文**时被拒|POST /api/projects/<id>/env，API_TOKEN=<明文>|400 ENV_VARIABLE_NOT_ALLOWED；拒绝理由指向凭据引用而不是明文|node --test|PASS|
+|IT-ATS213-010|FR-027|异常|引用解析不了时**拒绝启动**|档案引用一个不存在的 cred_…，然后发起运行|运行不被接受（不是 202）；404 CREDENTIAL_REF_NOT_FOUND，带变量名与引用 id，不带密钥|node --test|PASS|
+|IT-ATS213-011|NFR-009|安全|运行记录里没有密钥|扫描 /api/runs 的每一条记录|没有任何一条记录含密钥|node --test|PASS|
 
 ## 进入与退出条件
 

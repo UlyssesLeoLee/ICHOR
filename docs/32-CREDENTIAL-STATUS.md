@@ -1,11 +1,16 @@
-# ATS-213 ｜ OS Keychain / Windows Credential Manager 集成（凭据可用状态）
+# ATS-213 ｜ OS Keychain / Windows Credential Manager 集成（凭据引用与可用状态）
 
-> 本文档描述 **ATS-213** 的交付：系统凭据库集成之上新增的**凭据可用状态面**，
-> 以及本任务实测到并修掉的**一个真实泄漏**。
+> 本文档描述 **ATS-213** 的交付：**密钥仅以引用传递**，以及系统凭据库集成
+> 之上的**凭据可用状态面**。
 >
 > 交付边界：密钥的**存取**由 ATS-402 交付（`server/security/credentials.mjs` +
-> `server/security/wincred.ps1`）；ATS-213 在它之上交付**状态面**——
-> 「这个密钥现在能不能用」——并修掉请求体解析失败时的密钥片段泄漏。
+> `server/security/wincred.ps1`）；ATS-213 在它之上交付两件事——
+>
+>   1. **凭据引用**：环境档案里可以写**引用**，运行启动时平台把引用解析成
+>      密钥注入封口的 runner 环境；解析不了就**拒绝启动**；
+>   2. **可用状态面**：界面要能回答「这个密钥现在能不能用」，并且**取不到
+>      时不静默降级**。
+>
 > 设计文档可以超前于代码，但**不得把设计中的能力称为已实现**：本文档里
 > 「已实现」的每一项都有 `docs/evidence/ATS-213/` 里的实测输出。
 
@@ -17,12 +22,19 @@
 
 | 项 | 状态 | 证据 |
 |---|---|---|
+| **密钥仅以引用传递**：档案存引用，运行启动时解析并注入封口环境 | **已实现并实测** | `11-credential-reference-st.log`（REF-ST-001..010，真实 Playwright 运行 + 真实 Windows Credential Manager） |
+| 引用**解析不了即拒绝启动**，报 `CREDENTIAL_*` 原因码 | **已实现并实测** | `10-credential-reference-it.log`（ATS213-REF-IT-002）、`11-credential-reference-st.log`（REF-ST-004） |
+| 运行记录、事件日志、SQLite 镜像、证据归档里**没有密钥** | **已实现并实测** | `11-credential-reference-st.log`（REF-ST-008/009/010：数据目录扫描 0 命中） |
 | 凭据可用状态（三值闭集） | **已实现并实测** | `01-credential-status-ut.log`、`02/03-credential-status-api-it*.log` |
 | 状态对**系统凭据库实测**（不从索引推断） | **已实现并实测** | `05-credential-boundary-probe.log`（B4）、`06-system-test.log`（ST-ATS213-002） |
 | 「未配置」与「取不到」不合并 | **已实现并实测** | `01-credential-status-ut.log`（UT-004/005/006/007） |
 | 取失败**不静默降级**，报出原因码 | **已实现并实测** | `01-credential-status-ut.log`（UT-012）、`03-credential-status-api-it-real-store.log` |
 | 界面显示状态（已配置/未配置/取不到）与原因，**不回显明文** | **已实现并实测** | `06-system-test.log`（ST-ATS213-001/002/003）、`docs/evidence/ATS-213/ui/` |
-| 状态**测不出来**时界面如实报「读取失败」 | **已实现** | `apps/studio/app/page.tsx`（`credStatusError` 分支） |
+| 整张状态清单基于**同一份索引快照**，单条异常不拖垮整张清单 | **已实现并实测** | `01-credential-status-ut.log`（UT-013/014）、`12-credential-status-mutants.log`（M-S1） |
+| 凭据库的「可用」是**实测**的，不是「文件在不在」推断的 | **已实现并实测** | `01-credential-status-ut.log`（UT-015..017）、`09-status-failures-st.log`（U1b/U1b-api） |
+| 状态**测不出来**时界面如实报「读取失败」，旧状态不冒充当前状态 | **已实现并实测** | `09-status-failures-st.log`（U2/U2-count/U2-refs） |
+| 状态读取失败时**引用照样显示**，删除按钮还在 | **已实现并实测** | `09-status-failures-st.log`（U3/U3-delete/U3-note） |
+| 「不可用密钥」的说明**逐类计数**，不与数字自相矛盾 | **已实现并实测** | `09-status-failures-st.log`（U1a/U1a-count）、`12-credential-status-mutants.log`（M-U1a） |
 | 请求体解析失败**不回显密钥片段** | **已实现并实测** | `05-credential-boundary-probe.log`（B3a）、`02-credential-status-api-it.log`（IT-005） |
 
 ### 1.2 没有交付什么（明确声明，不当作通过）
@@ -32,7 +44,8 @@
 | macOS Keychain 后端 | **代码已写，未在真机实测** | 本机是 Windows 11，没有 macOS 环境。复现：在 macOS 上 `node --test tests/credential-status.test.mjs`（后端经注入的 `spawn` 被驱动过，但从未在真实 Keychain 上执行） |
 | Linux Secret Service 后端 | **代码已写，未在真机实测** | 同上（本机无 Secret Service） |
 | Tauri 壳内的凭据存取 | **未验证** | `src-tauri/src/lib.rs` **未改动**；本机 `cargo build` 因 B-02 仍无法出包（`docs/16-BASELINE-ADR.md` §4）。复现：`bash tools/ats101-probes/collect-b02-build-link.sh` |
-| 凭据状态在**便携 UI**（`fallback.html`）上的呈现 | **未交付** | 本次只做 Next 工作台（与 ATS-111 同一范围）；便携 UI 没有凭据页 |
+| 凭据状态在**便携 UI**（`fallback.html`）上的呈现 | **未交付** | 本次只做 Next 工作台；便携 UI 没有凭据页 |
+| 凭据引用在 **Tauri 壳内**的解析 | **未交付** | 壳内没有 Bridge 的运行时，引用解析走的是 Bridge 的运行期路径 |
 | 凭据状态**跨设备同步** | **不在范围** | P2，见 §6 |
 
 ---
@@ -112,6 +125,21 @@ helper exit=0 stillReferenced=true status=not-configured reason=CREDENTIAL_NOT_F
 每条引用的状态是**各自测出来的**，因此一条读不出来的引用**不会**让整个清单
 变成一个错误。否则界面上就看不到「**哪一条**坏了」，只能看到「全坏了」
 （UT-010）。
+
+这条约束在**两种**情况下都成立，两种都被测到了：
+
+| 情况 | 处理 | 用例 |
+|---|---|---|
+| 某一条**读不出来**（helper 失败、读回空串） | 这一条是 `unavailable` + `CREDENTIAL_STORE_FAILED`，其它条照常测 | UT-010 |
+| 某一条的 **id 不合规**（索引里的一条旧格式记录） | 这一条**单独**得到一个状态（`unavailable` + `CREDENTIAL_STORE_FAILED`），整张清单不抛错 | UT-014 |
+
+整张清单基于**同一份索引快照**计算。这条约束是承重的：遍历期间被
+`DELETE` 掉的引用**直接跳过**，清单不因它返回一个错误（UT-013）。少了这一条，
+一个并发的删除会让整张清单变成 404，界面上「全部密钥都坏了」。
+
+换句话说：**一张清单里没有「整张失败」这个状态**。清单要么给出每条的状态，
+要么在**索引文件本身**读不出来时失败——那是索引的问题，与「某一条坏了」
+不是一回事。
 
 ---
 
@@ -201,7 +229,46 @@ ATS-401/ATS-512 都立过同一条规矩：**新映射的作用域只限自己�
 失败形态。因此状态读取与引用列表是**两次独立的请求**：状态失败时，引用照样
 显示，但状态那一栏明说测不出来。
 
-### 5.3 界面不回显明文
+三条具体规则，每条都有实测：
+
+| 规则 | 为什么 | 用例 |
+|---|---|---|
+| **旧状态被清空**，不冒充当前状态 | 一个可能已被吊销的密钥，如果继续显示「已配置」，读的人会以为它还能用 | U2 |
+| 旧状态**不计入「可用密钥」** | 同一个数字被两处用，一处说 2 一处说 0，读的人得自己判断信哪个 | U2-count |
+| **引用照样显示**，**删除按钮还在** | 状态读不出来不等于凭据没了；读者仍然要能删掉一条引用 | U3 / U3-delete |
+
+失败后的界面上，引用行的状态词是「**状态未测得**」，而不是「未配置」——
+「未配置」是一条**断言**（这一条确实不在凭据库里），而「未测得」是**事实**
+（没人测过）。
+
+### 5.3 凭据库的「可用」是**实测**的
+
+「系统凭据库已就绪」这句话只有在**真的调用过一次**凭据库之后才能说。
+
+后端自己的 `available()` 回答的是「这个平台支不支持、helper 脚本在不在」——
+那是关于**文件系统**的事实，它在 helper **根本起不来**的时候仍然是 `true`。
+因此状态接口的 `available` 字段来自 `credentialStore.health()`：它做**一次
+真实的 helper 调用**，然后报告回来的东西。
+
+| `storeHealth.state` | 含义 | 界面上的说法 |
+|---|---|---|
+| `ok` | 凭据库**回答了** | 系统凭据库已就绪（实测） |
+| `unavailable` | 本机**没有**可用的凭据库 | 本机系统凭据库不可用 |
+| `failed` | 凭据库在，但**没有回答** | 系统凭据库调用失败 |
+
+探针的调用有**时间上限**（`CREDENTIAL_PROBE_TIMEOUT_MS`）：一个卡住的凭据库
+不能把安全页卡住。
+
+### 5.4 凭据库**探测**不把密钥拉进 Bridge 的内存
+
+状态面要回答「这一条还在不在」，不需要知道密钥**是什么**。因此 helper 有一个
+`probe` 动作：它读凭据 blob 的**长度**，回答 `PRESENT` / `EMPTY` / `NOT_FOUND`，
+**从不把密钥读出来**。
+
+这条约束的价值不在性能，在**边界**：仅仅因为有人打开了安全页，密钥**不应该**
+进入 Bridge 的内存。`read()` 只在真的要注入环境时才被调用。
+
+### 5.5 界面上没有密钥明文
 
 - 密钥输入框是 `type="password"`，存入后**清空**（`setKeySecret('')`）；
 - 状态行只有名称、提供方、指纹、用途、状态、原因、时间；
@@ -209,22 +276,95 @@ ATS-401/ATS-512 都立过同一条规矩：**新映射的作用域只限自己�
 
 ---
 
-## 6. API 面
+## 6. 凭据引用（credential reference）
+
+### 6.1 档案里写引用，运行启动时解析
+
+一个环境档案的变量，其值可以是**引用**而不是明文：
+
+```json
+{ "API_TOKEN": { "credentialRef": "cred_0123456789abcdef01234567" } }
+```
+
+等价写法：`"API_TOKEN": "cred:0123456789abcdef01234567"`（也接受
+`cred:cred_<24 hex>` 的完整形式）。
+
+**凭据形状的变量名**（`*_TOKEN`、`*_PASSWORD`、`*_SECRET`、`*_API_KEY`……）
+只允许携带**引用**。携带**明文**仍然被拒（`ENV_VARIABLE_NOT_ALLOWED`）——明文
+进档案就是进运行资产、SQLite 镜像和证据归档。
+
+### 6.2 解析发生在运行启动时，只发生一次
+
+运行请求带上档案名时，平台：
+
+1. 按**当前**白名单过滤档案的变量（ATS-212 的规则不变）；
+2. 把**引用**逐条解析成密钥（`credentialStore.resolve()`）；
+3. 把解析结果注入**封口的 runner 环境**（`buildRunnerEnv()`）；
+4. 把**变量名**（不含值）记在运行记录上。
+
+解析出来的密钥**只**出现在子进程的环境块里。档案里留着的永远是引用，
+运行记录里只有名字。
+
+### 6.3 解析不了就**拒绝启动**
+
+| 情况 | 原因码 | HTTP |
+|---|---|---|
+| 引用不存在 | `CREDENTIAL_REF_NOT_FOUND` | 404 |
+| 凭据库不可达 | `CREDENTIAL_REF_STORE_UNAVAILABLE` | 404 |
+| 读出来是空的 / 其它失败 | `CREDENTIAL_REF_RESOLVE_FAILED` | 404 |
+
+拒绝响应带**变量名**与**引用 id**——两者都不是秘密。
+
+在**缺少密钥**的情况下静默运行是更坏的形态：被测系统会拿到一个空的 token，
+测试结果变得毫无意义，而没有人知道为什么。因此这条是**拒绝**，不是「警告后
+继续」。
+
+### 6.4 实测（真实 Playwright 运行 + 真实 Windows Credential Manager）
+
+`11-credential-reference-st.log` 里的 `st-credential-ref.mjs` 走完整的一条：
+
+```
+PASS  REF-ST-001  the secret is stored in the OS credential store (only a reference comes back)
+PASS  REF-ST-002  the environment profile accepts a credential reference
+PASS  REF-ST-003  the profile stores the reference and never the secret
+PASS  REF-ST-004  the run is accepted with a resolvable reference
+PASS  REF-ST-005  the run reaches a terminal state
+PASS  REF-ST-006  the runner received the secret (asserted by digest and length)
+PASS  REF-ST-007  the evidence output carries the digest, never the secret
+PASS  REF-ST-008  the run record names the variable and carries no value
+PASS  REF-ST-009  the platform data directory holds no secret
+PASS  REF-ST-010  the run folder holds no secret
+```
+
+被测脚本断言的是密钥的 **SHA-256 摘要**与**长度**，不是原文——因此证据日志里
+也不会出现密钥。
+
+---
+
+## 7. API 面
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/security/credentials/status` | 全部凭据的状态（`{statuses, provider, available}`） |
+| GET | `/api/security/credentials/status` | 全部凭据的状态（`{statuses, provider, available, storeHealth}`） |
 | GET | `/api/security/credentials/:id/status` | 单条凭据的状态（`{status}`） |
-| GET | `/api/security/contract` | 契约描述，新增 `statuses` 与 `statusReasons` |
+| GET | `/api/security/contract` | 契约描述，含 `statuses` 与 `statusReasons` |
+| POST | `/api/projects/:id/env` | 项目级环境档案；变量值可以是**凭据引用** |
+| POST | `/api/projects/:id/run` | 运行；档案里的**引用**在此时解析，解析不了**拒绝启动** |
+
+`available` 是**实测**的凭据库健康（`storeHealth.state === 'ok'`），不是「helper
+脚本在不在」的推断（§5.3）。
 
 状态面**不需要**新错误码：单条状态查询不存在时返回 **404 `CREDENTIAL_NOT_FOUND`**
 （沿用 ATS-402 的映射）；状态**读不出来**时**不是**一个错误响应，而是
 **200 + `status: 'unavailable'` + 原因码**——「取不到」是一个**事实**，不是
 请求失败。
 
+凭据**引用**的解析失败是**另一个**口径：那是一次请求的失败，因此是错误响应
+（§6.3）。
+
 ---
 
-## 7. 平台差异
+## 8. 平台差异
 
 | 平台 | 后端 | 状态 |
 |---|---|---|
@@ -237,29 +377,36 @@ ATS-401/ATS-512 都立过同一条规矩：**新映射的作用域只限自己�
 但**只有 Windows 这一条有实测证据**，另两条的证据是「经注入的 `spawn`
 被单元测试驱动过」，不是真机。
 
+三个后端都实现了 `probe`（只回答「在不在」，不回答「是什么」），因此
+「凭据库已就绪」这句话在三个平台上都是**实测**的。
+
 ---
 
-## 8. 证据
+## 9. 证据
 
 全部证据在 `docs/evidence/ATS-213/`，每份日志的**头部**写明 commit、
 时间戳、命令与**退出码**。
 
 | 日志 | 内容 |
 |---|---|
-| `01-credential-status-ut.log` | 状态契约的 12 例 UT |
+| `01-credential-status-ut.log` | 状态契约的 17 例 UT |
 | `02-credential-status-api-it.log` | 状态面的 9 例 IT（HTTP） |
 | `03-credential-status-api-it-real-store.log` | 同一组 IT，对**真实 Windows Credential Manager** |
-| `04-security-regression.log` | ATS-402 的 108 例安全用例（凭据存储不得回归） |
-| `05-credential-boundary-probe.log` | 边界探针 9 项检查 + 2 项负控 |
-| `06-system-test.log` | 真实浏览器里的 11 项 ST + 截图 + trace |
+| `04-credential-reference-it.log` | 凭据引用的 5 例 IT（引用被接受 / 明文被拒 / 解析不了拒绝启动 / 记录无密钥） |
+| `05-security-regression.log` | ATS-402 的安全用例（凭据存储不得回归） |
+| `06-credential-boundary-probe.log` | 边界探针 9 项检查 + 2 项负控 |
 | `07-next-build.log` | `tsc --noEmit` + Next.js 静态导出构建 |
-| `08-quality-gates.log` | ATS-301 门禁（WBS 助手 + ADR 引用 + 端口审计） |
-| `09-full-regression.log` | 全量回归（1752 例 / 0 失败 / 18 跳过，跳过原因逐条标注） |
-| `10-wbs-row-and-checksums.log` | WBS 行与校验和清单 |
-| `ui/` | 真实浏览器的截图与 trace |
+| `08-system-test.log` | 真实浏览器里的 11 项 ST + 截图 + trace |
+| `09-credential-reference-st.log` | 凭据引用的端到端 10 项（**真实 Playwright 运行** + 真实 Windows Credential Manager） |
+| `10-status-failures-st.log` | 状态面的**失败路径** 10 项（真实浏览器） |
+| `11-status-mutants.log` | **变异体**：修复改回缺陷后，同一支 ST 必须变红 |
+| `12-quality-gates.log` | ATS-301 门禁（WBS 助手 + ADR 引用 + 端口审计） |
+| `13-full-regression.log` | 全量回归（0 失败；跳过项逐条标注） |
+| `14-wbs-row-and-checksums.log` | WBS 行与校验和清单 |
+| `ui/` `ref/` `failures/` | 真实浏览器的截图与 trace |
 
-证据目录另有一份 `README.md`，逐份写明每一步的**内容与复跑命令**，以及第 9 步
-的 18 个 skip 的**逐条原因**（skip 不是 PASS，也不是 FAIL）。
+证据目录另有一份 `README.md`，逐份写明每一步的**内容与复跑命令**，以及全量回归
+里跳过项的**逐条原因**（skip 不是 PASS，也不是 FAIL）。
 
 复现命令：
 
@@ -270,8 +417,12 @@ bash tools/ats213-probes/collect-evidence.sh
 # 单项
 node --test tests/credential-status.test.mjs
 node --test tests/credential-status-api.test.mjs
+node --test tests/credential-reference-api.test.mjs
 node tools/ats213-probes/probe-credential-boundary.mjs
 node tools/ats213-probes/st-ats213.mjs docs/evidence/ATS-213/ui
+node tools/ats213-probes/st-credential-ref.mjs docs/evidence/ATS-213/ref
+node tools/ats213-probes/st-credential-status-failures.mjs docs/evidence/ATS-213/failures
+node tools/ats213-probes/probe-credential-status-mutants.mjs
 python tools/update_wbs_ats213.py
 ```
 
