@@ -1,21 +1,11 @@
 === ATS-606 evidence: the checksum manifest ===
-tree : 945405fed60a1bc7b1cac3a8258ed721fa42b18f
-date : 2026-11-13T12:44:13Z
+tree : b45545ee95974ec7cbddab70f615b50b0b48d438
+date : 2026-11-13T13:02:20Z
 
 manifest entries : 1027
-digest mismatches: 11
-    docs/00-INDEX.md aebe66d31ddc8298466d66eb2ba62233055f2b0012e2a5711b9038d3ae61a69b != 6c9b1d130924d0eba11780725d8005cbf19713e4d7afe208e4369e830c58c382
-    docs/02-REQUIREMENTS.md e41e18d2491290b154abda1789987a04ae3ceba22fdbfe0a8e12e0faa15a1eca != f7fc3c37c397f52c84746202c5064f207a3bf6c195ec16b4949ac13508db3ce4
-    docs/25-MOBILE-APP-TESTING.md 65b0e8a635d1eb771778938b8453c15018d1eb19f73734cea7cd58189f6c9d40 != a4f22bb5045d61a5fe2cc5031f3280d3f984767ee7ad75c9fcba275ba3c724e1
-    tools/ats606-probes/collect-evidence.sh 485491bd21347c68813aa3c828a9c523c9591e0c82adcce7692699e58583429b != 7f7b948a80137235c9a992b721846a80f5644512a594d3c4907db155adbc3961
-    tools/ats606-probes/gen-section-rows.mjs c65c6904cc467699793beb347f8b1a5904620a6ba25fc1daed457934d6bd5cc1 != 8a59bfd391dd5948199f44e13bba72d20fd0551bc42e200a60f61a82b25fc1d1
-    tools/ats606-probes/maestro-action-model.mjs 21aff85276bcfa2e7a3b03c858094a4673bf1ee38bee27a3177dac4e8372400e != b6882ca1b5baf9405f697033f963e6dd0f1765cac063016045b701f994b3c5ee
-    tools/ats606-probes/probe-group-mutants.mjs 9d76e451f03c70b23d845b098faec50dad124b911084ce7a0d7ba24997443cd0 != c2aaf56d1d5401dd69fa71a03c64ee55d2b07916753db39179edbf0006b6d921
-    tools/ats606-probes/probe-ios-driver-support.mjs 2fcbff4777dbb23e856431409195274854c8592aa6863e7e3bfd921b8208b8f9 != 7e3af717e1171a3bb0c0c9144154373fbe84d2fa38c98843920a42f5b2b98b1e
-    tools/ats606-probes/probe-maestro-compat.mjs e11ce852f923836b653dcf35e410d88eeb64761134fbeadf6fb5d37db46a4303 != 22b7b23b3e8f4c1b5754209c8c3f59e13875123951ce06f3efa37a96ff03477a
-    tools/update_wbs_ats606.py cc563ac6e626fefae4d90bf7c75f789ff9cc5f96923d0cb4f1f1728ceac3d476 != bc653c73a4ce11ab97ee0600d721bdcd95c30bec9e11b11a12dfc6e135a0cea5
+digest mismatches: 0
 tracked-not-listed: 0 []
 listed-not-tracked: 0 []
-RESULT: MISMATCH
+RESULT: OK
 
 exit : 0
