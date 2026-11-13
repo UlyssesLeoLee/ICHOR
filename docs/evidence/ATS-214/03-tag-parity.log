@@ -1,15 +1,15 @@
 ================================================================================
 ATS-214 evidence log -- the tag parity: the static index vs the real Playwright --list
 ================================================================================
-commit        : 05b5400c47767e145253c1d94eedbf3f526d9ee1
-timestamp     : 2026-11-13T13:57:28Z (UTC)
+commit        : 9c689ca72afbf394af6b69572d06982ac7549de9
+timestamp     : 2026-11-13T14:36:21Z (UTC)
 repo root     : /d/ICHOR
 node          : v24.19.0
 platform      : win32 x64
 command       : node tools/ats214-probes/tag-parity.mjs
 ================================================================================
 
-fixture: C:\Users\seiko\AppData\Local\Temp\multica-task-738115636\ats214-parity-CKsZKm\project
+fixture: C:\Users\seiko\AppData\Local\Temp\multica-task-738115636\ats214-parity-7wplLA\project
 playwright: D:/ICHOR/examples/sample-playwright/node_modules
 the CLI answered: ok=true outcome=OK version=1.64.1
 

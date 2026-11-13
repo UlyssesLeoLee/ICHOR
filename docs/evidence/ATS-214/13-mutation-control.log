@@ -1,8 +1,8 @@
 ================================================================================
 ATS-214 evidence log -- the negative control: every mutation of the delivered code must turn the suite red
 ================================================================================
-commit        : 05b5400c47767e145253c1d94eedbf3f526d9ee1
-timestamp     : 2026-11-13T14:04:01Z (UTC)
+commit        : d6acd2e664dceb9987ad24cdccf606664e67e1a6
+timestamp     : 2026-11-13T14:42:08Z (UTC)
 repo root     : /d/ICHOR
 node          : v24.19.0
 platform      : win32 x64
@@ -19,9 +19,9 @@ PASS M7 the pick box is put back to a span (not a button any more) -- caught (th
 PASS M8 the batch does NOT resolve the environment profile again -- caught (the integration tests: RED)
 PASS M9 the batch is NOT validated group by group -- caught (the integration tests: RED)
 PASS M10 the batch is NOT ended when the preflight fails -- caught (the integration tests: RED)
-FAIL M11 the batch record carries the environment VARIABLES again -- the mutation did not apply -- the probe is broken
+PASS M11 the batch record carries the environment VARIABLES again -- caught (the integration tests: RED)
 PASS M12 a DELETED profile does NOT end the batch -- it runs without one -- caught (the integration tests: RED)
 
-RESULT: 11/12
+RESULT: 12/12
 
---- exit code: 1 ---
+--- exit code: 0 ---

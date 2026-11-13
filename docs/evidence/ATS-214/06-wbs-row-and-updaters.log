@@ -1,8 +1,8 @@
 ================================================================================
 ATS-214 evidence log -- the WBS row of ATS-214 and the updater coexistence
 ================================================================================
-commit        : 05b5400c47767e145253c1d94eedbf3f526d9ee1
-timestamp     : 2026-11-13T14:01:42Z (UTC)
+commit        : 9c689ca72afbf394af6b69572d06982ac7549de9
+timestamp     : 2026-11-13T14:40:18Z (UTC)
 repo root     : /d/ICHOR
 node          : v24.19.0
 platform      : win32 x64
