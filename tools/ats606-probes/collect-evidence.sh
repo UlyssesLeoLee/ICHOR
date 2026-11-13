@@ -184,7 +184,7 @@ for (const m of args[1].matchAll(/^\s{2}([A-Za-z][A-Za-z0-9]*)\s*:\s*Object\.fre
 #     other 51" -- EVERY command, run through the importer, with its
 #     original text and its line number.
 #
-# The second half is the one the round-1 review was about: the delivered
+# The second half is the one the table's own claims are about: the delivered
 # table claimed 7 mappable commands while the importer maps 4. So the
 # evidence must cover ALL of them, not a hand-picked sample.
 {
