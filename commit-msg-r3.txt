@@ -1,0 +1,56 @@
+fix(ATS-213): 复核第 2 轮的 3 条必改项逐条修正
+
+复核第 2 轮驳回了三条（P1 声明与代码不符、P2 未解析引用的 fail-open、
+P3 注入密钥在落盘面泄漏）。三条都在本提交里改掉，并且每一条都配了
+**会变红**的检查。
+
+P1｜状态面不读明文
+- `status()` / `statusAll()` 改用 `backend.probe()`，不再调用 `read()`；
+  `read()` 只保留在 `resolve()`（真正要注入环境的那一处）。
+- 探测的回答映射：PRESENT → configured / CREDENTIAL_FOUND；
+  EMPTY → unavailable / CREDENTIAL_STORE_FAILED；
+  条目不在 → not-configured / CREDENTIAL_NOT_FOUND。
+- macOS 的 probe 改按**退出码**判定（0 = PRESENT，44 = 条目不在，
+  其它 = 工具失败）：`security find-generic-password` 不带 `-w` 时
+  **不输出** `password:` 行，按文本判定会把存在的条目误报成 EMPTY。
+- UT：会计数的替身断言 `statusAll()` 的 `read()` 调用次数是 **0**。
+
+P2｜在一个收口点 fail closed
+- 新增 `prepareRunnerEnvironment()`：过滤 → 解析 → 校验 → 返回。
+  单次运行与**批次里的每一次运行**都经过它。
+- `buildRunnerEnv()` 不再把引用 `String()` 掉：一条**凭据引用**不进
+  环境块，变量名被报出来，运行**不启动**（ENV_VALUE_NOT_RESOLVED）。
+- `startRun()` 去掉了 `envVariables ?? envProfile.variables` 这条
+  fail-open 的回退：变量永远是**已解析**的。
+- 批次记录带上档案名，每一次运行重新查档案、重新解析引用；解析不了
+  就**停掉链条**（剩下的文件不带着缺了凭据的环境继续跑）。
+
+P3｜注入的密钥在落盘前脱敏
+- 新增 `server/env/secret-redaction.mjs`：固定掩码 `***`，
+  **跨分块**脱敏（一个密钥被切成两块/三块也不漏——边界由
+  `safePrefixLength()` 算，没有任何密钥能横跨它）。
+- 覆盖的落盘面：stdout.log / 运行记录 / 事件、report.json、
+  error-context.md、html/data/*.md、HTML 报告**内嵌的 base64 zip**
+  （解码 → 脱敏成员 → 重新打包 → 重新编码）、results/**/trace.zip 的
+  文本成员、证据归档（已脱敏文件的硬链接）、SQLite 镜像与 state.json。
+- 明文**只在内存里**（进程内的 runSecrets），运行结束、脱敏做完即删；
+  它不在运行记录里——记录要写进 state.json、镜像进 SQLite、还要经 API
+  返回。
+- **二进制边界**（trace/截图/视频）改写不了：写进 docs/32 §6.5，
+  并记在运行记录的 `redaction` 字段里。
+
+检查
+- UT 16 例（tests/credential-reference-boundaries.test.mjs）
+- IT（tests/credential-redaction-api.test.mjs）：真实 Bridge + 真实
+  Windows Credential Manager + 真实 Playwright 运行，被测脚本做一次
+  普通断言失败 → **数据目录 0 命中**
+- 变异体 6 项（tools/ats213-probes/probe-credential-redaction-mutants.mjs）：
+  M-P1 / M-P2 / M-P3 / M-P3b / M-P3c 每一支都让对应的检查变红，
+  未变异的交付树全绿
+
+文档：docs/32 §1.1 / §5.4 / §6.2 / §6.5（新）/ §8、
+server/env/credential-refs.mjs 文件头、windowsBackend.probe 注释、
+WBS 第 34 行、证据 README。
+
+复核方自己的三支探针（r1-inproc / r1-http / r2-inproc / r2-ref-leak）
+在最终树上全部 OK。

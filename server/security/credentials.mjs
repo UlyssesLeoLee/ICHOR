@@ -223,10 +223,14 @@ export function windowsBackend(scriptPath, spawnFn = spawn, platform = process.p
     available: async () => platform === 'win32' && fs.existsSync(scriptPath),
     write: async (id, secret) => { await call('write', id, secret); },
     read: async (id) => call('read', id),
-    // The probe answers "is there an entry, and does it hold bytes?" WITHOUT
-    // reading the secret out of the credential blob. The status surface uses
-    // it, so a plaintext never enters the Bridge's memory merely because
-    // somebody opened the security page.
+    // The probe answers "is there an entry, and does it hold bytes?"
+    // WITHOUT reading the secret out of the credential blob: the blob's
+    // SIZE is enough to tell "there is a secret" from "the entry holds
+    // nothing". The STATUS SURFACE uses this probe -- `status()` and
+    // `statusAll()` never call `read()`, so merely opening the security
+    // page does not pull a plaintext into the Bridge's memory. `read()`
+    // is reserved for `resolve()`, the one place that really needs the
+    // secret.
     probe: async (id) => {
       const out = await call('probe', id);
       return String(out).trim();
@@ -255,6 +259,28 @@ export function macosBackend(spawnFn = spawn, platform = process.platform) {
     if (input !== undefined) child.stdin.write(input, 'utf8');
     child.stdin.end();
   });
+  /**
+   * The probe's own runner: it resolves with the EXIT CODE instead of
+   * rejecting on a non-zero exit.
+   *
+   * The status surface needs to tell three apart: "the entry is there",
+   * "the entry is not there" and "the tool failed". Those are three
+   * different exit codes of `security`, so the code IS the answer -- and a
+   * caller that only sees the exit code can tell them apart without ever
+   * reading the secret.
+   */
+  const runForExit = (args) => new Promise((resolve, reject) => {
+    const child = spawnFn('security', args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    let err = '';
+    if (child.stdout) child.stdout.setEncoding('utf8');
+    if (child.stderr) {
+      child.stderr.setEncoding('utf8');
+      child.stderr.on('data', (chunk) => { err += chunk; });
+    }
+    child.on('error', (error) => reject(new Error(`CREDENTIAL_STORE_UNAVAILABLE:${error.code || error.message}`)));
+    child.on('close', (code) => resolve({ code, err }));
+    if (child.stdin) child.stdin.end();
+  });
   return {
     name: 'macos-keychain',
     available: async () => platform === 'darwin',
@@ -268,13 +294,25 @@ export function macosBackend(spawnFn = spawn, platform = process.platform) {
       const out = await run(['find-generic-password', '-s', target(id), '-a', 'ai-test-studio', '-w']);
       return out.replace(/\n$/, '');
     },
-    // The probe asks whether an entry exists WITHOUT asking for the secret.
-    // `security` has no "tell me the password length" mode, so the lookup is
-    // done WITHOUT `-w`: the entry's attributes are printed, the password is
-    // not.
+    /**
+     * The probe asks whether an entry exists WITHOUT asking for the secret.
+     *
+     * `security find-generic-password` has no "tell me the password length"
+     * mode, and the attribute dump it prints does NOT contain a `password:`
+     * line -- so a probe that looked for that text would answer "EMPTY" for
+     * an entry that is really there. The answer is the EXIT CODE:
+     *
+     *   0                -- the entry exists;
+     *   44 (errSecItemNotFound) -- the entry does not exist;
+     *   anything else    -- the tool itself failed.
+     *
+     * The lookup runs WITHOUT `-w`, so the secret is never requested.
+     */
     probe: async (id) => {
-      const out = await run(['find-generic-password', '-s', target(id), '-a', 'ai-test-studio']);
-      return out.includes('password:') ? 'PRESENT' : 'EMPTY';
+      const { code } = await runForExit(['find-generic-password', '-s', target(id), '-a', 'ai-test-studio']);
+      if (code === 0) return 'PRESENT';
+      if (code === 44) throw new Error('CREDENTIAL_NOT_FOUND');
+      throw new Error('CREDENTIAL_STORE_FAILED');
     },
     remove: async (id) => { await run(['delete-generic-password', '-s', target(id), '-a', 'ai-test-studio']); },
   };
@@ -504,13 +542,31 @@ export function createCredentialStore({ indexFile, backend } = {}) {
       return { ...base, status: 'unavailable', reason: 'CREDENTIAL_STORE_UNAVAILABLE' };
     }
     try {
-      const secret = await store.read(id);
-      if (typeof secret !== 'string' || !secret.length) {
-        // The store answered but handed back nothing usable. That is a
-        // failure of the READ, not a missing entry.
+      // The PROBE, not `read()`. The status surface answers "is this entry
+      // there?", and the probe answers that WITHOUT the secret ever leaving
+      // the credential store: the helper reads the blob's LENGTH and reports
+      // `PRESENT` or `EMPTY`. Reading the plaintext here would pull every
+      // secret into the Bridge's memory merely because somebody opened the
+      // security page -- and `read()` is reserved for the one place that
+      // really needs the secret: injecting it into a runner's environment.
+      const probe = typeof store.probe === 'function' ? store.probe : null;
+      if (!probe) {
+        // A backend without a probe cannot be MEASURED. The honest answer is
+        // "the store is there, but nothing was measured" -- not a guess.
         return { ...base, status: 'unavailable', reason: 'CREDENTIAL_STORE_FAILED' };
       }
-      return { ...base, status: 'configured', reason: 'CREDENTIAL_FOUND' };
+      const answer = String(await probe(id)).trim().toUpperCase();
+      if (answer === 'PRESENT') {
+        return { ...base, status: 'configured', reason: 'CREDENTIAL_FOUND' };
+      }
+      if (answer === 'EMPTY') {
+        // The entry exists but holds no bytes. That is a failure of the READ,
+        // not a missing entry.
+        return { ...base, status: 'unavailable', reason: 'CREDENTIAL_STORE_FAILED' };
+      }
+      // A probe that answers something outside the closed vocabulary is a
+      // broken probe, not a status.
+      return { ...base, status: 'unavailable', reason: 'CREDENTIAL_STORE_FAILED' };
     } catch (error) {
       const reason = credentialStatusReasonOf(error);
       if (reason === 'CREDENTIAL_NOT_FOUND') {
