@@ -1,8 +1,8 @@
 ================================================================================
 ATS-214 evidence log -- the ST in a REAL browser: the search / the tag filter / the selection
 ================================================================================
-commit        : 05b5400c47767e145253c1d94eedbf3f526d9ee1
-timestamp     : 2026-11-13T14:03:18Z (UTC)
+commit        : 9c689ca72afbf394af6b69572d06982ac7549de9
+timestamp     : 2026-11-13T14:41:33Z (UTC)
 repo root     : /d/ICHOR
 node          : v24.19.0
 platform      : win32 x64
@@ -69,21 +69,21 @@ warning: in the working copy of 'playwright.config.ts', LF will be replaced by C
 warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
 the served page references /_next/static/chunks/20c4br6sf0yys.css -- the tree under test.
-OK     ST-ATS214-001 loads-500-without-error  rows=500; footer="500 tests · 50 files |  | C:\Users\seiko\AppData\Local\Temp\multica-task-738115636\ats214-st-x44A6j\p500"; consoleErrors=[]; pageErrors=[]
+OK     ST-ATS214-001 loads-500-without-error  rows=500; footer="500 tests · 50 files |  | C:\Users\seiko\AppData\Local\Temp\multica-task-738115636\ats214-st-NMvULT\p500"; consoleErrors=[]; pageErrors=[]
 OK     ST-ATS214-002 list-visible-and-clickable  list top=674px height=104px (scroll 42000px) in a 900px viewport, 55 filter chips; the first case is at 674px; clicked=true; aria-checked=true
-    type "module4" (7 keys) at 500 cases           n=8 p50=11ms p95=26ms max=26ms longtasks=[]
-    tag chips @smoke, @api, mode 全部 -> 任一          n=2 p50=20ms p95=43ms max=43ms longtasks=[]
-    全选当前 with 500 shown                            n=1 p50=36ms p95=36ms max=36ms longtasks=[]
-    untick one pick-box                            n=1 p50=29ms p95=29ms max=29ms longtasks=[]
-    [4x CPU, info only] type "module4" at 500      n=8 p50=58ms p95=138ms max=138ms longtasks=[92]
-OK     ST-ATS214-003 filtering-within-budget  budget 100ms; worst interaction max=43ms, worst long task=0ms (4x CPU info: max=138ms)
+    type "module4" (7 keys) at 500 cases           n=8 p50=10ms p95=17ms max=17ms longtasks=[]
+    tag chips @smoke, @api, mode 全部 -> 任一          n=2 p50=25ms p95=28ms max=28ms longtasks=[]
+    全选当前 with 500 shown                            n=1 p50=45ms p95=45ms max=45ms longtasks=[]
+    untick one pick-box                            n=1 p50=27ms p95=27ms max=27ms longtasks=[]
+    [4x CPU, info only] type "module4" at 500      n=8 p50=42ms p95=79ms max=79ms longtasks=[54]
+OK     ST-ATS214-003 filtering-within-budget  budget 100ms; worst interaction max=45ms, worst long task=0ms (4x CPU info: max=79ms)
 OK     ST-ATS214-004 search-by-title  "case 017" matched 1 row(s): ["case 017 module1 登录流程"]
 OK     ST-ATS214-005 tag-criterion-and-its-mode  任一 (@smoke + @api): 234 rows ("234 / 500 条标签 234"); 全部: 34 rows ("34 / 500 条标签 34")
-OK     ST-ATS214-006 selection-counts-the-uids  the selection bar says "已选 2 条 · 将执行 5 条"; the catalogue knows a1=tc_1_d_fcba62abcf8a5edd and b1=tc_1_d_87910ae072dd8c76
-OK     ST-ATS214-007 a-gone-selection-is-reported-and-blocks  the selection bar says "已选 2 条 · 将执行 3 条"; the warning says "已选中的 1 条用例已不在目录中：tc_1_d_87910ae072dd8c76 移除这些用例"; the toast says "1 条用例已不在目录中（tc_1_d_87910ae072dd8c76），请先移除后再运行"; runs submitted for the project: 0
+OK     ST-ATS214-006 selection-counts-the-uids  the selection bar says "已选 2 条 · 将执行 5 条"; the catalogue knows a1=tc_1_d_ec8973278d8d574c and b1=tc_1_d_2a3fdd8c11f036ab
+OK     ST-ATS214-007 a-gone-selection-is-reported-and-blocks  the selection bar says "已选 2 条 · 将执行 3 条"; the warning says "已选中的 1 条用例已不在目录中：tc_1_d_2a3fdd8c11f036ab 移除这些用例"; the toast says "1 条用例已不在目录中（tc_1_d_2a3fdd8c11f036ab），请先移除后再运行"; runs submitted for the project: 0
 OK     ST-ATS214-008 project-switch-resets-the-filter  before the switch: "134 / 500 条标签 134" (134 rows, 1 pressed chip); after: 2 rows of 2, "2 / 2 条", 0 pressed chips, the selection bar says "已选 0 条"
 OK     ST-ATS214-009 the-wording-states-what-will-run  the bar says "已选 1 条 · 将执行 3 条" (3), the toast says "已提交运行：选中 1 条，实际执行 3 条，同文件的其余用例也会执行" (3), the engine ran 3 case(s)
-OK     ST-ATS214-011 the-request-carries-every-ticked-uid  the bar says "已选 2 条 · 将执行 5 条"; the request carried ["tc_1_d_fcba62abcf8a5edd","tc_1_d_87910ae072dd8c76"]; the two ticked uids are ["tc_1_d_fcba62abcf8a5edd","tc_1_d_87910ae072dd8c76"]; 1 run request(s) seen
+OK     ST-ATS214-011 the-request-carries-every-ticked-uid  the bar says "已选 2 条 · 将执行 5 条"; the request carried ["tc_1_d_ec8973278d8d574c","tc_1_d_2a3fdd8c11f036ab"]; the two ticked uids are ["tc_1_d_ec8973278d8d574c","tc_1_d_2a3fdd8c11f036ab"]; 1 run request(s) seen
 OK     ST-ATS214-010 the-pick-box-is-keyboard-reachable  the first .pick-box is a <BUTTON> with tabIndex=0, its parent is a <DIV>, nested in a STRICTLY outer <button>=false; focusable=true; SPACE toggled it=true
 
 RESULT: 0 DEFECT(s)
