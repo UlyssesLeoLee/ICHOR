@@ -40,6 +40,40 @@ const runBucketLabel:Record<string,string>={passed:'通过',failed:'失败',canc
 // hide that difference.
 const credStatusLabel:Record<string,string>={configured:'已配置',['not-configured']:'未配置',unavailable:'取不到'};
 const credStatusReason:Record<string,string>={CREDENTIAL_FOUND:'已从系统凭据库取回',CREDENTIAL_NOT_FOUND:'系统凭据库里没有这一条',CREDENTIAL_STORE_UNAVAILABLE:'本机系统凭据库不可用',CREDENTIAL_STORE_FAILED:'读取系统凭据库时失败'};
+// ATS-213: the caption under the "不可用密钥" metric.
+//
+// The caption states HOW MANY of each kind there are. It never says
+// 「全部可用」 while a count above zero says otherwise -- a caption that
+// contradicts the number it sits under is worse than no caption, because the
+// reader has to work out which of the two to believe.
+//
+// The counts come from the MEASURED statuses. When the status read failed
+// there are no measured statuses at all, and the caption says so instead of
+// claiming that nothing is wrong.
+function credUnavailableCaption(statuses:CredentialStatus[],failed:boolean):string{
+ if(failed)return '可用状态读取失败，未测得';
+ const notConfigured=statuses.filter(s=>s.status==='not-configured').length;
+ const unavailable=statuses.filter(s=>s.status==='unavailable').length;
+ const usable=statuses.filter(s=>s.status==='configured').length;
+ if(!statuses.length)return '尚无引用';
+ const parts:string[]=[];
+ if(usable)parts.push(`可用 ${usable}`);
+ if(notConfigured)parts.push(`未配置 ${notConfigured}`);
+ if(unavailable)parts.push(`取不到 ${unavailable}`);
+ return parts.join(' · ');
+}
+// ATS-213: the caption under the "凭据库" metric.
+//
+// The store's health is a MEASUREMENT (a real call into the store), not the
+// backend's prediction about its own files. The panel never says 「已就绪」
+// while a reference reads 「取不到」.
+function credStoreCaption(health:{state:string;reason:string}|null,failed:boolean):string{
+ if(failed)return '可用状态读取失败，未测得';
+ if(!health)return '未测得';
+ if(health.state==='ok')return '系统凭据库已就绪（实测）';
+ if(health.state==='unavailable')return '本机系统凭据库不可用';
+ return '系统凭据库调用失败';
+}
 function formatTime(s?:string|null){return s?new Date(s).toLocaleString('zh-CN',{hour12:false}):'—'}
 // ATS-111: the STATE PANEL.
 //
@@ -122,7 +156,16 @@ export default function Studio(){
  // failure of that fetch -- a status that could not be measured must NOT be
  // rendered as "not configured", because that would claim a fact nobody
  // measured.
- const [credStatuses,setCredStatuses]=useState<CredentialStatus[]>([]),[credStatusError,setCredStatusError]=useState('');
+ //
+ // `credStatusMeasuredAt` records WHEN the statuses were measured. When a
+ // later read fails, the panel says "last measured at ..." and marks the
+ // rows as STALE -- it does not present a status nobody measured as if it
+ // were the current one, and the stale rows are not counted as usable.
+ const [credStatuses,setCredStatuses]=useState<CredentialStatus[]>([]),[credStatusError,setCredStatusError]=useState(''),[credStatusMeasuredAt,setCredStatusMeasuredAt]=useState<string|null>(null);
+ // ATS-213: the MEASURED health of the credential store. The store's own
+ // prediction about its files is not what the panel shows: the panel shows
+ // what a real call into the store returned.
+ const [credStoreHealth,setCredStoreHealth]=useState<{state:string;reason:string}|null>(null);
  const [consents,setConsents]=useState<EgressConsent[]>([]),[preview,setPreview]=useState<EgressPreview|null>(null);
  const [audit,setAudit]=useState<EgressAuditRecord[]>([]);
  const [keyName,setKeyName]=useState(''),[keySecret,setKeySecret]=useState('');
@@ -297,10 +340,19 @@ export default function Studio(){
  // the references are still shown, and the panel says the STATUS could not
  // be read. Reporting "未配置" for a status nobody measured would be a
  // fabricated fact -- the worst outcome a status surface can have.
+ //
+ // When the status read FAILS, the previously measured statuses are CLEARED
+ // and the failure is recorded. A stale status shown next to the error note
+ // reads as "this is the current state", and the metric cards would keep
+ // counting it as usable -- a secret that may have been revoked would still
+ // be reported as 可用. The panel reports "last measured at ..." instead.
  try{
-  const s=await api<{statuses:CredentialStatus[]}>('/api/security/credentials/status');
-  setCredStatuses(s.statuses);setCredStatusError('');
- }catch(e){setCredStatusError((e as Error).message);}
+  const s=await api<{statuses:CredentialStatus[];storeHealth?:{state:string;reason:string}}>('/api/security/credentials/status');
+  setCredStatuses(s.statuses);setCredStatusError('');setCredStatusMeasuredAt(new Date().toISOString());
+  setCredStoreHealth(s.storeHealth??null);
+ }catch(e){
+  setCredStatuses([]);setCredStatusError((e as Error).message);
+ }
  },[]);
  useEffect(()=>{if(tab==='security')loadSecurity();},[tab,loadSecurity]);
  async function openFile(test:TestDef){setSelected(test);try{const s=await api<Source>(`/api/projects/${active}/source?file=${encodeURIComponent(test.file)}`);setSource(s);setDraft(s.content)}catch(e){notify((e as Error).message)}}
@@ -704,7 +756,7 @@ export default function Studio(){
       </>}</>}
      {tab==='trace'&&<><div className="section-top"><div><div className="eyebrow">QUALITY LINEAGE</div><h1>需求与测试追踪</h1><p>Requirement → Script → Execution → Evidence 的可查询映射。</p></div></div><div className="card"><div className="card-title"><Network size={17}/> 关联矩阵</div><table><thead><tr><th>需求编号</th><th>需求名称</th><th>关联用例</th><th>覆盖情况</th></tr></thead><tbody>{lineage.requirements.map(req=>{const targets=lineage.links.filter(x=>x.from===req.uid).map(x=>x.to);return <tr key={req.uid}><td>{req.uid}</td><td>{req.title}</td><td>{targets.join(', ')||'—'}</td><td>{targets.length?'已建立关联':'待补充'}</td></tr>})}</tbody></table>{!lineage.requirements.length&&<p className="muted">在项目中建立 .aitest/requirements.json 和 traceability.json 后可显示需求关系。</p>}</div></>}
      {tab==='security'&&<><div className="section-top"><div><div className="eyebrow">AI DATA SECURITY</div><h1>AI 数据安全</h1><p>密钥存入系统凭据库；任何项目内容外传前先展示范围并由你确认。</p></div><button className="btn secondary" onClick={loadSecurity}><RefreshCcw size={15}/> 刷新</button></div>
-      <div className="metric-row"><div className="metric"><span>凭据库</span><strong className="small-value">{secContract?.provider||'不可用'}</strong><small>{secContract?'系统凭据库已就绪':'本机没有系统凭据库'}</small></div><div className="metric"><span>可用密钥</span><strong data-region="cred-configured-count">{credStatuses.filter(s=>s.status==='configured').length}</strong><small>共 {credentials.length} 条引用 · 本地只保留引用</small></div><div className="metric"><span>不可用密钥</span><strong data-region="cred-unavailable-count">{credStatuses.filter(s=>s.status!=='configured').length}</strong><small>{credStatuses.some(s=>s.status==='not-configured')?'未配置或取不到':'全部可用'}</small></div><div className="metric"><span>有效授权</span><strong>{consents.filter(c=>c.state==='granted').length}</strong><small>到期自动失效</small></div></div>
+      <div className="metric-row"><div className="metric"><span>凭据库</span><strong className="small-value" data-region="cred-store-state">{credStoreHealth?.state==='ok'?(secContract?.provider||'可用'):(secContract?.provider||'不可用')}</strong><small data-region="cred-store-caption">{credStoreCaption(credStoreHealth,!!credStatusError)}</small></div><div className="metric"><span>可用密钥</span><strong data-region="cred-configured-count">{credStatusError?0:credStatuses.filter(s=>s.status==='configured').length}</strong><small>共 {credentials.length} 条引用 · 本地只保留引用</small></div><div className="metric"><span>不可用密钥</span><strong data-region="cred-unavailable-count">{credStatusError?0:credStatuses.filter(s=>s.status!=='configured').length}</strong><small data-region="cred-unavailable-caption">{credUnavailableCaption(credStatuses,!!credStatusError)}</small></div><div className="metric"><span>有效授权</span><strong>{consents.filter(c=>c.state==='granted').length}</strong><small>到期自动失效</small></div></div>
       <div className="split"><div className="card grow"><div className="card-title"><KeyRound size={16}/> 密钥存储</div>
        <p className="muted">密钥本体写入<b>系统凭据库</b>；本机索引只保留引用与指纹。没有任何接口会返回密钥原文。</p>
        <div className="panel-right" style={{justifyContent:'flex-start',gap:8,margin:'10px 0'}}><input placeholder="密钥名称" value={keyName} onChange={e=>setKeyName(e.target.value)}/><input placeholder="密钥内容" type="password" value={keySecret} onChange={e=>setKeySecret(e.target.value)}/><button className="btn primary small" onClick={saveKey} disabled={busy||!keyName||!keySecret}><Save size={13}/> 存入</button></div>
@@ -715,15 +767,41 @@ export default function Studio(){
            (the store is unreachable) call for different actions. When the
            status could not be READ, the panel says so instead of guessing a
            status -- an unmeasured status rendered as "未配置" would be a
-           fabricated fact. */}
-       {credStatusError&&<div className="note" role="status" data-region="cred-status-error"><TriangleAlert size={15}/>可用状态读取失败：{credStatusError}（下方只列出引用，不代表密钥可用）</div>}
+           fabricated fact.
+       */}
+       {/* The REFERENCE LIST is rendered from `credentials` -- the list the
+           bridge reported -- and NOT from the measured statuses. The two
+           are different facts, and a status read that fails must not take
+           the references with it: the references are still there, and the
+           reader still has to be able to delete one. Rendering the list from
+           the statuses would make a failed status read look like "every
+           credential is gone", and would take the delete buttons away. */}
+       {credStatusError&&<div className="note" role="status" data-region="cred-status-error"><TriangleAlert size={15}/>可用状态读取失败：{credStatusError}（下方只列出引用，不代表密钥可用）{credStatusMeasuredAt&&`（上次测得于 ${formatTime(credStatusMeasuredAt)}，现已失效，不计入可用密钥）`}</div>}
        {credStatuses.map(s=>{const tone=s.status==='configured'?'ok':'bad';
         return <div className="result-item" key={s.id} data-region="cred-status" data-cred-status={s.status}>
          <span className={tone}>{s.status==='configured'?<CheckCircle2 size={15}/>:<TriangleAlert size={15}/>}</span>
          <div><b>{s.name}</b><small>{s.provider} · 指纹 {s.fingerprint} · {s.purpose}</small>
           <small data-region="cred-status-label"><b className={tone}>{credStatusLabel[s.status]??s.status}</b> · {credStatusReason[s.reason]??s.reason} · 查于 {formatTime(s.checkedAt)}</small></div>
          <button className="btn danger small" onClick={()=>removeKey(s.id)}><Trash2 size={13}/> 删除</button></div>})}
-       {!credStatuses.length&&!credStatusError&&<p className="muted">尚未存入任何密钥。</p>}
+       {/* The references WITHOUT a measured status. These are the ones the
+           status read did not cover: either the read failed, or the
+           reference has no status at all. They are listed, they can be
+           deleted, and they are NOT counted as usable.
+
+           They are rows of the SAME panel, so they carry the same region --
+           the note above says 「下方只列出引用」, and that has to be true:
+           the rows below ARE the references, whether or not a status was
+           measured for them. `data-cred-status="unknown"` says what the row
+           is: its status was NOT measured. A row that claimed a measured
+           status would be a fabricated fact.
+       */}
+       {credentials.filter(c=>!credStatuses.some(s=>s.id===c.id)).map(c=>
+        <div className="result-item" key={c.id} data-region="cred-status" data-cred-status="unknown" data-cred-reference="true">
+         <span className="bad"><TriangleAlert size={15}/></span>
+         <div><b>{c.name}</b><small>{c.provider} · 指纹 {c.fingerprint} · {c.purpose}</small>
+          <small data-region="cred-status-label"><b className="bad">状态未测得</b> · 引用在册，可用状态未知</small></div>
+         <button className="btn danger small" onClick={()=>removeKey(c.id)}><Trash2 size={13}/> 删除</button></div>)}
+       {!credentials.length&&!credStatusError&&<p className="muted">尚未存入任何密钥。</p>}
       </div>
       <div className="card evidence"><div className="card-title"><ShieldAlert size={16}/> 数据外传授权</div>
        <p className="muted">流程：<b>预览范围 → 确认 → 授权</b>。范围由平台侧读取真实文件并复算摘要，内容变了授权即失效。</p>

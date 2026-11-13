@@ -1106,6 +1106,11 @@ UT+=[
 ('UT-ATS213-010', 'FR-027', '边界', '一条坏的不让整个清单变成错误', '一条可读失败', '两条都有状态；不是「全坏了」', 'node --test', 'PASS'),
 ('UT-ATS213-011', 'FR-027', '正常', '状态词汇表进契约描述', 'describeCredentialStore', 'statuses 与 statusReasons 都在契约里', 'node --test', 'PASS'),
 ('UT-ATS213-012', 'FR-027', '边界', '原因映射把「条目不在」与「读失败」分开', '各类 CREDENTIAL_* 错误与未知错误', 'NOT_FOUND / UNAVAILABLE 各自归位；未知错误归 CREDENTIAL_STORE_FAILED，绝不归「条目不在」', 'node --test', 'PASS'),
+('UT-ATS213-013', 'FR-027', '异常', '遍历中被删除的引用不让整张清单变成错误', 'statusAll() 走到一半时并发 DELETE 一条引用', '清单不抛错；存活的两条各有 configured 状态（清单基于同一份索引快照）', 'node --test', 'PASS'),
+('UT-ATS213-014', 'FR-027', '异常', '索引里 id 不合规的条目单独得到一个状态', '索引里塞一条 id=cred_LEGACY 的记录', '整张清单不抛错；该条是 unavailable + CREDENTIAL_STORE_FAILED；好的一条仍是 configured', 'node --test', 'PASS'),
+('UT-ATS213-015', 'FR-027', '异常', '凭据库的「可用」是实测的，不是文件在不在推断的', 'helper 存在但调用失败的后端', 'health().state=failed；available()（预测）仍是 true——两者是两个事实', 'node --test', 'PASS'),
+('UT-ATS213-016', 'FR-027', '正常', '凭据库回答了就是健康的', '探测报「没有这一条」（证明它答了）', 'health().state=ok', 'node --test', 'PASS'),
+('UT-ATS213-017', 'FR-027', '异常', '本机没有可用的凭据库', '后端报告自己不可用', 'health().state=unavailable、reason=CREDENTIAL_STORE_UNAVAILABLE', 'node --test', 'PASS'),
 ]
 IT+=[
 ('IT-ATS213-001', 'FR-027', '安全', '状态接口需要会话 token', '无 X-ATS-Token', '401', 'node --test', 'PASS'),
@@ -1115,12 +1120,22 @@ IT+=[
 ('IT-ATS213-005', 'NFR-009', '安全', '畸形请求体不回显请求体内容（密钥片段泄漏的回归）', 'POST 一个 secret 未加引号的畸形 JSON', '400 INVALID_REQUEST_BODY；响应里既无完整密钥也无其前 10 个字符', 'node --test', 'PASS'),
 ('IT-ATS213-006', 'FR-027', '正常', '存入凭据后状态清单保持一致（真实系统凭据库）', 'POST 存入 → 查状态 → DELETE', '201 时状态读 configured，删除后清单为空；凭据库不可用时 POST 为 503 CREDENTIAL_STORE_UNAVAILABLE（两种结果都确定）', 'node --test（真实 Windows Credential Manager）', 'PASS'),
 ('IT-ATS213-007', 'NFR-009', '安全', '密钥不进本机任何可读文件', '存入一个带标记的密钥后扫描数据目录', '数据目录里没有任何文件含该密钥；状态清单也不含', 'node --test（真实 Windows Credential Manager）', 'PASS'),
+('IT-ATS213-008', 'FR-027', '正常', '凭据形状的变量名带**引用**时档案存得下', 'POST /api/projects/<id>/env，API_TOKEN={"credentialRef":"cred_…"}', '200；档案的公开视图带变量名 API_TOKEN，不带任何值', 'node --test', 'PASS'),
+('IT-ATS213-009', 'FR-027', '安全', '凭据形状的变量名带**明文**时被拒', 'POST /api/projects/<id>/env，API_TOKEN=<明文>', '400 ENV_VARIABLE_NOT_ALLOWED；拒绝理由指向凭据引用而不是明文', 'node --test', 'PASS'),
+('IT-ATS213-010', 'FR-027', '异常', '引用解析不了时**拒绝启动**', '档案引用一个不存在的 cred_…，然后发起运行', '运行不被接受（不是 202）；404 CREDENTIAL_REF_NOT_FOUND，带变量名与引用 id，不带密钥', 'node --test', 'PASS'),
+('IT-ATS213-011', 'NFR-009', '安全', '运行记录里没有密钥', '扫描 /api/runs 的每一条记录', '没有任何一条记录含密钥', 'node --test', 'PASS'),
 ]
 ST+=[
 ('ST-ATS213-001', 'FR-027', '功能', '存入密钥后界面显示「已配置」', '真实 Bridge + 真实 Chromium + 真实 Windows Credential Manager', '状态行显示「已配置」与「已从系统凭据库取回」', 'node tools/ats213-probes/st-ats213.mjs', 'PASS'),
 ('ST-ATS213-002', 'FR-027', '异常', '从系统凭据库删掉条目后界面显示「未配置」', '平台索引仍留着引用（分叉是真实存在的）', '状态行显示「未配置」与「系统凭据库里没有这一条」——状态是测出来的，不从索引推断', 'node tools/ats213-probes/st-ats213.mjs', 'PASS'),
 ('ST-ATS213-003', 'NFR-009', '隐私', '界面上没有密钥明文', '页面正文与状态行', '正文既不含完整密钥也不含其前 8 个字符；密钥输入框存入后被清空', 'node tools/ats213-probes/st-ats213.mjs', 'PASS'),
 ('ST-ATS213-004', 'FR-027', '异常', '状态接口报出原因码而不是假装成功', '条目已被删除时的单条状态查询', 'status=not-configured、reason=CREDENTIAL_NOT_FOUND', 'node tools/ats213-probes/st-ats213.mjs', 'PASS'),
+('ST-ATS213-005', 'FR-027', '异常', '凭据库不可达时「不可用密钥」的说明逐类计数', 'Bridge 的 PATH 里没有 PowerShell（真实调用失败）', '说明写着「取不到 2」，不出现「全部可用」；每条状态是 unavailable', 'node tools/ats213-probes/st-credential-status-failures.mjs', 'PASS'),
+('ST-ATS213-006', 'FR-027', '异常', '凭据库不可达时不写「已就绪」', '同上', '凭据库指标写「本机系统凭据库不可用」；GET /status 的 available=false', 'node tools/ats213-probes/st-credential-status-failures.mjs', 'PASS'),
+('ST-ATS213-007', 'FR-027', '异常', '刷新失败后旧状态不冒充当前状态', '状态读成功一次，然后 Bridge 停掉再点刷新', '旧状态行清空；「可用密钥」为 0；提示条写明上次测得于何时', 'node tools/ats213-probes/st-credential-status-failures.mjs', 'PASS'),
+('ST-ATS213-008', 'FR-027', '异常', '状态读失败时引用照样显示、删除按钮还在', '首次加载就拦截状态接口（404）', '面板上仍有全部引用行与等量的删除按钮；提示条说「下方只列出引用」是事实', 'node tools/ats213-probes/st-credential-status-failures.mjs', 'PASS'),
+('ST-ATS213-009', 'FR-027', '功能', '凭据引用真的到达了 runner（真实运行）', '真实 Windows Credential Manager + 真实 Playwright 运行；档案写引用', '被测脚本读到注入的变量（断言 SHA-256 摘要与长度）；档案里留着的永远是引用', 'node tools/ats213-probes/st-credential-ref.mjs', 'PASS'),
+('ST-ATS213-010', 'NFR-009', '安全', '密钥没有落进任何平台文件（真实运行）', '同上，扫描数据目录与运行目录', '数据目录 0 命中；运行目录里只有摘要没有明文', 'node tools/ats213-probes/st-credential-ref.mjs', 'PASS'),
 ]
 
 def emit(file,title,purpose,cases):

@@ -417,3 +417,168 @@ test('IT-ATS214-035: the batch record reconciles what was selected against what 
   assert.ok(batch.reconciliation.extra.length > 0, 'the extra cases are reported');
   assert.equal(batch.reconciliation.exact, false);
 });
+
+/* ================================================================== */
+/* 5. The batch record carries NO environment values                   */
+/* ================================================================== */
+
+/**
+ * A project whose FIRST file sleeps before it records what it saw.
+ *
+ * The delay is what makes the whitelist change land BETWEEN the two runs:
+ * run #1 holds the project for a while, and the whitelist is tightened
+ * (or the profile is deleted) while it is still running. Each scenario
+ * gets its OWN fixture, so the two recording files never mix.
+ */
+function slowProject(name) {
+  const root = path.join(WORK, name);
+  const seen = path.join(root, 'env-seen.txt').replace(/\\/g, '/');
+  return makeProject(name, {
+    files: {
+      'tests/a.spec.ts': [
+        "import { test } from '@playwright/test';",
+        "import fs from 'node:fs';",
+        `test('s-a1', async () => { await new Promise(r => setTimeout(r, 8000)); fs.appendFileSync('${seen}', 's-a1=' + (process.env.BASE_URL ?? '<unset>') + '\\n'); });`,
+        '',
+      ].join('\n'),
+      'tests/b.spec.ts': [
+        "import { test } from '@playwright/test';",
+        "import fs from 'node:fs';",
+        `test('s-b1', async () => { fs.appendFileSync('${seen}', 's-b1=' + (process.env.BASE_URL ?? '<unset>') + '\\n'); });`,
+        '',
+      ].join('\n'),
+    },
+  });
+}
+const SLOW_WHITELIST = slowProject('slow-wl');
+const SLOW_DELETED = slowProject('slow-del');
+
+test('IT-ATS214-036: the batch record carries NO environment variable values', { skip: SKIP }, async () => {
+  const pid = await addProject(BATCH);
+  const SECRET = 'https://staging.example/?k=s3cr3t-value-1234';
+  const env = await api(`/api/projects/${pid}/env`, 'POST', {
+    name: 'staging', environment: 'staging', variables: { BASE_URL: SECRET }
+  });
+  assert.ok(env[0] === 201 || env[0] === 200, `the profile could not be written: ${JSON.stringify(env[1])}`);
+
+  const catalog = await api(`/api/projects/${pid}/tests`);
+  const byTitle = Object.fromEntries(catalog[1].tests.map((t) => [t.title, t]));
+  const r = await api(`/api/projects/${pid}/run`, 'POST', {
+    selection: [byTitle.a1.uid, byTitle.b1.uid], env: 'staging'
+  });
+  assert.equal(r[0], 202);
+
+  // The batch record is READABLE while the batch runs -- and it must not
+  // carry a value. The value is in the profile store (that is where ATS-212
+  // puts it), never in the batch.
+  const [, batches] = await api(`/api/batches?projectId=${pid}`);
+  const batch = batches.batches.find((b) => b.uid === r[1].run.batchUid);
+  assert.ok(batch, 'the batch is on the record');
+  const serialised = JSON.stringify(batches);
+  assert.ok(!serialised.includes(SECRET), `the batch record serves the environment value: ${serialised}`);
+
+  // The context names the profile; it does not carry the variables.
+  assert.ok(batch.context.envUid, 'the context names the profile');
+  assert.equal(batch.context.envName, 'staging');
+  assert.equal(batch.context.envVariables, undefined,
+    `the batch context still carries the variables: ${JSON.stringify(batch.context.envVariables)}`);
+
+  // The PUBLIC view of the profile serves names only (ATS-212) -- and so
+  // does the run record.
+  const [, envList] = await api(`/api/projects/${pid}/env`);
+  assert.ok(!JSON.stringify(envList).includes(SECRET), 'the profile list serves the value');
+  const [, runs] = await api('/api/runs');
+  assert.ok(!JSON.stringify(runs).includes(SECRET), 'a run record serves the value');
+
+  await waitBatch(r[1].run.batchUid);
+});
+
+test('IT-ATS214-037: a whitelist tightened while the batch runs constrains the LATER run', { skip: SKIP }, async () => {
+  const pid = await addProject(SLOW_WHITELIST);
+  const SECRET = 'https://staging.example/?k=s3cr3t-value-1234';
+  await api(`/api/projects/${pid}/env`, 'POST', {
+    name: 'staging', environment: 'staging', variables: { BASE_URL: SECRET }
+  });
+  const catalog = await api(`/api/projects/${pid}/tests`);
+  const byTitle = Object.fromEntries(catalog[1].tests.map((t) => [t.title, t]));
+  const r = await api(`/api/projects/${pid}/run`, 'POST', {
+    selection: [byTitle['s-a1'].uid, byTitle['s-b1'].uid], env: 'staging'
+  });
+  assert.equal(r[0], 202);
+
+  // Wait until the FIRST run is really in flight -- it sleeps for 8s, so
+  // the whitelist change lands while it runs.
+  let first;
+  for (let i = 0; i < 80; i++) {
+    const [, j] = await api(`/api/runs/${r[1].run.id}`);
+    if (j?.run?.status === 'running') { first = j.run; break; }
+    await sleep(200);
+  }
+  assert.ok(first, 'the first run is running');
+
+  // The whitelist is tightened NOW: BASE_URL leaves it.
+  const [, wl] = await api(`/api/projects/${pid}/env-whitelist`);
+  const names = (wl?.whitelist?.names ?? []).filter((n) => n !== 'BASE_URL');
+  const put = await api(`/api/projects/${pid}/env-whitelist`, 'PUT', { names });
+  assert.equal(put[0], 200, `the whitelist could not be tightened: ${JSON.stringify(put[1])}`);
+
+  const batch = await waitBatch(r[1].run.batchUid, 180000);
+  assert.ok(batch, 'the batch is on the record');
+  assert.notEqual(batch.status, 'running', 'the batch never reached a terminal status');
+
+  // The SECOND run started AFTER the whitelist was tightened: it must NOT
+  // carry the variable. This is the whole point of the whitelist -- it
+  // constrains the RUN, not only the write.
+  const seenPath = path.join(SLOW_WHITELIST, 'env-seen.txt');
+  const seen = fs.existsSync(seenPath) ? fs.readFileSync(seenPath, 'utf8').trim().split(/\r?\n/) : [];
+  const bSeen = seen.find((l) => l.startsWith('s-b1='));
+  assert.ok(bSeen, `the second file never ran: ${JSON.stringify(seen)}`);
+  assert.ok(bSeen.endsWith('=<unset>'),
+    `the second run still carried the variable the whitelist removed: ${bSeen.replace(SECRET, '<value>')}`);
+
+  // The run record says so too: the variable is not among the names that
+  // reached the runner, and the refusal is reported.
+  const second = batch.runs.find((x) => x.groupIndex === 1);
+  assert.ok(second, 'the batch has a second run');
+  const run = (await api(`/api/runs/${second.runId}`))[1].run;
+  assert.deepEqual(run.envVariables, [], 'the run record still claims the variable');
+  assert.ok(Array.isArray(run.envRefused) && run.envRefused.some((x) => x.name === 'BASE_URL'),
+    `the refusal is not reported: ${JSON.stringify(run.envRefused)}`);
+});
+
+test('IT-ATS214-038: a profile DELETED while the batch runs ends the batch with a reason', { skip: SKIP }, async () => {
+  const pid = await addProject(SLOW_DELETED);
+  await api(`/api/projects/${pid}/env`, 'POST', {
+    name: 'staging', environment: 'staging', variables: { BASE_URL: 'http://staging.example' }
+  });
+  const catalog = await api(`/api/projects/${pid}/tests`);
+  const byTitle = Object.fromEntries(catalog[1].tests.map((t) => [t.title, t]));
+  const r = await api(`/api/projects/${pid}/run`, 'POST', {
+    selection: [byTitle['s-a1'].uid, byTitle['s-b1'].uid], env: 'staging'
+  });
+  assert.equal(r[0], 202);
+
+  for (let i = 0; i < 80; i++) {
+    const [, j] = await api(`/api/runs/${r[1].run.id}`);
+    if (j?.run?.status === 'running') break;
+    await sleep(200);
+  }
+
+  // The profile is DELETED while the batch is in flight.
+  const del = await api(`/api/projects/${pid}/env?ref=staging`, 'DELETE');
+  assert.equal(del[0], 200, `the profile could not be deleted: ${JSON.stringify(del[1])}`);
+
+  const batch = await waitBatch(r[1].run.batchUid, 180000);
+  assert.ok(batch, 'the batch is on the record');
+  assert.notEqual(batch.status, 'running', 'the batch stayed running after the profile was deleted');
+  assert.equal(batch.status, 'failed');
+  assert.ok(batch.error, 'the batch says why it ended');
+  assert.match(batch.error, /ENV_PROFILE_NOT_FOUND|no longer exists/,
+    `the reason does not name the missing profile: ${batch.error}`);
+
+  // The second file never ran under a silent fallback to "no profile".
+  const seenPath = path.join(SLOW_DELETED, 'env-seen.txt');
+  const seen = fs.existsSync(seenPath) ? fs.readFileSync(seenPath, 'utf8').trim().split(/\r?\n/) : [];
+  assert.ok(!seen.some((l) => l.startsWith('s-b1=')),
+    `the second file ran without the profile it was started with: ${JSON.stringify(seen)}`);
+});

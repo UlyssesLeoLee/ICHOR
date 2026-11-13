@@ -30,12 +30,16 @@
  *   M6  the filter is NOT reset when the project changes;
  *   M7  the pick box is put back INSIDE the row's button (the keyboard
  *       can no longer reach it);
- *   M8  the batch's environment profile is NOT inherited by the second
- *       run of the batch;
+ *   M8  the batch does NOT resolve the environment profile again -- the
+ *       later run of a batch would not see the profile at all;
  *   M9  the batch is NOT validated group by group -- a refused file is
  *       accepted as part of a batch;
  *   M10 the batch is NOT ended when the preflight fails -- it stays
- *       `running` for ever.
+ *       `running` for ever;
+ *   M11 the batch record carries the environment VARIABLES again -- the
+ *       value leaks onto `GET /api/batches`;
+ *   M12 a DELETED profile does NOT end the batch -- the later run would
+ *       silently fall back to "no profile".
  *
  * Each mutation is a SMALL, REAL change to the delivered source -- the
  * kind of change a careless edit would make. The probe applies it to a
@@ -142,10 +146,10 @@ const MUTATIONS = [
     probes: ['st'],
   },
   {
-    id: 'M8 the batch does NOT inherit the environment profile',
+    id: 'M8 the batch does NOT resolve the environment profile again',
     file: 'server/index.mjs',
-    find: 'const envVariables=ctx.envVariables&&typeof ctx.envVariables===\'object\'?ctx.envVariables:{};',
-    replace: 'const envVariables={};',
+    find: 'const envResolved=await batchRunEnv(project,batch);',
+    replace: 'const envResolved={profile:{uid:ctx.envUid,id:ctx.envUid,name:ctx.envName,environment:ctx.envTier},variables:{},names:[],refused:[],referenced:[]};',
     probes: ['it'],
   },
   {
@@ -160,6 +164,20 @@ const MUTATIONS = [
     file: 'server/index.mjs',
     find: "if(run.batchUid)finishBatchOf(run,'failed',first.code);",
     replace: '// the batch is left running -- the first delivery\'s behaviour',
+    probes: ['it'],
+  },
+  {
+    id: 'M11 the batch record carries the environment VARIABLES again',
+    file: 'server/index.mjs',
+    find: '      envTier:envProfile?envProfile.environment:null,\n      runner:pinned,',
+    replace: '      envTier:envProfile?envProfile.environment:null,\n      envVariables:envFiltered.variables??{},\n      runner:pinned,',
+    probes: ['it'],
+  },
+  {
+    id: 'M12 a DELETED profile does NOT end the batch -- it runs without one',
+    file: 'server/index.mjs',
+    find: " if(!profile){\n  const e=new Error(`the environment profile of the batch (${envUid}) no longer exists`);\n  e.code='ENV_PROFILE_NOT_FOUND';\n  throw e;\n }",
+    replace: ' if(!profile)return {profile:null,variables:{},names:[],refused:[],referenced:[]};',
     probes: ['it'],
   },
 ];

@@ -13,18 +13,20 @@
  * criterion asks for.
  *
  * TWO KINDS OF REFUSAL
- * --------------------
+ * ---------------------
  *   1. NOT ON THE WHITELIST -- the name is simply not permitted here.
- *   2. A CREDENTIAL-SHAPED NAME -- the name LOOKS like it holds a secret
- *      (`*_TOKEN`, `*_PASSWORD`, `*_SECRET`, `*_API_KEY`, ...). Those are
- *      refused EVEN when the whitelist permits them, because the credential
- *      store (FR-027's proper home) does not exist yet. Putting a password
- *      into a profile would put it into the run assets, the SQLite mirror
- *      and the evidence archive -- which is precisely what the requirement
+ *   2. A CREDENTIAL-SHAPED NAME WITH A PLAINTEXT VALUE -- the name LOOKS
+ *      like it holds a secret (`*_TOKEN`, `*_PASSWORD`, `*_SECRET`,
+ *      `*_API_KEY`, ...). Such a name may only carry a **credential
+ *      REFERENCE**, never a literal value: the profile stores the
+ *      reference, and the platform resolves it against the system
+ *      credential store when the run starts. A plaintext value under such
+ *      a name would enter the run assets, the SQLite mirror and the
+ *      evidence archive -- which is precisely what the requirement
  *      "单独安全凭据存储" forbids.
  *
- *      The refusal says so, and names the way out: the variable belongs in
- *      the credential store, not in a profile.
+ *      The refusal says so, and names the way out: put a reference to the
+ *      credential store, not the secret itself.
  *
  * THE WHITELIST ITSELF IS NOT IN GIT
  * ----------------------------------
@@ -97,6 +99,50 @@ export function isCredentialShapedName(name) {
 }
 
 /**
+ * The shape of a credential REFERENCE.
+ *
+ * A reference names an entry in the system credential store. It is stored in
+ * the profile INSTEAD of the secret, and the platform resolves it when the
+ * run starts. Two spellings are accepted and mean the same thing:
+ *
+ *   {"credentialRef": "cred_<24 hex>"}   -- the explicit form
+ *   "cred:<24 hex>"                     -- the shorthand
+ *
+ * The reference is a **closed shape**: an object with exactly one key
+ * `credentialRef`, or a string of the form `cred:<id>`. Anything else is
+ * not a reference, so it cannot be mistaken for one.
+ */
+export const CREDENTIAL_REF_ID = /^cred_[0-9a-f]{24}$/;
+
+/**
+ * Parses a value into a credential reference.
+ *
+ * Two spellings of the shorthand are accepted, because both are natural to
+ * type: `cred:<24 hex>` and `cred:cred_<24 hex>` (the full identifier,
+ * which is what the interface shows).
+ *
+ * @returns {{id:string}|null} the reference, or `null` when the value is not
+ *   a reference at all. A `null` means "this is an ordinary value", and the
+ *   caller applies the ordinary rules to it.
+ */
+export function parseCredentialRef(value) {
+  if (typeof value === 'string') {
+    const m = /^cred:(.+)$/.exec(value.trim());
+    if (!m) return null;
+    const raw = m[1].trim();
+    // The shorthand may carry the identifier in full or just its hex part.
+    const id = raw.startsWith('cred_') ? raw : `cred_${raw}`;
+    return CREDENTIAL_REF_ID.test(id) ? { id } : null;
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const keys = Object.keys(value);
+  if (keys.length !== 1 || keys[0] !== 'credentialRef') return null;
+  const raw = value.credentialRef;
+  if (typeof raw !== 'string' || !CREDENTIAL_REF_ID.test(raw.trim())) return null;
+  return { id: raw.trim() };
+}
+
+/**
  * Matches a whitelist entry against a name.
  *
  * An entry may be an exact name (`BASE_URL`) or a pattern with a single
@@ -137,22 +183,29 @@ export function whitelistOf(project) {
 /**
  * Checks a name against the whitelist AND the credential rule.
  *
+ * @param {string} name the variable name
+ * @param {string[]} whitelist the names that are authorised
+ * @param {object|null} [ref] the credential reference the value carries, when
+ *   the value is one. A credential-shaped name WITH a reference is allowed
+ *   even when the name is not on the whitelist, because the reference names
+ *   an entry in the credential store and the profile never holds a secret.
  * @returns {{allowed:boolean, reason:string}}
  *   `reason` is empty when the name is allowed, and names the rule that
  *   refused it otherwise.
  */
-export function checkEnvName(name, whitelist) {
+export function checkEnvName(name, whitelist, ref = null) {
   const upper = String(name ?? '').toUpperCase();
   // The CREDENTIAL rule is checked FIRST. It is the more specific refusal
   // and the more actionable one: a caller who asked for a password needs
-  // to hear "a credential belongs in the credential store", not "that name
-  // is not on the whitelist" -- the whitelist is not where a credential
-  // could ever go, so the whitelist answer would send the caller to the
-  // wrong place.
+  // to hear "put a reference to the credential store here, not the secret",
+  // not "that name is not on the whitelist" -- the whitelist is not where a
+  // credential could ever go, so the whitelist answer would send the caller
+  // to the wrong place.
   if (isCredentialShapedName(upper)) {
+    if (ref) return { allowed: true, reason: '' };
     return {
       allowed: false,
-      reason: 'the name is credential-shaped; a credential belongs in the credential store, not in an environment profile',
+      reason: 'the name is credential-shaped; carry a credential reference to the credential store, not the secret itself',
     };
   }
   const entries = Array.isArray(whitelist) ? whitelist : [];
@@ -198,7 +251,8 @@ export function validateWhitelist(input) {
     if (isCredentialShapedName(name)) {
       problems.push({
         name,
-        reason: 'the name is credential-shaped and cannot be authorised into an environment profile',
+        reason: 'the name is credential-shaped and cannot be authorised into an environment profile; '
+          + 'carry a credential reference to the credential store instead',
       });
       continue;
     }

@@ -39,6 +39,10 @@ import { assertSafeTestFilter } from './adapters/playwright-cli.mjs';
 // and the runner receives the SEALED environment (the profile's variables
 // plus the platform base keys -- never the host's own environment).
 import { ENVIRONMENTS, buildRunnerEnv, envVarNames, filterProfileVariables } from './env/profiles.mjs';
+// ATS-213: the credential references of an environment profile are resolved
+// against the system credential store when the run starts. The resolved
+// secret goes into the sealed runner environment and into nothing else.
+import { resolveCredentialRefs } from './env/credential-refs.mjs';
 import {
   envStoreOf, profilesOfProject, findProfile, whitelistForProject,
   upsertProfile, removeProfile, setWhitelist, publicProfile, projectKeyOf,
@@ -276,6 +280,18 @@ for(const run of store.runs){
 // A batch whose runs are ALL terminal is not touched here: it reached
 // its own terminal status before the crash, and rewriting it would
 // destroy the record of how it ended.
+// ATS-214: the batch records of an OLDER build carried the environment
+// VARIABLES' VALUES in their context. A value that is already in the state
+// must not be served after the upgrade either -- the leak is not only a
+// question of what is written from now on, it is a question of what the API
+// hands out. The values are dropped on load, and the batch keeps the
+// profile's REFERENCE, which is what the current code resolves against the
+// project's own profiles and the current whitelist.
+for(const batch of (Array.isArray(store.batches)?store.batches:[])){
+ if(batch.context&&typeof batch.context==='object'&&batch.context.envVariables){
+  delete batch.context.envVariables;
+ }
+}
 for(const batch of (Array.isArray(store.batches)?store.batches:[])){
  if(batch.status!=='running')continue;
  const runs=(batch.runs??[]).map(r=>store.runs.find(x=>x.id===r.runId)).filter(Boolean);
@@ -834,7 +850,7 @@ function finishRun(run,code,signal){
  * The chain's own record is updated as it goes, so a reader can see which
  * file is running, which files have run and what each of them did.
  */
-function advanceBatch(run){
+async function advanceBatch(run){
  if(!run.batchUid)return;
  const batches=Array.isArray(store.batches)?store.batches:[];
  const batch=batches.find(b=>b.uid===run.batchUid);
@@ -868,12 +884,22 @@ function advanceBatch(run){
  if(!project){finishBatch(batch,'failed','the project of the batch is gone');return;}
  // The next run of the batch: the same shape as the first one, with the
  // next FILE and the group's uids.
+ //
+ // The chain is advanced ASYNCHRONOUSLY, because starting a run now
+ // resolves the environment profile against the CURRENT whitelist (and the
+ // credential store) -- both of which are asynchronous. The caller does not
+ // wait for it: the chain continues on its own, exactly as it did when the
+ // resolution was synchronous.
  try{
-  const started=startBatchRun(project,batch,next,nextIndex,run);
+  const started=await startBatchRun(project,batch,next,nextIndex,run);
   batch.runs.push({runId:started.id,file:next.file,groupIndex:nextIndex,status:started.status});
  }catch(e){
   // A batch that cannot start its next run is REPORTED, not swallowed:
   // the batch's status says it failed, and the reason is on the record.
+  //
+  // This is also where a profile that was DELETED after the first run
+  // lands: the batch ends with that reason instead of running the second
+  // file without the profile it was started with.
   finishBatch(batch,'failed',String(e.message||e));
  }
  saveState(store);
@@ -918,6 +944,64 @@ function finishBatchOf(run,status,error){
 }
 
 /**
+ * ATS-214: the environment a batch run starts under.
+ *
+ * THE PROFILE IS RESOLVED AGAIN AT EVERY RUN
+ * ------------------------------------------
+ * A batch carries the REFERENCE to the environment profile (`envUid`), never
+ * the profile's values. Every run of the batch resolves that reference
+ * again, at the moment the run starts:
+ *
+ *   * the profile is looked up in the project's OWN profiles, so a profile
+ *     that was DELETED in the meantime is a fact the batch has to face: the
+ *     batch ends with that reason instead of silently running without the
+ *     profile (ATS-212 forbids the silent fallback to "no profile");
+ *   * the variables are filtered by the whitelist that is in force NOW -- the
+ *     same function and the same whitelist source the single-run path uses
+ *     -- so a whitelist that was TIGHTENED after the first run really
+ *     constrains the second one. The whitelist constrains the RUN, not only
+ *     the write;
+ *   * the credential references are resolved against the credential store at
+ *     the moment the run starts, so a secret never travels with the batch
+ *     record either.
+ *
+ * NO VALUE IS EVER WRITTEN INTO THE BATCH RECORD. The record carries the
+ * profile's identifier, its name and its tier -- never the variables' values
+ * -- so `GET /api/batches` cannot serve one.
+ *
+ * @returns {Promise<{profile:object|null, variables:object, names:string[], refused:Array, referenced:Array}>}
+ * @throws {Error} when the profile the batch refers to no longer exists, or
+ *   when a credential reference of the profile cannot be resolved.
+ */
+async function batchRunEnv(project,batch){
+ const ctx=batch.context??{};
+ const envUid=ctx.envUid??null;
+ if(!envUid)return {profile:null,variables:{},names:[],refused:[],referenced:[]};
+ const envStore_=envStoreOf(store);
+ const profile=findProfile(envStore_,projectKeyOf(project),envUid);
+ if(!profile){
+  const e=new Error(`the environment profile of the batch (${envUid}) no longer exists`);
+  e.code='ENV_PROFILE_NOT_FOUND';
+  throw e;
+ }
+ const whitelist=whitelistForProject(envStore_,project);
+ const filtered=filterProfileVariables(profile,whitelist.names);
+ let resolved={values:filtered.variables??{},names:Object.keys(filtered.variables??{}).sort(),referenced:[]};
+ if(filtered.variables){
+  try{
+   resolved=await resolveCredentialRefs(filtered.variables,{credentialStore,purpose:'other'});
+  }catch(cause){
+   const e=new Error(cause&&cause.code?cause.code:'CREDENTIAL_REF_RESOLVE_FAILED');
+   e.code=e.message;
+   e.variable=cause&&cause.variable?cause.variable:null;
+   e.credentialRef=cause&&cause.credentialRef?cause.credentialRef:null;
+   throw e;
+  }
+ }
+ return {profile,variables:resolved.values,names:resolved.names,refused:filtered.refused,referenced:resolved.referenced};
+}
+
+/**
  * ATS-214: start ONE run of a batch.
  *
  * It is the same run the single-run path creates -- the same runner
@@ -928,22 +1012,25 @@ function finishBatchOf(run,status,error){
  * -------------------------------
  * The second file of a batch must run under the SAME conditions as the
  * first one. The batch therefore carries the request context -- the
- * environment profile (already filtered by the current whitelist), the
- * pinned runner and the requested capabilities -- and every run of the
- * batch starts with it.
+ * environment profile, the pinned runner and the requested capabilities --
+ * and every run of the batch starts with it.
  *
  * This is not a convenience: ATS-212 forbids a silent fallback to "no
  * profile". A batch whose first run went to staging and whose second run
  * went to the default base URL is exactly that silent fallback, spread
  * over two runs, and the reader of the run records would have no way to
- * tell it apart from two deliberate runs. The environment variables that
- * reach the runner are the WHITELIST-FILTERED ones the first run got
- * (`batch.context.envVariables`), so the inheritance cannot smuggle a
- * variable the whitelist has since taken away.
+ * tell it apart from two deliberate runs.
  *
- * @returns {object} the run record
+ * THE PROFILE IS NOT INHERITED -- IT IS RESOLVED AGAIN. The batch carries
+ * the profile's REFERENCE, and every run resolves it against the project's
+ * own profiles and the CURRENT whitelist (see `batchRunEnv`). A whitelist
+ * that was tightened after the first run therefore constrains the second
+ * one as well, and a profile that was deleted in the meantime ends the
+ * batch with that reason instead of quietly running without it.
+ *
+ * @returns {Promise<object>} the run record
  */
-function startBatchRun(project,batch,group,index,previous){
+async function startBatchRun(project,batch,group,index,previous){
  const gitCommit=gitInfo(project.root).commit;
  const projectUid=projectUidOf(project);
  const history=store.runs.filter(x=>x.projectId===project.id);
@@ -972,16 +1059,20 @@ function startBatchRun(project,batch,group,index,previous){
  // ran in this run" and "what was selected in the batch" are both on the
  // record.
  const selection={uids:group.uids,cases:batch.cases.filter(c=>group.uids.includes(c.uid)),count:group.count,files:[group.file],groups:[{file:group.file,uids:group.uids,count:group.count}]};
- const envVariables=ctx.envVariables&&typeof ctx.envVariables==='object'?ctx.envVariables:{};
- const envVarNameList=Object.keys(envVariables).sort();
+ // ATS-214: the environment of THIS run, resolved NOW -- against the
+ // project's own profiles and the whitelist that is in force at this
+ // moment. A profile that is gone is a REFUSAL, not a silent fallback.
+ const envResolved=await batchRunEnv(project,batch);
  const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file:group.file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,batchUid:batch.uid,batchIndex:index,selection,selectionUids:group.uids,
-  // ATS-214: the INHERITED context. The run records the environment it
-  // ran under exactly like a single run does, so a reader of run #2 can
-  // see that it ran under the same profile as run #1 -- and the NAMES of
-  // the variables, never their values (ATS-212).
-  envUid:ctx.envUid??null,envName:ctx.envName??null,envTier:ctx.envTier??null,envVariables:envVarNameList};
+ // ATS-214: the INHERITED context. The run records the environment it
+ // ran under exactly like a single run does, so a reader of run #2 can
+ // see that it ran under the same profile as run #1 -- and the NAMES of
+ // the variables, never their values (ATS-212).
+ envUid:envResolved.profile?(envResolved.profile.uid||envResolved.profile.id):null,envName:envResolved.profile?envResolved.profile.name:null,envTier:envResolved.profile?envResolved.profile.environment:null,envVariables:envResolved.names,
+ ...(envResolved.referenced.length?{envCredentialRefs:envResolved.referenced}:{}),
+ ...(envResolved.refused.length?{envRefused:envResolved.refused}:{})};
  store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);
- startRun(project,run,chosen.adapter,null,envVariables);
+ startRun(project,run,chosen.adapter,null,envResolved.variables);
  return run;
 }
 
@@ -1357,12 +1448,33 @@ const server=http.createServer(async(req,res)=>{
    // run still happens, with exactly the variables that are still allowed.
    const envWhitelist=whitelistForProject(envStore_,project);
    const envFiltered=envProfile?filterProfileVariables(envProfile,envWhitelist.names):{variables:{},refused:[]};
+   // ATS-213: the CREDENTIAL REFERENCES of the profile are resolved HERE,
+   // at run start, and only here.
+   //
+   // A profile may carry a reference to the system credential store
+   // instead of a secret. The reference is resolved against the store, and
+   // the resolved value goes into the SEALED runner environment -- and into
+   // nothing else. The profile keeps the reference, the run record keeps
+   // the NAMES, and the archive keeps neither.
+   //
+   // A reference that cannot be resolved REFUSES the run: an unresolved
+   // credential means the system under test would be called with a missing
+   // or empty token, which is a worse outcome than not running at all.
+   let envResolved={values:envFiltered.variables??{},names:[],referenced:[]};
+   if(envProfile&&envFiltered.variables){
+    try{
+     envResolved=await resolveCredentialRefs(envFiltered.variables,{credentialStore,purpose:'other'});
+    }catch(e){
+     // The refusal names the VARIABLE and the REFERENCE, never the secret.
+     return err(res,404,e.code||'CREDENTIAL_REF_RESOLVE_FAILED',{variable:e.variable||null,credentialRef:e.credentialRef||null});
+    }
+   }
    // The names of the variables the run carried -- NEVER their values. The
    // run record is archived, mirrored into SQLite and shipped as evidence;
    // a value may be sensitive, a name is what a reader of the run needs.
    // The names are the ones that ACTUALLY reached the runner, so the record
    // does not claim a variable the whitelist took away.
-   const envVarNameList=envFiltered.variables?Object.keys(envFiltered.variables).sort():[];
+   const envVarNameList=envResolved.names?envResolved.names:[];
    // ATS-214: the SELECTION goes on the run record.
    //
    // The record is what makes the selection REPRODUCIBLE: it says which
@@ -1387,7 +1499,7 @@ const server=http.createServer(async(req,res)=>{
    const runSelection=selection&&selection.groups.length>1
     ?{uids:selection.groups[0].uids,cases:selection.cases.filter(c=>selection.groups[0].uids.includes(c.uid)),count:selection.groups[0].count,files:[selection.groups[0].file],groups:[selection.groups[0]]}
     :selection;
-   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null,...(envFiltered.refused.length?{envRefused:envFiltered.refused}:{}),...(runSelection?{selection:runSelection,selectionUids:runSelection.uids}:{})};
+   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null,...(envResolved.referenced.length?{envCredentialRefs:envResolved.referenced}:{}),...(envFiltered.refused.length?{envRefused:envFiltered.refused}:{}),...(runSelection?{selection:runSelection,selectionUids:runSelection.uids}:{})};
    store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);
    // ATS-214: a selection that spans SEVERAL files is a BATCH. The first
    // run of the batch is the one that starts here; the rest are chained to
@@ -1409,17 +1521,24 @@ const server=http.createServer(async(req,res)=>{
      // environment profile, the same pinned runner and the same
      // requested capabilities as the first one.
      //
-     // The environment variables stored here are the WHITELIST-FILTERED
-     // ones (`envFiltered.variables`), so the inheritance cannot carry a
-     // variable the current whitelist no longer permits -- and the
-     // profile's own values never travel with the batch record: only the
-     // variables that actually reach the runner, plus the profile's
-     // identity.
+     // THE CONTEXT CARRIES THE PROFILE'S REFERENCE, NEVER ITS VALUES.
+     //
+     // The batch record is archived, mirrored into SQLite and shipped as
+     // evidence. A variable's VALUE must not travel with it: the record
+     // names the profile (`envUid`), its name and its tier, and every run
+     // of the batch resolves that reference again -- against the project's
+     // own profiles and the CURRENT whitelist (see `batchRunEnv`).
+     //
+     // That is what makes the whitelist constrain the RUN rather than only
+     // the write: a whitelist that is tightened while the batch is in
+     // flight really removes the variable from the runs that start after
+     // it. And a value that IS in the record would be a value the API
+     // serves on `GET /api/batches` -- which is the leak this task's
+     // acceptance criterion forbids.
      context:{
       envUid:envProfile?(envProfile.uid||envProfile.id):null,
       envName:envProfile?envProfile.name:null,
       envTier:envProfile?envProfile.environment:null,
-      envVariables:envFiltered.variables??{},
       runner:pinned,
       capabilities:explicit?b.capabilities:null,
      }};
@@ -1436,7 +1555,7 @@ const server=http.createServer(async(req,res)=>{
     run.batchIndex=0;
     saveState(store);
    }
-   startRun(project,run,chosen.adapter,envProfile,envFiltered.variables);
+   startRun(project,run,chosen.adapter,envProfile,envResolved.values);
    return respond(res,202,{run});
   }
   if(action==='lineage'&&req.method==='GET'){
@@ -1652,7 +1771,12 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
  }
  if(p==='/api/security/credentials'&&req.method==='GET'){
   // The credential REFERENCES. There is no endpoint that returns a secret.
-  return respond(res,200,{credentials:await credentialStore.list(),provider:credentialStore.provider(),available:await credentialStore.available()});
+  //
+  // `available` is the MEASURED health of the store, not the backend's
+  // prediction about its own files: the helper may be present on disk and
+  // still not answer.
+  const health=await credentialStore.health();
+  return respond(res,200,{credentials:await credentialStore.list(),provider:credentialStore.provider(),available:health.state==='ok',storeHealth:health});
  }
  if(p==='/api/security/credentials'&&req.method==='POST'){
   // Store a secret in the OS credential store. The secret arrives in the
@@ -1675,7 +1799,12 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
  // The response carries the status, the reason code, the fingerprint and the
  // provider. It NEVER carries a secret, and never a fragment of one.
  if(p==='/api/security/credentials/status'&&req.method==='GET'){
-  return respond(res,200,{statuses:await credentialStore.statusAll(),provider:credentialStore.provider(),available:await credentialStore.available()});
+  // The `available` flag is the MEASURED health of the store, not the
+  // backend's prediction about its own files. A UI that says 「已就绪」
+  // while every reference reads 「取不到」 is stating something nobody
+  // measured.
+  const health=await credentialStore.health();
+  return respond(res,200,{statuses:await credentialStore.statusAll(),provider:credentialStore.provider(),available:health.state==='ok',storeHealth:health});
  }
  const credStatusRm=p.match(/^\/api\/security\/credentials\/(cred_[0-9a-f]{24})\/status$/);
  if(credStatusRm&&req.method==='GET')return respond(res,200,{status:await credentialStore.status(credStatusRm[1])});

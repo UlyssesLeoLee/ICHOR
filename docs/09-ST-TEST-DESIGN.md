@@ -1,6 +1,6 @@
 # ATS-ST-001 システムテスト設計書
 
-> 设计总数：56；已执行通过：33；待执行/未实现：23。**PENDING 不是测试通过**。
+> 设计总数：62；已执行通过：39；待执行/未实现：23。**PENDING 不是测试通过**。
 
 系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。
 
@@ -76,6 +76,12 @@
 |ST-ATS214-010|FR-005|可用性|勾选框键盘可达|真实 Chromium 的 Tab / Space|勾选框是自己的 <button role=checkbox>（不是嵌在 button 里的 span），能拿到焦点，空格能切换|node tools/ats214-probes/st-ats214.mjs|PASS|
 |ST-ATS214-011|FR-021|功能|发出去的请求带着**每一个**被勾选的 UID|勾选两个不同文件里的用例，拦截浏览器发出的请求|请求体里的 selection 带着两个 UID（读的是网络上的请求，不是界面自己的算术——只读界面只能证明界面没算错，证明不了它发对了）|node tools/ats214-probes/st-ats214.mjs|PASS|
 |ST-ATS214-012|TOOL|可靠性|交付的代码被变异时测试必须变红（负控）|对 page.tsx 与 server/index.mjs 做 10 个变异（关掉过滤、只发第一个 UID、不渲染警告、不阻止运行、承诺选中条数、不重置过滤、把勾选框放回 button 里、不继承环境档案、不整单校验、预检失败不结束批次）|每个变异都被抓住（界面变异由 ST 抓住，服务端变异由 IT 抓住）；未变异的代码仍然通过|node tools/ats214-probes/mutation-check.mjs|PASS|
+|ST-ATS213-005|FR-027|异常|凭据库不可达时「不可用密钥」的说明逐类计数|Bridge 的 PATH 里没有 PowerShell（真实调用失败）|说明写着「取不到 2」，不出现「全部可用」；每条状态是 unavailable|node tools/ats213-probes/st-credential-status-failures.mjs|PASS|
+|ST-ATS213-006|FR-027|异常|凭据库不可达时不写「已就绪」|同上|凭据库指标写「本机系统凭据库不可用」；GET /status 的 available=false|node tools/ats213-probes/st-credential-status-failures.mjs|PASS|
+|ST-ATS213-007|FR-027|异常|刷新失败后旧状态不冒充当前状态|状态读成功一次，然后 Bridge 停掉再点刷新|旧状态行清空；「可用密钥」为 0；提示条写明上次测得于何时|node tools/ats213-probes/st-credential-status-failures.mjs|PASS|
+|ST-ATS213-008|FR-027|异常|状态读失败时引用照样显示、删除按钮还在|首次加载就拦截状态接口（404）|面板上仍有全部引用行与等量的删除按钮；提示条说「下方只列出引用」是事实|node tools/ats213-probes/st-credential-status-failures.mjs|PASS|
+|ST-ATS213-009|FR-027|功能|凭据引用真的到达了 runner（真实运行）|真实 Windows Credential Manager + 真实 Playwright 运行；档案写引用|被测脚本读到注入的变量（断言 SHA-256 摘要与长度）；档案里留着的永远是引用|node tools/ats213-probes/st-credential-ref.mjs|PASS|
+|ST-ATS213-010|NFR-009|安全|密钥没有落进任何平台文件（真实运行）|同上，扫描数据目录与运行目录|数据目录 0 命中；运行目录里只有摘要没有明文|node tools/ats213-probes/st-credential-ref.mjs|PASS|
 
 ## 进入与退出条件
 

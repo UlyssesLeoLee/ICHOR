@@ -46,6 +46,17 @@ export const CREDENTIAL_ERROR_CODES = Object.freeze([
 export const CREDENTIAL_INDEX_FILE = 'credentials.json';
 
 /**
+ * The time budget of ONE store probe.
+ *
+ * The probe is a child process, and a child process that hangs (a store
+ * that is locked, a helper that waits for input) must not hang the caller.
+ * The status surface is on the critical path of the security page, so a
+ * probe that cannot answer in this budget is reported as `failed` -- the
+ * store is there, but it did not answer.
+ */
+export const CREDENTIAL_PROBE_TIMEOUT_MS = 8000;
+
+/**
  * ATS-213 ｜ 凭据的**可用状态**（credential status）
  *
  * 界面上要回答的问题是「这个密钥现在能不能用」，而不是「这个密钥是什么」。
@@ -171,20 +182,29 @@ export function windowsBackend(scriptPath, spawnFn = spawn, platform = process.p
     );
     let out = '';
     let err = '';
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => { out += chunk; });
+    // A spawn that fails outright (the executable is not on PATH) leaves the
+    // streams NULL. The `error` event says why; without this guard the
+    // stream access would throw a TypeError instead, and the reason code
+    // would say "the store failed" where the truth is "the store could not
+    // be reached".
+    if (child.stdout) {
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (chunk) => { out += chunk; });
+    }
     // The helper never writes the secret to stderr, so stderr is safe to
     // surface as a diagnostic -- it carries the error CODE only.
-    child.stderr.on('data', (chunk) => { err += chunk; });
+    if (child.stderr) {
+      child.stderr.setEncoding('utf8');
+      child.stderr.on('data', (chunk) => { err += chunk; });
+    }
     child.on('error', (error) => reject(new Error(`CREDENTIAL_STORE_UNAVAILABLE:${error.code || error.message}`)));
     child.on('close', (code) => {
       if (code === 0) return resolve(out);
       const codeMatch = /CREDENTIAL_[A-Z_]+/.exec(err);
       reject(new Error(codeMatch ? codeMatch[0] : 'CREDENTIAL_STORE_FAILED'));
     });
-    if (input !== undefined) child.stdin.write(input, 'utf8');
-    child.stdin.end();
+    if (input !== undefined && child.stdin) child.stdin.write(input, 'utf8');
+    if (child.stdin) child.stdin.end();
   });
   // A helper that dies WITHOUT naming a CREDENTIAL_* code (the PowerShell host
   // or its inline C# compile failing transiently) is retried once; a failure
@@ -203,6 +223,14 @@ export function windowsBackend(scriptPath, spawnFn = spawn, platform = process.p
     available: async () => platform === 'win32' && fs.existsSync(scriptPath),
     write: async (id, secret) => { await call('write', id, secret); },
     read: async (id) => call('read', id),
+    // The probe answers "is there an entry, and does it hold bytes?" WITHOUT
+    // reading the secret out of the credential blob. The status surface uses
+    // it, so a plaintext never enters the Bridge's memory merely because
+    // somebody opened the security page.
+    probe: async (id) => {
+      const out = await call('probe', id);
+      return String(out).trim();
+    },
     remove: async (id) => { await call('delete', id); },
   };
 }
@@ -240,6 +268,14 @@ export function macosBackend(spawnFn = spawn, platform = process.platform) {
       const out = await run(['find-generic-password', '-s', target(id), '-a', 'ai-test-studio', '-w']);
       return out.replace(/\n$/, '');
     },
+    // The probe asks whether an entry exists WITHOUT asking for the secret.
+    // `security` has no "tell me the password length" mode, so the lookup is
+    // done WITHOUT `-w`: the entry's attributes are printed, the password is
+    // not.
+    probe: async (id) => {
+      const out = await run(['find-generic-password', '-s', target(id), '-a', 'ai-test-studio']);
+      return out.includes('password:') ? 'PRESENT' : 'EMPTY';
+    },
     remove: async (id) => { await run(['delete-generic-password', '-s', target(id), '-a', 'ai-test-studio']); },
   };
 }
@@ -273,6 +309,14 @@ export function linuxBackend(spawnFn = spawn, hasBinaryFn = hasBinary, platform 
     read: async (id) => {
       const out = await run(['lookup', 'service', 'ai-test-studio', 'account', id]);
       return out.replace(/\n$/, '');
+    },
+    // The probe asks whether an entry exists WITHOUT printing the secret.
+    // `secret-tool lookup` always prints the password, so the probe uses
+    // `search`, which reports the attributes of a matching item and leaves
+    // the secret in the collection.
+    probe: async (id) => {
+      const out = await run(['search', '--all', 'service', 'ai-test-studio', 'account', id]);
+      return out.trim() ? 'PRESENT' : 'EMPTY';
     },
     remove: async (id) => { await run(['clear', 'service', 'ai-test-studio', 'account', id]); },
   };
@@ -418,28 +462,36 @@ export function createCredentialStore({ indexFile, backend } = {}) {
    * 指纹。指纹是索引里那 8 位十六进制（读不出来时它仍然可用——它记在索引
    * 里，与凭据库无关），用途是让人核对「是不是同一个密钥」。
    *
+   * `entry` 可以是调用方给的**快照**里的那一条，也可以是 `undefined`（此时
+   * 自己读索引）。`statusAll()` 传的是同一份快照里的那一条，因此整张清单
+   * 的答案是**同一份索引快照**上的答案。
+   *
    * @param {string} id  凭据 id
+   * @param {object} [entry]  索引快照里的那一条（可选）
    * @returns {Promise<{id,name,purpose,provider,fingerprint,status,reason,checkedAt}>}
    */
-  async function status(id) {
+  async function status(id, entry = undefined) {
     if (!CREDENTIAL_ID.test(String(id))) {
       const error = new Error('CREDENTIAL_NOT_FOUND');
       error.code = 'CREDENTIAL_NOT_FOUND';
       throw error;
     }
-    const index = loadCredentialIndex(indexFile);
-    const entry = index.credentials.find((c) => c.id === id);
-    if (!entry) {
+    let found = entry;
+    if (found === undefined) {
+      const index = loadCredentialIndex(indexFile);
+      found = index.credentials.find((c) => c.id === id);
+    }
+    if (!found) {
       const error = new Error('CREDENTIAL_NOT_FOUND');
       error.code = 'CREDENTIAL_NOT_FOUND';
       throw error;
     }
     const base = {
-      id: entry.id,
-      name: entry.name,
-      purpose: entry.purpose,
-      provider: entry.provider,
-      fingerprint: entry.fingerprint,
+      id: found.id,
+      name: found.name,
+      purpose: found.purpose,
+      provider: found.provider,
+      fingerprint: found.fingerprint,
       checkedAt: now(),
     };
     // The backend itself may be missing (no OS credential store on this
@@ -474,13 +526,75 @@ export function createCredentialStore({ indexFile, backend } = {}) {
    * 每一条引用都有且只有一个状态。**一条失败不影响其它条**：每条的状态是
    * 各自测出来的，因此一条读不出来的引用不会让整个清单变成一个错误——
    * 否则界面上就看不到「哪一条坏了」，只能看到「全坏了」。
+   *
+   * 整张清单基于**同一份索引快照**计算。这条约束是承重的，不是洁癖：
+   *
+   *   * 遍历期间被 `DELETE` 掉的引用**直接跳过**——它已经不在快照里了，
+   *     清单不因它返回一个错误；
+   *   * 快照里一条**形状不合规**的引用（id 不是 `cred_<24 hex>`）**单独**
+   *     得到一个状态（`unavailable` + `CREDENTIAL_STORE_FAILED`），而不是
+   *     让整张清单抛错；
+   *   * 任何一条读失败都**不**升级成整张清单的失败。
+   *
+   * 换句话说：一张清单里**没有**「整张失败」这个状态。清单要么给出每条
+   * 的状态，要么在索引本身读不出来时失败（那是索引文件本身的问题，
+   * 与「某一条坏了」不是一回事）。
    */
   async function statusAll() {
+    // ONE snapshot for the whole walk. The index is read exactly once, so a
+    // reference that is deleted while the walk is in progress cannot make a
+    // later entry look missing, and a reference that is added while the walk
+    // is in progress does not appear halfway through the list.
     const index = loadCredentialIndex(indexFile);
     const out = [];
     for (const entry of index.credentials) {
-      out.push(await status(entry.id));
+      // A malformed entry gets its own status; it does not abort the list.
+      if (!entry || typeof entry.id !== 'string' || !CREDENTIAL_ID.test(entry.id)) {
+        out.push({
+          id: typeof entry?.id === 'string' ? entry.id : null,
+          name: typeof entry?.name === 'string' ? entry.name : null,
+          purpose: typeof entry?.purpose === 'string' ? entry.purpose : null,
+          provider: typeof entry?.provider === 'string' ? entry.provider : null,
+          fingerprint: typeof entry?.fingerprint === 'string' ? entry.fingerprint : null,
+          status: 'unavailable',
+          reason: 'CREDENTIAL_STORE_FAILED',
+          checkedAt: now(),
+        });
+        continue;
+      }
+      try {
+        out.push(await status(entry.id, entry));
+      } catch {
+        // A single entry that cannot be measured must not take the whole
+        // list down: the other references still have a measured status.
+        out.push({
+          id: entry.id,
+          name: entry.name,
+          purpose: entry.purpose,
+          provider: entry.provider,
+          fingerprint: entry.fingerprint,
+          status: 'unavailable',
+          reason: 'CREDENTIAL_STORE_FAILED',
+          checkedAt: now(),
+        });
+      }
     }
+    // A reference that was DELETED while the walk was in progress is
+    // SKIPPED. The walk answered a question about a reference that no
+    // longer exists, so its answer is not about anything the reader can
+    // act on -- and keeping it would report a status for a credential the
+    // platform has already forgotten.
+    //
+    // The final read is best-effort: if the index cannot be read again the
+    // walk's own answers are kept, because a failed final read must not
+    // turn a good list into an error.
+    let live = null;
+    try {
+      live = new Set(loadCredentialIndex(indexFile).credentials.map((c) => c?.id));
+    } catch {
+      live = null;
+    }
+    if (live) return out.filter((s) => live.has(s.id));
     return out;
   }
 
@@ -646,7 +760,70 @@ export function createCredentialStore({ indexFile, backend } = {}) {
     status,
     /** ATS-213: the availability status of every credential. */
     statusAll,
-    /** 后端的可用性——界面上要显示「系统凭据库是否可用」。 */
+    /**
+     * 后端的可用性——界面上要显示「系统凭据库是否可用」。
+     *
+     * THIS IS A MEASUREMENT, NOT A PREDICTION. The backend's own
+     * `available()` answers "is this platform supported and is the helper
+     * script there" -- that is a fact about the FILESYSTEM, and it stays
+     * `true` when the helper cannot actually be launched (PowerShell not on
+     * PATH, the credential manager refuses the call). A UI that says
+     * 「系统凭据库已就绪」 on that basis is stating something nobody
+     * measured.
+     *
+     * `health()` therefore asks the store itself: it performs ONE real
+     * helper call and reports what came back. The three answers are
+     * distinct facts, and the caller branches on them:
+     *
+     *   - `ok`         -- the store answered;
+     *   - `unavailable`-- there is no store on this machine at all;
+     *   - `failed`     -- there is a store, and it did not answer.
+     */
+    health: async () => {
+      if (!resolvedBackend) return { state: 'unavailable', reason: 'CREDENTIAL_STORE_UNAVAILABLE' };
+      if (typeof resolvedBackend.available === 'function' && !(await resolvedBackend.available())) {
+        return { state: 'unavailable', reason: 'CREDENTIAL_STORE_UNAVAILABLE' };
+      }
+      // The probe is a REAL call into the store. It reads the BLOB SIZE of
+      // one entry, never the secret itself, so a probe does not pull a
+      // plaintext into the Bridge's memory.
+      const probe = typeof resolvedBackend.probe === 'function'
+        ? resolvedBackend.probe
+        : null;
+      if (!probe) {
+        // A backend without a probe cannot be measured. Report the honest
+        // answer: the store is there, but nothing was measured.
+        return { state: 'failed', reason: 'CREDENTIAL_STORE_FAILED' };
+      }
+      try {
+        // The probe is bounded: a store that hangs must not hang the
+        // health call, and a health call that hangs must not hang the
+        // page. A probe that cannot answer in time is `failed` -- the
+        // store is there, but it did not answer.
+        await Promise.race([
+          probe('ATS_PROBE_NOT_A_REAL_CREDENTIAL'),
+          new Promise((_, reject) => setTimeout(
+            () => reject(new Error('CREDENTIAL_STORE_FAILED')), CREDENTIAL_PROBE_TIMEOUT_MS,
+          )),
+        ]);
+        return { state: 'ok', reason: 'CREDENTIAL_FOUND' };
+      } catch (error) {
+        const reason = credentialStatusReasonOf(error);
+        if (reason === 'CREDENTIAL_STORE_UNAVAILABLE') return { state: 'unavailable', reason };
+        // The probe found no entry -- which is the EXPECTED answer for a
+        // target that does not exist, and it proves the store answered.
+        if (reason === 'CREDENTIAL_NOT_FOUND') return { state: 'ok', reason: 'CREDENTIAL_FOUND' };
+        return { state: 'failed', reason };
+      }
+    },
+    /**
+     * 后端的可用性——界面上要显示「系统凭据库是否可用」。
+     *
+     * This is the PREDICTION the backend can make without I/O: is there a
+     * backend for this platform, and is its helper script present? It says
+     * nothing about whether the store ANSWERS -- `health()` is what answers
+     * that question.
+     */
     available: async () => {
       if (!resolvedBackend) return false;
       if (typeof resolvedBackend.available !== 'function') return true;

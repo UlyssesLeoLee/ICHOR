@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：204；已执行通过：190；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：208；已执行通过：194；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -228,6 +228,10 @@
 |IT-ATS214-033|FR-021|异常|预检失败的批次也落到终态|没有 node_modules 的项目，两个文件|批次 status=failed；finishedAt 有值；error 写明原因——不是永远 running|node --test tests/ats214-batch-context.test.mjs|PASS|
 |IT-ATS214-034|FR-021|异常|批次进行中 Bridge 被杀，该批次被标为中断|强杀 Bridge 后在同一数据目录重启|批次 status 不再是 running；finishedAt 有值|node --test tests/ats214-batch-context.test.mjs|PASS|
 |IT-ATS214-035|FR-021|正常|批次记录对账「选了什么/跑了什么」|跨两个文件的选择真的跑完|reconciliation.selected=2；missing 为空（跨两个 run 计算）；extra 报告多跑的那些（整文件执行）——不藏起来|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS213-008|FR-027|正常|凭据形状的变量名带**引用**时档案存得下|POST /api/projects/<id>/env，API_TOKEN={"credentialRef":"cred_…"}|200；档案的公开视图带变量名 API_TOKEN，不带任何值|node --test|PASS|
+|IT-ATS213-009|FR-027|安全|凭据形状的变量名带**明文**时被拒|POST /api/projects/<id>/env，API_TOKEN=<明文>|400 ENV_VARIABLE_NOT_ALLOWED；拒绝理由指向凭据引用而不是明文|node --test|PASS|
+|IT-ATS213-010|FR-027|异常|引用解析不了时**拒绝启动**|档案引用一个不存在的 cred_…，然后发起运行|运行不被接受（不是 202）；404 CREDENTIAL_REF_NOT_FOUND，带变量名与引用 id，不带密钥|node --test|PASS|
+|IT-ATS213-011|NFR-009|安全|运行记录里没有密钥|扫描 /api/runs 的每一条记录|没有任何一条记录含密钥|node --test|PASS|
 
 ## 进入与退出条件
 

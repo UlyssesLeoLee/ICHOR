@@ -60,7 +60,7 @@
  * the "配置不进入 Git" half of the acceptance criterion.
  */
 import crypto from 'node:crypto';
-import { checkEnvName, isCredentialShapedName } from './whitelist.mjs';
+import { checkEnvName, isCredentialShapedName, parseCredentialRef } from './whitelist.mjs';
 
 /** The separator between the parts of a UID seed; a NUL cannot occur in a name. */
 const NUL = '\u0000';
@@ -283,12 +283,24 @@ export function normaliseVariables(variables, { whitelist = null, reserved = RES
     }
     if (whitelist !== null) {
       // The whitelist check carries BOTH rules: the name has to be
-      // authorised, and it must not be credential-shaped. A credential
-      // belongs in the credential store, not in a profile -- a profile
-      // lives in the run assets, which are archived and mirrored.
-      const check = checkEnvName(name, whitelist);
+      // authorised, and it must not carry a plaintext credential.
+      //
+      // A credential-shaped name may carry a credential REFERENCE instead
+      // of a literal value. The reference is stored in the profile and
+      // resolved against the system credential store when the run starts;
+      // the profile never holds the secret, so it is safe to keep in the
+      // run assets, the SQLite mirror and the evidence archive.
+      const ref = parseCredentialRef(rawValue);
+      const check = checkEnvName(name, whitelist, ref);
       if (!check.allowed) {
         rejected.push({ name, reason: check.reason });
+        continue;
+      }
+      if (ref) {
+        // The stored value is the REFERENCE, in its canonical form. The
+        // shorthand `cred:<id>` is stored as the explicit object so a
+        // reader of the profile sees one shape, not two.
+        out[name] = { credentialRef: ref.id };
         continue;
       }
     }
@@ -349,7 +361,13 @@ export function filterProfileVariables(profile, whitelist, { reserved = RESERVED
       out[name] = value;
       continue;
     }
-    const check = checkEnvName(name, whitelist);
+    // A credential REFERENCE is carried through the filter untouched: it
+    // names an entry in the credential store, and the run resolves it
+    // against the store when the runner starts. A reference is not a
+    // plaintext value, so the whitelist rule about credential-shaped names
+    // does not refuse it.
+    const ref = parseCredentialRef(value);
+    const check = checkEnvName(name, whitelist, ref);
     if (!check.allowed) {
       refused.push({ name, reason: check.reason });
       continue;
