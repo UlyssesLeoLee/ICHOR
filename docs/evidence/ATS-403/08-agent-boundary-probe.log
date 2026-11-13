@@ -1,8 +1,6 @@
-$ node tools/ats401-probes/probe-agent-boundary.mjs
-
 === ATS-401 probe: Agent contract v1 permission boundary ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-523214e38fd6\worktree
-work root : C:\Users\seiko\AppData\Local\Temp\multica-task-1061086181\ats401-probes
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-3baf21bbb5a5\worktree
+work root : C:\Users\seiko\AppData\Local\Temp\multica-task-3684941809\ats401-probes
 
 --- signal 1a: static analysis of server/agent.mjs ---
   imports: node:crypto, node:path

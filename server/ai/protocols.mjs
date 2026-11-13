@@ -3,7 +3,7 @@
  *
  * 「至少两种兼容协议可配置」是本任务的完成定义之一。这里的「协议」指的是
  * **模型 API 的请求/响应形状**，不是传输方式：两种协议都用 HTTPS + JSON，
- * 但请求体字段、认证头、响���里取文本的位置完全不同。
+ * 但请求体字段、认证头、响应里取文本的位置完全不同。
  *
  * 本模块实现两种：
  *
@@ -97,6 +97,13 @@ export function validateProtocolConfig(protocol, config = {}) {
   if (typeof baseUrl !== 'string' || !/^https?:\/\//i.test(baseUrl)) {
     throw aiError('AI_PROVIDER_CONFIG_INVALID', 'baseUrl must be an http(s) URL');
   }
+  // The secret travels in a header, so a plain `http://` endpoint would send
+  // it in clear text. It is therefore allowed ONLY for a loopback address
+  // (a provider running on this machine); anywhere else https is required.
+  if (/^http:\/\//i.test(baseUrl) && !isLoopbackUrl(baseUrl)) {
+    throw aiError('AI_PROVIDER_CONFIG_INVALID',
+      'baseUrl must use https, except for a loopback address');
+  }
   if (config.credentialId !== undefined && config.credentialId !== null
     && !/^cred_[0-9a-f]{24}$/.test(String(config.credentialId))) {
     throw aiError('AI_PROVIDER_CONFIG_INVALID', 'credentialId must be a credential reference id');
@@ -121,6 +128,12 @@ export function validateProtocolConfig(protocol, config = {}) {
     || temperature < 0 || temperature > 2) {
     throw aiError('AI_PROVIDER_CONFIG_INVALID', 'temperature must be a number between 0 and 2');
   }
+  // Anthropic's own range is 0..1. A value above it is refused rather than
+  // silently clamped, so the caller learns the request was never made.
+  if (protocol === 'anthropic-messages' && temperature > 1) {
+    throw aiError('AI_PROVIDER_CONFIG_INVALID',
+      'temperature must be between 0 and 1 for the anthropic-messages protocol');
+  }
   return {
     protocol,
     baseUrl: baseUrl.replace(/\/+$/, ''),
@@ -133,11 +146,35 @@ export function validateProtocolConfig(protocol, config = {}) {
 }
 
 /**
+ * 协议配置的**允许**的额外请求头。
+ *
+ * 这是一份**白名单**：配置里能写的头只有下面这几个名字。白名单而不是
+ * 黑名单，是因为「认证类请求头」的名字没有穷举——`authorization`、
+ * `x-api-key`、`api-key`、`x-goog-api-key`……每加一个网关就多一个名字。
+ * 黑名单只能挡住已经想到的，因此本模块改成白名单：**没在下面名单里的头
+ * 一律拒绝**。
+ *
+ * 名单里的每个名字都不是认证头：
+ *   - `anthropic-version`   Anthropic 的协议版本（不是凭据）；
+ *   - `openai-organization` / `openai-project`  OpenAI 的组织/项目路由；
+ *   - `x-request-id` / `x-correlation-id`  链路追踪 id；
+ *   - `x-tenant`  多租户标识。
+ */
+export const ALLOWED_PROVIDER_HEADERS = Object.freeze([
+  'anthropic-version',
+  'openai-organization',
+  'openai-project',
+  'x-request-id',
+  'x-correlation-id',
+  'x-tenant',
+]);
+
+/**
  * 额外的请求头。
  *
- * **只允许**一组固定的名字，且**禁止** `authorization` / `x-api-key`：
- * 认证头由协议层从凭据库解析出的密钥构造，配置里再写一份就等于有两个
- * 密钥来源，而「用哪个」这件事必须是确定的。
+ * **只允许** `ALLOWED_PROVIDER_HEADERS` 里的名字。认证头（`authorization`、
+ * `x-api-key`、`api-key`、`x-goog-api-key` 等）**不在名单里**，因此配置
+ * 无法提供第二个密钥来源——「用哪个」这件事必须是确定的。
  */
 export function sanitizeHeaders(headers) {
   if (headers === undefined || headers === null) return {};
@@ -149,9 +186,9 @@ export function sanitizeHeaders(headers) {
     if (!/^[A-Za-z0-9-]{1,64}$/.test(name)) {
       throw aiError('AI_PROVIDER_CONFIG_INVALID', `the header name ${name} is invalid`);
     }
-    if (/^(authorization|x-api-key|cookie|host|content-length)$/i.test(name)) {
+    if (!ALLOWED_PROVIDER_HEADERS.includes(name.toLowerCase())) {
       throw aiError('AI_PROVIDER_CONFIG_INVALID',
-        `the header ${name} may not be set by the configuration`);
+        `the header ${name} is not allowed; the allowed headers are ${ALLOWED_PROVIDER_HEADERS.join(', ')}`);
     }
     if (typeof value !== 'string' || value.length > 512 || /[\r\n]/.test(value)) {
       throw aiError('AI_PROVIDER_CONFIG_INVALID', `the header ${name} has an invalid value`);
@@ -159,6 +196,17 @@ export function sanitizeHeaders(headers) {
     out[name] = value;
   }
   return out;
+}
+
+/** 端点是不是一个回环地址（本机）。 */
+export function isLoopbackUrl(baseUrl) {
+  try {
+    const parsed = new URL(String(baseUrl));
+    const host = parsed.hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+  } catch {
+    return false;
+  }
 }
 
 /** 每个协议的默认端点。 */
@@ -205,14 +253,23 @@ export function buildProtocolBody(protocol, request, config) {
   }
 
   if (protocol === 'anthropic-messages') {
-    const messages = [{ role: 'user', content: userContent }];
+    // The instructions go into `system` and the inputs into the user message.
+    // They are NOT concatenated: the same rule as the openai protocol, where
+    // the instructions are the system message and the inputs the user one.
+    // Concatenating them would put the instructions inside the user turn,
+    // which is exactly the "the model treats the input as an instruction"
+    // confusion ATS-401 forbids.
+    const messages = [{ role: 'user', content: body }];
     const out = {
       model: config.model,
       max_tokens: config.maxTokens,
       messages,
     };
     if (normalized.instructions) out.system = normalized.instructions;
-    if (config.temperature !== 0) out.temperature = config.temperature;
+    // The temperature is ALWAYS sent, including 0: omitting it would let the
+    // provider fall back to its own default (Anthropic's is 1.0), so the
+    // caller would get a different sampling than the one it asked for.
+    out.temperature = config.temperature;
     return out;
   }
 
@@ -231,11 +288,17 @@ export function buildProtocolHeaders(protocol, config, apiKey) {
     accept: 'application/json',
     ...config.headers,
   };
+  if (protocol === 'anthropic-messages') {
+    // `anthropic-version` is a PROTOCOL header, not a credential: it says
+    // which version of the API is being spoken. It is therefore sent
+    // whether or not a key is present -- a request without a key must not
+    // be rejected for a missing protocol header.
+    headers['anthropic-version'] = '2023-06-01';
+  }
   if (typeof apiKey === 'string' && apiKey.length) {
     if (protocol === 'openai-chat') headers.authorization = `Bearer ${apiKey}`;
     else if (protocol === 'anthropic-messages') {
       headers['x-api-key'] = apiKey;
-      headers['anthropic-version'] = '2023-06-01';
     } else {
       throw aiError('AI_PROVIDER_CONFIG_INVALID', `unsupported protocol ${protocol}`);
     }

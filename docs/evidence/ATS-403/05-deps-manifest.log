@@ -1,5 +1,3 @@
-$ npm run deps:manifest:check
-
 npm notice run ai-test-studio@0.1.0 deps:manifest:check
 npm notice run node tools/gen_dep_manifest.mjs --check
 RESULT: OK -- the committed dependency manifest matches the lockfiles.

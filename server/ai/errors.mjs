@@ -32,15 +32,27 @@ export const AI_ERROR_CODES = Object.freeze([
   'AI_STEPS_EXCEEDED',
   'AI_EGRESS_DENIED',
   'AI_CREDENTIAL_UNAVAILABLE',
+  'AI_AUDIT_UNAVAILABLE',
   'AI_CHILD_FAILED',
 ]);
 
-/** 可以回退到下一个提供商的错误码。 */
+/**
+ * 可以回退到下一个提供商的错误码。
+ *
+ * `AI_PROVIDER_OUTPUT_INVALID` 在其中：提供商**答了**，但答出来的东西用不了
+ * （内容被截断、或没有可取的文本）。这通常是**该提供商**的输出上限造成的
+ * （不同提供商的实际上限不同），因此换一个提供商有可能答得出来——这正是
+ * 回退链存在的意义。
+ *
+ * `AI_PROVIDER_RESPONSE_INVALID`（根本不是 JSON，即该端点不说这个协议）
+ * **不在**其中：不说话的端点换个提供商也不会开始说话。
+ */
 export const RETRYABLE_AI_ERROR_CODES = Object.freeze([
   'AI_PROVIDER_TIMEOUT',
   'AI_PROVIDER_RATE_LIMITED',
   'AI_PROVIDER_UNAVAILABLE',
   'AI_PROVIDER_SERVER_ERROR',
+  'AI_PROVIDER_OUTPUT_INVALID',
 ]);
 
 /**
@@ -62,6 +74,29 @@ export function aiError(code, reason, details) {
 /** 这个错误是否应该回退到下一个提供商。 */
 export function isRetryableAiError(error) {
   return Boolean(error) && RETRYABLE_AI_ERROR_CODES.includes(error.code);
+}
+
+/**
+ * 从一段文本里抹掉一个密钥。
+ *
+ * 提供商的错误正文会**回显**它收到的密钥——兼容网关这么做很常见（OpenAI
+ * 的 `Incorrect API key provided: sk-...` 就是如此）。错误正文会经由
+ * `message` → `details.attempts[].reason` 一路回到客户端，因此**必须**在
+ * 传输层就把本次解析出的密钥抹掉，否则「密钥不进错误消息」这条声明不成立。
+ *
+ * 抹除是**按本次请求实际解析出的那把密钥**做的，不是按形状猜的：形状猜测
+ * 会漏掉没有固定前缀的密钥，也会误伤正常的错误文本。
+ *
+ * @param {string} text  待处理的文本
+ * @param {string|null} secret  本次解析出的密钥（可为空）
+ * @returns {string} 处理后的文本
+ */
+export function redactSecret(text, secret) {
+  if (typeof text !== 'string' || !text.length) return '';
+  if (typeof secret !== 'string' || !secret.length) return text;
+  // The secret is replaced wherever it appears. The placeholder is fixed so
+  // a redacted message never carries the length of the original secret.
+  return text.split(secret).join('[redacted]');
 }
 
 /**
@@ -88,6 +123,7 @@ export const AI_STATUS_FOR_CODE = Object.freeze({
   AI_STEPS_EXCEEDED: 429,
   AI_EGRESS_DENIED: 403,
   AI_CREDENTIAL_UNAVAILABLE: 503,
+  AI_AUDIT_UNAVAILABLE: 503,
   AI_PROVIDER_UNAVAILABLE: 503,
   AI_PROVIDER_RATE_LIMITED: 429,
   AI_PROVIDER_TIMEOUT: 504,

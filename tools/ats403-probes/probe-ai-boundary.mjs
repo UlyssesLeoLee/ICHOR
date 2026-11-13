@@ -277,7 +277,10 @@ console.log('# signal 4 -- RUNTIME: a failure leaves the working tree byte-ident
   } catch (error) {
     code = error.code;
   }
-  check('the rate limit is reported', code === 'AI_FALLBACK_EXHAUSTED', String(code));
+  // Every attempt failed with the same code, so THAT (actionable) code is
+  // reported -- not the generic "the chain was exhausted", which would hide
+  // the fact that the caller should retry later.
+  check('the rate limit is reported', code === 'AI_PROVIDER_RATE_LIMITED', String(code));
   const after = treeDigest(project);
   check('the working tree is byte-identical after a rate limit', JSON.stringify(after) === JSON.stringify(before));
 }

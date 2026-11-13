@@ -23,7 +23,7 @@ export {
   classifyProviderStatus,
 } from './errors.mjs';
 
-import { AI_ERROR_CODES, RETRYABLE_AI_ERROR_CODES } from './errors.mjs';
+import { AI_ERROR_CODES, AI_STATUS_FOR_CODE, RETRYABLE_AI_ERROR_CODES } from './errors.mjs';
 import { AI_PROTOCOLS } from './protocols.mjs';
 
 export {
@@ -65,10 +65,15 @@ export function describeAiAdapter() {
     protocols: [...AI_PROTOCOLS],
     errorCodes: [...AI_ERROR_CODES],
     retryableErrorCodes: [...RETRYABLE_AI_ERROR_CODES],
+    // The status table is PUBLISHED, so the documentation cannot drift from
+    // the code that uses it: there is one table and it is exposed.
+    statusByCode: { ...AI_STATUS_FOR_CODE },
     fallbackPolicy: 'A provider is tried at most once. Only a retryable error moves the chain to the next provider; an auth, configuration or request error fails immediately.',
-    secretPolicy: 'A provider configuration may only carry a credential REFERENCE. The secret is read from the credential store at the moment the request is sent and never enters the configuration, the URL, the request body or a log.',
-    egressPolicy: 'The egress gate runs BEFORE the request: without a granted consent whose scope still matches the content, no file is read, no secret is resolved and no request is sent.',
+    secretPolicy: 'A provider configuration may only carry a credential REFERENCE. The secret is read from the credential store at the moment the request is sent and never enters the configuration, the URL, the request body or a log. A provider that ECHOES the key back in its error body has it redacted before the message leaves the adapter.',
+    egressPolicy: 'The egress gate runs BEFORE the request: without a granted consent whose scope still matches the content, no file is read, no secret is resolved and no request is sent. The content that is sent is the content the gate read and verified against the consent, not the content supplied by the caller.',
     workspacePolicy: 'The adapter layer writes no file: a timeout or a rate limit leaves the working tree byte-identical.',
-    stepPolicy: 'maxSteps is enforced as a hard bound: the step budget running out is reported as AI_STEPS_EXCEEDED.',
+    stepPolicy: 'maxSteps is enforced as a hard bound: the step budget running out is reported as AI_STEPS_EXCEEDED. A failure that cannot be recovered by trying another provider keeps its own error code instead of being relabelled as AI_STEPS_EXCEEDED.',
+    deadlinePolicy: 'When a deadline is set, the time that is left is divided among the providers still to try, so one hanging provider cannot consume the whole budget.',
+    providerSource: 'A call uses the CONFIGURED providers only. A request body cannot supply a provider list or an endpoint.',
   };
 }

@@ -29,7 +29,7 @@ import { createEgressAuditStore,describeEgressAudit } from './security/egress-au
 // wires them into the Bridge's API surface.
 import {
  AI_ADAPTER_CONTRACT_VERSION, AI_ERROR_CODES, AI_PROTOCOLS, AI_STATUS_FOR_CODE,
- aiError, createModelService, describeAiAdapter, explainAiError,
+ aiError, createModelService, describeAiAdapter, explainAiError, validateProtocolConfig,
 } from './ai/index.mjs';
 // ATS-106: the run preflight and the test filter check (docs/26-RUNNER-PREFLIGHT.md).
 import { preflightPlaywright } from './adapters/playwright-preflight.mjs';
@@ -2159,6 +2159,14 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   // Configure a provider. The configuration may only carry a credential
   // REFERENCE: a plaintext key in the configuration would end up in
   // state.json, which is a file on disk.
+  //
+  // The configuration is FULLY VALIDATED BEFORE it is stored: the same
+  // `validateProtocolConfig` the adapter uses at call time runs here, so an
+  // illegal endpoint, an illegal token budget, a malformed credential
+  // reference or a header that is not on the allow-list is refused with
+  // 400 and NEVER reaches the state file. Validating only at call time
+  // would leave an unusable (or a secret-bearing) configuration sitting in
+  // state.json, and `GET /api/ai/providers` would hand it back.
   const b=await body(req);
   const id=typeof b.id==='string'?b.id.trim():'';
   if(!id)throw new Error('AI_PROVIDER_CONFIG_INVALID');
@@ -2168,7 +2176,13 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   if(typeof config!=='object'||Array.isArray(config))throw new Error('AI_PROVIDER_CONFIG_INVALID');
   // A secret in the configuration is refused BEFORE it is written anywhere.
   if(config.apiKey!==undefined||config.secret!==undefined)throw new Error('AI_PROVIDER_CONFIG_INVALID');
-  const entry={id,protocol,config};
+  // The validation result is what gets STORED, not the raw request: the
+  // stored configuration is the normalised one (default model, default
+  // endpoint, sanitised headers), so what is read back is exactly what will
+  // be sent.
+  let validated;
+  try{validated=validateProtocolConfig(protocol,config);}catch{throw new Error('AI_PROVIDER_CONFIG_INVALID');}
+  const entry={id,protocol,config:validated};
   const existing=store.aiProviders.findIndex((e)=>e.id===id);
   if(existing>=0)store.aiProviders[existing]=entry;else store.aiProviders.push(entry);
   saveState(store);
@@ -2187,9 +2201,16 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   // whose scope still matches the content, no file is read, no secret is
   // resolved and NO request leaves the machine. A timeout or a rate limit
   // leaves the working tree byte-identical.
+  //
+  // The provider list comes from the CONFIGURED providers only. A request
+  // body may NOT carry `providers` (or a `baseUrl`): an ad-hoc provider
+  // named in the request body would let any caller send the consented
+  // content to an endpoint of its choosing, which the consent never
+  // covered. The configured providers are the ones the operator put there.
   const b=await body(req);
+  if(b.providers!==undefined)throw new Error('AI_PROVIDER_CONFIG_INVALID');
   const inputs=Array.isArray(b.inputs)?b.inputs:[];
-  const providers=b.providers===undefined?aiProviders():(Array.isArray(b.providers)?b.providers:[]);
+  const providers=aiProviders();
   const request=b.request===undefined||b.request===null?{}:b.request;
   const result=await modelService.complete({
    projectId:b.projectId,inputs,consentId:b.consentId,providers,request,

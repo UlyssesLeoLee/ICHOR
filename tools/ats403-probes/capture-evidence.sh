@@ -17,18 +17,30 @@ cd "$ROOT"
 run() {
   local name="$1"; shift
   local log="$OUT/$name.log"
-  # The exit code is captured from the command itself, not from the pipeline
-  # (a pipeline reports the exit code of its LAST command, which would be
-  # `tee` and always 0 -- a failing step would then look like a passing one).
+  # The exit code is captured from the command itself, not from the pipeline.
+  #
+  # A brace group on the left of a pipe runs in a SUBSHELL, so `rc=$?`
+  # inside it would never reach the caller and every failing step would be
+  # reported as "captured" -- which is exactly the bug this function had
+  # (the ATS-101 port audit exited 1 and the script still said
+  # "RESULT: OK -- every step exited 0").
+  #
+  # The command's output goes to a temp file, the status is read from the
+  # command itself, and the log is assembled afterwards.
+  local raw="$OUT/.raw-$name"
   local rc=0
   {
     echo "\$ $*"
     echo
-    "$@" 2>&1
+    "$@" >"$raw" 2>&1
     rc=$?
+  }
+  {
+    cat "$raw"
     echo
     echo "--- exit: $rc ---"
   } | tee "$log" >/dev/null
+  rm -f "$raw"
   if [ "$rc" -ne 0 ]; then
     echo "FAILED ($rc) $name.log -- see $log"
     FAILED=$((FAILED + 1))
@@ -47,6 +59,11 @@ run 02-ai-api-it node --test tests/ai-api.test.mjs
 
 # 3. the boundary probe (with its negative controls)
 run 03-ai-boundary-probe node tools/ats403-probes/probe-ai-boundary.mjs
+
+# 3b. the round-2 regression probe: every counterexample from the round-1
+# review, turned into a check that must stay green (plus its negative
+# controls).
+run 03b-ai-round2-probe node tools/ats403-probes/probe-ai-round2.mjs
 
 # 4. the full suite -- the ATS-403 tests must not break anything else
 run 04-full-test-suite npm test

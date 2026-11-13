@@ -1,5 +1,3 @@
-$ node tools/ats403-probes/probe-ai-boundary.mjs
-
 # signal 1 -- STATIC: the adapter layer does not write a secret anywhere
 ok   server/ai/errors.mjs: no secret-to-file -- secret-to-file
 ok   server/ai/errors.mjs: no secret-to-argv -- secret-to-argv
@@ -36,10 +34,10 @@ ok   a plaintext key in the configuration is refused
 ok   the call is refused with AI_EGRESS_DENIED -- AI_EGRESS_DENIED
 ok   the provider was never reached
 # signal 3 -- NEGATIVE CONTROL: a gate that always allows must be detected
-ok   the always-allow gate does NOT produce AI_EGRESS_DENIED -- AI_FALLBACK_EXHAUSTED
-ok   the always-allow gate let the request through to the provider -- AI_FALLBACK_EXHAUSTED
+ok   the always-allow gate does NOT produce AI_EGRESS_DENIED -- AI_PROVIDER_UNAVAILABLE
+ok   the always-allow gate let the request through to the provider -- AI_PROVIDER_UNAVAILABLE
 # signal 4 -- RUNTIME: a failure leaves the working tree byte-identical
-ok   the rate limit is reported -- AI_FALLBACK_EXHAUSTED
+ok   the rate limit is reported -- AI_PROVIDER_RATE_LIMITED
 ok   the working tree is byte-identical after a rate limit
 # signal 4 -- RUNTIME: a timeout leaves the working tree byte-identical
 ok   the timeout is reported -- AI_PROVIDER_TIMEOUT

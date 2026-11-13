@@ -1,0 +1,32 @@
+ok   P1: the provider receives the CONSENTED content, not the caller's -- sent=1 consented=true unconsented=false
+ok   P1: the audit names what was actually sent -- granted items=["a.spec.ts"]
+ok   P2: a provider that always answers 200 makes executeSteps SUCCEED -- err=undefined steps=1 fetchCalls=1
+ok   P3a: the anthropic body carries the temperature even when it is 0 -- has temperature=true value=0
+ok   P3b: the anthropic instructions and inputs stay apart -- system="INSTR" user="--- input file a ---\nINPUT"
+ok   P3c: the anthropic temperature range is enforced
+ok   P4: a truncated answer moves the chain on to the next provider -- err=undefined provider=B tried=A,B
+ok   P5: a provider that echoes the key does not leak it -- leaked=false redacted=true
+ok   P6: a hanging provider does not consume the whole deadline -- err=undefined provider=B tried=A,B
+ok   P7: a missing audit store is VISIBLE, not silently swallowed -- allowed=null code=AI_AUDIT_UNAVAILABLE
+ok   S1: a secret in an authorization header is refused and never stored -- POST -> 400
+ok   S2: a secret in an api-key header is refused and never stored -- POST -> 400
+ok   S3: an illegal provider configuration is refused and never stored -- POST -> 400
+ok   S3b: a valid provider configuration is accepted -- POST -> 201
+ok   S4: the provider receives the consented content, end to end over HTTP -- -> 200 consented=true unconsented=false
+ok   S4b: the audit trail names exactly what left the machine -- granted items=["tests/home.spec.ts"]
+ok   S4c: a call may not carry its own provider list -- -> 400
+ok   S5: the 401 provider is configured -- POST -> 201
+ok   S5: the status of an auth failure is the one the published table says -- -> 502 AI_PROVIDER_AUTH_FAILED, the table says 502
+# NEGATIVE CONTROL: the payload binding must be blind to a broken binding
+ok   the payload-binding detector alarms on the round-1 defect -- broken=true fixed=false
+# NEGATIVE CONTROL: the header allow-list must reject a secret header
+ok   the allow-list detector alarms on an auth header -- an auth header must be refused, a benign header must not
+# NEGATIVE CONTROL: the redaction detector must alarm on a leaked key
+ok   the redaction detector alarms on an unredacted key -- the control must contain the key
+# NEGATIVE CONTROL: the deadline sharing must be visible
+ok   the deadline detector sees an expired deadline -- the control must be expired
+
+checks: 23, failures: 0
+RESULT: OK
+
+--- exit: 0 ---
