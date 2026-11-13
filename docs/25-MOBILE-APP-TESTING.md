@@ -712,9 +712,12 @@ ATS-603 的验收必须在**真实 Android 模拟器**上跑通下列四类步�
 （`assertNotVisible` 就是一条）。
 §8.5 的表由 `tools/ats606-probes/gen-section-rows.mjs` 生成，
 其中「导入器实际处理」「参数保真」「计数」三列**全部是测量的结果**；
-**分组**也是**推导**出来的——「语义能不能表达」与「命令形态对不对」由
-Maestro 的**字节码**回答（`tools/ats606-probes/maestro-action-model.mjs`），
-只有「哪个步骤种类表达这个动作」是一张**小表**（`ACTION_PLATFORM`）。
+**分组**也是**推导**出来的——「命令形态对不对」由 Maestro 的**字节码**回答
+（`tools/ats606-probes/maestro-action-model.mjs`），
+「哪个步骤种类表达这个动作」由一张**小表**（`ACTION_PLATFORM`）给出。
+**这张小表是链上唯一的人判**，所以它不是被当成事实使用，而是**被检查**：
+§8.3 的两条规则（R1 等待不决定分组、R2 配对命令两边都带配对）在**表上**检查，
+破规则的表被探针与生成器**拒绝**用来推出判定。
 手写的表会漂移，所以表由脚本生成、由脚本复核。
 
 **参数保真一列也是实测的**：生成器把每个**模型外参数**逐个实跑一遍导入器，
@@ -758,7 +761,7 @@ Maestro 的**字节码**回答（`tools/ats606-probes/maestro-action-model.mjs`�
 > |---|---|---|
 > | Maestro 的**拼写** | 「导入器实际处理」 | 拼写是导入侧的事实；语义能表达而拼写不被接受，正是要分两侧记的原因 |
 > | **参数保真**（哪些参数在模型外） | 「参数保真」 | 参数多少不改变这一步**做什么** |
-> | **等待语义**（7 秒 vs 5000 ms） | 「说明」 | 等待长短不改变这一步**是什么** |
+> | **等待语义**（Maestro 的断言默认等待上限 17000 ms vs 本平台 5000 ms） | 「说明」 | 等待长短不改变这一步**是什么** |
 >
 > **这两条口径是机读的**（`tools/ats606-probes/maestro-action-model.mjs`）：
 > 「语义能不能表达」与「命令形态对不对」都由 **Maestro 的字节码**回答——
@@ -766,8 +769,22 @@ Maestro 的**字节码**回答（`tools/ats606-probes/maestro-action-model.mjs`�
 > `YamlFluentCommand._toCommands` 的字节码里读出来的；
 > 「哪一步骤种类表达这个动作」由一张小表给出
 > （`ACTION_PLATFORM`）；两者一合，判定就**推导**出来了，
-> 不是逐条手写的。表里的一行**不可能**与这条口径矛盾——
-> 复核脚本会从字节码重新推导每一行的判定并与文档比对。
+> 不是逐条手写的。
+>
+> **这张小表是链上唯一的人判**，复核脚本**核对它的性质**而不是替它判断：
+>
+> * **R1（等待不决定分组）**：等待条目的判定必须与**同一个条件**的普通断言
+>   同组、同步骤种类。等待是动作的**属性**，不是另一种条件——
+>   `extendedWaitUntil` 与 `assertVisible` 编译成**同一个** orchestra 命令类
+>   （`AssertConditionCommand`），它构造的 `Condition` 与普通断言同形，
+>   只是多传一个可配的 `timeout`。超时是**属性**，不进分组键。
+> * **R2（配对命令两边都带配对）**：Maestro 的「开始/结束」是一**对**命令，
+>   本平台是**单步**⇒ 命令形态不同。两半**都**必须带 `form: 'paired'`；
+>   而且**只有**实测出来的配对才允许带它（配对关系由字节码的字段名读出：
+>   `start<V>` 与 `stop<V>` 都存在才算一对）。
+>
+> 两条规则都是**表整体**的性质，所以**在表上**检查：破坏其中任何一条的表，
+> 探针与生成器都**拒绝**用它推出判定——不是先生成一张表再事后纠正。
 
 > **本平台不做 Maestro Flow 语法的兼容层**（§1.2 已定）。
 > 所以「可映射」的含义是「**语义**能落到本平台的步骤种类」，
@@ -905,19 +922,19 @@ Maestro CLI 2.12.1 实际接受 **55 条命令**（由 `maestro check-syntax` �
 
 | Maestro 命令 | 本平台对应步骤种类 | ATS-602 导入器对 Maestro 原拼写的实际处理 | 参数保真 | 说明 |
 |---|---|---|---|---|
-| `assertNotVisible` | `assertVisible` + `notVisible` 限定词 | 进导入报告：`unknown-command` | Maestro 的参数共 25 个（其中模型外 22 个）——**实测**：Maestro 的拼写 `assertNotVisible` 不在 ATS-602 的语义拼写表里，导入器在读参数**之前**就判 `unknown-command`（0 条告警），⇒ 本平台的参数保真**对本命令不适用** | 语义：断言元素**不可见**——本平台**能表达**这个语义，命令形态也与 Maestro 一致（都是一步断言）：线性语法 `assert notVisible "X"` 实测映射为 `assertVisible{notVisible}`，YAML 用 `assert:` 块；Runner 按限定词区分两种断言（`visible` 失败于元素缺失，`notVisible` 失败于元素存在，见 `android-runner.mjs` 的 `assertVisible`）。**拼写不被接受属于导入侧**：Maestro 的拼写 `assertNotVisible` 不在 ATS-602 的语义拼写表里，导入时按 `unknown-command` 进导入报告——这不改变分组。**等待语义不完全等价**（`notVisible` 在本平台的等待上限是 `min(5000, 2000)` ms，Maestro 是 7 秒 fluent 重试）。 |
-| `assertVisible` | `assertVisible` | 映射成功 → `assertVisible` | 在模型内：`text` / `id` / `index`；模型外 22 个（相对定位 / 状态过滤 / 尺寸容差等）——**实测**（模型外参数逐个实跑导入器）：与模型内目标同时给出时 22/22 条保留原文并告警、整步仍映射；只给模型外参数时 22/22 条整步判 `missing-argument`。**逐个**：只给这些时整步判 `missing-argument`：`width` / `height` / `tolerance` / `retryTapIfNoChange` / `waitUntilVisible` / `point` / `below` / `above` / `leftOf` / `rightOf` / `containsChild` / `containsDescendants` / `traits` / `enabled` / `selected` / `checked` / `focused` / `repeat` / `delay` / `waitToSettleTimeoutMs` / `childOf` / `css`。**模型内但不是目标**的 1 个参数（`index`）：只给 `index` 时整步判 `missing-argument` | 语义：断言元素可见——本平台的断言形如 `{visible: <目标>}`，命令形态与 Maestro 的 `assertVisible` 一致（一步对一步，同一个动作）。**等待语义不完全等价**，但等待不决定分组：Maestro 的 fluent 断言固定重试 7 秒，本平台 Runner 的默认等待是 `DEFAULT_WAIT.timeoutMs = 5000`（ATS-603 的 `server/adapters/android-runner.mjs`，可由 Runner 选项覆盖）。差异记在本列与「参数保真」列。 |
-| `extendedWaitUntil` | `assertVisible` | 进导入报告：`unknown-command` | Maestro 的参数共 3 个（其中模型外 3 个）——**实测**：Maestro 的拼写 `extendedWaitUntil` 不在 ATS-602 的语义拼写表里，导入器在读参数**之前**就判 `unknown-command`（0 条告警），⇒ 本平台的参数保真**对本命令不适用** | 语义：等待元素**可见**或**不可见**。Maestro 的这条命令与 `assertVisible` / `assertNotVisible` **编译成同一个命令类**（`AssertConditionCommand`）——字节码里 `YamlFluentCommand.extendedWait` 构造的是 `AssertConditionCommand(Condition(visible | notVisible), timeout, label, optional)`，**只多一个可配的 timeout**。⇒ 本平台用 `assertVisible`（加 `visible` / `notVisible` 限定词）表达同一步，**命令形态一致（一步对一步）**；`timeout` 记在「参数保真」与本列（Maestro 的 7 秒 fluent 重试 vs 本平台 Runner 默认 5000 ms），**等待长短不改变这一步是什么，不参与分组**。Maestro 的拼写不在 ATS-602 的语义拼写表里，导入时按 `unknown-command` 进导入报告——这属于导入侧，不改变分组。 |
+| `assertNotVisible` | `assertVisible` + `notVisible` 限定词 | 进导入报告：`unknown-command` | Maestro 的参数共 25 个（模型外 22 个）——**实测**：Maestro 的拼写 `assertNotVisible` 不在 ATS-602 的语义拼写表里，导入器在读参数**之前**就判 `unknown-command`（0 条告警），⇒ 本平台的参数保真**对本命令不适用** | 语义：断言元素**不可见**——本平台**能表达**这个语义，命令形态也与 Maestro 一致（都是一步断言）：线性语法 `assert notVisible "X"` 实测映射为 `assertVisible{notVisible}`，YAML 用 `assert:` 块；Runner 按限定词区分两种断言（`visible` 失败于元素缺失，`notVisible` 失败于元素存在，见 `android-runner.mjs` 的 `assertVisible`）。**拼写不被接受属于导入侧**：Maestro 的拼写 `assertNotVisible` 不在 ATS-602 的语义拼写表里，导入时按 `unknown-command` 进导入报告——这不改变分组。**等待语义不完全等价**（`notVisible` 在本平台的等待上限是 `min(5000, 2000)` ms，Maestro 的断言默认等待上限是 `lookupTimeoutMs = 17000` ms）。 |
+| `assertVisible` | `assertVisible` | 映射成功 → `assertVisible` | 在模型内：`text` / `id` / `index`；模型外 22 个（相对定位 / 状态过滤 / 尺寸容差等）——**实测**（模型外参数逐个实跑导入器）：与模型内目标同时给出时 22/22 条保留原文并告警、整步仍映射；只给模型外参数时 22/22 条整步判 `missing-argument`。**逐个**：只给这些时整步判 `missing-argument`：`width` / `height` / `tolerance` / `retryTapIfNoChange` / `waitUntilVisible` / `point` / `below` / `above` / `leftOf` / `rightOf` / `containsChild` / `containsDescendants` / `traits` / `enabled` / `selected` / `checked` / `focused` / `repeat` / `delay` / `waitToSettleTimeoutMs` / `childOf` / `css`。**模型内但不是目标**的 1 个参数（`index`）：只给 `index` 时整步判 `missing-argument` | 语义：断言元素可见——本平台的断言形如 `{visible: <目标>}`，命令形态与 Maestro 的 `assertVisible` 一致（一步对一步，同一个动作）。**等待语义不完全等价**，但等待不决定分组：Maestro 断言的默认等待上限是 `lookupTimeoutMs = 17000` ms（`Orchestra` 构造器里 `ldc2_w 17000l`；`Orchestra.assertConditionCommand` 取 `timeoutMs() ?: lookupTimeoutMs`，`evaluateCondition` 再经 `adjustedToLatestInteraction` 扣除距上次交互的时间——所以它不是固定值），本平台 Runner 的默认等待是 `DEFAULT_WAIT.timeoutMs = 5000`（ATS-603 的 `server/adapters/android-runner.mjs`，可由 Runner 选项覆盖）。差异记在本列与「参数保真」列。 |
+| `extendedWaitUntil` | `assertVisible` | 进导入报告：`unknown-command` | Maestro 的参数共 3 个（模型外 3 个；其中 `visible` / `notVisible` 是本平台的**限定词**，不是新语义）——**实测**：Maestro 的拼写 `extendedWaitUntil` 不在 ATS-602 的语义拼写表里，导入器在读参数**之前**就判 `unknown-command`（0 条告警），⇒ 本平台的参数保真**对本命令不适用** | 语义：等待元素**可见**或**不可见**。Maestro 的这条命令与 `assertVisible` / `assertNotVisible` **编译成同一个命令类**（`AssertConditionCommand`）——字节码里 `YamlFluentCommand.extendedWait` 构造的是 `AssertConditionCommand(Condition(visible | notVisible), timeout, label, optional)`，**只多一个可配的 timeout**。⇒ 本平台用 `assertVisible`（加 `visible` / `notVisible` 限定词）表达同一步，**命令形态一致（一步对一步）**；`timeout` 记在「参数保真」与本列（Maestro 的断言默认等待上限 `lookupTimeoutMs = 17000` ms vs 本平台 Runner 默认 5000 ms），**等待长短不改变这一步是什么，不参与分组**。Maestro 的拼写不在 ATS-602 的语义拼写表里，导入时按 `unknown-command` 进导入报告——这属于导入侧，不改变分组。 |
 | `launchApp` | `launchApp` | 映射成功 → `launchApp` | 在模型内：`appId` / `clearState` / `permissions` / `arguments`；模型外：`clearKeychain` / `stopApp`——**实测**（模型外参数逐个实跑导入器）：与模型内目标同时给出时 2/2 条保留原文并告警、整步仍映射；只给模型外参数时 0/2 条整步判 `missing-argument`，其余 2/2 条仍映射（`launchApp` 的 `appId` 由 Flow 头继承）。**逐个**：只给这些时仍映射：`clearKeychain` / `stopApp`。**模型内但不是目标**的 3 个参数（`clearState` / `permissions` / `arguments`）：只给 `clearState` / `permissions` / `arguments` 时仍映射 | 语义：启动被测 App——命令形态与 Maestro 的 `launchApp` 一致（一步启动一个 App）。本平台的 `launchApp` 以 `appId` 为主参数（别名 `app`/`package`/`packageName`/`bundleId`），Flow 头部声明了 `appId` 时步骤可继承。Maestro 的 `launchApp` 还会按参数附带清 keychain / 清状态 / 设权限（`Orchestra.launchAppCommand` 的字节码里依次调用 `clearKeychain`→`clearAppState`→`setPermissions`→`launchApp`），**这三样本平台都没有对应步骤**——这是保真度差异，记在「参数保真」列与本列，不改变分组。 |
 | `takeScreenshot` | `takeScreenshot` | 映射成功 → `takeScreenshot` | 在模型内：`path`；模型外：`cropOn`——**实测**（模型外参数逐个实跑导入器）：与模型内目标同时给出时 1/1 条保留原文并告警、整步仍映射；只给模型外参数时 0/1 条整步判 `missing-argument`，其余 1/1 条仍映射（该步骤种类没有必填目标）。**逐个**：只给这些时仍映射：`cropOn`。**模型内但不是目标**的 1 个参数（`path`）：只给 `path` 时仍映射 | 语义：截屏——命令形态与 Maestro 的 `takeScreenshot` 一致（一步截一张）。本平台的落盘路径走 ATS-209 的证据路径校验与 SHA-256。Maestro 还能 `cropOn` 裁剪，本平台没有这个参数——保真度差异，不改变分组。 |
-| `tapOn` | `tapOn` | 映射成功 → `tapOn` | 在模型内：`text` / `id` / `retryTapIfNoChange` / `point` / `index` / `waitToSettleTimeoutMs`；模型外 19 个（相对定位 / 状态过滤 / 尺寸容差等）——**实测**（模型外参数逐个实跑导入器）：与模型内目标同时给出时 19/19 条保留原文并告警、整步仍映射；只给模型外参数时 19/19 条整步判 `missing-argument`。**逐个**：只给这些时整步判 `missing-argument`：`width` / `height` / `tolerance` / `waitUntilVisible` / `below` / `above` / `leftOf` / `rightOf` / `containsChild` / `containsDescendants` / `traits` / `enabled` / `selected` / `checked` / `focused` / `repeat` / `delay` / `childOf` / `css`。**模型内但不是目标**的 4 个参数（`retryTapIfNoChange` / `point` / `index` / `waitToSettleTimeoutMs`）：只给 `retryTapIfNoChange` / `point` / `index` / `waitToSettleTimeoutMs` 时整步判 `missing-argument` | 语义：点按元素——命令形态与 Maestro 的 `tapOn` 一致（一步点一个元素）。本平台的目标是**文本**或**资源 id`，**两者任一即可**（只有**两者皆缺**才判 `missing-argument`——只给 `id` 就能映射）；并按 ATS-601 要求 `ui.tap` + `ui.hierarchy` 同时满足。Maestro 的元素选择器远比这丰富（相对定位、状态过滤、尺寸容差等），本平台只认少数几个参数——保真度差异，记在「参数保真」列，不改变分组。 |
+| `tapOn` | `tapOn` | 映射成功 → `tapOn` | 在模型内：`text` / `id` / `retryTapIfNoChange` / `point` / `index` / `waitToSettleTimeoutMs`；模型外 19 个（相对定位 / 状态过滤 / 尺寸容差等）——**实测**（模型外参数逐个实跑导入器）：与模型内目标同时给出时 19/19 条保留原文并告警、整步仍映射；只给模型外参数时 19/19 条整步判 `missing-argument`。**逐个**：只给这些时整步判 `missing-argument`：`width` / `height` / `tolerance` / `waitUntilVisible` / `below` / `above` / `leftOf` / `rightOf` / `containsChild` / `containsDescendants` / `traits` / `enabled` / `selected` / `checked` / `focused` / `repeat` / `delay` / `childOf` / `css`。**模型内但不是目标**的 4 个参数（`retryTapIfNoChange` / `point` / `index` / `waitToSettleTimeoutMs`）：只给 `retryTapIfNoChange` / `point` / `index` / `waitToSettleTimeoutMs` 时整步判 `missing-argument` | 语义：点按元素——命令形态与 Maestro 的 `tapOn` 一致（一步点一个元素）。本平台的目标是**文本**或**资源 id**，**两者任一即可**（只有**两者皆缺**才判 `missing-argument`——只给 `id` 就能映射）；并按 ATS-601 要求 `ui.tap` + `ui.hierarchy` 同时满足。Maestro 的元素选择器远比这丰富（相对定位、状态过滤、尺寸容差等），本平台只认少数几个参数——保真度差异，记在「参数保真」列，不改变分组。 |
 
 #### 8.5.2 部分可映射（2 条）
 
 | Maestro 命令 | 本平台对应步骤种类 | ATS-602 导入器对 Maestro 原拼写的实际处理 | 参数保真 | 说明 |
 |---|---|---|---|---|
-| `startRecording` | `recordScreen` | 进导入报告：`unknown-command` | Maestro 的参数共 1 个（其中模型外 0 个）——**实测**：Maestro 的拼写 `startRecording` 不在 ATS-602 的语义拼写表里，导入器在读参数**之前**就判 `unknown-command`（0 条告警），⇒ 本平台的参数保真**对本命令不适用** | 语义：开始录屏。**命令形态不同**：本平台的 `recordScreen` 是**一步**（录一段），Maestro 是「开始/停止」**配对**命令⇒**配对语义在单步模型里无处安放**——**动作（录屏）本平台能表达，表达不出来的是「开始/结束」这对边界**，所以判「部分可映射」。Maestro 的拼写也不在 ATS-602 的拼写表里，导入时按 `unknown-command` 进导入报告（导入侧）。 |
-| `stopRecording` | `recordScreen` | 进导入报告：`unknown-command` | Maestro 的参数共 0 个（其中模型外 0 个）——**实测**：Maestro 的拼写 `stopRecording` 不在 ATS-602 的语义拼写表里，导入器在读参数**之前**就判 `unknown-command`（0 条告警），⇒ 本平台的参数保真**对本命令不适用** | 语义：结束录屏。与 `startRecording` 同一条判定——**命令形态不同**（配对 vs 单步）：动作本平台能表达，表达不出来的是「开始/结束」这对边界；拼写也不被导入器接受（导入侧）。 |
+| `startRecording` | `recordScreen` | 进导入报告：`unknown-command` | Maestro 的参数共 1 个（模型外 0 个）——**实测**：Maestro 的拼写 `startRecording` 不在 ATS-602 的语义拼写表里，导入器在读参数**之前**就判 `unknown-command`（0 条告警），⇒ 本平台的参数保真**对本命令不适用** | 语义：开始录屏。**命令形态不同**：本平台的 `recordScreen` 是**一步**（录一段），Maestro 是「开始/停止」**配对**命令⇒**配对语义在单步模型里无处安放**——**动作（录屏）本平台能表达，表达不出来的是「开始/结束」这对边界**，所以判「部分可映射」。Maestro 的拼写也不在 ATS-602 的拼写表里，导入时按 `unknown-command` 进导入报告（导入侧）。 |
+| `stopRecording` | `recordScreen` | 进导入报告：`unknown-command` | Maestro 的参数共 0 个（模型外 0 个）——**实测**：Maestro 的拼写 `stopRecording` 不在 ATS-602 的语义拼写表里，导入器在读参数**之前**就判 `unknown-command`（0 条告警），⇒ 本平台的参数保真**对本命令不适用** | 语义：结束录屏。与 `startRecording` 同一条判定——**命令形态不同**（配对 vs 单步）：动作本平台能表达，表达不出来的是「开始/结束」这对边界；拼写也不被导入器接受（导入侧）。 |
 
 #### 8.5.3 不映射（47 条）
 
@@ -981,12 +998,20 @@ Maestro CLI 2.12.1 实际接受 **55 条命令**（由 `maestro check-syntax` �
 **导入侧**（ATS-602 拿到 Maestro 的**原拼写**会做什么）：
 **映射成功 4 条 / 进导入报告 51 条**。
 
-两个数字差在**三条**上——它们语义可表达、命令形态也对得上，但拼写不被接受：
+两个数字差在**两条**上——它们语义可表达、命令形态也对得上，但拼写不被接受：
 
 | 命令 | 语义侧 | 导入侧 | 差在哪 |
 |---|---|---|---|
 | `assertNotVisible` | 可映射 | 进导入报告 | 语义与命令形态都与 `assertVisible` 对称（一步断言，本平台用 `notVisible` 限定词表达），但 Maestro 的拼写 `assertNotVisible` 不在 ATS-602 的语义拼写表里 ⇒ 导入时按 `unknown-command` 进导入报告 |
 | `extendedWaitUntil` | 可映射 | 进导入报告 | 与 `assertVisible` / `assertNotVisible` **编译成同一个 orchestra 命令类**（`AssertConditionCommand`），只多一个可配的 `timeout`；语义是「断言可见或不可见」，本平台用 `assertVisible` 加限定词表达，命令形态一致（一步对一步）。但 Maestro 的拼写 `extendedWaitUntil` 不在 ATS-602 的语义拼写表里 ⇒ 按 `unknown-command` 进导入报告 |
+
+<!-- ATS606-SPELLING-GAP mappable=2 reported=51 -->
+
+**上面那张表就是「语义侧可映射、但导入侧进导入报告」的全部命令**——
+`2` 条 = 可映射 `6` − 映射成功 `4`。这个差值是**算出来的**：
+复核脚本从 §8.5 的表里取出「语义侧可映射」的行，逐条比对它们的
+「导入器实际处理」一列，数出有多少条写着「进导入报告」，
+并与本行标出的 `mappable=2` / `reported=51` 比对。
 
 **另外两条「部分可映射」命令的拼写同样不被接受**（`startRecording` / `stopRecording`
 按 `unknown-command` 进导入报告），但它们与上面两条差在**另一侧**：
@@ -1034,7 +1059,7 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
 | 4 | **文本输入** | 六类步骤里没有输入步骤 | 登录、表单填写、搜索——**最常见的用例形态** |
 | 5 | **滚动/滑动/双击/长按等手势** | 没有手势步骤 | 长列表、下拉刷新、抽屉导航 |
 | 6 | **键盘处理** | 没有 `hideKeyboard` | 软键盘遮挡提交按钮等场景 |
-| 7 | **断言的等待语义** | 模型里只有 `visible` / `notVisible` 两种限定词，**没有** Maestro 的 7 秒 fluent 重试，也没有可配的 `timeout`（`extendedWaitUntil` 的动作本平台能表达，**表达不出来的是等待多久**）；本平台 Runner 的默认等待是 5000 ms | 依赖等待的断言在弱网/慢设备上易 flaky |
+| 7 | **断言的等待语义** | 模型里只有 `visible` / `notVisible` 两种限定词，**没有**可配的 `timeout`（`extendedWaitUntil` 的动作本平台能表达，**表达不出来的是等待多久**）；Maestro 的断言默认等待上限是 `lookupTimeoutMs = 17000` ms（且经 `adjustedToLatestInteraction` 扣除距上次交互的时间，不是固定值），本平台 Runner 的默认等待是 5000 ms | 依赖等待的断言在弱网/慢设备上易 flaky |
 | 8 | **iOS Keychain 清理与 App 状态重置** | 没有 `clearKeychain` / `clearState` 步骤 | iOS 用例的**干净起跑**无法保证——登录态会跨用例泄漏 |
 | 9 | **权限弹窗处理** | 没有 `setPermissions` 步骤；`launchApp` 虽有模型内的 `permissions` 参数，但**当前 Runner 不执行它** | 首次安装后的位置/相机/通知授权弹窗 |
 | 10 | **App 停止/强杀** | 没有 `stopApp` / `killApp` 步骤 | 一轮结束后无法显式收尾，依赖进程自然退出 |
@@ -1061,9 +1086,12 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
 | §8.5 的「参数保真」一列与 `STEP_ARGUMENTS` 一致 | 同上（读 `server/discovery/mobile-import.mjs`） | `every parameter cell matches STEP_ARGUMENTS` |
 | §8.5 的**分组不变量**：可映射 / 部分可映射的行必须指向 ATS-601 冻结的步骤种类，不映射的行必须不指向任何种类 | 同上（读 `server/adapters/mobile-target.mjs`） | `the grouping breaks no §8.3 invariant: ...` |
 | §8.5 的**每一行的分组与步骤种类，由 Maestro 的字节码重新推导**并与文档一致 | 同上（读 `maestro-orchestra.jar` 的 `YamlFluentCommand`，把每条命令编译成的 orchestra 命令类与变体解出来，再经 `ACTION_PLATFORM` 推出判定） | `every row's group and step kind are re-derived from the byte-code and agree with the document (55 rows)` |
-| **动作模型本身**（每条 Maestro 命令编译成什么、变体是什么） | `node tools/ats606-probes/maestro-action-model.mjs` | 每行一条「命令 → orchestra 命令类 [变体]」；缺 Maestro 时**跳过并写明原因**，不写 PASS |
+| **平台表本身**满足 §8.3 的两条规则：R1「等待不决定分组」、R2「配对命令两边都带配对」 | 同上（在**表**上检查，而不是替它判断） | `the platform table breaks no §8.3 rule: R1 ... R2 ... (1 measured pair(s): startRecording/stopRecording)` |
+| §8.5.4 的「拼写差」条数与表一致 | 同上（从表里数出「语义侧可映射但导入器进导入报告」的行，与文中标出的条数比对） | `the spelling gap holds 2 command(s) and the document says so: assertNotVisible, extendedWaitUntil` |
+| **动作模型本身**（每条 Maestro 命令编译成什么、变体是什么、填哪个 `Condition` 槽位） | `node tools/ats606-probes/maestro-action-model.mjs` | 每行一条「命令 → orchestra 命令类 [变体] [slots=…]」；末尾打印实测出来的**配对**与两条规则的检查结果；缺 Maestro 时**跳过并写明原因**，不写 PASS |
 | **反向对照**（负控）：**把某一行挪到别的组、并同步改掉全部计数**（组标题、TALLY、文中计数全部自洽），探针必须变红；改错导入处理也必须变红；未改动的文档必须仍然通过 | 同上（`--self-test`） | `SELF-TEST: OK`（负控被成功捕获，且 control 仍然通过） |
 | **分组负控**（交付的负控台架）：把行挪到别的组并改掉全部计数（M1–M8，含把 `extendedWaitUntil` 挪进「不映射」），逐条跑交付的探针，**每一条都必须变红**，control 必须仍然通过 | `node tools/ats606-probes/probe-group-mutants.mjs <tree>` | `GROUP MUTANTS: OK (every group mutation was caught, and the control still passes)` |
+| **平台表负控**（同一条台架的后半段）：改坏平台表的两条——删掉等待条目（R1）、删掉配对（R2）——**文档一个字不动**，探针仍必须变红 | 同上（T1 / T2 两条，各自在一棵**仓库副本**上改表再跑探针） | `T1 the wait loses its table entry ... => caught` / `T2 the recording pair loses the pairing ... => caught` |
 | iOS 两条路径的实现状态（§8.4 的事实基础，**含 `readLogs` 行**） | `node tools/ats606-probes/probe-ios-driver-support.mjs` | `IOS DRIVER SUPPORT: OK`（需要本机 `D:/AI-Tools/Maestro`；缺 Maestro 时**跳过并写明原因**，不写 PASS） |
 | §8.4 的**七项 capability 表** | 同上 | `§8.4 <capability>: simulator=... device=... match the byte-code`（七项逐条） |
 | 真机路径的四条硬前提已在 §8.4 写明 | 同上 | `§8.4 states the ...`（四条逐条） |
@@ -1231,12 +1259,12 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
 | 文件 | 作用 |
 |---|---|
 | `docs/25-MOBILE-APP-TESTING.md` §8 | 三张表：§8.4 iOS 支持范围表、§8.5 Maestro 命令逐条兼容性判定表、§8.6 不承诺清单 |
-| `tools/ats606-probes/probe-maestro-compat.mjs` | 命令清单的**行为**确认（`maestro check-syntax`，含两个负控）+ **逐条实跑导入器**比对 §8.5 的「导入器实际处理」一列 + 参数列与 `STEP_ARGUMENTS` 的一致性 + 计数校验 + **§8.5 整块（三个组标题 + 55 行 + TALLY）与生成器输出逐字比对** + **分组不变量**检查 + **把每一行的分组从字节码重新推导**并与文档比对 + `--self-test` 的**反向负控**（把一行挪到别的组并同步改掉全部计数 / 改错导入处理，探针必须变红；未改动的文档必须仍然通过） |
-| `tools/ats606-probes/maestro-action-model.mjs` | **动作模型**：从 Maestro 的**字节码**读出每条命令编译成哪个 orchestra 命令类（`YamlFluentCommand._toCommands` 的分支边界由字节码恢复），以及区分同类的**变体**（单击 / 双击 / 长按；可见 / 不可见 / 等待断言；`action:` 导航命令由枚举的 `yamlValue` 与 switch 表解出）；并给出**哪一步骤种类表达这个动作**（`ACTION_PLATFORM`）与由两者推出的**判定**（`verdictOf`）。§8.5 的**分组由它推导**，不是逐条手写的 |
-| `tools/ats606-probes/gen-section-rows.mjs` | **生成** §8.5 的表：导入器行为、参数保真、计数三列是测量的结果；**分组是由字节码推导的**（`maestro-action-model.mjs`），§8.3 的**唯一一套口径**（只看语义能不能表达与命令形态对不对）落在 `ACTION_PLATFORM` 一张表里。「参数保真」一列把每个模型外参数**逐个实跑导入器**测两种写法（与模型内目标同时给出 / 只给该参数），并**逐个点名**每个参数落在哪一种结果里 |
+| `tools/ats606-probes/probe-maestro-compat.mjs` | 命令清单的**行为**确认（`maestro check-syntax`，含两个负控）+ **逐条实跑导入器**比对 §8.5 的「导入器实际处理」一列 + 参数列与 `STEP_ARGUMENTS` 的一致性 + 计数校验 + **§8.5 整块（三个组标题 + 55 行 + TALLY）与生成器输出逐字比对** + **分组不变量**检查 + **把每一行的分组从字节码重新推导**并与文档比对 + **平台表本身过 §8.3 的两条规则（R1 / R2）** + **§8.5.4 的拼写差条数由表算得并与文中一致** + `--self-test` 的**反向负控**（把一行挪到别的组并同步改掉全部计数 / 改错导入处理，探针必须变红；未改动的文档必须仍然通过） |
+| `tools/ats606-probes/maestro-action-model.mjs` | **动作模型**：从 Maestro 的**字节码**读出每条命令编译成哪个 orchestra 命令类（`YamlFluentCommand._toCommands` 的分支边界由字节码恢复）、区分同类的**变体**（单击 / 双击 / 长按；可见 / 不可见 / 等待断言），以及每条断言能填**哪个 `Condition` 槽位**（`slots=`）；`action:` 导航命令由枚举的 `yamlValue` 与 switch 表解出。表 `ACTION_PLATFORM` 给出**哪一步骤种类表达这个动作**，`verdictOf` 由两者推出**判定**，`checkTableRules` 在**表上**检查 §8.3 的两条规则（R1 等待不决定分组、R2 配对命令两边都带配对），`measurePairs` 从字节码的字段名读出**实测的配对**。§8.5 的**分组由它推导**，不是逐条手写的；**这张表是链上唯一的人判，复核脚本核对它的性质而不是替它判断** |
+| `tools/ats606-probes/gen-section-rows.mjs` | **生成** §8.5 的表：导入器行为、参数保真、计数三列是测量的结果；**分组是由字节码推导的**（`maestro-action-model.mjs`），§8.3 的**唯一一套口径**（只看语义能不能表达与命令形态对不对）落在 `ACTION_PLATFORM` 一张表里，**且该表先过 R1/R2 两条规则才允许生成**（破规则的表直接被拒，不产出表）。「参数保真」一列把每个模型外参数**逐个实跑导入器**测两种写法（与模型内目标同时给出 / 只给该参数），并**逐个点名**每个参数落在哪一种结果里；承载本平台**限定词**的参数（`visible` / `notVisible`）单独点明，免得「模型外」被读成「新语义」 |
 | `tools/ats606-probes/maestro-command-fixtures.json` | 每条 Maestro 命令的最小 Flow 夹具（命令清单与导入器比对的输入） |
 | `tools/ats606-probes/write-section-rows.mjs` | 把生成器产出的 §8.5 整块写回设计文档的 `<!-- ATS606-ROWS-START -->` … `END` 之间（行终止符随文档本身，CRLF / LF 都不漂移） |
-| `tools/ats606-probes/probe-group-mutants.mjs` | **分组负控**：把行挪到别的组并改掉全部计数（M1–M8，含把 `extendedWaitUntil` 挪进「不映射」这一条），逐条跑交付的探针，**每一条都必须变红**，未改动的 control 必须仍然通过 |
+| `tools/ats606-probes/probe-group-mutants.mjs` | **负控台架**：前半段把行挪到别的组并改掉全部计数（M1–M8，含把 `extendedWaitUntil` 挪进「不映射」这一条），后半段**改坏平台表**（T1 删掉等待条目、T2 删掉配对——各自在一棵**仓库副本**上改表，文档一个字不动），逐条跑交付的探针，**每一条都必须变红**，未改动的 control 必须仍然通过 |
 | `tools/ats606-probes/probe-ios-driver-support.mjs` | 从 Maestro 的**字节码**复核 §8.4 的每条 iOS 结论（模拟器路径 vs 真机路径的路由与实现状态、七项 capability 表、两条 iOS 空操作），并**把四条硬前提逐条核到产物上**（`RealIOSDeviceDriver` 的字节码里真有那条 Apple team ID 报错与 `MissingAppleTeamId`；`LocalIOSDeviceController` 的字节码里真有 xcrun/devicectl/install/app/launch 序列；`DeviceService.listIOSConnectedDevices` 的字节码里真有 `getTunnelState()` 与 `"connected"` 的过滤；设备侧 `XCTestHTTPServer.swift` 真绑 `127.0.0.1:22087`，且**没有任何 jar 带 iproxy / usbmux 端口转发**），并**逐个 jar 列表核对**两个设备侧 runner 构建（`driver-iPhoneSimulator/` / `driver-iphoneos/`）的出处，以及「没有任何 jar 含 `driver-ios/`」 |
-| `tools/ats606-probes/collect-evidence.sh` | 证据采集脚本：8 份日志写入 `docs/evidence/ATS-606/`，每份头部写明所描述的树 |
+| `tools/ats606-probes/collect-evidence.sh` | 证据采集脚本：9 份日志写入 `docs/evidence/ATS-606/`（01 环境 / 02 命令清单 / 03 iOS 实现状态 / 03b 分组负控 / 03c 动作模型 / 04 平台词表 / 05 逐条导入报告 / 06 WBS 行 / 07 校验和），每份头部写明所描述的树 |
 | `tools/update_wbs_ats606.py` | WBS 行的同步脚本（只写 ATS-606 行） |
