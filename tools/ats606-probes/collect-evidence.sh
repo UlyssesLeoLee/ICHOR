@@ -111,6 +111,21 @@ hdr() {
   echo "exit : $?"
 } > "$EV/03b-group-mutants.log" 2>&1
 
+# --- 03c: the ACTION model (byte-code) -----------------------------------
+# The §8.5 grouping is DERIVED from the byte-code, so the derivation
+# itself has to be in the evidence: this log shows what each Maestro
+# command compiles into, and which variant tells two commands of the same
+# class apart. A reviewer can read it and see WHY a command is where it is.
+{
+  echo "=== ATS-606 evidence: the Maestro action model (byte-code) ==="
+  echo "tree : $COMMIT"
+  echo "date : $STAMP"
+  echo
+  node tools/ats606-probes/maestro-action-model.mjs 2>&1
+  echo
+  echo "exit : $?"
+} > "$EV/03c-action-model.log" 2>&1
+
 # --- 04: the ATS-601 / ATS-602 vocabulary ---------------------------------
 # The compatibility table's verdicts are stated against the platform's own
 # vocabulary. This log records that vocabulary as it stands on THIS tree,

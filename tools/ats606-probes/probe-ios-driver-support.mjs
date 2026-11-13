@@ -415,13 +415,29 @@ for (const [step, p1, v1, p2, v2] of CLAIMS) {
 console.log('');
 console.log('--- the seven capabilities (§8.4) ---');
 
-/** The capability -> the operation it needs, and what "satisfiable" means. */
+/**
+ * The capability -> the operation it needs, and what "satisfiable" means.
+ *
+ * The DEVICE column says two different things, and the document must say
+ * the right one:
+ *
+ *   * the operation is NOT implemented on the device path -> "不可满足"
+ *     (that is a fact about the byte-code);
+ *   * the operation IS implemented on the device path -> the host side
+ *     is there, but the device path still needs the three hard
+ *     prerequisites (team ID signature, devicectl install, port
+ *     reachability), none of which was verified on this host -> so the
+ *     document says "宿主侧可满足（前提未验证）", NOT a bare "可满足".
+ *
+ * A bare "可满足" in the device column would read as "this works on a
+ * physical device", which the byte-code cannot establish.
+ */
 const CAPABILITIES = [
   ['app.install', ['install'], '可满足', '不可满足'],
   ['app.launch', ['launch'], '可满足', '不可满足'],
-  ['ui.tap', ['tap'], '可满足', '可满足'],
-  ['ui.hierarchy', ['viewHierarchy'], '可满足', '可满足'],
-  ['screen.capture', ['takeScreenshot'], '可满足', '可满足'],
+  ['ui.tap', ['tap'], '可满足', '宿主侧可满足（前提未验证）'],
+  ['ui.hierarchy', ['viewHierarchy'], '可满足', '宿主侧可满足（前提未验证）'],
+  ['screen.capture', ['takeScreenshot'], '可满足', '宿主侧可满足（前提未验证）'],
   ['screen.record', ['startScreenRecording'], '可满足', '不可满足'],
 ];
 
