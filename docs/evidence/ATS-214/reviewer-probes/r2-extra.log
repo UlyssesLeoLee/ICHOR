@@ -1,0 +1,14 @@
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+profile written: 200; GET /env shows values? false
+POST batch -> 202; run#1 running
+  GET /api/batches context: {"envUid":"env_1_59848bed9f865a04cf973b06","envName":"staging","envTier":"staging","runner":null,"capabilities":null}
+OK     E1 batches-api-serves-no-env-values  value of BASE_URL present in GET /api/batches: false
+  PUT env-whitelist without BASE_URL while run#1 runs -> 200 
+  batch passed; seen.txt: ["a1=<value>","b1=<unset>"]
+OK     E2 whitelist-tightened-before-run2-applies  run#2 started after BASE_URL left the whitelist; b1 saw b1=<unset>
+  files in the data dir that carry the value: ["state.json"] (the profile store itself legitimately holds it)
+
+RESULT: 0 DEFECT(s)

@@ -5,13 +5,23 @@
 .filters-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .filters-head small{font-size:10px;letter-spacing:1px;color:#709bb9}
 .filters-head select{background:#1b2d40;color:#eef;border:1px solid #4a6278;border-radius:5px;font-size:11px;padding:2px 5px}
-.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chips{display:flex;flex-wrap:wrap;gap:5px;max-height:180px;overflow-y:auto;align-content:flex-start;padding-right:2px}
 .chip{background:#1c3048;border:1px solid #35566f;color:#9fb8d0;border-radius:20px;padding:4px 9px;font-size:10px;cursor:pointer}
 .chip.on{background:#27547d;border-color:#4d92cd;color:#e2f0ff}
 .chip small{color:#7593af;margin-left:3px}
 .filter-report{margin-top:8px;padding-top:7px;border-top:1px solid #2f475c;font-size:10px;color:#7f9bb6}
-.selbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 13px 8px;padding:7px 10px;background:#14202f;border:1px solid #2a3d51;border-radius:7px;font-size:11px;color:#93aec8}.hide{display:none!important}@media(max-width:990px){.shell{grid-template-columns:45px 220px 1fr}.rail{padding:10px 5px}.metrics{grid-template-columns:repeat(2,1fr)}}
-</style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</span><span>◈</span></div><div class="top"><b>AI Test <i>Studio</i></b><span class="tag">LOCAL · Git-native · Portable UI</span></div><div class="projects"><select id="project"><option value="">选择项目</option></select><input id="path" placeholder="输入本地 Playwright 项目绝对路径"><button class="btn" id="add">＋ 添加项目</button><small id="git">未连接</small></div><aside class="sidebar"><div class="sidehead"><small>TEST CATALOG</small><h2>可视化测试资产</h2></div><input class="search" id="search" placeholder="搜索用例名 / 文件 / 标签…"><div class="filters"><div class="filters-head"><small>TAGS</small><select id="tag-mode" title="多个标签的口径"><option value="any">任一</option><option value="all">全部</option></select></div><div class="chips" id="tag-list"></div><div class="filter-report" id="filter-report"></div></div><div class="selbar"><span id="select-count">已选 0 条</span><span id="groups"></span></div><div class="list" id="tests"></div><div class="sidefoot" id="foot">请选择项目</div></aside><main class="main"><div class="header"><div><div class="kicker">GIT-NATIVE QUALITY CONTROL PLANE</div><h1 id="title">测试工作台</h1><p id="subtitle">导入已有仓库，无需迁移脚本</p></div><div><button class="btn" id="refresh">⟳ 刷新</button> <button class="btn primary" id="run">▶ 运行</button> <button class="btn danger hide" id="stop">■ 停止</button></div></div><div class="metrics"><div class="metric"><span>测试用例</span><strong id="m-tests">0</strong><small>源自原有 Git 仓库</small></div><div class="metric"><span>运行次数</span><strong id="m-runs">0</strong><small>历史持久化</small></div><div class="metric"><span>通过</span><strong id="m-pass">0</strong><small>稳定可回溯</small></div><div class="metric"><span>失败</span><strong id="m-fail">0</strong><small>证据关联</small></div></div><div class="card"><div class="tabs"><button class="active" data-tab="graph">◈ 流程视图</button><button data-tab="code">{ } 代码编辑</button><button data-tab="runs">▶ 运行日志</button><button data-tab="quality">◈ 质量概览</button><button data-tab="evidence">◇ 证据工作台</button><button data-tab="lineage">◎ 需求追踪</button></div><div id="graph" class="flow"><p class="muted">选择测试用例，查看源代码的可视化投影</p></div><div id="code" class="hide"><textarea id="editor" spellcheck="false"></textarea><p><span class="muted">编辑后会直接写入 Git 工作区（SHA-256 冲突检测），不会自动提交。</span> <button class="btn primary" id="save">保存脚本</button></p></div><div id="runs" class="hide"><select id="run-select" style="background:#1b2d40;color:#eef;border:1px solid #4a6278;padding:9px;margin:15px 0;width:100%"></select><pre class="logs" id="logs">尚无运行记录</pre><div id="results"></div><div id="artifacts"></div></div><div id="quality" class="hide"><select id="q-scope" style="background:#1b2d40;color:#eef;border:1px solid #4a6278;padding:9px;margin:15px 0;width:100%"><option value="project">当前项目</option><option value="all">全部项目</option><option value="run">单次运行</option></select><select id="q-run" style="background:#1b2d40;color:#eef;border:1px solid #4a6278;padding:9px;margin:0 0 15px;width:100%"></select><div class="metrics" id="q-metrics"></div><div class="card"><h3>指标与原始结果核对</h3><div id="q-checks"></div></div><div class="card"><h3>原始结果（可展开核对每个数字）</h3><div id="q-refs"></div></div><div class="card"><h3>失败聚类（非 AI）</h3><div id="q-clusters"></div></div><div class="card"><h3>重试与不稳定用例</h3><div id="q-flaky"></div></div></div><div id="evidence" class="hide"><select id="e-run" style="background:#1b2d40;color:#eef;border:1px solid #4a6278;padding:9px;margin:15px 0;width:100%"></select><div class="metrics" id="e-metrics"></div><div class="card"><h3>失败用例与 Trace</h3><div id="e-failures"></div></div><div class="card"><h3>本次运行的全部证据</h3><div id="e-attachments"></div></div><div class="card muted" id="e-note"></div></div><div id="lineage" class="hide"><h3>需求 → 脚本关系</h3><div id="relations" class="muted">在原项目中添加 .aitest/requirements.json 和 traceability.json</div></div></div><div class="card muted" id="warning">流程视图为只读语义投影，复杂 TypeScript 必须在代码视图中编辑。v0.1 运行器只支持可信本地项目。</div></main><footer class="bottom">LOCAL BRIDGE · 127.0.0.1:4577 · Append-only runs · Playwright native report</footer></div><div id="toast" class="toast hide"></div><script type="module">
+.selbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 13px 8px;padding:7px 10px;background:#14202f;border:1px solid #2a3d51;border-radius:7px;font-size:11px;color:#93aec8}/* ATS-214: the selection surface of the portable UI.
+   The first delivery showed "已选 0 条" with NO way to tick a case --
+   a counter that can only ever read zero. The pick box is a REAL
+   `<input type="checkbox">`, so the keyboard reaches it, and the row's
+   open button is a separate control. */
+.pickbox{flex-shrink:0;width:13px;height:13px;accent-color:#4d9ad8;cursor:pointer}
+.row{display:flex;align-items:flex-start;gap:9px;padding:9px 17px;border-bottom:1px solid #152638}
+.row:hover{background:#1d3147}
+.row .item{flex:1;min-width:0;border:0;background:transparent;padding:0;text-align:left}
+.selwarn{margin:0 13px 8px;padding:7px 10px;background:#3a2a1e;border:1px solid #7a5a33;border-radius:7px;font-size:11px;color:#f0ca7f;line-height:1.5}
+.hide{display:none!important}@media(max-width:990px){.shell{grid-template-columns:45px 220px 1fr}.rail{padding:10px 5px}.metrics{grid-template-columns:repeat(2,1fr)}}
+</style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</span><span>◈</span></div><div class="top"><b>AI Test <i>Studio</i></b><span class="tag">LOCAL · Git-native · Portable UI</span></div><div class="projects"><select id="project"><option value="">选择项目</option></select><input id="path" placeholder="输入本地 Playwright 项目绝对路径"><button class="btn" id="add">＋ 添加项目</button><small id="git">未连接</small></div><aside class="sidebar"><div class="sidehead"><small>TEST CATALOG</small><h2>可视化测试资产</h2></div><input class="search" id="search" placeholder="搜索用例名 / 文件 / 标签…"><div class="filters"><div class="filters-head"><small>TAGS</small><select id="tag-mode" title="多个标签的口径"><option value="any">任一</option><option value="all">全部</option></select></div><div class="chips" id="tag-list"></div><div class="filter-report" id="filter-report"></div></div><div class="selbar"><span id="select-count">已选 0 条</span><span id="groups"></span></div><div class="selwarn hide" id="selection-warning" role="alert"></div><div class="list" id="tests"></div><div class="sidefoot" id="foot">请选择项目</div></aside><main class="main"><div class="header"><div><div class="kicker">GIT-NATIVE QUALITY CONTROL PLANE</div><h1 id="title">测试工作台</h1><p id="subtitle">导入已有仓库，无需迁移脚本</p></div><div><button class="btn" id="refresh">⟳ 刷新</button> <button class="btn primary" id="run">▶ 运行</button> <button class="btn danger hide" id="stop">■ 停止</button></div></div><div class="metrics"><div class="metric"><span>测试用例</span><strong id="m-tests">0</strong><small>源自原有 Git 仓库</small></div><div class="metric"><span>运行次数</span><strong id="m-runs">0</strong><small>历史持久化</small></div><div class="metric"><span>通过</span><strong id="m-pass">0</strong><small>稳定可回溯</small></div><div class="metric"><span>失败</span><strong id="m-fail">0</strong><small>证据关联</small></div></div><div class="card"><div class="tabs"><button class="active" data-tab="graph">◈ 流程视图</button><button data-tab="code">{ } 代码编辑</button><button data-tab="runs">▶ 运行日志</button><button data-tab="quality">◈ 质量概览</button><button data-tab="evidence">◇ 证据工作台</button><button data-tab="lineage">◎ 需求追踪</button></div><div id="graph" class="flow"><p class="muted">选择测试用例，查看源代码的可视化投影</p></div><div id="code" class="hide"><textarea id="editor" spellcheck="false"></textarea><p><span class="muted">编辑后会直接写入 Git 工作区（SHA-256 冲突检测），不会自动提交。</span> <button class="btn primary" id="save">保存脚本</button></p></div><div id="runs" class="hide"><select id="run-select" style="background:#1b2d40;color:#eef;border:1px solid #4a6278;padding:9px;margin:15px 0;width:100%"></select><pre class="logs" id="logs">尚无运行记录</pre><div id="results"></div><div id="artifacts"></div></div><div id="quality" class="hide"><select id="q-scope" style="background:#1b2d40;color:#eef;border:1px solid #4a6278;padding:9px;margin:15px 0;width:100%"><option value="project">当前项目</option><option value="all">全部项目</option><option value="run">单次运行</option></select><select id="q-run" style="background:#1b2d40;color:#eef;border:1px solid #4a6278;padding:9px;margin:0 0 15px;width:100%"></select><div class="metrics" id="q-metrics"></div><div class="card"><h3>指标与原始结果核对</h3><div id="q-checks"></div></div><div class="card"><h3>原始结果（可展开核对每个数字）</h3><div id="q-refs"></div></div><div class="card"><h3>失败聚类（非 AI）</h3><div id="q-clusters"></div></div><div class="card"><h3>重试与不稳定用例</h3><div id="q-flaky"></div></div></div><div id="evidence" class="hide"><select id="e-run" style="background:#1b2d40;color:#eef;border:1px solid #4a6278;padding:9px;margin:15px 0;width:100%"></select><div class="metrics" id="e-metrics"></div><div class="card"><h3>失败用例与 Trace</h3><div id="e-failures"></div></div><div class="card"><h3>本次运行的全部证据</h3><div id="e-attachments"></div></div><div class="card muted" id="e-note"></div></div><div id="lineage" class="hide"><h3>需求 → 脚本关系</h3><div id="relations" class="muted">在原项目中添加 .aitest/requirements.json 和 traceability.json</div></div></div><div class="card muted" id="warning">流程视图为只读语义投影，复杂 TypeScript 必须在代码视图中编辑。v0.1 运行器只支持可信本地项目。</div></main><footer class="bottom">LOCAL BRIDGE · 127.0.0.1:4577 · Append-only runs · Playwright native report</footer></div><div id="toast" class="toast hide"></div><script type="module">
 import {buildQualityOverview,qualityMetricCards} from './quality.mjs';
 /* ATS-215: the EVIDENCE WORKBENCH. The SAME module the Next workbench
    imports, so the two interfaces locate a trace the same way. */
@@ -20,31 +30,75 @@ import {buildWorkbench,shortDigest,formatBytes as ebBytes,formatTime as ebTime} 
    module the Next workbench imports, so the two interfaces cannot
    disagree about what the catalogue shows -- in particular about the SET
    semantics of a search composed with a filter. */
-import {filterCases,describeFilter,tagVocabulary,selectionSnapshot,selectionByFile,normalizeTag,TAG_MODE} from './case-search.mjs';
+import {filterCases,describeFilter,tagVocabulary,selectionByFile,selectionDiffs,plannedExecutions,normalizeTag,TAG_MODE} from './case-search.mjs';
 let token='',projects=[],active='',catalog={tests:[],files:[]},selected=null,source=null,runs=[],allRuns=[],currentTab='graph';
 /* ATS-214: the FILTER and the SELECTION of the catalogue. The criteria
-   compose in the shared module; this file only collects them. */
-let caseFilter={query:'',tags:[],tagMode:TAG_MODE.ANY,files:[],statuses:[]},selectedUids=[];const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+   compose in the shared module; this file only collects them.
+
+   The selection is kept PER PROJECT: a uid is the identity of a case
+   IN a project, so the selections of two projects must not be mixed. */
+let caseFilter={query:'',tags:[],tagMode:TAG_MODE.ANY,files:[],statuses:[]},selections={};
+let selectedUids=[],selectionCases=[];const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* The selection of the project on screen. The record carries the uids
+   AND the snapshot of what each uid named when it was ticked -- that
+   snapshot is what tells the UI that a uid now names a DIFFERENT case
+   (a provisional uid is assigned by ordinal, so deleting the case
+   before it shifts the ones after it). */
+function readSelection(){const r=selections[active]??{uids:[],cases:[]};selectedUids=r.uids;selectionCases=r.cases;}
+function writeSelection(next,keep){
+ if(!active)return;
+ const prev=selectionCases;
+ const kept=new Map(prev.map(c=>[c.uid,c]));
+ for(const c of keep??[])kept.set(c.uid,c);
+ const cases=next.map(u=>kept.get(u)).filter(Boolean);
+ selections={...selections,[active]:{uids:next,cases}};
+ selectedUids=next;selectionCases=cases;
+}
 async function api(endpoint,method='GET',data){if(!token)token=(await(await fetch('/api/session')).json()).token;const r=await fetch(endpoint,{method,headers:{'X-ATS-Token':token,'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined});const j=await r.json();if(!r.ok)throw Error(j.error);return j;}
 function toast(s){const e=$('#toast');e.textContent=s;e.classList.remove('hide');setTimeout(()=>e.classList.add('hide'),5000)}
 async function load(){try{const p=await api('/api/projects');projects=p.projects;$('#project').innerHTML='<option value="">选择项目</option>'+p.projects.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');if(!active&&projects.length)active=projects[0].id;$('#project').value=active;await loadProject();}catch(e){toast(e.message)}}
-async function loadProject(){if(!active)return;try{const p=projects.find(p=>p.id===active);$('#git').textContent=`${p.git.branch} · ${p.git.commit}`;catalog=await api(`/api/projects/${active}/tests`);$('#foot').textContent=`${catalog.tests.length} tests / ${catalog.files.length} files · ${p.root}`;await refreshRuns();renderTests();await relations();}catch(e){toast(e.message)}}
+async function loadProject(){if(!active)return;try{const p=projects.find(p=>p.id===active);$('#git').textContent=`${p.git.branch} · ${p.git.commit}`;catalog=await api(`/api/projects/${active}/tests`);$('#foot').textContent=`${catalog.tests.length} tests / ${catalog.files.length} files · ${p.root}`;readSelection();await refreshRuns();renderTests();await relations();}catch(e){toast(e.message)}}
 /* ATS-214: the catalogue list. The FILTER is the shared module's work --
    the search, the tags and the files COMPOSE as an intersection, and the
    module reports what each criterion kept so the reader can see which
    one narrowed the list. */
 function renderTests(){
  const shown=filterCases(catalog.tests,caseFilter),report=describeFilter(catalog.tests,caseFilter);
- const tags=tagVocabulary(catalog.tests),sel=selectionSnapshot(catalog.tests,selectedUids);
- $('#tests').innerHTML=shown.map(t=>`<button class="item ${selected?.id===t.id?'active':''}" data-id="${t.id}"><b>${esc(t.title)}</b><small>${esc(t.file)}:${t.line}</small>${(t.tags&&t.tags.length)?`<small class="uid-tag">${esc(t.tags.map(x=>'@'+x).join(' '))}</small>`:''}<small class="uid-tag">${esc(t.uid||t.id)}${t.uidStable===false?' ⚠':''}</small></button>`).join('')||(catalog.tests.length?'<p class="muted" style="padding:15px">没有符合当前条件的用例。搜索与过滤条件按「交集」叠加。</p>':'<p class="muted" style="padding:15px">没有找到测试。请确认项目包含 *.spec.ts 文件。</p>');
+ const tags=tagVocabulary(catalog.tests);
+ /* The snapshot is the one RECORDED AT TICK TIME, not one recomputed
+    from the current catalogue: a recomputed snapshot would already
+    agree with the catalogue, and the difference the UI has to report
+    would disappear. */
+ const sel={uids:selectedUids,cases:selectionCases,count:selectedUids.length,files:[...new Set(selectionCases.map(c=>c.file))]};
+ /* ATS-214: the row is a DIV with a real checkbox and a separate open
+    button, so the keyboard reaches the pick box (a control nested inside
+    a button never gets a tab stop) and the two actions cannot be
+    confused with each other. */
+ $('#tests').innerHTML=shown.map(t=>`<div class="row"><input class="pickbox" type="checkbox" data-uid="${esc(t.uid)}" aria-label="选中 ${esc(t.title)}" ${selectedUids.includes(t.uid)?'checked':''}><button class="item ${selected?.id===t.id?'active':''}" data-id="${t.id}"><b>${esc(t.title)}</b><small>${esc(t.file)}:${t.line}</small>${(t.tags&&t.tags.length)?`<small class="uid-tag">${esc(t.tags.map(x=>'@'+x).join(' '))}</small>`:''}<small class="uid-tag">${esc(t.uid||t.id)}${t.uidStable===false?' ⚠':''}</small></button></div>`).join('')||(catalog.tests.length?'<p class="muted" style="padding:15px">没有符合当前条件的用例。搜索与过滤条件按「交集」叠加。</p>':'<p class="muted" style="padding:15px">没有找到测试。请确认项目包含 *.spec.ts 文件。</p>');
  document.querySelectorAll('.item').forEach(e=>e.addEventListener('click',()=>selectTest(e.dataset.id)));
+ document.querySelectorAll('.pickbox').forEach(e=>e.addEventListener('change',()=>{const u=e.dataset.uid;const t=catalog.tests.find(x=>x.uid===u);if(selectedUids.includes(u)){writeSelection(selectedUids.filter(x=>x!==u));}else if(t){writeSelection([...selectedUids,u],[{uid:t.uid,file:t.file??'',title:t.title??'',line:Number.isInteger(t.line)?t.line:null}]);}renderTests();}));
  $('#m-tests').textContent=catalog.tests.length;
  const fr=$('#filter-report');if(fr)fr.textContent=`${report.matched} / ${report.total} 条`;
  const tl=$('#tag-list');
  if(tl)tl.innerHTML=tags.map(t=>`<button class="chip ${caseFilter.tags.includes(t.tag)?'on':''}" data-tag="${esc(t.tag)}">@${esc(t.tag)} <small>${t.count}</small></button>`).join('');
  tl&&tl.querySelectorAll('[data-tag]').forEach(b=>b.onclick=()=>{const t=normalizeTag(b.dataset.tag);caseFilter={...caseFilter,tags:caseFilter.tags.includes(t)?caseFilter.tags.filter(x=>x!==t):[...caseFilter.tags,t]};renderTests();});
- const sb=$('#select-count');if(sb)sb.textContent=`已选 ${sel.count} 条`;
+ /* ATS-214: the count says BOTH numbers -- how many cases are ticked and
+    how many will really be executed (the engine runs a whole file). */
+ const plan=plannedExecutions(catalog.tests,selectedUids);
+ const sb=$('#select-count');if(sb)sb.textContent=`已选 ${sel.count} 条${plan.willRun>sel.count?` · 将执行 ${plan.willRun} 条`:''}`;
  const gr=$('#groups');if(gr)gr.textContent=sel.count?`分 ${selectionByFile(sel).length} 个文件依次执行`:'';
+ /* ATS-214: a ticked case that has LEFT the catalogue -- or that now
+    names a DIFFERENT case -- is REPORTED. */
+ const diff=selectionDiffs(catalog.tests,selectedUids,{cases:selectionCases});
+ const warn=$('#selection-warning');
+ if(warn){
+  const parts=[];
+  if(diff.gone.length)parts.push(`已选中的 ${diff.gone.length} 条用例已不在目录中：${diff.gone.map(esc).join('、')}`);
+  if(diff.moved.length)parts.push(`已选中的 ${diff.moved.length} 条用例现在指向了别的用例：${diff.moved.map(esc).join('、')}`);
+  warn.innerHTML=parts.length?`${parts.join('；')} <button class="btn" id="drop-gone" style="padding:3px 8px;font-size:10px">移除</button>`:'';
+  warn.classList.toggle('hide',!parts.length);
+ }
+ const drop=$('#drop-gone');if(drop)drop.onclick=()=>{const bad=new Set([...diff.gone,...diff.moved]);writeSelection(selectedUids.filter(x=>!bad.has(x)));renderTests();};
 }
 async function selectTest(id){selected=catalog.tests.find(t=>t.id===id);renderTests();try{source=await api(`/api/projects/${active}/source?file=${encodeURIComponent(selected.file)}`);$('#editor').value=source.content;$('#title').textContent=selected.title;$('#subtitle').textContent=selected.file;renderGraph();}catch(e){toast(e.message)}}
 function renderGraph(){const nodes=[];$('#editor').value.split('\n').forEach((line,i)=>{const k=/\bexpect\s*\(/.test(line)?'ASSERT':/\.goto\s*\(/.test(line)?'NAVIGATE':/\.fill\s*\(/.test(line)?'INPUT':/\.click\s*\(/.test(line)?'CLICK':null;if(k)nodes.push(`<div class="node"><small>${k} · LINE ${i+1}</small>${esc(line.trim())}</div>`);});$('#graph').innerHTML=nodes.join('<div class="edge"></div>')||'<p class="muted">复杂代码不可直接投影。请切换代码编辑。</p>';}
@@ -123,7 +177,40 @@ async function renderEvidence(){
  }catch(e){toast(e.message);}
 }
 function showTab(tab){currentTab=tab;document.querySelectorAll('[data-tab]').forEach(e=>e.classList.toggle('active',e.dataset.tab===tab));['graph','code','runs','quality','evidence','lineage'].forEach(t=>$('#'+t).classList.toggle('hide',t!==tab));if(tab==='runs')renderRun();if(tab==='quality')renderQuality();if(tab==='evidence')renderEvidence();}
-document.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>showTab(e.dataset.tab));$('#project').onchange=e=>{active=e.target.value;selected=null;source=null;$('#title').textContent='测试工作台';loadProject()};$('#search').oninput=e=>{caseFilter={...caseFilter,query:e.target.value};renderTests();};$('#refresh').onclick=load;$('#add').onclick=async()=>{try{const r=await api('/api/projects','POST',{path:$('#path').value});active=r.project.id;$('#path').value='';await load();toast('项目已添加');}catch(e){toast(e.message)}};$('#run').onclick=async()=>{if(!active)return toast('请先导入项目');try{const j=await api(`/api/projects/${active}/run`,'POST',{file:selected?.file||null});toast('启动运行 '+j.run.id);showTab('runs');refreshRuns();}catch(e){toast(e.message)}};$('#stop').onclick=async()=>{const r=runs.find(x=>['running','queued','cancelling'].includes(x.status));if(r){try{await api(`/api/runs/${r.id}/stop`,'POST');toast('已请求停止')}catch(e){toast(e.message)}}};$('#save').onclick=async()=>{if(!source)return;try{const j=await api(`/api/projects/${active}/source`,'PUT',{file:source.file,content:$('#editor').value,baseHash:source.hash});source.hash=j.hash;source.content=$('#editor').value;toast('保存成功，未自动 Git commit');renderGraph()}catch(e){toast(e.message)}};$('#run-select').onchange=renderRun;
+document.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>showTab(e.dataset.tab));
+/* ATS-214: the project switch RESETS the filter and restores the
+   selection of the project being switched to.
+   A tag criterion from the old project would otherwise stay active and
+   hide every case of the new one. The reset is announced, not silent.
+   The selection is PER PROJECT, so the reader's own ticks of that
+   project come back -- and a case that has since left the catalogue is
+   REPORTED rather than dropped. */
+$('#project').onchange=e=>{const had=Boolean(caseFilter.query.trim()||caseFilter.tags.length||caseFilter.files.length);active=e.target.value;selected=null;source=null;caseFilter={query:'',tags:[],tagMode:TAG_MODE.ANY,files:[],statuses:[]};readSelection();$('#title').textContent='测试工作台';loadProject();if(had)toast('切换项目：已清空搜索与过滤条件');};
+$('#search').oninput=e=>{caseFilter={...caseFilter,query:e.target.value};renderTests();};$('#refresh').onclick=load;$('#add').onclick=async()=>{try{const r=await api('/api/projects','POST',{path:$('#path').value});active=r.project.id;$('#path').value='';await load();toast('项目已添加');}catch(e){toast(e.message)}};
+/* ATS-214: the run button runs the SELECTION when there is one, and the
+   whole file otherwise. The toast says how many cases will REALLY run:
+   the engine takes one file filter, so a file filter runs every case of
+   that file. */
+$('#run').onclick=async()=>{
+ if(!active)return toast('请先导入项目');
+ const sel={uids:selectedUids,cases:selectionCases,count:selectedUids.length};
+ const diff=selectionDiffs(catalog.tests,selectedUids,{cases:selectionCases});
+ if(diff.gone.length||diff.moved.length){
+  const parts=[];
+  if(diff.gone.length)parts.push(`${diff.gone.length} 条用例已不在目录中（${diff.gone.join('、')}）`);
+  if(diff.moved.length)parts.push(`${diff.moved.length} 条用例现在指向了别的用例（${diff.moved.join('、')}）`);
+  return toast(`${parts.join('；')}，请先移除后再运行`);
+ }
+ try{
+  if(sel.count){
+   const plan=plannedExecutions(catalog.tests,selectedUids);
+   const j=await api(`/api/projects/${active}/run`,'POST',{selection:sel.uids});
+   toast(`已提交批量运行：选中 ${sel.count} 条，实际执行 ${plan.willRun} 条${plan.willRun>sel.count?'，同文件的其余用例也会执行':''}`);
+   showTab('runs');refreshRuns();return;
+  }
+  const j=await api(`/api/projects/${active}/run`,'POST',{file:selected?.file||null});
+  toast('启动运行 '+j.run.id);showTab('runs');refreshRuns();
+ }catch(e){toast(e.message)}};$('#stop').onclick=async()=>{const r=runs.find(x=>['running','queued','cancelling'].includes(x.status));if(r){try{await api(`/api/runs/${r.id}/stop`,'POST');toast('已请求停止')}catch(e){toast(e.message)}}};$('#save').onclick=async()=>{if(!source)return;try{const j=await api(`/api/projects/${active}/source`,'PUT',{file:source.file,content:$('#editor').value,baseHash:source.hash});source.hash=j.hash;source.content=$('#editor').value;toast('保存成功，未自动 Git commit');renderGraph()}catch(e){toast(e.message)}};$('#run-select').onchange=renderRun;
 /* ATS-214: the tag mode. The reader has to know whether several ticked
    tags mean "any of them" or "all of them". */
 $('#tag-mode')&&($('#tag-mode').onchange=e=>{caseFilter={...caseFilter,tagMode:e.target.value};renderTests();});

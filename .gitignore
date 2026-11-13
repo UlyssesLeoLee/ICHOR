@@ -101,3 +101,8 @@ tools/ats104-probes/control-tree/
 # The Tauri build script's generated capability schemas. They are written by
 # `tauri-build` on every build, so they are build output, not source.
 src-tauri/gen/
+
+# The scratch directory of the reviewer probe attachments (downloaded for a
+# rerun, never a deliverable). The probe LOGS that belong to the delivery
+# live in docs/evidence/ATS-214/reviewer-probes/.
+.probe-work/

@@ -1,4 +1,4 @@
-fixture: C:\Users\seiko\AppData\Local\Temp\multica-task-1139765988\ats214-parity-r37yvL\project
+fixture: C:\Users\seiko\AppData\Local\Temp\multica-task-2633306620\ats214-parity-doswbG\project
 playwright: D:/ICHOR/examples/sample-playwright/node_modules
 the CLI answered: ok=true outcome=OK version=1.64.1
 
@@ -7,11 +7,17 @@ line | static index            | the real CLI              | same
    3 | []                      | []                       | yes
    5 | ["smoke"]               | ["smoke"]                | yes
    7 | ["a","b"]               | ["a","b"]                | yes
-  10 | ["group"]               | ["group"]                | yes
-  11 | ["group","own"]         | ["group","own"]          | yes
-  13 | ["group","inner"]       | ["group","inner"]        | yes
+   9 | ["smoke"]               | ["smoke"]                | yes
+  11 | ["a","b"]               | ["a","b"]                | yes
+  13 | ["details","inline"]    | ["details","inline"]     | yes
+  16 | ["group"]               | ["group"]                | yes
+  17 | ["group","own"]         | ["group","own"]          | yes
+  19 | ["group","inner"]       | ["group","inner"]        | yes
+  24 | ["tgroup"]              | ["tgroup"]               | yes
+  26 | ["tgroup","tinner"]     | ["tgroup","tinner"]      | yes
+  31 | ["dboth","tboth"]       | ["dboth","tboth"]        | yes
 
-cases: 6 · tags: 5 with tags · mismatches: 0
+cases: 12 · tags: 11 with tags · mismatches: 0
 
 --- the facts the design relies on (measured, not assumed) ---
 the source writes '@smoke', the CLI reports ["smoke"]  -> the '@' is not part of the tag
@@ -20,4 +26,4 @@ a case under two nested describes reports ["group","inner"]  -> the tags accumul
 a case with its own tag under a tagged describe reports ["group","own"]  -> own + inherited
 a tag without '@' is refused by the CLI: ok=false "Error: Tag must start with '@'; Error: No tests found"
 
-RESULT: OK -- the static index and the real Playwright CLI carry the SAME tags for all 6 cases.
+RESULT: OK -- the static index and the real Playwright CLI carry the SAME tags for all 12 cases.
