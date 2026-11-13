@@ -563,7 +563,7 @@ aa874ee2fe3e36b4237478ceb5b0fd5ab09598fe4b372222ee1c548fbb8f651b  docs/evidence/
 fe40992178bbb0e6e49084938c0a947f66eb19d17adc7398da3b195f4f2840dc  docs/evidence/ATS-606/04-platform-vocabulary.log
 0c91a063bcfdd9710f99e1c978e396f2b2d5cc1081c163d7bedd3b3f9430f1d2  docs/evidence/ATS-606/05-import-report-of-every-maestro-command.log
 96d4eaadcbf8e592f5009d937736f7a6c7c36801e252db27b6cdccb74680d92a  docs/evidence/ATS-606/06-wbs-row.log
-4d706e943c4a135b157477fce939d15cd7053278c255bb61dc067cdc03f1b742  docs/evidence/ATS-606/07-checksums.log
+619521879cefe70c7cf97e38f72fe40c80c3bfbc7dca66ebc5de27a5d807d0f0  docs/evidence/ATS-606/07-checksums.log
 cdcd6d0e1d6ed4d3be3b3f5b77c0d701a8eadab2e066b7d33c8c24d5041400dd  examples/real-browser-fixture/package-lock.json
 57a96efbd55a5988c8ad059a0b374cbd9b370e86f0bff2703dbb0353892bc97a  examples/real-browser-fixture/package.json
 219ca75ec50bcf233a98f7d4b31c8e75234e99c95dccf6180f6c65674315a0e3  examples/real-browser-fixture/playwright.config.ts
