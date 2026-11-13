@@ -1,11 +1,21 @@
 === ATS-606 evidence: the checksum manifest ===
-tree : e6d14dd6978e31cebe9f7c52d72d540ff283fd1b
-date : 2026-11-13T02:03:07Z
+tree : 6d7aaa50642e6c772e452c2226dd543062452b16
+date : 2026-11-13T02:10:12Z
 
 manifest entries : 999
-digest mismatches: 0
+digest mismatches: 10
+    docs/25-MOBILE-APP-TESTING.md 6a7656e422ea9ce6bbfdae296bb95674ab8edb07366b51796e4d1f19043e79f3 != 65b0e8a635d1eb771778938b8453c15018d1eb19f73734cea7cd58189f6c9d40
+    docs/evidence/ATS-606/01-environment.log a3837ce8df4e4f709c7f1015b6acf8ae14de5ac45cd5a943286cff98cbdd9d73 != 89246f6499ffc6dce85b2c368d14609c564bd0b2e6e7024a7b9bd8cd729e60f0
+    docs/evidence/ATS-606/02-maestro-command-inventory.log f7cb51734f40b50e3446dac276e533599520914e553a6f8a3492c62fbb464c84 != e5b317eaafc6aa96d13ea0a73a83c68a20975d5ddf2fe559854bb71e53cca897
+    docs/evidence/ATS-606/03-ios-driver-support.log 6dfa7e231a88021e8bc89bd337c6a9ec9a8a1c346668153f3fa20146e66faa19 != b902d2f9ff8ee08fc0d0450b2aed311b895f8f2f441b3bb81002a5abb83870a5
+    docs/evidence/ATS-606/03b-group-mutants.log 1721a561e19b960ab4c095cffc700259234ea562ab4a50ddfc0abcc2387c5223 != f548f01aef006b0873faeb0012611fa0aaef7054a298f9c5afe9fab10bfe5fd2
+    docs/evidence/ATS-606/03c-action-model.log b022cc9c09aa8357054e5e2cc89d846750e0e56084bef1f3c80df42ccc1a49b1 != 864d0fce6bd2d7a9f485af4870999675ee0caf32e0276ddbb30d6095d91898d0
+    docs/evidence/ATS-606/04-platform-vocabulary.log 0322b937ef82e7b31cb5ef9ba02e9a6140df854519b1c60f9878c6a5b7a13b30 != 1b2d34976ecd82d12991153e1ec39dcb94378ad74b9c67312acbc3246e172b17
+    docs/evidence/ATS-606/05-import-report-of-every-maestro-command.log 27b17e4df36c88fac33458a9c44cd7938059c268a7998d9fb2ca8c838d4d3649 != bb6e40634fc7edf5729b13e8f38f8738dd707929ad6791cf153cea8be57871d5
+    docs/evidence/ATS-606/06-wbs-row.log bafe98c7a2a7805072b960e647f45f81bef645fba5bd1d7f973cafff363d7f48 != 8116c6e9ee757e6671b5742a5cd9b3ee8edbef5787f21273aa56c5ec48e90753
+    docs/evidence/ATS-606/07-checksums.log 2fba56f6619fe16b42432fc801ba4d3e8af73e2a50cbe365c436f4b12d90ede3 != 1bdf3ef79d1a94b18039fc7afd8e63c99af106f7c7acf5d8def67428607ddcaa
 tracked-not-listed: 0 []
 listed-not-tracked: 0 []
-RESULT: OK
+RESULT: MISMATCH
 
 exit : 0
