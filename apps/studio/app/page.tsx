@@ -612,8 +612,15 @@ export default function Studio(){
      {/* The filter matched nothing -- a DIFFERENT fact from "the project has
          no cases at all", so it is a different message. And it is only
          shown when there IS a project and a catalogue to filter: without
-         a project the panel says so instead. */}
-     {!panel&&!shown.length&&<div className="empty-small">{catalog.tests.length?'没有符合当前条件的用例<br/>搜索与过滤条件按「交集」叠加':'这个项目里没有可执行的测试用例。'}</div>}
+         a project the panel says so instead.
+
+         The two lines are SEPARATE elements, not one string with a
+         `<br/>` in it: inside a JSX text literal a `<br/>` is not a tag,
+         so the reader saw the characters `<br/>` on the screen. The
+         round-2 review spotted it (R2-6) as a leftover from ATS-214; it
+         is not a blocker for ATS-111, but it is in the panel this task
+         owns, so it is fixed here. */}
+     {!panel&&!shown.length&&<div className="empty-small">{catalog.tests.length?<><span>没有符合当前条件的用例</span><br/><span>搜索与过滤条件按「交集」叠加</span></>:<span>这个项目里没有可执行的测试用例。</span>}</div>}
      </div></>}
      {tab==='runs'&&<div className="file-list" data-region="runs-panel" data-runs-state={runsRequest.phase==='failed'?'error':runsRequest.phase==='pending'&&!runs.length?'loading':!projectRuns.length?'empty':'ready'}>
      {runsRequest.phase==='failed'&&<StatePanel kind="error" detail={runsRequest.error?`原因：${runsRequest.error}`:undefined} onRetry={()=>refresh()} retryLabel="重新加载"/>}

@@ -77,12 +77,15 @@
  *              observed at the window level;
  *   ST-111-17 Ctrl+P inside the open dialog is CONSUMED by the
  *              workbench -- a key the footer documents must not fall
- *              through to the browser's own Print command.
+ *              through to the browser's own Print command;
+ *   ST-111-18 the "no case matches the filter" message is TEXT: it
+ *              must not show the characters 「<br/>」 (the round-2
+ *              review's R2-6 observation).
  *
  * ROUND 3 (the round-2 review)
  * -----------------------------
  * Two of the checks above were rewritten because the review showed they
- * COULD NOT FAIL, and two were added for the defects the review found:
+ * COULD NOT FAIL, and three were added for the defects the review found:
  *
  *   - ST-111-11d now types a path that has NEVER been registered. The
  *     old one typed the path ST-111-6 had already registered, so the
@@ -91,7 +94,7 @@
  *   - ST-111-12d now asserts that the no-project panel renders a STATE
  *     PANEL. The old one asserted the absence of a string that can
  *     never appear in that state.
- *   - ST-111-16 and ST-111-17 are new.
+ *   - ST-111-16, ST-111-17 and ST-111-18 are new.
  *
  * The four states are proven by EXECUTION, NOT BY A FIXTURE
  * --------------------------------------------------------
@@ -306,7 +309,6 @@ try {
   check('ST-111-12e the NO-PROJECT state does not fall back to the filter-miss block',
     noProjectPanel && !noProjectPanel.hasEmptySmall,
     JSON.stringify(noProjectPanel));
-
   // --- the two projects ----------------------------------------------------
   const [, added] = await api('/api/projects', 'POST', { path: project });
   const projectId = added.project.id;
@@ -664,6 +666,35 @@ try {
   if (releaseHold) { releaseHold(); releaseHold = null; }
   routeMode = 'pass';
   await sleep(2000);
+
+  /* ================================================================== */
+  /* ST-111-18  the filter-miss message is TEXT, not markup              */
+  /* ================================================================== */
+  // The round-2 review observed (R2-6) that the "no case matches the
+  // filter" message rendered the LITERAL characters `<br/>` on the
+  // screen: the message was one JSX string with a `<br/>` inside it,
+  // and a `<br/>` inside a string literal is not a tag.
+  //
+  // The reader saw "没有符合当前条件的用例<br/>搜索与过滤条件按「交集」叠加"
+  // -- a sentence with markup in it. The message is in the panel this
+  // task owns, so the check is added here.
+  //
+  // The check needs a project that HAS cases (otherwise the panel shows
+  // the EMPTY state, not the filter-miss message), so the project with
+  // cases is selected first.
+  await selectProject(projectId);
+  await sleep(3000);
+  await page.focus('[data-region="search"] input');
+  await page.keyboard.type('zzz-no-such-case-at-all');
+  await sleep(1500);
+  const filterMissText = await page.evaluate(() =>
+    (document.querySelector('[data-region="panel"] .empty-small')?.innerText || '').replace(/\s+/g, ' ').trim());
+  check('ST-111-18a the filter-miss message does NOT show the characters 「<br/>」',
+    filterMissText && !filterMissText.includes('<br/>') && /没有符合当前条件的用例/.test(filterMissText),
+    filterMissText);
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('Delete');
+  await sleep(1000);
 
   /* ================================================================== */
   /* ST-111-6  Enter SUBMITS the dialog                                   */
