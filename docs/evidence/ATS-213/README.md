@@ -19,13 +19,38 @@
 | `09-credential-reference-st.log` | 凭据引用的端到端 10 项（**真实 Windows Credential Manager + 真实 Playwright 运行**）：档案存引用 → 运行启动时解析 → 被测脚本读到注入的变量（断言 SHA-256 摘要与长度）→ **平台数据目录 0 命中** | `node tools/ats213-probes/st-credential-ref.mjs docs/evidence/ATS-213/ref` |
 | `10-status-failures-st.log` | 状态面的**失败路径** 10 项（真实浏览器）：凭据库不可达时说明逐类计数且不写「全部可用」、不写「已就绪」、刷新失败后旧状态被清空且不计入可用密钥、首次加载失败时引用照样显示且删除按钮还在 | `node tools/ats213-probes/st-credential-status-failures.mjs docs/evidence/ATS-213/failures` |
 | `11-status-mutants.log` | **变异体**：把两处修复改回缺陷的样子（在副本上重新构建），同一支 ST 必须**变红**；未变异的交付树必须全绿 | `node tools/ats213-probes/probe-credential-status-mutants.mjs` |
-| `12-credential-boundaries-ut.log` | 收口与脱敏的 **16 例 UT**：状态面**不读明文**（`read()` 调用 0 次）、未解析的引用**被拒**（绝不 `"[object Object]"`）、脱敏**跨两块/三块**、HTML 报告**内嵌 zip** 被重建、二进制成员作为**边界**被报出 | `node --test tests/credential-reference-boundaries.test.mjs` |
+| `12-credential-boundaries-ut.log` | 收口与脱敏的 **19 例 UT**：状态面**不读明文**（`read()` 调用 0 次）、未解析的引用**被拒**（绝不 `"[object Object]"`）、脱敏**跨两块/三块**、HTML 报告**内嵌 zip** 被重建、二进制成员作为**边界**被报出、**解析器在全仓库只有一个调用点**、**每条运行路径都经过那个收口点**、**`startRun()` 没有回退分支** | `node --test tests/credential-reference-boundaries.test.mjs` |
 | `13-credential-redaction-it.log` | 落盘脱敏的 **IT**：真实 Bridge + 真实 Windows Credential Manager + **真实 Playwright 运行**，被测脚本做一次**普通断言失败** → **数据目录 0 命中**（含 HTML 报告内嵌 zip 的解码扫描） | `ATS213_REAL_CREDENTIAL_STORE=1 node --test tests/credential-redaction-api.test.mjs` |
-| `14-credential-redaction-mutants.log` | **变异体**：M-P1（状态面改回 `read()`）、M-P2（引用改回 `String()`）、M-P3（逐块脱敏）、M-P3b（落盘前不脱敏）、M-P3c（不重建内嵌 zip）——每一支都必须让对应的检查**变红**，未变异的交付树**全绿** | `node tools/ats213-probes/probe-credential-redaction-mutants.mjs` |
+| `14-credential-redaction-mutants.log` | **变异体**：M-P1（状态面改回 `read()`）、M-P2（引用改回 `String()`）、M-P3（逐块脱敏）、M-P3b（落盘前不脱敏）、M-P3c（不重建内嵌 zip）、M-P4（批次自己解析引用）、M-P5（回退分支回来）、M-P6（出现第二个解析器）——每一支都必须让对应的检查**变红**，未变异的交付树**全绿** | `node tools/ats213-probes/probe-credential-redaction-mutants.mjs` |
 | `15-quality-gates.log` | ATS-301 门禁（WBS 助手回归 + ADR 引用逐条校验 + 端口硬编码审计） | `bash tools/ats301-probes/check-ats301-gate.sh` |
 | `16-full-regression.log` | 全仓库回归（`--test-concurrency=2`） | `node --test --test-concurrency=2 tests/*.test.mjs` |
 | `17-wbs-row-and-checksums.log` | WBS 行的状态/完成率/剩余人日（**从工作簿读回**，不是从脚本的变量读）+ 校验和清单 | `bash tools/ats213-probes/collect-wbs-and-checksums.sh` |
 | `ui/` `ref/` `failures/` | 真实浏览器的截图与 trace | 由第 8/9/10 步生成 |
+
+## 复核方自己的探针（附件 `ats213-r2-probes.zip`）在 dev tip 上的结果
+
+复核第 2 轮登记的三条阻断项各有对应的一支探针。全部在 **dev tip 的
+`git archive` 存档**上复跑（存档带已构建的 `apps/studio/out`），用**真实
+Windows Credential Manager**、**真实 Edge** 与**一次真实 Playwright 运行**。
+
+| 探针 | 检查 | 结果 |
+|---|---|---|
+| `r2-inproc.mjs` | P1（状态面不读明文）、P2（未解析的引用不进环境块） | **OK**（`read()` 0 次 / `probe()` 3 次；`API_TOKEN=undefined`） |
+| `r2-ref-leak.mjs` | P3（注入的密钥不进落盘面与 API） | **OK**（数据目录 0 命中；`run.log` 里是 `Received: "***"`） |
+| `r1-inproc.mjs` | S1（遍历中被删除的引用）、S2（id 不合规的条目） | **OK**（两张清单都返回，不抛错） |
+| `r1-http.mjs` | S1-http（并发 DELETE）、S3（凭据形状的变量名三种形态） | **OK**（0/3 整张失败；引用被接受、运行能解析） |
+| `r2-ui.mjs` | U1a、U1b、U2、U3（真实浏览器的四条失败路径） | **OK**（逐类计数；不写「已就绪」；旧状态被清空；引用照样显示） |
+
+复现命令（`<tree>` 为 dev 存档且含已构建的 `apps/studio/out`；`<nm>` 为
+`D:/ICHOR/examples/sample-playwright/node_modules`）：
+
+```
+node probes/r2-inproc.mjs   <tree> <scratch>
+node probes/r2-ref-leak.mjs <tree> <scratch> 8953 <nm>
+node probes/r1-inproc.mjs   <tree> <scratch>
+node probes/r1-http.mjs     <tree> <scratch> 8951
+node probes/r2-ui.mjs       <tree> <scratch> <nm>/playwright-core <shots>
+```
 
 ## 跳过的用例（skip ≠ PASS ≠ FAIL）
 
@@ -44,8 +69,8 @@
 本任务**新增**的用例（`tests/credential-status.test.mjs` 17 例 +
 `tests/credential-status-api.test.mjs` 9 例 +
 `tests/credential-reference-api.test.mjs` 5 例 +
-`tests/credential-reference-boundaries.test.mjs` 16 例 +
-`tests/credential-redaction-api.test.mjs` 3 例 = 50 例）在这份日志里
+`tests/credential-reference-boundaries.test.mjs` 19 例 +
+`tests/credential-redaction-api.test.mjs` 3 例 = 53 例）在这份日志里
 **0 失败**；ATS-402 的安全用例同样 0 失败。
 
 ## 「状态是测出来的」怎么复现

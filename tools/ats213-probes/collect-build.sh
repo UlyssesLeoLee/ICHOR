@@ -18,12 +18,20 @@ export TMP="$TEMP"
 
 STUDIO="$ROOT/apps/studio"
 
+# The NATIVE form of the path. `node` is a native Windows program and does
+# NOT understand the MSYS path the shell hands it: `/d/ICHOR` is read as the
+# literal directory `D:\d\ICHOR`, so the module is not found. The type
+# check therefore fails on a tree that builds perfectly -- a failure of the
+# SCRIPT, not of the delivery. `pwd -W` is the reliable way to get the
+# native form out of a POSIX shell.
+STUDIO_NATIVE="$(cd "$STUDIO" && pwd -W)"
+
 printf -- '--- 1. the type check (tsc --noEmit) ---\n'
-node "$STUDIO/node_modules/typescript/bin/tsc" --noEmit -p "$STUDIO/tsconfig.json"
+node "$STUDIO_NATIVE/node_modules/typescript/bin/tsc" --noEmit -p "$STUDIO_NATIVE/tsconfig.json"
 printf 'tsc exit code: %s\n' "$?"
 
 printf '\n%s\n' '--- 2. the static export build (next build) ---'
-( cd "$STUDIO" && node node_modules/next/dist/bin/next build )
+( cd "$STUDIO_NATIVE" && node node_modules/next/dist/bin/next build )
 printf 'next build exit code: %s\n' "$?"
 
 printf '\n%s\n' '--- 3. the export artefact ---'

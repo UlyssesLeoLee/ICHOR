@@ -1138,6 +1138,96 @@ ST+=[
 ('ST-ATS213-010', 'NFR-009', '安全', '密钥没有落进任何平台文件（真实运行）', '同上，扫描数据目录与运行目录', '数据目录 0 命中；运行目录里只有摘要没有明文', 'node tools/ats213-probes/st-credential-ref.mjs', 'PASS'),
 ]
 
+# --- ATS-214: the case search / tag / filter / batch selection ------
+# ATS-214: the case search / tag / filter / batch selection. These rows
+# live in the GENERATOR, not in the generated document: a hand-edited
+# generated file goes stale, and the freshness check then fails on a
+# tree where nothing is wrong with the product.
+UT+=[
+('UT-ATS214-001','FR-005','功能','空搜索保留全部用例','6 条用例的目录，查询为空','结果 6 条，与目录一致','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-002','FR-005','功能','按用例名检索','查询「登录」','命中 u1、u2；「登出」不命中','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-003','FR-005','功能','按文件检索','查询「cart.spec」','命中 u4、u5、u6','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-004','FR-005','功能','按标签检索','查询「smoke」','命中 u1、u2、u5','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-005','FR-005','功能','检索大小写不敏感','smoke / SMOKE / SmOkE','三者结果相同','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-006','FR-005','边界','检索结果恒为目录的子集','多个查询逐一断言','每个结果都在目录里；不存在的查询返回空','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-007','FR-005','边界','检索文本只含标题、文件与标签','用例的 haystack','含标题、文件、标签；不含 uid','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-008','FR-005','功能','单标签过滤','标签 smoke','命中 u1、u2、u5','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-009','FR-005','功能','「任一」口径是多标签的并集','标签 smoke + fast，模式 any','命中 u1、u2、u5、u6','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-010','FR-005','功能','「全部」口径是多标签的交集','标签 smoke + slow，模式 all','命中 u2、u5','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-011','FR-005','边界','两种标签口径真的不同且交集是子集','标签 smoke + slow','any 4 条、all 2 条；all ⊆ any','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-012','FR-005','功能','默认口径是「任一」且被报告','不指定模式','DEFAULT_TAG_MODE=any；判据报告 mode=any、active=true','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-013','FR-005','边界','标签比较忽略大小写与前导 @','@smoke / smoke / @SMOKE / \'  @Smoke  \'','都归一为 smoke；输入 @smoke 命中带 smoke 的用例','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-014','FR-005','边界','标签列表去重且有序','[\'@b\',\'a\',\'b\',\'@a\']','归一为 [\'a\',\'b\']','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-015','FR-005','边界','无人携带的标签既不命中也不出现在词表里','标签 nonexistent','结果为空；词表不含它；词表按数量降序','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-016','FR-005','边界','搜索与标签按交集叠加（不是并集）','搜索「登录」+ 标签 smoke','命中 u1、u2，不是 3 条','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-017','FR-005','边界','两个不相交条件的交集为空','搜索「登录」+ 标签 fast','结果为空；搜索单独 2 条、标签单独 1 条','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-018','FR-005','边界','清掉一个条件不清掉另一个','先加标签后清；先加搜索后清','清掉标签后搜索仍在（2 条）；清掉搜索后标签仍在（3 条）','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-019','FR-005','边界','文件条件与其余条件同样取交集','标签 smoke + 文件 cart.spec','命中 u5','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-020','FR-005','边界','三个条件取三重交集','搜索 + 标签 + 文件','命中 u5；矛盾条件使交集为空','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-021','FR-005','边界','状态条件与其余条件同样取交集','状态 failed + 标签 smoke','命中 u2；状态未知的用例不进入「失败」集','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-022','FR-005','功能','各判据分别报出保留条数','搜索 + 标签','搜索 2 条、标签 3 条；未声明的判据 active=false','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-023','FR-005','功能','筛选后顺序仍是目录顺序','标签 smoke','顺序 u1、u2、u5','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-024','FR-005','边界','纯空白的查询不是过滤条件','查询「   」','保留全部 6 条','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-025','FR-021','功能','选择集合是集合，勾选顺序无关','两组不同的勾选顺序','两个集合相等','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-026','FR-021','功能','快照带文件、标题与行号','选中 u1、u5','快照每条都带 file/title/line','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-027','FR-021','异常','目录不认识的 UID 被报告而非丢弃','选中 u1 与一个不存在的 UID','unknown 列出该 UID；count 只算已知的','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-028','FR-021','功能','两次相同选择产生完全相同的快照','顺序不同的同一组 UID','两个快照逐字段相等','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-029','FR-021','功能','选择按文件分组','跨两个文件选 4 条','两个分组，各带自己的 uid 与条数','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-030','FR-021','功能','选中的都跑了则对账为「可复现」','选择 u1、u2，执行 u1、u2','matches=true、exact=true、无缺失无多跑','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-031','FR-021','异常','选中但没跑的用例被报出','选择 3 条，执行 2 条','matches=false；missing 列出未跑的那条','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-032','FR-021','异常','跑了但没选的用例被报出','选择 u1，执行 u1、u3','extra 列出 u3；matches 仍为 true（选择本身可复现）','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-033','FR-021','异常','什么都没跑则对账如实为空','选择 2 条，执行 0 条','matches=false；missing 为 2 条；executed=0','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-034','FR-005','功能','文件词表统计每个文件的用例数','两个文件各 3 条','两个分组，各 3 条','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-035','FR-005','边界','空目录不使模块出错','空目录 + 任意查询','结果为空；词表为空；快照 count=0','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-036','FR-005','异常','已选但离开目录的 UID 被报出','勾选的 uid 不在目录里','gone 列出该 uid；ok=false；仍在目录里的那些不被报出','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-037','FR-005','边界','空选择没有失效项','空选择','gone/stale/moved 都为空；ok=true','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-038','FR-005','正常','一个文件的选出会跑该文件的全部用例','只勾 u1（该文件 3 条）','willRun=3；files 是那个文件；extra 是另外 2 条','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-039','FR-005','正常','两个文件的选出会跑两个文件的用例','勾 u1 与 u4','willRun=6；files 是两个文件','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-040','FR-005','边界','空选择不会跑任何东西','空选择','selected=0；willRun=0；files 为空','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-041','FR-005','边界','不在目录里的 uid 不会让计划虚报一次运行','只勾一个不在目录里的 uid','selected=1；willRun=0；files 为空','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-042','FR-005','异常','现在指向别的用例的 uid 被报出','快照说 u1 是「用户登录」，目录说 u1 是「其他用例」','gone 为空（uid 仍能解析）；moved 列出 u1；ok=false','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-043','FR-005','正常','仍指向同一个用例的 uid 不算 moved','快照与目录一致','moved 为空；ok=true','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-044','FR-005','异常','身份不稳定的用例被报为 stale','uidStable=false 的用例','stale 列出该 uid；gone 为空','node --test tests/ats214-case-search.test.mjs','PASS'),
+]
+
+IT+=[
+('IT-ATS214-001','FR-005','正常','静态索引携带它从源码读出的标签','未可信项目，6 条用例的夹具','每个用例的 tags 与源码里的 details 对象一致；无标签的用例不带该字段','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-002','FR-021','正常','权威索引携带 CLI 自己的标签','授予信任后重读同一项目','discovery=authoritative、outcome=OK、CLI 1.64.1；标签与 CLI 报告一致','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-003','FR-021','边界','两个索引对同一用例的标签一致','同一夹具，静态与权威两套索引','逐条用例比对，两个索引的标签集合相同','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-010','FR-021','异常','目录不认识的 UID 被拒绝而非跳过','selection 里放一个不存在的 UID','400 SELECTION_UNKNOWN_CASE，响应带 unknown 数组','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-011','FR-021','异常','空选择被拒绝','selection=[]','400 SELECTION_EMPTY','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-012','FR-021','异常','不是数组的选择被拒绝','selection=\'u1\'','400 SELECTION_NOT_AN_ARRAY','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-013','FR-010','安全','ATS-106 的请求白名单未被削弱','run 请求里放 grep','400 RUN_PARAMETER_NOT_ALLOWED，rejected=[\'grep\']','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-020','FR-021','正常','单文件选择成为带选择集合的运行','选中登录文件的全部用例','202；运行带 selection/selectionUids；快照自带 file/title/line；run.file 等于该文件','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-021','FR-021','正常','跨文件选择成为按文件拆分的批次','每个文件选一条','202；批次记录 groups 为 2 组；run.batchUid 与批次互指','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-022','FR-021','正常','批次可按项目过滤','/api/batches?projectId=…','只返回该项目的批次','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-030','FR-021','正常','批次的第二个文件继承环境档案','selection=[a1,b1]、env=staging','批次 context 记着档案；两个 run 的 envName 都是 staging、envUid 相同、envVariables 都是 [BASE_URL]；引擎在第二个文件里真的看到了 BASE_URL=http://staging.example','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-031','FR-021','正常','批次的第二个 run 记录它继承的档案','同上','第二个 run 的 envName=staging、batchIndex=1；它的选择是它自己那一组（count=1、files=[tests/b.spec.ts]）','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-032','FR-021','异常','被拒绝的组让整单被拒绝','selection=[u-a1, u-p1]（p(1).spec.ts 被 ATS-106 拒绝）','单文件路径 400 INVALID_TEST_FILTER；批次路径**同样** 400 INVALID_TEST_FILTER 且 file 指名该文件；**没有**任何运行被启动','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-033','FR-021','异常','预检失败的批次也落到终态','没有 node_modules 的项目，两个文件','批次 status=failed；finishedAt 有值；error 写明原因——不是永远 running','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-034','FR-021','异常','批次进行中 Bridge 被杀，该批次被标为中断','强杀 Bridge 后在同一数据目录重启','批次 status 不再是 running；finishedAt 有值','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-035','FR-021','正常','批次记录对账「选了什么/跑了什么」','跨两个文件的选择真的跑完','reconciliation.selected=2；missing 为空（跨两个 run 计算）；extra 报告多跑的那些（整文件执行）——不藏起来','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-036','FR-021','安全','批次记录不携带环境变量的**值**','档案里写 BASE_URL=https://staging.example/?k=s3cr3t-value-1234，起一个两文件的批次','GET /api/batches 的整个响应里不含该值；batch.context 只有 envUid/envName/envTier，没有 envVariables；档案清单与运行记录同样不含该值','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-037','FR-021','异常','白名单收紧后**之后**启动的 run 不再带着该变量','run#1 在跑时用 PUT /env-whitelist 把 BASE_URL 移出白名单，随后启动的 run#2','run#2 的引擎看到 BASE_URL 未设置（`<unset>`）；run#2 的 envVariables 为空；envRefused 点名 BASE_URL','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-038','FR-021','异常','批次进行中档案被删除时批次以明确原因结束','run#1 在跑时 DELETE 掉档案','批次 status=failed，error 点名 ENV_PROFILE_NOT_FOUND；第二个文件**没有**在「无档案」的静默回落下跑过','node --test tests/ats214-batch-context.test.mjs','PASS'),
+]
+
+ST+=[
+('ST-ATS214-001','FR-005','正常','500 用例的目录在真实浏览器里加载且无报错','真实 Bridge + 真实 Chromium + 静态导出；500 用例 / 50 文件的夹具','500 行用例渲染出来；没有 console error，也没有 page error','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-002','FR-005','可用性','500 用例时用例列表**可见且可点**','同上，视口 1440x900','列表高度 > 0、顶部在视口内、第一条用例在屏幕上且真的点得动（aria-checked 变 true）','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-003','FR-005','性能','500 用例的过滤在预算内（预算事先写明）','同上；逐键输入、标签口径切换、「全选当前」、取消勾选','每次交互 ≤ 100ms，且没有 > 100ms 的 long task；4 倍 CPU 降速的数字只作参考','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-004','FR-005','功能','按标题搜索用例','输入「case 017」','只留下标题含该串的用例（1 条）','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-005','FR-005','功能','标签过滤，且「任一」与「全部」给出不同的结果','勾 @smoke + @api，切口径','「任一」234 条、「全部」34 条——两个口径不同，口径不是装饰','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-006','FR-005','功能','选择映射到用例的 UID','勾选 a1 与 b1','选择栏显示「已选 2 条」；两条的 UID 就是目录里的 UID','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-007','FR-005','异常','已选但离开目录的用例被报出，且运行被阻止','把 b1 从文件里删掉后重读目录','页面出现 role=alert 的提示并点名该 UID；点批量运行只弹提示，**没有**提交任何运行','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-008','FR-005','可用性','切换项目时过滤条件被重置并告知','在 p500 勾 @smoke，再切到 other（2 条、只有 @billing）','列表回到 2/2 条，没有残留的按下芯片，选择栏「已选 0 条」','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-009','FR-005','正常','界面如实说明实际会执行多少条','只勾 a1（a 文件有 3 条）','选择栏「将执行 3 条」、toast「实际执行 3 条」，引擎真的跑了 3 条——三个数字一致','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-010','FR-005','可用性','勾选框键盘可达','真实 Chromium 的 Tab / Space','勾选框是自己的 <button role=checkbox>（不是嵌在 button 里的 span），能拿到焦点，空格能切换','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-011','FR-021','功能','发出去的请求带着**每一个**被勾选的 UID','勾选两个不同文件里的用例，拦截浏览器发出的请求','请求体里的 selection 带着两个 UID（读的是网络上的请求，不是界面自己的算术——只读界面只能证明界面没算错，证明不了它发对了）','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-012','TOOL','可靠性','交付的代码被变异时测试必须变红（负控）','对 page.tsx 与 server/index.mjs 做 12 个变异（关掉过滤、只发第一个 UID、不渲染警告、不阻止运行、承诺选中条数、不重置过滤、把勾选框放回 button 里、不重新解析环境档案、不整单校验、预检失败不结束批次、批次记录又带上变量值、档案被删也不结束批次）','每个变异都被抓住（界面变异由 ST 抓住，服务端变异由 IT 抓住）；未变异的代码仍然通过','node tools/ats214-probes/mutation-check.mjs','PASS'),
+]
+
+
 def emit(file,title,purpose,cases):
  # The status column may qualify a PASS ("PASS（UT）" -- passed, but the
  # evidence is a unit test rather than a system test). Such a row IS

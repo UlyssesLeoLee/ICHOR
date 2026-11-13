@@ -148,8 +148,19 @@ try {
   await page.fill('input[placeholder="密钥名称"]', 'ats213-ui-key');
   await page.fill('input[placeholder="密钥内容"]', SECRET);
   await page.click('button:has-text("存入")');
-  await page.waitForSelector('[data-region="cred-status"]', { timeout: 15000 });
-  const row = page.locator('[data-region="cred-status"]').first();
+  // The MEASURED row, not just any row.
+  //
+  // After the store accepts the key the panel renders the reference list
+  // first (the row's status is `unknown` -- "状态未测得"), and the
+  // MEASURED status arrives with the status read that follows. Waiting for
+  // `[data-region="cred-status"]` therefore matches the un-measured row
+  // and the check reads "状态未测得" -- a race in the TEST, not a defect
+  // of the panel.
+  //
+  // The row that carries a MEASURED status is the one WITHOUT
+  // `data-cred-reference`: the un-measured rows carry it.
+  await page.waitForSelector('[data-region="cred-status"]:not([data-cred-reference])', { timeout: 15000 });
+  const row = page.locator('[data-region="cred-status"]:not([data-cred-reference])').first();
   const statusAttr = await row.getAttribute('data-cred-status');
   const labelText = await row.locator('[data-region="cred-status-label"]').innerText();
   check('ST-ATS213-001', 'a key stored in the OS credential store shows as 已配置',

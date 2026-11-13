@@ -121,16 +121,19 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
 
 **接口硬约束**（下游改动必须同步，违反即静默失效）：
 
-1. **默认端口 4577 在发布源码中被硬编码在 6 处**（不含文档与测试数据）。改端口须同步全部，否则 UI 与 CSP 会指向错误端口：
+1. **默认端口 4577 在发布源码中被硬编码在 9 处**（不含文档与测试数据）。改端口须同步全部，否则 UI 与 CSP 会指向错误端口：
 
    | # | 位置（file:line） | 作用 |
    |---|---|---|
    | 1 | `server/index.mjs:77` | 默认值 `process.env.ATS_PORT\|\|4577` |
    | 2 | `server/index.mjs:1384` | CSP `connect-src` |
-   | 3 | `apps/studio/lib/api.ts:74` | API Base |
-   | 4 | `apps/studio/app/page.tsx:832` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
-   | 5 | `apps/studio/public/fallback.html:14` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
-   | 6 | `src-tauri/src/lib.rs:45` | `ATS_PORT` 环境变量默认值 |
+   | 3 | `apps/studio/lib/api.ts:106` | API Base（服务端渲染分支） |
+   | 4 | `apps/studio/lib/api.ts:109` | API Base（端口为 3000 时） |
+   | 5 | `apps/studio/lib/api.ts:111` | API Base（Tauri 协议） |
+   | 6 | `apps/studio/lib/api.ts:115` | API Base（默认分支） |
+   | 7 | `apps/studio/app/page.tsx:1080` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
+   | 8 | `apps/studio/public/fallback.html:24` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
+   | 9 | `src-tauri/src/lib.rs:45` | `ATS_PORT` 环境变量默认值 |
 
    另有 8 个文件**非运行时数据**引用了端口，不影响运行时行为，但会显示过期端口，须一并更新：`start.ps1:8-9` 与 `start.sh:4`（启动脚本打印/打开的 URL）、`tests/test-cases.json`（测试用例输入数据）、`tools/generate_test_docs.py:416,422,550`（`tests/test-cases.json` 的生成器，重新生成会把旧端口写回去）、`test-cases.xlsx`（3 处，测试用例输入数据）、`tools/update_wbs_ats216.py`（WBS 备注**文本**里的端口，值不生效）、
    文档类的端口提及另计，见下。
@@ -141,7 +144,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    (b) **非运行时数据提及**：数据/脚本只显示或复制端口值，不影响运行行为，须一并更新但可批量处理（即上列的 7 个文件）；
    (c) **文档提及**：纯文字描述端口，不影响任何行为——判定依据是**文件扩展名**：任何以 `.md` 结尾的文件都属此类，无论它位于 `docs/` 下还是仓库根（如 `README.md`）；此外 `tools/ats101-probes/` 下的脚本也属此类（探针脚本必须写明它审计的端口）。
    探针按这三类分别统计并逐文件列出，**新增一份提到端口的文档也会被自动纳入 (c) 类统计**，不会被误判成运行时硬编码。
-   **(c) 类的统计口径**：统计范围是**除本文件与 `tools/ats101-probes/` 探针目录之外的全部 `.md` 文件**（以及其它探针目录下的 `.mjs` / `.sh` 脚本——它们同样只是叙述自己审计的端口），共 **13 个文件共 53 处提及**（`README.md` 4 处、`docs/04-DETAILED-DESIGN.md` 1 处、`docs/08-IT-TEST-DESIGN.md` 2 处、`docs/09-ST-TEST-DESIGN.md` 1 处、`docs/11-SECURITY-RISK.md` 1 处、`docs/12-DEPLOY-OPERATIONS.md` 4 处、`docs/22-FRONTEND-EXPORT.md` 29 处、`docs/28-QUALITY-OVERVIEW.md` 1 处、`docs/29-REMOTE-SCHEDULING.md` 3 处、`tools/ats215-probes/st-ats215.mjs` 2 处、`tools/ats216-probes/browser-check.mjs` 2 处、`tools/ats216-probes/collect-evidence.sh` 1 处、`tools/ats502-probes/audit-scheduling-core.mjs` 2 处）。该数字由探针实测得出并断言，改动上述任一文件的端口提及后，探针会报 `RESULT: MISMATCH`。`docs/evidence/ATS-101/` 下的 `.log` 证据文件**不在扫描的扩展名范围内**，其中的端口字面量不计入这 53 处。
+   **(c) 类的统计口径**：统计范围是**除本文件与 `tools/ats101-probes/` 探针目录之外的全部 `.md` 文件**（以及其它探针目录下的 `.mjs` / `.sh` 脚本——它们同样只是叙述自己审计的端口），共 **15 个文件共 58 处提及**（`README.md` 4 处、`docs/04-DETAILED-DESIGN.md` 1 处、`docs/08-IT-TEST-DESIGN.md` 2 处、`docs/09-ST-TEST-DESIGN.md` 1 处、`docs/11-SECURITY-RISK.md` 1 处、`docs/12-DEPLOY-OPERATIONS.md` 4 处、`docs/22-FRONTEND-EXPORT.md` 29 处、`docs/28-QUALITY-OVERVIEW.md` 1 处、`docs/29-REMOTE-SCHEDULING.md` 3 处、`docs/evidence/ATS-214/reviewer-probes/README.md` 4 处、`tools/ats214-probes/st-ats214.mjs` 1 处、`tools/ats215-probes/st-ats215.mjs` 2 处、`tools/ats216-probes/browser-check.mjs` 2 处、`tools/ats216-probes/collect-evidence.sh` 1 处、`tools/ats502-probes/audit-scheduling-core.mjs` 2 处）。该数字由探针实测得出并断言，改动上述任一文件的端口提及后，探针会报 `RESULT: MISMATCH`。`docs/evidence/ATS-101/` 下的 `.log` 证据文件**不在扫描的扩展名范围内**，其中的端口字面量不计入这 53 处。
    因此本节所列清单是**源码硬编码点**的完整清单，而非全仓库端口字面量的完整清单；文档类提及不要求逐条列出，但换端口时同样须一并更新。
 2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
 3. **Host 白名单绑定端口**：`server/index.mjs:1373` 的正则含 `${PORT}`，改端口后 Host 校验随之变化。

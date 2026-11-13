@@ -514,9 +514,12 @@ Received: "sk-live-xxxxxxxx"
 | `09-credential-reference-st.log` | 凭据引用的端到端 10 项（**真实 Playwright 运行** + 真实 Windows Credential Manager） |
 | `10-status-failures-st.log` | 状态面的**失败路径** 10 项（真实浏览器） |
 | `11-status-mutants.log` | **变异体**：修复改回缺陷后，同一支 ST 必须变红 |
-| `12-quality-gates.log` | ATS-301 门禁（WBS 助手 + ADR 引用 + 端口审计） |
-| `13-full-regression.log` | 全量回归（0 失败；跳过项逐条标注） |
-| `14-wbs-row-and-checksums.log` | WBS 行与校验和清单 |
+| `12-credential-boundaries-ut.log` | 收口与脱敏的 19 例 UT（状态面不读明文 / 未解析的引用被拒 / 脱敏跨分块 / 内嵌 zip 被重建 / 收口点只有一个调用点） |
+| `13-credential-redaction-it.log` | 落盘脱敏的 IT（真实凭据库 + 真实 Playwright 运行，断言失败后数据目录 0 命中） |
+| `14-credential-redaction-mutants.log` | **变异体** 8 支：每一支都让对应的检查变红 |
+| `15-quality-gates.log` | ATS-301 门禁（WBS 助手 + ADR 引用 + 端口审计） |
+| `16-full-regression.log` | 全量回归（0 失败；跳过项逐条标注） |
+| `17-wbs-row-and-checksums.log` | WBS 行与校验和清单 |
 | `ui/` `ref/` `failures/` | 真实浏览器的截图与 trace |
 
 证据目录另有一份 `README.md`，逐份写明每一步的**内容与复跑命令**，以及全量回归
@@ -537,6 +540,9 @@ node tools/ats213-probes/st-ats213.mjs docs/evidence/ATS-213/ui
 node tools/ats213-probes/st-credential-ref.mjs docs/evidence/ATS-213/ref
 node tools/ats213-probes/st-credential-status-failures.mjs docs/evidence/ATS-213/failures
 node tools/ats213-probes/probe-credential-status-mutants.mjs
+node --test tests/credential-reference-boundaries.test.mjs
+ATS213_REAL_CREDENTIAL_STORE=1 node --test tests/credential-redaction-api.test.mjs
+node tools/ats213-probes/probe-credential-redaction-mutants.mjs
 python tools/update_wbs_ats213.py
 ```
 

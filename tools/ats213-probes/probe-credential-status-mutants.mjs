@@ -266,6 +266,15 @@ function removeTree(dir) {
       if (!secrets.has(id)) throw new Error('CREDENTIAL_NOT_FOUND');
       return secrets.get(id);
     },
+    // The status surface measures the store with `probe()`, so the fake
+    // backend HAS to answer a probe. Without it the walk sees a broken
+    // backend on every entry, the per-entry error path swallows it, and
+    // the delete the control depends on never lands -- the control would
+    // then measure a tree on which the defect was never triggered.
+    async probe(id) {
+      if (!secrets.has(id)) throw new Error('CREDENTIAL_NOT_FOUND');
+      return 'PRESENT';
+    },
     async remove(id) { secrets.delete(id); },
   };
   store = createCredentialStore({ indexFile, backend });
@@ -282,13 +291,22 @@ function removeTree(dir) {
   // completes normally and the break happens on the next one -- which is
   // exactly the window a concurrent DELETE has.
   const victim = ids[1];
-  let reads = 0;
+  //
+  // The delete must land on the call the walk ACTUALLY makes. The status
+  // surface measures the store with `probe()`, so hooking `read()` would
+  // never fire -- the negative control would then measure a tree on which
+  // the defect was never triggered, and it would "prove" nothing.
+  //
+  // The hook is therefore on `probe()`, and the mutation is VERIFIED to
+  // have applied: a probe that fires zero times cannot tell a blind
+  // mutant from a mutant that was never built.
+  let probes = 0;
   const backend2 = {
     ...backend,
-    async read(id) {
-      reads++;
-      const result = await backend.read(id);
-      if (reads === 1) await store.remove(victim);
+    async probe(id) {
+      probes++;
+      const result = await backend.probe(id);
+      if (probes === 1) await store.remove(victim);
       return result;
     },
   };
@@ -296,8 +314,13 @@ function removeTree(dir) {
   let outcome;
   try { const s = await store2.statusAll(); outcome = `returned ${s.length} statuses`; }
   catch (e) { outcome = `threw ${e.code || e.message}`; }
-  report('M-S1', /threw/.test(outcome),
-    `the mutant statusAll() with a delete landing between two measurements -> ${outcome} (the defect is reproduced)`);
+  // The negative control is only meaningful if the delete really landed
+  // inside the walk. A mutant whose hook never fired reproduces nothing,
+  // and reporting that as "the defect is reproduced" would be a false
+  // green.
+  const landed = probes > 0;
+  report('M-S1', landed && /threw/.test(outcome),
+    `the mutant statusAll() with a delete landing between two measurements -> ${outcome}; the delete fired ${probes} time(s) during the walk (the defect is reproduced)`);
 }
 
 const failed = results.filter((r) => !r.ok).map((r) => r.id);
