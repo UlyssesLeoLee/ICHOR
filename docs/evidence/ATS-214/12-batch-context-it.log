@@ -1,0 +1,51 @@
+================================================================================
+ATS-214 evidence log -- the batch's request context and terminal states
+================================================================================
+commit        : 9c689ca72afbf394af6b69572d06982ac7549de9
+timestamp     : 2026-11-13T14:35:18Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+platform      : win32 x64
+command       : node --test tests/ats214-batch-context.test.mjs
+================================================================================
+
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/p(1).spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+✔ IT-ATS214-SETUP: start the bridge (632.6871ms)
+✔ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (5214.1526ms)
+✔ IT-ATS214-031: the second run of a batch records the profile it inherited (5151.5971ms)
+✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (1863.4508ms)
+✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (630.6659ms)
+✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (4636.2937ms)
+✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (5074.2115ms)
+✔ IT-ATS214-036: the batch record carries NO environment variable values (5340.0017ms)
+✔ IT-ATS214-037: a whitelist tightened while the batch runs constrains the LATER run (14110.8609ms)
+✔ IT-ATS214-038: a profile DELETED while the batch runs ends the batch with a reason (12302.5868ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 63219.861
+
+--- exit code: 0 ---

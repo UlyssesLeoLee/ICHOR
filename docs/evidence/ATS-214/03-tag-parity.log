@@ -1,0 +1,42 @@
+================================================================================
+ATS-214 evidence log -- the tag parity: the static index vs the real Playwright --list
+================================================================================
+commit        : 9c689ca72afbf394af6b69572d06982ac7549de9
+timestamp     : 2026-11-13T14:36:21Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+platform      : win32 x64
+command       : node tools/ats214-probes/tag-parity.mjs
+================================================================================
+
+fixture: C:\Users\seiko\AppData\Local\Temp\multica-task-738115636\ats214-parity-7wplLA\project
+playwright: D:/ICHOR/examples/sample-playwright/node_modules
+the CLI answered: ok=true outcome=OK version=1.64.1
+
+line | static index            | the real CLI              | same
+-----+-------------------------+--------------------------+-----
+   3 | []                      | []                       | yes
+   5 | ["smoke"]               | ["smoke"]                | yes
+   7 | ["a","b"]               | ["a","b"]                | yes
+   9 | ["smoke"]               | ["smoke"]                | yes
+  11 | ["a","b"]               | ["a","b"]                | yes
+  13 | ["details","inline"]    | ["details","inline"]     | yes
+  16 | ["group"]               | ["group"]                | yes
+  17 | ["group","own"]         | ["group","own"]          | yes
+  19 | ["group","inner"]       | ["group","inner"]        | yes
+  24 | ["tgroup"]              | ["tgroup"]               | yes
+  26 | ["tgroup","tinner"]     | ["tgroup","tinner"]      | yes
+  31 | ["dboth","tboth"]       | ["dboth","tboth"]        | yes
+
+cases: 12 · tags: 11 with tags · mismatches: 0
+
+--- the facts the design relies on (measured, not assumed) ---
+the source writes '@smoke', the CLI reports ["smoke"]  -> the '@' is not part of the tag
+a case under describe(...{tag:'@group'}) reports ["group"]  -> the describe's tag is inherited
+a case under two nested describes reports ["group","inner"]  -> the tags accumulate
+a case with its own tag under a tagged describe reports ["group","own"]  -> own + inherited
+a tag without '@' is refused by the CLI: ok=false "Error: Tag must start with '@'; Error: No tests found"
+
+RESULT: OK -- the static index and the real Playwright CLI carry the SAME tags for all 12 cases.
+
+--- exit code: 0 ---

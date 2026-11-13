@@ -1,0 +1,47 @@
+=== ATS-606 evidence: the grouping negative controls ===
+tree : 945405fed60a1bc7b1cac3a8258ed721fa42b18f
+date : 2026-11-13T12:44:13Z
+
+=== ATS-606: the negative controls for the §8.5 GROUPING ===
+repo : D:\tmp\m3-merge2
+every mutant moves a row into another group and rewrites EVERY count,
+so the only thing wrong with it is WHICH GROUP the row is in.
+
+M0 control (unchanged)                   exit=0  => OK (control passes)
+M1 assertNotVisible -> 部分可映射             exit=1  => caught
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
+     FAIL §8.5.4 states the spelling gap holds 2 command(s), but the table has 1: extendedWaitUntil
+M2 swipe -> 可映射                          exit=1  => caught
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（7 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
+     FAIL the grouping breaks the §8.3 criterion: swipe is in the mappable group but names no step kind
+M3 assertVisible -> 不映射                  exit=1  => caught
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
+     FAIL the grouping breaks the §8.3 criterion: assertVisible is in the unmappable group but names the step kind "assertVisible"
+M4 startRecording -> 不映射                 exit=1  => caught
+     FAIL the §8.5 block differs from the generated block -- line 12 of the block: the document says "#### 8.5.2 部分可映射（1 条）", the generator says "#### 8.5.2 部分可映射（2 条）". The g
+     FAIL the grouping breaks the §8.3 criterion: startRecording is in the unmappable group but names the step kind "recordScreen"
+M5 launchApp -> 部分可映射                    exit=1  => caught
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
+     FAIL the grouping contradicts the byte-code: launchApp: the document puts it in the partial group, the byte-code implies 可映射 (it compiles into LaunchAppCommand)
+M6 tapOn -> 不映射                          exit=1  => caught
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
+     FAIL the grouping breaks the §8.3 criterion: tapOn is in the unmappable group but names the step kind "tapOn"
+M7 extendedWaitUntil -> 不映射              exit=1  => caught
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
+     FAIL the grouping breaks the §8.3 criterion: extendedWaitUntil is in the unmappable group but names the step kind "assertVisible"
+M8 takeScreenshot -> 部分可映射               exit=1  => caught
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
+     FAIL the grouping contradicts the byte-code: takeScreenshot: the document puts it in the partial group, the byte-code implies 可映射 (it compiles into TakeScreenshotCommand)
+
+
+--- the platform table mutants (the table itself must satisfy the §8.3 rules) ---
+T1 the wait loses its table entry        exit=1  => caught
+     FAIL the row generator could not be run (exit 1) -- the table is NOT verified against the measurement
+     FAIL the grouping contradicts the byte-code: extendedWaitUntil: the document puts it in the mappable group, the byte-code implies 不映射 (it compiles into AssertConditionCom
+T2 the recording pair loses the pairing  exit=1  => caught
+     FAIL the row generator could not be run (exit 1) -- the table is NOT verified against the measurement
+     FAIL the grouping contradicts the byte-code: startRecording: the document puts it in the partial group, the byte-code implies 可映射 (it compiles into StartRecordingCommand)
+
+GROUP MUTANTS: OK (every group mutation was caught, and the control still passes)
+
+exit : 0

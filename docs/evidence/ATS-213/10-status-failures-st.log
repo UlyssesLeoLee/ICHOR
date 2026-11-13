@@ -1,0 +1,28 @@
+================================================================================
+ATS-213 evidence log -- the failure-path system test (the store unreachable / the status read fails)
+================================================================================
+commit        : af8a64f5db8e6cf44381c266b0836582b95bf7d2
+timestamp     : 2026-11-13T12:10:28Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+platform      : win32 x64
+command       : node tools/ats213-probes/st-credential-status-failures.mjs /d/ICHOR/docs/evidence/ATS-213/failures
+================================================================================
+
+PASS  U1a  the unavailable caption reflects the counts and never says 全部可用 while a count is above zero -- 2 rows say 取不到; caption reads "取不到 2"
+PASS  U1a-count  the unavailable caption states the number of each kind -- caption reads "取不到 2"
+PASS  U1b  the credential-store metric is based on a measurement, not on the files being present -- store caption reads "本机系统凭据库不可用"; GET /status available=false storeHealth={"state":"unavailable","reason":"CREDENTIAL_STORE_UNAVAILABLE"}
+PASS  U1b-api  the status endpoint reports the store as NOT available when it cannot be reached -- available=false storeHealth={"state":"unavailable","reason":"CREDENTIAL_STORE_UNAVAILABLE"}
+PASS  U2  a failed refresh does not leave the stale statuses on screen as if they were current -- before: configured,configured; after: error="可用状态读取失败：Failed to fetch（下方只列出引用，不代表密钥可用）（上次测得于 2026/11/13 21:10:45，现已" rows=
+PASS  U2-count  the stale statuses are not counted as usable keys -- the 可用密钥 count reads "0" (it was 2 before the failure)
+PASS  U2-refs  the references are still listed after a failed refresh -- 2 unmeasured rows, 0 measured rows
+PASS  U3  a failed first load keeps the references on screen -- 2 references exist; panel shows 2 unmeasured rows and 0 measured rows
+PASS  U3-delete  a failed first load keeps the delete buttons -- 2 delete buttons for 2 references
+PASS  U3-note  the note says the list below is the reference list, and that is true -- note: "可用状态读取失败：CREDENTIAL_NOT_FOUND（下方只列出引用，不代表密钥可用）"
+CLEANUP references left in the probe data dir: 0
+
+RESULT: OK (10/10 checks passed)
+
+--- exit code: 0 ---

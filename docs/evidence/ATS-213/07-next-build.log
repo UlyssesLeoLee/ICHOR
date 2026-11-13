@@ -1,0 +1,47 @@
+================================================================================
+ATS-213 evidence log -- the Next.js static export build
+================================================================================
+commit        : af8a64f5db8e6cf44381c266b0836582b95bf7d2
+timestamp     : 2026-11-13T12:09:26Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+platform      : win32 x64
+command       : bash tools/ats213-probes/collect-build.sh
+================================================================================
+
+--- 1. the type check (tsc --noEmit) ---
+tsc exit code: 0
+
+--- 2. the static export build (next build) ---
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 33ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 307ms
+  Running TypeScript ...
+  Finished TypeScript in 2.2s ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/3) ...
+✓ Generating static pages using 4 workers (3/3) in 801ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+
+next build exit code: 0
+
+--- 3. the export artefact ---
+out/index.html exists (17874 bytes)
+
+--- 4. the build side effects on tracked files ---
+error: Could not access 'apps/studio/next-env.d.ts'
+error: Could not access 'apps/studio/next-env.d.ts'
+the build touched the two files the baseline document names; nothing else.
+
+--- exit code: 0 ---

@@ -1,0 +1,125 @@
+# ATS-213 证据目录 ｜ OS Keychain / Windows Credential Manager 集成（凭据引用与可用状态）
+
+> 采集脚本：`bash tools/ats213-probes/collect-evidence.sh`
+> 采集环境：Windows 11 / Node 24.19.0 / Next.js 16.4.5 / **真实 Windows Credential Manager** / **真实 Chromium（Edge）** / **真实 Playwright 运行**
+> 结果：**RESULT: OK**（每一步都实跑并通过；跳过项逐条标注原因，见下）
+
+## 每一步是什么，怎么复跑
+
+| 文件 | 内容 | 复跑命令 |
+|---|---|---|
+| `01-credential-status-ut.log` | 状态契约的 17 例 UT：三值闭集、状态是**测出来的**而不是从索引推断、「未配置」与「取不到」不合并、取失败不静默降级、状态里没有密钥、**整张清单基于同一份索引快照**（遍历中被删除的引用被跳过、id 不合规的条目单独得到一个状态）、**凭据库的「可用」是实测的** | `node --test tests/credential-status.test.mjs` |
+| `02-credential-status-api-it.log` | 状态面的 9 例 IT（HTTP 层）：状态接口要 token、每条恰有一个状态、契约宣告词汇表、未知 id 被拒、**畸形请求体不回显密钥片段** | `node --test tests/credential-status-api.test.mjs` |
+| `03-credential-status-api-it-real-store.log` | 同一组 IT，对**真实 Windows Credential Manager** 跑（存取、状态、文件扫描） | `ATS213_REAL_CREDENTIAL_STORE=1 node --test tests/credential-status-api.test.mjs` |
+| `04-credential-reference-it.log` | 凭据引用的 5 例 IT：凭据形状的变量名带**引用**时档案存得下、带**明文**时被拒、**引用解析不了时拒绝启动**（404 `CREDENTIAL_REF_NOT_FOUND`，带变量名与引用 id）、运行记录里没有密钥 | `node --test tests/credential-reference-api.test.mjs` |
+| `05-security-regression.log` | ATS-402 的 108 例安全用例（凭据存储不得回归；skip 是真实凭据库开关把关的用例） | `node --test tests/security.test.mjs tests/security-credentials.test.mjs tests/security-gate.test.mjs tests/security-api.test.mjs` |
+| `06-credential-boundary-probe.log` | 凭据边界探针：9 项检查 + **2 项负控**（密钥不进 argv / 文件 / 日志 / HTTP 响应；状态是对凭据库实测的） | `node tools/ats213-probes/probe-credential-boundary.mjs` |
+| `07-next-build.log` | `tsc --noEmit` + Next.js 静态导出构建，以及构建对两个受版本控制文件的副作用 | `bash tools/ats213-probes/collect-build.sh` |
+| `08-system-test.log` | 真实浏览器里的 11 项 ST（真实 Bridge + 真实 Chromium + 真实系统凭据库），含「删掉凭据库条目后状态由「已配置」变「未配置」」这一**分叉场景** | `node tools/ats213-probes/st-ats213.mjs docs/evidence/ATS-213/ui` |
+| `09-credential-reference-st.log` | 凭据引用的端到端 10 项（**真实 Windows Credential Manager + 真实 Playwright 运行**）：档案存引用 → 运行启动时解析 → 被测脚本读到注入的变量（断言 SHA-256 摘要与长度）→ **平台数据目录 0 命中** | `node tools/ats213-probes/st-credential-ref.mjs docs/evidence/ATS-213/ref` |
+| `10-status-failures-st.log` | 状态面的**失败路径** 10 项（真实浏览器）：凭据库不可达时说明逐类计数且不写「全部可用」、不写「已就绪」、刷新失败后旧状态被清空且不计入可用密钥、首次加载失败时引用照样显示且删除按钮还在 | `node tools/ats213-probes/st-credential-status-failures.mjs docs/evidence/ATS-213/failures` |
+| `11-status-mutants.log` | **变异体**：把两处修复改回缺陷的样子（在副本上重新构建），同一支 ST 必须**变红**；未变异的交付树必须全绿 | `node tools/ats213-probes/probe-credential-status-mutants.mjs` |
+| `12-credential-boundaries-ut.log` | 收口与脱敏的 **19 例 UT**：状态面**不读明文**（`read()` 调用 0 次）、未解析的引用**被拒**（绝不 `"[object Object]"`）、脱敏**跨两块/三块**、HTML 报告**内嵌 zip** 被重建、二进制成员作为**边界**被报出、**解析器在全仓库只有一个调用点**、**每条运行路径都经过那个收口点**、**`startRun()` 没有回退分支** | `node --test tests/credential-reference-boundaries.test.mjs` |
+| `13-credential-redaction-it.log` | 落盘脱敏的 **IT**：真实 Bridge + 真实 Windows Credential Manager + **真实 Playwright 运行**，被测脚本做一次**普通断言失败** → **数据目录 0 命中**（含 HTML 报告内嵌 zip 的解码扫描） | `ATS213_REAL_CREDENTIAL_STORE=1 node --test tests/credential-redaction-api.test.mjs` |
+| `14-credential-redaction-mutants.log` | **变异体**：M-P1（状态面改回 `read()`）、M-P2（引用改回 `String()`）、M-P3（逐块脱敏）、M-P3b（落盘前不脱敏）、M-P3c（不重建内嵌 zip）、M-P4（批次自己解析引用）、M-P5（回退分支回来）、M-P6（出现第二个解析器）——每一支都必须让对应的检查**变红**，未变异的交付树**全绿** | `node tools/ats213-probes/probe-credential-redaction-mutants.mjs` |
+| `15-quality-gates.log` | ATS-301 门禁（WBS 助手回归 + ADR 引用逐条校验 + 端口硬编码审计） | `bash tools/ats301-probes/check-ats301-gate.sh` |
+| `16-full-regression.log` | 全仓库回归（`--test-concurrency=2`） | `node --test --test-concurrency=2 tests/*.test.mjs` |
+| `17-wbs-row-and-checksums.log` | WBS 行的状态/完成率/剩余人日（**从工作簿读回**，不是从脚本的变量读）+ 校验和清单 | `bash tools/ats213-probes/collect-wbs-and-checksums.sh` |
+| `ui/` `ref/` `failures/` | 真实浏览器的截图与 trace | 由第 8/9/10 步生成 |
+
+## 复核方自己的探针（附件 `ats213-r2-probes.zip`）在 dev tip 上的结果
+
+复核第 2 轮登记的三条阻断项各有对应的一支探针。全部在 **dev tip 的
+`git archive` 存档**上复跑（存档带已构建的 `apps/studio/out`），用**真实
+Windows Credential Manager**、**真实 Edge** 与**一次真实 Playwright 运行**。
+
+| 探针 | 检查 | 结果 |
+|---|---|---|
+| `r2-inproc.mjs` | P1（状态面不读明文）、P2（未解析的引用不进环境块） | **OK**（`read()` 0 次 / `probe()` 3 次；`API_TOKEN=undefined`） |
+| `r2-ref-leak.mjs` | P3（注入的密钥不进落盘面与 API） | **OK**（数据目录 0 命中；`run.log` 里是 `Received: "***"`） |
+| `r1-inproc.mjs` | S1（遍历中被删除的引用）、S2（id 不合规的条目） | **OK**（两张清单都返回，不抛错） |
+| `r1-http.mjs` | S1-http（并发 DELETE）、S3（凭据形状的变量名三种形态） | **OK**（0/3 整张失败；引用被接受、运行能解析） |
+| `r2-ui.mjs` | U1a、U1b、U2、U3（真实浏览器的四条失败路径） | **OK**（逐类计数；不写「已就绪」；旧状态被清空；引用照样显示） |
+
+复现命令（`<tree>` 为 dev 存档且含已构建的 `apps/studio/out`；`<nm>` 为
+`D:/ICHOR/examples/sample-playwright/node_modules`）：
+
+```
+node probes/r2-inproc.mjs   <tree> <scratch>
+node probes/r2-ref-leak.mjs <tree> <scratch> 8953 <nm>
+node probes/r1-inproc.mjs   <tree> <scratch>
+node probes/r1-http.mjs     <tree> <scratch> 8951
+node probes/r2-ui.mjs       <tree> <scratch> <nm>/playwright-core <shots>
+```
+
+## 跳过的用例（skip ≠ PASS ≠ FAIL）
+
+**skip 不是 PASS，也不是 FAIL** —— 逐条标注如下（数字取自日志本身）：
+
+| 数量 | 原因 | 性质 |
+|---|---|---|
+| 11 | `no Android device is attached to adb` | 硬件：没有接 Android 设备（ATS-601/603 的范围） |
+| 4 | `needs ATS402_REAL_CREDENTIAL_STORE=1` | 开关：真实凭据库用例在**第 3 步**已用真实 Windows Credential Manager 跑过 |
+| 3 | `npm ci failed (exit 1): npm error code EALLOWREMOTE` | 环境：`examples/real-browser-fixture` 的依赖安装失败（离线 registry 不允许该包） |
+
+采集时把 `examples/sample-playwright` 与 `examples/sample-wdio` 的 `node_modules`
+从 `D:/ICHOR` 复制进工作树，因此这两夹具的用例**真的跑了**（不再以
+「跳过」计）。
+
+本任务**新增**的用例（`tests/credential-status.test.mjs` 17 例 +
+`tests/credential-status-api.test.mjs` 9 例 +
+`tests/credential-reference-api.test.mjs` 5 例 +
+`tests/credential-reference-boundaries.test.mjs` 19 例 +
+`tests/credential-redaction-api.test.mjs` 3 例 = 53 例）在这份日志里
+**0 失败**；ATS-402 的安全用例同样 0 失败。
+
+## 「状态是测出来的」怎么复现
+
+这是本任务最容易被误读成「当然是这样」的一条，因此给出可照抄的步骤：
+
+```powershell
+# 1. 存一个密钥（走 Bridge 的接口），记下返回的 credential.id
+# 2. 从系统凭据库里删掉那一条，但**不动**平台的索引
+powershell -NoProfile -File server/security/wincred.ps1 delete `
+  -Target "ATS:ai-test-studio:<credential.id>" -User ai-test-studio
+# 3. 查状态：GET /api/security/credentials/<credential.id>/status
+#    -> {"status":"not-configured","reason":"CREDENTIAL_NOT_FOUND"}
+# 4. 查引用列表：GET /api/security/credentials
+#    -> 那条引用**还在**（索引没动）
+```
+
+第 3 步与第 4 步的差别就是「状态是测出来的」的证明：状态说的是**凭据库**
+里的事实，引用列表说的是**索引**里的事实，两者不一致时状态跟的是凭据库。
+探针 `probe-credential-boundary.mjs` 的 B4 与 ST 探针的 ST-ATS213-002
+都自动跑了这个序列。
+
+## 「密钥仅以引用传递」怎么复现
+
+```powershell
+# 1. 存一个密钥，记下 credential.id
+# 2. 建一个环境档案，变量值写**引用**（不是明文）
+#    POST /api/projects/<id>/env
+#    {"name":"staging","environment":"staging",
+#     "variables":{"API_TOKEN":{"credentialRef":"cred_…"}}}
+# 3. 发起运行：POST /api/projects/<id>/run {"file":"…","env":"staging"}
+#    -> 202；平台在此时把引用解析成密钥注入封口的 runner 环境
+# 4. 查档案与运行记录：里面只有**引用**与**变量名**，没有密钥
+```
+
+探针 `st-credential-ref.mjs` 走完整的一条，并且**真的跑一次 Playwright**：
+被测脚本断言注入值的 SHA-256 摘要与长度，然后探针扫描平台数据目录——
+0 命中。
+
+## 未验证项（PENDING ≠ PASS）
+
+| 项 | 状态 | 原因与复现方法 |
+|---|---|---|
+| macOS Keychain 后端 | **未在真机实测** | 本机是 Windows 11，无 macOS 环境。复现：在 macOS 上跑 `node --test tests/credential-status.test.mjs`（后端经注入的 `spawn` 被驱动过，但从未在真实 Keychain 上执行） |
+| Linux Secret Service 后端 | **未在真机实测** | 同上 |
+| Tauri 壳内的凭据存取 | **未验证** | `src-tauri/src/lib.rs` **未改动**；本机 `cargo build` 因 B-02 仍无法出包。复现：`bash tools/ats101-probes/collect-b02-build-link.sh` |
+| 便携 UI（`fallback.html`）上的状态面 | **未交付** | 本次只做 Next 工作台 |
+| 凭据引用在 Tauri 壳内的解析 | **未交付** | 壳内没有 Bridge 的运行时，解析走 Bridge 的运行期路径 |
+| 凭据状态跨设备同步 | **不在范围** | P2 |
+
+**PENDING 不等于 PASS**：本目录里每一个 PASS 都对应一条实跑过的命令与它的
+实际输出；每一个未验证项都在上表里写明了原因与复现方法。
