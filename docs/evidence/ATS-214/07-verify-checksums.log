@@ -1,1 +1,15 @@
-BAD LINE: b'<<<<<<< HEAD'
+manifest entries : 1003
+digest mismatches: 25
+    .gitignore 9125eb10fe351d99cee102a27451bbbc47189380ad04d739bc2a482840665f20 != 2c65625d81aff4d40cb5b6ed5b5f02e22debf9a83be3ffe1ed6358a9f2095512
+    apps/studio/app/globals.css 74385c816e23ac51aa33ec06464f7e9b7ffc819c760fa91572b225f5368d3cf8 != d9d208da1fc6257b16e4a0d6cf2964fc04a33d5c416cf4049e8f1f946e64deb0
+    apps/studio/app/page.tsx 68498894798967e9c17caf614655a61b06695cfbadb72c46d14bc2272da3a8e1 != 6b2fa3e63044fe168f2f5db5212362ee6e39a857ffcf3b315dd40632d017ae61
+    apps/studio/lib/api.ts 26a62a1d6ac209f0b4a5af7f711610f9846189dc317b83c2269330f5d446aaf6 != 0a13d2272b4d6f561a278350be22d6a187fb1ae0a13dfecabb74e8986ad85885
+    apps/studio/public/case-search.mjs fb2264685a3970c0e0a8cf9c4a168548ac0c14bdfbff8a5a534617bd7ea3567b != 8df23dcf3244504515d30e2c419cfb77c97eb2d8ac6a6a4f69847d8c3a891d81
+    apps/studio/public/fallback.html 3e63783b1b0850c2f289095423461531495e514537b9771682f6b24d4713f57a != 0b30182a3bff6f78b984285a2c47349965efb8f667f0deabf8a81c34f16f6d3c
+    docs/07-UT-TEST-DESIGN.md a7e7f76fc17707ff784d4ac849798e1cf5471a79a6f94a351cbed1c62a92e54e != 2c5fa1cc0d75aa23b45fc42206177a82cd37b3aebf695aa13db72621789cf0a5
+    docs/08-IT-TEST-DESIGN.md 5aa5d57330dba8de339127e8326c78d01abaf227d477ed7f2d421a1589db6c01 != cca0f368b117e68fb0ec1897b6b459c76a4dc2d469080c15cd460b50e27aea04
+    docs/09-ST-TEST-DESIGN.md c4469ec536fe63d45d9a6ff5cc23a93afab8cb5128b9825c8cf409922d64039d != fe0bdb56a2772a880ae0eebfa5df431df8c689781a28d500ea6d3fb8723b56a8
+    docs/32-CASE-SEARCH-SELECTION.md c49f0b157e2734add3ab4141be0e4c0f57ef0f25842f600e70bae077d5c57bb0 != ca894bdcc268ce1d2378bb21a08ed5ebc9f5b7430049cb5a7ff0eee043024aa9
+tracked-not-listed: 10 ['docs/evidence/ATS-214/09-acceptance-mapping.log', 'docs/evidence/ATS-214/10-st-500-cases.log', 'docs/evidence/ATS-214/12-batch-context-it.log', 'docs/evidence/ATS-214/13-mutation-control.log', 'docs/evidence/ATS-214/reviewer-probes/README.md']
+listed-not-tracked: 0 []
+RESULT: MISMATCH

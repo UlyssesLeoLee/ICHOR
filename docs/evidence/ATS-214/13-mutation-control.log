@@ -1,14 +1,16 @@
-FAIL M1 the filter is disabled -- the list shows everything -- NOT CAUGHT (the ST probe (real Chromium): SKIPPED (the static export could not be built (apps/studio/node_modules is missing)))
-FAIL M2 runSelection sends only the FIRST uid of the selection -- NOT CAUGHT (the ST probe (real Chromium): SKIPPED (the static export could not be built (apps/studio/node_modules is missing)))
-FAIL M3 the warning of a case that left the catalogue is not rendered -- NOT CAUGHT (the ST probe (real Chromium): SKIPPED (the static export could not be built (apps/studio/node_modules is missing)))
-FAIL M4 the run is NOT blocked when a case left the catalogue -- NOT CAUGHT (the ST probe (real Chromium): SKIPPED (the static export could not be built (apps/studio/node_modules is missing)))
-FAIL M5 the toast promises the SELECTED count instead of the count that will really run -- NOT CAUGHT (the ST probe (real Chromium): SKIPPED (the static export could not be built (apps/studio/node_modules is missing)))
-FAIL M6 the filter is NOT reset when the project changes -- NOT CAUGHT (the ST probe (real Chromium): SKIPPED (the static export could not be built (apps/studio/node_modules is missing)))
-FAIL M7 the pick box is put back to a span (not a button any more) -- NOT CAUGHT (the ST probe (real Chromium): SKIPPED (the static export could not be built (apps/studio/node_modules is missing)))
+PASS M1 the filter is disabled -- the list shows everything -- caught (the ST probe (real Chromium): RED)
+PASS M2 runSelection sends only the FIRST uid of the selection -- caught (the ST probe (real Chromium): RED)
+PASS M3 the warning of a case that left the catalogue is not rendered -- caught (the ST probe (real Chromium): RED)
+PASS M4 the run is NOT blocked when a case left the catalogue -- caught (the ST probe (real Chromium): RED)
+PASS M5 the toast promises the SELECTED count instead of the count that will really run -- caught (the ST probe (real Chromium): RED)
+PASS M6 the filter is NOT reset when the project changes -- caught (the ST probe (real Chromium): RED)
+FAIL M7 the pick box is put back to a span (not a button any more) -- the mutation did not apply -- the probe is broken
 PASS M8 the batch does NOT resolve the environment profile again -- caught (the integration tests: RED)
 PASS M9 the batch is NOT validated group by group -- caught (the integration tests: RED)
 PASS M10 the batch is NOT ended when the preflight fails -- caught (the integration tests: RED)
 PASS M11 the batch record carries the environment VARIABLES again -- caught (the integration tests: RED)
 PASS M12 a DELETED profile does NOT end the batch -- it runs without one -- caught (the integration tests: RED)
 
-RESULT: 5/12
+RESULT: 11/12
+(node:18216) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)

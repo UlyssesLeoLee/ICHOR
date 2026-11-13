@@ -1418,16 +1418,16 @@ warning: in the working copy of 'node_modules/playwright/types/testReporter.d.ts
 warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
-✔ IT-ATS214-SETUP: start the bridge (384.2895ms)
-✔ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (5533.4801ms)
-✔ IT-ATS214-031: the second run of a batch records the profile it inherited (5589.189ms)
-✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (2003.6494ms)
-✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (597.0566ms)
-✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (4937.8747ms)
-✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (5147.5761ms)
-✔ IT-ATS214-036: the batch record carries NO environment variable values (5202.2149ms)
-✔ IT-ATS214-037: a whitelist tightened while the batch runs constrains the LATER run (14061.5301ms)
-✔ IT-ATS214-038: a profile DELETED while the batch runs ends the batch with a reason (12379.3128ms)
+✔ IT-ATS214-SETUP: start the bridge (437.6032ms)
+✔ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (4904.6855ms)
+✔ IT-ATS214-031: the second run of a batch records the profile it inherited (4950.039ms)
+✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (1835.1233ms)
+✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (2729.6084ms)
+✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (4470.7678ms)
+✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (4918.265ms)
+✔ IT-ATS214-036: the batch record carries NO environment variable values (4986.4675ms)
+✔ IT-ATS214-037: a whitelist tightened while the batch runs constrains the LATER run (13108.9727ms)
+✔ IT-ATS214-038: a profile DELETED while the batch runs ends the batch with a reason (12071.2575ms)
 ℹ tests 10
 ℹ suites 0
 ℹ pass 10
@@ -1435,4 +1435,4 @@ warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF t
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 65435.9296
+ℹ duration_ms 64132.0809

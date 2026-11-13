@@ -1,14 +1,14 @@
-✔ IT-ATS214-SETUP: start the bridge and register the fixture (608.1433ms)
-✔ IT-ATS214-001: the STATIC index carries the tags it reads from the source (71.8138ms)
-✔ IT-ATS214-002: the AUTHORITATIVE index carries the CLI's own tags (707.0596ms)
-✔ IT-ATS214-003: the two indexes carry the SAME tags for the same cases (518.9914ms)
-✔ IT-ATS214-010: a selection that names an unknown case is REFUSED, not skipped (479.9977ms)
-✔ IT-ATS214-011: an empty selection is refused (12.0205ms)
-✔ IT-ATS214-012: a selection that is not an array is refused (3.1025ms)
-✔ IT-ATS214-013: the run request still refuses the fields outside the whitelist (11.9425ms)
-✔ IT-ATS214-020: a selection of ONE file becomes a run that carries the selection (2031.6189ms)
-✔ IT-ATS214-021: a selection that spans SEVERAL files becomes a BATCH, split by file (2125.219ms)
-✔ IT-ATS214-022: the batches endpoint can be narrowed to one project (2.7031ms)
+✔ IT-ATS214-SETUP: start the bridge and register the fixture (421.3227ms)
+✔ IT-ATS214-001: the STATIC index carries the tags it reads from the source (63.4561ms)
+✔ IT-ATS214-002: the AUTHORITATIVE index carries the CLI's own tags (638.2147ms)
+✔ IT-ATS214-003: the two indexes carry the SAME tags for the same cases (508.7171ms)
+✔ IT-ATS214-010: a selection that names an unknown case is REFUSED, not skipped (442.2346ms)
+✔ IT-ATS214-011: an empty selection is refused (4.7929ms)
+✔ IT-ATS214-012: a selection that is not an array is refused (15.518ms)
+✔ IT-ATS214-013: the run request still refuses the fields outside the whitelist (14.5977ms)
+✔ IT-ATS214-020: a selection of ONE file becomes a run that carries the selection (1865.4058ms)
+✔ IT-ATS214-021: a selection that spans SEVERAL files becomes a BATCH, split by file (1947.0144ms)
+✔ IT-ATS214-022: the batches endpoint can be narrowed to one project (11.6231ms)
 ℹ tests 11
 ℹ suites 0
 ℹ pass 11
@@ -16,4 +16,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 12163.9392
+ℹ duration_ms 11404.7111

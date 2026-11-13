@@ -141,8 +141,10 @@ const MUTATIONS = [
   {
     id: 'M7 the pick box is put back to a span (not a button any more)',
     file: 'apps/studio/app/page.tsx',
-    find: '<button className={\'pick-box\'+(selectedUids.includes(t.uid)?\' on\':\'\')} onClick={()=>toggleSelect(t.uid)} role="checkbox" aria-checked={selectedUids.includes(t.uid)} aria-label={`选中 ${t.title}`} title="选中以批量运行" type="button"/>',
-    replace: '<span className={\'pick-box\'+(selectedUids.includes(t.uid)?\' on\':\'\')} onClick={()=>toggleSelect(t.uid)} role="checkbox" aria-checked={selectedUids.includes(t.uid)} aria-label={`选中 ${t.title}`} title="选中以批量运行"/>',
+    // The pick-box is a component of its own (`PickBox`), so the mutation
+    // is applied THERE -- the row component only places it.
+    find: 'return <button className={\'pick-box\'+(ticked?\' on\':\'\')} onClick={()=>onToggle(uid)} role="checkbox" aria-checked={ticked} aria-label={`选中 ${title}`} title="选中以批量运行" type="button"/>;',
+    replace: 'return <span className={\'pick-box\'+(ticked?\' on\':\'\')} onClick={()=>onToggle(uid)} role="checkbox" aria-checked={ticked} aria-label={`选中 ${title}`} title="选中以批量运行"/>;',
     probes: ['st'],
   },
   {

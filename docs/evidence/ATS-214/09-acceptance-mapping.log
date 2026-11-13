@@ -1,7 +1,7 @@
 completion definition -> the measured evidence that backs it
 
-  NOT PROVEN  「500 用例过滤无明显阻塞」  <- 10-st-500-cases.log does not show it
-  NOT PROVEN  「选中准确映射 UID」  <- 10-st-500-cases.log does not show it
+  PROVEN  「500 用例过滤无明显阻塞」  <- 10-st-500-cases.log (ST-001: 500 rows, 0 console error; ST-003: within the 100 ms budget)
+  PROVEN  「选中准确映射 UID」  <- 10-st-500-cases.log (ST-011: the request carried every ticked uid)
   PROVEN  复核方第 1 轮的必过项 (r1-api B1/B2, r1-ui X1/X3)  <- reviewer-probes/
 
-RESULT: FAILED -- a completion definition has no evidence.
+RESULT: OK -- every completion definition has measured evidence.

@@ -127,6 +127,7 @@ step "5. the Next.js 16 static export build (with the TypeScript check)"
 # as a pass (the repository's rule: PENDING is not PASS). The same rule
 # is followed by the other evidence collectors in this repository
 # (tools/ats111-probes/collect-evidence.sh).
+BUILD_TREE="${ATS214_BUILD_TREE:-D:/ats214-build}"
 if [ -d apps/studio/node_modules ] && [ -f apps/studio/node_modules/next/package.json ]; then
   if npm --prefix apps/studio run build > "$OUT/05-next-static-export-build.log" 2>&1; then
     note 0 "npm --prefix apps/studio run build"
@@ -222,6 +223,11 @@ fi
 # of dependencies. The probe copies the mutated sources there, builds, and
 # copies the build back into the tree under test.
 step "9. the negative control: every mutation of the delivered code must turn the suite red"
+# The build tree: a tree with a REAL directory of dependencies, because
+# Turbopack does not resolve a JUNCTION to a dependency tree on another
+# volume. Without it the interface mutations are reported as "not caught"
+# -- which says nothing about the tests, only that the build did not run.
+export ATS214_BUILD_TREE="${ATS214_BUILD_TREE:-D:/ats214-build}"
 if node tools/ats214-probes/mutation-check.mjs . "$TMPDIR" > "$OUT/13-mutation-control.log" 2>&1; then
   note 0 "node tools/ats214-probes/mutation-check.mjs (every mutation caught)"
 else
