@@ -39,7 +39,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { freePort } from './helpers/free-port.mjs';
@@ -176,12 +176,28 @@ test.after(async () => {
   // AWAITED (the exit event) and the removal retries, which is the
   // pattern the repository's other bridge tests use
   // (tests/android-bridge-it.test.mjs).
+  //
+  // The whole PROCESS TREE is killed: the Bridge spawns the Playwright
+  // child, and that child holds the fixture's files. Killing only the
+  // Bridge leaves the child alive, and the removal fails with EPERM --
+  // a teardown error that is reported as a FAILING TEST, even though
+  // every test itself passed.
   if (cp) {
     const exited = new Promise((resolve) => cp.once('exit', resolve));
+    try {
+      execFileSync('taskkill', ['/PID', String(cp.pid), '/T', '/F'], { stdio: 'ignore' });
+    } catch { /* the process may already be gone */ }
     cp.kill();
     await Promise.race([exited, new Promise((r) => setTimeout(r, 5000))]);
   }
-  fs.rmSync(WORK, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  // The removal is BEST EFFORT. A leftover fixture under the temp
+  // directory is harmless; a teardown that throws turns a green run
+  // red, and the reader then cannot tell which of the two happened.
+  try {
+    fs.rmSync(WORK, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  } catch (e) {
+    console.warn(`the fixture ${WORK} could not be removed (${e.code ?? e.message}); it is left under the temp directory`);
+  }
 });
 
 /* ================================================================== */

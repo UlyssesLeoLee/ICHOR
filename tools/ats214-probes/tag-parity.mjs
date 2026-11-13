@@ -76,7 +76,28 @@ if (!PLAYWRIGHT_MODULES) {
 const WORK = fs.mkdtempSync(path.join(os.tmpdir(), 'ats214-parity-'));
 const FIXTURE = path.join(WORK, 'project');
 
-/** The fixture: six cases, three tags, nested describes. */
+/**
+ * The fixture: every tag spelling Playwright ACCEPTS.
+ *
+ * The spellings are the ones the engine's own rule recognises
+ * (`playwright/lib/common/index.js:2765-2775`: the title path -- the
+ * case's own title plus every enclosing describe's title -- is joined
+ * into one text and matched with `/@[\S]+/g`, and the result is merged
+ * with the details object's tags):
+ *
+ *   * the tag in the TITLE              -- `test('case @smoke', ...)`;
+ *   * the tag in the DETAILS            -- `test('c', { tag: '@smoke' })`;
+ *   * several tags in the title        -- `test('c @a @b', ...)`;
+ *   * the tag in the DESCRIBE TITLE     -- `describe('g @group', ...)`;
+ *   * the tag in the DESCRIBE DETAILS   -- `describe('g', { tag })`;
+ *   * both at once                      -- the engine MERGES them.
+ *
+ * A tag written in a TITLE is the COMMON spelling, and the version of
+ * this probe that only covered the details object missed it -- the
+ * static index then reported no tags at all for a project whose cases
+ * carry them, which reads as "the filter is broken" rather than "the
+ * filter saw no tags".
+ */
 const SPEC = [
   "import { test } from '@playwright/test';",
   '',
@@ -86,6 +107,13 @@ const SPEC = [
   '',
   "test('multi tag', { tag: ['@a', '@b'] }, async () => {});",
   '',
+  // The title spellings.
+  "test('title tagged @smoke', async () => {});",
+  '',
+  "test('title several @a @b', async () => {});",
+  '',
+  "test('title and details @inline', { tag: '@details' }, async () => {});",
+  '',
   "test.describe('group', { tag: '@group' }, () => {",
   "  test('inside group', async () => {});",
   "  test('own tag too', { tag: '@own' }, async () => {});",
@@ -93,6 +121,22 @@ const SPEC = [
   "    test('nested', async () => {});",
   "  });",
   "});",
+  '',
+  // A describe whose TITLE carries the tag.
+  "test.describe('title group @tgroup', () => {",
+  "  test('inside title group', async () => {});",
+  "  test.describe('title inner @tinner', () => {",
+  "    test('inside title nested', async () => {});",
+  "  });",
+  "});",
+  '',
+  // A describe whose title AND details both carry a tag.
+  "test.describe('both group @tboth', { tag: '@dboth' }, () => {",
+  "  test('inside both group', async () => {});",
+  "});",
+  '',
+  // A commented-out case: neither index may report it.
+  "// test('commented case', { tag: '@commented' }, async () => {});",
   '',
 ].join('\n');
 

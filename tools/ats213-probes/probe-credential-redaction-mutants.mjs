@@ -219,6 +219,64 @@ function sourceTree(mutatedFiles) {
   if (!failed) console.log(text.slice(-2500));
 }
 
+/* ------------------------------------------------------------------ */
+/* M-P4: the batch resolves the profile on its own again                */
+/* ------------------------------------------------------------------ */
+{
+  // The defect: the batch's helper implements the rules a SECOND time, so
+  // the batch is no longer bound by the choke point's fail-closed check.
+  const source = fs.readFileSync(path.join(repo, 'server', 'index.mjs'), 'utf8');
+  const mutant = source.replace(
+    / const resolved=await prepareRunnerEnvironment\(\{project,envProfile:profile,credentialStore\}\);/,
+    ' const resolved={values:profile.variables??{},names:Object.keys(profile.variables??{}).sort(),refused:[],referenced:[]};',
+  );
+  if (mutant === source) throw new Error('the M-P4 mutation did not apply');
+  const tree = sourceTree({ 'server/index.mjs': mutant });
+  const { failed, text } = runTests(tree, 'tests/credential-reference-boundaries.test.mjs', 'ATS213-R3-UT-018');
+  report('M-P4', failed,
+    `the mutant batch path makes the check's verdict ${failed ? 'RED (the defect is caught)' : 'GREEN (the check is blind)'}`);
+  if (!failed) console.log(text.slice(-2500));
+}
+
+/* ------------------------------------------------------------------ */
+/* M-P5: the fail-open fallback comes back                               */
+/* ------------------------------------------------------------------ */
+{
+  // The defect: `startRun()` falls back to the profile's own variables
+  // when the caller has no resolved values, so an unresolved reference
+  // reaches the environment block.
+  const source = fs.readFileSync(path.join(repo, 'server', 'index.mjs'), 'utf8');
+  const mutant = source.replace(
+    /buildRunnerEnv\(\{variables:envVariables\?\?\{\}\},\{/,
+    'buildRunnerEnv({variables:envVariables??envProfile?.variables??{}},{',
+  );
+  if (mutant === source) throw new Error('the M-P5 mutation did not apply');
+  const tree = sourceTree({ 'server/index.mjs': mutant });
+  const { failed, text } = runTests(tree, 'tests/credential-reference-boundaries.test.mjs', 'ATS213-R3-UT-019');
+  report('M-P5', failed,
+    `the mutant fail-open fallback makes the check's verdict ${failed ? 'RED (the defect is caught)' : 'GREEN (the check is blind)'}`);
+  if (!failed) console.log(text.slice(-2500));
+}
+
+/* ------------------------------------------------------------------ */
+/* M-P6: a SECOND resolver appears                                      */
+/* ------------------------------------------------------------------ */
+{
+  // The defect: the resolver is called from a second place, so the rules
+  // have two implementations that can drift.
+  const source = fs.readFileSync(path.join(repo, 'server', 'index.mjs'), 'utf8');
+  const mutant = source.replace(
+      /function startRun\(/,
+      'async function aSecondResolver(){return resolveCredentialRefs({},{});}\nfunction startRun(',
+    );
+  if (mutant === source) throw new Error('the M-P6 mutation did not apply');
+  const tree = sourceTree({ 'server/index.mjs': mutant });
+  const { failed, text } = runTests(tree, 'tests/credential-reference-boundaries.test.mjs', 'ATS213-R3-UT-017');
+  report('M-P6', failed,
+    `the mutant second resolver makes the check's verdict ${failed ? 'RED (the defect is caught)' : 'GREEN (the check is blind)'}`);
+  if (!failed) console.log(text.slice(-2500));
+}
+
 const failed = results.filter((r) => !r.ok).map((r) => r.id);
 console.log(`\nRESULT: ${failed.length ? `FAIL ${failed.join(',')}` : 'OK'} (${results.length} checks)`);
 fs.rmSync(scratch, { recursive: true, force: true });

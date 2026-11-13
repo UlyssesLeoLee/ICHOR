@@ -21,7 +21,24 @@ export type SelectionSnapshot={uids:string[],cases:SelectionCase[],count:number,
 // argument baseline), so the batch is one run per file, chained.
 export type BatchGroup={file:string,uids:string[],count:number};
 export type BatchRun={runId:string,file:string,groupIndex:number,status:string};
-export type Batch={uid:string,projectId:string,projectUid:string,selectionUid:string,uids:string[],cases:SelectionCase[],files:string[],groups:BatchGroup[],status:string,createdAt:string,finishedAt:string|null,runs:BatchRun[],error?:string};
+/**
+ * ATS-214: the RECONCILIATION of a batch.
+ *
+ * 「选了什么、跑了什么，两边对得上」 -- what the reader selected against
+ * what the engine really ran. The per-run card can only report ONE
+ * group's cases, so the batch-level view is the one that answers the
+ * question for the WHOLE selection.
+ */
+export type BatchReconciliation={selected:number,executed:number,missing:string[],extra:string[],matches:boolean,exact:boolean};
+/**
+ * ATS-214: the CONTEXT of a batch -- the environment profile, the pinned
+ * runner and the requested capabilities every run of the batch inherits.
+ */
+// ATS-214: the batch record carries the environment profile's REFERENCE, never
+// its values. `envVariables` is therefore NOT part of the context any more: a
+// value in the record would be a value `GET /api/batches` serves.
+export type BatchContext={envUid:string|null,envName:string|null,envTier:string|null,runner:string|null,capabilities:string[]|null};
+export type Batch={uid:string,projectId:string,projectUid:string,selectionUid:string,uids:string[],cases:SelectionCase[],files:string[],groups:BatchGroup[],status:string,createdAt:string,finishedAt:string|null,runs:BatchRun[],error?:string,context?:BatchContext,reconciliation?:BatchReconciliation};
 // ATS-214: the run carries the selection it was started for.
 export type RunSelection={uids:string[],cases:SelectionCase[],count:number,files:string[],groups:BatchGroup[]};
 export type Attempt={uid:string,runUid:string,testUid:string|null,uidBasis:string,file:string,title:string,line:number|null,retry:number,status:string,caseStatus:string,duration:number,error:string};
@@ -71,7 +88,32 @@ export type EvidenceMaterial={run:{id:string,uid:string|null,status:string|null,
 // The view the shared module computes from the material.
 export type WorkbenchFailure={title:string,file:string,line:number|null,status:string,error:string,duration:number|null,attemptsCount:number|null,trace:EvidenceAttachment|null,traceLocated:boolean,traceSource:string,traceReason:string,attachments:EvidenceAttachment[],clickPath:{steps:{action:string,label:string}[],clicks:number,budget:number,withinBudget:boolean}};
 export type WorkbenchView={runId:string|null,runUid:string|null,runStatus:string|null,gitCommit:string|null,runner:string|null,startedAt:string|null,finishedAt:string|null,engineVersion:string|null,failureCount:number,failures:WorkbenchFailure[],attachments:EvidenceAttachment[],totals:{count:number,bytes:number,failures:number,locatedTraces:number},verification:EvidenceVerification|null,clickBudget:number};
-const root=()=>typeof window!=='undefined' && window.location.port==='4577'?'':'http://127.0.0.1:4577';
+// ATS-214: the API BASE follows the page's own origin.
+//
+// The workbench is served BY the Bridge, so the page and the API are the
+// same origin -- and the base is then empty (a relative URL). Two cases
+// are NOT the Bridge:
+//
+//   * the Next DEV SERVER on :3000 (the Bridge is a separate process);
+//   * the Tauri shell (`tauri://localhost`).
+//
+// Both reach the Bridge on its default port. The port is not hardcoded in
+// the page's own URL -- the page does not know which port the Bridge
+// runs on, and it must not have to: the ST probes run the Bridge on a
+// port of their own, so that two probes on the same machine cannot
+// measure each other's tree.
+const root=()=>{
+  if(typeof window==='undefined')return 'http://127.0.0.1:4577';
+  const {origin,port,protocol}=window.location;
+  // The Next dev server: the API is the Bridge on its default port.
+  if(port==='3000')return 'http://127.0.0.1:4577';
+  // The Tauri shell: the same.
+  if(protocol==='tauri:'||protocol==='tauri+https:')return 'http://127.0.0.1:4577';
+  // Anything else on http(s)://127.0.0.1 or localhost is the Bridge
+  // serving the page: the API is the SAME origin.
+  if(origin.startsWith('http://127.0.0.1:')||origin.startsWith('http://localhost:')||origin.startsWith('https://127.0.0.1:')||origin.startsWith('https://localhost:'))return '';
+  return 'http://127.0.0.1:4577';
+};
 let token='';
 export async function api<T>(url:string,method='GET',payload?:unknown):Promise<T>{
  if(!token){const r=await fetch(root()+'/api/session');if(!r.ok)throw Error('无法连接本地执行服务。请先运行 npm start');token=(await r.json()).token;}

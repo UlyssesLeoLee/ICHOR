@@ -32,7 +32,21 @@
 .filter-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
 .filter-head .eyebrow{margin:0;font-size:9px}
 .mode-select{background:#18283a;color:#cfe3f6;border:1px solid #2e465e;border-radius:5px;font-size:10px;padding:2px 5px;outline:none;cursor:pointer}
-.tag-list{display:flex;flex-wrap:wrap;gap:5px}
+/* ATS-214: THE CHIP LIST IS BOUNDED.
+ *
+ * The first delivery of this task rendered every tag and every file as a
+ * chip in one wrapping list. With 50 files the FILES section alone grew
+ * to 858px, the case list below it was pushed to 1189px -- BELOW the
+ * 900px viewport -- and the reader could not see or click a single case.
+ *
+ * The chip lists therefore have a MAX HEIGHT and scroll on their own, so
+ * the filter block always fits in the space above the case list. The
+ * threshold is a fixed 180px: enough for several rows of chips, small
+ * enough that the case list keeps a usable share of a 900px viewport
+ * (measured -- see docs/evidence/ATS-214/10-st-500-cases.log). */
+.tag-list{display:flex;flex-wrap:wrap;gap:5px;max-height:180px;overflow-y:auto;align-content:flex-start;padding-right:2px}
+.tag-list::-webkit-scrollbar{width:6px}
+.tag-list::-webkit-scrollbar-thumb{background:#2b4056;border-radius:6px}
 .tag-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;border:1px solid #2b4056;background:#16243a;color:#9fb8d0;border-radius:99px;padding:4px 9px;font-size:10px;line-height:1.3}
 .tag-chip:hover{border-color:#3d6288;color:#cfe3f6}
 .tag-chip.on{background:#22456b;border-color:#3f7cb5;color:#e2f0ff}
@@ -42,12 +56,34 @@
 .filter-report{margin-top:8px;padding-top:7px;border-top:1px solid #23364a;font-size:10px;color:#7f9bb6;line-height:1.6}
 .select-bar{display:flex;align-items:center;gap:10px;margin:0 12px 8px;padding:7px 11px;background:#14202f;border:1px solid #263a4f;border-radius:8px;font-size:11px;color:#93aec8}
 .select-bar span{flex:1;min-width:0}
+/* ATS-214: the warning of a selection that no longer maps to the UIDs.
+ * It is a `role="alert"`, so a screen reader announces it when it
+ * appears -- a selection that silently lost a case would be invisible to
+ * every reader, not only to the sighted one. */
+.selection-warning{display:flex;align-items:center;gap:8px;margin:0 12px 8px;padding:7px 11px;background:#3a2a1e;border:1px solid #7a5a33;border-radius:8px;font-size:11px;color:#f0ca7f;line-height:1.5}
+.selection-warning span{flex:1;min-width:0;word-break:break-all}
 .link-btn{border:0;background:none;color:#79b7ea;font-size:11px;padding:0}
 .link-btn:hover:not(:disabled){color:#a8d4f6;text-decoration:underline}
 .link-btn:disabled{color:#5a7188;cursor:not-allowed}
-.pick-box{flex-shrink:0;width:13px;height:13px;border:1px solid #43607d;border-radius:3px;background:transparent;cursor:pointer;display:inline-block}
+.pick-box{flex-shrink:0;width:13px;height:13px;border:1px solid #43607d;border-radius:3px;background:transparent;cursor:pointer;display:inline-block;padding:0}
 .pick-box:hover{border-color:#6fa8d8}
 .pick-box.on{background:#4d9ad8;border-color:#6fb4ee;box-shadow:inset 0 0 0 2px #14202f}
+/* ATS-214: the row is a `<div>` and the pick-box is a button of its own,
+ * so the pick-box is reachable by the keyboard (a control nested inside
+ * a button never gets a tab stop). The open button carries the title.
+ * The hover and the selected state stay on the ROW (the shared base
+ * sheet already paints `.file-item:hover` and `.file-item.selected`), so
+ * the open button stays transparent and the row's colour shows through. */
+.file-item{padding:0;gap:9px}
+/* ATS-214: one case of the SELECTION RECORD (the table that lists the
+ * selected cases, grouped by file). The cases of a file sit next to each
+ * other, so they are a list of small blocks rather than table rows. */
+.selection-case{display:inline-flex;flex-direction:column;gap:1px;margin:0 10px 6px 0;vertical-align:top}
+.selection-case b{font-weight:580;font-size:12px;color:#dce7f5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
+.selection-case code{font-size:9px;color:#5f7d99}
+.file-open{flex:1;min-width:0;display:flex;align-items:center;gap:9px;border:0;background:transparent;color:inherit;text-align:left;padding:10px 9px;border-radius:8px}
+.file-open span{flex:1;min-width:0}
+.file-open b,.file-open small{display:block}
 .tag-line{color:#8fb6d8!important;font-size:9px!important;margin-top:3px!important}
 
 /* ATS-111: WORKBENCH USABILITY -- the four states, the focus ring and the

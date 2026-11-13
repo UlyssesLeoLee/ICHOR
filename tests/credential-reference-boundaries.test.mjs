@@ -293,3 +293,92 @@ test('ATS213-R3-UT-016: a BINARY member is left alone and reported', () => {
   assert.ok(result.boundaries.includes('trace.zip'), 'the binary archive is reported as a boundary');
   assert.equal(result.files.length, 0, 'nothing was rewritten');
 });
+
+/* ------------------------------------------------------------------ */
+/* P2 ｜ 收口点：引用只在一处解析                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The source of a file, with the line numbers, so a test can point at the
+ * exact place a rule is written.
+ */
+function sourceLines(relative) {
+  const file = path.resolve(import.meta.dirname, '..', relative);
+  return fs.readFileSync(file, 'utf8').split('\n').map((line) => line.replace(/\r$/, ''));
+}
+
+/**
+ * Every line of `relative` that CALLS `callee`.
+ *
+ * The comment lines are excluded, and that matters: a check that only
+ * looks for the NAME finds it in the prose of a comment, so a mutation
+ * that removes the call still leaves the name behind and the check stays
+ * green. A check that cannot see that difference proves nothing.
+ */
+function callSites(relative, callee) {
+  return sourceLines(relative)
+    .map((text, index) => ({ text: text.trim(), line: index + 1 }))
+    .filter((row) => !row.text.startsWith('*')
+      && !row.text.startsWith('//')
+      && !row.text.startsWith('/*')
+      && row.text.includes(`${callee}(`));
+}
+
+test('ATS213-R3-UT-017: a credential reference is resolved at ONE place only', () => {
+  // The fail-closed rule needs a SINGLE choke point. Two implementations of
+  // "resolve the references of a profile" are two places where the rules
+  // can drift, and the batch is exactly the path where the second one let
+  // an unresolved reference reach the environment block.
+  //
+  // The assertion is on the SOURCE, because the property is structural:
+  // there is one call site of the resolver in the whole bridge.
+  const calls = callSites('server/index.mjs', 'resolveCredentialRefs');
+  assert.equal(calls.length, 1,
+    `the resolver is called from ${calls.length} places: ${calls.map((c) => `server/index.mjs:${c.line}`).join(', ')}`);
+  // And that one place is the choke point every run path goes through.
+  const choke = sourceLines('server/index.mjs').findIndex((text) => text.includes('async function prepareRunnerEnvironment('));
+  assert.ok(choke >= 0, 'the choke point exists');
+  assert.ok(calls[0].line > choke,
+    'the single call site is inside the choke point');
+});
+
+test('ATS213-R3-UT-018: EVERY run path goes through the choke point', () => {
+  // Two run paths start a run: the single-run route and the batch chain.
+  // Both of them must prepare their environment with
+  // `prepareRunnerEnvironment()` -- the batch included.
+  //
+  // The batch is checked by NAME because the batch's own helper
+  // (`batchRunEnv`) delegates to the choke point rather than implementing
+  // the rules a second time.
+  const source = sourceLines('server/index.mjs');
+  const calls = callSites('server/index.mjs', 'prepareRunnerEnvironment');
+
+  const batchHelper = source.findIndex((text) => text.includes('async function batchRunEnv('));
+  assert.ok(batchHelper >= 0, 'the batch helper exists');
+  assert.ok(calls.some((row) => row.line > batchHelper && row.line < batchHelper + 40),
+    'the batch helper CALLS the choke point');
+
+  // The single-run route calls the choke point directly.
+  const route = source.findIndex((text) => text.includes('let envResolved;'));
+  assert.ok(route >= 0, 'the single-run route exists');
+  assert.ok(calls.some((row) => row.line > route && row.line < route + 12),
+    'the single-run route CALLS the choke point');
+});
+
+test('ATS213-R3-UT-019: the run NEVER falls back to the profile\'s own variables', () => {
+  // The fail-open branch was `envVariables ?? envProfile?.variables`: a
+  // caller that had no resolved values got the profile's RAW variables --
+  // references and all -- and a reference is an object, so `String()` of it
+  // is `"[object Object]"`.
+  //
+  // The property is that the fallback is GONE: the environment block is
+  // built from the resolved values and nothing else.
+  const startRun = sourceLines('server/index.mjs')
+    .findIndex((text) => text.includes('function startRun('));
+  assert.ok(startRun >= 0, 'startRun exists');
+  const body = sourceLines('server/index.mjs').slice(startRun, startRun + 60).join('\n');
+  assert.ok(!/envVariables\s*\?\?\s*envProfile/.test(body),
+    'startRun() must not fall back to the profile\'s own variables');
+  assert.ok(!/envProfile\?\.variables/.test(body),
+    'startRun() must not read the profile\'s variables at all');
+});
