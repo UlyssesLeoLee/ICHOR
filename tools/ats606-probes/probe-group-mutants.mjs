@@ -150,12 +150,32 @@ const MUTANTS = [
   // M8: the same class of mutation on the other side -- a command the
   // platform CAN express, filed as partially mappable.
   { name: 'M8 takeScreenshot -> 部分可映射', text: moveRow('takeScreenshot', 'mappable', 'partial'), mustFail: true },
+  // M9: the PROSE count in §8.5.4. The table holds two partially
+  // mappable commands whose spelling is refused; the prose says three.
+  // The table is untouched, so only the prose check can see it.
+  {
+    name: 'M9 §8.5.4 的部分可映射条数说成三条',
+    text: md.replace('另外两条「部分可映射」命令', '另外三条「部分可映射」命令'),
+    mustFail: true,
+  },
+  // M10: a row's NOTE contradicts its GROUP. `tapOn` sits in the
+  // mappable group, but its note claims the command form differs. The
+  // group and every count stay as they are -- only the explanation
+  // drifts, so only the note check can see it.
+  {
+    name: 'M10 tapOn 的说明与它的组矛盾',
+    text: md.replace(
+      '命令形态与 Maestro 的 `tapOn` 一致（一步点一个元素）',
+      '命令形态与 Maestro 的 `tapOn` 不同',
+    ),
+    mustFail: true,
+  },
 ];
 
 /**
  * The mutants that break the PLATFORM TABLE rather than the document.
  *
- * The document mutants above move a row between groups. These two change
+ * The document mutants above move a row between groups. These three change
  * the one authored judgement in the chain -- the table that says which
  * platform step kind does what a Maestro command does -- and they are
  * caught by the RULES the table has to satisfy:
@@ -167,6 +187,12 @@ const MUTANTS = [
  *   T2  the pairing is removed from the recording commands. Maestro's
  *       recording is a begin/end PAIR against the platform's single step,
  *       so both halves must carry the pairing (R2).
+ *   T3  the pairing is carried by an entry that is keyed by the VARIANT
+ *       and whose class is not one half of a measured pair. The pairing
+ *       marks the command FORM as "Maestro's pair against the platform's
+ *       single step", so only a MEASURED pair may carry it -- and the
+ *       converse is checked over the variant entries too, not just the
+ *       top-level ones.
  *
  * A table that breaks a rule is rejected BEFORE any verdict is derived
  * from it -- by the generator AND by the probe -- so these mutants are
@@ -189,6 +215,12 @@ const TABLE_MUTANTS = [
     from: "  StartRecordingCommand: Object.freeze({ kind: 'recordScreen', form: 'paired' }),\n  StopRecordingCommand: Object.freeze({ kind: 'recordScreen', form: 'paired' }),",
     to: "  StartRecordingCommand: Object.freeze({ kind: 'recordScreen' }),\n  StopRecordingCommand: Object.freeze({ kind: 'recordScreen' }),",
   },
+  {
+    name: 'T3 a variant entry carries the pairing',
+    file: 'tools/ats606-probes/maestro-action-model.mjs',
+    from: "    'tap': Object.freeze({ kind: 'tapOn' }),",
+    to: "    'tap': Object.freeze({ kind: 'tapOn', form: 'paired' }),",
+  },
 ];
 
 let notBuilt = 0;
@@ -204,6 +236,15 @@ console.log('');
 for (const mutant of MUTANTS) {
   if (mutant.text === null || mutant.text === undefined) {
     console.log(`SKIP  ${mutant.name} -- the row could not be found in the table`);
+    notBuilt += 1;
+    continue;
+  }
+  // A mutation that does not apply is a mutant that proves NOTHING: the
+  // probe would run against the untouched document and report the
+  // control's result. `String.replace` returns the original string when
+  // the anchor is gone, so an unchanged text means the anchor drifted.
+  if (mutant.mustFail && mutant.text === md) {
+    console.log(`SKIP  ${mutant.name} -- the mutation did not apply (the anchor is gone)`);
     notBuilt += 1;
     continue;
   }

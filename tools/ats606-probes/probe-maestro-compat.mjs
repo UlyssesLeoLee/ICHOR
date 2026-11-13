@@ -492,6 +492,7 @@ for (const g of groups) {
       kind: cells[2],
       importer: cells[3],
       parameter: cells[4],
+      note: cells[5],
     });
   }
 }
@@ -776,6 +777,64 @@ if (!stepKinds) {
   }
 }
 
+// THE NOTE MUST NOT CONTRADICT THE GROUP
+// ----------------------------------------
+// The note is the row's own explanation of its verdict, and it is
+// AUTHORED text -- so it can drift away from the group the row is in.
+// The drift that matters is the one about the COMMAND FORM, because the
+// form is what the group is decided on: a row in the "partially mappable"
+// group whose note says the command form MATCHES the platform's says
+// both "the forms differ" and "the forms match" in the same row.
+//
+// The wording is matched on the two phrases the notes actually use, so
+// the check needs no new vocabulary:
+//
+//   命令形态不同  the form DIFFERS  -> the row belongs in the partial group;
+//   命令形态与…一致
+//                   the form MATCHES -> the row does NOT belong there.
+//
+// The comparison is scoped to the SENTENCE that carries the claim, so a
+// later sentence that happens to use the other word cannot be read as
+// part of it. A note that carries BOTH words in one sentence contradicts
+// itself, and that is reported too.
+console.log('');
+console.log('--- the notes must not contradict the groups (§8.3) ---');
+{
+  const problems = [];
+  /**
+   * The sentence of a note that makes the claim about the command FORM,
+   * or null when the note makes no such claim.
+   */
+  const formSentence = (note) => {
+    const at = note.indexOf('命令形态');
+    if (at < 0) return null;
+    const rest = note.slice(at);
+    const stop = rest.search(/[。；]/);
+    return stop < 0 ? rest : rest.slice(0, stop);
+  };
+  for (const [command, row] of rowsByCommand) {
+    const sentence = formSentence(row.note ?? '');
+    if (sentence === null) continue;
+    const saysDiffers = sentence.includes('不同');
+    const saysMatches = sentence.includes('一致');
+    if (saysDiffers && saysMatches) {
+      problems.push(`${command}: its note says the command form differs AND that it matches -- the note contradicts itself`);
+      continue;
+    }
+    if (row.verdict === 'partial' && saysMatches) {
+      problems.push(`${command}: it is in the partially mappable group, but its note says the command form matches the platform's`);
+    }
+    if (row.verdict === 'mappable' && saysDiffers) {
+      problems.push(`${command}: it is in the mappable group, but its note says the command form differs`);
+    }
+  }
+  if (problems.length) {
+    for (const p of problems) fail(`a row's note contradicts its group: ${p}`);
+  } else {
+    ok(`every row's note agrees with its group about the command form (${rowsByCommand.size} rows)`);
+  }
+}
+
 // THE SPELLING GAP -- the commands that are mappable in SEMANTICS but whose
 // spelling the importer refuses.
 //
@@ -803,6 +862,37 @@ console.log('--- the spelling gap (§8.5.4): mappable in semantics, refused in s
       fail(`§8.5.4's spelling-gap marker states reported=${r}, but the importer really reports ${measuredReported}`);
     } else {
       ok(`the spelling gap holds ${n} command(s) and the document says so: ${gapRows.join(', ')}`);
+    }
+  }
+}
+
+// THE PARTIAL GROUP'S SPELLING -- the prose count in §8.5.4
+// -------------------------------------------------------
+// §8.5.4 says in prose that the partially mappable commands' spellings
+// are refused too, and it says how MANY. That number is prose, so it is
+// counted from the table and compared with the prose -- the same way the
+// spelling gap above is.
+//
+// The prose names the count in Chinese numerals ("另外两条「部分可映射」命令"),
+// so the number is read from the prose and checked against the table's
+// partial group.
+console.log('');
+console.log('--- the partially mappable commands\' spelling (§8.5.4) ---');
+{
+  const partialReported = verdicts.partial.filter((c) => {
+    const cell = rowsByCommand.get(c)?.importer ?? '';
+    return cell.includes('进导入报告');
+  });
+  const CN = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  const stated = /另外(.)条「部分可映射」命令/.exec(section);
+  if (!stated) {
+    fail('§8.5.4 does not state the partially mappable commands\' spelling count as "另外N条「部分可映射」命令"');
+  } else {
+    const said = CN[stated[1]] ?? Number(stated[1]);
+    if (said !== partialReported.length) {
+      fail(`§8.5.4 says ${said} partially mappable command(s) have their spelling refused, but the table has ${partialReported.length}: ${partialReported.join(', ') || '(none)'}`);
+    } else {
+      ok(`§8.5.4's count of the partially mappable commands with a refused spelling holds (${partialReported.length}): ${partialReported.join(', ')}`);
     }
   }
 }

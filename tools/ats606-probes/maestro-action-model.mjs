@@ -34,15 +34,19 @@
  *      `assertVisible`, `assertNotVisible` and `extendedWaitUntil` all
  *      build an `AssertConditionCommand` whose condition is the SAME
  *      shape as the plain assertion's, with a configurable timeout added.
- *      A table that gave the wait its own key would let the WAIT decide
- *      the group, which §8.3 forbids.
+ *      The wait has its OWN entry in the table, and R1 binds that entry
+ *      to the plain assertions' entries for the slots the wait can fill
+ *      -- so the TIMEOUT can never decide the group.
  *
  *   R2 (a paired command carries the pair): Maestro's recording commands
  *      are a PAIR -- `startRecording` and `stopRecording`. The command
  *      form is "one step of the platform's model versus Maestro's pair",
  *      so the two entries must agree: either both carry `form: 'paired'`
  *      or neither does. A table that gave only one of them the pairing
- *      would file a pair as two independent steps.
+ *      would file a pair as two independent steps. The converse holds
+ *      too: only a MEASURED pair may carry the pairing, and the check
+ *      runs over EVERY entry of the table -- the top-level ones and the
+ *      ones keyed by the VARIANT alike.
  *
  * Both rules are PROPERTIES OF THE TABLE, so they are checked on the
  * table itself -- a mutation of the table that breaks them is rejected
@@ -483,13 +487,16 @@ export function measurePairs(actions) {
  * R1 (the variant is the CONDITION, not the wait): the assertion entry is
  * keyed by the CONDITION SLOT (`visible` / `notVisible`), never by the
  * wait. `extendedWaitUntil` can fill either slot, so it is looked up by
- * the slot it fills -- the same key `assertVisible` uses. There is no
- * `extended-wait` key, so no table edit can let the timeout decide the
+ * the slot it fills -- the same key `assertVisible` uses. The wait also
+ * has an entry of its own, `extended-wait`, and R1 holds that entry to
+ * the plain assertions' entries -- so the timeout can never decide the
  * group.
  *
  * R2 (a paired command carries the pair): the two entries of a begin/end
  * pair must agree on `form`. A pair whose two halves disagree is a table
- * defect, and `checkTableRules()` rejects it.
+ * defect, and `checkTableRules()` rejects it. The converse holds too:
+ * only a MEASURED pair may carry the pairing, and the check covers the
+ * entries keyed by the VARIANT as well as the top-level ones.
  */
 export const ACTION_PLATFORM = Object.freeze({
   LaunchAppCommand: Object.freeze({ kind: 'launchApp' }),
@@ -506,9 +513,8 @@ export const ACTION_PLATFORM = Object.freeze({
     // The WAIT over either condition. This entry is NOT free: rule R1
     // binds it to the `visible` / `notVisible` entries above -- it must
     // name the same GROUP and the same step KIND, so the timeout can
-    // never decide the group. The LOOKUP does not use this key (a
-    // command that fills both slots is resolved by its slot), so this
-    // entry states the wait's judgement and R1 holds it to the slots.
+    // never decide the group. The LOOKUP resolves the wait by the slot
+    // it fills (see `verdictOf`), and R1 holds this entry to the slots.
     'extended-wait': Object.freeze({ kind: 'assertVisible' }),
   }),
   TakeScreenshotCommand: Object.freeze({ kind: 'takeScreenshot' }),
@@ -577,6 +583,12 @@ export const ACTION_PLATFORM = Object.freeze({
  *           (§8.3: a Maestro begin/end pair against the platform's
  *           single-step model IS the "命令形态不同" case);
  *         - no other command class carries `form: 'paired'`.
+ *
+ *       The converse is checked over EVERY entry of the table -- the
+ *       top-level ones AND the ones keyed by the VARIANT. A variant
+ *       entry is a judgement just as much as a top-level one, so a
+ *       pairing carried by a variant entry of a class that is not one
+ *       half of a measured pair is a violation too.
  *
  * `checkTableRules()` returns the list of violations. An empty list means
  * the table satisfies §8.3's criterion; a non-empty list means it does
@@ -680,14 +692,39 @@ export function checkTableRules(actions, table = ACTION_PLATFORM) {
     }
   }
   // And the converse: only a MEASURED pair may carry the pairing.
+  //
+  // The check runs over EVERY entry of the table, not just the top-level
+  // ones. An entry may be keyed by the VARIANT (`TapOnElementCommand`
+  // holds a `tap` / `double-tap` / `long-press` entry), and a variant
+  // entry is just as much a judgement as a top-level one: it says what
+  // that VARIANT of the command means. A pairing carried by a variant
+  // entry of a class that is not one half of a measured pair is exactly
+  // the defect this rule exists to catch -- the pairing marks the
+  // command FORM as "Maestro's pair against the platform's single
+  // step", and a class that is not a measured pair has no such form.
+  //
+  // So the walk descends into the variant entries and reports the class
+  // AND the variant, so the message names the entry to fix.
   for (const [cls, entry] of Object.entries(table)) {
     if (!entry || typeof entry !== 'object') continue;
-    if (entry.form !== 'paired') continue;
-    if (pairedClasses.has(cls)) continue;
-    problems.push(
-      `R2: "${cls}" carries form='paired', but it is not one half of a measured begin/end pair `
-      + `-- only a paired command may carry the pairing`,
-    );
+    if (entry.form === 'paired') {
+      if (pairedClasses.has(cls)) continue;
+      problems.push(
+        `R2: "${cls}" carries form='paired', but it is not one half of a measured begin/end pair `
+        + `-- only a paired command may carry the pairing`,
+      );
+      continue;
+    }
+    // The entry itself carries no pairing, but one of its VARIANTS may.
+    for (const [variant, sub] of Object.entries(entry)) {
+      if (!sub || typeof sub !== 'object') continue;
+      if (sub.form !== 'paired') continue;
+      if (pairedClasses.has(cls)) continue;
+      problems.push(
+        `R2: the "${variant}" variant of "${cls}" carries form='paired', but "${cls}" is not one `
+        + `half of a measured begin/end pair -- only a paired command may carry the pairing`,
+      );
+    }
   }
 
   return problems;
@@ -758,19 +795,6 @@ export function verdictOf(action, table = ACTION_PLATFORM) {
     return { verdict: '部分可映射', kind: resolved.kind, qualifier: null, form: 'paired' };
   }
   return { verdict: '可映射', kind: resolved.kind, qualifier: resolved.qualifier ?? null, form: null };
-}
-
-/** The GROUP a table entry puts a command in. */
-function groupOfEntry(entry) {
-  if (entry === null || entry === undefined) return '不映射';
-  if (typeof entry !== 'object') return '不映射';
-  if (entry.form === 'paired') return '部分可映射';
-  return '可映射';
-}
-
-/** The step KIND a table entry points at, or null. */
-function kindOfEntry(entry) {
-  return (entry && typeof entry === 'object') ? (entry.kind ?? null) : null;
 }
 
 /* ------------------------------------------------------------------ */
