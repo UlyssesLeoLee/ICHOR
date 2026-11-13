@@ -273,10 +273,20 @@ function buildStaticExport() {
     fs.rmSync(to, { recursive: true, force: true });
     fs.cpSync(from, to, { recursive: true });
   }
-  const r = spawnSync('npm', ['run', 'build'], {
-    cwd: buildTree, encoding: 'utf8', shell: true,
-    env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
-  });
+  // The build is started through npm's own CLI script rather than through
+  // `shell: true`: the shell form concatenates the arguments instead of
+  // escaping them (Node's DEP0190), and it is the reason every mutation
+  // log carries a deprecation warning.
+  const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  const r = fs.existsSync(npmCli)
+    ? spawnSync(process.execPath, [npmCli, 'run', 'build'], {
+      cwd: buildTree, encoding: 'utf8',
+      env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
+    })
+    : spawnSync('npm', ['run', 'build'], {
+      cwd: buildTree, encoding: 'utf8', shell: true,
+      env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
+    });
   const out = `${r.stdout || ''}${r.stderr || ''}`;
   if (!fs.existsSync(path.join(buildTree, 'out', 'index.html'))) {
     return { ok: false, detail: `the build produced no out/index.html (exit ${r.status})` };

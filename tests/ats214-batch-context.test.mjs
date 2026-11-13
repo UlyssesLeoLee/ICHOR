@@ -94,8 +94,10 @@ function makeProject(name, { link = true, files = null } = {}) {
   );
   // The recording file is written BY the tests, so it must be ignored by
   // git -- otherwise the fixture's repository is dirty and the Bridge
-  // reports a dirty project.
-  fs.writeFileSync(path.join(root, '.gitignore'), 'env-seen.txt\n');
+  // reports a dirty project. The dependency tree is a JUNCTION into the
+  // real Playwright install: `git add -A` follows it and stages the whole
+  // tree, so it is ignored as well.
+  fs.writeFileSync(path.join(root, '.gitignore'), 'env-seen.txt\nnode_modules/\n');
   const seen = path.join(root, 'env-seen.txt').replace(/\\/g, '/');
   const rec = (label) => `test('${label}', async () => { fs.appendFileSync('${seen}', '${label}=' + (process.env.BASE_URL ?? '<unset>') + '\\n'); });`;
   const spec = (labels) => [

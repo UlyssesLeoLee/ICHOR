@@ -63,6 +63,35 @@ step () {
   echo "=== $1 ==="
 }
 
+# --- the provenance header ----------------------------------------------
+# Every log says WHICH COMMIT it describes. A log without that anchor
+# cannot be checked against the tree it was collected on: the numbers in
+# it are only meaningful for the tree that produced them. The header is
+# written BEFORE the command runs, so the commit it names is the one the
+# command actually ran on.
+header () {
+  local log="$1"; shift
+  local label="$1"; shift
+  {
+    echo "================================================================================"
+    echo "ATS-214 evidence log -- $label"
+    echo "================================================================================"
+    echo "commit        : $(git rev-parse HEAD)"
+    echo "timestamp     : $(date -u +%Y-%m-%dT%H:%M:%SZ) (UTC)"
+    echo "repo root     : $(pwd)"
+    echo "node          : $(node --version 2>&1)"
+    echo "platform      : $(node -p 'process.platform + " " + process.arch')"
+    echo "command       : $*"
+    echo "================================================================================"
+    echo ""
+  } > "$log"
+  "$@" >> "$log" 2>&1
+  local code=$?
+  echo "" >> "$log"
+  echo "--- exit code: $code ---" >> "$log"
+  return $code
+}
+
 note () {
   if [ "$1" = "0" ]; then
     echo "OK   $2"
@@ -74,7 +103,8 @@ note () {
 
 # --- 1. the Node UT ------------------------------------------------------
 step "1. the Node UT of the shared search / tag / filter / selection module"
-if node --test tests/ats214-case-search.test.mjs > "$OUT/01-node-test-case-search-ut.log" 2>&1; then
+if header "$OUT/01-node-test-case-search-ut.log" "the shared search / tag / filter / selection module" \
+  node --test tests/ats214-case-search.test.mjs; then
   note 0 "node --test tests/ats214-case-search.test.mjs"
 else
   note 1 "node --test tests/ats214-case-search.test.mjs (see 01-node-test-case-search-ut.log)"
@@ -83,7 +113,8 @@ tail -n 9 "$OUT/01-node-test-case-search-ut.log"
 
 # --- 2. the Node IT against a real Bridge -------------------------------
 step "2. the Node IT against a REAL Bridge (HTTP) with the real Playwright 1.64.1"
-if node --test tests/ats214-batch-run-api.test.mjs > "$OUT/02-node-test-batch-run-it.log" 2>&1; then
+if header "$OUT/02-node-test-batch-run-it.log" "the batch run API against a REAL Bridge" \
+  node --test tests/ats214-batch-run-api.test.mjs; then
   note 0 "node --test tests/ats214-batch-run-api.test.mjs"
 else
   note 1 "node --test tests/ats214-batch-run-api.test.mjs (see 02-node-test-batch-run-it.log)"
@@ -92,7 +123,8 @@ tail -n 9 "$OUT/02-node-test-batch-run-it.log"
 
 # --- 2b. the Node IT of the batch's context and terminal states ---------
 step "2b. the Node IT of the batch's request context and terminal states"
-if node --test tests/ats214-batch-context.test.mjs > "$OUT/12-batch-context-it.log" 2>&1; then
+if header "$OUT/12-batch-context-it.log" "the batch's request context and terminal states" \
+  node --test tests/ats214-batch-context.test.mjs; then
   note 0 "node --test tests/ats214-batch-context.test.mjs"
 else
   note 1 "node --test tests/ats214-batch-context.test.mjs (see 12-batch-context-it.log)"
@@ -101,7 +133,8 @@ tail -n 9 "$OUT/12-batch-context-it.log"
 
 # --- 3. the tag parity --------------------------------------------------
 step "3. the tag parity: the static index vs the real Playwright --list"
-if node tools/ats214-probes/tag-parity.mjs > "$OUT/03-tag-parity.log" 2>&1; then
+if header "$OUT/03-tag-parity.log" "the tag parity: the static index vs the real Playwright --list" \
+  node tools/ats214-probes/tag-parity.mjs; then
   note 0 "the static index and the real CLI agree on the tags"
 else
   note 1 "the tag parity probe (see 03-tag-parity.log)"
@@ -113,7 +146,8 @@ step "4. the FULL repository regression (node --test --test-concurrency=2)"
 # The concurrency is capped at 2: the machine runs several agents at once
 # and the C: page file is pinned at 8192 MB, so a wider fan-out kills the
 # process with an unrelated "paging file is too small".
-if node --test --test-concurrency=2 tests/*.test.mjs > "$OUT/04-node-test-full.log" 2>&1; then
+if header "$OUT/04-node-test-full.log" "the full repository regression" \
+  node --test --test-concurrency=2 tests/*.test.mjs; then
   note 0 "node --test --test-concurrency=2 tests/*.test.mjs"
 else
   note 1 "node --test --test-concurrency=2 tests/*.test.mjs (see 04-node-test-full.log)"
@@ -144,10 +178,8 @@ fi
 
 # --- 6. the WBS row and the updater coexistence -------------------------
 step "6. the WBS row of ATS-214 and the coexistence of the WBS updaters"
-{
-  python tools/update_wbs_ats214.py --verify-only
-  bash tools/ats501-probes/check-wbs-updaters.sh
-} > "$OUT/06-wbs-row-and-updaters.log" 2>&1
+header "$OUT/06-wbs-row-and-updaters.log" "the WBS row of ATS-214 and the updater coexistence" \
+  bash -c 'python tools/update_wbs_ats214.py --verify-only; bash tools/ats501-probes/check-wbs-updaters.sh'
 if grep -q "RESULT: OK" "$OUT/06-wbs-row-and-updaters.log"; then
   note 0 "the WBS row and the updater coexistence"
 else
@@ -156,20 +188,21 @@ fi
 grep -E "verify: ATS-214|RESULT: OK" "$OUT/06-wbs-row-and-updaters.log" | head -5
 
 # --- 7. the release manifest ---------------------------------------------
-# The manifest describes the COMMITTED tree, and the generator reads the
-# git blobs -- so this step can only pass once the content is committed
-# AND the manifest itself has been regenerated and committed (the order
-# the repository's rule states: commit the content, regenerate the
-# manifest, commit the manifest). A tree whose manifest has not been
-# regenerated yet is EXPECTED to mismatch here; the fact that the
-# mismatch is exactly the files this task changed is the check.
+# NOT HERE, ON PURPOSE. The manifest lists the evidence logs, so a log
+# that records the manifest's own verification cannot live inside the
+# manifest it describes: writing the log changes the log's digest,
+# which changes the manifest, which invalidates the log. The
+# verification is therefore the LAST step of the delivery, run after
+# the manifest has been regenerated over the final tree:
+#
+#   python tools/update_checksums.py   # over the committed tree
+#   python tools/verify_checksums.py   # independent verification
+#
+# The same arrangement is used by the other evidence collectors in this
+# repository (tools/ats212-probes/collect-evidence.sh).
 step "7. the release manifest"
-if python tools/verify_checksums.py > "$OUT/07-verify-checksums.log" 2>&1; then
-  note 0 "python tools/verify_checksums.py"
-else
-  note 1 "python tools/verify_checksums.py (see 07-verify-checksums.log)"
-fi
-tail -n 8 "$OUT/07-verify-checksums.log"
+echo "  the checksum verification is a post-commit gate, not an evidence step (see the comment above)"
+echo "  the manifest of this tree is verified by: python tools/verify_checksums.py"
 
 # --- 8. the ST in a REAL browser ----------------------------------------
 # The ST drives the REAL static export in the REAL Chromium against the
@@ -204,7 +237,8 @@ else
   # case (it compares the served page's css chunk with the file on
   # disk), so the step fails loudly rather than reporting a wrong
   # measurement.
-  if node tools/ats214-probes/st-ats214.mjs . "$TMPDIR" "$ST_PW" > "$OUT/10-st-500-cases.log" 2>&1; then
+  if header "$OUT/10-st-500-cases.log" "the ST in a REAL browser: the search / the tag filter / the selection" \
+    node tools/ats214-probes/st-ats214.mjs . "$TMPDIR" "$ST_PW"; then
     note 0 "node tools/ats214-probes/st-ats214.mjs (the ST in a real browser)"
   else
     note 1 "the ST probe (see 10-st-500-cases.log)"
@@ -228,7 +262,8 @@ step "9. the negative control: every mutation of the delivered code must turn th
 # volume. Without it the interface mutations are reported as "not caught"
 # -- which says nothing about the tests, only that the build did not run.
 export ATS214_BUILD_TREE="${ATS214_BUILD_TREE:-D:/ats214-build}"
-if node tools/ats214-probes/mutation-check.mjs . "$TMPDIR" > "$OUT/13-mutation-control.log" 2>&1; then
+if header "$OUT/13-mutation-control.log" "the negative control: every mutation of the delivered code must turn the suite red" \
+  node tools/ats214-probes/mutation-check.mjs . "$TMPDIR"; then
   note 0 "node tools/ats214-probes/mutation-check.mjs (every mutation caught)"
 else
   note 1 "the mutation probe (see 13-mutation-control.log)"
@@ -267,17 +302,75 @@ step "10. the acceptance mapping: every completion definition has measured evide
     echo "  NOT PROVEN  「选中准确映射 UID」  <- 10-st-500-cases.log does not show it"
     fail=1
   fi
-  # The reviewer's own probes: the acceptance criteria of round 1.
-  if [ -f "$OUT/reviewer-probes/r1-api.log" ] && [ -f "$OUT/reviewer-probes/r1-ui.log" ]; then
-    if grep -q "^OK     B1 " "$OUT/reviewer-probes/r1-api.log" && grep -q "^OK     B2 " "$OUT/reviewer-probes/r1-api.log" \
-    && grep -q "^OK     X1 " "$OUT/reviewer-probes/r1-ui.log" && grep -q "^OK     X3 " "$OUT/reviewer-probes/r1-ui.log"; then
-      echo "  PROVEN  复核方第 1 轮的必过项 (r1-api B1/B2, r1-ui X1/X3)  <- reviewer-probes/"
+  # The external probe suite: every probe that has a log in the evidence
+  # directory contributes its required checks. The required set is the
+  # union over the probes that were actually re-run -- each probe's own
+  # log is the source of truth, so a probe that is missing here is
+  # reported as SKIPPED, not as a pass.
+  #
+  # The checks are the ones a probe prints as `OK <id>`; a probe that
+  # reports a DEFECT for one of them fails this step.
+  required_probe_checks () {
+    local log="$1"; shift
+    local id
+    for id in "$@"; do
+      if ! grep -q "^OK     $id " "$log" 2>/dev/null; then
+        return 1
+      fi
+    done
+    return 0
+  }
+  probe_rows=0
+  probe_fail=0
+  if [ -f "$OUT/reviewer-probes/r1-api.log" ]; then
+    probe_rows=$((probe_rows + 1))
+    if required_probe_checks "$OUT/reviewer-probes/r1-api.log" B0 B1 B2 N1 R1 T1 M1 M2; then
+      echo "  PROVEN  外部探针 r1-api B0/B1/B2/N1/R1/T1/M1/M2  <- reviewer-probes/r1-api.log"
     else
-      echo "  NOT PROVEN  复核方第 1 轮的必过项  <- reviewer-probes/"
-      fail=1
+      echo "  NOT PROVEN  外部探针 r1-api 的必过项  <- reviewer-probes/r1-api.log"
+      probe_fail=1
     fi
   else
-    echo "  SKIPPED  复核方的探针日志不在本次采集里（reviewer-probes/ 是单独复跑的）"
+    echo "  SKIPPED  外部探针 r1-api 的日志不在本次采集里"
+  fi
+  if [ -f "$OUT/reviewer-probes/r2-extra.log" ]; then
+    probe_rows=$((probe_rows + 1))
+    if required_probe_checks "$OUT/reviewer-probes/r2-extra.log" E1 E2; then
+      echo "  PROVEN  外部探针 r2-extra E1/E2  <- reviewer-probes/r2-extra.log"
+    else
+      echo "  NOT PROVEN  外部探针 r2-extra 的必过项  <- reviewer-probes/r2-extra.log"
+      probe_fail=1
+    fi
+  else
+    echo "  SKIPPED  外部探针 r2-extra 的日志不在本次采集里"
+  fi
+  if [ -f "$OUT/reviewer-probes/r2-ui.log" ]; then
+    probe_rows=$((probe_rows + 1))
+    if required_probe_checks "$OUT/reviewer-probes/r2-ui.log" L1 P1 P2 X1 X3 X4; then
+      echo "  PROVEN  外部探针 r2-ui L1/P1/P2/X1/X3/X4  <- reviewer-probes/r2-ui.log"
+    else
+      echo "  NOT PROVEN  外部探针 r2-ui 的必过项  <- reviewer-probes/r2-ui.log"
+      probe_fail=1
+    fi
+  else
+    echo "  SKIPPED  外部探针 r2-ui 的日志不在本次采集里"
+  fi
+  if [ -f "$OUT/reviewer-probes/r1-ui.log" ]; then
+    probe_rows=$((probe_rows + 1))
+    if required_probe_checks "$OUT/reviewer-probes/r1-ui.log" L1 P1 P2 X1 X3 X4; then
+      echo "  PROVEN  外部探针 r1-ui L1/P1/P2/X1/X3/X4  <- reviewer-probes/r1-ui.log"
+    else
+      echo "  NOT PROVEN  外部探针 r1-ui 的必过项  <- reviewer-probes/r1-ui.log"
+      probe_fail=1
+    fi
+  else
+    echo "  SKIPPED  外部探针 r1-ui 的日志不在本次采集里"
+  fi
+  if [ "$probe_rows" = "0" ]; then
+    echo "  NOT PROVEN  外部探针的必过项  <- reviewer-probes/ 下没有任何探针日志"
+    fail=1
+  else
+    fail=$((fail + probe_fail))
   fi
   echo
   if [ "$fail" = "0" ]; then echo "RESULT: OK -- every completion definition has measured evidence."; else echo "RESULT: FAILED -- a completion definition has no evidence."; fi
