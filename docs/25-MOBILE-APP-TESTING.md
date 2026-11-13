@@ -789,9 +789,10 @@ Maestro 的**字节码**回答（`tools/ats606-probes/maestro-action-model.mjs`�
 > §2.2 已把「iOS 真实执行」列为本阶段 **OUT**。
 > 所以这里的「可行」=「以 Maestro 2.12.1 为参照，这条路的**宿主侧代码已实现**」，
 > **不等于**「真机上跑得通」，也**不等于**「本平台已支持」。
-> 真机上还差下面那张表的**三条硬前提**（Apple team ID 签名、
-> runner 经 devicectl 装到设备、宿主到设备的 `127.0.0.1:22087` 可达），
-> 这三条**在本机一条都没有验证过**——本机没有 macOS / Xcode / 模拟器 / 真机。
+> 真机上还差下面那张表的**四条硬前提**（Apple team ID 签名、
+> runner 经 devicectl 装到设备、宿主侧的 CoreDevice 隧道已连上、
+> 宿主到设备的 `127.0.0.1:22087` 可达），
+> 这四条**在本机一条都没有验证过**——本机没有 macOS / Xcode / 模拟器 / 真机。
 > 本平台侧对应的能力缺口见 §8.6。
 
 | 本平台步骤种类 | 需要的 capability | Maestro 侧依赖的底层操作 | Maestro：iOS 模拟器 | Maestro：iOS 真机 | 参照结论 | 依据 |
@@ -810,9 +811,10 @@ Maestro 的**字节码**回答（`tools/ats606-probes/maestro-action-model.mjs`�
 
 > **这句话是条件句，不是「真机上可用」的结论**：
 > 字节码能证明的是「**宿主侧已实现**」，**证明不了「真机上跑得通」**——
-> 真机上还差下面那张表的**三条硬前提**（Apple team ID 签名、
-> runner 经 devicectl 装到设备、宿主到设备的 `127.0.0.1:22087` 可达），
-> 这三条**在本机一条都没有验证过**。所以真机上的 UI 交互是
+> 真机上还差下面那张表的**四条硬前提**（Apple team ID 签名、
+> runner 经 devicectl 装到设备、宿主侧的 CoreDevice 隧道已连上、
+> 宿主到设备的 `127.0.0.1:22087` 可达），
+> 这四条**在本机一条都没有验证过**。所以真机上的 UI 交互是
 > 「**宿主侧已实现，前提满足时才可能可用**」，不是「已验证可用」。
 
 **「同一段实现」的范围要说准**：这里的「同一段」指的是**宿主侧的客户端代码**
@@ -832,9 +834,11 @@ Maestro 的**字节码**回答（`tools/ats606-probes/maestro-action-model.mjs`�
 | 必须用 **Apple team ID** 自行构建并签名 `driver-iphoneos` | `maestro.cli.driver.RealIOSDeviceDriver` 的字节码里有 `Apple account team ID must be specified to build drivers for connected iPhone.` 与 `MissingAppleTeamId` 异常 | 本平台**不接管**真机的安装与配对（§3.1：`local-device` 的「平台可安装 App＝否」），⇒ **该 runner 由用户自行预装，平台不安装** |
 | runner 装到真机走 `xcrun devicectl device install app` 与 `devicectl device process launch` | `util/LocalIOSDeviceController` 的字节码（`xcrun` / `devicectl` / `device` / `install` / `app` / `process` / `launch` 字符串序列） | 同上：**平台不接管安装** |
 | 宿主到设备的 `127.0.0.1:22087` 必须可达 | `driver/ios/maestro-driver-iosUITests/Routes/XCTestHTTPServer.swift` 里 `HTTPServer(address: .inet(ip4: "127.0.0.1", port: port ?? 22087))`——**这是设备侧的监听端**；jar 里**没有** `iproxy` / `usbmux` 一类的端口转发实现 | **未验证**：真机上这条连接如何打通，在本机无从观察。这是真机路径上**最不确定的一环** |
+| 宿主侧的 **CoreDevice 隧道**必须已连上，否则真机根本不会被列出 | `maestro/device/DeviceService.listIOSConnectedDevices` 的字节码：它对每台设备读 `ConnectionProperties.getTunnelState()`，**只保留 `tunnelState == "connected"` 的设备**，其余一律过滤掉 | **未验证**：本机没有 iOS 环境，隧道状态无从观察 |
 
-> 这三条前提合起来说明：**「照抄 XCUITest driver 的做法」不是一条现成的路**，
-> 它要求用户自备签名、预装 runner，并自行解决宿主到设备的端口可达性。
+> 这四条前提合起来说明：**「照抄 XCUITest driver 的做法」不是一条现成的路**，
+> 它要求用户自备签名、预装 runner、让宿主侧的 CoreDevice 隧道先连上，
+> 并自行解决宿主到设备的端口可达性。
 > §3.1 的 `local-device` 契约（「平台不接管安装与配对」）与「平台自己装一个 runner」
 > 是**冲突**的——本平台选前者，因此**真机路径的 App 安装/启动能力由用户侧承担**。
 
@@ -842,9 +846,10 @@ Maestro 的**字节码**回答（`tools/ats606-probes/maestro-action-model.mjs`�
 
 「可满足」这一列说的是 **Maestro 宿主侧的实现状态**。
 真机那一列写「宿主侧可满足」的是**条件句**——它只说明宿主侧的代码在，
-**不等于**「真机上满足得了」：真机还差上面那张表的**三条硬前提**
-（Apple team ID 签名、runner 经 devicectl 装到设备、宿主到设备的
-`127.0.0.1:22087` 可达），这三条**在本机一条都没有验证过**。
+**不等于**「真机上满足得了」：真机还差上面那张表的**四条硬前提**
+（Apple team ID 签名、runner 经 devicectl 装到设备、宿主侧的 CoreDevice
+隧道已连上、宿主到设备的 `127.0.0.1:22087` 可达），
+这四条**在本机一条都没有验证过**。
 写「不可满足」的则是**确定**的：那个操作在真机侧**根本没有实现**。
 
 | capability | Maestro：iOS 模拟器 | Maestro：iOS 真机 | 依据 |
@@ -1060,7 +1065,7 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
 | **分组负控**（交付的负控台架）：把行挪到别的组并改掉全部计数（M1–M8，含把 `extendedWaitUntil` 挪进「不映射」），逐条跑交付的探针，**每一条都必须变红**，control 必须仍然通过 | `node tools/ats606-probes/probe-group-mutants.mjs <tree>` | `GROUP MUTANTS: OK (every group mutation was caught, and the control still passes)` |
 | iOS 两条路径的实现状态（§8.4 的事实基础，**含 `readLogs` 行**） | `node tools/ats606-probes/probe-ios-driver-support.mjs` | `IOS DRIVER SUPPORT: OK`（需要本机 `D:/AI-Tools/Maestro`；缺 Maestro 时**跳过并写明原因**，不写 PASS） |
 | §8.4 的**七项 capability 表** | 同上 | `§8.4 <capability>: simulator=... device=... match the byte-code`（七项逐条） |
-| 真机路径的三条硬前提已在 §8.4 写明 | 同上 | `§8.4 states the ...`（三条逐条） |
+| 真机路径的四条硬前提已在 §8.4 写明 | 同上 | `§8.4 states the ...`（四条逐条） |
 | §8.4 对两个**设备侧 runner 构建**的 jar 出处正确 | 同上（逐个 jar 列表核对 `driver-iPhoneSimulator/` 与 `driver-iphoneos/` 属于哪个 jar，并确认没有 jar 含 `driver-ios/`） | `§8.4 attributes the two device-side builds to maestro-ios-driver.jar ...` |
 | 证据日志 | `bash tools/ats606-probes/collect-evidence.sh <tree>` | `docs/evidence/ATS-606/` |
 
@@ -1135,7 +1140,7 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
   **没有任何一条 iOS 行为被实测过**。§8.4 写的是「**以 Maestro 2.12.1 为参照**，
   这条路在 iOS 上走不走得通」，**不是**「本平台已经支持」——
   本平台**没有 iOS Runner**，§2.2 已把「iOS 真实执行」列为本阶段 OUT。
-- **未验证（§8 的 iOS 侧）**：iOS 真机路径的三条硬前提
+- **未验证（§8 的 iOS 侧）**：iOS 真机路径的四条硬前提
   （Apple team ID 签名构建 `driver-iphoneos`、runner 经 devicectl 装到设备、
   宿主到设备的 `127.0.0.1:22087` 可达）**在本机无从观察**——
   真机上这条连接如何打通，是真机路径上最不确定的一环。
@@ -1231,6 +1236,6 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
 | `tools/ats606-probes/maestro-command-fixtures.json` | 每条 Maestro 命令的最小 Flow 夹具（命令清单与导入器比对的输入） |
 | `tools/ats606-probes/write-section-rows.mjs` | 把生成器产出的 §8.5 整块写回设计文档的 `<!-- ATS606-ROWS-START -->` … `END` 之间（行终止符随文档本身，CRLF / LF 都不漂移） |
 | `tools/ats606-probes/probe-group-mutants.mjs` | **分组负控**：把行挪到别的组并改掉全部计数（M1–M8，含把 `extendedWaitUntil` 挪进「不映射」这一条），逐条跑交付的探针，**每一条都必须变红**，未改动的 control 必须仍然通过 |
-| `tools/ats606-probes/probe-ios-driver-support.mjs` | 从 Maestro 的**字节码**复核 §8.4 的每条 iOS 结论（模拟器路径 vs 真机路径的路由与实现状态、七项 capability 表、两条 iOS 空操作），并**把三条硬前提逐条核到产物上**（`RealIOSDeviceDriver` 的字节码里真有那条 Apple team ID 报错与 `MissingAppleTeamId`；`LocalIOSDeviceController` 的字节码里真有 xcrun/devicectl/install/app/launch 序列；设备侧 `XCTestHTTPServer.swift` 真绑 `127.0.0.1:22087`，且**没有任何 jar 带 iproxy / usbmux 端口转发**），并**逐个 jar 列表核对**两个设备侧 runner 构建（`driver-iPhoneSimulator/` / `driver-iphoneos/`）的出处，以及「没有任何 jar 含 `driver-ios/`」 |
+| `tools/ats606-probes/probe-ios-driver-support.mjs` | 从 Maestro 的**字节码**复核 §8.4 的每条 iOS 结论（模拟器路径 vs 真机路径的路由与实现状态、七项 capability 表、两条 iOS 空操作），并**把四条硬前提逐条核到产物上**（`RealIOSDeviceDriver` 的字节码里真有那条 Apple team ID 报错与 `MissingAppleTeamId`；`LocalIOSDeviceController` 的字节码里真有 xcrun/devicectl/install/app/launch 序列；`DeviceService.listIOSConnectedDevices` 的字节码里真有 `getTunnelState()` 与 `"connected"` 的过滤；设备侧 `XCTestHTTPServer.swift` 真绑 `127.0.0.1:22087`，且**没有任何 jar 带 iproxy / usbmux 端口转发**），并**逐个 jar 列表核对**两个设备侧 runner 构建（`driver-iPhoneSimulator/` / `driver-iphoneos/`）的出处，以及「没有任何 jar 含 `driver-ios/`」 |
 | `tools/ats606-probes/collect-evidence.sh` | 证据采集脚本：8 份日志写入 `docs/evidence/ATS-606/`，每份头部写明所描述的树 |
 | `tools/update_wbs_ats606.py` | WBS 行的同步脚本（只写 ATS-606 行） |

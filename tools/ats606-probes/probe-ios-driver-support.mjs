@@ -36,7 +36,7 @@
  *     takeScreenshot / recordScreen / readLogs);
  *   * the seven capabilities (app.install / app.launch / ui.tap /
  *     ui.hierarchy / screen.capture / screen.record / log.read);
- *   * the three hard preconditions of the physical-device path;
+ *   * the four hard preconditions of the physical-device path;
  *   * the two iOS no-ops (`back` and the airplane mode).
  *
  * WHY A PROBE AND NOT A DOCUMENT
@@ -424,7 +424,7 @@ console.log('--- the seven capabilities (§8.4) ---');
  *   * the operation is NOT implemented on the device path -> "不可满足"
  *     (that is a fact about the byte-code);
  *   * the operation IS implemented on the device path -> the host side
- *     is there, but the device path still needs the three hard
+ *     is there, but the device path still needs the four hard
  *     prerequisites (team ID signature, devicectl install, port
  *     reachability), none of which was verified on this host -> so the
  *     document says "宿主侧可满足（前提未验证）", NOT a bare "可满足".
@@ -589,7 +589,7 @@ if (!expectedOwner) {
 // byte-code (or the source) it claims to come from, and the document is
 // then checked to STATE it.
 console.log('');
-console.log('--- the three hard preconditions (verified against the artifacts) ---');
+console.log('--- the four hard preconditions (verified against the artifacts) ---');
 
 // (1) The Apple team ID precondition: RealIOSDeviceDriver must really
 //     carry the message and the exception.
@@ -641,11 +641,26 @@ if (forwarders.length === 0) {
   fail(`these jars carry a port-forward implementation (${forwarders.join(', ')}) -- the §8.4 "not verifiable here" claim must be re-checked`);
 }
 
-// And the document must STATE all three.
+// (4) The CoreDevice tunnel: the device list must really filter on
+//     `tunnelState == "connected"`, or a device whose tunnel is down
+//     would not be listed at all -- and the §8.4 precondition would be
+//     a claim about nothing.
+const deviceServiceFile = extract('maestro-client.jar', 'maestro/device/DeviceService.class');
+const deviceServiceText = javap(deviceServiceFile);
+if (/listIOSConnectedDevices/.test(deviceServiceText)
+    && /getTunnelState:/.test(deviceServiceText)
+    && /String connected/.test(deviceServiceText)) {
+  ok('the byte-code of DeviceService.listIOSConnectedDevices really filters on the CoreDevice tunnel state ("connected")');
+} else {
+  fail('DeviceService.listIOSConnectedDevices does NOT carry the tunnel-state filter -- the §8.4 CoreDevice-tunnel precondition is not what the artifact says');
+}
+
+// And the document must STATE all four.
 for (const [needle, what] of [
   ['Apple account team ID', 'the Apple team ID precondition'],
   ['devicectl', 'the devicectl runner install'],
   ['22087', 'the 127.0.0.1:22087 reachability'],
+  ['CoreDevice', 'the CoreDevice tunnel precondition'],
 ]) {
   if (section.includes(needle)) {
     ok(`§8.4 states the ${what}`);
