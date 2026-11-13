@@ -62,6 +62,13 @@
  * The GROUP each row belongs to is DERIVED from that table and the
  * measured action, so a row cannot contradict it.
  *
+ * That table is the one AUTHORED judgement in the chain, so it is not
+ * taken on faith: the RULES §8.3 states about it (R1 the wait does not
+ * decide the group, R2 a begin/end pair carries the pairing on both
+ * halves) are checked ON THE TABLE by `checkTableRules()`, and a table
+ * that breaks one of them is rejected BEFORE any verdict is derived from
+ * it -- this generator refuses to emit a table at all in that case.
+ *
  * The generated block is delimited in the design document by
  * `<!-- ATS606-ROWS-START -->` and `<!-- ATS606-ROWS-END -->`.
  *
@@ -84,7 +91,7 @@ const { parseFlow } = await import(
 const { importFlow, buildImportReport, STEP_ARGUMENTS } = await import(
   new URL('../../server/discovery/mobile-import.mjs', import.meta.url).href,
 );
-const { measureActions, verdictOf } = await import(
+const { measureActions, verdictOf, checkTableRules } = await import(
   new URL('./maestro-action-model.mjs', import.meta.url).href,
 );
 
@@ -207,6 +214,17 @@ const YAML_CLASS = {
 };
 /** The element selector is shared by the tap / assert commands. */
 const SELECTOR_COMMANDS = ['tapOn', 'assertVisible', 'assertNotVisible', 'doubleTapOn', 'longPressOn', 'copyTextFrom'];
+
+/**
+ * The Maestro parameters that carry the platform's own QUALIFIER.
+ *
+ * `visible` / `notVisible` are the platform's `assertVisible` qualifiers
+ * (ATS-602's `isSupportedQualifier`), so a Maestro command that takes them
+ * is not introducing a new semantics -- it is spelling the platform's own
+ * qualifier in Maestro's way. Saying so keeps the parameter cell from
+ * reading as "the platform has no such thing".
+ */
+const QUALIFIER_PARAMS = new Set(['visible', 'notVisible']);
 
 function maestroParams(command) {
   const cls = SELECTOR_COMMANDS.includes(command) ? 'YamlElementSelector' : YAML_CLASS[command];
@@ -342,7 +360,7 @@ function noTargetReason(kind) {
  *      parameter is kept in the step and reported as a warning;
  *   2. the step carries ONLY out-of-model parameters -> the step names
  *      no target at all, so the importer rejects the WHOLE step with
- *      `missing-argument`. This is the case the round-2 review found:
+ *      `missing-argument`. The case that makes it necessary:
  *      "保留原文并告警" was claimed for every out-of-model parameter, but
  *      a selector that carries only `below:` (or `childOf:`, ...) is
  *      not mapped at all;
@@ -463,6 +481,20 @@ if (!ACTIONS) {
   process.exit(2);
 }
 
+// The RULES §8.3 puts on the platform table are checked BEFORE any verdict
+// is derived from it. The table is the one authored judgement in the chain,
+// so a table that breaks §8.3's own criterion must not be able to produce a
+// table at all -- the generator refuses rather than emitting a §8.5 block
+// that contradicts the criterion it claims to implement.
+{
+  const violations = checkTableRules(ACTIONS);
+  if (violations.length) {
+    console.log('FAIL the platform table breaks a §8.3 rule:');
+    for (const v of violations) console.log(`  ${v}`);
+    process.exit(1);
+  }
+}
+
 /**
  * The verdict of every command, derived from the action model.
  *
@@ -476,12 +508,12 @@ if (!ACTIONS) {
  * action; those are listed in `NO_ACTION` with their reason.
  */
 const NOTE = {
-  assertVisible: '语义：断言元素可见——本平台的断言形如 `{visible: <目标>}`，命令形态与 Maestro 的 `assertVisible` 一致（一步对一步，同一个动作）。**等待语义不完全等价**，但等待不决定分组：Maestro 的 fluent 断言固定重试 7 秒，本平台 Runner 的默认等待是 `DEFAULT_WAIT.timeoutMs = 5000`（ATS-603 的 `server/adapters/android-runner.mjs`，可由 Runner 选项覆盖）。差异记在本列与「参数保真」列。',
-  assertNotVisible: '语义：断言元素**不可见**——本平台**能表达**这个语义，命令形态也与 Maestro 一致（都是一步断言）：线性语法 `assert notVisible "X"` 实测映射为 `assertVisible{notVisible}`，YAML 用 `assert:` 块；Runner 按限定词区分两种断言（`visible` 失败于元素缺失，`notVisible` 失败于元素存在，见 `android-runner.mjs` 的 `assertVisible`）。**拼写不被接受属于导入侧**：Maestro 的拼写 `assertNotVisible` 不在 ATS-602 的语义拼写表里，导入时按 `unknown-command` 进导入报告——这不改变分组。**等待语义不完全等价**（`notVisible` 在本平台的等待上限是 `min(5000, 2000)` ms，Maestro 是 7 秒 fluent 重试）。',
-  extendedWaitUntil: '语义：等待元素**可见**或**不可见**。Maestro 的这条命令与 `assertVisible` / `assertNotVisible` **编译成同一个命令类**（`AssertConditionCommand`）——字节码里 `YamlFluentCommand.extendedWait` 构造的是 `AssertConditionCommand(Condition(visible | notVisible), timeout, label, optional)`，**只多一个可配的 timeout**。⇒ 本平台用 `assertVisible`（加 `visible` / `notVisible` 限定词）表达同一步，**命令形态一致（一步对一步）**；`timeout` 记在「参数保真」与本列（Maestro 的 7 秒 fluent 重试 vs 本平台 Runner 默认 5000 ms），**等待长短不改变这一步是什么，不参与分组**。Maestro 的拼写不在 ATS-602 的语义拼写表里，导入时按 `unknown-command` 进导入报告——这属于导入侧，不改变分组。',
+  assertVisible: '语义：断言元素可见——本平台的断言形如 `{visible: <目标>}`，命令形态与 Maestro 的 `assertVisible` 一致（一步对一步，同一个动作）。**等待语义不完全等价**，但等待不决定分组：Maestro 断言的默认等待上限是 `lookupTimeoutMs = 17000` ms（`Orchestra` 构造器里 `ldc2_w 17000l`；`Orchestra.assertConditionCommand` 取 `timeoutMs() ?: lookupTimeoutMs`，`evaluateCondition` 再经 `adjustedToLatestInteraction` 扣除距上次交互的时间——所以它不是固定值），本平台 Runner 的默认等待是 `DEFAULT_WAIT.timeoutMs = 5000`（ATS-603 的 `server/adapters/android-runner.mjs`，可由 Runner 选项覆盖）。差异记在本列与「参数保真」列。',
+  assertNotVisible: '语义：断言元素**不可见**——本平台**能表达**这个语义，命令形态也与 Maestro 一致（都是一步断言）：线性语法 `assert notVisible "X"` 实测映射为 `assertVisible{notVisible}`，YAML 用 `assert:` 块；Runner 按限定词区分两种断言（`visible` 失败于元素缺失，`notVisible` 失败于元素存在，见 `android-runner.mjs` 的 `assertVisible`）。**拼写不被接受属于导入侧**：Maestro 的拼写 `assertNotVisible` 不在 ATS-602 的语义拼写表里，导入时按 `unknown-command` 进导入报告——这不改变分组。**等待语义不完全等价**（`notVisible` 在本平台的等待上限是 `min(5000, 2000)` ms，Maestro 的断言默认等待上限是 `lookupTimeoutMs = 17000` ms）。',
+  extendedWaitUntil: '语义：等待元素**可见**或**不可见**。Maestro 的这条命令与 `assertVisible` / `assertNotVisible` **编译成同一个命令类**（`AssertConditionCommand`）——字节码里 `YamlFluentCommand.extendedWait` 构造的是 `AssertConditionCommand(Condition(visible | notVisible), timeout, label, optional)`，**只多一个可配的 timeout**。⇒ 本平台用 `assertVisible`（加 `visible` / `notVisible` 限定词）表达同一步，**命令形态一致（一步对一步）**；`timeout` 记在「参数保真」与本列（Maestro 的断言默认等待上限 `lookupTimeoutMs = 17000` ms vs 本平台 Runner 默认 5000 ms），**等待长短不改变这一步是什么，不参与分组**。Maestro 的拼写不在 ATS-602 的语义拼写表里，导入时按 `unknown-command` 进导入报告——这属于导入侧，不改变分组。',
   launchApp: '语义：启动被测 App——命令形态与 Maestro 的 `launchApp` 一致（一步启动一个 App）。本平台的 `launchApp` 以 `appId` 为主参数（别名 `app`/`package`/`packageName`/`bundleId`），Flow 头部声明了 `appId` 时步骤可继承。Maestro 的 `launchApp` 还会按参数附带清 keychain / 清状态 / 设权限（`Orchestra.launchAppCommand` 的字节码里依次调用 `clearKeychain`→`clearAppState`→`setPermissions`→`launchApp`），**这三样本平台都没有对应步骤**——这是保真度差异，记在「参数保真」列与本列，不改变分组。',
   takeScreenshot: '语义：截屏——命令形态与 Maestro 的 `takeScreenshot` 一致（一步截一张）。本平台的落盘路径走 ATS-209 的证据路径校验与 SHA-256。Maestro 还能 `cropOn` 裁剪，本平台没有这个参数——保真度差异，不改变分组。',
-  tapOn: '语义：点按元素——命令形态与 Maestro 的 `tapOn` 一致（一步点一个元素）。本平台的目标是**文本**或**资源 id`，**两者任一即可**（只有**两者皆缺**才判 `missing-argument`——只给 `id` 就能映射）；并按 ATS-601 要求 `ui.tap` + `ui.hierarchy` 同时满足。Maestro 的元素选择器远比这丰富（相对定位、状态过滤、尺寸容差等），本平台只认少数几个参数——保真度差异，记在「参数保真」列，不改变分组。',
+  tapOn: '语义：点按元素——命令形态与 Maestro 的 `tapOn` 一致（一步点一个元素）。本平台的目标是**文本**或**资源 id**，**两者任一即可**（只有**两者皆缺**才判 `missing-argument`——只给 `id` 就能映射）；并按 ATS-601 要求 `ui.tap` + `ui.hierarchy` 同时满足。Maestro 的元素选择器远比这丰富（相对定位、状态过滤、尺寸容差等），本平台只认少数几个参数——保真度差异，记在「参数保真」列，不改变分组。',
   startRecording: '语义：开始录屏。**命令形态不同**：本平台的 `recordScreen` 是**一步**（录一段），Maestro 是「开始/停止」**配对**命令⇒**配对语义在单步模型里无处安放**——**动作（录屏）本平台能表达，表达不出来的是「开始/结束」这对边界**，所以判「部分可映射」。Maestro 的拼写也不在 ATS-602 的拼写表里，导入时按 `unknown-command` 进导入报告（导入侧）。',
   stopRecording: '语义：结束录屏。与 `startRecording` 同一条判定——**命令形态不同**（配对 vs 单步）：动作本平台能表达，表达不出来的是「开始/结束」这对边界；拼写也不被导入器接受（导入侧）。',
 };
@@ -493,14 +525,16 @@ const NOTE = {
  * `back`, `hideKeyboard`, `scroll`, `clearKeychain` and `pasteText` are
  * Maestro's `action:` navigation commands: one YAML field holds a STRING
  * that is matched against the `YamlNavigationAction` enum, and the enum
- * value decides which command is built. The action is therefore not
- * readable from a per-field branch -- it is readable from the enum
- * switch, which the action model does not resolve.
+ * value decides which command is built. They have no per-field branch of
+ * their own, so the action is read from the enum switch instead -- the
+ * action model resolves that switch, so each of them DOES have a measured
+ * action, and it lands in the `action` field's row rather than in a row of
+ * its own.
  *
  * They are all unmappable for the same reason (the platform has no
  * navigation / keyboard / clipboard step), so the verdict does not depend
- * on the missing measurement. Each one is listed here so that a command
- * without a measured action is an EXPLICIT entry, never a silent one.
+ * on how the action was measured. Each one is listed here so that a
+ * command without a note is an EXPLICIT entry, never a silent one.
  */
 const NO_ACTION = {
   back: '本平台**没有键盘处理与按键步骤**；另：`back` 在 iOS 上是**空操作**（`IOSDriver.backPress` 的字节码体只有一条 `return`）',
@@ -548,7 +582,6 @@ const UNMAPPABLE = {
   assertTrue: '本平台的断言只有 `visible` / `notVisible` 两种限定词，**没有任意表达式断言**',
   assertScreenshot: '本平台**没有视觉比对**（只有取证 `takeScreenshot`）',
   waitForAnimationToEnd: '本平台**没有等待步骤**',
-  extendedWaitUntil: '本平台**没有等待步骤**',
   evalScript: '本平台**不执行 Flow 里的任意代码**（解析器只读文本），用例也是**扁平列表**（无子流程、无重复/重试结构）',
   runScript: '本平台**不执行 Flow 里的任意代码**（解析器只读文本），用例也是**扁平列表**（无子流程、无重复/重试结构）',
   runFlow: '本平台**不执行 Flow 里的任意代码**（解析器只读文本），用例也是**扁平列表**（无子流程、无重复/重试结构）',
@@ -635,8 +668,21 @@ for (const name of Object.keys(fixtures.commands)) {
     // ARGUMENTS: the parameter fidelity does not apply to this command.
     // That is measured, not assumed -- the reason is the one the
     // importer really reported.
-    const out = params.filter((p) => !modelParams(modelKind).has(p.name));
-    paramCell = `Maestro 的参数共 ${params.length} 个（其中模型外 ${out.length} 个）——**实测**：Maestro 的拼写 \`${name}\` 不在 ATS-602 的语义拼写表里，导入器在读参数**之前**就判 \`unknown-command\`（0 条告警），⇒ 本平台的参数保真**对本命令不适用**`;
+    //
+    // The out-of-model parameters are NAMED, not just counted. For a
+    // command whose parameters carry the platform's own QUALIFIER -- the
+    // wait's `visible` / `notVisible` are the platform's `assertVisible`
+    // qualifiers -- "模型外" alone would read as "the platform has no
+    // such thing", which is wrong: the platform has the qualifier, but
+    // the SPELLING that carries it is refused. The cell says which
+    // parameters there are and what the importer did with the command.
+    const model = modelParams(modelKind);
+    const qualifierParams = params.filter((p) => QUALIFIER_PARAMS.has(p.name));
+    const out = params.filter((p) => !model.has(p.name));
+    const qualifierNote = qualifierParams.length
+      ? `；其中 \`${qualifierParams.map((p) => p.name).join('` / `')}\` 是本平台的**限定词**，不是新语义`
+      : '';
+    paramCell = `Maestro 的参数共 ${params.length} 个（模型外 ${out.length} 个${qualifierNote}）——**实测**：Maestro 的拼写 \`${name}\` 不在 ATS-602 的语义拼写表里，导入器在读参数**之前**就判 \`unknown-command\`（0 条告警），⇒ 本平台的参数保真**对本命令不适用**`;
   } else {
     paramCell = measureParameterFidelity(name, modelKind, params).cell;
   }

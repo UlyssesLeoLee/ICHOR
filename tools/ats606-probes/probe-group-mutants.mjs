@@ -27,9 +27,12 @@
  * so every mutant is caught by that comparison. But a mutant that ALSO
  * changed the generator would slip past it, so the probe ALSO re-derives
  * every row's verdict FROM THE BYTE-CODE and compares it with the
- * document. The mutant `M7` below is the one that exercises that second
- * check on its own: it moves `extendedWaitUntil` into the unmappable
- * group AND rewrites every count, so only the byte-code check can see it.
+ * document.
+ *
+ * The mutant `M7` below is the one that exercises that second check on
+ * its own: it moves `extendedWaitUntil` into the unmappable group AND
+ * rewrites every count, so the visible counts agree with each other and
+ * only the re-derivation sees the group.
  *
  * The counts are NOT written down here -- they are derived from the LIVE
  * table, so the harness keeps working when the table changes.
@@ -139,7 +142,7 @@ const MUTANTS = [
   { name: 'M4 startRecording -> 不映射', text: moveRow('startRecording', 'partial', 'unmappable'), mustFail: true },
   { name: 'M5 launchApp -> 部分可映射', text: moveRow('launchApp', 'mappable', 'partial'), mustFail: true },
   { name: 'M6 tapOn -> 不映射', text: moveRow('tapOn', 'mappable', 'unmappable'), mustFail: true },
-  // M7: the mutation the byte-code check is FOR. `extendedWaitUntil`
+  // M7: the mutation the byte-code re-derivation is FOR. `extendedWaitUntil`
   // compiles into the very same orchestra command class as
   // `assertVisible`, so filing it as unmappable contradicts the
   // byte-code -- and every count is rewritten, so nothing else shows it.
@@ -147,6 +150,45 @@ const MUTANTS = [
   // M8: the same class of mutation on the other side -- a command the
   // platform CAN express, filed as partially mappable.
   { name: 'M8 takeScreenshot -> 部分可映射', text: moveRow('takeScreenshot', 'mappable', 'partial'), mustFail: true },
+];
+
+/**
+ * The mutants that break the PLATFORM TABLE rather than the document.
+ *
+ * The document mutants above move a row between groups. These two change
+ * the one authored judgement in the chain -- the table that says which
+ * platform step kind does what a Maestro command does -- and they are
+ * caught by the RULES the table has to satisfy:
+ *
+ *   T1  the wait's entry is removed. `extendedWaitUntil` builds the same
+ *       condition as `assertVisible` and only waits longer, so it must be
+ *       judged in the same group (R1). Removing its entry lets the
+ *       TIMEOUT decide the group -- which §8.3 forbids.
+ *   T2  the pairing is removed from the recording commands. Maestro's
+ *       recording is a begin/end PAIR against the platform's single step,
+ *       so both halves must carry the pairing (R2).
+ *
+ * A table that breaks a rule is rejected BEFORE any verdict is derived
+ * from it -- by the generator AND by the probe -- so these mutants are
+ * caught even though the DOCUMENT is untouched.
+ *
+ * The mutation is applied to a COPY of the repository: the table lives in
+ * a source file, so the mutated copy is a whole tree, and the probe runs
+ * against THAT tree.
+ */
+const TABLE_MUTANTS = [
+  {
+    name: 'T1 the wait loses its table entry',
+    file: 'tools/ats606-probes/maestro-action-model.mjs',
+    from: "    'extended-wait': Object.freeze({ kind: 'assertVisible' }),",
+    to: "    'extended-wait': null,",
+  },
+  {
+    name: 'T2 the recording pair loses the pairing',
+    file: 'tools/ats606-probes/maestro-action-model.mjs',
+    from: "  StartRecordingCommand: Object.freeze({ kind: 'recordScreen', form: 'paired' }),\n  StopRecordingCommand: Object.freeze({ kind: 'recordScreen', form: 'paired' }),",
+    to: "  StartRecordingCommand: Object.freeze({ kind: 'recordScreen' }),\n  StopRecordingCommand: Object.freeze({ kind: 'recordScreen' }),",
+  },
 ];
 
 let notBuilt = 0;
@@ -192,6 +234,97 @@ for (const mutant of MUTANTS) {
     for (const l of why) console.log(`     ${l.slice(0, 170)}`);
   } else {
     console.log(`${mutant.name.padEnd(40)} exit=${res.status}  => NOT CAUGHT -- the probe cannot see the grouping`);
+    leaked += 1;
+  }
+}
+
+console.log('');
+if (notBuilt) {
+  console.log(`SKIP ${notBuilt} mutant(s) could not be built -- the table format changed`);
+}
+
+/* ------------------------------------------------------------------ */
+/* the TABLE mutants: a broken platform table must be rejected        */
+/* ------------------------------------------------------------------ */
+
+console.log('');
+console.log('--- the platform table mutants (the table itself must satisfy the §8.3 rules) ---');
+
+/**
+ * Copies the repository, applies one source mutation, and runs the probe
+ * against the COPY.
+ *
+ * The copy is needed because the table lives in a source file: the
+ * mutation has to be in the tree the probe runs against. `node_modules`
+ * and the git directory are not copied -- the probe needs neither.
+ */
+function runTableMutant(mutant) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `ats606-table-${process.pid}-`));
+  const repo = path.join(dir, 'repo');
+  try {
+    fs.cpSync(REPO, repo, {
+      recursive: true,
+      filter: (p) => !/[\\/](node_modules|\.git)([\\/]|$)/.test(p) && !/[\\/]docs[\\/]evidence([\\/]|$)/.test(p),
+    });
+    const target = path.join(repo, mutant.file);
+    // The working tree uses CRLF and the blob uses LF, so a literal
+    // newline in the anchor matches neither. The anchor is therefore
+    // split into lines and matched line by line, and the matched span
+    // is replaced with the replacement lines in the SAME line ending.
+    const src = fs.readFileSync(target, 'utf8');
+    const CR = String.fromCharCode(13);
+    const LF = String.fromCharCode(10);
+    const srcLines = src.split(new RegExp(CR + "?" + LF));
+    const eol = src.includes(String.fromCharCode(13, 10)) ? String.fromCharCode(13, 10) : String.fromCharCode(10);
+    // The anchors are written with LF; the file may be CRLF. The
+    // comparison is therefore made on the lines with their line ending
+    // stripped.
+    const strip = (s) => s.replace(new RegExp(CR + "?$"), "");
+    const fromLines = mutant.from.split(LF).map(strip);
+    const toLines = mutant.to.split(LF).map(strip);
+    let at = -1;
+    for (let i = 0; i + fromLines.length <= srcLines.length; i += 1) {
+      let hit = true;
+      for (let k = 0; k < fromLines.length; k += 1) {
+        if (srcLines[i + k] !== fromLines[k]) { hit = false; break; }
+      }
+      if (hit) { at = i; break; }
+    }
+    if (at < 0) return { built: false, out: String(), status: null };
+    // The mutation must be VERIFIED to have applied: a replacement that
+    // matches nothing leaves the file untouched, and the probe would
+    // then report "the table is not guarded" about a table that was
+    // never broken.
+    const outLines = srcLines.slice(0, at).concat(toLines, srcLines.slice(at + fromLines.length));
+    const mutated = outLines.join(eol);
+    if (mutated === src) return { built: false, out: String(), status: null };
+    fs.writeFileSync(target, mutated, 'utf8');
+
+    const res = spawnSync(process.execPath, [path.join(repo, 'tools', 'ats606-probes', 'probe-maestro-compat.mjs')], {
+      encoding: 'utf8',
+      timeout: 900000,
+      cwd: repo,
+      env: { ...process.env, ATS606_SKIP_MAESTRO: '1' },
+    });
+    const out = `${res.stdout ?? ''}${res.stderr ?? ''}`;
+    return { built: true, out, status: res.status, caught: res.status !== 0 && /FAIL/.test(out) };
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+for (const mutant of TABLE_MUTANTS) {
+  const r = runTableMutant(mutant);
+  if (!r.built) {
+    console.log(`SKIP  ${mutant.name.padEnd(40)} -- the mutation could not be applied (the table format changed)`);
+    notBuilt += 1;
+    continue;
+  }
+  if (r.caught) {
+    console.log(`${mutant.name.padEnd(40)} exit=${r.status}  => caught`);
+    for (const l of r.out.split('\n').filter((x) => x.startsWith('FAIL')).slice(0, 2)) console.log(`     ${l.slice(0, 170)}`);
+  } else {
+    console.log(`${mutant.name.padEnd(40)} exit=${r.status}  => NOT CAUGHT -- a broken platform table passes every check`);
     leaked += 1;
   }
 }

@@ -1,7 +1,7 @@
 === ATS-606 evidence: the WBS row ===
-tree : d9adc0731cd0304455c3d079352d0669b3ce05bd
-date : 2026-11-13T02:38:59Z
+tree : 945405fed60a1bc7b1cac3a8258ed721fa42b18f
+date : 2026-11-13T12:44:13Z
 
-PASS the ATS-606 row is 待审核, 完成率=1, 剩余人日=0, note marker x1
+PASS the ATS-606 row is 待审核, 完成率=1, 剩余人日=0, note marker x1, note matches the script
 
 exit : 0

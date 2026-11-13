@@ -522,8 +522,8 @@ if (rowsByCommand.size !== Object.keys(fixtures.commands).length) {
 // that both sets held the same lines. That check cannot see WHICH GROUP
 // a row is in -- moving a row from "可映射" to "不映射" and updating
 // every stated count left the set unchanged, so the probe stayed green.
-// That is the defect the round-2 review found (its mutants M1-M5 all
-// passed).
+// That is the defect this check exists for: a set of mutants that move
+// a row between groups and update every stated count all passed.
 //
 // The block comparison below compares the WHOLE generated block -- the
 // three group headings, every row in its group, and the TALLY line --
@@ -725,7 +725,7 @@ if (paramProblems.length) {
 //
 // The check below re-derives EVERY row's verdict from the byte-code and
 // compares it with the document. A row that should have been mappable but
-// was filed as unmappable (the kind of defect the round-3 review found
+// was filed as unmappable (the kind of defect this check exists for:
 // in `extendedWaitUntil`) is caught here, because the byte-code says the
 // command compiles into `AssertConditionCommand` -- the very class the
 // platform's `assertVisible` step expresses.
@@ -773,6 +773,37 @@ if (!stepKinds) {
     for (const p of problems) fail(`the grouping breaks the §8.3 criterion: ${p}`);
   } else {
     ok(`the grouping breaks no §8.3 invariant: every mappable / partially mappable row names a step kind ATS-601 freezes, every unmappable row names none (${rowsByCommand.size} rows)`);
+  }
+}
+
+// THE SPELLING GAP -- the commands that are mappable in SEMANTICS but whose
+// spelling the importer refuses.
+//
+// §8.5.4 names them and states how many there are. The number is not a
+// claim to be believed: it is DERIVED from the table itself -- the rows of
+// the mappable group whose importer cell says "进导入报告" -- and compared
+// with the number the document states. A table with a third such row, or a
+// document that says "三条" where the table holds two, is caught here.
+console.log('');
+console.log('--- the spelling gap (§8.5.4): mappable in semantics, refused in spelling ---');
+{
+  const gapRows = verdicts.mappable.filter((c) => {
+    const cell = rowsByCommand.get(c)?.importer ?? '';
+    return cell.includes('进导入报告');
+  });
+  const statedGap = /<!-- ATS606-SPELLING-GAP mappable=(\d+) reported=(\d+) -->/.exec(section);
+  if (!statedGap) {
+    fail('§8.5.4 does not state the spelling gap as "<!-- ATS606-SPELLING-GAP mappable=N reported=M -->"');
+  } else {
+    const n = Number(statedGap[1]);
+    const r = Number(statedGap[2]);
+    if (n !== gapRows.length) {
+      fail(`§8.5.4 states the spelling gap holds ${n} command(s), but the table has ${gapRows.length}: ${gapRows.join(', ') || '(none)'}`);
+    } else if (r !== measuredReported) {
+      fail(`§8.5.4's spelling-gap marker states reported=${r}, but the importer really reports ${measuredReported}`);
+    } else {
+      ok(`the spelling gap holds ${n} command(s) and the document says so: ${gapRows.join(', ')}`);
+    }
   }
 }
 
@@ -828,6 +859,44 @@ console.log('--- the grouping, re-derived from the Maestro byte-code ---');
 }
 
 /**
+ * THE RULES §8.3's criterion puts on the platform table.
+ *
+ * The re-derivation above proves the DOCUMENT agrees with the byte-code
+ * and the table. It does NOT prove the TABLE agrees with §8.3: the table
+ * is the one authored judgement in the chain, so a wrong judgement in it
+ * flows into both the document and the re-derivation.
+ *
+ * So the table is checked against the rules that §8.3 states about it:
+ *
+ *   R1  the wait does not decide the group -- the wait's entry must name
+ *       the same GROUP and the same step kind as the plain assertion for
+ *       the condition it builds;
+ *   R2  a begin/end pair carries the pairing on BOTH halves, and only a
+ *       measured pair may carry it.
+ *
+ * These are properties of the table as a whole, so they are checked on the
+ * table -- and a table that breaks them is rejected BEFORE any verdict is
+ * derived from it.
+ */
+console.log('');
+console.log('--- the rules §8.3 puts on the platform table ---');
+{
+  const model = await import(new URL('./maestro-action-model.mjs', import.meta.url).href);
+  const actions = model.measureActions();
+  if (!actions) {
+    console.log('SKIP no Maestro installation found -- the platform table was NOT checked against the §8.3 rules in this run');
+  } else {
+    const violations = model.checkTableRules(actions);
+    if (violations.length) {
+      for (const v of violations) fail(`the platform table breaks a §8.3 rule: ${v}`);
+    } else {
+      const pairs = model.measurePairs(actions);
+      ok(`the platform table breaks no §8.3 rule: R1 the wait does not decide the group, R2 a begin/end pair carries the pairing on both halves (${pairs.length} measured pair(s): ${pairs.map((p) => `${p.start}/${p.stop}`).join(', ') || 'none'})`);
+    }
+  }
+}
+
+/**
  * Reads the ATS-601 step vocabulary straight out of the source, so the
  * check cannot pass by the table and the source agreeing by accident.
  */
@@ -875,7 +944,7 @@ if (SELF_TEST) {
    * Moves a row from one verdict group to another INSIDE the generated
    * block, and rewrites the group headings and the TALLY to match.
    *
-   * This is the mutation the round-2 review used, and it is the one the
+   * This is the mutation the harness reproduces, and it is the one the
    * FIRST version of this probe could not catch: the rows were compared
    * as an unordered set, so moving one between groups -- and updating
    * every stated count -- left the set unchanged and the probe stayed

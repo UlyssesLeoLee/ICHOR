@@ -1,8 +1,8 @@
 === ATS-606 evidence: the checksum manifest ===
-tree : 88b0a1df08a710e530a42062f52647488b99ed59
-date : 2026-11-13T02:47:24Z
+tree : b45545ee95974ec7cbddab70f615b50b0b48d438
+date : 2026-11-13T13:02:20Z
 
-manifest entries : 1003
+manifest entries : 1027
 digest mismatches: 0
 tracked-not-listed: 0 []
 listed-not-tracked: 0 []
