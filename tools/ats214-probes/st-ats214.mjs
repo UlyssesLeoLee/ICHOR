@@ -136,6 +136,13 @@ const TAGS = ['@smoke', '@slow', '@api', '@ui', '@regression'];
 function writeProject(root, files, extra = {}) {
   fs.mkdirSync(path.join(root, 'tests'), { recursive: true });
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: `fx-${path.basename(root)}`, private: true }));
+  // The dependency tree is a JUNCTION into the real Playwright install.
+  // Without this ignore file `git add -A` follows the junction and stages
+  // the WHOLE dependency tree: the fixture's commit then carries thousands
+  // of files, every log line about it is an LF warning, and the commit
+  // takes seconds instead of milliseconds. The junction itself is what the
+  // engine needs; staging it is not.
+  fs.writeFileSync(path.join(root, '.gitignore'), 'node_modules/\n');
   fs.writeFileSync(
     path.join(root, 'playwright.config.ts'),
     "import { defineConfig } from '@playwright/test';\nexport default defineConfig({ testDir: './tests', retries: 0, workers: 1, timeout: 60000 });\n"
