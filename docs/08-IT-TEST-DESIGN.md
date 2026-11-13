@@ -228,6 +228,9 @@
 |IT-ATS214-033|FR-021|异常|预检失败的批次也落到终态|没有 node_modules 的项目，两个文件|批次 status=failed；finishedAt 有值；error 写明原因——不是永远 running|node --test tests/ats214-batch-context.test.mjs|PASS|
 |IT-ATS214-034|FR-021|异常|批次进行中 Bridge 被杀，该批次被标为中断|强杀 Bridge 后在同一数据目录重启|批次 status 不再是 running；finishedAt 有值|node --test tests/ats214-batch-context.test.mjs|PASS|
 |IT-ATS214-035|FR-021|正常|批次记录对账「选了什么/跑了什么」|跨两个文件的选择真的跑完|reconciliation.selected=2；missing 为空（跨两个 run 计算）；extra 报告多跑的那些（整文件执行）——不藏起来|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS214-036|FR-021|安全|批次记录不携带环境变量的**值**|档案里写 BASE_URL=https://staging.example/?k=s3cr3t-value-1234，起一个两文件的批次|GET /api/batches 的整个响应里不含该值；batch.context 只有 envUid/envName/envTier，没有 envVariables；档案清单与运行记录同样不含该值|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS214-037|FR-021|异常|白名单收紧后**之后**启动的 run 不再带着该变量|run#1 在跑时用 PUT /env-whitelist 把 BASE_URL 移出白名单，随后启动的 run#2|run#2 的引擎看到 BASE_URL 未设置（`<unset>`）；run#2 的 envVariables 为空；envRefused 点名 BASE_URL|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS214-038|FR-021|异常|批次进行中档案被删除时批次以明确原因结束|run#1 在跑时 DELETE 掉档案|批次 status=failed，error 点名 ENV_PROFILE_NOT_FOUND；第二个文件**没有**在「无档案」的静默回落下跑过|node --test tests/ats214-batch-context.test.mjs|PASS|
 |IT-ATS213-008|FR-027|正常|凭据形状的变量名带**引用**时档案存得下|POST /api/projects/<id>/env，API_TOKEN={"credentialRef":"cred_…"}|200；档案的公开视图带变量名 API_TOKEN，不带任何值|node --test|PASS|
 |IT-ATS213-009|FR-027|安全|凭据形状的变量名带**明文**时被拒|POST /api/projects/<id>/env，API_TOKEN=<明文>|400 ENV_VARIABLE_NOT_ALLOWED；拒绝理由指向凭据引用而不是明文|node --test|PASS|
 |IT-ATS213-010|FR-027|异常|引用解析不了时**拒绝启动**|档案引用一个不存在的 cred_…，然后发起运行|运行不被接受（不是 202）；404 CREDENTIAL_REF_NOT_FOUND，带变量名与引用 id，不带密钥|node --test|PASS|

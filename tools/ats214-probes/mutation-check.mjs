@@ -245,19 +245,46 @@ const PROBES = {
  * the real tree (they are gitignored, so they are not part of the
  * delivery) -- the copy is a junction-free directory copy, which the
  * Next/Turbopack build resolves.
+ *
+ * THE BUILD TREE CAN BE AN EXTERNAL ONE. Turbopack resolves
+ * `next/package.json` INSIDE the filesystem root it is given, and a
+ * JUNCTION to a dependency tree on another volume is NOT resolved by it.
+ * So the build needs a REAL directory of dependencies. When
+ * `ATS214_BUILD_TREE` names one, the mutated SOURCES are copied into it
+ * and the build runs THERE; the built `out/` is then copied back into
+ * the tree under test, so the ST measures the mutated build.
  */
 function buildStaticExport() {
   const appDir = path.join(REPO, 'apps', 'studio');
-  if (!fs.existsSync(path.join(appDir, 'node_modules', 'next', 'package.json'))) {
-    return { ok: false, detail: 'apps/studio/node_modules is missing' };
+  const buildTree = process.env.ATS214_BUILD_TREE
+    ? path.join(path.resolve(process.env.ATS214_BUILD_TREE), 'apps', 'studio')
+    : appDir;
+  if (!fs.existsSync(path.join(buildTree, 'node_modules', 'next', 'package.json'))) {
+    return { ok: false, detail: `${path.join(buildTree, 'node_modules')} is missing` };
+  }
+  // The mutated sources are copied into the build tree, so the build is
+  // really built from the MUTATED code.
+  for (const rel of ['app', 'lib', 'public']) {
+    const from = path.join(appDir, rel);
+    const to = path.join(buildTree, rel);
+    if (!fs.existsSync(from)) continue;
+    fs.rmSync(to, { recursive: true, force: true });
+    fs.cpSync(from, to, { recursive: true });
   }
   const r = spawnSync('npm', ['run', 'build'], {
-    cwd: appDir, encoding: 'utf8', shell: true,
+    cwd: buildTree, encoding: 'utf8', shell: true,
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
   });
   const out = `${r.stdout || ''}${r.stderr || ''}`;
-  if (!fs.existsSync(path.join(appDir, 'out', 'index.html'))) {
+  if (!fs.existsSync(path.join(buildTree, 'out', 'index.html'))) {
     return { ok: false, detail: `the build produced no out/index.html (exit ${r.status})` };
+  }
+  // The built export goes back into the tree under test: the ST drives
+  // `REPO/apps/studio/out`, so that is where the MUTATED build has to be.
+  if (path.resolve(buildTree) !== path.resolve(appDir)) {
+    const outDir = path.join(appDir, 'out');
+    fs.rmSync(outDir, { recursive: true, force: true });
+    fs.cpSync(path.join(buildTree, 'out'), outDir, { recursive: true });
   }
   return { ok: true, out };
 }

@@ -744,7 +744,21 @@ function finishRun(run,code,signal){
  // A chain that is CANCELLED stops here: the user asked for the run to
  // stop, and continuing with the next file would run cases the user did
  // not ask to run any more.
- advanceBatch(run);
+ //
+ // The chain is advanced ASYNCHRONOUSLY (the next run resolves the
+ // environment profile, which is asynchronous), so the promise is caught
+ // here: an unhandled rejection would take the Bridge down with it, and a
+ // Bridge that dies mid-batch is the very thing the batch's terminal
+ // states exist to prevent. `advanceBatch` reports its own failures on
+ // the batch record; this catch is the last line of defence.
+ advanceBatch(run).catch(e=>{
+  console.error(`the batch of run ${run.id} could not be advanced: ${e&&e.message?e.message:e}`);
+  try{
+   const batches=Array.isArray(store.batches)?store.batches:[];
+   const batch=batches.find(b=>b.uid===run.batchUid);
+   if(batch&&batch.status==='running')finishBatch(batch,'failed',String(e&&e.message?e.message:e));
+  }catch{/* the state could not be written; the recovery will mark it */}
+ });
 }
  function startRun(project,run,adapter,envProfile,envVariables){
    const folder=runDir(run.id);fs.mkdirSync(folder,{recursive:true});

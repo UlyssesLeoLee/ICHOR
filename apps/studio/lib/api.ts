@@ -34,7 +34,10 @@ export type BatchReconciliation={selected:number,executed:number,missing:string[
  * ATS-214: the CONTEXT of a batch -- the environment profile, the pinned
  * runner and the requested capabilities every run of the batch inherits.
  */
-export type BatchContext={envUid:string|null,envName:string|null,envTier:string|null,envVariables:Record<string,string>,runner:string|null,capabilities:string[]|null};
+// ATS-214: the batch record carries the environment profile's REFERENCE, never
+// its values. `envVariables` is therefore NOT part of the context any more: a
+// value in the record would be a value `GET /api/batches` serves.
+export type BatchContext={envUid:string|null,envName:string|null,envTier:string|null,runner:string|null,capabilities:string[]|null};
 export type Batch={uid:string,projectId:string,projectUid:string,selectionUid:string,uids:string[],cases:SelectionCase[],files:string[],groups:BatchGroup[],status:string,createdAt:string,finishedAt:string|null,runs:BatchRun[],error?:string,context?:BatchContext,reconciliation?:BatchReconciliation};
 // ATS-214: the run carries the selection it was started for.
 export type RunSelection={uids:string[],cases:SelectionCase[],count:number,files:string[],groups:BatchGroup[]};

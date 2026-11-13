@@ -37,13 +37,24 @@ mkdir -p "$OUT"
 export PYTHONUTF8=1
 export PYTHONIOENCODING=utf-8
 
-# --- the temporary artefacts go to D: ----------------------------------
+# --- the temporary artefacts go to D: -----------------------------------
 # The C: page file is pinned at 8192 MB on this machine and cannot grow, so
 # a big temporary tree on C: can kill the process with an unrelated
 # "paging file is too small". The scratch directory is on D:.
+#
+# The path has to be a NATIVE Windows path: the probes run under Node,
+# and `path.resolve('/tmp/...')` on Windows turns a MSYS-style path into
+# `C:\tmp\...` -- a directory that does not exist, so `mkdtemp` fails with
+# ENOENT and the probe measures nothing. `cygpath` (present in Git Bash)
+# does the translation.
 export TMPDIR="${TMPDIR:-D:/hermes-multica/home/cache/scratch}"
+if command -v cygpath > /dev/null 2>&1; then
+  TMPDIR="$(cygpath -w "$TMPDIR")"
+fi
 export TEMP="$TMPDIR"
 export TMP="$TMPDIR"
+mkdir -p "$TMPDIR"
+echo "scratch: $TMPDIR"
 
 FAILED=0
 
@@ -202,8 +213,14 @@ fi
 
 # --- 9. the NEGATIVE CONTROL: the mutations must turn the suite red ----
 # A test suite that cannot fail is not evidence. The mutation probe
-# breaks the delivered code in ten ways and asserts that the ATS-214
+# breaks the delivered code in twelve ways and asserts that the ATS-214
 # tests GO RED for each of them.
+#
+# The interface mutations need a real static export, and Turbopack does
+# not resolve a JUNCTION to a dependency tree on another volume -- so the
+# build happens in `ATS214_BUILD_TREE`, a tree on D: with a REAL directory
+# of dependencies. The probe copies the mutated sources there, builds, and
+# copies the build back into the tree under test.
 step "9. the negative control: every mutation of the delivered code must turn the suite red"
 if node tools/ats214-probes/mutation-check.mjs . "$TMPDIR" > "$OUT/13-mutation-control.log" 2>&1; then
   note 0 "node tools/ats214-probes/mutation-check.mjs (every mutation caught)"

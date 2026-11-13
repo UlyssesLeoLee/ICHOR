@@ -1,5 +1,5 @@
 'use client';
-import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import dynamic from 'next/dynamic';
 import {Activity,BookOpen,Box,ChartNoAxesCombined,CheckCircle2,ChevronRight,Clock,Code2,Download,FileCode2,FilePlus2,FileSearch,FolderGit2,GitBranch,GitCommitHorizontal,Inbox,KeyRound,LayoutDashboard,Layers3,Loader2,Lock,Network,Play,RefreshCcw,Save,Search,ShieldAlert,Square,Terminal,TestTube2,Trash2,TriangleAlert,XCircle} from 'lucide-react';
 import {api,cancellableApi,downloadArtifact,type Project,type TestDef,type TestCatalog,type Run,type Source,type CredentialRef,type CredentialStatus,type EgressScope,type EgressPreview,type EgressConsent,type SecurityContract,type EgressAuditRecord,type EvidenceMaterial,type Batch} from '../lib/api';
@@ -111,6 +111,83 @@ function NoProjectPanel({onAddProject}:{onAddProject:()=>void}){
  const kind=/\bexpect\s*\(/.test(line)?'断言':/\.goto\s*\(/.test(line)?'导航':/\.fill\s*\(/.test(line)?'输入':/\.click\s*\(/.test(line)?'点击':/test\.step\s*\(/.test(line)?'步骤组':null;
  if(kind)arr.push({line:i+1,name:line.trim().slice(0,94),kind});
  });return arr;}
+/**
+ * ATS-214: ONE row of the case list.
+ *
+ * WHY IT IS ITS OWN COMPONENT
+ * ---------------------------
+ * The list can hold 500 cases. Ticking one case changes the SELECTION, and
+ * the selection is read by every row (「is this case ticked?」). When the
+ * rows were inlined in the list, a single tick re-rendered ALL 500 of
+ * them -- 500 rows x (2 lucide icons + 4 text nodes + 2 attributes)
+ * re-created, and the interaction's long task grew past the budget the
+ * task writes down (100 ms).
+ *
+ * `React.memo` makes the re-render PROPORTIONAL to the change: ticking one
+ * case re-renders that ONE row, and the other 499 are not touched. The
+ * props are primitives and two STABLE callbacks, so the memo compares
+ * them and skips the rows that did not change.
+ */
+/**
+ * ATS-214: how many cases of ONE FILE the selection record shows.
+ *
+ * The record is grouped by file, and each group shows its first cases.
+ * A bounded list keeps the DOM small when the reader selects hundreds of
+ * cases -- the selection itself is complete either way, because the
+ * SNAPSHOT carries every case, not the rows of this table.
+ */
+const SELECTION_ROWS_PER_FILE=3;
+
+const CaseRow=React.memo(function CaseRow({t,ticked,selected,onToggle,onOpen}:{
+ t:TestDef;ticked:boolean;selected:boolean;
+ onToggle:(uid:string)=>void;onOpen:(test:TestDef)=>void;
+}){
+ return <div className={'file-item '+(selected?'selected':'')}>
+  {/* ATS-214: the pick-box is a REAL `<button role="checkbox">`, not a
+      `<span>` nested inside the row's button.
+      A nested interactive element is not reachable by the keyboard:
+      the browser gives the tab stop to the OUTER button and the inner
+      checkbox can never be focused, so a keyboard reader cannot tick
+      a case at all. The row is a `<div>` now, the pick-box is a
+      button of its own, and the row's click handler is on the TITLE
+      (which is a button too) -- so every control is reachable and
+      every control is a control. */}
+  <PickBox ticked={ticked} uid={t.uid} title={t.title} onToggle={onToggle}/>
+  <CaseTitle t={t} onOpen={onOpen}/>
+ </div>;
+});
+
+/**
+ * The pick-box of ONE row.
+ *
+ * It is a component of its own because the tick state is the ONLY thing
+ * that changes when the reader ticks a case: the title, the file, the
+ * line and the two icons of that row say nothing about the tick. Keeping
+ * them in a separate memoised component means that ticking a case (or
+ * ticking all 500 of them) re-renders 500 tiny buttons instead of 500
+ * rows with 1000 SVG icon components.
+ */
+const PickBox=React.memo(function PickBox({ticked,uid,title,onToggle}:{
+ ticked:boolean;uid:string;title:string;onToggle:(uid:string)=>void;
+}){
+ return <button className={'pick-box'+(ticked?' on':'')} onClick={()=>onToggle(uid)} role="checkbox" aria-checked={ticked} aria-label={`选中 ${title}`} title="选中以批量运行" type="button"/>;
+});
+
+/**
+ * The title of ONE row -- the part that does NOT depend on the tick.
+ *
+ * The two lucide icons and the four text nodes are the expensive half of
+ * a row, and they are the same for every tick state. `React.memo` keeps
+ * them out of the re-render that a tick causes.
+ */
+const CaseTitle=React.memo(function CaseTitle({t,onOpen}:{
+ t:TestDef;onOpen:(test:TestDef)=>void;
+}){
+ return <button className="file-open" onClick={()=>onOpen(t)}>
+  <FileCode2 size={16}/><span><b>{t.title}</b><small>{t.file}:{t.line}</small>{(t.tags&&t.tags.length)?<small className="tag-line">{t.tags.map(x=>'@'+x).join(' ')}</small>:null}<small className="uid-tag">{t.uid}{t.uidStable?'':' ⚠'}</small></span><ChevronRight size={14}/>
+ </button>;
+});
+
 export default function Studio(){
  const [projects,setProjects]=useState<Project[]>([]),[active,setActive]=useState(''),[catalog,setCatalog]=useState<TestCatalog>({tests:[],files:[],warning:'',uidVersion:0,projectUid:''});
  const [runs,setRuns]=useState<Run[]>([]),[runDetail,setRunDetail]=useState<Run|null>(null),[selected,setSelected]=useState<TestDef|null>(null);
@@ -292,6 +369,18 @@ export default function Studio(){
   unknown:[],
  }),[selectedUids,selections,active]);
  const selectionGroups=useMemo(()=>selectionByFile(selection),[selection]);
+ // ATS-214: the ticked uids as a SET.
+ //
+ // The list asks "is this case ticked?" for EVERY rendered row, and the
+ // answer used to be an `Array.includes` over the ticked uids -- a linear
+ // scan. With 500 rows and 500 ticked uids that is 500 x 500 = 250 000
+ // string comparisons PER RENDER, and the row asked the question TWICE
+ // (once for the class name, once for `aria-checked`), so 500 000.
+ //
+ // A Set answers the same question in O(1): the render becomes linear in
+ // the number of rows, which is what 「500 用例过滤无明显阻塞」 asks for.
+ // The Set is derived from the same array, so it cannot disagree with it.
+ const selectedUidSet=useMemo(()=>new Set(selectedUids),[selectedUids]);
  // ATS-214: the ticked uids that are NO LONGER in the catalogue. The
  // selection must map to the UIDs accurately, so a case that left the
  // catalogue is REPORTED -- and the run is BLOCKED until the reader
@@ -416,12 +505,26 @@ export default function Studio(){
   const cases=next.map(u=>kept.get(u)).filter((c):c is {uid:string,file:string,title:string,line:number|null}=>Boolean(c));
   setSelections(s=>({...s,[active]:{uids:next,cases}}));
  }
- function toggleSelect(uid:string){
-  const t=catalog.tests.find(x=>x.uid===uid);
-  if(selectedUids.includes(uid)){setSelection(selectedUids.filter(x=>x!==uid));return;}
+ // ATS-214: the two callbacks the case rows receive are STABLE.
+ //
+ // A memoised row is only skipped when its props did not change, and a
+ // NEW function identity on every render is a changed prop. `toggleSelect`
+ // and `openFile` therefore read what they need through refs, so their
+ // identity never changes -- and the 499 rows that did not change are
+ // really not re-rendered.
+ const catalogRef=useRef(catalog);catalogRef.current=catalog;
+ const selectedUidsRef=useRef(selectedUids);selectedUidsRef.current=selectedUids;
+ const setSelectionRef=useRef(setSelection);setSelectionRef.current=setSelection;
+ const openFileRef=useRef(openFile);openFileRef.current=openFile;
+ const toggleSelect=useCallback((uid:string)=>{
+  const cat=catalogRef.current;
+  const uids=selectedUidsRef.current;
+  const t=cat.tests.find(x=>x.uid===uid);
+  if(uids.includes(uid)){setSelectionRef.current(uids.filter(x=>x!==uid));return;}
   if(!t)return;
-  setSelection([...selectedUids,uid],[{uid:t.uid,file:t.file??'',title:t.title??'',line:Number.isInteger(t.line)?t.line:null}]);
- }
+  setSelectionRef.current([...uids,uid],[{uid:t.uid,file:t.file??'',title:t.title??'',line:Number.isInteger(t.line)?t.line:null}]);
+ },[]);
+ const handleOpenFile=useCallback((test:TestDef)=>{openFileRef.current(test);},[]);
  function selectAllShown(){
   const keep=shown.map(t=>({uid:t.uid,file:t.file??'',title:t.title??'',line:Number.isInteger(t.line)?t.line:null}));
   setSelection([...new Set([...selectedUids,...shown.map(t=>t.uid)])],keep);
@@ -609,21 +712,7 @@ export default function Studio(){
      {panel&&panel.kind==='cancelled'&&<StatePanel kind="cancelled" onRetry={reloadCatalogue} retryLabel="重新加载"/>}
      {panel&&panel.kind==='empty'&&<StatePanel kind="empty" detail="这个项目里没有可执行的测试用例。" onRetry={reloadCatalogue} retryLabel="重新加载"/>}
      {panel&&panel.kind==='no-project'&&<NoProjectPanel onAddProject={()=>setDialog(true)}/>}
-     {shown.map(t=><div key={t.id} className={'file-item '+(selected?.id===t.id?'selected':'')}>
-      {/* ATS-214: the pick-box is a REAL `<button role="checkbox">`, not a
-          `<span>` nested inside the row's button.
-          A nested interactive element is not reachable by the keyboard:
-          the browser gives the tab stop to the OUTER button and the inner
-          checkbox can never be focused, so a keyboard reader cannot tick
-          a case at all. The row is a `<div>` now, the pick-box is a
-          button of its own, and the row's click handler is on the TITLE
-          (which is a button too) -- so every control is reachable and
-          every control is a control. */}
-      <button className={'pick-box'+(selectedUids.includes(t.uid)?' on':'')} onClick={()=>toggleSelect(t.uid)} role="checkbox" aria-checked={selectedUids.includes(t.uid)} aria-label={`选中 ${t.title}`} title="选中以批量运行" type="button"/>
-      <button className="file-open" onClick={()=>openFile(t)}>
-       <FileCode2 size={16}/><span><b>{t.title}</b><small>{t.file}:{t.line}</small>{(t.tags&&t.tags.length)?<small className="tag-line">{t.tags.map(x=>'@'+x).join(' ')}</small>:null}<small className="uid-tag">{t.uid}{t.uidStable?'':' ⚠'}</small></span><ChevronRight size={14}/>
-      </button>
-     </div>)}
+     {shown.map(t=><CaseRow key={t.id} t={t} ticked={selectedUidSet.has(t.uid)} selected={selected?.id===t.id} onToggle={toggleSelect} onOpen={handleOpenFile}/>)}
      {/* The filter matched nothing -- a DIFFERENT fact from "the project has
          no cases at all", so it is a different message. */}
      {!panel&&!shown.length&&<div className="empty-small">{catalog.tests.length?'没有符合当前条件的用例<br/>搜索与过滤条件按「交集」叠加':'这个项目里没有可执行的测试用例。'}</div>}
@@ -661,7 +750,24 @@ export default function Studio(){
          batch is split into runs. This is the same snapshot the run
          record carries, so the two can be compared. */}
      {selection.count>0&&<div className="card"><div className="card-title"><Layers3 size={16}/> 已选用例（{selection.count}）· 分 {selectionGroups.length} 个文件执行</div>
-      <table><thead><tr><th>用例</th><th>文件</th><th>行</th><th>UID</th></tr></thead><tbody>{selection.cases.map(c=><tr key={c.uid}><td><b>{c.title}</b></td><td><code className="mono">{c.file}</code></td><td>{c.line??'—'}</td><td><code className="mono">{c.uid}</code></td></tr>)}</tbody></table>
+      {/* ATS-214: the selection record is grouped BY FILE, and each group
+          shows its cases in a BOUNDED list.
+          One table row per selected case meant 500 rows (5000+ DOM nodes)
+          the moment the reader ticked everything -- and the browser laid
+          all of them out, which is what pushed the interaction past the
+          response budget the task writes down. The reader does not need
+          500 rows on screen to know what is selected: the FILE and the
+          COUNT are the facts that decide how the batch is split, and the
+          first cases of each file are enough to recognise them. The
+          selection itself stays complete -- it is the SNAPSHOT on the
+          selection record, not the rows of this table. */}
+      <table><thead><tr><th>文件</th><th>条数</th><th>用例</th></tr></thead><tbody>
+       {selectionGroups.map(g=><tr key={g.file}>
+        <td><code className="mono">{g.file}</code></td>
+        <td>{g.count}</td>
+        <td>{(selection.cases.filter(c=>c.file===g.file).slice(0,SELECTION_ROWS_PER_FILE).map(c=><span key={c.uid} className="selection-case"><b>{c.title}</b><code className="mono">{c.uid}</code></span>))}{g.count>SELECTION_ROWS_PER_FILE&&<span className="muted">…其余 {g.count-SELECTION_ROWS_PER_FILE} 条同在选择集合内</span>}</td>
+       </tr>)}
+      </tbody></table>
       <div className="panel-foot">选择集合是快照：它记下了选中时每条用例的文件、标题与行号，因此即使目录随后变化，这条记录仍可独立阅读。引擎每次只接受一个测试文件过滤参数，所以跨文件的批量运行会按文件依次执行。</div></div>}
      {selected&&source?<div className="editor-panel"><div className="panel-head"><div className="panel-tabs"><button className={view==='graph'?'active':''} onClick={()=>setView('graph')}><Network size={15}/> 流程视图</button><button className={view==='code'?'active':''} onClick={()=>setView('code')}><Code2 size={15}/> 代码视图</button></div><div className="panel-right"><span className="quiet">{draft!==source.content?'● 未保存':'已同步 Git 工作区'}</span><button className="btn small" onClick={()=>setView('code')}><Code2 size={13}/> 编辑</button><button className="btn primary small" onClick={save} disabled={draft===source.content}><Save size={13}/> 保存</button></div></div>
      {view==='graph'?<div className="graph-view"><div className="graph-label">READ ONLY · 语义投影，不覆盖复杂 TS</div>{steps.map((s,i)=><React.Fragment key={i}><div className="flow-node"><span className="step-n">{String(i+1).padStart(2,'0')}</span><div><small>{s.kind} · L{s.line}</small><code>{s.name}</code></div></div>{i<steps.length-1&&<div className="flow-line"/>}</React.Fragment>)}{!steps.length&&<div className="empty-small">此脚本包含复杂或不支持的表达式，请使用代码视图编辑。</div>}</div>:<div className="code-editor"><Monaco height="420px" language="typescript" theme="vs-dark" value={draft} onChange={v=>setDraft(v||'')} options={{minimap:{enabled:false},fontSize:13,wordWrap:'on',automaticLayout:true}}/></div>}

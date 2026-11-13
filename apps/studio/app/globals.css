@@ -75,6 +75,12 @@
  * sheet already paints `.file-item:hover` and `.file-item.selected`), so
  * the open button stays transparent and the row's colour shows through. */
 .file-item{padding:0;gap:9px}
+/* ATS-214: one case of the SELECTION RECORD (the table that lists the
+ * selected cases, grouped by file). The cases of a file sit next to each
+ * other, so they are a list of small blocks rather than table rows. */
+.selection-case{display:inline-flex;flex-direction:column;gap:1px;margin:0 10px 6px 0;vertical-align:top}
+.selection-case b{font-weight:580;font-size:12px;color:#dce7f5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
+.selection-case code{font-size:9px;color:#5f7d99}
 .file-open{flex:1;min-width:0;display:flex;align-items:center;gap:9px;border:0;background:transparent;color:inherit;text-align:left;padding:10px 9px;border-radius:8px}
 .file-open span{flex:1;min-width:0}
 .file-open b,.file-open small{display:block}

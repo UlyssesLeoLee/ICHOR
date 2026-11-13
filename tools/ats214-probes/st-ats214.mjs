@@ -343,9 +343,16 @@ await sleep(500);
     addEventListener('keydown', mark, true); addEventListener('click', mark, true); addEventListener('change', true);
   });
   // The init script has to be in place BEFORE the page is loaded, so the
-  // page is reloaded with it.
-  const p2 = await ctx.newPage();
-  await p2.goto(BASE + '/', { waitUntil: 'networkidle' });
+  // page is RELOADED with it.
+  //
+  // The SAME page is reloaded -- a SECOND page would leave the browser
+  // running TWO workbenches at once, each with 500 rendered rows, and the
+  // second one's catalogue refresh and layout work would compete with the
+  // interaction being measured. The measurement would then be of a
+  // TWO-TAB browser, not of the product: 「500 用例过滤无明显阻塞」 is a
+  // statement about ONE workbench.
+  await page.reload({ waitUntil: 'networkidle' });
+  const p2 = page;
   await p2.locator('select[data-region="project-select"]').selectOption(ids.p500);
   await p2.waitForFunction(() => document.querySelectorAll('.pick-box').length === 500, null, { timeout: 120000 });
   await sleep(400);
@@ -385,19 +392,36 @@ await sleep(500);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   const slow = await measure('[4x CPU, info only] type "module4" at 500', async () => { await search.click(); await search.pressSequentially('module4', { delay: 60 }); });
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  // The query is CLEARED again: the 4x measurement typed "module4" into the
+  // search box, and the next check searches for "case 017". A leftover
+  // query would make that search find nothing -- and the check would
+  // report a defect in the product for a leftover in the probe.
+  await search.press('Control+A'); await search.press('Backspace');
+  await sleep(400);
 
   const worstMax = Math.max(...perf.map((m) => m.max ?? 0));
   const worstLong = Math.max(...perf.map((m) => m.longMax));
   verdict('ST-ATS214-003 filtering-within-budget',
     perf.every(within),
     `budget ${BUDGET_MS}ms; worst interaction max=${worstMax}ms, worst long task=${worstLong}ms (4x CPU info: max=${slow.max}ms)`);
-  await p2.close();
+  // The page is NOT closed: it is the same page the later checks use. The
+  // reload above reset the selection, so the next check starts from an
+  // empty selection, exactly as before.
 }
 
 /* ================================================================== */
 /* ST-ATS214-004/005: the search and the tag criterion                  */
 /* ================================================================== */
 {
+  // The reload in ST-ATS214-003 reset the project selection, so it is
+  // re-selected here: the search has to run against the 500-case fixture,
+  // not against whatever project the workbench fell back to.
+  const current = await page.locator('select[data-region="project-select"]').inputValue();
+  if (current !== ids.p500) {
+    await page.locator('select[data-region="project-select"]').selectOption(ids.p500);
+    await page.waitForFunction(() => document.querySelectorAll('.pick-box').length === 500, null, { timeout: 120000 });
+    await sleep(400);
+  }
   const search = page.getByLabel('查找用例名、文件或标签');
   await search.click();
   await search.pressSequentially('case 017', { delay: 30 });
