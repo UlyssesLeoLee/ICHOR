@@ -1028,7 +1028,7 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
 | 4 | **文本输入** | 六类步骤里没有输入步骤 | 登录、表单填写、搜索——**最常见的用例形态** |
 | 5 | **滚动/滑动/双击/长按等手势** | 没有手势步骤 | 长列表、下拉刷新、抽屉导航 |
 | 6 | **键盘处理** | 没有 `hideKeyboard` | 软键盘遮挡提交按钮等场景 |
-| 7 | **断言「不可见」的等待语义** | 模型里只有 `visible` / `notVisible`，没有 Maestro 的 7 秒 fluent 重试与 `extendedWaitUntil`；本平台 Runner 的默认等待是 5000 ms | 依赖等待的断言在弱网/慢设备上易 flaky |
+| 7 | **断言的等待语义** | 模型里只有 `visible` / `notVisible` 两种限定词，**没有** Maestro 的 7 秒 fluent 重试，也没有可配的 `timeout`（`extendedWaitUntil` 的动作本平台能表达，**表达不出来的是等待多久**）；本平台 Runner 的默认等待是 5000 ms | 依赖等待的断言在弱网/慢设备上易 flaky |
 | 8 | **iOS Keychain 清理与 App 状态重置** | 没有 `clearKeychain` / `clearState` 步骤 | iOS 用例的**干净起跑**无法保证——登录态会跨用例泄漏 |
 | 9 | **权限弹窗处理** | 没有 `setPermissions` 步骤；`launchApp` 虽有模型内的 `permissions` 参数，但**当前 Runner 不执行它** | 首次安装后的位置/相机/通知授权弹窗 |
 | 10 | **App 停止/强杀** | 没有 `stopApp` / `killApp` 步骤 | 一轮结束后无法显式收尾，依赖进程自然退出 |
