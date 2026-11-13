@@ -714,7 +714,7 @@ ATS-603 的验收必须在**真实 Android 模拟器**上跑通下列四类步�
 其中「导入器实际处理」「参数保真」「计数」三列**全部是测量的结果**；
 **分组**也是**推导**出来的——「命令形态对不对」由 Maestro 的**字节码**回答
 （`tools/ats606-probes/maestro-action-model.mjs`），
-「哪个步骤种类表达这个动作」由一张**小表**（`ACTION_PLATFORM`）给出。
+「语义能不能表达」由一张**小表**（`ACTION_PLATFORM`）给出。
 **这张小表是链上唯一的人判**，所以它不是被当成事实使用，而是**被检查**：
 §8.3 的两条规则（R1 等待不决定分组、R2 配对命令两边都带配对）在**表上**检查，
 破规则的表被探针与生成器**拒绝**用来推出判定。
@@ -764,12 +764,12 @@ ATS-603 的验收必须在**真实 Android 模拟器**上跑通下列四类步�
 > | **等待语义**（Maestro 的断言默认等待上限 17000 ms vs 本平台 5000 ms） | 「说明」 | 等待长短不改变这一步**是什么** |
 >
 > **这两条口径是机读的**（`tools/ats606-probes/maestro-action-model.mjs`）：
-> 「语义能不能表达」与「命令形态对不对」都由 **Maestro 的字节码**回答——
+> 「**命令形态对不对**」由 **Maestro 的字节码**回答——
 > 每条 Maestro 命令编译成哪个 orchestra 命令类，是从
 > `YamlFluentCommand._toCommands` 的字节码里读出来的；
-> 「哪一步骤种类表达这个动作」由一张小表给出
-> （`ACTION_PLATFORM`）；两者一合，判定就**推导**出来了，
-> 不是逐条手写的。
+> 「**语义能不能表达**」由一张小表给出
+> （`ACTION_PLATFORM`，表里写的是「哪一步骤种类表达这个动作」）；
+> 两者一合，判定就**推导**出来了，不是逐条手写的。
 >
 > **这张小表是链上唯一的人判**，复核脚本**核对它的性质**而不是替它判断：
 >
@@ -782,6 +782,9 @@ ATS-603 的验收必须在**真实 Android 模拟器**上跑通下列四类步�
 >   本平台是**单步**⇒ 命令形态不同。两半**都**必须带 `form: 'paired'`；
 >   而且**只有**实测出来的配对才允许带它（配对关系由字节码的字段名读出：
 >   `start<V>` 与 `stop<V>` 都存在才算一对）。
+>   这条反向检查覆盖表里的**每一个条目**——顶层条目与**按变体分键**的条目都算：
+>   变体条目同样是一句人判，所以一个不是实测配对一半的类，
+>   它的变体条目也不许带 `form: 'paired'`。
 >
 > 两条规则都是**表整体**的性质，所以**在表上**检查：破坏其中任何一条的表，
 > 探针与生成器都**拒绝**用它推出判定——不是先生成一张表再事后纠正。
@@ -1090,8 +1093,8 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
 | §8.5.4 的「拼写差」条数与表一致 | 同上（从表里数出「语义侧可映射但导入器进导入报告」的行，与文中标出的条数比对） | `the spelling gap holds 2 command(s) and the document says so: assertNotVisible, extendedWaitUntil` |
 | **动作模型本身**（每条 Maestro 命令编译成什么、变体是什么、填哪个 `Condition` 槽位） | `node tools/ats606-probes/maestro-action-model.mjs` | 每行一条「命令 → orchestra 命令类 [变体] [slots=…]」；末尾打印实测出来的**配对**与两条规则的检查结果；缺 Maestro 时**跳过并写明原因**，不写 PASS |
 | **反向对照**（负控）：**把某一行挪到别的组、并同步改掉全部计数**（组标题、TALLY、文中计数全部自洽），探针必须变红；改错导入处理也必须变红；未改动的文档必须仍然通过 | 同上（`--self-test`） | `SELF-TEST: OK`（负控被成功捕获，且 control 仍然通过） |
-| **分组负控**（交付的负控台架）：把行挪到别的组并改掉全部计数（M1–M8，含把 `extendedWaitUntil` 挪进「不映射」），逐条跑交付的探针，**每一条都必须变红**，control 必须仍然通过 | `node tools/ats606-probes/probe-group-mutants.mjs <tree>` | `GROUP MUTANTS: OK (every group mutation was caught, and the control still passes)` |
-| **平台表负控**（同一条台架的后半段）：改坏平台表的两条——删掉等待条目（R1）、删掉配对（R2）——**文档一个字不动**，探针仍必须变红 | 同上（T1 / T2 两条，各自在一棵**仓库副本**上改表再跑探针） | `T1 the wait loses its table entry ... => caught` / `T2 the recording pair loses the pairing ... => caught` |
+| **分组负控**（交付的负控台架）：把行挪到别的组并改掉全部计数（M1–M8，含把 `extendedWaitUntil` 挪进「不映射」），改 §8.5.4 的正文条数（M9），改一行的说明使它与自己的组矛盾（M10），逐条跑交付的探针，**每一条都必须变红**，control 必须仍然通过 | `node tools/ats606-probes/probe-group-mutants.mjs <tree>` | `GROUP MUTANTS: OK (every group mutation was caught, and the control still passes)` |
+| **平台表负控**（同一条台架的后半段）：改坏平台表的三条——删掉等待条目（R1）、删掉配对（R2）、让一个**按变体分键**的条目带上配对（R2 的反向检查）——**文档一个字不动**，探针仍必须变红 | 同上（T1 / T2 / T3 三条，各自在一棵**仓库副本**上改表再跑探针） | `T1 the wait loses its table entry ... => caught` / `T2 the recording pair loses the pairing ... => caught` / `T3 a variant entry carries the pairing ... => caught` |
 | iOS 两条路径的实现状态（§8.4 的事实基础，**含 `readLogs` 行**） | `node tools/ats606-probes/probe-ios-driver-support.mjs` | `IOS DRIVER SUPPORT: OK`（需要本机 `D:/AI-Tools/Maestro`；缺 Maestro 时**跳过并写明原因**，不写 PASS） |
 | §8.4 的**七项 capability 表** | 同上 | `§8.4 <capability>: simulator=... device=... match the byte-code`（七项逐条） |
 | 真机路径的四条硬前提已在 §8.4 写明 | 同上 | `§8.4 states the ...`（四条逐条） |
@@ -1264,7 +1267,7 @@ ATS-602 的两种自带语法是**平台自己的读法**，不是对任何第�
 | `tools/ats606-probes/gen-section-rows.mjs` | **生成** §8.5 的表：导入器行为、参数保真、计数三列是测量的结果；**分组是由字节码推导的**（`maestro-action-model.mjs`），§8.3 的**唯一一套口径**（只看语义能不能表达与命令形态对不对）落在 `ACTION_PLATFORM` 一张表里，**且该表先过 R1/R2 两条规则才允许生成**（破规则的表直接被拒，不产出表）。「参数保真」一列把每个模型外参数**逐个实跑导入器**测两种写法（与模型内目标同时给出 / 只给该参数），并**逐个点名**每个参数落在哪一种结果里；承载本平台**限定词**的参数（`visible` / `notVisible`）单独点明，免得「模型外」被读成「新语义」 |
 | `tools/ats606-probes/maestro-command-fixtures.json` | 每条 Maestro 命令的最小 Flow 夹具（命令清单与导入器比对的输入） |
 | `tools/ats606-probes/write-section-rows.mjs` | 把生成器产出的 §8.5 整块写回设计文档的 `<!-- ATS606-ROWS-START -->` … `END` 之间（行终止符随文档本身，CRLF / LF 都不漂移） |
-| `tools/ats606-probes/probe-group-mutants.mjs` | **负控台架**：前半段把行挪到别的组并改掉全部计数（M1–M8，含把 `extendedWaitUntil` 挪进「不映射」这一条），后半段**改坏平台表**（T1 删掉等待条目、T2 删掉配对——各自在一棵**仓库副本**上改表，文档一个字不动），逐条跑交付的探针，**每一条都必须变红**，未改动的 control 必须仍然通过 |
+| `tools/ats606-probes/probe-group-mutants.mjs` | **负控台架**：前半段把行挪到别的组并改掉全部计数（M1–M8，含把 `extendedWaitUntil` 挪进「不映射」这一条）、改 §8.5.4 的正文条数（M9）、改一行的说明使它与自己的组矛盾（M10），后半段**改坏平台表**（T1 删掉等待条目、T2 删掉配对、T3 让一个按变体分键的条目带上配对——各自在一棵**仓库副本**上改表，文档一个字不动），逐条跑交付的探针，**每一条都必须变红**，未改动的 control 必须仍然通过 |
 | `tools/ats606-probes/probe-ios-driver-support.mjs` | 从 Maestro 的**字节码**复核 §8.4 的每条 iOS 结论（模拟器路径 vs 真机路径的路由与实现状态、七项 capability 表、两条 iOS 空操作），并**把四条硬前提逐条核到产物上**（`RealIOSDeviceDriver` 的字节码里真有那条 Apple team ID 报错与 `MissingAppleTeamId`；`LocalIOSDeviceController` 的字节码里真有 xcrun/devicectl/install/app/launch 序列；`DeviceService.listIOSConnectedDevices` 的字节码里真有 `getTunnelState()` 与 `"connected"` 的过滤；设备侧 `XCTestHTTPServer.swift` 真绑 `127.0.0.1:22087`，且**没有任何 jar 带 iproxy / usbmux 端口转发**），并**逐个 jar 列表核对**两个设备侧 runner 构建（`driver-iPhoneSimulator/` / `driver-iphoneos/`）的出处，以及「没有任何 jar 含 `driver-ios/`」 |
 | `tools/ats606-probes/collect-evidence.sh` | 证据采集脚本：9 份日志写入 `docs/evidence/ATS-606/`（01 环境 / 02 命令清单 / 03 iOS 实现状态 / 03b 分组负控 / 03c 动作模型 / 04 平台词表 / 05 逐条导入报告 / 06 WBS 行 / 07 校验和），每份头部写明所描述的树 |
 | `tools/update_wbs_ats606.py` | WBS 行的同步脚本（只写 ATS-606 行） |
