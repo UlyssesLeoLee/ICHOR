@@ -23,7 +23,13 @@
 | 项 | 状态 | 证据 |
 |---|---|---|
 | **密钥仅以引用传递**：档案存引用，运行启动时解析并注入封口环境 | **已实现并实测** | `11-credential-reference-st.log`（REF-ST-001..010，真实 Playwright 运行 + 真实 Windows Credential Manager） |
-| 引用**解析不了即拒绝启动**，报 `CREDENTIAL_*` 原因码 | **已实现并实测** | `10-credential-reference-it.log`（ATS213-REF-IT-002）、`11-credential-reference-st.log`（REF-ST-004） |
+| 引用**解析只在一个收口点**，每条运行路径都经过它 | **已实现并实测** | `15-credential-boundaries-ut.log`（ATS213-R3-UT-004..007）、变异体 M-P2 |
+| 未解析的引用**拒绝启动**，绝不 `String()` 成 `"[object Object]"` | **已实现并实测** | `15-credential-boundaries-ut.log`（ATS213-R3-UT-004/005/006）、变异体 M-P2 |
+| 注入的密钥在**落盘前脱敏**（日志/报告/HTML 内嵌 zip/证据归档/镜像） | **已实现并实测** | `16-credential-redaction-it.log`（真实凭据库 + 真实 Playwright 运行，数据目录 0 命中）、变异体 M-P3b |
+| 脱敏**跨分块**（一个密钥被切成两块也不漏） | **已实现并实测** | `15-credential-boundaries-ut.log`（ATS213-R3-UT-009/010/011）、变异体 M-P3 |
+| 二进制产物（trace/截图/视频）是**写下来的边界**，并记在运行记录上 | **已实现并实测** | `15-credential-boundaries-ut.log`（ATS213-R3-UT-016）、`docs/32` §6.5 |
+| 状态面**不读明文**（走 `probe`，`read()` 只用于注入环境） | **已实现并实测** | `15-credential-boundaries-ut.log`（ATS213-R3-UT-001/002/003）、变异体 M-P1 |
+| 引用**解析不了即拒绝启动**，报 `CREDENTIAL_*` 原因码 | **已实现并实测** | `04-credential-reference-it.log`（ATS213-REF-IT-002）、`09-credential-reference-st.log`（REF-ST-004） |
 | 运行记录、事件日志、SQLite 镜像、证据归档里**没有密钥** | **已实现并实测** | `11-credential-reference-st.log`（REF-ST-008/009/010：数据目录扫描 0 命中） |
 | 凭据可用状态（三值闭集） | **已实现并实测** | `01-credential-status-ut.log`、`02/03-credential-status-api-it*.log` |
 | 状态对**系统凭据库实测**（不从索引推断） | **已实现并实测** | `05-credential-boundary-probe.log`（B4）、`06-system-test.log`（ST-ATS213-002） |
@@ -262,11 +268,35 @@ ATS-401/ATS-512 都立过同一条规矩：**新映射的作用域只限自己�
 ### 5.4 凭据库**探测**不把密钥拉进 Bridge 的内存
 
 状态面要回答「这一条还在不在」，不需要知道密钥**是什么**。因此 helper 有一个
-`probe` 动作：它读凭据 blob 的**长度**，回答 `PRESENT` / `EMPTY` / `NOT_FOUND`，
-**从不把密钥读出来**。
+`probe` 动作：它读凭据 blob 的**长度**，回答 `PRESENT` / `EMPTY`，**从不把密钥
+读出来**。
 
 这条约束的价值不在性能，在**边界**：仅仅因为有人打开了安全页，密钥**不应该**
-进入 Bridge 的内存。`read()` 只在真的要注入环境时才被调用。
+进入 Bridge 的内存。**状态面走的就是 `probe`**——`status()` 与 `statusAll()`
+都不调用 `read()`；`read()` 只在**真正要注入环境**时（`resolve()`）被调用。
+
+| 探测的回答 | 状态 | 原因码 |
+|---|---|---|
+| `PRESENT` | `configured` | `CREDENTIAL_FOUND` |
+| `EMPTY`（条目在，但没有字节） | `unavailable` | `CREDENTIAL_STORE_FAILED` |
+| 条目不在 | `not-configured` | `CREDENTIAL_NOT_FOUND` |
+| 其它失败 | `unavailable` | `CREDENTIAL_STORE_UNAVAILABLE` / `CREDENTIAL_STORE_FAILED` |
+
+一个**没有** `probe` 的后端**测不出来**：状态是 `unavailable` +
+`CREDENTIAL_STORE_FAILED`，而不是一个猜出来的答案。
+
+三个后端的 `probe` 各自按**它自己的退出码**判定，不看输出文本：
+
+- **Windows**：`CredReadW` 成功即 `PRESENT`，blob 长度为 0 即 `EMPTY`；
+- **macOS**：`security find-generic-password`（不带 `-w`，因此**不索取**密钥）
+  的**退出码**——0 是 `PRESENT`，44（`errSecItemNotFound`）是「条目不在」，
+  其它是「工具失败」。属性输出里**没有** `password:` 这一行，所以按文本判定
+  会把存在的条目误报成 `EMPTY`；
+- **Linux**：`secret-tool search --all` 有输出即 `PRESENT`。
+
+实测：`statusAll()` 走 3 条引用时，替身上 `backend.read()` 被调用 **0** 次、
+`backend.probe()` 被调用 **3** 次（`tests/credential-reference-boundaries.test.mjs`
+的 ATS213-R3-UT-001/002，变异体 M-P1 把它改回 `read()` 后该用例变红）。
 
 ### 5.5 界面上没有密钥明文
 
@@ -305,6 +335,29 @@ ATS-401/ATS-512 都立过同一条规矩：**新映射的作用域只限自己�
 解析出来的密钥**只**出现在子进程的环境块里。档案里留着的永远是引用，
 运行记录里只有名字。
 
+**解析只在一个收口点发生。** 每一条运行路径——单次运行、批次里的第 2..N
+次运行——都经过同一个函数（`server/index.mjs` 的 `prepareRunnerEnvironment()`），
+它按顺序做四件事：**过滤 → 解析 → 校验 → 返回**。
+
+批次的每一次运行**委托**给这个收口点（`batchRunEnv()` 只负责把档案找出来，
+过滤、解析与校验都交给它），因此规则只有**一份实现**。全仓库的解析器调用点
+**只有一个**——这是可机读校验的（ATS213-R3-UT-017 断言 `server/index.mjs` 里
+`resolveCredentialRefs(` 的调用点恰好 1 处，ATS213-R3-UT-018 断言单次运行与
+批次两条路径都**调用**该收口点）。
+
+校验这一步是承重的：**进入环境块的每一个值都必须是字符串**。一条没有解析
+成功的**引用**是**对象**，而 `String()` 把它变成 `"[object Object]"`——于是
+运行**静默地**拿着一个假的 token 跑起来，测试跑完了，结果毫无意义，而且
+**没有任何报错**。这比拒绝更坏，所以：
+
+- 未解析的引用**被拒**：它**不**进环境块，变量名被报出来，运行**不启动**
+  （`ENV_VALUE_NOT_RESOLVED`）；
+- `buildRunnerEnv()` 本身也**拒绝**把引用字符串化——即使有调用方绕过上面的
+  收口点（变异体 M-P2 把这一步改回 `String(value)` 后，用例变红）；
+- `startRun()` **没有**回退分支：它只接受**已解析**的值，不再读档案自己的
+  变量（ATS213-R3-UT-019 断言这条回退不存在，变异体 M-P5 把它加回来后
+  用例变红）。
+
 ### 6.3 解析不了就**拒绝启动**
 
 | 情况 | 原因码 | HTTP |
@@ -338,6 +391,65 @@ PASS  REF-ST-010  the run folder holds no secret
 
 被测脚本断言的是密钥的 **SHA-256 摘要**与**长度**，不是原文——因此证据日志里
 也不会出现密钥。
+
+### 6.5 注入的密钥在**落盘前**就被脱敏
+
+上面那条实测有一个前提：被测脚本**只**断言摘要、**从不**打印密钥。真实的
+测试不总是这样——被测脚本一次**普通的断言失败**就会把注入的值打印出来：
+
+```
+Received: "sk-live-xxxxxxxx"
+```
+
+引擎把这句话写进 `report.json`、`error-context.md`、HTML 报告的
+`data/*.md` 与 trace；平台把它写进 `stdout.log`、运行记录、事件、清单、
+证据归档、SQLite 镜像与 `state.json`。这些文件**都会跟着导出走**——验收
+标准说的「导出/日志无敏感串」说的正是它们。
+
+平台在运行启动时**知道**解析出来的值，因此它能在**落盘之前**把它替换掉。
+
+| 落盘面 | 平台怎么处理 |
+|---|---|
+| `stdout.log`、运行记录、事件 | **流式**脱敏（见下） |
+| `report.json`、`error-context.md`、`html/data/*.md` | 运行结束时**改写**文本文件 |
+| HTML 报告**内嵌的 base64 zip** | 解码 → 脱敏每个成员 → 重新打包 → 重新编码 |
+| `results/**/trace.zip` 的**文本**成员 | 解包 → 脱敏 → 重新打包 |
+| `evidence-store/` 的内容寻址副本 | 它们是运行目录里那些**已脱敏**文件的硬链接 |
+| `metadata.db`（SQLite 镜像）、`state.json` | 记录里没有明文（明文只在内存里） |
+
+三条规则：
+
+1. **掩码是固定的**（`***`），不是「密钥的前 N 个字符」——后者仍然是密钥
+   的一部分。
+2. **脱敏跨分块**。stdout 是**流**：一个密钥完全可能被切成两个 `data` 块，
+   逐块替换会漏掉它。脱敏器因此保留一个**尾巴**，只在确认一段文本不再
+   可能是密钥的前缀之后才把它放出去——**没有任何一个密钥能横跨这个边界**
+   （`safePrefixLength()`）。
+3. **二进制产物是边界**。trace 的 `test.trace`、截图、视频是引擎写的
+   **二进制**，平台**改写不了**它们（改写会破坏归档的校验和与 trace 的
+   内部结构）。这是**写在这里的边界**，不是「没被发现」。
+
+**边界怎么被看见**：运行记录带 `envCredentialRefs`（本次运行携带过凭据
+引用），脱敏发生过的文件与**改不掉的边界产物**记在 `run.redaction` 里：
+
+```json
+{
+  "redaction": {
+    "redactedFiles": ["file:stdout.log", "file:report.json", "zip:results/.../trace.zip", "file:html/index.html"],
+    "boundaries": ["zip:results/.../trace.zip"],
+    "secrets": 1
+  }
+}
+```
+
+**明文只在内存里**：解析出来的密钥记在一个**进程内**的映射里（`runSecrets`），
+运行结束、脱敏做完之后立刻删除。它**不在**运行记录里——运行记录要写进
+`state.json`、镜像进 SQLite、还要经 API 返回，放进去就是三处泄漏。
+
+**实测**：真实 Bridge + 真实 Windows Credential Manager + 真实 Playwright
+运行，被测脚本做一次普通的断言失败，结果是**数据目录 0 命中**
+（`tests/credential-redaction-api.test.mjs` 的 ATS213-REDACT-IT-001）。
+变异体 M-P3b 把落盘前的脱敏整个去掉，同一条用例**变红**。
 
 ---
 
@@ -378,7 +490,9 @@ PASS  REF-ST-010  the run folder holds no secret
 被单元测试驱动过」，不是真机。
 
 三个后端都实现了 `probe`（只回答「在不在」，不回答「是什么」），因此
-「凭据库已就绪」这句话在三个平台上都是**实测**的。
+「凭据库已就绪」这句话在三个平台上都是**实测**的。三个后端的 `probe` 各自
+按**自己**的退出码判定（§5.4）：Windows 看 blob 长度、macOS 看
+`security` 的退出码、Linux 看 `search` 的输出。
 
 ---
 

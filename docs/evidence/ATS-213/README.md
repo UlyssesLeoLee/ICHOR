@@ -19,9 +19,12 @@
 | `09-credential-reference-st.log` | 凭据引用的端到端 10 项（**真实 Windows Credential Manager + 真实 Playwright 运行**）：档案存引用 → 运行启动时解析 → 被测脚本读到注入的变量（断言 SHA-256 摘要与长度）→ **平台数据目录 0 命中** | `node tools/ats213-probes/st-credential-ref.mjs docs/evidence/ATS-213/ref` |
 | `10-status-failures-st.log` | 状态面的**失败路径** 10 项（真实浏览器）：凭据库不可达时说明逐类计数且不写「全部可用」、不写「已就绪」、刷新失败后旧状态被清空且不计入可用密钥、首次加载失败时引用照样显示且删除按钮还在 | `node tools/ats213-probes/st-credential-status-failures.mjs docs/evidence/ATS-213/failures` |
 | `11-status-mutants.log` | **变异体**：把两处修复改回缺陷的样子（在副本上重新构建），同一支 ST 必须**变红**；未变异的交付树必须全绿 | `node tools/ats213-probes/probe-credential-status-mutants.mjs` |
-| `12-quality-gates.log` | ATS-301 门禁（WBS 助手回归 + ADR 引用逐条校验 + 端口硬编码审计） | `bash tools/ats301-probes/check-ats301-gate.sh` |
-| `13-full-regression.log` | 全仓库回归（`--test-concurrency=2`） | `node --test --test-concurrency=2 tests/*.test.mjs` |
-| `14-wbs-row-and-checksums.log` | WBS 行的状态/完成率/剩余人日（**从工作簿读回**，不是从脚本的变量读）+ 校验和清单 | `bash tools/ats213-probes/collect-wbs-and-checksums.sh` |
+| `12-credential-boundaries-ut.log` | 收口与脱敏的 **16 例 UT**：状态面**不读明文**（`read()` 调用 0 次）、未解析的引用**被拒**（绝不 `"[object Object]"`）、脱敏**跨两块/三块**、HTML 报告**内嵌 zip** 被重建、二进制成员作为**边界**被报出 | `node --test tests/credential-reference-boundaries.test.mjs` |
+| `13-credential-redaction-it.log` | 落盘脱敏的 **IT**：真实 Bridge + 真实 Windows Credential Manager + **真实 Playwright 运行**，被测脚本做一次**普通断言失败** → **数据目录 0 命中**（含 HTML 报告内嵌 zip 的解码扫描） | `ATS213_REAL_CREDENTIAL_STORE=1 node --test tests/credential-redaction-api.test.mjs` |
+| `14-credential-redaction-mutants.log` | **变异体**：M-P1（状态面改回 `read()`）、M-P2（引用改回 `String()`）、M-P3（逐块脱敏）、M-P3b（落盘前不脱敏）、M-P3c（不重建内嵌 zip）——每一支都必须让对应的检查**变红**，未变异的交付树**全绿** | `node tools/ats213-probes/probe-credential-redaction-mutants.mjs` |
+| `15-quality-gates.log` | ATS-301 门禁（WBS 助手回归 + ADR 引用逐条校验 + 端口硬编码审计） | `bash tools/ats301-probes/check-ats301-gate.sh` |
+| `16-full-regression.log` | 全仓库回归（`--test-concurrency=2`） | `node --test --test-concurrency=2 tests/*.test.mjs` |
+| `17-wbs-row-and-checksums.log` | WBS 行的状态/完成率/剩余人日（**从工作簿读回**，不是从脚本的变量读）+ 校验和清单 | `bash tools/ats213-probes/collect-wbs-and-checksums.sh` |
 | `ui/` `ref/` `failures/` | 真实浏览器的截图与 trace | 由第 8/9/10 步生成 |
 
 ## 跳过的用例（skip ≠ PASS ≠ FAIL）
@@ -40,7 +43,9 @@
 
 本任务**新增**的用例（`tests/credential-status.test.mjs` 17 例 +
 `tests/credential-status-api.test.mjs` 9 例 +
-`tests/credential-reference-api.test.mjs` 5 例 = 31 例）在这份日志里
+`tests/credential-reference-api.test.mjs` 5 例 +
+`tests/credential-reference-boundaries.test.mjs` 16 例 +
+`tests/credential-redaction-api.test.mjs` 3 例 = 50 例）在这份日志里
 **0 失败**；ATS-402 的安全用例同样 0 失败。
 
 ## 「状态是测出来的」怎么复现

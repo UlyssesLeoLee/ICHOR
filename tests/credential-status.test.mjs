@@ -35,18 +35,31 @@ const freshIndex = () => path.join(tmp, `idx-${n++}`, 'credentials.json');
  * 一个内存凭据库替身。它可以：正常存取、条目不在、读取抛错、整体不可用。
  * `entries` 是「凭据库里真的有什么」的事实来源——把条目从里面删掉，就模拟
  * 了「用户在系统凭据管理器里删了这一条，而索引还留着引用」。
+ *
+ * 替身实现了 `probe()`：状态面走的是**探测**，不是 `read()`。探测只回答
+ * 「条目在不在、里面有没有字节」，**从不把密钥交出来**——所以替身上有一个
+ * 计数器，用来断言状态面确实没有读过明文。
  */
-function fakeVault({ available = true, failRead = null, emptyRead = false } = {}) {
+function fakeVault({ available = true, failRead = null, emptyRead = false, failProbe = null } = {}) {
   const entries = new Map();
+  const calls = { read: 0, probe: 0 };
   return {
     entries,
+    calls,
     name: 'fake-vault',
     available: async () => available,
     async write(id, secret) { entries.set(id, secret); },
     async read(id) {
+      calls.read += 1;
       if (failRead) throw failRead;
       if (!entries.has(id)) throw new Error('CREDENTIAL_NOT_FOUND');
       return emptyRead ? '' : entries.get(id);
+    },
+    async probe(id) {
+      calls.probe += 1;
+      if (failProbe) throw failProbe;
+      if (!entries.has(id)) throw new Error('CREDENTIAL_NOT_FOUND');
+      return emptyRead ? 'EMPTY' : 'PRESENT';
     },
     async remove(id) {
       if (!entries.has(id)) throw new Error('CREDENTIAL_NOT_FOUND');
@@ -122,7 +135,10 @@ test('ATS213-UT-005: an unreadable store reads back as `unavailable`, not as `no
   // The distinction that matters: "the entry is gone" and "the store cannot
   // be read" call for different actions. Collapsing them would tell the user
   // to re-enter a secret that is actually still stored.
-  const vault = fakeVault({ failRead: new Error('CREDENTIAL_STORE_FAILED') });
+  //
+  // The status surface measures through the PROBE, so the failure the probe
+  // reports is the one that decides the status.
+  const vault = fakeVault({ failProbe: new Error('CREDENTIAL_STORE_FAILED') });
   const store = createCredentialStore({ indexFile: freshIndex(), backend: vault });
   const ref = await seed(store);
   const status = await store.status(ref.id);
@@ -235,6 +251,13 @@ test('ATS213-UT-013: a reference deleted WHILE the list is walked does not break
       if (victim && !fired) { fired = true; await store.remove(victim); }
       if (!vault.entries.has(id)) throw new Error('CREDENTIAL_NOT_FOUND');
       return vault.entries.get(id);
+    },
+    // The status surface measures through the PROBE, so the race is fired
+    // there: that is the call the walk actually makes.
+    async probe(id) {
+      if (victim && !fired) { fired = true; await store.remove(victim); }
+      if (!vault.entries.has(id)) throw new Error('CREDENTIAL_NOT_FOUND');
+      return 'PRESENT';
     },
     async remove(id) { vault.entries.delete(id); },
   };

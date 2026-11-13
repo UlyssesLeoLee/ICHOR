@@ -20,9 +20,12 @@
 #   09  the credential-reference system test (a REAL Playwright run reads it)
 #   10  the failure-path system test (the store unreachable / the read fails)
 #   11  the mutants (the new checks go RED when the defect is back)
-#   12  the ATS-301 gate (WBS helper + ADR citations + port audit)
-#   13  the full repository regression suite
-#   14  the WBS row update and the checksum manifest
+#   12  the boundary unit tests (the choke point + the redaction)
+#   13  the redaction integration test (a real run, a failing assertion)
+#   14  the redaction mutants (the new checks go RED when the defect is back)
+#   15  the ATS-301 gate (WBS helper + ADR citations + port audit)
+#   16  the full repository regression suite
+#   17  the WBS row update and the checksum manifest
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -103,6 +106,19 @@ run_step "status-failures-st" "the failure-path system test (the store unreachab
 
 run_step "status-mutants" "the mutants: the new checks go RED when the defect is back" \
   node tools/ats213-probes/probe-credential-status-mutants.mjs
+
+# The boundary unit tests: the choke point (P2) and the redaction (P3).
+run_step "credential-boundaries-ut" "the boundary unit tests (the choke point + the redaction)" \
+  node --test tests/credential-reference-boundaries.test.mjs
+
+# The redaction integration test: a REAL run whose assertion fails, against
+# the REAL Windows Credential Manager. The secret must not reach the disk.
+run_step "credential-redaction-it" "the redaction integration test (a real run, a failing assertion)" \
+  env ATS213_REAL_CREDENTIAL_STORE=1 node --test tests/credential-redaction-api.test.mjs
+
+# The mutants of the new checks: they must go RED when the defect is back.
+run_step "credential-redaction-mutants" "the redaction mutants: the new checks go RED when the defect is back" \
+  node tools/ats213-probes/probe-credential-redaction-mutants.mjs
 
 run_step "quality-gates" "the ATS-301 gate (WBS helper + ADR citations + port audit)" \
   bash tools/ats301-probes/check-ats301-gate.sh
