@@ -14,10 +14,10 @@
  * TWO KINDS OF MUTATION
  * ---------------------
  *
- *   MODEL mutations (M1-M10) break `apps/studio/lib/workbench-state.mjs`.
+ *   MODEL mutations (M1-M17) break `apps/studio/lib/workbench-state.mjs`.
  *   They are caught by the UNIT tests, which import the model directly.
  *
- *   VIEW mutations (V1-V4) break `apps/studio/app/page.tsx` -- the WIRING
+ *   VIEW mutations (V1-V6) break `apps/studio/app/page.tsx` -- the WIRING
  *   between the model and the screen. The unit tests cannot see them: the
  *   model is still perfect while the screen says the wrong thing. So
  *   these are caught by the SYSTEM TEST, which drives the real static
@@ -26,11 +26,22 @@
  *   The view mutations are the ones that matter most: every defect the
  *   review found was in the wiring, not in the model.
  *
- * THE VIEW MUTATIONS
+ * THE MODEL MUTATIONS
  * -------------------
- *   V1  the retry sets the project to the value it already has -- so
- *       React does not re-run the effect and NO request is issued. The
- *       「重新加载」 button becomes a no-op.
+ *   M1-M13   the four states, the key bindings and the guards.
+ *   M14      the Escape target ignores the RUN -- the footer would
+ *            promise a capability that does not exist. This is the
+ *            defect the round-2 review found, reduced to the model.
+ *   M15      the Escape target ignores the LOAD.
+ *   M16      the Escape target prefers the LOAD over the DIALOG -- the
+ *            nesting is inverted.
+ *   M17      the Escape help stops naming the run.
+ *
+ * THE VIEW MUTATIONS
+ * ------------------
+ *   V1  the retry sets the project to the value it
+ *       already has -- so React does not re-run the effect and NO
+ *       request is issued. The 「重新加载」 button becomes a no-op.
  *   V2  the key handler intercepts Enter on ANY target and performs its
  *       own write -- so focusing 「取消」 and pressing Enter adds the
  *       project instead of cancelling it.
@@ -40,6 +51,11 @@
  *   V4  the key handler is bound to the app shell instead of the
  *       document -- so the commands do not work when the focus is on
  *       the <body>.
+ *   V5  Escape does NOT stop the run -- the round-2 defect, restored.
+ *       The footer promises it, so the system test must catch it.
+ *   V6  Ctrl+P inside the dialog is NOT consumed -- the round-2
+ *       regression, restored. The key leaks to the browser's own Print
+ *       command.
  *
  * HOW THE VIEW MUTATIONS ARE RUN
  * -------------------------------
@@ -167,6 +183,30 @@ const MODEL_MUTATIONS = [
     find: "  if (event.isComposing === true) return true;",
     replace: "  if (event.isComposing === true) return false;",
   },
+  {
+    id: 'M14 the Escape target ignores the RUN (the footer would promise a capability that does not exist)',
+    file: MODEL,
+    find: "  if (s.runActive === true) return 'run';",
+    replace: "  if (s.runActive === true) return null;",
+  },
+  {
+    id: 'M15 the Escape target ignores the LOAD',
+    file: MODEL,
+    find: "  if (s.loadPending === true) return 'load';",
+    replace: "  if (s.loadPending === true) return null;",
+  },
+  {
+    id: 'M16 the Escape target prefers the LOAD over the DIALOG (the nesting is inverted)',
+    file: MODEL,
+    find: "  if (s.dialogOpen === true) return 'dialog';\n  if (s.loadPending === true) return 'load';",
+    replace: "  if (s.loadPending === true) return 'load';\n  if (s.dialogOpen === true) return 'dialog';",
+  },
+  {
+    id: 'M17 the Escape help stops naming the run (a capability the workbench has, unpromised)',
+    file: MODEL,
+    find: "    description: '关闭弹窗，或取消正在进行的加载或运行',",
+    replace: "    description: '关闭弹窗，或取消正在进行的加载',",
+  },
 ];
 
 /**
@@ -206,6 +246,18 @@ const VIEW_MUTATIONS = [
     file: VIEW,
     find: "  document.addEventListener('keydown',onWorkbenchKey);\n  return()=>document.removeEventListener('keydown',onWorkbenchKey);",
     replace: "  // the handler is not bound to the document",
+  },
+  {
+    id: 'V5 Escape does NOT stop the run (the footer promises it -- the round-2 defect, restored)',
+    file: VIEW,
+    find: "   if(target_==='run'){\n    // The stop is REQUESTED, and the run's final status is decided by\n    // the engine when the process closes -- the same contract as the\n    // 「停止运行」 button.\n    if(live)void api(`/api/runs/${live.id}/stop`,'POST').then(()=>refresh()).catch(err=>notify((err as Error).message));\n    e.preventDefault();return;\n   }",
+    replace: "   if(target_==='run'){\n    // the rejected behaviour, restored: Escape does not stop the run\n    e.preventDefault();return;\n   }",
+  },
+  {
+    id: 'V6 Ctrl+P inside the dialog is NOT consumed (the key leaks to the browser -- the round-2 regression, restored)',
+    file: VIEW,
+    find: "   if(dialog){e.preventDefault();return;}\n   searchRef.current?.focus();e.preventDefault();return;",
+    replace: "   if(dialog)return;\n   searchRef.current?.focus();e.preventDefault();return;",
   },
 ];
 
