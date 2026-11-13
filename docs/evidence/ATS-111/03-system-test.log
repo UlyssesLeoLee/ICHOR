@@ -2,8 +2,9 @@ PASS the Bridge starts
 PASS ST-111-12a with NO project the panel shows the NO-PROJECT state -- {"kind":"no-project","role":"status","live":"polite","busy":"false","label":"尚未选择项目","detail":"工作区里还没有 Playwright 项目，所以没有用例可以列出。","hint":"点击「添加项目」导入本地 Git 项目，然后即可查看它的测试用例。"}
 PASS ST-111-12b the NO-PROJECT state does NOT say 「没有匹配」 -- 工作区里还没有 Playwright 项目，所以没有用例可以列出。 | 点击「添加项目」导入本地 Git 项目，然后即可查看它的测试用例。
 PASS ST-111-12c the NO-PROJECT state points at importing a project -- 点击「添加项目」导入本地 Git 项目，然后即可查看它的测试用例。
-PASS ST-111-12d the NO-PROJECT state is not the "filter matched nothing" message -- 尚未选择项目工作区里还没有 Playwright 项目，所以没有用例可以列出。点击「添加项目」导入本地 Git 项目，然后即可查看它的测试用例。 添加项目
-PASS both fixture projects are registered -- proj_1_9feb519febcbae278d622b02 / proj_1_844d112fd16607c6a04d6df0
+PASS ST-111-12d the NO-PROJECT state renders a STATE PANEL (not the filter-miss text) -- {"hasStatePanel":true,"stateKind":"no-project","hasFilterMiss":false,"hasEmptySmall":false}
+PASS ST-111-12e the NO-PROJECT state does not fall back to the filter-miss block -- {"hasStatePanel":true,"stateKind":"no-project","hasFilterMiss":false,"hasEmptySmall":false}
+PASS both fixture projects are registered -- proj_1_5283815d6ad95c14a4a2eb68 / proj_1_7997306ee1548b6098627592
 PASS ST-111-1 the exported workbench loads in a real browser
 PASS ST-111-9a the page produced no page error on load
 PASS ST-111-8a the skip link exists
@@ -37,16 +38,20 @@ PASS ST-111-10g the retry in the EMPTY state REALLY re-issues the request -- req
 PASS ST-111-13a the project WITH cases shows them -- manageable=2 items=2
 PASS ST-111-13b switching to another project shows NO cases of the previous one -- items=0
 PASS ST-111-13c the 「可管理用例」 metric is 0 while the new project loads -- manageable=0
-PASS ST-111-13d the footer counts no cases of the previous project -- footer=0 tests · 0 filesC:\Users\seiko\ats111-evidence\st111-Y9V65y\empty-playwright
+PASS ST-111-13d the footer counts no cases of the previous project -- footer=0 tests · 0 filesE:\ats111-final-evidence\st111-Uj8Rkv\empty-playwright
 PASS ST-111-13e the panel is in the LOADING state while the new project loads -- {"kind":"loading","role":"status","live":"polite","busy":"true","label":"加载中","detail":"正在取数据，请稍候。","hint":"按 Esc 可以取消这次加载。"}
+PASS ST-111-18a the filter-miss message does NOT show the characters 「<br/>」 -- 没有符合当前条件的用例 搜索与过滤条件按「交集」叠加
 PASS ST-111-6a the dialog opens with the KEYBOARD alone (Enter on the button) -- 1 dialog(s)
 PASS ST-111-6b Enter SUBMITS the dialog (no mouse click) -- 0 dialog(s) still open
 PASS ST-111-6c the keyboard-submitted project was REGISTERED -- 3 project(s)
 PASS ST-111-11a the dialog is open for the cancel check -- 1 dialog(s)
 PASS ST-111-11b the focus reached the cancel button by TAB -- BUTTON|取消
 PASS ST-111-11c Enter on 「取消」 CLOSES the dialog -- 0 dialog(s) still open
-PASS ST-111-11d Enter on 「取消」 did NOT register the project -- 3 -> 3
+PASS ST-111-11d Enter on 「取消」 did NOT register the NEVER-REGISTERED project -- 3 -> 3 (path=E:\ats111-final-evidence\st111-Uj8Rkv\cancel-only-playwright)
 PASS ST-111-15 the focus returned to the 「添加项目」 button after the dialog closed -- BUTTON|add-project
+PASS ST-111-17a the dialog is open for the Ctrl+P check -- 1 dialog(s)
+PASS ST-111-17b Ctrl+P inside the dialog IS consumed by the workbench -- {"key":"p","ctrl":true,"shift":false,"prevented":true,"target":"INPUT"}
+PASS ST-111-17c Ctrl+P inside the dialog does NOT move the focus out of it -- in-dialog
 PASS ST-111-14a the focus is on the BODY for this check -- BODY
 PASS ST-111-14b Ctrl+P moves the focus to the search box with the focus on the BODY -- INPUT|查找用例名 / 文件 / 标签
 PASS ST-111-14c the load is in flight for the body-Escape check -- {"kind":"loading","role":"status","live":"polite","busy":"true","label":"加载中","detail":"正在取数据，请稍候。","hint":"按 Esc 可以取消这次加载。"}
@@ -58,8 +63,20 @@ PASS ST-111-7d a test case can be OPENED with the KEYBOARD
 PASS ST-111-7e the selected case can be RUN with Ctrl+Enter
 PASS ST-111-7f the run reaches a TERMINAL state
 PASS ST-111-7g the run list shows the run and is not in an error/empty state
-  (the probe injected 3 console error(s) on purpose)
+PASS ST-111-19a the run rows are NOT marked stale while the poll works -- rows=1 stale=0
+PASS ST-111-19b the failed poll is reported as an ERROR state -- error
+PASS ST-111-19c the run rows are MARKED as stale when the poll fails -- rows=1 stale=1
+PASS ST-111-19d the panel SAYS the rows are stale -- 下面的运行记录是上次读取到的，本次读取失败，不能当作当前状态。
+PASS ST-111-19e the rows are NOT marked stale once the poll works again -- state=ready stale=0
+PASS ST-111-16a the slow fixture project is registered -- proj_1_2033292cd2ffb8058c88f8ca
+PASS ST-111-16a2 the slow project is the selected one -- proj_1_2033292cd2ffb8058c88f8ca vs proj_1_2033292cd2ffb8058c88f8ca
+PASS ST-111-16b a run is in flight for the Escape check -- run_1_b863c49b7e170831e0c8e1d6 running
+PASS ST-111-16c the Escape keydown IS consumed by the workbench -- {"key":"Escape","ctrl":false,"shift":false,"prevented":true,"target":"BODY"}
+PASS ST-111-16d Escape STOPS the run that was in flight -- run_1_b863c49b7e170831e0c8e1d6 cancelled
+PASS ST-111-16e the stopped run is reported as CANCELLED (not as a failure) -- cancelled error=(none)
+PASS ST-111-16f the footer describes what Escape really does -- Escape — 关闭弹窗，或取消正在进行的加载或运行
+  (the probe injected 6 console error(s) on purpose)
 PASS ST-111-9b the page produced no console error over the whole flow
 PASS ST-111-9c the page produced no page error over the whole flow
-scratch: C:\Users\seiko\ats111-evidence\st111-Y9V65y
-RESULT: 62/62
+scratch: E:\ats111-final-evidence\st111-Uj8Rkv
+RESULT: 79/79

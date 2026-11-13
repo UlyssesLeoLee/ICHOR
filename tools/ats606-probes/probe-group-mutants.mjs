@@ -3,27 +3,36 @@
  * ATS-606: the negative controls for the §8.5 GROUPING.
  *
  * WHY THIS FILE EXISTS
- * --------------------
- * The round-2 review moved a row between the verdict groups, updated
- * every stated count, and the probe STILL PASSED. The reason was that
- * the probe compared the table's rows as an UNORDERED SET: it could
- * see that the same ROWS were present, but not WHICH GROUP each row
- * was in.
- *
- * This file is the harness that reproduces those mutations and proves
- * the probe now catches them. It is DELIVERED (not a throw-away probe)
- * so that the reviewer can run it against any tree:
+ * ---------------------
+ * A probe that only ever says OK is not evidence. This file is the harness
+ * that reproduces the mutations a reviewer can make to the §8.5 grouping
+ * and proves the probe catches every one of them. It is DELIVERED (not a
+ * throw-away probe) so that the reviewer can run it against any tree:
  *
  *     node tools/ats606-probes/probe-group-mutants.mjs <repo>
  *
  * Every mutant:
  *   * moves a row from one verdict group to another,
  *   * rewrites the group headings AND the TALLY AND the counts stated
- *     in §8.5.4 -- so the mutation is CONSISTENT in every visible way,
+ *     in §8.5.4 AND the counts stated in §8.5.5 -- so the mutation is
+ *     CONSISTENT in every visible way,
  *   * and the ONLY thing wrong with it is WHICH GROUP the row is in.
  *
  * A mutant that the probe lets through is a failure of the probe, and
  * this file exits 1.
+ *
+ * WHAT THE PROBE CATCHES EACH MUTANT WITH
+ * ----------------------------------------
+ * The probe compares the WHOLE §8.5 block against the generator's output,
+ * so every mutant is caught by that comparison. But a mutant that ALSO
+ * changed the generator would slip past it, so the probe ALSO re-derives
+ * every row's verdict FROM THE BYTE-CODE and compares it with the
+ * document. The mutant `M7` below is the one that exercises that second
+ * check on its own: it moves `extendedWaitUntil` into the unmappable
+ * group AND rewrites every count, so only the byte-code check can see it.
+ *
+ * The counts are NOT written down here -- they are derived from the LIVE
+ * table, so the harness keeps working when the table changes.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -109,17 +118,35 @@ function moveRow(command, from, to) {
     /可映射\s*\d+\s*条\s*\/\s*部分可映射\s*\d+\s*条\s*\/\s*不映射\s*\d+\s*条/,
     `可映射 ${sizes.mappable} 条 / 部分可映射 ${sizes.partial} 条 / 不映射 ${sizes.unmappable} 条`,
   );
-  return head + moved + tailFixed;
+  // And the counts stated in §8.5.5 (the conclusion table and the
+  // one-sentence summary). A mutant that left those stale would be caught
+  // by a stale-number check rather than by the grouping check, which is
+  // not what this harness is testing.
+  const tailFixed2 = tailFixed
+    .replace(/(\| 可映射 \|[^\n]*\| )\d+( \|)/, `$1${sizes.mappable}$2`)
+    .replace(/(\| 部分可映射 \|[^\n]*\| )\d+( \|)/, `$1${sizes.partial}$2`)
+    .replace(/(\| 不映射 \|[^\n]*\| )\d+( \|)/, `$1${sizes.unmappable}$2`)
+    .replace(/能表达 \d+ 条的动作\s*（可映射 \d+ \+ 部分可映射 \d+）/,
+      `能表达 ${sizes.mappable + sizes.partial} 条的动作（可映射 ${sizes.mappable} + 部分可映射 ${sizes.partial}）`);
+  return head + moved + tailFixed2;
 }
 
 const MUTANTS = [
   { name: 'M0 control (unchanged)', text: md, mustFail: false },
-  { name: 'M1 assertNotVisible -> 可映射', text: moveRow('assertNotVisible', 'partial', 'mappable'), mustFail: true },
+  { name: 'M1 assertNotVisible -> 部分可映射', text: moveRow('assertNotVisible', 'mappable', 'partial'), mustFail: true },
   { name: 'M2 swipe -> 可映射', text: moveRow('swipe', 'unmappable', 'mappable'), mustFail: true },
   { name: 'M3 assertVisible -> 不映射', text: moveRow('assertVisible', 'mappable', 'unmappable'), mustFail: true },
   { name: 'M4 startRecording -> 不映射', text: moveRow('startRecording', 'partial', 'unmappable'), mustFail: true },
   { name: 'M5 launchApp -> 部分可映射', text: moveRow('launchApp', 'mappable', 'partial'), mustFail: true },
   { name: 'M6 tapOn -> 不映射', text: moveRow('tapOn', 'mappable', 'unmappable'), mustFail: true },
+  // M7: the mutation the byte-code check is FOR. `extendedWaitUntil`
+  // compiles into the very same orchestra command class as
+  // `assertVisible`, so filing it as unmappable contradicts the
+  // byte-code -- and every count is rewritten, so nothing else shows it.
+  { name: 'M7 extendedWaitUntil -> 不映射', text: moveRow('extendedWaitUntil', 'mappable', 'unmappable'), mustFail: true },
+  // M8: the same class of mutation on the other side -- a command the
+  // platform CAN express, filed as partially mappable.
+  { name: 'M8 takeScreenshot -> 部分可映射', text: moveRow('takeScreenshot', 'mappable', 'partial'), mustFail: true },
 ];
 
 let notBuilt = 0;

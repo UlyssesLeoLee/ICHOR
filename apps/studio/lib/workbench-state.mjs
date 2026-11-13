@@ -382,12 +382,32 @@ export function statesAreDistinguishable(kinds = WORKBENCH_STATE_KINDS) {
  * P1 shortcut, and the P0 requirement -- "the core operation is
  * completable with the keyboard" -- needs it to be reachable by keyboard
  * alone, so it is implemented here rather than deferred).
+ *
+ * THE ESCAPE DESCRIPTION IS THE CONTRACT
+ * --------------------------------------
+ * The footer prints these descriptions verbatim, so a description that
+ * names a capability the workbench does not have is a false claim on
+ * the screen -- the round-2 review rejected the delivery for exactly
+ * that: the help said 「取消正在进行的加载或运行」 ("cancels the load or
+ * run in progress") while pressing Escape during a running test did
+ * nothing at all.
+ *
+ * So the description states what Escape ACTUALLY does, and the two
+ * capabilities it covers are both implemented:
+ *
+ *   - it closes the open dialog;
+ *   - it cancels the catalogue load that is in flight;
+ *   - and it stops the run that is in flight (the same endpoint as the
+ *     「停止运行」 button).
+ *
+ * The order of those three is the order of nesting: the dialog is the
+ * innermost thing, then the load, then the run.
  */
 export const KEY_COMMANDS = Object.freeze([
   Object.freeze({
     key: 'Escape',
     id: 'cancel',
-    description: '取消正在进行的加载或运行',
+    description: '关闭弹窗，或取消正在进行的加载或运行',
   }),
   Object.freeze({
     key: 'Enter',
@@ -575,6 +595,41 @@ export const FOCUS_ORDER = Object.freeze([
   'panel',
   'content',
 ]);
+
+/**
+ * What the Escape key should act on.
+ *
+ * The three things Escape can cancel are NESTED, and the innermost one
+ * wins:
+ *
+ *   1. the DIALOG -- a modal that is open is the innermost thing the
+ *      reader can be doing, so Escape closes it;
+ *   2. the LOAD -- a catalogue request that is still in flight;
+ *   3. the RUN -- a test run that is still in flight.
+ *
+ * The order is not arbitrary: pressing Escape while the dialog is open
+ * must NOT also cancel the load behind it, and pressing Escape while a
+ * load is in flight must NOT stop a run that the reader did not ask
+ * about. So the function returns the SINGLE target, or null when there
+ * is nothing to cancel.
+ *
+ * The round-2 review found that the footer claimed Escape "cancels the
+ * load or the run" while it did neither for a run. Making the decision
+ * a MODEL function means the unit tests can assert the whole table
+ * without a browser, and the view only has to carry it out.
+ *
+ * @typedef {'dialog'|'load'|'run'|null} EscapeTarget
+ *
+ * @param {{dialogOpen?:boolean,loadPending?:boolean,runActive?:boolean}} state
+ * @returns {EscapeTarget}
+ */
+export function escapeTarget(state) {
+  const s = state || {};
+  if (s.dialogOpen === true) return 'dialog';
+  if (s.loadPending === true) return 'load';
+  if (s.runActive === true) return 'run';
+  return null;
+}
 
 /**
  * Whether the given order is the EXPECTED one.

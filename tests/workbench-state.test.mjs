@@ -55,6 +55,7 @@ import {
   WORKBENCH_STATE_KINDS,
   WORKBENCH_STATES,
   deriveWorkbenchState,
+  escapeTarget,
   focusOrderIsCorrect,
   hasNativeEnterAction,
   isComposing,
@@ -580,4 +581,79 @@ test('an IME composition is NOT a command', () => {
   assert.equal(isComposing({ isComposing: false, key: 'Escape' }), false);
   assert.equal(isComposing({ key: 'Escape' }), false);
   assert.equal(isComposing(null), false);
+});
+
+/* ------------------------------------------------------------------ */
+/* 6. the ESCAPE TARGET (round 3)                                     */
+/* ------------------------------------------------------------------ */
+
+test('Escape acts on the DIALOG first -- it is the innermost thing', () => {
+  // All three are in flight at once. The dialog is the innermost, so it
+  // wins: Escape closes the dialog and does NOT cancel the load behind
+  // it and does NOT stop the run behind that.
+  assert.equal(
+    escapeTarget({ dialogOpen: true, loadPending: true, runActive: true }),
+    'dialog',
+  );
+});
+
+test('Escape cancels the LOAD when no dialog is open', () => {
+  assert.equal(
+    escapeTarget({ dialogOpen: false, loadPending: true, runActive: true }),
+    'load',
+  );
+});
+
+test('Escape STOPS the RUN when nothing else is in flight', () => {
+  // This is the capability the footer promises
+  // (「关闭弹窗，或取消正在进行的加载或运行」). Before the round-3 fix
+  // the workbench had no way to stop a run with the keyboard, so the
+  // help described a capability that did not exist.
+  assert.equal(
+    escapeTarget({ dialogOpen: false, loadPending: false, runActive: true }),
+    'run',
+  );
+});
+
+test('Escape does nothing when there is nothing to cancel', () => {
+  assert.equal(
+    escapeTarget({ dialogOpen: false, loadPending: false, runActive: false }),
+    null,
+  );
+  assert.equal(escapeTarget({}), null);
+  assert.equal(escapeTarget(null), null);
+});
+
+test('the Escape target table is EXHAUSTIVE: every combination lands on one answer', () => {
+  // Eight combinations, three answers plus "nothing to cancel". The
+  // table is total, so the view never has to guess.
+  const seen = new Set();
+  for (const dialogOpen of [false, true]) {
+    for (const loadPending of [false, true]) {
+      for (const runActive of [false, true]) {
+        const target = escapeTarget({ dialogOpen, loadPending, runActive });
+        assert.ok(['dialog', 'load', 'run', null].includes(target),
+          `unexpected target ${target}`);
+        seen.add(target);
+      }
+    }
+  }
+  // Every answer is reachable.
+  assert.deepEqual([...seen].sort(), ['dialog', 'load', 'null', 'run'].sort()
+    .map((v) => (v === 'null' ? null : v)).sort((a, b) => String(a).localeCompare(String(b))));
+});
+
+test('the footer does not promise a capability the workbench does not have', () => {
+  // The help line is what the reader reads. It must name the dialog,
+  // the load AND the run -- because all three are implemented -- and it
+  // must not name anything else.
+  const escape = KEY_COMMANDS.find((c) => c.id === 'cancel');
+  assert.ok(escape, 'there is no cancel command');
+  assert.ok(/弹窗/.test(escape.description), `the Escape help does not mention the dialog: ${escape.description}`);
+  assert.ok(/加载/.test(escape.description), `the Escape help does not mention the load: ${escape.description}`);
+  assert.ok(/运行/.test(escape.description), `the Escape help does not mention the run: ${escape.description}`);
+  // And the help text that is printed carries the same words.
+  const line = keyboardHelpLines().find((l) => l.startsWith('Escape'));
+  assert.ok(line, 'the help does not mention Escape');
+  assert.ok(/弹窗/.test(line) && /加载/.test(line) && /运行/.test(line), line);
 });

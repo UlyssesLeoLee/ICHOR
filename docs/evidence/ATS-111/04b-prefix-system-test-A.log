@@ -2,8 +2,9 @@ PASS the Bridge starts
 FAIL ST-111-12a with NO project the panel shows the NO-PROJECT state -- null
 FAIL ST-111-12b the NO-PROJECT state does NOT say 「没有匹配」
 FAIL ST-111-12c the NO-PROJECT state points at importing a project
-PASS ST-111-12d the NO-PROJECT state is not the "filter matched nothing" message -- 没有匹配「」的用例清空筛选条件可查看全部
-PASS both fixture projects are registered -- proj_1_280c8d91f360c320dd77d473 / proj_1_f874d5827281dad88de8557a
+FAIL ST-111-12d the NO-PROJECT state renders a STATE PANEL (not the filter-miss text) -- {"hasStatePanel":false,"stateKind":null,"hasFilterMiss":false,"hasEmptySmall":true}
+FAIL ST-111-12e the NO-PROJECT state does not fall back to the filter-miss block -- {"hasStatePanel":false,"stateKind":null,"hasFilterMiss":false,"hasEmptySmall":true}
+PASS both fixture projects are registered -- proj_1_fb1985235b44a5793a45eb64 / proj_1_988aa9a2c7c4570d007ca97d
 PASS ST-111-1 the exported workbench loads in a real browser
 PASS ST-111-9a the page produced no page error on load
 PASS ST-111-8a the skip link exists
@@ -37,16 +38,20 @@ FAIL ST-111-10g the retry in the EMPTY state REALLY re-issues the request -- req
 PASS ST-111-13a the project WITH cases shows them -- manageable=2 items=2
 FAIL ST-111-13b switching to another project shows NO cases of the previous one -- items=2
 FAIL ST-111-13c the 「可管理用例」 metric is 0 while the new project loads -- manageable=2
-FAIL ST-111-13d the footer counts no cases of the previous project -- footer=2 tests · 1 filesC:\Users\seiko\ats111-evidence-prefix-st\st111-0j4rJx\empty-playwright
+FAIL ST-111-13d the footer counts no cases of the previous project -- footer=2 tests · 1 filesE:\ats111-final-evidence-prefix-st-A\st111-LglbfT\empty-playwright
 PASS ST-111-13e the panel is in the LOADING state while the new project loads -- {"kind":"loading","role":"status","live":"polite","busy":"true","label":"加载中","detail":"正在取数据，请稍候。","hint":"按 Esc 可以取消这次加载。"}
+FAIL ST-111-18a the filter-miss message does NOT show the characters 「<br/>」 -- 没有匹配「zzz-no-such-case-at-all」的用例 清空筛选条件可查看全部
 PASS ST-111-6a the dialog opens with the KEYBOARD alone (Enter on the button) -- 1 dialog(s)
 PASS ST-111-6b Enter SUBMITS the dialog (no mouse click) -- 0 dialog(s) still open
 PASS ST-111-6c the keyboard-submitted project was REGISTERED -- 3 project(s)
 PASS ST-111-11a the dialog is open for the cancel check -- 1 dialog(s)
 PASS ST-111-11b the focus reached the cancel button by TAB -- BUTTON|取消
-FAIL ST-111-11c Enter on 「取消」 CLOSES the dialog -- 1 dialog(s) still open
-PASS ST-111-11d Enter on 「取消」 did NOT register the project -- 3 -> 3
-FAIL ST-111-15 the focus returned to the 「添加项目」 button after the dialog closed -- BUTTON|
+PASS ST-111-11c Enter on 「取消」 CLOSES the dialog -- 0 dialog(s) still open
+FAIL ST-111-11d Enter on 「取消」 did NOT register the NEVER-REGISTERED project -- 3 -> 4 (path=E:\ats111-final-evidence-prefix-st-A\st111-LglbfT\cancel-only-playwright)
+FAIL ST-111-15 the focus returned to the 「添加项目」 button after the dialog closed -- BODY|
+PASS ST-111-17a the dialog is open for the Ctrl+P check -- 1 dialog(s)
+PASS ST-111-17b Ctrl+P inside the dialog IS consumed by the workbench -- {"key":"p","ctrl":true,"shift":false,"prevented":true,"target":"INPUT"}
+FAIL ST-111-17c Ctrl+P inside the dialog does NOT move the focus out of it -- outside:INPUT
 PASS ST-111-14a the focus is on the BODY for this check -- BODY
 FAIL ST-111-14b Ctrl+P moves the focus to the search box with the focus on the BODY -- BODY|
 PASS ST-111-14c the load is in flight for the body-Escape check -- {"kind":"loading","role":"status","live":"polite","busy":"true","label":"加载中","detail":"正在取数据，请稍候。","hint":"按 Esc 可以取消这次加载。"}
@@ -54,16 +59,28 @@ FAIL ST-111-14d Escape cancels the load with the focus on the BODY -- {"kind":"l
 PASS ST-111-7a the project can be chosen with the KEYBOARD
 PASS ST-111-7b Ctrl+P moves the focus to the search box
 PASS ST-111-7c the search filters the catalogue with the KEYBOARD
-FAIL ST-111-7d a test case can be OPENED with the KEYBOARD -- no item is selected
-FAIL ST-111-7e the selected case can be RUN with Ctrl+Enter -- no feedback was shown
+PASS ST-111-7d a test case can be OPENED with the KEYBOARD
+PASS ST-111-7e the selected case can be RUN with Ctrl+Enter
 PASS ST-111-7f the run reaches a TERMINAL state
 PASS ST-111-7g the run list shows the run and is not in an error/empty state
+PASS ST-111-19a the run rows are NOT marked stale while the poll works -- rows=1 stale=0
+FAIL ST-111-19b the failed poll is reported as an ERROR state -- ready
+FAIL ST-111-19c the run rows are MARKED as stale when the poll fails -- rows=1 stale=0
+FAIL ST-111-19d the panel SAYS the rows are stale
+PASS ST-111-19e the rows are NOT marked stale once the poll works again -- state=ready stale=0
+PASS ST-111-16a the slow fixture project is registered -- proj_1_1b7670f467130db1d3dc18fd
+PASS ST-111-16a2 the slow project is the selected one -- proj_1_1b7670f467130db1d3dc18fd vs proj_1_1b7670f467130db1d3dc18fd
+PASS ST-111-16b a run is in flight for the Escape check -- run_1_3bf52ebfe368a3c9e1ae9f64 running
+FAIL ST-111-16c the Escape keydown IS consumed by the workbench -- {"key":"Escape","ctrl":false,"shift":false,"prevented":false,"target":"BODY"}
+FAIL ST-111-16d Escape STOPS the run that was in flight -- run_1_3bf52ebfe368a3c9e1ae9f64 running
+FAIL ST-111-16e the stopped run is reported as CANCELLED (not as a failure) -- running error=(none)
+PASS ST-111-16f the footer describes what Escape really does -- Escape — 关闭弹窗，或取消正在进行的加载或运行
   (the probe injected 5 console error(s) on purpose)
 PASS ST-111-9b the page produced no console error over the whole flow
 PASS ST-111-9c the page produced no page error over the whole flow
-scratch: C:\Users\seiko\ats111-evidence-prefix-st\st111-0j4rJx
-RESULT: 46/62
+scratch: E:\ats111-final-evidence-prefix-st-A\st111-LglbfT
+RESULT: 55/79
 
---- the pre-fix tree is cb742cad04a251e265726f5171af4c3c348ea37c ---
-the pre-fix result : RESULT: 46/62
-the failing checks : 16
+--- the baseline tree is cb742cad04a251e265726f5171af4c3c348ea37c (cb742ca) ---
+the baseline result : RESULT: 55/79
+the failing checks : 24

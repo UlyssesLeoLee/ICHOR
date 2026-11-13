@@ -708,38 +708,47 @@ if (paramProblems.length) {
   ok('every parameter cell matches STEP_ARGUMENTS');
 }
 
-// THE GROUPING INVARIANTS
-// -----------------------
+// THE GROUPING, RE-DERIVED FROM THE BYTE-CODE
+// ---------------------------------------------
 // The block comparison above proves the document holds the GENERATED
 // block. It does not prove the grouping is RIGHT -- the generator could
 // be wrong in the same way the document is wrong.
 //
-// So the grouping is checked against the CRITERION of §8.3, which is
-// about the platform's own model:
+// So the grouping is checked against the byte-code:
 //
-//   可映射 / 部分可映射  the row names a step kind ATS-601 froze -- the
-//                        platform's model CAN express the action;
-//   不映射                the row names NO step kind -- the platform's
-//                        model has no such action.
+//   1. `maestro-action-model.mjs` measures what each Maestro command
+//      DOES -- the orchestra command class it compiles into, and the
+//      variant that tells two commands of the same class apart;
+//   2. the action model says which of the platform's six step kinds
+//      expresses that action, and whether the command FORM matches;
+//   3. the verdict follows.
 //
-// The check is deliberately about the GROUP a row is in, not about the
-// cell text: a row moved into the wrong group is exactly what must be
-// caught.
+// The check below re-derives EVERY row's verdict from the byte-code and
+// compares it with the document. A row that should have been mappable but
+// was filed as unmappable (the kind of defect the round-3 review found
+// in `extendedWaitUntil`) is caught here, because the byte-code says the
+// command compiles into `AssertConditionCommand` -- the very class the
+// platform's `assertVisible` step expresses.
+//
+// The two invariants of §8.3 are still checked as well:
+//   可映射 / 部分可映射  the row names a step kind ATS-601 froze;
+//   不映射                the row names NO step kind.
 const stepKinds = readStepKinds();
 console.log('');
 console.log('--- the platform vocabulary (ATS-601 / ATS-602) ---');
+
+/** The step kind a row names, or null when it names none. */
+const kindOf = (row) => {
+  const target = row.kind.replace(/`/g, '').split(' ')[0].split('+')[0].trim();
+  if (target === '' || target === '—') return null;
+  return target;
+};
+
 if (!stepKinds) {
   fail('cannot read the ATS-601 step vocabulary from server/adapters/mobile-target.mjs');
 } else {
   console.log(`ATS-601 step kinds: ${stepKinds.join(', ')}`);
   const problems = [];
-
-  /** The step kind a row names, or null when it names none. */
-  const kindOf = (row) => {
-    const target = row.kind.replace(/`/g, '').split(' ')[0].split('+')[0].trim();
-    if (target === '' || target === '—') return null;
-    return target;
-  };
 
   for (const [command, row] of rowsByCommand) {
     const target = kindOf(row);
@@ -764,6 +773,57 @@ if (!stepKinds) {
     for (const p of problems) fail(`the grouping breaks the §8.3 criterion: ${p}`);
   } else {
     ok(`the grouping breaks no §8.3 invariant: every mappable / partially mappable row names a step kind ATS-601 freezes, every unmappable row names none (${rowsByCommand.size} rows)`);
+  }
+}
+
+// The verdict of every row, re-derived from the byte-code.
+console.log('');
+console.log('--- the grouping, re-derived from the Maestro byte-code ---');
+{
+  const model = await import(new URL('./maestro-action-model.mjs', import.meta.url).href);
+  const actions = model.measureActions();
+  if (!actions) {
+    // No Maestro installation: the verdict cannot be re-derived. That is a
+    // SKIP, never a pass -- the summary says the grouping was NOT
+    // verified against the byte-code in this run.
+    console.log('SKIP no Maestro installation found -- the grouping was NOT re-derived from the byte-code in this run');
+  } else {
+    const GROUP_OF = { '可映射': 'mappable', '部分可映射': 'partial', '不映射': 'unmappable' };
+    const problems = [];
+    let checked = 0;
+    for (const [command, row] of rowsByCommand) {
+      const action = actions[command];
+      if (!action) {
+        problems.push(`${command}: the byte-code carries no action for it, so its group cannot be re-derived`);
+        continue;
+      }
+      let derived;
+      try {
+        derived = model.verdictOf(action);
+      } catch (e) {
+        problems.push(`${command}: ${e.message}`);
+        continue;
+      }
+      const derivedGroup = GROUP_OF[derived.verdict];
+      if (derivedGroup !== row.verdict) {
+        problems.push(`${command}: the document puts it in the ${row.verdict} group, the byte-code implies ${derived.verdict} (it compiles into ${action.classes.join('/')}${action.variant ? ` [${action.variant}]` : ''})`);
+        continue;
+      }
+      // The step kind the row names must be the one the action model says.
+      if (derived.verdict !== '不映射') {
+        const named = kindOf(row);
+        if (named !== derived.kind) {
+          problems.push(`${command}: the document names the step kind "${named}", the action model says "${derived.kind}"`);
+          continue;
+        }
+      }
+      checked += 1;
+    }
+    if (problems.length) {
+      for (const p of problems) fail(`the grouping contradicts the byte-code: ${p}`);
+    } else {
+      ok(`every row's group and step kind are re-derived from the byte-code and agree with the document (${checked} rows)`);
+    }
   }
 }
 

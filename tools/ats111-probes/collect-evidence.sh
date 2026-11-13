@@ -154,67 +154,31 @@ tail -n 24 "$OUT/04-mutation-evidence.log"
 
 # --- 6. the FALSIFIABILITY of the new view-level checks --------------------
 # The view-level checks are only evidence if they can FAIL. This step
-# runs the CURRENT system test against the PRE-FIX tree -- the code as
-# it was before this round's corrections -- and asserts that the new
-# checks go RED there.
+# runs the CURRENT system test against the trees the review rounds
+# rejected, and asserts that the checks bound to each of them go RED
+# there.
 #
-# The pre-fix tree is the merge base of this branch and its first
-# parent, i.e. the delivery the review rejected. It is exported with
-# `git archive`, so it is the COMMITTED code and not a hand-made copy.
+# The baselines are PINNED COMMIT IDS (see
+# tools/ats111-probes/lib/pre-fix-commit.sh), not searched for with
+# `git log --grep`: a search moves forward as soon as another commit
+# whose message mentions ATS-111 is merged, and then this step would
+# run the new checks against the FIXED tree, they would all pass, and
+# the step would report "they do not discriminate" about a tree where
+# nothing was broken. That is exactly what happened after the round-1
+# merge, and the round-2 review reported it.
 #
-# The expectation is: the system test FAILS on the pre-fix tree, and the
-# failing checks are the ones this round added. A run that passes on the
-# pre-fix tree would mean the new checks do not discriminate.
-step '6. the new view-level checks FAIL on the pre-fix tree'
-PREFIX_COMMIT="${ATS111_PREFIX_COMMIT:-}"
-if [ -z "$PREFIX_COMMIT" ]; then
-  PREFIX_COMMIT="$(git log --oneline --all --grep='merge(ATS-111)' --format=%H | head -1)"
-fi
-if [ -n "$PREFIX_COMMIT" ]; then
-  PREFIX_TREE="$SCRATCH-prefix"
-  rm -rf "$PREFIX_TREE"; mkdir -p "$PREFIX_TREE"
-  git archive "$PREFIX_COMMIT" | tar -x -C "$PREFIX_TREE"
-  # The CURRENT probe and the CURRENT model are used against the OLD
-  # code: the checks are new, the code is old. That is the point.
-  cp tools/ats111-probes/st-ats111.mjs "$PREFIX_TREE/tools/ats111-probes/st-ats111.mjs"
-  cp apps/studio/lib/workbench-state.mjs "$PREFIX_TREE/apps/studio/lib/workbench-state.mjs"
-  # The tree needs the dependency tree inside it (Turbopack refuses to
-  # resolve packages outside its workspace root).
-  if [ ! -d "$PREFIX_TREE/apps/studio/node_modules" ]; then
-    cp -r apps/studio/node_modules "$PREFIX_TREE/apps/studio/node_modules" 2>/dev/null
-  fi
-  # The FIXTURE's dependencies are not in the archive -- they are not
-  # under version control. The system test copies the fixture into its
-  # scratch and runs a REAL engine with it, so the dependencies have to
-  # be there.
-  if [ ! -d "$PREFIX_TREE/examples/sample-playwright/node_modules" ]; then
-    mkdir -p "$PREFIX_TREE/examples/sample-playwright"
-    cp -r examples/sample-playwright/node_modules "$PREFIX_TREE/examples/sample-playwright/node_modules" 2>/dev/null
-  fi
-  if [ -d "$PREFIX_TREE/apps/studio/node_modules" ]; then
-    ( cd "$PREFIX_TREE/apps/studio" && node node_modules/next/dist/bin/next build ) > "$OUT/04b-prefix-build.log" 2>&1
-    if [ $? -eq 0 ]; then
-      ( cd "$PREFIX_TREE" && node tools/ats111-probes/st-ats111.mjs . "$SCRATCH-prefix-st" "examples/sample-playwright/node_modules" ) > "$OUT/04b-prefix-system-test.log" 2>&1
-      PREFIX_RESULT="$(grep -oE 'RESULT: [0-9]+/[0-9]+' "$OUT/04b-prefix-system-test.log" | tail -1)"
-      PREFIX_FAILS="$(grep -c '^FAIL ' "$OUT/04b-prefix-system-test.log")"
-      printf '\n--- the pre-fix tree is %s ---\n' "$PREFIX_COMMIT" >> "$OUT/04b-prefix-system-test.log"
-      printf 'the pre-fix result : %s\n' "$PREFIX_RESULT" >> "$OUT/04b-prefix-system-test.log"
-      printf 'the failing checks : %s\n' "$PREFIX_FAILS" >> "$OUT/04b-prefix-system-test.log"
-      if grep -q '^FAIL ' "$OUT/04b-prefix-system-test.log" && [ "$PREFIX_FAILS" -gt 0 ]; then
-        ok "the new view-level checks FAIL on the pre-fix tree ($PREFIX_RESULT, $PREFIX_FAILS failing)"
-      else
-        bad "the new view-level checks did NOT fail on the pre-fix tree -- they do not discriminate"
-      fi
-      grep -E '^(FAIL |RESULT:)' "$OUT/04b-prefix-system-test.log" | tail -n 24
-    else
-      bad 'the pre-fix tree does not build (see 04b-prefix-build.log)'
-      tail -n 12 "$OUT/04b-prefix-build.log"
-    fi
-  else
-    bad 'the pre-fix tree has no studio dependencies -- the falsifiability check cannot run'
-  fi
+# Each check is bound to the baseline it has to fail on. A bound check
+# that PASSES on its baseline does not discriminate, and the step
+# fails -- an unrelated failure is not a substitute.
+#
+# The step is DELEGATED to collect-falsifiability.sh, so that running
+# it on its own and running it as part of the whole collection cannot
+# drift apart.
+step '6. the new view-level checks FAIL on the pinned baseline trees'
+if bash tools/ats111-probes/collect-falsifiability.sh "$SCRATCH"; then
+  ok 'the view-level checks FAIL on the pinned baseline trees'
 else
-  bad 'the pre-fix commit could not be found (set ATS111_PREFIX_COMMIT)'
+  bad 'the view-level checks did NOT fail on the pinned baseline trees -- they do not discriminate'
 fi
 
 # --- 7. the WBS row and the shared-workbook regression ----------------------
