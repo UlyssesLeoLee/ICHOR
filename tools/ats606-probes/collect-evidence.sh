@@ -69,8 +69,9 @@ hdr() {
   echo "--- the conclusion this environment forces ---"
   echo "No macOS / Xcode / iOS simulator / iOS device is present, so NO iOS"
   echo "behaviour was measured. The evidence below is about the COMMAND"
-  echo "INVENTORY and the DRIVER IMPLEMENTATION STATUS, both read off the"
-  echo "shipped artifacts -- not about a Flow actually running on iOS."
+  echo "INVENTORY, the IMPORT BEHAVIOUR and the DRIVER IMPLEMENTATION"
+  echo "STATUS, all read off the shipped artifacts -- not about a Flow"
+  echo "actually running on iOS."
 } > "$EV/01-environment.log" 2>&1
 
 # --- 02: the command inventory (behavioural) -----------------------------
@@ -94,6 +95,36 @@ hdr() {
   echo
   echo "exit : $?"
 } > "$EV/03-ios-driver-support.log" 2>&1
+
+# --- 03b: the GROUPING negative controls ---------------------------------
+# The §8.5 claim is that the three verdict groups are the ones the
+# generator produces. A probe that only ever says OK is not evidence, so
+# this log shows the MUTANTS: each one moves a row into another group
+# and rewrites every count, and the probe has to go red for each.
+{
+  echo "=== ATS-606 evidence: the grouping negative controls ==="
+  echo "tree : $COMMIT"
+  echo "date : $STAMP"
+  echo
+  node tools/ats606-probes/probe-group-mutants.mjs . 2>&1
+  echo
+  echo "exit : $?"
+} > "$EV/03b-group-mutants.log" 2>&1
+
+# --- 03c: the ACTION model (byte-code) -----------------------------------
+# The §8.5 grouping is DERIVED from the byte-code, so the derivation
+# itself has to be in the evidence: this log shows what each Maestro
+# command compiles into, and which variant tells two commands of the same
+# class apart. A reviewer can read it and see WHY a command is where it is.
+{
+  echo "=== ATS-606 evidence: the Maestro action model (byte-code) ==="
+  echo "tree : $COMMIT"
+  echo "date : $STAMP"
+  echo
+  node tools/ats606-probes/maestro-action-model.mjs 2>&1
+  echo
+  echo "exit : $?"
+} > "$EV/03c-action-model.log" 2>&1
 
 # --- 04: the ATS-601 / ATS-602 vocabulary ---------------------------------
 # The compatibility table's verdicts are stated against the platform's own
@@ -123,31 +154,56 @@ const imp = fs.readFileSync("server/discovery/mobile-import.mjs", "utf8");
 const sem = /STEP_SEMANTICS\s*=\s*Object\.freeze\(\{([\s\S]*?)\n\}\)/.exec(imp);
 console.log();
 console.log("--- ATS-602: the semantic table (kind -> the spellings it accepts) ---");
-for (const m of sem[1].matchAll(/^\s{2}([A-Za-z][A-Za-z0-9]*)\s*:\s*Object\.freeze\(\[(.*?)\]\)/gm)) {
-  console.log("  " + m[1].padEnd(16) + m[2]);
+for (const m of sem[1].matchAll(/^\s{2}([A-Za-z][A-Za-z0-9]*)\s*:\s*Object\.freeze\(\[([\s\S]*?)\]\)/gm)) {
+  console.log("  " + m[1].padEnd(16) + m[2].replace(/\s+/g, " "));
+}
+console.log();
+console.log("--- ATS-602: the argument model (STEP_ARGUMENTS) ---");
+const args = /STEP_ARGUMENTS\s*=\s*Object\.freeze\(\{([\s\S]*?)\n\}\);/.exec(imp);
+for (const m of args[1].matchAll(/^\s{2}([A-Za-z][A-Za-z0-9]*)\s*:\s*Object\.freeze\(\{([\s\S]*?)\n  \}\),/gm)) {
+  const body = m[2];
+  const primary = /primary: .([A-Za-z]+)./.exec(body);
+  const optional = /optional: Object\.freeze\(\[([^\]]*)\]\)/.exec(body);
+  const required = /required: Object\.freeze\(\[([^\]]*)\]\)/.exec(body);
+  const requiredAny = /requiredAny: Object\.freeze\(\[Object\.freeze\(\[([^\]]*)\]\)\]\)/.exec(body);
+  console.log("  " + m[1]);
+  console.log("      primary     : " + (primary ? primary[1] : "-"));
+  console.log("      required    : " + (required ? required[1] : "-"));
+  console.log("      requiredAny : " + (requiredAny ? requiredAny[1] : "-"));
+  console.log("      optional    : " + (optional ? optional[1] : "-"));
 }
 ' 2>&1
 } > "$EV/04-platform-vocabulary.log" 2>&1
 
-# --- 05: the import report (what ATS-602 does with an unmappable Flow) ---
-# The §8.5 claim is that a Flow written in Maestro syntax comes in with its
-# unmappable steps REPORTED rather than silently dropped. This log shows
-# that on a real Flow: the four mappable steps are mapped, the five
-# unmappable ones are each reported with their original text and their line.
+# --- 05: the import report over ALL 55 Maestro commands -------------------
+# The §8.5 claim is twofold, and both halves are checked here:
+#
+#   * "a Flow written in Maestro syntax comes in with its unmappable steps
+#     REPORTED rather than silently dropped" -- one real Flow, end to end;
+#   * "the importer maps 4 of the 55 Maestro spellings and reports the
+#     other 51" -- EVERY command, run through the importer, with its
+#     original text and its line number.
+#
+# The second half is the one the table's own claims are about: the delivered
+# table claimed 7 mappable commands while the importer maps 4. So the
+# evidence must cover ALL of them, not a hand-picked sample.
 {
-  echo "=== ATS-606 evidence: an unmappable Flow is reported, not dropped ==="
+  echo "=== ATS-606 evidence: the import report over every Maestro command ==="
   echo "tree : $COMMIT"
   echo "date : $STAMP"
   echo
   node -e '
 (async () => {
+  const fs = await import("node:fs");
   const { parseFlow } = await import("./server/discovery/mobile-flow.mjs");
   const { importFlow, buildImportReport, formatImportReport } =
     await import("./server/discovery/mobile-import.mjs");
 
-  // A Flow written in Maestro syntax, spanning the three verdict groups of
-  // §8.5: mappable, unmappable, and a step that is unmappable but whose
-  // reason is not a plain unknown command.
+  const fixtures = JSON.parse(fs.readFileSync("tools/ats606-probes/maestro-command-fixtures.json", "utf8"));
+
+  /* --- (a) one real Flow, end to end ---------------------------------- */
+  console.log("--- (a) a Flow written in Maestro syntax, imported end to end ---");
+  console.log();
   const text = [
     "appId: com.example.app",
     "---",
@@ -183,9 +239,61 @@ for (const m of sem[1].matchAll(/^\s{2}([A-Za-z][A-Za-z0-9]*)\s*:\s*Object\.free
   console.log();
   console.log("--- the import report ---");
   console.log(formatImportReport(report));
+
+  /* --- (b) EVERY Maestro command, one at a time ------------------------ */
+  console.log();
+  console.log("--- (b) every one of the 55 Maestro commands, through the importer ---");
+  console.log();
+
+  let mapped = 0;
+  let reported = 0;
+  const byReason = {};
+  const rows = [];
+
+  for (const [name, body] of Object.entries(fixtures.commands)) {
+    const one = `${"appId: " + fixtures.appId}\n---\n${body}\n`;
+    const f = parseFlow(one, { syntax: "maestro" });
+    const imp = importFlow(f, { file: `flows/${name}.yaml`, projectUid: "p1" });
+    const rep = buildImportReport(imp);
+    const kinds = [...new Set((imp.cases ?? []).flatMap((c) => c.steps.map((s) => s.kind)))];
+    if (rep.mappedSteps > 0) {
+      mapped += 1;
+      rows.push(`  ${name.padEnd(24)} MAPPED    -> ${kinds.join(", ")}`);
+    } else {
+      reported += 1;
+      for (const r of Object.keys(rep.unsupportedByReason)) byReason[r] = (byReason[r] ?? 0) + 1;
+      const detail = (rep.unsupportedSteps_detail ?? [])
+        .map((u) => `line ${u.line}: ${u.reason} -- ${u.raw}`)
+        .join(" | ");
+      rows.push(`  ${name.padEnd(24)} REPORTED  -> ${detail}`);
+    }
+  }
+
+  console.log(rows.join("\n"));
+  console.log();
+  console.log("mapped   : " + mapped);
+  console.log("reported : " + reported);
+  console.log("total    : " + (mapped + reported));
+  console.log("by reason: " + JSON.stringify(byReason));
+  console.log();
+  // The SEMANTIC counts are read out of the table of the document itself, so
+  // this log can never disagree with the document: the group headings
+  // ARE the counts.
+  const md = fs.readFileSync("docs/25-MOBILE-APP-TESTING.md", "utf8");
+  const block = md.slice(md.indexOf("<!-- ATS606-ROWS-START -->"), md.indexOf("<!-- ATS606-ROWS-END -->"));
+  const heading = /^#### 8\.5\.\d (可映射|部分可映射|不映射)（(\d+) 条）$/gm;
+  const stated = {};
+  let h;
+  while ((h = heading.exec(block)) !== null) stated[h[1]] = Number(h[2]);
+  console.log("the counts §8.5 states, read out of the group headings of the table:");
+  console.log("  可映射 " + stated["可映射"] + " / 部分可映射 " + stated["部分可映射"] + " / 不映射 " + stated["不映射"]);
+  console.log("the importer counts are: 映射成功 " + mapped + " 条 / 进导入报告 " + reported + " 条");
+  console.log("measured mapped   : " + mapped + " (must be 4)");
+  console.log("measured reported : " + reported + " (must be 51)");
 })();
 ' 2>&1
-} > "$EV/05-import-report-of-an-unmappable-flow.log" 2>&1
+} > "$EV/05-import-report-of-every-maestro-command.log" 2>&1
+rm -f "$EV/05-import-report-of-an-unmappable-flow.log"
 
 # --- 06: the WBS row ------------------------------------------------------
 {

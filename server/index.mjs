@@ -39,6 +39,17 @@ import { assertSafeTestFilter } from './adapters/playwright-cli.mjs';
 // and the runner receives the SEALED environment (the profile's variables
 // plus the platform base keys -- never the host's own environment).
 import { ENVIRONMENTS, buildRunnerEnv, envVarNames, filterProfileVariables } from './env/profiles.mjs';
+// ATS-213: the credential references of an environment profile are resolved
+// against the system credential store when the run starts. The resolved
+// secret goes into the sealed runner environment and into nothing else.
+import { resolveCredentialRefs } from './env/credential-refs.mjs';
+// ATS-213: the redaction of the injected secrets. The platform knows the
+// resolved secret at run start, so it can take it out of everything it
+// writes -- the log, the text artefacts, the HTML report's embedded archive,
+// the evidence archive and the metadata mirror.
+import {
+  createRedactor, redactRunFolder, redactRunArchives, redactEmbeddedArchives,
+} from './env/secret-redaction.mjs';
 import {
   envStoreOf, profilesOfProject, findProfile, whitelistForProject,
   upsertProfile, removeProfile, setWhitelist, publicProfile, projectKeyOf,
@@ -67,7 +78,7 @@ const PORT=Number(process.env.ATS_PORT||4577);
 const TOKEN=crypto.randomBytes(24).toString('hex');
 const jobs=new Map();
 // ATS-106: the only fields a run request may carry.
-const RUN_REQUEST_FIELDS=new Set(['file','capabilities','runner','env']);
+const RUN_REQUEST_FIELDS=new Set(['file','capabilities','runner','env','selection']);
 // The data directory is locked for the whole lifetime of the Bridge. The
 // migration script (tools/migrate_uids.mjs) rewrites the state file AND
 // renames the run folders; a Bridge that is running at that moment would
@@ -264,6 +275,49 @@ for(const run of store.runs){
   run.status=RUN_STATUS.INTERRUPTED;run.finishedAt=now();run.error='Server restarted while run was active';
  }
 }
+// ATS-214: a BATCH that was in flight when the Bridge died is INTERRUPTED.
+//
+// The recovery above marks the RUN interrupted. The batch that the run
+// belonged to would otherwise stay `running` for ever -- the chain that
+// would have advanced it died with the Bridge, so nothing will ever
+// advance it. A batch that claims to be running while every one of its
+// runs is interrupted is a claim the reader cannot verify, so the batch
+// is marked `interrupted` with the same reason.
+//
+// A batch whose runs are ALL terminal is not touched here: it reached
+// its own terminal status before the crash, and rewriting it would
+// destroy the record of how it ended.
+// ATS-214: the batch records of an OLDER build carried the environment
+// VARIABLES' VALUES in their context. A value that is already in the state
+// must not be served after the upgrade either -- the leak is not only a
+// question of what is written from now on, it is a question of what the API
+// hands out. The values are dropped on load, and the batch keeps the
+// profile's REFERENCE, which is what the current code resolves against the
+// project's own profiles and the current whitelist.
+for(const batch of (Array.isArray(store.batches)?store.batches:[])){
+ if(batch.context&&typeof batch.context==='object'&&batch.context.envVariables){
+  delete batch.context.envVariables;
+ }
+}
+for(const batch of (Array.isArray(store.batches)?store.batches:[])){
+ if(batch.status!=='running')continue;
+ const runs=(batch.runs??[]).map(r=>store.runs.find(x=>x.id===r.runId)).filter(Boolean);
+ const allTerminal=runs.length>0&&runs.every(r=>isTerminalStatus(r.status));
+ if(allTerminal){
+  // The chain finished before the crash: the batch keeps the status its
+  // own runs imply.
+  batch.status=runs.every(r=>r.status===RUN_STATUS.PASSED)?'passed':'failed';
+  batch.finishedAt=batch.finishedAt||now();
+  continue;
+ }
+ batch.status='interrupted';
+ batch.finishedAt=now();
+ batch.error='Server restarted while the batch was in flight';
+ for(const entry of (batch.runs??[])){
+  const r=store.runs.find(x=>x.id===entry.runId);
+  if(r&&!isTerminalStatus(r.status))entry.status=r.status;
+ }
+}
 for(const problem of recoveryProblems)console.error(`the recovery of a run was degraded: ${problem}`);
 saveState(store);
 // ATS-207: the holder check. The Bridge holds the lock for its whole
@@ -392,7 +446,28 @@ function readRunEvents(id){
   return {events:[],unreadable:[],missing:false,truncated:false};
  }
 }
-async function body(req){let buf='';for await(const chunk of req){buf+=chunk;if(buf.length>1_200_000)throw new Error('PAYLOAD_TOO_LARGE');}return buf?JSON.parse(buf):{};}
+/**
+ * ATS-213 ｜ 读请求体。
+ *
+ * 请求体里可能带着**密钥**（`POST /api/security/credentials` 的 `secret`
+ * 字段），因此解析失败时**不能**把解析器的消息原样回显——V8 的
+ * `JSON.parse` 错误消息会带上一小段**原始输入**，那正是密钥的片段。
+ * 实测：`{"name":"k","secret":sk-live-LEAKCANARY}` 的解析错误是
+ * `Unexpected token 's', ...","secret":sk-live-LE"... is not valid JSON`
+ * ——密钥的前 10 个字符就出现在 HTTP 响应体里。
+ *
+ * 因此解析失败统一报 `INVALID_REQUEST_BODY`：一个**不含输入内容**的码。
+ * 调用方知道「请求体不是合法 JSON」，但拿不到任何请求体的片段。
+ *
+ * 上限超限仍是 `PAYLOAD_TOO_LARGE`，它本来就不含内容。
+ */
+async function body(req){
+ let buf='';
+ for await(const chunk of req){buf+=chunk;if(buf.length>1_200_000)throw new Error('PAYLOAD_TOO_LARGE');}
+ if(!buf)return {};
+ try{return JSON.parse(buf);}
+ catch{const error=new Error('INVALID_REQUEST_BODY');error.code='INVALID_REQUEST_BODY';throw error;}
+}
 function getProject(id){const p=store.projects.find(p=>p.id===id||p.uid===id);if(!p)throw new Error('PROJECT_NOT_FOUND');return p;}
 function getRun(id){const r=store.runs.find(r=>r.id===id||r.uid===id);if(!r)throw new Error('RUN_NOT_FOUND');return r;}
 function cleanProject(p){let git={branch:'-',commit:'-',dirty:false};try{git=gitInfo(p.root);}catch{} return {...p,uid:p.uid||projectUidOf(p),git};}
@@ -618,6 +693,33 @@ function finishRun(run,code,signal){
  writeEvent(run,EVENT_TYPE.FINISHED,{status:terminalStatus,code,signal});
  run.status=terminalStatus;run.exitCode=code;run.finishedAt=now();
  const folder=runDir(run.id);
+ // ATS-213: the REDACTION of the injected secrets.
+ //
+ // The platform resolved the credential references at run start, so it KNOWS
+ // the secrets. A test's ordinary assertion failure prints the injected
+ // value ("Received: \"<the secret>\""), and the engine writes that into
+ // `report.json`, the HTML report, `error-context.md` and the trace. The
+ // platform writes it into `stdout.log`, the run log, the events, the
+ // manifest, the evidence archive and the metadata mirror.
+ //
+ // All of those are files the EXPORT ships, so the acceptance criterion
+ // 「导出/日志无敏感串」 is about exactly them. The redaction therefore
+ // happens HERE -- after the child has exited and before the manifest is
+ // built -- so the manifest's digests describe the REDACTED bytes.
+ //
+ // The binary artefacts (the trace, the screenshots, the video) cannot be
+ // rewritten: they are the engine's own files and rewriting them would
+ // corrupt them. They are a DOCUMENTED boundary, and the run record says
+ // that it carried credential references (`envCredentialRefs`) so a reader
+ // of the archive knows to look.
+ const redaction=redactRunSecrets(run,folder);
+ if(redaction.active){
+  run.redaction={redactedFiles:redaction.files,boundaries:redaction.boundaries,secrets:redaction.secrets};
+ }
+ // The plaintexts are not needed any more: the redaction has happened, and
+ // nothing else may hold them. The map is deleted here so a secret does
+ // not outlive its run in the Bridge's memory.
+ runSecrets.delete(run.id);
  collectRunResults(run);
  // ATS-209: the MANIFEST is the archive's own record of what it holds.
  //
@@ -663,8 +765,185 @@ function finishRun(run,code,signal){
  if(dedup.refused.length)run.dedupRefused=dedup.refused;
  run.evidence=manifest.evidence;
  jobs.delete(run.id);saveState(store);
+ // ATS-214: the BATCH chain. A selection that spans several files is
+ // executed as one run per file, and the next file's run starts when this
+ // one reaches a terminal status.
+ //
+ // The chain is advanced HERE -- at the end of the run -- rather than by a
+ // timer or a poller: the next run must not start while the previous one
+ // still holds the project (the Bridge refuses a second run of a project
+ // that is already running), and this is the one moment at which the
+ // previous run has provably released it.
+ //
+ // A chain that is CANCELLED stops here: the user asked for the run to
+ // stop, and continuing with the next file would run cases the user did
+ // not ask to run any more.
+ //
+// The chain is advanced ASYNCHRONOUSLY (the next run resolves the
+// environment profile, which is asynchronous), so the promise is caught
+// here: an unhandled rejection would take the Bridge down with it, and a
+// Bridge that dies mid-batch is the very thing the batch's terminal
+// states exist to prevent. `advanceBatch` reports its own failures on
+// the batch record; this catch is the last line of defence.
+advanceBatch(run).catch(e=>{
+ console.error(`the batch of run ${run.id} could not be advanced: ${e&&e.message?e.message:e}`);
+ try{
+  const batches=Array.isArray(store.batches)?store.batches:[];
+  const batch=batches.find(b=>b.uid===run.batchUid);
+  if(batch&&batch.status==='running')finishBatch(batch,'failed',String(e&&e.message?e.message:e));
+ }catch{/* the state could not be written; the recovery will mark it */}
+});
 }
- function startRun(project,run,adapter,envProfile,envVariables){
+ /**
+ * ATS-213 ｜ 一次运行的**环境准备**——唯一的收口点
+ *
+ * 每一条运行路径（单次运行、批次里的第 2..N 次运行）都必须经过这里。函数
+ * 做四件事，顺序是承重的：
+ *
+ *   1. 按**当前**白名单过滤档案的变量（ATS-212 的规则）；
+ *   2. 把**凭据引用**逐条解析成密钥（`resolveCredentialRefs()`）；
+ *   3. 检查每一个值都是**字符串**——未解析的引用是对象，绝不能进环境块；
+ *   4. 返回解析后的值、变量名与引用名。
+ *
+ * 为什么必须在**这里**收口，而不是在某个路由里：
+ *
+ *   * 单次运行的路由自己解析引用，那么**批次**的第 2..N 次运行就没有解析
+ *     ——它们会把档案里的**引用对象**原样交给 `buildRunnerEnv()`，于是被
+ *     `String()` 成 `"[object Object]"` 注入环境。运行**静默地**拿到了一个
+ *     假的 token，结果毫无意义，而且没有任何报错。
+ *   * `startRun()` 原来的回退分支 `envVariables ?? envProfile?.variables`
+ *     同样是一条 fail-open 的路：任何绕过准备的调用方都能把**未解析的档案**
+ *     送进环境块。
+ *
+ * 因此：**引用只在这里解析**，而 `startRun()` 只接受**已经解析好的字符串**。
+ * 解析不了就抛错，调用方把这次运行**拒绝**掉（而不是让它带着半个凭据跑）。
+ *
+ * @param {object} options
+ * @param {object} options.project the project the run belongs to
+ * @param {object} [options.envProfile] the profile (null → no variables)
+ * @param {object} [options.credentialStore] the credential store
+ * @returns {Promise<{values:object,names:string[],referenced:string[],refused:Array}>}
+ * @throws {Error} with `.code` in `CREDENTIAL_REF_*` or `ENV_VALUE_NOT_RESOLVED`
+ */
+async function prepareRunnerEnvironment({ project, envProfile, credentialStore }) {
+  if (!envProfile) {
+    return { values: {}, names: [], referenced: [], refused: [] };
+  }
+  const envStore_ = envStoreOf(store);
+  const envWhitelist = whitelistForProject(envStore_, project);
+  const envFiltered = filterProfileVariables(envProfile, envWhitelist.names);
+  const resolved = await resolveCredentialRefs(envFiltered.variables, {
+    credentialStore, purpose: 'other',
+  });
+  // Every value that reaches the environment block must be a STRING. A
+  // reference that did not resolve is an OBJECT, and `String()` of it is
+  // `"[object Object]"` -- a silent downgrade that hands the system under
+  // test a bogus token. The refusal happens here, at the choke point.
+  for (const [name, value] of Object.entries(resolved.values)) {
+    if (typeof value === 'string') continue;
+    const error = new Error('ENV_VALUE_NOT_RESOLVED');
+    error.code = 'ENV_VALUE_NOT_RESOLVED';
+    error.variable = name;
+    throw error;
+  }
+  return {
+    values: resolved.values,
+    names: resolved.names,
+    referenced: resolved.referenced,
+    refused: envFiltered.refused,
+  };
+}
+/**
+ * ATS-213: the secrets of the runs that are IN FLIGHT.
+ *
+ * The platform resolved the credential references of these runs, so it
+ * holds their plaintexts -- in MEMORY ONLY. The map is the reason the
+ * platform can redact the secret from everything it writes, and it is
+ * deliberately NOT part of the run record: the record is written to
+ * `state.json`, mirrored into SQLite and served over the API, so a secret
+ * in the record would be a leak on three surfaces at once.
+ *
+ * The entry is deleted when the run ends -- the redaction has happened by
+ * then, and nothing needs the plaintext any more.
+ *
+ * @type {Map<string, {values:string[], stream:object}>}
+ */
+const runSecrets=new Map();
+/**
+ * ATS-213: the REDACTION of one finished run.
+ *
+ * The secrets are the ones the platform resolved for THIS run. They come
+ * from the in-memory map, never from the run record.
+ *
+ * Three surfaces are handled, in this order:
+ *
+ *   1. the run's own LOG and the events -- the platform captured them, so
+ *      it can redact them in place;
+ *   2. the files of the run folder -- the text ones are rewritten, the ZIP
+ *      ones have their text members rewritten, and the HTML report's
+ *      EMBEDDED archive is rebuilt;
+ *   3. the run RECORD's own fields -- the summary and the attempts carry
+ *      the engine's error text, which may quote the injected value.
+ *
+ * @param {object} run the run record
+ * @param {string} folder the run folder
+ * @returns {{active:boolean,files:string[],boundaries:string[],secrets:number}}
+ */
+function redactRunSecrets(run,folder){
+ const held=runSecrets.get(run.id);
+ const secrets=held?.values??[];
+ if(!secrets.length)return {active:false,files:[],boundaries:[],secrets:0};
+ const redactor=createRedactor(secrets);
+ if(!redactor.active)return {active:false,files:[],boundaries:[],secrets:0};
+ const files=[];
+ const boundaries=[];
+ // 1. the run's own LOG and the events.
+ if(typeof run.log==='string'){
+  const redacted=redactor.redactText(run.log);
+  if(redacted!==run.log){run.log=redacted;files.push('run.log');}
+ }
+ if(Array.isArray(run.events)){
+  const text=JSON.stringify(run.events);
+  const redacted=redactor.redactText(text);
+  if(redacted!==text){
+   run.events=JSON.parse(redacted);
+   files.push('events');
+  }
+ }
+ // 2. the files of the run folder.
+ const texts=redactRunFolder(folder,redactor);
+ files.push(...texts.files.map((f)=>`file:${f}`));
+ boundaries.push(...texts.binaries.map((f)=>`file:${f}`));
+ const archives=redactRunArchives(folder,redactor);
+ files.push(...archives.files.map((f)=>`zip:${f}`));
+ boundaries.push(...archives.boundaries.map((f)=>`zip:${f}`));
+ // The HTML report embeds its data as a base64 ZIP: a byte scan of the
+ // HTML file cannot see inside it, so it is decoded, redacted and encoded
+ // again.
+ const htmlFile=path.join(folder,'html','index.html');
+ if(fs.existsSync(htmlFile)){
+  try{
+   const original=fs.readFileSync(htmlFile);
+   const {html,redacted}=redactEmbeddedArchives(original,redactor);
+   if(redacted){fs.writeFileSync(htmlFile,html);files.push('file:html/index.html');}
+  }catch{
+   // A report that cannot be rewritten is a boundary, not a crash.
+   boundaries.push('file:html/index.html');
+  }
+ }
+ // 3. the run record's own fields: the summary and the attempts carry
+ // the engine's error text, which quotes the injected value.
+ const record=JSON.stringify({summary:run.summary??null,attempts:run.attempts??[]});
+ const redactedRecord=redactor.redactText(record);
+ if(redactedRecord!==record){
+  const parsed=JSON.parse(redactedRecord);
+  if(parsed.summary!==undefined)run.summary=parsed.summary;
+  if(parsed.attempts!==undefined)run.attempts=parsed.attempts;
+  files.push('record');
+ }
+ return {active:true,files,boundaries,secrets:redactor.count};
+}
+function startRun(project,run,adapter,envProfile,envVariables){
    const folder=runDir(run.id);fs.mkdirSync(folder,{recursive:true});
    // ATS-208: the events are written BEFORE the status changes, so each
    // event records the status the run is leaving and the stream replays.
@@ -683,7 +962,39 @@ function finishRun(run,code,signal){
    // The variables are the ones the CURRENT WHITELIST permits and the
    // CURRENT reserved list allows (the caller filtered them); the profile
    // itself may still carry more.
-   const sealedEnv=buildRunnerEnv({variables:envVariables??envProfile?.variables??{}});
+   //
+   // ATS-213: the variables arrive ALREADY RESOLVED. There is no fallback
+   // to the profile's own variables: a profile carries credential REFERENCES,
+   // and a reference that reached this point un-resolved would be injected
+   // as `"[object Object]"` -- a silent downgrade that hands the system
+   // under test a bogus token. A caller that has no resolved values passes
+   // none, and the run carries none.
+   // ATS-213: a variable that was REFUSED (a credential reference that
+   // reached this point un-resolved) must not go into the block, and the
+   // run must not start with a half-built environment. The refusal ends
+   // the run with a deterministic code.
+   const refusedVariables=[];
+   const sealedEnv=buildRunnerEnv({variables:envVariables??{}},{
+    onRefused:(names)=>refusedVariables.push(...names),
+   });
+   if(refusedVariables.length){
+    const first=refusedVariables[0];
+    writeEvent(run,EVENT_TYPE.ERROR,{error:'ENV_VALUE_NOT_RESOLVED',variable:first});
+    run.status=RUN_STATUS.ERROR;run.error='ENV_VALUE_NOT_RESOLVED';run.errorHint=`the variable ${first} carries a credential reference that was not resolved`;
+    run.finishedAt=now();saveState(store);return;
+   }
+   // ATS-213: the secrets of THIS run are held in memory, so the platform
+   // can take them out of everything it writes. The values are the ones
+   // that were RESOLVED from the profile's references; a variable that
+   // carries a plain value is not a secret and is not held.
+   const injectedSecrets=Object.values(envVariables??{})
+    .filter((v)=>typeof v==='string'&&v.length>=4);
+   const held={values:injectedSecrets,stream:null};
+   if(injectedSecrets.length){
+    const redactor=createRedactor(injectedSecrets);
+    held.stream=redactor.createStreamRedactor();
+    runSecrets.set(run.id,held);
+   }
    // ATS-106: the preflight of a Playwright run (docs/26-RUNNER-PREFLIGHT.md).
    // It reads the project's installation from the file system -- with the
    // SEALED environment, so the browser registry it checks is the one the
@@ -695,14 +1006,24 @@ function finishRun(run,code,signal){
     if(!preflight.ok){
      const first=preflight.errors[0];
      writeEvent(run,EVENT_TYPE.ERROR,{error:first.code,hint:first.hint,preflight});
-     run.status=RUN_STATUS.ERROR;run.error=first.code;run.errorHint=first.hint;run.finishedAt=now();saveState(store);return;
+     run.status=RUN_STATUS.ERROR;run.error=first.code;run.errorHint=first.hint;run.finishedAt=now();saveState(store);
+     // ATS-214: the batch this run belongs to must not stay `running`.
+     // The run never reached the engine, so there is nothing to wait for,
+     // and a batch that claims to be running for ever is a claim nobody
+     // can verify.
+     if(run.batchUid)finishBatchOf(run,'failed',first.code);
+     return;
     }
    }
    try{handle=adapter.start({project,run,file:run.file,outputDir:folder,env:sealedEnv});}
-  catch(e){
-   writeEvent(run,EVENT_TYPE.ERROR,{error:e.message});
-   run.status=RUN_STATUS.ERROR;run.error=e.message;run.finishedAt=now();saveState(store);return;
-  }
+   catch(e){
+    writeEvent(run,EVENT_TYPE.ERROR,{error:e.message});
+    run.status=RUN_STATUS.ERROR;run.error=e.message;run.finishedAt=now();saveState(store);
+    // ATS-214: same as the preflight failure -- the batch ends with the
+    // reason on the record.
+    if(run.batchUid)finishBatchOf(run,'failed',e.message);
+    return;
+   }
   const cp=handle.child;
   writeEvent(run,EVENT_TYPE.STARTED,{pid:cp.pid,runner:run.runner});
   run.status=RUN_STATUS.RUNNING;run.pid=cp.pid;run.startedAt=now();run.command=[handle.command,...handle.args];
@@ -713,14 +1034,312 @@ function finishRun(run,code,signal){
   if(handle.engineVersion)run.engineVersion=handle.engineVersion;
   jobs.set(run.id,{child:cp,handle});saveState(store);
   for(const stream of [cp.stdout,cp.stderr])stream.on('data',buf=>{
-   const str=buf.toString('utf8');run.log=compactLog((run.log||'')+str);
-   fs.appendFileSync(path.join(folder,'stdout.log'),str);
+  // ATS-213: the child's output is REDACTED on the way in. A test's
+  // ordinary assertion failure prints the injected value ("Received:
+  // \"<the secret>\""), and this stream is the platform's own copy of it.
+  //
+  // The redaction is STREAMING: a secret may be split across two `data`
+  // chunks, so the redactor holds back the text that could still become
+  // a secret (see `safePrefixLength()`).
+  const str=held.stream?held.stream.push(buf.toString('utf8')):buf.toString('utf8');
+  run.log=compactLog((run.log||'')+str);
+  fs.appendFileSync(path.join(folder,'stdout.log'),str);
   });
   cp.on('error',e=>{run.error=e.message;finishRun(run,127,'spawn-error');});
-  cp.on('close',(code,signal)=>finishRun(run,code,signal));
+  cp.on('close',(code,signal)=>{
+   // ATS-213: the held-back tail of the redactor is released when the
+   // stream ends. Without this the last few characters of the child's
+   // output would never be written -- and a secret that ended the stream
+   // would be neither written nor redacted.
+   if(held.stream){
+    const rest=held.stream.flush();
+    if(rest){
+     run.log=compactLog((run.log||'')+rest);
+     fs.appendFileSync(path.join(folder,'stdout.log'),rest);
+    }
+   }
+   finishRun(run,code,signal);
+  });
  }
- function cancelRun(run){
-  const job=jobs.get(run.id);
+ /**
+ * ATS-214: the BATCH chain.
+ *
+ * A selection that spans several files is executed as one run per file,
+ * because the engine takes at most ONE test-file filter (ATS-106's
+ * argument baseline refuses a second positional filter). The runs are
+ * chained: the next file's run starts when the previous one reaches a
+ * terminal status.
+ *
+ * WHY THE CHAIN IS ADVANCED HERE
+ * -------------------------------
+ * The next run must not start while the previous one still holds the
+ * project -- the Bridge refuses a second run of a project that is
+ * already running -- and the end of a run is the one moment at which the
+ * previous run has provably released it. A timer or a poller would have
+ * to guess when the project became free.
+ *
+ * A CANCELLED run stops the chain: the user asked for the run to stop,
+ * and continuing with the next file would run cases the user did not
+ * ask to run any more.
+ *
+ * THE BATCH ALWAYS REACHES A TERMINAL STATUS
+ * ------------------------------------------
+ * A batch that stays `running` for ever is worse than a failed batch: it
+ * is a claim that work is in flight when nothing is, and a reader of
+ * `/api/batches` cannot tell it apart from a batch that really is. So
+ * EVERY path that ends a run without advancing the chain ends the batch
+ * too:
+ *
+ *   * a run that ended in `error` (the preflight failed, the adapter
+ *     threw) -- `finishBatch`;
+ *   * a chain that cannot start its next run -- the batch fails with the
+ *     reason on the record;
+ *   * a bridge that died with a batch in flight -- the batch is marked
+ *     `interrupted` during the recovery.
+ *
+ * The chain's own record is updated as it goes, so a reader can see which
+ * file is running, which files have run and what each of them did.
+ */
+async function advanceBatch(run){
+ if(!run.batchUid)return;
+ const batches=Array.isArray(store.batches)?store.batches:[];
+ const batch=batches.find(b=>b.uid===run.batchUid);
+ if(!batch)return;
+ // The entry of the run that just finished.
+ const entry=batch.runs.find(r=>r.runId===run.id);
+ if(entry)entry.status=run.status;
+ // A cancelled or interrupted run ends the chain.
+ if(run.status===RUN_STATUS.CANCELLED||run.status===RUN_STATUS.INTERRUPTED){
+  batch.status='cancelled';batch.finishedAt=now();saveState(store);return;
+ }
+ // ATS-214: a run that ENDED IN ERROR does not advance the chain -- the
+ // next file would run under the same broken conditions (the engine is
+ // missing, the preflight failed). The batch ends, and the reason is on
+ // the record, so a reader sees WHY the batch stopped.
+ if(run.status===RUN_STATUS.ERROR){
+  finishBatch(batch,'failed',run.error||'the run failed before it could start');
+  return;
+ }
+ const nextIndex=batch.runs.length;
+ const next=batch.groups[nextIndex];
+ if(!next){
+  // The batch is done. Its status follows the runs: a batch whose runs
+  // all passed PASSED, and a batch with a failed run FAILED. The reader
+  // sees one status for the whole batch, and the per-run statuses below
+  // it for the detail.
+  batch.status=batch.runs.every(r=>r.status===RUN_STATUS.PASSED)?'passed':'failed';
+  batch.finishedAt=now();saveState(store);return;
+ }
+ const project=getProject(run.projectId);
+ if(!project){finishBatch(batch,'failed','the project of the batch is gone');return;}
+ // The next run of the batch: the same shape as the first one, with the
+ // next FILE and the group's uids.
+ //
+ // The chain is advanced ASYNCHRONOUSLY, because starting a run now
+ // resolves the environment profile against the CURRENT whitelist (and the
+ // credential store) -- both of which are asynchronous. The caller does not
+ // wait for it: the chain continues on its own, exactly as it did when the
+ // resolution was synchronous.
+ try{
+  const started=await startBatchRun(project,batch,next,nextIndex,run);
+  batch.runs.push({runId:started.id,file:next.file,groupIndex:nextIndex,status:started.status});
+ }catch(e){
+   // A batch that cannot start its next run is REPORTED, not swallowed:
+   // the batch's status says it failed, and the reason is on the record.
+   //
+   // This is where a credential reference that cannot be resolved stops a
+   // batch: the chain does NOT continue with the next file, because the
+   // runs of a batch share one environment and continuing would run the
+   // remaining files without the credential they were supposed to have.
+   //
+   // It is also where a profile that was DELETED after the first run
+   // lands: the batch ends with that reason instead of running the second
+   // file without the profile it was started with.
+   finishBatch(batch,'failed',String(e.message||e));
+  }
+ saveState(store);
+}
+
+/**
+ * ATS-214: end a batch with a status and a reason.
+ *
+ * The one place that writes a batch's terminal status. Every path that
+ * ends a batch goes through it, so a batch always has a `finishedAt`
+ * and a reason -- a batch that stopped without saying why is a dead end
+ * for the reader.
+ */
+function finishBatch(batch,status,error){
+ if(!batch)return;
+ batch.status=status;
+ batch.finishedAt=now();
+ if(error)batch.error=String(error);
+ saveState(store);
+}
+
+/**
+ * ATS-214: end the batch a run belongs to.
+ *
+ * The batch is found by the run's `batchUid`; a run that is not part of
+ * a batch (a single run) simply has no batch to end.
+ *
+ * @param {object} run the run that ended
+ * @param {string} status the terminal status of the batch
+ * @param {string} error why the batch stopped
+ */
+function finishBatchOf(run,status,error){
+ const batches=Array.isArray(store.batches)?store.batches:[];
+ const batch=batches.find(b=>b.uid===run.batchUid);
+ if(!batch)return;
+ // The entry of the run is updated too: the batch's own list of runs
+ // must agree with the run records, or a reader sees a run that is still
+ // `queued` inside a batch that has already failed.
+ const entry=batch.runs.find(r=>r.runId===run.id);
+ if(entry)entry.status=run.status;
+ finishBatch(batch,status,error);
+}
+
+/**
+ * ATS-214: the environment a batch run starts under.
+ *
+ * THE PROFILE IS RESOLVED AGAIN AT EVERY RUN
+ * ------------------------------------------
+ * A batch carries the REFERENCE to the environment profile (`envUid`), never
+ * the profile's values. Every run of the batch resolves that reference
+ * again, at the moment the run starts:
+ *
+ *   * the profile is looked up in the project's OWN profiles, so a profile
+ *     that was DELETED in the meantime is a fact the batch has to face: the
+ *     batch ends with that reason instead of silently running without the
+ *     profile (ATS-212 forbids the silent fallback to "no profile");
+ *   * the variables are filtered by the whitelist that is in force NOW -- the
+ *     same function and the same whitelist source the single-run path uses
+ *     -- so a whitelist that was TIGHTENED after the first run really
+ *     constrains the second one. The whitelist constrains the RUN, not only
+ *     the write;
+ *   * the credential references are resolved against the credential store at
+ *     the moment the run starts, so a secret never travels with the batch
+ *     record either.
+ *
+ * NO VALUE IS EVER WRITTEN INTO THE BATCH RECORD. The record carries the
+ * profile's identifier, its name and its tier -- never the variables' values
+ * -- so `GET /api/batches` cannot serve one.
+ *
+ * @returns {Promise<{profile:object|null, variables:object, names:string[], refused:Array, referenced:Array}>}
+ * @throws {Error} when the profile the batch refers to no longer exists, or
+ *   when a credential reference of the profile cannot be resolved.
+ */
+async function batchRunEnv(project,batch){
+ const ctx=batch.context??{};
+ const envUid=ctx.envUid??null;
+ if(!envUid)return {profile:null,variables:{},names:[],refused:[],referenced:[]};
+ const envStore_=envStoreOf(store);
+ const profile=findProfile(envStore_,projectKeyOf(project),envUid);
+ if(!profile){
+  const e=new Error(`the environment profile of the batch (${envUid}) no longer exists`);
+  e.code='ENV_PROFILE_NOT_FOUND';
+  throw e;
+ }
+ // ATS-213: the batch's environment goes through the SAME choke point as
+ // the single-run path -- the filtering, the resolution of the credential
+ // references and the check that every value is a STRING all happen in
+ // `prepareRunnerEnvironment()`. A second implementation here would be a
+ // second place where the rules could drift, and the batch is exactly the
+ // path where an unresolved reference used to reach the environment block
+ // as `"[object Object]"`.
+ const resolved=await prepareRunnerEnvironment({project,envProfile:profile,credentialStore});
+ return {profile,variables:resolved.values,names:resolved.names,refused:resolved.refused,referenced:resolved.referenced};
+}
+
+/**
+ * ATS-214: start ONE run of a batch.
+ *
+ * It is the same run the single-run path creates -- the same runner
+ * negotiation, the same uid scheme, the same event stream -- with the
+ * file and the group's uids taken from the batch.
+ *
+* THE REQUEST CONTEXT IS INHERITED
+ * -------------------------------
+ * The second file of a batch must run under the SAME conditions as the
+ * first one. The batch therefore carries the request context -- the
+ * environment profile, the pinned runner and the requested capabilities --
+ * and every run of the batch starts with it.
+ *
+ * This is not a convenience: ATS-212 forbids a silent fallback to "no
+ * profile". A batch whose first run went to staging and whose second run
+ * went to the default base URL is exactly that silent fallback, spread
+ * over two runs, and the reader of the run records would have no way to
+ * tell it apart from two deliberate runs.
+ *
+ * THE PROFILE IS NOT INHERITED -- IT IS RESOLVED AGAIN. The batch carries
+ * the profile's REFERENCE, and every run resolves it against the project's
+ * own profiles and the CURRENT whitelist (see `batchRunEnv`). A whitelist
+ * that was tightened after the first run therefore constrains the second
+ * one as well, and a profile that was deleted in the meantime ends the
+ * batch with that reason instead of quietly running without it.
+ *
+ * ATS-213: the batch's runs go through the SAME environment preparation
+ * as the single-run path (`prepareRunnerEnvironment()`) -- the one choke
+ * point where a credential reference is resolved. The profile is looked
+ * up again for every run of the batch, so a reference is resolved for
+ * each of them, and a reference that cannot be resolved REFUSES that run
+ * instead of injecting `"[object Object]"`.
+ *
+ * The batch's runs are ASYNC now: the preparation reads the credential
+ * store. `advanceBatch()` therefore awaits it.
+ *
+ * @returns {Promise<object>} the run record
+ */
+async function startBatchRun(project,batch,group,index,previous){
+ const gitCommit=gitInfo(project.root).commit;
+ const projectUid=projectUidOf(project);
+ const history=store.runs.filter(x=>x.projectId===project.id);
+ const seq=nextRunSeq(history,store.runCounters?.[project.id]??0);
+ store.runCounters=store.runCounters??{};
+ store.runCounters[project.id]=seq;
+ const uid=runUidFor({projectUid,gitCommit,file:group.file,seq});
+ // The runner is chosen the way the FIRST run of the batch chose it: a
+ // PINNED runner must not fall back to another engine (the caller asked
+ // for that engine), and an EXPLICIT capability request that nobody can
+ // satisfy is a refusal, not a silent default.
+ const ctx=batch.context??{};
+ const requested=Array.isArray(ctx.capabilities)&&ctx.capabilities.length?ctx.capabilities:['discover','start','stop','collect'];
+ const pinned=typeof ctx.runner==='string'&&ctx.runner?ctx.runner:null;
+ let chosen;
+ try{
+  chosen=pinned
+   ? selectAdapterOrThrow(project,requested,{preferred:pinned})
+   : selectAdapter(project,requested);
+ }catch(e){
+  if(!(e instanceof AdapterError))throw e;
+  chosen={adapter:getAdapter('playwright'),negotiation:{requested}};
+ }
+ // The selection of THIS run: the uids of the group's cases. The batch
+ // carries the whole selection; each run carries its own part, so "what
+ // ran in this run" and "what was selected in the batch" are both on the
+ // record.
+ const selection={uids:group.uids,cases:batch.cases.filter(c=>group.uids.includes(c.uid)),count:group.count,files:[group.file],groups:[{file:group.file,uids:group.uids,count:group.count}]};
+// ATS-213: the environment of THIS run goes through the SAME choke point
+// as the single-run path (`prepareRunnerEnvironment()`). The batch carries
+// the profile's REFERENCE, the profile is found again for each run, and
+// the credential references are resolved there -- so a reference that
+// cannot be resolved REFUSES the run instead of injecting
+// `"[object Object]"`.
+const envResolved=await batchRunEnv(project,batch);
+const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file:group.file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,batchUid:batch.uid,batchIndex:index,selection,selectionUids:group.uids,
+// ATS-214: the INHERITED context. The run records the environment it
+// ran under exactly like a single run does, so a reader of run #2 can
+// see that it ran under the same profile as run #1 -- and the NAMES of
+// the variables, never their values (ATS-212).
+envUid:envResolved.profile?(envResolved.profile.uid||envResolved.profile.id):null,envName:envResolved.profile?envResolved.profile.name:null,envTier:envResolved.profile?envResolved.profile.environment:null,envVariables:envResolved.names,
+...(envResolved.referenced.length?{envCredentialRefs:envResolved.referenced}:{}),
+...(envResolved.refused.length?{envRefused:envResolved.refused}:{})};
+store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);
+startRun(project,run,chosen.adapter,envResolved.profile,envResolved.variables);
+ return run;
+}
+
+function cancelRun(run){
+   const job=jobs.get(run.id);
   // A run that is ALREADY terminal cannot be stopped: it is over. The old
   // code answered RUN_NOT_ACTIVE for every run without a live job, which
   // covered two very different situations:
@@ -956,13 +1575,71 @@ const server=http.createServer(async(req,res)=>{
   if(action==='source'&&req.method==='PUT'){const b=await body(req);return respond(res,200,writeSource(project,b.file,b.content,b.baseHash));}
   if(action==='run'&&req.method==='POST'){
    if(store.runs.some(x=>x.projectId===project.id&&['running','queued','cancelling'].includes(x.status)))throw new Error('PROJECT_ALREADY_RUNNING');
-   const b=await body(req),file=b.file||null;
+   const b=await body(req);
    // ATS-106: the run request carries only these fields. Anything else --
    // `config`, `project`, `grep`, `args` -- is REFUSED, not ignored: a caller
    // that sent `config` must not believe it took effect.
    const rejected=Object.keys(b&&typeof b==='object'&&!Array.isArray(b)?b:{}).filter(k=>!RUN_REQUEST_FIELDS.has(k));
    if(rejected.length)return err(res,400,'RUN_PARAMETER_NOT_ALLOWED',{rejected});
-   if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');if(file){readSource(project,file);assertSafeTestFilter(file);}
+   if(b.capabilities!==undefined&&!Array.isArray(b.capabilities))return err(res,400,'CAPABILITIES_NOT_AN_ARRAY');
+   // ATS-214: the SELECTION -- the set of cases the user picked.
+   //
+   // The selection is validated against the CATALOGUE before anything is
+   // started, and a selection that names a case the catalogue does not
+   // know is REFUSED. Skipping it would start a run that covers fewer
+   // cases than the user asked for, and the run record would then say it
+   // covered all of them -- the selection would be a claim, not a record.
+   //
+   // The catalogue is read with the SAME discovery the catalogue endpoint
+   // uses, so the selection is validated against the cases the user was
+   // actually looking at.
+   let selection=null;
+   if(b.selection!==undefined&&b.selection!==null){
+    if(!Array.isArray(b.selection))return err(res,400,'SELECTION_NOT_AN_ARRAY');
+    const wanted=[...new Set(b.selection.map(u=>String(u??'')).filter(Boolean))];
+    if(!wanted.length)return err(res,400,'SELECTION_EMPTY');
+    const catalog=await discoverTestsAsync(project,store,store.uidRegistry,{});
+    const known=new Map(catalog.tests.map(t=>[t.uid,t]));
+    const unknown=wanted.filter(u=>!known.has(u));
+    if(unknown.length)return err(res,400,'SELECTION_UNKNOWN_CASE',{unknown});
+    // The snapshot is SELF-CONTAINED: it carries the file, the title and
+    // the line of every selected case, so the run record can be read on
+    // its own -- after the catalogue has changed.
+    const cases=wanted.map(u=>{const t=known.get(u);return {uid:u,file:t.file??'',title:t.title??'',line:Number.isInteger(t.line)?t.line:null};});
+    // The GROUPING BY FILE is part of the selection's meaning: the engine
+    // takes at most ONE test-file filter (ATS-106's argument baseline), so
+    // a selection that spans several files is executed as one run per
+    // file. The groups are recorded so that the run and the selection
+    // agree on how the batch was split.
+    const groups=new Map();
+    for(const c of cases){if(!groups.has(c.file))groups.set(c.file,[]);groups.get(c.file).push(c);}
+    selection={uids:wanted,cases,count:cases.length,files:[...groups.keys()],groups:[...groups.entries()].map(([f,cs])=>({file:f,uids:cs.map(c=>c.uid),count:cs.length}))};
+   }
+   // The FILE of the run. With a selection, the file is NOT the caller's
+   // to choose: the selection decides which file(s) run, and the first
+   // group is the first file of the batch. A caller that sent both a
+   // `file` and a `selection` would otherwise have two sources of truth
+   // for the same thing, and the two could disagree.
+   const file=selection?selection.groups[0].file:(b.file||null);
+   if(file){readSource(project,file);assertSafeTestFilter(file);}
+   // ATS-214: EVERY GROUP OF A BATCH IS VALIDATED BEFORE ANYTHING RUNS.
+   //
+   // The single-file path validates the file it is about to run. A batch
+   // must validate EVERY file it is about to run: otherwise the first
+   // group runs, the second group is refused by the ATS-106 filter check
+   // and the batch dies half-way through -- which is a DIFFERENT answer
+   // for the SAME file depending on whether it was selected alone or
+   // together with another one.
+   //
+   // The refusal is the same code the single-file path uses
+   // (`INVALID_TEST_FILTER`), so the two paths cannot disagree about
+   // what a file name is allowed to be.
+   if(selection&&selection.groups.length>1){
+    for(const group of selection.groups){
+     try{readSource(project,group.file);assertSafeTestFilter(group.file);}
+     catch(e){return err(res,400,e&&e.code?e.code:'INVALID_TEST_FILTER',{file:group.file,reason:e&&e.reason?e.reason:String(e&&e.message||e)});}
+    }
+   }
    // Pick the runner by capability negotiation, not by a hardcoded name. A
    // caller may pin one with `runner`; otherwise the first runner that
    // supports the required operations wins.
@@ -1031,16 +1708,121 @@ const server=http.createServer(async(req,res)=>{
    // runner. A filter (rather than a refusal) is what keeps a tightened
    // whitelist from turning every existing profile into a dead profile: the
    // run still happens, with exactly the variables that are still allowed.
-   const envWhitelist=whitelistForProject(envStore_,project);
-   const envFiltered=envProfile?filterProfileVariables(envProfile,envWhitelist.names):{variables:{},refused:[]};
+   //
+   // ATS-213: the CREDENTIAL REFERENCES of the profile are resolved at the
+   // ONE choke point that every run path passes through
+   // (`prepareRunnerEnvironment()`), which does the filtering, the
+   // resolution and the validation in one place.
+   //
+   // A profile may carry a reference to the system credential store instead
+   // of a secret. The reference is resolved against the store, and the
+   // resolved value goes into the SEALED runner environment -- and into
+   // nothing else. The profile keeps the reference, the run record keeps
+   // the NAMES, and the archive keeps neither.
+   //
+   // A reference that cannot be resolved REFUSES the run: an unresolved
+   // credential means the system under test would be called with a missing
+   // or empty token, which is a worse outcome than not running at all.
+   let envResolved;
+   try{
+    envResolved=await prepareRunnerEnvironment({project,envProfile,credentialStore});
+   }catch(e){
+    // The refusal names the VARIABLE and the REFERENCE, never the secret.
+    return err(res,404,e.code||'CREDENTIAL_REF_RESOLVE_FAILED',{variable:e.variable||null,credentialRef:e.credentialRef||null});
+   }
    // The names of the variables the run carried -- NEVER their values. The
    // run record is archived, mirrored into SQLite and shipped as evidence;
    // a value may be sensitive, a name is what a reader of the run needs.
    // The names are the ones that ACTUALLY reached the runner, so the record
    // does not claim a variable the whitelist took away.
-   const envVarNameList=envFiltered.variables?Object.keys(envFiltered.variables).sort():[];
-   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null,...(envFiltered.refused.length?{envRefused:envFiltered.refused}:{})};
-   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);startRun(project,run,chosen.adapter,envProfile,envFiltered.variables);return respond(res,202,{run});
+   const envVarNameList=envResolved.names?envResolved.names:[];
+   // ATS-214: the SELECTION goes on the run record.
+   //
+   // The record is what makes the selection REPRODUCIBLE: it says which
+   // cases were picked, with their file, title and line, and it says how
+   // the batch was split into per-file runs. A reader can then compare the
+   // selection with the attempts the run produced -- the two are two
+   // independent facts, and `reconcileSelection` is what compares them.
+   //
+   // The run also carries the selection's own uids as `selectionUids`, so
+   // the reconciliation does not have to dig into the nested record.
+// ATS-214: when a selection spans SEVERAL files, it becomes a BATCH --
+   // one run per file. The FIRST run of that batch carries only ITS OWN
+   // GROUP, exactly like every run that follows it.
+   //
+   // It used to carry the WHOLE selection, and that made its card lie:
+   // 「选中但未执行」 listed the cases of the OTHER files, which had not
+   // started yet -- a run cannot be blamed for the cases of a file that
+   // comes after it. The whole selection lives on the BATCH record
+   // (`batch.uids` / `batch.cases` / `batch.groups`), and the batch's own
+   // reconciliation is where 「选了什么、跑了什么」 is compared across all
+   // of its runs.
+   const runSelection=selection&&selection.groups.length>1
+    ?{uids:selection.groups[0].uids,cases:selection.cases.filter(c=>selection.groups[0].uids.includes(c.uid)),count:selection.groups[0].count,files:[selection.groups[0].file],groups:[selection.groups[0]]}
+    :selection;
+   const run={id:uid,uid,seq,projectId:project.id,projectUid,projectName:project.name,file,gitCommit,status:RUN_STATUS.QUEUED,createdAt:now(),startedAt:null,finishedAt:null,eventSeq:0,events:[],log:'',summary:null,artifacts:[],runner:chosen.adapter.kind,capabilities:chosen.negotiation.requested,envUid:envProfile?(envProfile.uid||envProfile.id):null,envVariables:envVarNameList,envName:envProfile?envProfile.name:null,envTier:envProfile?envProfile.environment:null,...(envResolved.referenced.length?{envCredentialRefs:envResolved.referenced}:{}),...(envResolved.refused.length?{envRefused:envResolved.refused}:{}),...(runSelection?{selection:runSelection,selectionUids:runSelection.uids}:{})};
+   store.runs.unshift(run);store.runs=store.runs.slice(0,500);saveState(store);
+   // ATS-214: a selection that spans SEVERAL files is a BATCH. The first
+   // run of the batch is the one that starts here; the rest are chained to
+   // it (see `advanceBatch`).
+   //
+   // THE BATCH IS CREATED BEFORE THE FIRST RUN STARTS.
+   //
+   // The order matters: the first run can fail BEFORE it reaches the
+   // engine (the preflight fails, the adapter throws), and a failure at
+   // that point must end the batch. A batch that is created after the run
+   // has already failed has no batch to end, and the batch stays
+   // `running` for ever -- which is exactly the defect the first
+   // delivery had.
+   let batch=null;
+   if(selection&&selection.groups.length>1){
+batch={uid:`batch_${crypto.randomUUID()}`,projectId:project.id,projectUid,selectionUid:`sel_${crypto.randomUUID()}`,uids:selection.uids,cases:selection.cases,files:selection.files,groups:selection.groups,status:'running',createdAt:now(),runs:[],finishedAt:null,
+    // ATS-214: the REQUEST CONTEXT of the batch. Every run of the batch
+    // starts under it, so the second file runs under the same
+    // environment profile, the same pinned runner and the same
+    // requested capabilities as the first one.
+    //
+    // THE CONTEXT CARRIES THE PROFILE'S REFERENCE, NEVER ITS VALUES.
+    //
+    // The batch record is archived, mirrored into SQLite and shipped as
+    // evidence. A variable's VALUE must not travel with it: the record
+    // names the profile (`envUid`), its name and its tier, and every run
+    // of the batch resolves that reference again -- against the project's
+    // own profiles and the CURRENT whitelist (see `batchRunEnv`).
+    //
+    // That is what makes the whitelist constrain the RUN rather than only
+    // the write: a whitelist that is tightened while the batch is in
+    // flight really removes the variable from the runs that start after
+    // it. And a value that IS in the record would be a value the API
+    // serves on `GET /api/batches` -- which is the leak this task's
+    // acceptance criterion forbids.
+    //
+    // ATS-213: the profile's REFERENCE is also what lets every run of the
+    // batch resolve its credential references again, at the one choke
+    // point (`prepareRunnerEnvironment()`), instead of inheriting the
+    // first run's values.
+    context:{
+     envUid:envProfile?(envProfile.uid||envProfile.id):null,
+     envName:envProfile?envProfile.name:null,
+     envTier:envProfile?envProfile.environment:null,
+     runner:pinned,
+     capabilities:explicit?b.capabilities:null,
+    }};
+    // The batch record is STORED, so the selection survives the bridge:
+    // a reader can ask "which batch was this run part of" and get the
+    // whole selection back, not only the part that has run so far.
+    store.batches=Array.isArray(store.batches)?store.batches:[];
+    store.batches.unshift(batch);store.batches=store.batches.slice(0,200);
+    // The batch is linked to the run that carries the selection, and the
+    // run carries the batch's uid -- the two point at each other, so a
+    // reader who has either one can find the other.
+    batch.runs.push({runId:run.id,file:run.file,groupIndex:0,status:run.status});
+    run.batchUid=batch.uid;
+    run.batchIndex=0;
+    saveState(store);
+   }
+   startRun(project,run,chosen.adapter,envProfile,envResolved.values);
+   return respond(res,202,{run});
   }
   if(action==='lineage'&&req.method==='GET'){
    const dir=path.join(project.root,'.aitest');let requirements=[],links=[];
@@ -1050,6 +1832,44 @@ const server=http.createServer(async(req,res)=>{
   }
  }
  if(p==='/api/runs'&&req.method==='GET')return respond(res,200,{runs:store.runs.map(({log,...r})=>({...r,logLength:log?.length||0}))});
+ // ATS-214: the BATCHES of the bridge. A batch is the record of a selection
+ // that spanned several files: it says which cases were selected, how the
+ // batch was split, and what each of its runs did.
+ //
+ // The endpoint is a READ: a batch is a record, not something that can be
+ // changed after the fact.
+ //
+ // THE RECONCILIATION
+ // ------------------
+ // Each batch carries the answer to 「选了什么、跑了什么」: the selected
+ // uids against the uids the attempts of its runs actually ran. Without
+ // it the per-run card can only report ONE group's cases -- and a card
+ // that says "the selected cases did not all run" for a batch whose
+ // second file has not started yet is a FALSE report.
+ //
+ // The reconciliation is computed from the RUN RECORDS (the facts), not
+ // from the batch's own bookkeeping, so a reader can check it.
+ if(p==='/api/batches'&&req.method==='GET'){
+  const batches=Array.isArray(store.batches)?store.batches:[];
+  const projectId=u.searchParams.get('projectId');
+  const list=projectId?batches.filter(b=>b.projectId===projectId):batches;
+  const withReconciliation=list.map(b=>{
+   const runs=(b.runs??[]).map(entry=>{
+    const run=store.runs.find(x=>x.id===entry.runId);
+    return run?{...entry,runId:run.id,file:run.file,status:run.status,envName:run.envName??null,envUid:run.envUid??null,runner:run.runner??null,selectionUids:run.selectionUids??[]}:entry;
+   });
+   const executed=new Set();
+   for(const entry of runs){
+    const run=store.runs.find(x=>x.id===entry.runId);
+    for(const attempt of (run?.attempts??[]))if(attempt.testUid)executed.add(attempt.testUid);
+   }
+   const selected=new Set(b.uids??[]);
+   const missing=[...selected].filter(x=>!executed.has(x));
+   const extra=[...executed].filter(x=>!selected.has(x));
+   return {...b,runs,reconciliation:{selected:selected.size,executed:executed.size,missing,extra,matches:missing.length===0,exact:missing.length===0&&extra.length===0}};
+  });
+  return respond(res,200,{batches:withReconciliation});
+ }
  const rm=p.match(/^\/api\/runs\/(run_(?:[0-9a-f-]{36}|1_[0-9a-f]{24}))(?:\/(.*))?$/);
  if(rm){const r=getRun(rm[1]),action=rm[2]||'';
   if(action===''&&req.method==='GET')return respond(res,200,{run:r});
@@ -1217,7 +2037,12 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
  }
  if(p==='/api/security/credentials'&&req.method==='GET'){
   // The credential REFERENCES. There is no endpoint that returns a secret.
-  return respond(res,200,{credentials:await credentialStore.list(),provider:credentialStore.provider(),available:await credentialStore.available()});
+  //
+  // `available` is the MEASURED health of the store, not the backend's
+  // prediction about its own files: the helper may be present on disk and
+  // still not answer.
+  const health=await credentialStore.health();
+  return respond(res,200,{credentials:await credentialStore.list(),provider:credentialStore.provider(),available:health.state==='ok',storeHealth:health});
  }
  if(p==='/api/security/credentials'&&req.method==='POST'){
   // Store a secret in the OS credential store. The secret arrives in the
@@ -1230,6 +2055,25 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
  const credRm=p.match(/^\/api\/security\/credentials\/(cred_[0-9a-f]{24})$/);
  if(credRm&&req.method==='GET')return respond(res,200,{credential:await credentialStore.describe(credRm[1])});
  if(credRm&&req.method==='DELETE')return respond(res,200,{credential:await credentialStore.remove(credRm[1])});
+ // --- ATS-213: the credential STATUS surface --------------------------------
+ // The status says whether a stored secret can be fetched RIGHT NOW. It is
+ // measured against the OS credential store, not inferred from the index --
+ // the index and the store drift apart (the user deletes the entry in the
+ // system credential manager, the index keeps the reference), and an
+ // inferred status would report a credential as usable when it is not.
+ //
+ // The response carries the status, the reason code, the fingerprint and the
+ // provider. It NEVER carries a secret, and never a fragment of one.
+ if(p==='/api/security/credentials/status'&&req.method==='GET'){
+  // The `available` flag is the MEASURED health of the store, not the
+  // backend's prediction about its own files. A UI that says 「已就绪」
+  // while every reference reads 「取不到」 is stating something nobody
+  // measured.
+  const health=await credentialStore.health();
+  return respond(res,200,{statuses:await credentialStore.statusAll(),provider:credentialStore.provider(),available:health.state==='ok',storeHealth:health});
+ }
+ const credStatusRm=p.match(/^\/api\/security\/credentials\/(cred_[0-9a-f]{24})\/status$/);
+ if(credStatusRm&&req.method==='GET')return respond(res,200,{status:await credentialStore.status(credStatusRm[1])});
  if(p==='/api/security/egress/preview'&&req.method==='POST'){
   // Step 1 of the informed consent: show the user EXACTLY what would leave.
   // The platform reads the real files and recomputes the digests, so the

@@ -1,6 +1,6 @@
 # ATS-ST-001 システムテスト設計書
 
-> 设计总数：51；已执行通过：27；待执行/未实现：24。**PENDING 不是测试通过**。
+> 设计总数：74；已执行通过：51；待执行/未实现：23。**PENDING 不是测试通过**。
 
 系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。
 
@@ -29,7 +29,7 @@
 |ST-019|NFR-006|性能|大仓库用例索引性能|500 tests / 100 files / SSD|目标 3 秒内（项目目标，待确认）|计时 log|PENDING|
 |ST-020|NFR-007|兼容性|三 OS 便携 UI|Windows/macOS/Linux Node 22+|可启动并导入本地工程|测试记录|PENDING|
 |ST-021|FR-020|兼容性|Next.js 静态构建|npm install 后运行 next build|静态 out 目录，浏览器可用|CI build log|PENDING|
-|ST-022|FR-020|兼容性|Tauri Windows 开发构建|Windows+Rust+WebView2|桌面窗口打开，bridge 连接成功|编译+运行记录|PENDING|
+|ST-022|FR-020|兼容性|Tauri Windows 开发构建|Windows+Rust+WebView2|桌面窗口打开，bridge 连接成功|node tools/ats104-probes/st-ats104.mjs 结果（docs/evidence/ATS-104/）|PASS|
 |ST-023|NFR-009|隐私|数据不自动离开本地|操作工作台并抓包|未主动请求 AI/SaaS endpoints|网络流量|PENDING|
 |ST-024|NFR-011|运行维护|错误信息可用于故障定位|停掉 server、损坏 state、缺 browser|明确错误而非模拟成功|录屏与日志|PENDING|
 |ST-031|FR-027|隐私|密钥入库后不出现在本机可读文件|在真实 Windows 上存入密钥后扫描数据目录与凭据索引|秘密只存在于系统凭据库；索引只有引用与指纹|node tools/ats402-probes/ui-e2e.mjs 结果 + 截图 + trace（docs/evidence/ATS-402/ui/）|PASS|
@@ -59,6 +59,29 @@
 |ST-036|FR-015|异常|归档后被改动的附件|把 trace.zip 改掉后再查|校验报出 changed（应有与实际两个摘要）；工作台仍显示归档时的摘要，还原后重新一致|node tools/ats215-probes/st-ats215.mjs|PASS|
 |ST-037|FR-014|功能|两个界面共用同一份 Trace 定位实现|便携 UI 与 Next 工作台|两者显示同一个 Trace 文件、同一份摘要与同一个时间|node tools/ats215-probes/st-ats215.mjs|PASS|
 |ST-038|FR-014|异常|定位不到 Trace 的用例|没有 trace 的用例|界面显示「定位不到」与原因，不给一条打不开的链接|tests/evidence-workbench.test.mjs（UT 覆盖；界面形态未单独 ST）|PASS（UT）|
+|ST-046|TOOL|可靠性|孤儿检查非恒真（产品变异负控）|在产品源码副本上移除 RunEvent::Exit 里结束 Bridge 的那一段，使关窗后子进程存活|探针在孤儿检查上失败并点名存活进程；未变异的产品仍通过|node tools/ats104-probes/st-ats104.mjs（负控段由 tools/ats104-probes/collect-evidence.sh 驱动）|PASS|
+|ST-ATS213-001|FR-027|功能|存入密钥后界面显示「已配置」|真实 Bridge + 真实 Chromium + 真实 Windows Credential Manager|状态行显示「已配置」与「已从系统凭据库取回」|node tools/ats213-probes/st-ats213.mjs|PASS|
+|ST-ATS213-002|FR-027|异常|从系统凭据库删掉条目后界面显示「未配置」|平台索引仍留着引用（分叉是真实存在的）|状态行显示「未配置」与「系统凭据库里没有这一条」——状态是测出来的，不从索引推断|node tools/ats213-probes/st-ats213.mjs|PASS|
+|ST-ATS213-003|NFR-009|隐私|界面上没有密钥明文|页面正文与状态行|正文既不含完整密钥也不含其前 8 个字符；密钥输入框存入后被清空|node tools/ats213-probes/st-ats213.mjs|PASS|
+|ST-ATS213-004|FR-027|异常|状态接口报出原因码而不是假装成功|条目已被删除时的单条状态查询|status=not-configured、reason=CREDENTIAL_NOT_FOUND|node tools/ats213-probes/st-ats213.mjs|PASS|
+|ST-ATS213-005|FR-027|异常|凭据库不可达时「不可用密钥」的说明逐类计数|Bridge 的 PATH 里没有 PowerShell（真实调用失败）|说明写着「取不到 2」，不出现「全部可用」；每条状态是 unavailable|node tools/ats213-probes/st-credential-status-failures.mjs|PASS|
+|ST-ATS213-006|FR-027|异常|凭据库不可达时不写「已就绪」|同上|凭据库指标写「本机系统凭据库不可用」；GET /status 的 available=false|node tools/ats213-probes/st-credential-status-failures.mjs|PASS|
+|ST-ATS213-007|FR-027|异常|刷新失败后旧状态不冒充当前状态|状态读成功一次，然后 Bridge 停掉再点刷新|旧状态行清空；「可用密钥」为 0；提示条写明上次测得于何时|node tools/ats213-probes/st-credential-status-failures.mjs|PASS|
+|ST-ATS213-008|FR-027|异常|状态读失败时引用照样显示、删除按钮还在|首次加载就拦截状态接口（404）|面板上仍有全部引用行与等量的删除按钮；提示条说「下方只列出引用」是事实|node tools/ats213-probes/st-credential-status-failures.mjs|PASS|
+|ST-ATS213-009|FR-027|功能|凭据引用真的到达了 runner（真实运行）|真实 Windows Credential Manager + 真实 Playwright 运行；档案写引用|被测脚本读到注入的变量（断言 SHA-256 摘要与长度）；档案里留着的永远是引用|node tools/ats213-probes/st-credential-ref.mjs|PASS|
+|ST-ATS213-010|NFR-009|安全|密钥没有落进任何平台文件（真实运行）|同上，扫描数据目录与运行目录|数据目录 0 命中；运行目录里只有摘要没有明文|node tools/ats213-probes/st-credential-ref.mjs|PASS|
+|ST-ATS214-001|FR-005|正常|500 用例的目录在真实浏览器里加载且无报错|真实 Bridge + 真实 Chromium + 静态导出；500 用例 / 50 文件的夹具|500 行用例渲染出来；没有 console error，也没有 page error|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-002|FR-005|可用性|500 用例时用例列表**可见且可点**|同上，视口 1440x900|列表高度 > 0、顶部在视口内、第一条用例在屏幕上且真的点得动（aria-checked 变 true）|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-003|FR-005|性能|500 用例的过滤在预算内（预算事先写明）|同上；逐键输入、标签口径切换、「全选当前」、取消勾选|每次交互 ≤ 100ms，且没有 > 100ms 的 long task；4 倍 CPU 降速的数字只作参考|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-004|FR-005|功能|按标题搜索用例|输入「case 017」|只留下标题含该串的用例（1 条）|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-005|FR-005|功能|标签过滤，且「任一」与「全部」给出不同的结果|勾 @smoke + @api，切口径|「任一」234 条、「全部」34 条——两个口径不同，口径不是装饰|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-006|FR-005|功能|选择映射到用例的 UID|勾选 a1 与 b1|选择栏显示「已选 2 条」；两条的 UID 就是目录里的 UID|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-007|FR-005|异常|已选但离开目录的用例被报出，且运行被阻止|把 b1 从文件里删掉后重读目录|页面出现 role=alert 的提示并点名该 UID；点批量运行只弹提示，**没有**提交任何运行|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-008|FR-005|可用性|切换项目时过滤条件被重置并告知|在 p500 勾 @smoke，再切到 other（2 条、只有 @billing）|列表回到 2/2 条，没有残留的按下芯片，选择栏「已选 0 条」|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-009|FR-005|正常|界面如实说明实际会执行多少条|只勾 a1（a 文件有 3 条）|选择栏「将执行 3 条」、toast「实际执行 3 条」，引擎真的跑了 3 条——三个数字一致|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-010|FR-005|可用性|勾选框键盘可达|真实 Chromium 的 Tab / Space|勾选框是自己的 <button role=checkbox>（不是嵌在 button 里的 span），能拿到焦点，空格能切换|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-011|FR-021|功能|发出去的请求带着**每一个**被勾选的 UID|勾选两个不同文件里的用例，拦截浏览器发出的请求|请求体里的 selection 带着两个 UID（读的是网络上的请求，不是界面自己的算术——只读界面只能证明界面没算错，证明不了它发对了）|node tools/ats214-probes/st-ats214.mjs|PASS|
+|ST-ATS214-012|TOOL|可靠性|交付的代码被变异时测试必须变红（负控）|对 page.tsx 与 server/index.mjs 做 12 个变异（关掉过滤、只发第一个 UID、不渲染警告、不阻止运行、承诺选中条数、不重置过滤、把勾选框放回 button 里、不重新解析环境档案、不整单校验、预检失败不结束批次、批次记录又带上变量值、档案被删也不结束批次）|每个变异都被抓住（界面变异由 ST 抓住，服务端变异由 IT 抓住）；未变异的代码仍然通过|node tools/ats214-probes/mutation-check.mjs|PASS|
 
 ## 进入与退出条件
 

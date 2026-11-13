@@ -1,8 +1,18 @@
 'use client';
-import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import dynamic from 'next/dynamic';
-import {Activity,BookOpen,Box,ChartNoAxesCombined,CheckCircle2,ChevronRight,Clock,Code2,Download,FileCode2,FilePlus2,FileSearch,FolderGit2,GitBranch,GitCommitHorizontal,KeyRound,LayoutDashboard,Layers3,Lock,Network,Play,RefreshCcw,Save,Search,ShieldAlert,Square,Terminal,TestTube2,Trash2,XCircle} from 'lucide-react';
-import {api,downloadArtifact,type Project,type TestDef,type TestCatalog,type Run,type Source,type CredentialRef,type EgressScope,type EgressPreview,type EgressConsent,type SecurityContract,type EgressAuditRecord,type EvidenceMaterial} from '../lib/api';
+import {Activity,BookOpen,Box,ChartNoAxesCombined,CheckCircle2,ChevronRight,Clock,Code2,Download,FileCode2,FilePlus2,FileSearch,FolderGit2,GitBranch,GitCommitHorizontal,Inbox,KeyRound,LayoutDashboard,Layers3,Loader2,Lock,Network,Play,RefreshCcw,Save,Search,ShieldAlert,Square,Terminal,TestTube2,Trash2,TriangleAlert,XCircle} from 'lucide-react';
+import {api,cancellableApi,downloadArtifact,type Project,type TestDef,type TestCatalog,type Run,type Source,type CredentialRef,type CredentialStatus,type EgressScope,type EgressPreview,type EgressConsent,type SecurityContract,type EgressAuditRecord,type EvidenceMaterial,type Batch} from '../lib/api';
+// ATS-111: the WORKBENCH STATE MODEL. The four states -- empty / failed /
+// cancelled / loading -- are defined ONCE, here, and the unit tests assert
+// on them (tests/workbench-state.test.mjs) without a browser. The view
+// below only renders what the model says.
+import {WORKBENCH_STATES,NO_PROJECT_STATE,deriveWorkbenchState,panelState,isTextEntry,hasNativeEnterAction,isComposing,escapeTarget,keyCommandFor,keyboardHelpLines,type WorkbenchStateKind} from '../lib/workbench-state.mjs';
+// ATS-214: the CASE SEARCH / TAG / FILTER / SELECTION module. The SAME
+// module the portable UI imports, so the two interfaces cannot disagree
+// about what the catalogue shows -- and the SET semantics (a search and a
+// filter COMPOSE as an intersection) live in ONE place.
+import {filterCases,describeFilter,tagVocabulary,fileVocabulary,selectionSnapshot,selectionByFile,reconcileSelection,selectionDiffs,plannedExecutions,normalizeTag,TAG_MODE,type CaseFilter} from '../public/case-search.mjs';
 // ATS-216: the QUALITY OVERVIEW module. It lives in `public/` so that the
 // Next workbench and the zero-dependency portable UI import the SAME
 // implementation -- the metrics cannot drift apart between the two UIs.
@@ -22,21 +32,244 @@ const bucketLabel:Record<string,string>={passed:'通过',failed:'失败',flaky:'
 // the module does not know -- a fact it does not have, so it goes into the
 // bucket that claims nothing.
 const runBucketLabel:Record<string,string>={passed:'通过',failed:'失败',cancelled:'已取消',error:'启动失败',interrupted:'被中断',unknown:'未知状态',inFlight:'进行中'};
+// ATS-213: the CREDENTIAL STATUS labels. The three statuses are mutually
+// exclusive and each one gets its OWN word -- a status that is only
+// signalled by colour is not a status a reader can act on
+// (docs/05-UI-UX.md §4). The reason codes are shown too: "取不到" and
+// "没配置" need different actions, and collapsing them into one word would
+// hide that difference.
+const credStatusLabel:Record<string,string>={configured:'已配置',['not-configured']:'未配置',unavailable:'取不到'};
+const credStatusReason:Record<string,string>={CREDENTIAL_FOUND:'已从系统凭据库取回',CREDENTIAL_NOT_FOUND:'系统凭据库里没有这一条',CREDENTIAL_STORE_UNAVAILABLE:'本机系统凭据库不可用',CREDENTIAL_STORE_FAILED:'读取系统凭据库时失败'};
+// ATS-213: the caption under the "不可用密钥" metric.
+//
+// The caption states HOW MANY of each kind there are. It never says
+// 「全部可用」 while a count above zero says otherwise -- a caption that
+// contradicts the number it sits under is worse than no caption, because the
+// reader has to work out which of the two to believe.
+//
+// The counts come from the MEASURED statuses. When the status read failed
+// there are no measured statuses at all, and the caption says so instead of
+// claiming that nothing is wrong.
+function credUnavailableCaption(statuses:CredentialStatus[],failed:boolean):string{
+ if(failed)return '可用状态读取失败，未测得';
+ const notConfigured=statuses.filter(s=>s.status==='not-configured').length;
+ const unavailable=statuses.filter(s=>s.status==='unavailable').length;
+ const usable=statuses.filter(s=>s.status==='configured').length;
+ if(!statuses.length)return '尚无引用';
+ const parts:string[]=[];
+ if(usable)parts.push(`可用 ${usable}`);
+ if(notConfigured)parts.push(`未配置 ${notConfigured}`);
+ if(unavailable)parts.push(`取不到 ${unavailable}`);
+ return parts.join(' · ');
+}
+// ATS-213: the caption under the "凭据库" metric.
+//
+// The store's health is a MEASUREMENT (a real call into the store), not the
+// backend's prediction about its own files. The panel never says 「已就绪」
+// while a reference reads 「取不到」.
+function credStoreCaption(health:{state:string;reason:string}|null,failed:boolean):string{
+ if(failed)return '可用状态读取失败，未测得';
+ if(!health)return '未测得';
+ if(health.state==='ok')return '系统凭据库已就绪（实测）';
+ if(health.state==='unavailable')return '本机系统凭据库不可用';
+ return '系统凭据库调用失败';
+}
 function formatTime(s?:string|null){return s?new Date(s).toLocaleString('zh-CN',{hour12:false}):'—'}
-function stepsOf(src:string){const arr:{line:number,name:string,kind:string}[]=[];src.split('\n').forEach((line,i)=>{
+// ATS-111: the STATE PANEL.
+//
+// The four states are rendered by ONE component, so the four cannot drift
+// apart: the same words, the same icon, the same affordance, wherever the
+// state appears. A state is never signalled by colour alone
+// (docs/05-UI-UX.md §4): every panel carries a LABEL, a DETAIL sentence
+// and a HINT about what the reader can do next.
+//
+// The live region is what tells a screen reader that the state CHANGED --
+// a failure is announced assertively, the other three politely.
+function StatePanel({kind,detail,onRetry,retryLabel}:{kind:WorkbenchStateKind,detail?:string,onRetry?:()=>void,retryLabel?:string}){
+ const s=WORKBENCH_STATES[kind];
+ const Icon=kind==='loading'?Loader2:kind==='error'?TriangleAlert:kind==='cancelled'?Inbox:Inbox;
+ return <div className={'state-panel state-'+kind} role={s.role} aria-live={s.ariaLive} aria-busy={s.busy?'true':'false'} data-state={kind} data-state-token={s.token}>
+  <div className="state-head"><Icon size={16} className={kind==='loading'?'spin':''} aria-hidden="true"/><b>{s.label}</b></div>
+  <p className="state-detail">{detail||s.detail}</p>
+  <p className="state-hint">{s.hint}</p>
+  {onRetry&&<button className="btn secondary small state-retry" onClick={onRetry}><RefreshCcw size={13}/> {retryLabel||'重试'}</button>}
+ </div>;
+}
+// ATS-111: the NO-PROJECT panel. It is a panel like the other four, but it
+// is about the WORKSPACE rather than about a request: there is no project
+// to load a catalogue for. It says so in its own words and points at the
+// action that helps -- importing a project -- instead of talking about a
+// filter that matched nothing.
+function NoProjectPanel({onAddProject}:{onAddProject:()=>void}){
+ return <div className="state-panel state-no-project" role="status" aria-live="polite" aria-busy="false" data-state="no-project" data-state-token={NO_PROJECT_STATE.token}>
+  <div className="state-head"><FolderGit2 size={16} aria-hidden="true"/><b>{NO_PROJECT_STATE.label}</b></div>
+  <p className="state-detail">{NO_PROJECT_STATE.detail}</p>
+  <p className="state-hint">{NO_PROJECT_STATE.hint}</p>
+  <button className="btn primary small state-retry" onClick={onAddProject}><FilePlus2 size={13}/> 添加项目</button>
+ </div>;
+}function stepsOf(src:string){const arr:{line:number,name:string,kind:string}[]=[];src.split('\n').forEach((line,i)=>{
  const kind=/\bexpect\s*\(/.test(line)?'断言':/\.goto\s*\(/.test(line)?'导航':/\.fill\s*\(/.test(line)?'输入':/\.click\s*\(/.test(line)?'点击':/test\.step\s*\(/.test(line)?'步骤组':null;
  if(kind)arr.push({line:i+1,name:line.trim().slice(0,94),kind});
  });return arr;}
+/**
+ * ATS-214: ONE row of the case list.
+ *
+ * WHY IT IS ITS OWN COMPONENT
+ * ---------------------------
+ * The list can hold 500 cases. Ticking one case changes the SELECTION, and
+ * the selection is read by every row (「is this case ticked?」). When the
+ * rows were inlined in the list, a single tick re-rendered ALL 500 of
+ * them -- 500 rows x (2 lucide icons + 4 text nodes + 2 attributes)
+ * re-created, and the interaction's long task grew past the budget the
+ * task writes down (100 ms).
+ *
+ * `React.memo` makes the re-render PROPORTIONAL to the change: ticking one
+ * case re-renders that ONE row, and the other 499 are not touched. The
+ * props are primitives and two STABLE callbacks, so the memo compares
+ * them and skips the rows that did not change.
+ */
+/**
+ * ATS-214: how many cases of ONE FILE the selection record shows.
+ *
+ * The record is grouped by file, and each group shows its first cases.
+ * A bounded list keeps the DOM small when the reader selects hundreds of
+ * cases -- the selection itself is complete either way, because the
+ * SNAPSHOT carries every case, not the rows of this table.
+ */
+const SELECTION_ROWS_PER_FILE=3;
+
+const CaseRow=React.memo(function CaseRow({t,ticked,selected,onToggle,onOpen}:{
+ t:TestDef;ticked:boolean;selected:boolean;
+ onToggle:(uid:string)=>void;onOpen:(test:TestDef)=>void;
+}){
+ return <div className={'file-item '+(selected?'selected':'')}>
+  {/* ATS-214: the pick-box is a REAL `<button role="checkbox">`, not a
+      `<span>` nested inside the row's button.
+      A nested interactive element is not reachable by the keyboard:
+      the browser gives the tab stop to the OUTER button and the inner
+      checkbox can never be focused, so a keyboard reader cannot tick
+      a case at all. The row is a `<div>` now, the pick-box is a
+      button of its own, and the row's click handler is on the TITLE
+      (which is a button too) -- so every control is reachable and
+      every control is a control. */}
+  <PickBox ticked={ticked} uid={t.uid} title={t.title} onToggle={onToggle}/>
+  <CaseTitle t={t} onOpen={onOpen}/>
+ </div>;
+});
+
+/**
+ * The pick-box of ONE row.
+ *
+ * It is a component of its own because the tick state is the ONLY thing
+ * that changes when the reader ticks a case: the title, the file, the
+ * line and the two icons of that row say nothing about the tick. Keeping
+ * them in a separate memoised component means that ticking a case (or
+ * ticking all 500 of them) re-renders 500 tiny buttons instead of 500
+ * rows with 1000 SVG icon components.
+ */
+const PickBox=React.memo(function PickBox({ticked,uid,title,onToggle}:{
+ ticked:boolean;uid:string;title:string;onToggle:(uid:string)=>void;
+}){
+ return <button className={'pick-box'+(ticked?' on':'')} onClick={()=>onToggle(uid)} role="checkbox" aria-checked={ticked} aria-label={`选中 ${title}`} title="选中以批量运行" type="button"/>;
+});
+
+/**
+ * The title of ONE row -- the part that does NOT depend on the tick.
+ *
+ * The two lucide icons and the four text nodes are the expensive half of
+ * a row, and they are the same for every tick state. `React.memo` keeps
+ * them out of the re-render that a tick causes.
+ */
+const CaseTitle=React.memo(function CaseTitle({t,onOpen}:{
+ t:TestDef;onOpen:(test:TestDef)=>void;
+}){
+ return <button className="file-open" onClick={()=>onOpen(t)}>
+  <FileCode2 size={16}/><span><b>{t.title}</b><small>{t.file}:{t.line}</small>{(t.tags&&t.tags.length)?<small className="tag-line">{t.tags.map(x=>'@'+x).join(' ')}</small>:null}<small className="uid-tag">{t.uid}{t.uidStable?'':' ⚠'}</small></span><ChevronRight size={14}/>
+ </button>;
+});
+
 export default function Studio(){
  const [projects,setProjects]=useState<Project[]>([]),[active,setActive]=useState(''),[catalog,setCatalog]=useState<TestCatalog>({tests:[],files:[],warning:'',uidVersion:0,projectUid:''});
  const [runs,setRuns]=useState<Run[]>([]),[runDetail,setRunDetail]=useState<Run|null>(null),[selected,setSelected]=useState<TestDef|null>(null);
  const [source,setSource]=useState<Source|null>(null),[draft,setDraft]=useState(''),[view,setView]=useState<'graph'|'code'>('graph');
- const [tab,setTab]=useState<Tab>('catalog'),[filter,setFilter]=useState(''),[projectPath,setProjectPath]=useState('');
+ const [tab,setTab]=useState<Tab>('catalog'),[projectPath,setProjectPath]=useState('');
+ // ATS-214: the FILTER and the SELECTION of the catalogue.
+ //
+ // The filter is the composition of the independent criteria (a text
+ // query, the tags, the files); the composition itself -- and the SET
+ // semantics of it -- is computed by the shared module, so this component
+ // only chooses the INPUT. The selection is the set of uids the user
+ // picked for the batch run.
+ //
+ // ATS-111's `filter` state (the plain text query of the search box) is
+ // GONE: the query now lives in the shared filter, so the search box and
+ // the tag criterion cannot drift apart. The search box writes into
+ // `caseFilter.query`; the two are the same criterion.
+ const [caseFilter,setCaseFilter]=useState<CaseFilter>({query:'',tags:[],tagMode:TAG_MODE.ANY,files:[],statuses:[]});
+ // ATS-214: the SELECTION BELONGS TO A PROJECT.
+ //
+ // A uid is the identity of a case IN a project, so a selection made in
+ // one project must not be applied to another. The selections are
+ // therefore kept PER PROJECT: the selection of the project on screen is
+ // `selections[active]`, and switching away and back brings the reader's
+ // own selection back -- which is what makes the "the case I ticked has
+ // left the catalogue" case reachable at all.
+ //
+ // The record is {uids, cases}: the uids AND the snapshot of what each
+ // uid named WHEN THE READER TICKED IT. The snapshot is what lets the UI
+ // tell a uid that now names a DIFFERENT case from one that still names
+ // the same one -- a provisional uid is assigned by ORDINAL, so deleting
+ // the case before it shifts the ones after it, and the uid keeps
+ // resolving -- to the wrong case.
+ const [selections,setSelections]=useState<Record<string,{uids:string[],cases:{uid:string,file:string,title:string,line:number|null}[]}>>({});
+ const selectedUids=selections[active]?.uids??[];
+ const [batches,setBatches]=useState<Batch[]>([]);
  const [dialog,setDialog]=useState(false),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const [secContract,setSecContract]=useState<SecurityContract|null>(null),[credentials,setCredentials]=useState<CredentialRef[]>([]);
+ // ATS-213: the AVAILABILITY STATUS of every stored credential. It is a
+ // SEPARATE fetch from the reference list, because it is a different fact:
+ // the list says "this machine remembers this reference", the status says
+ // "the secret can be fetched right now". `credStatusError` keeps the
+ // failure of that fetch -- a status that could not be measured must NOT be
+ // rendered as "not configured", because that would claim a fact nobody
+ // measured.
+ //
+ // `credStatusMeasuredAt` records WHEN the statuses were measured. When a
+ // later read fails, the panel says "last measured at ..." and marks the
+ // rows as STALE -- it does not present a status nobody measured as if it
+ // were the current one, and the stale rows are not counted as usable.
+ const [credStatuses,setCredStatuses]=useState<CredentialStatus[]>([]),[credStatusError,setCredStatusError]=useState(''),[credStatusMeasuredAt,setCredStatusMeasuredAt]=useState<string|null>(null);
+ // ATS-213: the MEASURED health of the credential store. The store's own
+ // prediction about its files is not what the panel shows: the panel shows
+ // what a real call into the store returned.
+ const [credStoreHealth,setCredStoreHealth]=useState<{state:string;reason:string}|null>(null);
  const [consents,setConsents]=useState<EgressConsent[]>([]),[preview,setPreview]=useState<EgressPreview|null>(null);
  const [audit,setAudit]=useState<EgressAuditRecord[]>([]);
  const [keyName,setKeyName]=useState(''),[keySecret,setKeySecret]=useState('');
+ // ATS-111: the LOAD STATE of the catalogue panel. The four states are
+ // named and distinguishable; `catalogueRequest` is the raw outcome and
+ // the MODEL (apps/studio/lib/workbench-state.mjs) decides which of the
+ // four it is. `catalogueAbort` is the handle that lets Escape cancel a
+ // load that is still in flight -- a cancellation is its OWN state, not
+ // a failure and not an empty list.
+ const [catalogueRequest,setCatalogueRequest]=useState<{phase:'idle'|'pending'|'settled'|'failed'|'cancelled',itemCount?:number,error?:string}>({phase:'idle'});
+ // The abort handle is a REF, not state. A function passed to a state
+ // setter is the state's UPDATER: React CALLS it, so `setAbort(fn)`
+ // would have invoked `fn` -- aborting the request the instant it was
+ // made, and storing `undefined` as the new state. The handle is not
+ // state (it never changes what is rendered), so a ref is the right
+ // home for it.
+ // ATS-111: `reloadToken` is what makes 「重新加载」 work. Asking for the
+ // same project again is not a state change, so React does not re-run the
+ // effect and no request is made; the counter changes, so the effect
+ // re-runs and the request is really issued again.
+ const [reloadToken,setReloadToken]=useState(0);
+ const reloadCatalogue=useCallback(()=>setReloadToken(n=>n+1),[]);
+ const catalogueAbort=React.useRef<(()=>void)|null>(null);
+ // ATS-111: the load state of the RUN LIST. The run list is polled, so it
+ // has its own failure mode: a poll that fails must not be confused with
+ // "this project has no runs".
+ const [runsRequest,setRunsRequest]=useState<{phase:'idle'|'pending'|'settled'|'failed',itemCount?:number,error?:string}>({phase:'idle'});
  const [lineage,setLineage]=useState<{requirements:{uid:string,title:string,status?:string}[],links:{from:string,to:string,type?:string}[]}>({requirements:[],links:[]});
  // ATS-216: the scope of the quality overview. `project` is the default;
  // `all` spans every project, `run` is a single run.
@@ -48,20 +281,142 @@ export default function Studio(){
  const [evidenceRunId,setEvidenceRunId]=useState(''),[evidenceMaterial,setEvidenceMaterial]=useState<EvidenceMaterial|null>(null),[evidenceSelected,setEvidenceSelected]=useState(0);
  const notify=(s:string)=>{setMessage(s);setTimeout(()=>setMessage(''),5500)};
  const refresh=useCallback(async()=>{try{
+  setRunsRequest(r=>r.phase==='idle'?{phase:'pending'}:r);
   const [p,r]=await Promise.all([api<{projects:Project[]}>('/api/projects'),api<{runs:Run[]}>('/api/runs')]);setProjects(p.projects);setRuns(r.runs);
+  setRunsRequest({phase:'settled',itemCount:r.runs.length});
   if(!active&&p.projects.length)setActive(p.projects[0].id);
- }catch(e){notify((e as Error).message)}},[active]);
+ }catch(e){setRunsRequest({phase:'failed',error:(e as Error).message});notify((e as Error).message)}},[active]);
  useEffect(()=>{refresh();const t=setInterval(()=>{api<{runs:Run[]}>('/api/runs').then(r=>setRuns(r.runs)).catch(()=>{})},1800);return()=>clearInterval(t)},[refresh]);
- useEffect(()=>{if(!active){setCatalog({tests:[],files:[],warning:'',uidVersion:0,projectUid:''});return;}
-  api<TestCatalog>(`/api/projects/${active}/tests`).then(setCatalog).catch(e=>notify(e.message));
+ // ATS-111: the catalogue load is CANCELLABLE and reports its outcome.
+ //
+ // The request is aborted when the project changes, so the answer of the
+ // project the reader left can never land on the project they are now
+ // looking at -- and the reader is told the load was CANCELLED rather
+ // than being left with a spinner that never resolves.
+ useEffect(()=>{
+  if(!active){setCatalog({tests:[],files:[],warning:'',uidVersion:0,projectUid:''});
+   setCatalogueRequest({phase:'idle'});return;}
+  let cancelled=false;
+  setCatalogueRequest({phase:'pending'});
+  const controller=cancellableApi<TestCatalog>(`/api/projects/${active}/tests`);
+  catalogueAbort.current=controller.abort;
+  controller.promise.then(c=>{if(cancelled)return;setCatalog(c);setCatalogueRequest({phase:'settled',itemCount:c.tests.length});})
+   .catch(e=>{if(cancelled||controller.cancelled())return;
+    setCatalogueRequest({phase:'failed',error:(e as Error).message});notify((e as Error).message);});
   api<typeof lineage>(`/api/projects/${active}/lineage`).then(setLineage).catch(()=>setLineage({requirements:[],links:[]}));
   setSelected(null);setSource(null);
- },[active]);
+  return()=>{cancelled=true;controller.abort();catalogueAbort.current=null;};
+ },[active,reloadToken]);
+ // ATS-111: Escape cancels the load that is in flight. The cancellation
+ // is a state of its own, so the reader can tell it apart from a failure
+ // and from an empty list.
+ const cancelCatalogue=useCallback(()=>{
+  if(catalogueRequest.phase!=='pending')return false;
+  catalogueAbort.current?.();catalogueAbort.current=null;
+  setCatalogueRequest({phase:'cancelled'});return true;
+ },[catalogueRequest.phase]);
  const selectedProject=projects.find(p=>p.id===active),projectRuns=runs.filter(r=>r.projectId===active),live=projectRuns.find(r=>['running','queued','cancelling'].includes(r.status));
- const shown=catalog.tests.filter(t=>`${t.file} ${t.title}`.toLowerCase().includes(filter.toLowerCase()));
+ // ATS-214: the FILTERED catalogue. The composition of the criteria --
+ // and the SET semantics of it -- is the shared module's job; this only
+ // hands it the criteria. The result is a VIEW of the catalogue: the
+ // order is the catalogue's, and the result never holds a case the
+ // catalogue does not have.
+ const shown=useMemo(()=>filterCases(catalog.tests,caseFilter),[catalog.tests,caseFilter]);
+ const filterReport=useMemo(()=>describeFilter(catalog.tests,caseFilter),[catalog.tests,caseFilter]);
+ // The vocabularies: the tags the catalogue actually carries (with their
+ // counts) and the files it spans. A tag nobody carries is not offered --
+ // ticking it would change nothing and look broken.
+ const tagList=useMemo(()=>tagVocabulary(catalog.tests),[catalog.tests]);
+ const fileList=useMemo(()=>fileVocabulary(catalog.tests),[catalog.tests]);
+ // ATS-214: THE FILTERS RESET WITH THE PROJECT.
+ //
+ // When the reader switches projects, the FILTER criterion of the old
+ // project stays active -- and the new project has no such tag, so the
+ // list shows 0 of 2 cases and the chip that would cancel the criterion
+ // is not rendered (the vocabulary of the new project has no such tag).
+ // The reader sees an empty list and no way out of it.
+ //
+ // The filter is therefore RESET on a switch, and the reader is TOLD
+ // that it was: a criterion that vanished without a word is a criterion
+ // the reader will try to use again.
+ //
+ // The SELECTION is NOT reset: it belongs to its project (see
+ // `selections`), so the reader's own ticks come back when the reader
+ // comes back -- and a case that has since left the catalogue is
+ // REPORTED rather than dropped.
+ const [lastProject,setLastProject]=useState('');
+ useEffect(()=>{
+  if(!active){setLastProject('');return;}
+  if(lastProject&&lastProject!==active){
+   const hadFilter=Boolean(caseFilter.query.trim()||caseFilter.tags.length||caseFilter.files.length);
+   setCaseFilter({query:'',tags:[],tagMode:TAG_MODE.ANY,files:[],statuses:[]});
+   if(hadFilter)notify('切换项目：已清空搜索与过滤条件');
+  }
+  if(lastProject!==active)setLastProject(active);
+ },[active,lastProject]);
+ // The SELECTION. It is a set of uids, and the snapshot is what the run
+ // request carries -- self-contained, so the record can be read on its own.
+ //
+ // The snapshot is the one RECORDED AT TICK TIME (the selection's own
+ // record of what each uid named), NOT one recomputed from the current
+ // catalogue: a recomputed snapshot would already agree with the
+ // catalogue, and the difference the UI has to report would disappear.
+ const selection=useMemo(()=>({
+  uids:selectedUids,
+  cases:selections[active]?.cases??[],
+  count:selectedUids.length,
+  files:[...new Set((selections[active]?.cases??[]).map(c=>c.file))],
+  unknown:[],
+ }),[selectedUids,selections,active]);
+ const selectionGroups=useMemo(()=>selectionByFile(selection),[selection]);
+ // ATS-214: the ticked uids as a SET.
+ //
+ // The list asks "is this case ticked?" for EVERY rendered row, and the
+ // answer used to be an `Array.includes` over the ticked uids -- a linear
+ // scan. With 500 rows and 500 ticked uids that is 500 x 500 = 250 000
+ // string comparisons PER RENDER, and the row asked the question TWICE
+ // (once for the class name, once for `aria-checked`), so 500 000.
+ //
+ // A Set answers the same question in O(1): the render becomes linear in
+ // the number of rows, which is what 「500 用例过滤无明显阻塞」 asks for.
+ // The Set is derived from the same array, so it cannot disagree with it.
+ const selectedUidSet=useMemo(()=>new Set(selectedUids),[selectedUids]);
+ // ATS-214: the ticked uids that are NO LONGER in the catalogue. The
+ // selection must map to the UIDs accurately, so a case that left the
+ // catalogue is REPORTED -- and the run is BLOCKED until the reader
+ // decides what to do with it, because submitting it would run fewer
+ // cases than the reader ticked and say nothing about it.
+ //
+ // The snapshot is the selection's OWN record of what each uid named
+ // when the reader ticked it. Without it a uid that now names a
+ // DIFFERENT case (a provisional uid is assigned by ordinal, so
+ // deleting the case before it shifts the ones after it) would look
+ // fine -- the uid resolves, but to the wrong case.
+ const selectionDiff=useMemo(()=>selectionDiffs(catalog.tests,selectedUids,{cases:selections[active]?.cases??[]}),[catalog.tests,selectedUids,selections,active]);
+ // ATS-214: how many cases the run will REALLY execute. The engine runs a
+ // whole file, so the number is the number of cases in the selected files
+ // -- usually more than the number ticked. The UI says this number, so
+ // the toast cannot promise "1 case" while the engine runs 3.
+ const plan=useMemo(()=>plannedExecutions(catalog.tests,selectedUids),[catalog.tests,selectedUids]);
  const stats={passed:projectRuns.filter(r=>r.status==='passed').length,failed:projectRuns.filter(r=>r.status==='failed').length,total:projectRuns.length};
  const currentRun=runDetail && runDetail.projectId===active ? runDetail : projectRuns[0];
  useEffect(()=>{if(currentRun?.id&&tab==='runs')api<{run:Run}>(`/api/runs/${currentRun.id}`).then(r=>setRunDetail(r.run)).catch(()=>{});},[runs,tab,currentRun?.id]);
+ // ATS-214: the BATCHES of the current project.
+ //
+ // The batch is the record of a selection that spanned several files, and
+ // its reconciliation is the answer to 「选了什么、跑了什么」 for the WHOLE
+ // selection -- the per-run card can only report one group's cases, so a
+ // card of the FIRST run of a two-file batch would say "the selected
+ // cases did not all run" while the second file has not even started.
+ //
+ // The batches are fetched with the runs, and they are fetched for the
+ // CURRENT project, so the list is the batches of the project on screen.
+ useEffect(()=>{
+  if(tab!=='runs'||!active)return;
+  let cancelled=false;
+  api<{batches:Batch[]}>(`/api/batches?projectId=${active}`).then(b=>{if(!cancelled)setBatches(b.batches);}).catch(()=>{});
+  return()=>{cancelled=true;};
+ },[tab,active,runs]);
  const loadSecurity=useCallback(async()=>{try{
   const [c,k,g,a]=await Promise.all([
    api<SecurityContract>('/api/security/contract'),
@@ -69,10 +424,155 @@ export default function Studio(){
    api<{consents:EgressConsent[]}>('/api/security/egress/consents'),
    api<{audit:EgressAuditRecord[]}>('/api/security/egress/audit')]);
   setSecContract(c);setCredentials(k.credentials);setConsents(g.consents);setAudit(a.audit);
- }catch(e){notify((e as Error).message)}},[]);
+ }catch(e){notify((e as Error).message)}
+ // ATS-213: the STATUS fetch is SEPARATE from the list fetch. If it fails,
+ // the references are still shown, and the panel says the STATUS could not
+ // be read. Reporting "未配置" for a status nobody measured would be a
+ // fabricated fact -- the worst outcome a status surface can have.
+ //
+ // When the status read FAILS, the previously measured statuses are CLEARED
+ // and the failure is recorded. A stale status shown next to the error note
+ // reads as "this is the current state", and the metric cards would keep
+ // counting it as usable -- a secret that may have been revoked would still
+ // be reported as 可用. The panel reports "last measured at ..." instead.
+ try{
+  const s=await api<{statuses:CredentialStatus[];storeHealth?:{state:string;reason:string}}>('/api/security/credentials/status');
+  setCredStatuses(s.statuses);setCredStatusError('');setCredStatusMeasuredAt(new Date().toISOString());
+  setCredStoreHealth(s.storeHealth??null);
+ }catch(e){
+  setCredStatuses([]);setCredStatusError((e as Error).message);
+ }
+ },[]);
  useEffect(()=>{if(tab==='security')loadSecurity();},[tab,loadSecurity]);
  async function openFile(test:TestDef){setSelected(test);try{const s=await api<Source>(`/api/projects/${active}/source?file=${encodeURIComponent(test.file)}`);setSource(s);setDraft(s.content)}catch(e){notify((e as Error).message)}}
- async function addProject(){setBusy(true);try{const r=await api<{project:Project}>('/api/projects','POST',{path:projectPath});setDialog(false);setProjectPath('');setActive(r.project.id);await refresh();notify('项目添加成功：未修改原仓库')}catch(e){notify((e as Error).message)}finally{setBusy(false)}}
+ async function addProject(){setBusy(true);try{const r=await api<{project:Project}>('/api/projects','POST',{path:projectPath});closeDialog();setProjectPath('');setActive(r.project.id);await refresh();notify('项目添加成功：未修改原仓库')}catch(e){notify((e as Error).message)}finally{setBusy(false)}}
+ // ATS-111: closing the add-project dialog gives the focus BACK to a
+ // button the reader can act on. Without this the focus falls onto the
+ // <body>, and the document-level key commands still work -- but the
+ // reader who just cancelled now has to walk the whole tab order back
+ // to where they were.
+ //
+ // WHERE THE FOCUS GOES, EXACTLY
+ // ----------------------------
+ // It goes to the 「添加项目」 button in the project bar -- NOT to
+ // whichever control opened the dialog. The dialog can be opened from
+ // three places: the project bar's button, the no-project panel's
+ // button, and the welcome screen's button. Restoring the focus to
+ // "the opener" would need the opener to be remembered, and the first
+ // two of those three openers do not survive the dialog's own
+ // re-render reliably.
+ //
+ // The project bar's button is the one that is ALWAYS on screen, so it
+ // is the one the focus goes to. The round-2 review observed the
+ // difference (R2-8) and did not count it as a blocker -- but the code
+ // comment used to claim "the button that opened it", which is not
+ // what the code does. A comment that describes a behaviour the code
+ // does not have is the same class of defect as a help line that
+ // promises a capability the workbench does not have.
+ const closeDialog=useCallback(()=>{
+  setDialog(false);
+  // The focus is restored in a microtask, because the dialog is still
+  // mounted when `setDialog(false)` is called and the browser would
+  // refuse to move the focus onto an element that is about to be
+  // replaced.
+  queueMicrotask(()=>addProjectRef.current?.focus());
+ },[]);
+ // ATS-214: the BATCH run. The selection is sent as the uids of the
+ // picked cases; the Bridge validates them against the catalogue, splits
+ // them by file and chains one run per file. The selection itself is on
+ // the run record, so "what was selected" and "what ran" can be compared
+ // after the fact.
+ //
+ // THE SELECTION MUST MAP TO THE UIDS
+ // -----------------------------------
+ // Before the run is submitted, the selection is checked against the
+ // catalogue: a ticked case that has LEFT the catalogue (it was renamed,
+ // moved or deleted) would be SILENTLY DROPPED by the Bridge's
+ // validation -- the run would cover fewer cases than the reader ticked,
+ // and the record would not say so.
+ //
+ // So the run is BLOCKED while such a case exists, and the reader is
+ // told which one it is. The reader can then drop it (the button) or go
+ // back to the catalogue. What must not happen is a silent drop.
+ //
+ // THE TOAST SAYS WHAT WILL REALLY RUN
+ // -----------------------------------
+ // The engine takes one test-file filter at a time, and a file filter
+ // runs EVERY case of that file. So a selection of 1 case in a file of 3
+ // runs 3 cases. The toast therefore states the number of cases that
+ // will REALLY be executed, and the button says the same before the run
+ // starts. A toast that says "1 个用例" while the engine runs 3 is a
+ // promise the product does not keep.
+ async function runSelection(){if(!active||!selection.uids.length)return;
+  if(selectionDiff.gone.length||selectionDiff.moved.length){
+   const what=selectionDiff.gone.length?`${selectionDiff.gone.length} 条用例已不在目录中（${selectionDiff.gone.join('、')}）`:'';
+   const moved=selectionDiff.moved.length?`${selectionDiff.moved.length} 条用例现在指向了别的用例（${selectionDiff.moved.join('、')}）`:'';
+   notify(`${what}${what&&moved?'；':''}${moved}，请先移除后再运行`);return;}
+  setBusy(true);
+  try{const {run}=await api<{run:Run}>(`/api/projects/${active}/run`,'POST',{selection:selection.uids});
+   setRunDetail(run);setTab('runs');await refresh();
+   const groups=selectionGroups.length;
+   const willRun=plan.willRun||selection.count;
+   const extraNote=willRun>selection.count?`，同文件的其余用例也会执行`:'';
+   notify(groups>1?`已提交批量运行：选中 ${selection.count} 条，实际执行 ${willRun} 条，分 ${groups} 个文件依次执行${extraNote}`:`已提交运行：选中 ${selection.count} 条，实际执行 ${willRun} 条${extraNote}`);
+  }catch(e){notify((e as Error).message)}finally{setBusy(false)}}
+ // The selection helpers. The selection is a SET: ticking a case that is
+ // already ticked removes it, and the order of the ticks is not part of
+ // it. Every change writes the selection of the CURRENT project, so the
+ // selections of two projects cannot be mixed.
+ //
+ // Ticking RECORDS the case: the file, the title and the line of the
+ // case are kept with the uid. That record is what later tells the UI
+ // that a uid now names a DIFFERENT case (a provisional uid is assigned
+ // by ordinal, so deleting the case before it shifts the ones after it,
+ // and the uid keeps resolving -- to the wrong case).
+ function setSelection(next:string[],keep?:{uid:string,file:string,title:string,line:number|null}[]){
+  if(!active)return;
+  const prev=selections[active]?.cases??[];
+  const kept=new Map(prev.map(c=>[c.uid,c]));
+  for(const c of keep??[])kept.set(c.uid,c);
+  // A case that is unticked loses its record too -- it is no longer part
+  // of the selection, so its old identity must not be compared later.
+  const cases=next.map(u=>kept.get(u)).filter((c):c is {uid:string,file:string,title:string,line:number|null}=>Boolean(c));
+  setSelections(s=>({...s,[active]:{uids:next,cases}}));
+ }
+ // ATS-214: the two callbacks the case rows receive are STABLE.
+ //
+ // A memoised row is only skipped when its props did not change, and a
+ // NEW function identity on every render is a changed prop. `toggleSelect`
+ // and `openFile` therefore read what they need through refs, so their
+ // identity never changes -- and the 499 rows that did not change are
+ // really not re-rendered.
+ const catalogRef=useRef(catalog);catalogRef.current=catalog;
+ const selectedUidsRef=useRef(selectedUids);selectedUidsRef.current=selectedUids;
+ const setSelectionRef=useRef(setSelection);setSelectionRef.current=setSelection;
+ const openFileRef=useRef(openFile);openFileRef.current=openFile;
+ const toggleSelect=useCallback((uid:string)=>{
+  const cat=catalogRef.current;
+  const uids=selectedUidsRef.current;
+  const t=cat.tests.find(x=>x.uid===uid);
+  if(uids.includes(uid)){setSelectionRef.current(uids.filter(x=>x!==uid));return;}
+  if(!t)return;
+  setSelectionRef.current([...uids,uid],[{uid:t.uid,file:t.file??'',title:t.title??'',line:Number.isInteger(t.line)?t.line:null}]);
+ },[]);
+ const handleOpenFile=useCallback((test:TestDef)=>{openFileRef.current(test);},[]);
+ function selectAllShown(){
+  const keep=shown.map(t=>({uid:t.uid,file:t.file??'',title:t.title??'',line:Number.isInteger(t.line)?t.line:null}));
+  setSelection([...new Set([...selectedUids,...shown.map(t=>t.uid)])],keep);
+ }
+ function clearSelection(){setSelection([]);}
+ // ATS-214: drop the cases that have LEFT the catalogue (or that now
+ // name a different case). The reader has been told which ones they are;
+ // this is the button that acts on it.
+ function dropGoneSelection(){
+  const bad=new Set([...selectionDiff.gone,...selectionDiff.moved]);
+  setSelection(selectedUids.filter(x=>!bad.has(x)));
+ }
+ // The tag filter: a tag is ticked or not, and the MODE decides what
+ // several ticked tags mean -- "任一" (any of them) or "全部" (all of
+ // them). The mode is shown, so the reader knows which one the list used.
+ function toggleTag(tag:string){setCaseFilter(f=>{const t=normalizeTag(tag);return {...f,tags:f.tags.includes(t)?f.tags.filter(x=>x!==t):[...f.tags,t]};});}
+ function toggleFile(file:string){setCaseFilter(f=>({...f,files:f.files.includes(file)?f.files.filter(x=>x!==file):[...f.files,file]}));}
  async function execute(file:string|null){if(!active)return;try{const {run}=await api<{run:Run}>(`/api/projects/${active}/run`,'POST',{file});setRunDetail(run);setTab('runs');await refresh();notify('已提交到本地 Playwright Runner')}catch(e){notify((e as Error).message)}}
  async function save(){if(!selected||!source)return;try{const r=await api<{hash:string}>(`/api/projects/${active}/source`,'PUT',{file:selected.file,content:draft,baseHash:source.hash});setSource({...source,content:draft,hash:r.hash});notify('已保存至原仓库工作区，未自动 Git commit')}catch(e){notify((e as Error).message)}}
  const steps=useMemo(()=>stepsOf(draft),[draft]);
@@ -108,6 +608,154 @@ export default function Studio(){
    setPreview(null);await loadSecurity();notify('已记录知情授权');
   }catch(e){notify((e as Error).message)}finally{setBusy(false)}}
  async function revokeConsent(id:string){try{await api(`/api/security/egress/consents/${id}`,'DELETE');await loadSecurity();notify('授权已撤销，立即生效')}catch(e){notify((e as Error).message)}}
+ // ATS-111: the CORE FLOW IS COMPLETABLE WITH THE KEYBOARD.
+ //
+ // The four commands the workbench binds are declared in the model
+ // (apps/studio/lib/workbench-state.mjs), and this handler routes the
+ // key event to them:
+ //
+ //   Escape        cancels what is in flight (the catalogue load, the
+ //                  open dialog) -- and says so, instead of leaving a
+ //                  spinner that never resolves;
+ //   Enter         submits what is on screen (the project dialog, the
+ //                  credential form);
+ //   Ctrl+Enter    runs the case that is selected;
+ //   Ctrl+P        moves the focus to the script search.
+ //
+ // A plain Enter inside a TEXT FIELD is left to the browser (it is the
+ // field's own "submit" behaviour), so typing a path and pressing Enter
+ // still submits the form.
+ const searchRef=React.useRef<HTMLInputElement|null>(null);
+ // ATS-111: the element that opened the add-project dialog. When the
+ // dialog closes, the focus goes BACK to it: without that, the focus
+ // falls onto the <body>, and a keyboard reader who then presses Ctrl+P
+ // finds that nothing happens -- and that Esc does not cancel the load
+ // either.
+ const addProjectRef=React.useRef<HTMLButtonElement|null>(null);
+ const runCurrent=useCallback(async()=>{
+  if(!active)return;if(live)return;
+  await execute(selected?.file??null);
+ },[active,live,selected?.file]);
+ const onWorkbenchKey=useCallback((e:KeyboardEvent)=>{
+  const command=keyCommandFor(e);
+  if(!command)return;
+  // The element the key landed on: a TEXT FIELD keeps its own keys.
+  const target=e.target as HTMLElement|null;
+  if(command==='cancel'){
+   // The three things Escape can cancel are NESTED, and the innermost
+   // one wins: the dialog, then the load, then the run. The decision is
+   // the MODEL's (`escapeTarget`), so the order is asserted by the unit
+   // tests and the view only carries it out.
+   //
+   // The RUN is the third one, and it is the one the footer PROMISES:
+   // the help line says 「关闭弹窗，或取消正在进行的加载或运行」, so
+   // pressing Escape during a running test has to stop that test -- the
+   // same endpoint the 「停止运行」 button uses. The round-2 review
+   // rejected the delivery because the help claimed this and the key
+   // did nothing.
+   const target_=escapeTarget({dialogOpen:dialog,loadPending:catalogueRequest.phase==='pending',runActive:Boolean(live)});
+   if(target_==='dialog'){closeDialog();e.preventDefault();return;}
+   if(target_==='load'){if(cancelCatalogue()){e.preventDefault();return;}return;}
+   if(target_==='run'){
+    // The stop is REQUESTED, and the run's final status is decided by
+    // the engine when the process closes -- the same contract as the
+    // 「停止运行」 button.
+    if(live)void api(`/api/runs/${live.id}/stop`,'POST').then(()=>refresh()).catch(err=>notify((err as Error).message));
+    e.preventDefault();return;
+   }
+   return;
+  }
+  if(command==='focus-search'){
+   // The dialog is modal: the focus stays inside it, and the key must
+   // NOT leak to the browser. The round-2 review found that the
+   // handler returned EARLY without preventDefault(), so Ctrl+P fell
+   // through to the browser's own Print command. The key is consumed
+   // here -- the focus simply does not move.
+   if(dialog){e.preventDefault();return;}
+   searchRef.current?.focus();e.preventDefault();return;
+  }
+  if(command==='run-current'){
+   // The dialog is modal: a key pressed in it must not start a run in
+   // the background behind it.
+   if(dialog)return;
+   // A text field keeps its own keys: pressing Ctrl+Enter while
+   // typing a path must not start a run.
+   if(isTextEntry(target))return;
+   void runCurrent();e.preventDefault();return;
+  }
+
+  if(command==='focus-search'){
+   // The dialog is modal: the focus stays inside it, and the key must
+   // NOT leak to the browser. The round-2 review found that the
+   // handler returned EARLY without preventDefault(), so Ctrl+P fell
+   // through to the browser's own Print command. The key is consumed
+   // here -- the focus simply does not move.
+   if(dialog){e.preventDefault();return;}
+   searchRef.current?.focus();e.preventDefault();return;
+  }
+  if(command==='run-current'){
+   // The dialog is modal: a key pressed in it must not start a run in
+   // the background behind it.
+   if(dialog)return;
+   // A text field keeps its own keys: pressing Ctrl+Enter while
+   // typing a path must not start a run.
+   if(isTextEntry(target))return;
+   void runCurrent();e.preventDefault();return;
+  }
+  if(command==='submit'){
+   // A text field keeps its own Enter behaviour.
+   if(isTextEntry(e.target))return;
+   if(dialog&&projectPath){void addProject();e.preventDefault();return;}
+   if(tab==='security'&&keyName&&keySecret){void saveKey();e.preventDefault();return;}
+   if(selected&&source&&draft!==source.content){void save();e.preventDefault();return;}
+  }
+ },[dialog,projectPath,tab,keyName,keySecret,selected,source,draft,catalogueRequest.phase,live,closeDialog,refresh,cancelCatalogue,runCurrent]);
+ // ATS-111: the key commands are bound to the DOCUMENT.
+ //
+ // A handler on the app shell only receives the keys that land inside
+ // it, and the focus is not always inside it: after the page loads, and
+ // after a dialog closes, the focus sits on the <body>. The loading
+ // panel tells the reader 「按 Esc 可以取消这次加载」, so Escape has to
+ // work there -- and Ctrl+P has to move the focus to the search box
+ // from there too.
+ useEffect(()=>{
+  document.addEventListener('keydown',onWorkbenchKey);
+  return()=>document.removeEventListener('keydown',onWorkbenchKey);
+ },[onWorkbenchKey]);
+ // ATS-111: the FOCUS TRAP of the add-project dialog.
+ //
+ // The dialog declares `aria-modal="true"`, which promises the reader
+ // that the rest of the page is not reachable while it is open. Tab
+ // walking into the background breaks that promise: a screen-reader
+ // user would find themselves in the rail behind the dialog.
+ //
+ // The trap keeps the focus inside the dialog and wraps around at both
+ // ends. It is a CAPTURE-phase listener, so it runs before the browser
+ // moves the focus -- which is what makes the wrap-around work.
+ useEffect(()=>{
+  if(!dialog)return;
+  const onKeyDown=(e:KeyboardEvent)=>{
+   if(e.key!=='Tab')return;
+   const modal=document.querySelector('.modal[role="dialog"]');
+   if(!modal)return;
+   const focusable=[...modal.querySelectorAll<HTMLElement>('input,button,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')]
+    .filter(el=>!el.hasAttribute('disabled')&&el.offsetParent!==null);
+   if(!focusable.length)return;
+   const first=focusable[0],last=focusable[focusable.length-1];
+   const active=document.activeElement as HTMLElement|null;
+   if(e.shiftKey){
+    if(active===first||!modal.contains(active)){last.focus();e.preventDefault();}
+   }else if(active===last||!modal.contains(active)){
+    first.focus();e.preventDefault();
+   }
+  };
+  document.addEventListener('keydown',onKeyDown,true);
+  return()=>document.removeEventListener('keydown',onKeyDown,true);
+ },[dialog]);
+ // ATS-111: the state of the catalogue panel, decided by the MODEL.
+ // The panel component renders the ARIA attributes itself, from the same
+ // model, so there is no second copy of them here to drift.
+ const panel=panelState(catalogueRequest,{hasProject:Boolean(active)});
  // ATS-215: the EVIDENCE WORKBENCH. The view is computed by the SHARED
  // module, so the Next workbench and the portable UI locate a trace the
  // same way -- there is one implementation, not two.
@@ -125,29 +773,106 @@ export default function Studio(){
   api<EvidenceMaterial>(`/api/runs/${evidenceRunId}/workbench`).then(m=>{if(!cancelled){setEvidenceMaterial(m);setEvidenceSelected(0);}}).catch(e=>{if(!cancelled)notify((e as Error).message);});
   return()=>{cancelled=true;};
  },[tab,evidenceRunId]);
+ // ATS-111: the workbench root carries the key handler, so the commands
+ // work wherever the focus happens to be. The skip link is the first
+ // focusable element: it lets a keyboard user jump straight to the
+ // content instead of walking the rail.
  return <div className="app-shell">
-  <aside className="rail"><div className="mark"><TestTube2 size={23}/></div>
-   <button title="测试目录" className={tab==='catalog'?'rail-btn active':'rail-btn'} onClick={()=>setTab('catalog')}><Layers3 size={20}/></button>
-   <button title="执行中心" className={tab==='runs'?'rail-btn active':'rail-btn'} onClick={()=>setTab('runs')}><Activity size={20}/></button>
-   <button title="质量概览" className={tab==='quality'?'rail-btn active':'rail-btn'} onClick={()=>setTab('quality')}><ChartNoAxesCombined size={20}/></button>
-   <button title="证据工作台" className={tab==='evidence'?'rail-btn active':'rail-btn'} onClick={()=>setTab('evidence')}><FolderGit2 size={20}/></button>
-   <button title="需求追踪" className={tab==='trace'?'rail-btn active':'rail-btn'} onClick={()=>setTab('trace')}><Network size={20}/></button>
-   <button title="AI 数据安全" className={tab==='security'?'rail-btn active':'rail-btn'} onClick={()=>setTab('security')}><Lock size={20}/></button>
-   <button title="架构和限制" className={tab==='architecture'?'rail-btn active':'rail-btn'} onClick={()=>setTab('architecture')}><Box size={20}/></button>
+  <a className="skip-link" href="#content">跳到主要内容</a>
+  <aside className="rail" role="navigation" aria-label="主导航" data-region="rail"><div className="mark"><TestTube2 size={23}/></div>
+   <button title="测试目录" aria-label="测试目录" aria-current={tab==='catalog'?'page':undefined} className={tab==='catalog'?'rail-btn active':'rail-btn'} onClick={()=>setTab('catalog')}><Layers3 size={20}/></button>
+   <button title="执行中心" aria-label="执行中心" aria-current={tab==='runs'?'page':undefined} className={tab==='runs'?'rail-btn active':'rail-btn'} onClick={()=>setTab('runs')}><Activity size={20}/></button>
+   <button title="质量概览" aria-label="质量概览" aria-current={tab==='quality'?'page':undefined} className={tab==='quality'?'rail-btn active':'rail-btn'} onClick={()=>setTab('quality')}><ChartNoAxesCombined size={20}/></button>
+   <button title="证据工作台" aria-label="证据工作台" aria-current={tab==='evidence'?'page':undefined} className={tab==='evidence'?'rail-btn active':'rail-btn'} onClick={()=>setTab('evidence')}><FolderGit2 size={20}/></button>
+   <button title="需求追踪" aria-label="需求追踪" aria-current={tab==='trace'?'page':undefined} className={tab==='trace'?'rail-btn active':'rail-btn'} onClick={()=>setTab('trace')}><Network size={20}/></button>
+   <button title="AI 数据安全" aria-label="AI 数据安全" aria-current={tab==='security'?'page':undefined} className={tab==='security'?'rail-btn active':'rail-btn'} onClick={()=>setTab('security')}><Lock size={20}/></button>
+   <button title="架构和限制" aria-label="架构和限制" aria-current={tab==='architecture'?'page':undefined} className={tab==='architecture'?'rail-btn active':'rail-btn'} onClick={()=>setTab('architecture')}><Box size={20}/></button>
    <div className="rail-bottom"><span className="live-dot"/></div>
   </aside>
   <div className="main-column">
    <header className="topbar"><div className="brand">AI Test <span>Studio</span><small>LOCAL · 0.1.0</small></div>
-    <div className="top-actions"><span className="chip subdued"><ShieldAlert size={13}/> 本地可信仓库模式</span><button className="icon-btn" onClick={()=>refresh()} title="刷新"><RefreshCcw size={16}/></button></div></header>
-   <section className="projectbar"><div><span className="eyebrow">WORKSPACE</span><select value={active} onChange={e=>setActive(e.target.value)} className="project-select"><option value="">选择测试项目</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+    <div className="top-actions"><span className="chip subdued"><ShieldAlert size={13}/> 本地可信仓库模式</span><button className="icon-btn" onClick={()=>refresh()} title="刷新" aria-label="刷新" data-region="refresh"><RefreshCcw size={16}/></button></div></header>
+   <section className="projectbar" aria-label="工作区"><div><span className="eyebrow">WORKSPACE</span><select value={active} onChange={e=>setActive(e.target.value)} className="project-select" aria-label="选择测试项目" data-region="project-select"><option value="">选择测试项目</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
     {selectedProject&&<div className="repo-meta"><span><GitBranch size={14}/>{selectedProject.git.branch}</span><span><GitCommitHorizontal size={14}/>{selectedProject.git.commit}</span>{selectedProject.git.dirty&&<span className="dirty">未提交修改</span>}</div>}
-    <button className="btn secondary" onClick={()=>setDialog(true)}><FilePlus2 size={15}/> 添加项目</button>
+    <button className="btn secondary" ref={addProjectRef} onClick={()=>setDialog(true)} data-region="add-project"><FilePlus2 size={15}/> 添加项目</button>
    </section>
    <section className="workspace">
-    <aside className="sidebar"><div className="sidebar-head"><div className="eyebrow">EXPLORER</div><h3>{tab==='catalog'?'测试资产':tab==='runs'?'运行记录':tab==='quality'?'质量概览':tab==='evidence'?'证据工作台':tab==='trace'?'需求列表':'模块概览'}</h3></div>
-     {tab==='catalog'&&<><div className="search"><Search size={15}/><input placeholder="查找脚本或测试用例" value={filter} onChange={e=>setFilter(e.target.value)}/></div>
-     <div className="file-list">{shown.map(t=><button key={t.id} className={'file-item '+(selected?.id===t.id?'selected':'')} onClick={()=>openFile(t)}><FileCode2 size={16}/><span><b>{t.title}</b><small>{t.file}:{t.line}</small><small className="uid-tag">{t.uid}{t.uidStable?'':' ⚠'}</small></span><ChevronRight size={14}/></button>)}{!shown.length&&<div className="empty-small">暂无测试用例<br/>请导入已有 Playwright 项目</div>}</div></>}
-     {tab==='runs'&&<div className="file-list">{projectRuns.map(r=><button className={'run-item '+(currentRun?.id===r.id?'selected':'')} key={r.id} onClick={()=>setRunDetail(r)}><span className={'status-dot '+r.status}/><span><b>{r.file||'全部测试'}</b><small>{formatTime(r.createdAt)}</small><small className="uid-tag">{r.uid}</small></span><small>{label[r.status]||r.status}</small></button>)}</div>}
+    <aside className="sidebar" aria-label="资源列表" data-region="sidebar"><div className="sidebar-head"><div className="eyebrow">EXPLORER</div><h3>{tab==='catalog'?'测试资产':tab==='runs'?'运行记录':tab==='quality'?'质量概览':tab==='evidence'?'证据工作台':tab==='trace'?'需求列表':'模块概览'}</h3></div>
+     {tab==='catalog'&&<><div className="search" role="search" data-region="search"><Search size={15}/><input ref={searchRef} placeholder="查找用例名 / 文件 / 标签" aria-label="查找用例名、文件或标签" value={caseFilter.query} onChange={e=>setCaseFilter(f=>({...f,query:e.target.value}))}/></div>
+     {/* ATS-214: the FILTERS. The tag criterion and the file criterion
+         are stated separately, and the mode of the tag criterion is
+         LABELLED -- the reader has to know whether several ticked tags
+         mean "any of them" or "all of them". */}
+     <div className="filter-box">
+      <div className="filter-head"><span className="eyebrow">TAGS</span>
+       {tagList.length>0&&<select value={caseFilter.tagMode} onChange={e=>setCaseFilter(f=>({...f,tagMode:e.target.value as 'any'|'all'}))} className="mode-select" aria-label="多个标签的口径" title="多个标签的口径"><option value="any">任一</option><option value="all">全部</option></select>}
+      </div>
+      <div className="tag-list">{tagList.map(t=><button key={t.tag} className={'tag-chip'+(caseFilter.tags.includes(t.tag)?' on':'')} onClick={()=>toggleTag(t.tag)} aria-pressed={caseFilter.tags.includes(t.tag)} title={`${t.count} 个用例`}><span>@{t.tag}</span><small>{t.count}</small></button>)}</div>
+      {!tagList.length&&<p className="muted" style={{fontSize:10,margin:'4px 0 0'}}>该项目没有标签。Playwright 用 <code>{'{ tag: "@smoke" }'}</code> 声明标签。</p>}
+      {fileList.length>1&&<><div className="filter-head" style={{marginTop:10}}><span className="eyebrow">FILES</span></div>
+      <div className="tag-list">{fileList.map(f=><button key={f.file} className={'tag-chip'+(caseFilter.files.includes(f.file)?' on':'')} onClick={()=>toggleFile(f.file)} aria-pressed={caseFilter.files.includes(f.file)} title={f.file}><span>{f.file}</span><small>{f.count}</small></button>)}</div></>}
+      {/* The criteria are reported SEPARATELY: a reader can see which
+          criterion narrowed the list and by how much. The list alone
+          cannot tell "nothing matched" from "the intersection was
+          empty". */}
+      <div className="filter-report">{filterReport.matched} / {filterReport.total} 条{filterReport.criteria.filter(c=>c.active).map(c=>`${c.kind === 'search' ? '搜索' : c.kind === 'tag' ? '标签' : c.kind === 'file' ? '文件' : '状态'} ${c.kept}`).join(' · ')}</div>
+     </div>
+     {/* ATS-214: the SELECTION. The count, the "select all shown" and the
+         "run the selection" are here, next to the list they act on.
+         The count says BOTH numbers: how many cases are ticked and how
+         many will really be executed (the engine runs a whole file). */}
+     <div className="select-bar" data-region="select-bar">
+      <span>已选 {selection.count} 条{plan.willRun>selection.count?` · 将执行 ${plan.willRun} 条`:''}</span>
+      <button className="link-btn" onClick={selectAllShown} disabled={!shown.length}>全选当前</button>
+      <button className="link-btn" onClick={clearSelection} disabled={!selection.count}>清空</button>
+     </div>
+     {/* ATS-214: a ticked case that has LEFT the catalogue -- or that now
+         names a DIFFERENT case -- is REPORTED, and the run is blocked
+         until it is resolved. The selection must map to the UIDs
+         accurately: a case that silently disappears from the count (or
+         silently re-points at another case) is a selection that no
+         longer says what the reader picked. */}
+     {(selectionDiff.gone.length>0||selectionDiff.moved.length>0)&&<div className="selection-warning" role="alert" data-region="selection-warning">
+      <span>{selectionDiff.gone.length>0&&`已选中的 ${selectionDiff.gone.length} 条用例已不在目录中：${selectionDiff.gone.join('、')}`}{selectionDiff.gone.length>0&&selectionDiff.moved.length>0&&'；'}{selectionDiff.moved.length>0&&`已选中的 ${selectionDiff.moved.length} 条用例现在指向了别的用例：${selectionDiff.moved.join('、')}`}</span>
+      <button className="link-btn" onClick={dropGoneSelection}>移除这些用例</button>
+     </div>}
+     {/* ATS-111: the four states of the catalogue panel. Only ONE of them
+         is shown at a time, and each says something different: the list
+         is empty, the load failed, the load was cancelled, or the load is
+         still running. */}
+     <div className="file-list" data-region="panel" data-catalogue-state={panel?panel.kind:'ready'}>
+     {panel&&panel.kind==='loading'&&<StatePanel kind="loading"/>}
+     {panel&&panel.kind==='error'&&<StatePanel kind="error" detail={catalogueRequest.error?`原因：${catalogueRequest.error}`:undefined} onRetry={reloadCatalogue} retryLabel="重新加载"/>}
+     {panel&&panel.kind==='cancelled'&&<StatePanel kind="cancelled" onRetry={reloadCatalogue} retryLabel="重新加载"/>}
+     {panel&&panel.kind==='empty'&&<StatePanel kind="empty" detail="这个项目里没有可执行的测试用例。" onRetry={reloadCatalogue} retryLabel="重新加载"/>}
+     {panel&&panel.kind==='no-project'&&<NoProjectPanel onAddProject={()=>setDialog(true)}/>}
+     {shown.map(t=><CaseRow key={t.id} t={t} ticked={selectedUidSet.has(t.uid)} selected={selected?.id===t.id} onToggle={toggleSelect} onOpen={handleOpenFile}/>)}
+     {/* The filter matched nothing -- a DIFFERENT fact from "the project has
+         no cases at all", so it is a different message. And it is only
+         shown when there IS a project and a catalogue to filter: without
+         a project the panel says so instead.
+
+         The two lines are SEPARATE elements, not one string with a
+         `<br/>` in it: inside a JSX text literal a `<br/>` is not a tag,
+         so the reader saw the characters `<br/>` on the screen. The
+         round-2 review spotted it (R2-6) as a leftover from ATS-214; it
+         is not a blocker for ATS-111, but it is in the panel this task
+         owns, so it is fixed here. */}
+     {!panel&&!shown.length&&<div className="empty-small">{catalog.tests.length?<><span>没有符合当前条件的用例</span><br/><span>搜索与过滤条件按「交集」叠加</span></>:<span>这个项目里没有可执行的测试用例。</span>}</div>}
+     </div></>}
+     {tab==='runs'&&<div className="file-list" data-region="runs-panel" data-runs-state={runsRequest.phase==='failed'?'error':runsRequest.phase==='pending'&&!runs.length?'loading':!projectRuns.length?'empty':'ready'}>
+     {runsRequest.phase==='failed'&&<StatePanel kind="error" detail={runsRequest.error?`原因：${runsRequest.error}`:undefined} onRetry={()=>refresh()} retryLabel="重新加载"/>}
+     {/* ATS-111: the runs list is POLLED. When a poll FAILS, the rows
+         below are the LAST KNOWN ones, not the current ones -- and the
+         round-2 review observed (R2-7) that they were listed without
+         any mark, so the reader could take a stale run for a current
+         one. The model's `staleData` annotation is now wired to the
+         DOM: the panel carries `data-stale="true"` and the rows say
+         「已过期」. */}
+     {runsRequest.phase==='failed'&&projectRuns.length>0&&<div className="note stale-note" role="status" data-region="runs-stale"><TriangleAlert size={15}/>下面的运行记录是<b>上次读取到的</b>，本次读取失败，不能当作当前状态。</div>}
+     {runsRequest.phase==='pending'&&!runs.length&&<StatePanel kind="loading"/>}
+     {runsRequest.phase==='settled'&&!projectRuns.length&&<StatePanel kind="empty" detail="这个项目还没有运行记录。"/>}
+     {projectRuns.map(r=><button className={'run-item '+(currentRun?.id===r.id?'selected':'')+(runsRequest.phase==='failed'?' stale':'')} data-stale={runsRequest.phase==='failed'?'true':undefined} key={r.id} onClick={()=>setRunDetail(r)}><span className={'status-dot '+r.status}/><span><b>{r.file||'全部测试'}</b><small>{formatTime(r.createdAt)}</small><small className="uid-tag">{r.uid}</small></span><small>{label[r.status]||r.status}{runsRequest.phase==='failed'?' · 已过期':''}</small></button>)}</div>}
      {tab==='quality'&&<><div className="search" style={{padding:'0 12px 10px'}}><select value={qualityScope} onChange={e=>{setQualityScope(e.target.value as 'project'|'all'|'run');if(e.target.value==='run'&&!qualityRunId)setQualityRunId(projectRuns[0]?.id||'');}} className="project-select" style={{fontSize:13,minWidth:0,width:'100%'}}><option value="project">当前项目</option><option value="all">全部项目</option><option value="run">单次运行</option></select></div>
      {qualityScope==='run'&&<div className="file-list">{projectRuns.map(r=><button key={r.id} className={'run-item '+(qualityRunId===r.id?'selected':'')} onClick={()=>setQualityRunId(r.id)}><span className={'status-dot '+r.status}/><span><b>{r.file||'全部测试'}</b><small>{formatTime(r.createdAt)}</small></span><small>{label[r.status]||r.status}</small></button>)}</div>}
      <div className="sidebar-hint">失败、重试与取消分开计数。质量概览页的「原始结果」列出每个数字的来源用例与 attempt。</div></> }
@@ -163,9 +888,38 @@ export default function Studio(){
      {tab==='architecture'&&<div className="sidebar-hint">Git 是唯一脚本来源；SQLite 和远程执行留到后续迭代。v0.1 存储为本地 JSON。</div>}
      <div className="sidebar-footer">{catalog.tests.length} tests · {catalog.files.length} files<br/><span>{selectedProject?.root||'未连接 Git 项目'}</span></div>
     </aside>
-    <main className="content">
-     {tab==='catalog'&&<><div className="section-top"><div><div className="eyebrow">TEST CATALOG / SOURCE OF TRUTH</div><h1>{selected?.title||'测试目录与脚本工作台'}</h1><p>{selected?.file||'在左侧选择一个测试用例，查看可视化步骤与 TypeScript 原始脚本。'}</p></div><div className="button-group"><button className="btn secondary" onClick={()=>execute(null)} disabled={!active||!!live}><Play size={15}/> 运行全部</button><button className="btn primary" onClick={()=>execute(selected?.file||null)} disabled={!active||!!live}><Play size={15}/> {selected?'运行脚本':'执行测试'}</button></div></div>
-     <div className="metric-row"><div className="metric"><span>可管理用例</span><strong>{catalog.tests.length}</strong><small>静态索引 · Git 原生</small></div><div className="metric"><span>成功运行</span><strong>{stats.passed}</strong><small>保留历史证据</small></div><div className="metric"><span>失败运行</span><strong>{stats.failed}</strong><small>可追踪与复现</small></div><div className="metric"><span>累计运行</span><strong>{stats.total}</strong><small>append-only execution</small></div></div>
+    <main className="content" id="content" role="main" tabIndex={-1} aria-label="工作区内容" data-region="content">
+     {tab==='catalog'&&<><div className="section-top"><div><div className="eyebrow">TEST CATALOG / SOURCE OF TRUTH</div><h1>{selected?.title||'测试目录与脚本工作台'}</h1><p>{selected?.file||'在左侧选择一个测试用例，查看可视化步骤与 TypeScript 原始脚本。'}</p></div><div className="button-group">
+      {/* ATS-214: the BATCH run button. It is enabled when cases are
+          picked, and it says how many -- the user can see what is about
+          to run before it runs. */}
+      <button className="btn primary" onClick={runSelection} disabled={!active||!!live||busy||!selection.count} title={selectionGroups.length?`将分 ${selectionGroups.length} 个文件依次执行`:'运行选中的用例'}><Play size={15}/> 批量运行{selection.count?`（${selection.count}）`:''}</button>
+      <button className="btn secondary" onClick={()=>execute(null)} disabled={!active||!!live}><Play size={15}/> 运行全部</button><button className="btn secondary" onClick={()=>execute(selected?.file||null)} disabled={!active||!!live}><Play size={15}/> {selected?'运行脚本':'执行测试'}</button></div></div>
+     <div className="metric-row"><div className="metric"><span>可管理用例</span><strong>{catalog.tests.length}</strong><small>静态索引 · Git 原生</small></div><div className="metric"><span>当前筛选</span><strong>{filterReport.matched}</strong><small>搜索与过滤取交集</small></div><div className="metric"><span>已选中</span><strong>{selection.count}</strong><small>可批量运行</small></div><div className="metric"><span>累计运行</span><strong>{stats.total}</strong><small>append-only execution</small></div></div>
+     {/* ATS-214: the SELECTION RECORD. What was selected, in full, before
+         the run: the cases with their file, title and line, and how the
+         batch is split into runs. This is the same snapshot the run
+         record carries, so the two can be compared. */}
+     {selection.count>0&&<div className="card"><div className="card-title"><Layers3 size={16}/> 已选用例（{selection.count}）· 分 {selectionGroups.length} 个文件执行</div>
+      {/* ATS-214: the selection record is grouped BY FILE, and each group
+          shows its cases in a BOUNDED list.
+          One table row per selected case meant 500 rows (5000+ DOM nodes)
+          the moment the reader ticked everything -- and the browser laid
+          all of them out, which is what pushed the interaction past the
+          response budget the task writes down. The reader does not need
+          500 rows on screen to know what is selected: the FILE and the
+          COUNT are the facts that decide how the batch is split, and the
+          first cases of each file are enough to recognise them. The
+          selection itself stays complete -- it is the SNAPSHOT on the
+          selection record, not the rows of this table. */}
+      <table><thead><tr><th>文件</th><th>条数</th><th>用例</th></tr></thead><tbody>
+       {selectionGroups.map(g=><tr key={g.file}>
+        <td><code className="mono">{g.file}</code></td>
+        <td>{g.count}</td>
+        <td>{(selection.cases.filter(c=>c.file===g.file).slice(0,SELECTION_ROWS_PER_FILE).map(c=><span key={c.uid} className="selection-case"><b>{c.title}</b><code className="mono">{c.uid}</code></span>))}{g.count>SELECTION_ROWS_PER_FILE&&<span className="muted">…其余 {g.count-SELECTION_ROWS_PER_FILE} 条同在选择集合内</span>}</td>
+       </tr>)}
+      </tbody></table>
+      <div className="panel-foot">选择集合是快照：它记下了选中时每条用例的文件、标题与行号，因此即使目录随后变化，这条记录仍可独立阅读。引擎每次只接受一个测试文件过滤参数，所以跨文件的批量运行会按文件依次执行。</div></div>}
      {selected&&source?<div className="editor-panel"><div className="panel-head"><div className="panel-tabs"><button className={view==='graph'?'active':''} onClick={()=>setView('graph')}><Network size={15}/> 流程视图</button><button className={view==='code'?'active':''} onClick={()=>setView('code')}><Code2 size={15}/> 代码视图</button></div><div className="panel-right"><span className="quiet">{draft!==source.content?'● 未保存':'已同步 Git 工作区'}</span><button className="btn small" onClick={()=>setView('code')}><Code2 size={13}/> 编辑</button><button className="btn primary small" onClick={save} disabled={draft===source.content}><Save size={13}/> 保存</button></div></div>
      {view==='graph'?<div className="graph-view"><div className="graph-label">READ ONLY · 语义投影，不覆盖复杂 TS</div>{steps.map((s,i)=><React.Fragment key={i}><div className="flow-node"><span className="step-n">{String(i+1).padStart(2,'0')}</span><div><small>{s.kind} · L{s.line}</small><code>{s.name}</code></div></div>{i<steps.length-1&&<div className="flow-line"/>}</React.Fragment>)}{!steps.length&&<div className="empty-small">此脚本包含复杂或不支持的表达式，请使用代码视图编辑。</div>}</div>:<div className="code-editor"><Monaco height="420px" language="typescript" theme="vs-dark" value={draft} onChange={v=>setDraft(v||'')} options={{minimap:{enabled:false},fontSize:13,wordWrap:'on',automaticLayout:true}}/></div>}
      <div className="panel-foot">当前阶段的流程图为只读投影；复杂 TypeScript 始终由源代码保持完整表达。编辑保存采用 SHA-256 乐观并发检查。</div></div>:<div className="welcome"><div className="welcome-icon"><FolderGit2 size={35}/></div><h2>从 Git 到可视化测试</h2><p>保留已有 Playwright 工程结构。选择项目与脚本后，可以查看步骤、编辑源码、运行用例并收集证据。</p><button className="btn primary" onClick={()=>setDialog(true)}>导入本地 Git 项目</button></div>}
@@ -173,7 +927,40 @@ export default function Studio(){
      {tab==='runs'&&<><div className="section-top"><div><div className="eyebrow">EXECUTION CENTER</div><h1>执行中心</h1><p>保留每次运行的完整状态、错误日志与 Playwright 原始证据。</p></div>{live&&<button className="btn danger" onClick={async()=>{await api(`/api/runs/${live.id}/stop`,'POST');refresh()}}><Square size={14}/> 停止运行</button>}</div>
       {currentRun?<><div className="metric-row"><div className="metric"><span>当前运行</span><strong className="small-value">{label[currentRun.status]||currentRun.status}</strong><small>{currentRun.gitCommit}</small></div><div className="metric"><span>通过</span><strong>{currentRun.summary?.passed??'—'}</strong></div><div className="metric"><span>失败</span><strong>{currentRun.summary?.failed??'—'}</strong></div><div className="metric"><span>总用例</span><strong>{currentRun.summary?.total??'—'}</strong></div></div>
       <div className="split"><div className="card grow"><div className="card-title"><Terminal size={16}/> 实时输出与历史日志</div><pre className="console">{currentRun.log||currentRun.error||'正在等待执行输出…'}</pre></div><div className="card evidence"><div className="card-title"><Download size={16}/> 运行证据</div>{currentRun.artifacts?.length?currentRun.artifacts.map(a=><button key={a.file} className="artifact" onClick={()=>downloadArtifact(currentRun.id,a.file).catch(e=>notify(e.message))}><span>{a.file}</span><small>{Math.ceil(a.size/1024)} KB</small></button>):<p className="muted">测试完成后显示 JSON / HTML / trace.zip / 截图等原始附件。</p>}</div></div>
-      {currentRun.summary?.cases?.length?<div className="card"><div className="card-title"><CheckCircle2 size={16}/> 详细结果</div>{currentRun.summary.cases.map((c,i)=><div key={i} className="result-item"><span className={c.status==='passed'?'ok':'bad'}>{c.status==='passed'?<CheckCircle2 size={16}/>:<XCircle size={16}/>}</span><div><b>{c.title}</b><small>{c.file} · {c.duration}ms · {c.attemptsCount} 次执行</small>{c.error&&<pre>{c.error.slice(0,450)}</pre>}</div></div>)}</div>:null}</>:<div className="welcome"><Activity size={32}/><h2>尚无运行记录</h2><p>从测试目录选择脚本并点击运行。</p></div>}</>}
+      {/* ATS-214: the RECONCILIATION of the selection against what ran.
+          「选了什么、跑了什么，两边对得上」 -- the two facts are compared
+          here, and the difference is shown rather than smoothed away. */}
+      {currentRun.selection&&<div className="card"><div className="card-title"><Layers3 size={16}/> 选择集合与实际执行的对账</div>
+       {(()=>{const executed=(currentRun.attempts??[]).map(a=>a.testUid).filter((u):u is string=>Boolean(u));
+        const r=reconcileSelection({uids:currentRun.selection.uids},executed);
+        return <><table><thead><tr><th>核对项</th><th>数量</th><th>结论</th></tr></thead><tbody>
+        <tr><td>选中用例</td><td>{r.selected}</td><td>运行记录里的选择集合</td></tr>
+        <tr><td>实际执行的用例</td><td>{r.executed}</td><td>本次运行 attempt 绑定的 UID</td></tr>
+        <tr><td>选中但未执行</td><td>{r.missing.length}</td><td className={r.missing.length?'bad':'ok'}>{r.missing.length?'缺失：'+r.missing.join('、'):'无缺失'}</td></tr>
+        <tr><td>执行但未选中</td><td>{r.extra.length}</td><td className={r.extra.length?'warn':'ok'}>{r.extra.length?'多跑：'+r.extra.join('、'):'无多跑'}</td></tr>
+        <tr><td>选择可复现</td><td>—</td><td className={r.matches?'ok':'bad'}>{r.matches?'选中的用例全部执行':'选中的用例未全部执行'}</td></tr>
+        </tbody></table>
+        <div className="panel-foot">选择集合是运行开始时的快照，它与本次运行的 attempt 是两条独立的事实；上表是两者的比对。多跑不破坏「选择集合可复现」——选择集合仍然就是用户选中的那几条——但它必须被看见。</div></>})()}
+      </div>}
+      {currentRun.summary?.cases?.length?<div className="card"><div className="card-title"><CheckCircle2 size={16}/> 详细结果</div>{currentRun.summary.cases.map((c,i)=><div key={i} className="result-item"><span className={c.status==='passed'?'ok':'bad'}>{c.status==='passed'?<CheckCircle2 size={16}/>:<XCircle size={16}/>}</span><div><b>{c.title}</b><small>{c.file} · {c.duration}ms · {c.attemptsCount} 次执行</small>{c.error&&<pre>{c.error.slice(0,450)}</pre>}</div></div>)}</div>:null}</>:<div className="welcome"><Activity size={32}/><h2>尚无运行记录</h2><p>从测试目录选择脚本并点击运行。</p></div>}
+     {/* ATS-214: the BATCH-LEVEL reconciliation. 「选了什么、跑了什么」
+         for the WHOLE selection -- the per-run card above can only report
+         ONE group's cases, so a two-file batch needs this view to answer
+         the question at all. */}
+     {batches.length>0&&<div className="card" data-region="batch-view"><div className="card-title"><Layers3 size={16}/> 批量运行的「选了什么 / 跑了什么」（{batches.length}）</div>
+      <table><thead><tr><th>批次</th><th>状态</th><th>选中</th><th>实际执行</th><th>选中但未执行</th><th>执行但未选中</th><th>结论</th></tr></thead><tbody>
+      {batches.map(b=><tr key={b.uid} data-region="batch-row">
+       <td><code className="mono">{b.uid.slice(0,18)}…</code><br/><small className="muted">{b.files.length} 个文件 · {b.runs.length} 次运行</small></td>
+       <td><span className={b.status==='passed'?'ok':b.status==='running'?'warn':'bad'}>{b.status}</span>{b.error&&<><br/><small className="muted">{b.error}</small></>}</td>
+       <td>{b.reconciliation?.selected??b.uids.length}</td>
+       <td>{b.reconciliation?.executed??'—'}</td>
+       <td className={b.reconciliation?.missing.length?'bad':'ok'}>{b.reconciliation?.missing.length??0}</td>
+       <td className={b.reconciliation?.extra.length?'warn':'ok'}>{b.reconciliation?.extra.length??0}</td>
+       <td className={b.reconciliation?.matches?'ok':'bad'}>{b.reconciliation?(b.reconciliation.matches?'选中的用例全部执行':'选中的用例未全部执行'):'—'}</td>
+      </tr>)}
+      </tbody></table>
+      <div className="panel-foot">一次跨文件的批量运行按文件拆成若干次运行，每次运行只能报告它自己那一组的用例；上表按批次汇总，因此「选中但未执行」是针对整个选择集合的。引擎按文件过滤，会执行该文件的全部用例，所以「执行但未选中」通常不为 0 —— 这是已披露的限制，对账表把它报出来而不是藏起来。</div>
+     </div>}</>}
      {tab==='quality'&&<><div className="section-top"><div><div className="eyebrow">QUALITY OVERVIEW</div><h1>质量概览</h1><p>失败、重试与取消分开计数；每个指标都能核对到原始用例与 attempt。</p></div><div className="button-group"><button className="btn secondary" onClick={()=>refresh()}><RefreshCcw size={15}/> 刷新</button></div></div>
       <div className="metric-row">{qualityCards.map(c=><div className="metric" key={c.key}><span>{c.label}</span><strong>{c.value}</strong><small>{c.subtitle}</small></div>)}</div>
       <div className="card"><div className="card-title"><ChartNoAxesCombined size={16}/> 指标与原始结果核对</div>
@@ -226,12 +1013,52 @@ export default function Studio(){
       </>}</>}
      {tab==='trace'&&<><div className="section-top"><div><div className="eyebrow">QUALITY LINEAGE</div><h1>需求与测试追踪</h1><p>Requirement → Script → Execution → Evidence 的可查询映射。</p></div></div><div className="card"><div className="card-title"><Network size={17}/> 关联矩阵</div><table><thead><tr><th>需求编号</th><th>需求名称</th><th>关联用例</th><th>覆盖情况</th></tr></thead><tbody>{lineage.requirements.map(req=>{const targets=lineage.links.filter(x=>x.from===req.uid).map(x=>x.to);return <tr key={req.uid}><td>{req.uid}</td><td>{req.title}</td><td>{targets.join(', ')||'—'}</td><td>{targets.length?'已建立关联':'待补充'}</td></tr>})}</tbody></table>{!lineage.requirements.length&&<p className="muted">在项目中建立 .aitest/requirements.json 和 traceability.json 后可显示需求关系。</p>}</div></>}
      {tab==='security'&&<><div className="section-top"><div><div className="eyebrow">AI DATA SECURITY</div><h1>AI 数据安全</h1><p>密钥存入系统凭据库；任何项目内容外传前先展示范围并由你确认。</p></div><button className="btn secondary" onClick={loadSecurity}><RefreshCcw size={15}/> 刷新</button></div>
-      <div className="metric-row"><div className="metric"><span>凭据库</span><strong className="small-value">{secContract?.provider||'不可用'}</strong><small>{secContract?'系统凭据库已就绪':'本机没有系统凭据库'}</small></div><div className="metric"><span>已存密钥</span><strong>{credentials.length}</strong><small>本地只保留引用</small></div><div className="metric"><span>有效授权</span><strong>{consents.filter(c=>c.state==='granted').length}</strong><small>到期自动失效</small></div><div className="metric"><span>外传策略</span><strong className="small-value">默认拒绝</strong><small>无授权不外传</small></div></div>
+      <div className="metric-row"><div className="metric"><span>凭据库</span><strong className="small-value" data-region="cred-store-state">{credStoreHealth?.state==='ok'?(secContract?.provider||'可用'):(secContract?.provider||'不可用')}</strong><small data-region="cred-store-caption">{credStoreCaption(credStoreHealth,!!credStatusError)}</small></div><div className="metric"><span>可用密钥</span><strong data-region="cred-configured-count">{credStatusError?0:credStatuses.filter(s=>s.status==='configured').length}</strong><small>共 {credentials.length} 条引用 · 本地只保留引用</small></div><div className="metric"><span>不可用密钥</span><strong data-region="cred-unavailable-count">{credStatusError?0:credStatuses.filter(s=>s.status!=='configured').length}</strong><small data-region="cred-unavailable-caption">{credUnavailableCaption(credStatuses,!!credStatusError)}</small></div><div className="metric"><span>有效授权</span><strong>{consents.filter(c=>c.state==='granted').length}</strong><small>到期自动失效</small></div></div>
       <div className="split"><div className="card grow"><div className="card-title"><KeyRound size={16}/> 密钥存储</div>
        <p className="muted">密钥本体写入<b>系统凭据库</b>；本机索引只保留引用与指纹。没有任何接口会返回密钥原文。</p>
        <div className="panel-right" style={{justifyContent:'flex-start',gap:8,margin:'10px 0'}}><input placeholder="密钥名称" value={keyName} onChange={e=>setKeyName(e.target.value)}/><input placeholder="密钥内容" type="password" value={keySecret} onChange={e=>setKeySecret(e.target.value)}/><button className="btn primary small" onClick={saveKey} disabled={busy||!keyName||!keySecret}><Save size={13}/> 存入</button></div>
-       {credentials.map(c=><div className="result-item" key={c.id}><span className="ok"><Lock size={15}/></span><div><b>{c.name}</b><small>{c.provider} · 指纹 {c.fingerprint} · {c.purpose}</small></div><button className="btn danger small" onClick={()=>removeKey(c.id)}><Trash2 size={13}/> 删除</button></div>)}
-       {!credentials.length&&<p className="muted">尚未存入任何密钥。</p>}
+       {/* ATS-213: the STATUS column. Each stored credential carries exactly
+           one status, measured against the OS credential store. The status is
+           a WORD, not only a colour (docs/05-UI-UX.md §4), and the reason
+           code is spelled out: "未配置" (re-enter the secret) and "取不到"
+           (the store is unreachable) call for different actions. When the
+           status could not be READ, the panel says so instead of guessing a
+           status -- an unmeasured status rendered as "未配置" would be a
+           fabricated fact.
+       */}
+       {/* The REFERENCE LIST is rendered from `credentials` -- the list the
+           bridge reported -- and NOT from the measured statuses. The two
+           are different facts, and a status read that fails must not take
+           the references with it: the references are still there, and the
+           reader still has to be able to delete one. Rendering the list from
+           the statuses would make a failed status read look like "every
+           credential is gone", and would take the delete buttons away. */}
+       {credStatusError&&<div className="note" role="status" data-region="cred-status-error"><TriangleAlert size={15}/>可用状态读取失败：{credStatusError}（下方只列出引用，不代表密钥可用）{credStatusMeasuredAt&&`（上次测得于 ${formatTime(credStatusMeasuredAt)}，现已失效，不计入可用密钥）`}</div>}
+       {credStatuses.map(s=>{const tone=s.status==='configured'?'ok':'bad';
+        return <div className="result-item" key={s.id} data-region="cred-status" data-cred-status={s.status}>
+         <span className={tone}>{s.status==='configured'?<CheckCircle2 size={15}/>:<TriangleAlert size={15}/>}</span>
+         <div><b>{s.name}</b><small>{s.provider} · 指纹 {s.fingerprint} · {s.purpose}</small>
+          <small data-region="cred-status-label"><b className={tone}>{credStatusLabel[s.status]??s.status}</b> · {credStatusReason[s.reason]??s.reason} · 查于 {formatTime(s.checkedAt)}</small></div>
+         <button className="btn danger small" onClick={()=>removeKey(s.id)}><Trash2 size={13}/> 删除</button></div>})}
+       {/* The references WITHOUT a measured status. These are the ones the
+           status read did not cover: either the read failed, or the
+           reference has no status at all. They are listed, they can be
+           deleted, and they are NOT counted as usable.
+
+           They are rows of the SAME panel, so they carry the same region --
+           the note above says 「下方只列出引用」, and that has to be true:
+           the rows below ARE the references, whether or not a status was
+           measured for them. `data-cred-status="unknown"` says what the row
+           is: its status was NOT measured. A row that claimed a measured
+           status would be a fabricated fact.
+       */}
+       {credentials.filter(c=>!credStatuses.some(s=>s.id===c.id)).map(c=>
+        <div className="result-item" key={c.id} data-region="cred-status" data-cred-status="unknown" data-cred-reference="true">
+         <span className="bad"><TriangleAlert size={15}/></span>
+         <div><b>{c.name}</b><small>{c.provider} · 指纹 {c.fingerprint} · {c.purpose}</small>
+          <small data-region="cred-status-label"><b className="bad">状态未测得</b> · 引用在册，可用状态未知</small></div>
+         <button className="btn danger small" onClick={()=>removeKey(c.id)}><Trash2 size={13}/> 删除</button></div>)}
+       {!credentials.length&&!credStatusError&&<p className="muted">尚未存入任何密钥。</p>}
       </div>
       <div className="card evidence"><div className="card-title"><ShieldAlert size={16}/> 数据外传授权</div>
        <p className="muted">流程：<b>预览范围 → 确认 → 授权</b>。范围由平台侧读取真实文件并复算摘要，内容变了授权即失效。</p>
@@ -250,9 +1077,23 @@ export default function Studio(){
      {tab==='architecture'&&<><div className="section-top"><div><div className="eyebrow">DESIGN BASELINE</div><h1>架构与运行边界</h1><p>Git-native · Evidence-driven · Visual-first</p></div></div><div className="architecture"><div className="arch-card"><FolderGit2/><h3>Git / Playwright</h3><p>已有仓库与测试代码是事实来源</p></div><div className="arch-card"><Activity/><h3>Node Runner Bridge</h3><p>本机子进程启动、停止、结果采集</p></div><div className="arch-card"><Clock/><h3>Execution History</h3><p>本地存储运行日志与不可变证据</p></div><div className="arch-card"><BookOpen/><h3>IPA Traceability</h3><p>需求、脚本与执行结果的映射入口</p></div></div><div className="note"><ShieldAlert size={15}/> 安全限制：仅用于可信的本地项目。Node 子进程不是容器沙箱。暂未加入远程执行、RBAC、密钥保险箱或 AI 自动写回。</div></>}
     </main>
    </section>
-   <footer className="bottom-bar"><span><span className="online"/> LOCAL RUNNER · 127.0.0.1:4577</span><span>Git as source · Evidence as record</span></footer>
+   <footer className="bottom-bar"><span><span className="online"/> LOCAL RUNNER · 127.0.0.1:4577</span><span>Git as source · Evidence as record</span>
+   {/* ATS-111: the keyboard help. A shortcut that is not written down is
+       not a shortcut a reader can use, so the bound commands are listed
+       where the reader can see them. */}
+   <details className="kbd-help" data-region="kbd-help"><summary>键盘操作</summary><ul>{keyboardHelpLines().map(l=><li key={l}>{l}</li>)}</ul></details>
+  </footer>
   </div>
-  {dialog&&<div className="overlay" onClick={()=>setDialog(false)}><div className="modal" onClick={e=>e.stopPropagation()}><h2>添加 Playwright 项目</h2><p>填写已有 Git 项目的本地绝对路径。系统不复制项目，也不会自动执行 npm install。</p><input autoFocus value={projectPath} onChange={e=>setProjectPath(e.target.value)} placeholder="C:\\Projects\\MyApp 或 /workspace/my-app"/><div className="modal-actions"><button className="btn secondary" onClick={()=>setDialog(false)}>取消</button><button className="btn primary" disabled={busy||!projectPath} onClick={addProject}>添加项目</button></div></div></div>}
+  {dialog&&<div className="overlay" onClick={()=>setDialog(false)}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="add-project-title" onClick={e=>e.stopPropagation()}><h2 id="add-project-title">添加 Playwright 项目</h2><p>填写已有 Git 项目的本地绝对路径。系统不复制项目，也不会自动执行 npm install。</p>
+   {/* ATS-111: the dialog is a REAL form, so the browser's own "submit
+       the form" behaviour makes Enter work on the path field -- the key
+       a reader presses after typing a path. The form's submit handler
+       calls the same `addProject` the button calls, so the two paths
+       cannot disagree. */}
+   <form onSubmit={e=>{e.preventDefault();void addProject();}}>
+   <input autoFocus aria-label="项目本地绝对路径" value={projectPath} onChange={e=>setProjectPath(e.target.value)} placeholder="C:\\Projects\\MyApp 或 /workspace/my-app"/>
+   <div className="modal-actions"><button type="button" className="btn secondary" onClick={()=>setDialog(false)}>取消</button><button type="submit" className="btn primary" disabled={busy||!projectPath}>添加项目</button></div>
+   </form></div></div>}
   {message&&<div className="toast">{message}</div>}
  </div>
 }

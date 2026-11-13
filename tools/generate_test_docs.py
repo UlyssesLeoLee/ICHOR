@@ -555,7 +555,7 @@ ST=[
 ('ST-019','NFR-006','性能','大仓库用例索引性能','500 tests / 100 files / SSD','目标 3 秒内（项目目标，待确认）','计时 log','PENDING'),
 ('ST-020','NFR-007','兼容性','三 OS 便携 UI','Windows/macOS/Linux Node 22+','可启动并导入本地工程','测试记录','PENDING'),
 ('ST-021','FR-020','兼容性','Next.js 静态构建','npm install 后运行 next build','静态 out 目录，浏览器可用','CI build log','PENDING'),
-('ST-022','FR-020','兼容性','Tauri Windows 开发构建','Windows+Rust+WebView2','桌面窗口打开，bridge 连接成功','编译+运行记录','PENDING'),
+('ST-022','FR-020','兼容性','Tauri Windows 开发构建','Windows+Rust+WebView2','桌面窗口打开，bridge 连接成功','node tools/ats104-probes/st-ats104.mjs 结果（docs/evidence/ATS-104/）','PASS'),
 ('ST-023','NFR-009','隐私','数据不自动离开本地','操作工作台并抓包','未主动请求 AI/SaaS endpoints','网络流量','PENDING'),
 ('ST-024','NFR-011','运行维护','错误信息可用于故障定位','停掉 server、损坏 state、缺 browser','明确错误而非模拟成功','录屏与日志','PENDING'),
 ('ST-031','FR-027','隐私','密钥入库后不出现在本机可读文件','在真实 Windows 上存入密钥后扫描数据目录与凭据索引','秘密只存在于系统凭据库；索引只有引用与指纹','node tools/ats402-probes/ui-e2e.mjs 结果 + 截图 + trace（docs/evidence/ATS-402/ui/）','PASS'),
@@ -821,6 +821,22 @@ ST+=[
 ('ST-038','FR-014','异常','定位不到 Trace 的用例','没有 trace 的用例','界面显示「定位不到」与原因，不给一条打不开的链接','tests/evidence-workbench.test.mjs（UT 覆盖；界面形态未单独 ST）','PASS（UT）'),
 ]
 
+# --- ATS-104: the Tauri 2 Windows desktop shell ---
+#
+# ST-022 is the acceptance criterion of ATS-104 itself:
+#   「Windows 实机完成 cargo tauri dev；关闭窗口后无孤儿窗口」
+# The probe drives the REAL shell: `cargo tauri dev` starts the desktop
+# shell, the WebView2 runtime loads the page, the Bridge the shell spawns
+# answers on the loopback port, and the window is closed FOR REAL (a
+# WM_CLOSE to the main window -- the same message the X button sends) and
+# the process tree is then observed.
+#
+# ST-046 is the probe's self-check, not product coverage: it establishes
+# that the orphan check has teeth, so it carries the 关联要件 column `TOOL`.
+ST+=[
+('ST-046','TOOL','可靠性','孤儿检查非恒真（产品变异负控）','在产品源码副本上移除 RunEvent::Exit 里结束 Bridge 的那一段，使关窗后子进程存活','探针在孤儿检查上失败并点名存活进程；未变异的产品仍通过','node tools/ats104-probes/st-ats104.mjs（负控段由 tools/ats104-probes/collect-evidence.sh 驱动）','PASS'),
+]
+
 # --- ATS-601: the mobile target and session contract ---
 # Appended after every other block, so the lines cited by position
 # (docs/16-BASELINE-ADR.md, tools/check_adr_citations.py) do not move.
@@ -1067,6 +1083,150 @@ IT+=[
 ('IT-SEC-025', 'FR-027', '安全', '并发写凭据保持索引与凭据库一致（真实凭据库）', '三个并发同名 POST', '1 个 201、2 个 CREDENTIAL_DUPLICATE；索引 1 条', 'node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)', 'PASS'),
 ('IT-SEC-026', 'FR-027', '异常', '凭据库条目消失后可删除；写失败为 503（真实凭据库）', 'cmdkey 删除后 DELETE；3000 字节密钥', '200 且引用清掉；503 CREDENTIAL_STORE_FAILED', 'node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)', 'PASS'),
 ]
+
+# --- ATS-213: the credential STATUS surface ---------------------------------
+# The status says whether a stored secret can be fetched RIGHT NOW. It is
+# measured against the OS credential store -- not inferred from the index,
+# which drifts apart from the store.
+#
+# These rows live in the GENERATOR, not only in docs/07~09: those documents
+# are generated, so a row added only to the generated file is wiped by the
+# next regeneration -- and a test case that exists only in the generated
+# document is a test case that does not exist.
+UT+=[
+('UT-ATS213-001', 'FR-027', '正常', '状态词汇表是三值闭集', 'CREDENTIAL_STATUSES / CREDENTIAL_STATUS_REASONS', '恰为 configured / not-configured / unavailable 与 4 个原因码；没有「未知」这个状态', 'node --test', 'PASS'),
+('UT-ATS213-002', 'FR-027', '正常', '已存入的凭据读回为 configured', '注入的内存凭据库', 'status=configured、reason=CREDENTIAL_FOUND、带 checkedAt', 'node --test', 'PASS'),
+('UT-ATS213-003', 'FR-027', '安全', '状态里没有密钥也没有密钥片段', '注入的内存凭据库', '序列化后不含密钥；无 secret 字段；指纹 8 位十六进制', 'node --test', 'PASS'),
+('UT-ATS213-004', 'FR-027', '异常', '凭据库条目消失而索引仍留着引用 → not-configured', '从注入的凭据库里删掉条目', 'status=not-configured、reason=CREDENTIAL_NOT_FOUND；名称与指纹仍在（它们是索引的事实）', 'node --test', 'PASS'),
+('UT-ATS213-005', 'FR-027', '异常', '凭据库读不出来 → unavailable，不与 not-configured 合并', '读取抛 CREDENTIAL_STORE_FAILED', 'status=unavailable、reason=CREDENTIAL_STORE_FAILED', 'node --test', 'PASS'),
+('UT-ATS213-006', 'FR-027', '异常', '后端不可达 → unavailable + 自己的原因码', 'available() 返回 false', 'status=unavailable、reason=CREDENTIAL_STORE_UNAVAILABLE', 'node --test', 'PASS'),
+('UT-ATS213-007', 'FR-027', '边界', '凭据库读回来是空的 → unavailable，不算 configured', '读回空字符串', 'status=unavailable、reason=CREDENTIAL_STORE_FAILED', 'node --test', 'PASS'),
+('UT-ATS213-008', 'FR-027', '异常', '未知 id 的状态被拒，不猜', '未知 id 与非法 id', '均抛 CREDENTIAL_NOT_FOUND', 'node --test', 'PASS'),
+('UT-ATS213-009', 'FR-027', '正常', '每条引用恰有一个状态', '一条可用 + 一条条目已消失', '两条都在列表里，各有一个落在闭集内的状态与原因码', 'node --test', 'PASS'),
+('UT-ATS213-010', 'FR-027', '边界', '一条坏的不让整个清单变成错误', '一条可读失败', '两条都有状态；不是「全坏了」', 'node --test', 'PASS'),
+('UT-ATS213-011', 'FR-027', '正常', '状态词汇表进契约描述', 'describeCredentialStore', 'statuses 与 statusReasons 都在契约里', 'node --test', 'PASS'),
+('UT-ATS213-012', 'FR-027', '边界', '原因映射把「条目不在」与「读失败」分开', '各类 CREDENTIAL_* 错误与未知错误', 'NOT_FOUND / UNAVAILABLE 各自归位；未知错误归 CREDENTIAL_STORE_FAILED，绝不归「条目不在」', 'node --test', 'PASS'),
+('UT-ATS213-013', 'FR-027', '异常', '遍历中被删除的引用不让整张清单变成错误', 'statusAll() 走到一半时并发 DELETE 一条引用', '清单不抛错；存活的两条各有 configured 状态（清单基于同一份索引快照）', 'node --test', 'PASS'),
+('UT-ATS213-014', 'FR-027', '异常', '索引里 id 不合规的条目单独得到一个状态', '索引里塞一条 id=cred_LEGACY 的记录', '整张清单不抛错；该条是 unavailable + CREDENTIAL_STORE_FAILED；好的一条仍是 configured', 'node --test', 'PASS'),
+('UT-ATS213-015', 'FR-027', '异常', '凭据库的「可用」是实测的，不是文件在不在推断的', 'helper 存在但调用失败的后端', 'health().state=failed；available()（预测）仍是 true——两者是两个事实', 'node --test', 'PASS'),
+('UT-ATS213-016', 'FR-027', '正常', '凭据库回答了就是健康的', '探测报「没有这一条」（证明它答了）', 'health().state=ok', 'node --test', 'PASS'),
+('UT-ATS213-017', 'FR-027', '异常', '本机没有可用的凭据库', '后端报告自己不可用', 'health().state=unavailable、reason=CREDENTIAL_STORE_UNAVAILABLE', 'node --test', 'PASS'),
+]
+IT+=[
+('IT-ATS213-001', 'FR-027', '安全', '状态接口需要会话 token', '无 X-ATS-Token', '401', 'node --test', 'PASS'),
+('IT-ATS213-002', 'FR-027', '正常', '状态清单经 HTTP 给出，每条恰有一个状态', 'GET /api/security/credentials/status', '200；每条 status 落在三值闭集内、带原因码、指纹 8 位、无 secret 字段', 'node --test', 'PASS'),
+('IT-ATS213-003', 'FR-027', '正常', '契约宣告状态词汇表', 'GET /api/security/contract', 'statuses 与 statusReasons 都在', 'node --test', 'PASS'),
+('IT-ATS213-004', 'FR-027', '异常', '未知凭据 id 的状态被拒', 'GET /api/security/credentials/<未知 id>/status', '404 CREDENTIAL_NOT_FOUND', 'node --test', 'PASS'),
+('IT-ATS213-005', 'NFR-009', '安全', '畸形请求体不回显请求体内容（密钥片段泄漏的回归）', 'POST 一个 secret 未加引号的畸形 JSON', '400 INVALID_REQUEST_BODY；响应里既无完整密钥也无其前 10 个字符', 'node --test', 'PASS'),
+('IT-ATS213-006', 'FR-027', '正常', '存入凭据后状态清单保持一致（真实系统凭据库）', 'POST 存入 → 查状态 → DELETE', '201 时状态读 configured，删除后清单为空；凭据库不可用时 POST 为 503 CREDENTIAL_STORE_UNAVAILABLE（两种结果都确定）', 'node --test（真实 Windows Credential Manager）', 'PASS'),
+('IT-ATS213-007', 'NFR-009', '安全', '密钥不进本机任何可读文件', '存入一个带标记的密钥后扫描数据目录', '数据目录里没有任何文件含该密钥；状态清单也不含', 'node --test（真实 Windows Credential Manager）', 'PASS'),
+('IT-ATS213-008', 'FR-027', '正常', '凭据形状的变量名带**引用**时档案存得下', 'POST /api/projects/<id>/env，API_TOKEN={"credentialRef":"cred_…"}', '200；档案的公开视图带变量名 API_TOKEN，不带任何值', 'node --test', 'PASS'),
+('IT-ATS213-009', 'FR-027', '安全', '凭据形状的变量名带**明文**时被拒', 'POST /api/projects/<id>/env，API_TOKEN=<明文>', '400 ENV_VARIABLE_NOT_ALLOWED；拒绝理由指向凭据引用而不是明文', 'node --test', 'PASS'),
+('IT-ATS213-010', 'FR-027', '异常', '引用解析不了时**拒绝启动**', '档案引用一个不存在的 cred_…，然后发起运行', '运行不被接受（不是 202）；404 CREDENTIAL_REF_NOT_FOUND，带变量名与引用 id，不带密钥', 'node --test', 'PASS'),
+('IT-ATS213-011', 'NFR-009', '安全', '运行记录里没有密钥', '扫描 /api/runs 的每一条记录', '没有任何一条记录含密钥', 'node --test', 'PASS'),
+]
+ST+=[
+('ST-ATS213-001', 'FR-027', '功能', '存入密钥后界面显示「已配置」', '真实 Bridge + 真实 Chromium + 真实 Windows Credential Manager', '状态行显示「已配置」与「已从系统凭据库取回」', 'node tools/ats213-probes/st-ats213.mjs', 'PASS'),
+('ST-ATS213-002', 'FR-027', '异常', '从系统凭据库删掉条目后界面显示「未配置」', '平台索引仍留着引用（分叉是真实存在的）', '状态行显示「未配置」与「系统凭据库里没有这一条」——状态是测出来的，不从索引推断', 'node tools/ats213-probes/st-ats213.mjs', 'PASS'),
+('ST-ATS213-003', 'NFR-009', '隐私', '界面上没有密钥明文', '页面正文与状态行', '正文既不含完整密钥也不含其前 8 个字符；密钥输入框存入后被清空', 'node tools/ats213-probes/st-ats213.mjs', 'PASS'),
+('ST-ATS213-004', 'FR-027', '异常', '状态接口报出原因码而不是假装成功', '条目已被删除时的单条状态查询', 'status=not-configured、reason=CREDENTIAL_NOT_FOUND', 'node tools/ats213-probes/st-ats213.mjs', 'PASS'),
+('ST-ATS213-005', 'FR-027', '异常', '凭据库不可达时「不可用密钥」的说明逐类计数', 'Bridge 的 PATH 里没有 PowerShell（真实调用失败）', '说明写着「取不到 2」，不出现「全部可用」；每条状态是 unavailable', 'node tools/ats213-probes/st-credential-status-failures.mjs', 'PASS'),
+('ST-ATS213-006', 'FR-027', '异常', '凭据库不可达时不写「已就绪」', '同上', '凭据库指标写「本机系统凭据库不可用」；GET /status 的 available=false', 'node tools/ats213-probes/st-credential-status-failures.mjs', 'PASS'),
+('ST-ATS213-007', 'FR-027', '异常', '刷新失败后旧状态不冒充当前状态', '状态读成功一次，然后 Bridge 停掉再点刷新', '旧状态行清空；「可用密钥」为 0；提示条写明上次测得于何时', 'node tools/ats213-probes/st-credential-status-failures.mjs', 'PASS'),
+('ST-ATS213-008', 'FR-027', '异常', '状态读失败时引用照样显示、删除按钮还在', '首次加载就拦截状态接口（404）', '面板上仍有全部引用行与等量的删除按钮；提示条说「下方只列出引用」是事实', 'node tools/ats213-probes/st-credential-status-failures.mjs', 'PASS'),
+('ST-ATS213-009', 'FR-027', '功能', '凭据引用真的到达了 runner（真实运行）', '真实 Windows Credential Manager + 真实 Playwright 运行；档案写引用', '被测脚本读到注入的变量（断言 SHA-256 摘要与长度）；档案里留着的永远是引用', 'node tools/ats213-probes/st-credential-ref.mjs', 'PASS'),
+('ST-ATS213-010', 'NFR-009', '安全', '密钥没有落进任何平台文件（真实运行）', '同上，扫描数据目录与运行目录', '数据目录 0 命中；运行目录里只有摘要没有明文', 'node tools/ats213-probes/st-credential-ref.mjs', 'PASS'),
+]
+
+# --- ATS-214: the case search / tag / filter / batch selection ------
+# ATS-214: the case search / tag / filter / batch selection. These rows
+# live in the GENERATOR, not in the generated document: a hand-edited
+# generated file goes stale, and the freshness check then fails on a
+# tree where nothing is wrong with the product.
+UT+=[
+('UT-ATS214-001','FR-005','功能','空搜索保留全部用例','6 条用例的目录，查询为空','结果 6 条，与目录一致','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-002','FR-005','功能','按用例名检索','查询「登录」','命中 u1、u2；「登出」不命中','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-003','FR-005','功能','按文件检索','查询「cart.spec」','命中 u4、u5、u6','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-004','FR-005','功能','按标签检索','查询「smoke」','命中 u1、u2、u5','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-005','FR-005','功能','检索大小写不敏感','smoke / SMOKE / SmOkE','三者结果相同','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-006','FR-005','边界','检索结果恒为目录的子集','多个查询逐一断言','每个结果都在目录里；不存在的查询返回空','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-007','FR-005','边界','检索文本只含标题、文件与标签','用例的 haystack','含标题、文件、标签；不含 uid','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-008','FR-005','功能','单标签过滤','标签 smoke','命中 u1、u2、u5','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-009','FR-005','功能','「任一」口径是多标签的并集','标签 smoke + fast，模式 any','命中 u1、u2、u5、u6','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-010','FR-005','功能','「全部」口径是多标签的交集','标签 smoke + slow，模式 all','命中 u2、u5','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-011','FR-005','边界','两种标签口径真的不同且交集是子集','标签 smoke + slow','any 4 条、all 2 条；all ⊆ any','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-012','FR-005','功能','默认口径是「任一」且被报告','不指定模式','DEFAULT_TAG_MODE=any；判据报告 mode=any、active=true','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-013','FR-005','边界','标签比较忽略大小写与前导 @','@smoke / smoke / @SMOKE / \'  @Smoke  \'','都归一为 smoke；输入 @smoke 命中带 smoke 的用例','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-014','FR-005','边界','标签列表去重且有序','[\'@b\',\'a\',\'b\',\'@a\']','归一为 [\'a\',\'b\']','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-015','FR-005','边界','无人携带的标签既不命中也不出现在词表里','标签 nonexistent','结果为空；词表不含它；词表按数量降序','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-016','FR-005','边界','搜索与标签按交集叠加（不是并集）','搜索「登录」+ 标签 smoke','命中 u1、u2，不是 3 条','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-017','FR-005','边界','两个不相交条件的交集为空','搜索「登录」+ 标签 fast','结果为空；搜索单独 2 条、标签单独 1 条','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-018','FR-005','边界','清掉一个条件不清掉另一个','先加标签后清；先加搜索后清','清掉标签后搜索仍在（2 条）；清掉搜索后标签仍在（3 条）','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-019','FR-005','边界','文件条件与其余条件同样取交集','标签 smoke + 文件 cart.spec','命中 u5','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-020','FR-005','边界','三个条件取三重交集','搜索 + 标签 + 文件','命中 u5；矛盾条件使交集为空','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-021','FR-005','边界','状态条件与其余条件同样取交集','状态 failed + 标签 smoke','命中 u2；状态未知的用例不进入「失败」集','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-022','FR-005','功能','各判据分别报出保留条数','搜索 + 标签','搜索 2 条、标签 3 条；未声明的判据 active=false','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-023','FR-005','功能','筛选后顺序仍是目录顺序','标签 smoke','顺序 u1、u2、u5','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-024','FR-005','边界','纯空白的查询不是过滤条件','查询「   」','保留全部 6 条','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-025','FR-021','功能','选择集合是集合，勾选顺序无关','两组不同的勾选顺序','两个集合相等','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-026','FR-021','功能','快照带文件、标题与行号','选中 u1、u5','快照每条都带 file/title/line','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-027','FR-021','异常','目录不认识的 UID 被报告而非丢弃','选中 u1 与一个不存在的 UID','unknown 列出该 UID；count 只算已知的','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-028','FR-021','功能','两次相同选择产生完全相同的快照','顺序不同的同一组 UID','两个快照逐字段相等','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-029','FR-021','功能','选择按文件分组','跨两个文件选 4 条','两个分组，各带自己的 uid 与条数','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-030','FR-021','功能','选中的都跑了则对账为「可复现」','选择 u1、u2，执行 u1、u2','matches=true、exact=true、无缺失无多跑','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-031','FR-021','异常','选中但没跑的用例被报出','选择 3 条，执行 2 条','matches=false；missing 列出未跑的那条','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-032','FR-021','异常','跑了但没选的用例被报出','选择 u1，执行 u1、u3','extra 列出 u3；matches 仍为 true（选择本身可复现）','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-033','FR-021','异常','什么都没跑则对账如实为空','选择 2 条，执行 0 条','matches=false；missing 为 2 条；executed=0','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-034','FR-005','功能','文件词表统计每个文件的用例数','两个文件各 3 条','两个分组，各 3 条','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-035','FR-005','边界','空目录不使模块出错','空目录 + 任意查询','结果为空；词表为空；快照 count=0','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-036','FR-005','异常','已选但离开目录的 UID 被报出','勾选的 uid 不在目录里','gone 列出该 uid；ok=false；仍在目录里的那些不被报出','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-037','FR-005','边界','空选择没有失效项','空选择','gone/stale/moved 都为空；ok=true','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-038','FR-005','正常','一个文件的选出会跑该文件的全部用例','只勾 u1（该文件 3 条）','willRun=3；files 是那个文件；extra 是另外 2 条','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-039','FR-005','正常','两个文件的选出会跑两个文件的用例','勾 u1 与 u4','willRun=6；files 是两个文件','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-040','FR-005','边界','空选择不会跑任何东西','空选择','selected=0；willRun=0；files 为空','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-041','FR-005','边界','不在目录里的 uid 不会让计划虚报一次运行','只勾一个不在目录里的 uid','selected=1；willRun=0；files 为空','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-042','FR-005','异常','现在指向别的用例的 uid 被报出','快照说 u1 是「用户登录」，目录说 u1 是「其他用例」','gone 为空（uid 仍能解析）；moved 列出 u1；ok=false','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-043','FR-005','正常','仍指向同一个用例的 uid 不算 moved','快照与目录一致','moved 为空；ok=true','node --test tests/ats214-case-search.test.mjs','PASS'),
+('UT-ATS214-044','FR-005','异常','身份不稳定的用例被报为 stale','uidStable=false 的用例','stale 列出该 uid；gone 为空','node --test tests/ats214-case-search.test.mjs','PASS'),
+]
+
+IT+=[
+('IT-ATS214-001','FR-005','正常','静态索引携带它从源码读出的标签','未可信项目，6 条用例的夹具','每个用例的 tags 与源码里的 details 对象一致；无标签的用例不带该字段','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-002','FR-021','正常','权威索引携带 CLI 自己的标签','授予信任后重读同一项目','discovery=authoritative、outcome=OK、CLI 1.64.1；标签与 CLI 报告一致','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-003','FR-021','边界','两个索引对同一用例的标签一致','同一夹具，静态与权威两套索引','逐条用例比对，两个索引的标签集合相同','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-010','FR-021','异常','目录不认识的 UID 被拒绝而非跳过','selection 里放一个不存在的 UID','400 SELECTION_UNKNOWN_CASE，响应带 unknown 数组','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-011','FR-021','异常','空选择被拒绝','selection=[]','400 SELECTION_EMPTY','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-012','FR-021','异常','不是数组的选择被拒绝','selection=\'u1\'','400 SELECTION_NOT_AN_ARRAY','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-013','FR-010','安全','ATS-106 的请求白名单未被削弱','run 请求里放 grep','400 RUN_PARAMETER_NOT_ALLOWED，rejected=[\'grep\']','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-020','FR-021','正常','单文件选择成为带选择集合的运行','选中登录文件的全部用例','202；运行带 selection/selectionUids；快照自带 file/title/line；run.file 等于该文件','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-021','FR-021','正常','跨文件选择成为按文件拆分的批次','每个文件选一条','202；批次记录 groups 为 2 组；run.batchUid 与批次互指','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-022','FR-021','正常','批次可按项目过滤','/api/batches?projectId=…','只返回该项目的批次','node --test tests/ats214-batch-run-api.test.mjs','PASS'),
+('IT-ATS214-030','FR-021','正常','批次的第二个文件继承环境档案','selection=[a1,b1]、env=staging','批次 context 记着档案；两个 run 的 envName 都是 staging、envUid 相同、envVariables 都是 [BASE_URL]；引擎在第二个文件里真的看到了 BASE_URL=http://staging.example','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-031','FR-021','正常','批次的第二个 run 记录它继承的档案','同上','第二个 run 的 envName=staging、batchIndex=1；它的选择是它自己那一组（count=1、files=[tests/b.spec.ts]）','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-032','FR-021','异常','被拒绝的组让整单被拒绝','selection=[u-a1, u-p1]（p(1).spec.ts 被 ATS-106 拒绝）','单文件路径 400 INVALID_TEST_FILTER；批次路径**同样** 400 INVALID_TEST_FILTER 且 file 指名该文件；**没有**任何运行被启动','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-033','FR-021','异常','预检失败的批次也落到终态','没有 node_modules 的项目，两个文件','批次 status=failed；finishedAt 有值；error 写明原因——不是永远 running','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-034','FR-021','异常','批次进行中 Bridge 被杀，该批次被标为中断','强杀 Bridge 后在同一数据目录重启','批次 status 不再是 running；finishedAt 有值','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-035','FR-021','正常','批次记录对账「选了什么/跑了什么」','跨两个文件的选择真的跑完','reconciliation.selected=2；missing 为空（跨两个 run 计算）；extra 报告多跑的那些（整文件执行）——不藏起来','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-036','FR-021','安全','批次记录不携带环境变量的**值**','档案里写 BASE_URL=https://staging.example/?k=s3cr3t-value-1234，起一个两文件的批次','GET /api/batches 的整个响应里不含该值；batch.context 只有 envUid/envName/envTier，没有 envVariables；档案清单与运行记录同样不含该值','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-037','FR-021','异常','白名单收紧后**之后**启动的 run 不再带着该变量','run#1 在跑时用 PUT /env-whitelist 把 BASE_URL 移出白名单，随后启动的 run#2','run#2 的引擎看到 BASE_URL 未设置（`<unset>`）；run#2 的 envVariables 为空；envRefused 点名 BASE_URL','node --test tests/ats214-batch-context.test.mjs','PASS'),
+('IT-ATS214-038','FR-021','异常','批次进行中档案被删除时批次以明确原因结束','run#1 在跑时 DELETE 掉档案','批次 status=failed，error 点名 ENV_PROFILE_NOT_FOUND；第二个文件**没有**在「无档案」的静默回落下跑过','node --test tests/ats214-batch-context.test.mjs','PASS'),
+]
+
+ST+=[
+('ST-ATS214-001','FR-005','正常','500 用例的目录在真实浏览器里加载且无报错','真实 Bridge + 真实 Chromium + 静态导出；500 用例 / 50 文件的夹具','500 行用例渲染出来；没有 console error，也没有 page error','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-002','FR-005','可用性','500 用例时用例列表**可见且可点**','同上，视口 1440x900','列表高度 > 0、顶部在视口内、第一条用例在屏幕上且真的点得动（aria-checked 变 true）','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-003','FR-005','性能','500 用例的过滤在预算内（预算事先写明）','同上；逐键输入、标签口径切换、「全选当前」、取消勾选','每次交互 ≤ 100ms，且没有 > 100ms 的 long task；4 倍 CPU 降速的数字只作参考','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-004','FR-005','功能','按标题搜索用例','输入「case 017」','只留下标题含该串的用例（1 条）','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-005','FR-005','功能','标签过滤，且「任一」与「全部」给出不同的结果','勾 @smoke + @api，切口径','「任一」234 条、「全部」34 条——两个口径不同，口径不是装饰','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-006','FR-005','功能','选择映射到用例的 UID','勾选 a1 与 b1','选择栏显示「已选 2 条」；两条的 UID 就是目录里的 UID','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-007','FR-005','异常','已选但离开目录的用例被报出，且运行被阻止','把 b1 从文件里删掉后重读目录','页面出现 role=alert 的提示并点名该 UID；点批量运行只弹提示，**没有**提交任何运行','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-008','FR-005','可用性','切换项目时过滤条件被重置并告知','在 p500 勾 @smoke，再切到 other（2 条、只有 @billing）','列表回到 2/2 条，没有残留的按下芯片，选择栏「已选 0 条」','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-009','FR-005','正常','界面如实说明实际会执行多少条','只勾 a1（a 文件有 3 条）','选择栏「将执行 3 条」、toast「实际执行 3 条」，引擎真的跑了 3 条——三个数字一致','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-010','FR-005','可用性','勾选框键盘可达','真实 Chromium 的 Tab / Space','勾选框是自己的 <button role=checkbox>（不是嵌在 button 里的 span），能拿到焦点，空格能切换','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-011','FR-021','功能','发出去的请求带着**每一个**被勾选的 UID','勾选两个不同文件里的用例，拦截浏览器发出的请求','请求体里的 selection 带着两个 UID（读的是网络上的请求，不是界面自己的算术——只读界面只能证明界面没算错，证明不了它发对了）','node tools/ats214-probes/st-ats214.mjs','PASS'),
+('ST-ATS214-012','TOOL','可靠性','交付的代码被变异时测试必须变红（负控）','对 page.tsx 与 server/index.mjs 做 12 个变异（关掉过滤、只发第一个 UID、不渲染警告、不阻止运行、承诺选中条数、不重置过滤、把勾选框放回 button 里、不重新解析环境档案、不整单校验、预检失败不结束批次、批次记录又带上变量值、档案被删也不结束批次）','每个变异都被抓住（界面变异由 ST 抓住，服务端变异由 IT 抓住）；未变异的代码仍然通过','node tools/ats214-probes/mutation-check.mjs','PASS'),
+]
+
 
 def emit(file,title,purpose,cases):
  # The status column may qualify a PASS ("PASS（UT）" -- passed, but the

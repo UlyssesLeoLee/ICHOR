@@ -24,7 +24,7 @@
     error message.
 
 .PARAMETER Action
-    write | read | delete
+    write | read | delete | probe
 
 .PARAMETER Target
     The credential target name (the "resource" in Credential Manager).
@@ -34,11 +34,21 @@
 
 .EXAMPLE
     echo -n 'secret' | powershell -NoProfile -File wincred.ps1 write -Target T -User U
+
+.EXAMPLE
+    powershell -NoProfile -File wincred.ps1 probe -Target T -User U
+
+.NOTES
+    The `probe` action answers ONE question: does an entry exist under this
+    target, and can it be read? It NEVER returns the secret. The status
+    surface therefore never pulls a plaintext into the Bridge's memory, and
+    the answer it gets is a fact about the credential store rather than an
+    inference from the platform's own index.
 #>
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)]
-  [ValidateSet('write', 'read', 'delete')]
+  [ValidateSet('write', 'read', 'delete', 'probe')]
   [string]$Action,
 
   [Parameter(Mandatory = $true)]
@@ -160,6 +170,31 @@ switch ($Action) {
       [AtsWinCred]::CredFree($pointer)
     }
     exit 0
+  }
+
+  'probe' {
+    # The status surface asks ONE question: is there an entry, and can it be
+    # read? The answer is written to STDOUT as a single word, and the secret
+    # is NEVER read out of the credential blob -- the blob's SIZE is enough
+    # to tell "there is a secret" from "the entry holds nothing".
+    $pointer = [IntPtr]::Zero
+    if (-not [AtsWinCred]::CredReadW($Target, 1, 0, [ref]$pointer)) {
+      Fail 'CREDENTIAL_NOT_FOUND' ([Runtime.InteropServices.Marshal]::GetLastWin32Error())
+    }
+    try {
+      $credential = [Runtime.InteropServices.Marshal]::PtrToStructure($pointer, [type][AtsWinCred+CREDENTIAL])
+      $size = [int]$credential.CredentialBlobSize
+      if ($size -le 0) {
+        # The entry exists but holds no bytes. That is a READ failure, not a
+        # usable secret -- the status surface reports it as such.
+        [Console]::Out.Write('EMPTY')
+        exit 0
+      }
+      [Console]::Out.Write('PRESENT')
+      exit 0
+    } finally {
+      [AtsWinCred]::CredFree($pointer)
+    }
   }
 
   'delete' {

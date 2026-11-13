@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：707；已执行通过：691；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：768；已执行通过：752；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -715,6 +715,67 @@
 |UT-AUD-009|FR-027|安全|某一类的洪泛不挤掉另一类的记录|先记 granted/consent，再灌 525 条 denied 与 525 条 consent|egress.granted 仍在；denied、consent 各只留 500 条且丢本类最旧|node --test|PASS|
 |UT-AUD-010|FR-027|边界|放行类有自己的上限|503 条 egress.granted|只留 500 条，丢本类最旧|node --test|PASS|
 |UT-AUD-011|FR-027|正常|拒绝记录无摘要时记为 digest:null、bytes:0|denied 条目无 digest|null / 0|node --test|PASS|
+|UT-ATS213-001|FR-027|正常|状态词汇表是三值闭集|CREDENTIAL_STATUSES / CREDENTIAL_STATUS_REASONS|恰为 configured / not-configured / unavailable 与 4 个原因码；没有「未知」这个状态|node --test|PASS|
+|UT-ATS213-002|FR-027|正常|已存入的凭据读回为 configured|注入的内存凭据库|status=configured、reason=CREDENTIAL_FOUND、带 checkedAt|node --test|PASS|
+|UT-ATS213-003|FR-027|安全|状态里没有密钥也没有密钥片段|注入的内存凭据库|序列化后不含密钥；无 secret 字段；指纹 8 位十六进制|node --test|PASS|
+|UT-ATS213-004|FR-027|异常|凭据库条目消失而索引仍留着引用 → not-configured|从注入的凭据库里删掉条目|status=not-configured、reason=CREDENTIAL_NOT_FOUND；名称与指纹仍在（它们是索引的事实）|node --test|PASS|
+|UT-ATS213-005|FR-027|异常|凭据库读不出来 → unavailable，不与 not-configured 合并|读取抛 CREDENTIAL_STORE_FAILED|status=unavailable、reason=CREDENTIAL_STORE_FAILED|node --test|PASS|
+|UT-ATS213-006|FR-027|异常|后端不可达 → unavailable + 自己的原因码|available() 返回 false|status=unavailable、reason=CREDENTIAL_STORE_UNAVAILABLE|node --test|PASS|
+|UT-ATS213-007|FR-027|边界|凭据库读回来是空的 → unavailable，不算 configured|读回空字符串|status=unavailable、reason=CREDENTIAL_STORE_FAILED|node --test|PASS|
+|UT-ATS213-008|FR-027|异常|未知 id 的状态被拒，不猜|未知 id 与非法 id|均抛 CREDENTIAL_NOT_FOUND|node --test|PASS|
+|UT-ATS213-009|FR-027|正常|每条引用恰有一个状态|一条可用 + 一条条目已消失|两条都在列表里，各有一个落在闭集内的状态与原因码|node --test|PASS|
+|UT-ATS213-010|FR-027|边界|一条坏的不让整个清单变成错误|一条可读失败|两条都有状态；不是「全坏了」|node --test|PASS|
+|UT-ATS213-011|FR-027|正常|状态词汇表进契约描述|describeCredentialStore|statuses 与 statusReasons 都在契约里|node --test|PASS|
+|UT-ATS213-012|FR-027|边界|原因映射把「条目不在」与「读失败」分开|各类 CREDENTIAL_* 错误与未知错误|NOT_FOUND / UNAVAILABLE 各自归位；未知错误归 CREDENTIAL_STORE_FAILED，绝不归「条目不在」|node --test|PASS|
+|UT-ATS213-013|FR-027|异常|遍历中被删除的引用不让整张清单变成错误|statusAll() 走到一半时并发 DELETE 一条引用|清单不抛错；存活的两条各有 configured 状态（清单基于同一份索引快照）|node --test|PASS|
+|UT-ATS213-014|FR-027|异常|索引里 id 不合规的条目单独得到一个状态|索引里塞一条 id=cred_LEGACY 的记录|整张清单不抛错；该条是 unavailable + CREDENTIAL_STORE_FAILED；好的一条仍是 configured|node --test|PASS|
+|UT-ATS213-015|FR-027|异常|凭据库的「可用」是实测的，不是文件在不在推断的|helper 存在但调用失败的后端|health().state=failed；available()（预测）仍是 true——两者是两个事实|node --test|PASS|
+|UT-ATS213-016|FR-027|正常|凭据库回答了就是健康的|探测报「没有这一条」（证明它答了）|health().state=ok|node --test|PASS|
+|UT-ATS213-017|FR-027|异常|本机没有可用的凭据库|后端报告自己不可用|health().state=unavailable、reason=CREDENTIAL_STORE_UNAVAILABLE|node --test|PASS|
+|UT-ATS214-001|FR-005|功能|空搜索保留全部用例|6 条用例的目录，查询为空|结果 6 条，与目录一致|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-002|FR-005|功能|按用例名检索|查询「登录」|命中 u1、u2；「登出」不命中|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-003|FR-005|功能|按文件检索|查询「cart.spec」|命中 u4、u5、u6|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-004|FR-005|功能|按标签检索|查询「smoke」|命中 u1、u2、u5|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-005|FR-005|功能|检索大小写不敏感|smoke / SMOKE / SmOkE|三者结果相同|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-006|FR-005|边界|检索结果恒为目录的子集|多个查询逐一断言|每个结果都在目录里；不存在的查询返回空|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-007|FR-005|边界|检索文本只含标题、文件与标签|用例的 haystack|含标题、文件、标签；不含 uid|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-008|FR-005|功能|单标签过滤|标签 smoke|命中 u1、u2、u5|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-009|FR-005|功能|「任一」口径是多标签的并集|标签 smoke + fast，模式 any|命中 u1、u2、u5、u6|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-010|FR-005|功能|「全部」口径是多标签的交集|标签 smoke + slow，模式 all|命中 u2、u5|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-011|FR-005|边界|两种标签口径真的不同且交集是子集|标签 smoke + slow|any 4 条、all 2 条；all ⊆ any|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-012|FR-005|功能|默认口径是「任一」且被报告|不指定模式|DEFAULT_TAG_MODE=any；判据报告 mode=any、active=true|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-013|FR-005|边界|标签比较忽略大小写与前导 @|@smoke / smoke / @SMOKE / '  @Smoke  '|都归一为 smoke；输入 @smoke 命中带 smoke 的用例|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-014|FR-005|边界|标签列表去重且有序|['@b','a','b','@a']|归一为 ['a','b']|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-015|FR-005|边界|无人携带的标签既不命中也不出现在词表里|标签 nonexistent|结果为空；词表不含它；词表按数量降序|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-016|FR-005|边界|搜索与标签按交集叠加（不是并集）|搜索「登录」+ 标签 smoke|命中 u1、u2，不是 3 条|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-017|FR-005|边界|两个不相交条件的交集为空|搜索「登录」+ 标签 fast|结果为空；搜索单独 2 条、标签单独 1 条|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-018|FR-005|边界|清掉一个条件不清掉另一个|先加标签后清；先加搜索后清|清掉标签后搜索仍在（2 条）；清掉搜索后标签仍在（3 条）|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-019|FR-005|边界|文件条件与其余条件同样取交集|标签 smoke + 文件 cart.spec|命中 u5|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-020|FR-005|边界|三个条件取三重交集|搜索 + 标签 + 文件|命中 u5；矛盾条件使交集为空|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-021|FR-005|边界|状态条件与其余条件同样取交集|状态 failed + 标签 smoke|命中 u2；状态未知的用例不进入「失败」集|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-022|FR-005|功能|各判据分别报出保留条数|搜索 + 标签|搜索 2 条、标签 3 条；未声明的判据 active=false|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-023|FR-005|功能|筛选后顺序仍是目录顺序|标签 smoke|顺序 u1、u2、u5|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-024|FR-005|边界|纯空白的查询不是过滤条件|查询「   」|保留全部 6 条|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-025|FR-021|功能|选择集合是集合，勾选顺序无关|两组不同的勾选顺序|两个集合相等|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-026|FR-021|功能|快照带文件、标题与行号|选中 u1、u5|快照每条都带 file/title/line|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-027|FR-021|异常|目录不认识的 UID 被报告而非丢弃|选中 u1 与一个不存在的 UID|unknown 列出该 UID；count 只算已知的|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-028|FR-021|功能|两次相同选择产生完全相同的快照|顺序不同的同一组 UID|两个快照逐字段相等|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-029|FR-021|功能|选择按文件分组|跨两个文件选 4 条|两个分组，各带自己的 uid 与条数|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-030|FR-021|功能|选中的都跑了则对账为「可复现」|选择 u1、u2，执行 u1、u2|matches=true、exact=true、无缺失无多跑|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-031|FR-021|异常|选中但没跑的用例被报出|选择 3 条，执行 2 条|matches=false；missing 列出未跑的那条|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-032|FR-021|异常|跑了但没选的用例被报出|选择 u1，执行 u1、u3|extra 列出 u3；matches 仍为 true（选择本身可复现）|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-033|FR-021|异常|什么都没跑则对账如实为空|选择 2 条，执行 0 条|matches=false；missing 为 2 条；executed=0|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-034|FR-005|功能|文件词表统计每个文件的用例数|两个文件各 3 条|两个分组，各 3 条|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-035|FR-005|边界|空目录不使模块出错|空目录 + 任意查询|结果为空；词表为空；快照 count=0|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-036|FR-005|异常|已选但离开目录的 UID 被报出|勾选的 uid 不在目录里|gone 列出该 uid；ok=false；仍在目录里的那些不被报出|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-037|FR-005|边界|空选择没有失效项|空选择|gone/stale/moved 都为空；ok=true|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-038|FR-005|正常|一个文件的选出会跑该文件的全部用例|只勾 u1（该文件 3 条）|willRun=3；files 是那个文件；extra 是另外 2 条|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-039|FR-005|正常|两个文件的选出会跑两个文件的用例|勾 u1 与 u4|willRun=6；files 是两个文件|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-040|FR-005|边界|空选择不会跑任何东西|空选择|selected=0；willRun=0；files 为空|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-041|FR-005|边界|不在目录里的 uid 不会让计划虚报一次运行|只勾一个不在目录里的 uid|selected=1；willRun=0；files 为空|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-042|FR-005|异常|现在指向别的用例的 uid 被报出|快照说 u1 是「用户登录」，目录说 u1 是「其他用例」|gone 为空（uid 仍能解析）；moved 列出 u1；ok=false|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-043|FR-005|正常|仍指向同一个用例的 uid 不算 moved|快照与目录一致|moved 为空；ok=true|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS214-044|FR-005|异常|身份不稳定的用例被报为 stale|uidStable=false 的用例|stale 列出该 uid；gone 为空|node --test tests/ats214-case-search.test.mjs|PASS|
 
 ## 进入与退出条件
 

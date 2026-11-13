@@ -8,7 +8,17 @@ license = "MIT"
 
 [lib]
 name = "ai_test_studio_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# The Windows desktop build links the `rlib` into the `ai-test-studio`
+# binary; the `cdylib` artefact is not consumed by any target in this
+# repository. On the `x86_64-pc-windows-gnu` toolchain a `cdylib` exports
+# every reachable symbol of the whole dependency tree, and the PE export
+# directory assigns one 16-bit ordinal per exported symbol -- so the
+# export table of a Tauri 2 dependency tree exceeds the 65535 ordinal
+# limit and the link fails with
+#   ld.exe: error: export ordinal too large: <n>
+# `staticlib` and `rlib` carry no PE export table, so neither is subject
+# to that limit. See docs/16-BASELINE-ADR.md §4 B-02.
+crate-type = ["staticlib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

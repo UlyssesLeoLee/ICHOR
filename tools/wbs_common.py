@@ -41,8 +41,8 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 # blocks in this order regardless of the order in which the scripts ran. Two
 # updaters that touch the same cell therefore produce the same sheet whatever
 # order they run in.
-MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-106】', '【ATS-107】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
-           '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-215】', '【ATS-216】',
+MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-104】', '【ATS-106】', '【ATS-107】', '【ATS-111】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
+           '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-213】', '【ATS-214】', '【ATS-215】', '【ATS-216】',
            '【ATS-301】', '【ATS-401】', '【ATS-402】', '【ATS-403】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
            '【ATS-601】', '【ATS-602】', '【ATS-603】', '【ATS-606】')
 
@@ -70,14 +70,18 @@ NARRATIVE = {
         # old "the real browser ST was never executed" claim is no longer
         # true. The cell is rebuilt from the base and every task's fragment,
         # so the old sentence simply stops being part of the base.
+        #
+        # ATS-104 then built the Tauri shell on a real Windows machine, so
+        # the "Tauri Windows 编译未通过" sentence is no longer true either
+        # and stops being part of the base for the same reason.
         'base': '真实浏览器 Playwright ST 已开始实测（B-01 已由 ATS-106 修复，'
-                'ATS-107 起在真实 Chromium 上执行）；'
-                'Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、'
-                '仓库缺 icons/icon.ico，且成因清单尚未穷尽）',
+                'ATS-107 起在真实 Chromium 上执行）',
         'stale': (
             'CI workflow 未在真实 runner 上跑过（ATS-102）',
             '详见 docs/16-BASELINE-ADR.md、docs/17-BUILD-CI.md 与 docs/17-AGENT-CONTRACT.md。',
             '详见 docs/16-BASELINE-ADR.md。',
+            'Tauri Windows 编译未通过（B-02：缺 MSVC C++ 构建工具、'
+            '仓库缺 icons/icon.ico，且成因清单尚未穷尽）',
         ),
     },
 }
@@ -99,6 +103,14 @@ NARRATIVE_FRAGMENTS = {
               '引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112；'
               'Bridge 静态路由只覆盖 /，目录索引与 404 未实现；'
               '详见 docs/22-FRONTEND-EXPORT.md',
+    },
+    '【ATS-104】': {
+        'D6': 'Tauri 2 Windows dev build 已实测通过（ATS-104：cargo tauri dev 起桌面壳，'
+              'WebView2 加载页面，Bridge 应答，关窗后无孤儿进程与孤儿窗口）',
+        'D7': 'msvc 链的最终链接未在本机验证（本机无 MSVC C++ 构建工具工作负载），'
+              '结论建立在 gnu 链实机结果上；macOS/Linux 的桌面壳未实测；'
+              'Bridge 的 node 不可用时 spawn().ok() 静默失败（属 ATS-105）；'
+              '详见 docs/16-BASELINE-ADR.md §4 B-02',
     },
     '【ATS-401】': {
         'D6': 'Agent 契约层已实现',
@@ -180,6 +192,20 @@ NARRATIVE_FRAGMENTS = {
               '跨运行并排对照目前只有模块能力与接口基础，界面未提供（P1）；'
               '详见 docs/29-EVIDENCE-WORKBENCH.md',
     },
+    '【ATS-213】': {
+        'D6': '凭据引用与可用状态面已实现（ATS-213：密钥仅以引用传递——档案只留引用，'
+              '运行启动时解析并注入封口环境，解析不了拒绝启动；状态是三值闭集且每条引用恰有一个；'
+              '状态对系统凭据库实测而不从索引推断；未配置与取不到不合并；'
+              '整张清单基于同一份索引快照；界面显示状态词与原因，不回显明文）',
+        'D7': 'macOS Keychain / Linux Secret Service 后端未在真机实测（Windows Credential Manager 已实测）；'
+              'Tauri 壳内凭据存取未验证（src-tauri/src/lib.rs 未改动）；'
+              '详见 docs/32-CREDENTIAL-STATUS.md',
+    },
+    '【ATS-111】': {
+        'D6': '工作台可用性已实现（ATS-111：四态可辨识、核心流程可纯键盘完成）',
+        'D7': 'ATS-111 只覆盖 Next 工作台，便携 UI 未同步；屏幕阅读器未实机验证；'
+              '详见 docs/05-UI-UX.md §4',
+    },
     '【ATS-216】': {
         'D6': '质量概览模块已实现（ATS-216：失败聚类/Flaky 基础指标，非 AI；'
               '失败/重试/取消分开计数，指标与原始结果可核对）',
@@ -239,9 +265,18 @@ NARRATIVE_FRAGMENTS = {
     },
     '【ATS-606】': {
         'D6': 'iOS 支持范围与 Maestro 兼容性边界已冻结（ATS-606：逐类步骤的 iOS 支持范围、'
-              'Maestro 命令逐条兼容性判定与不承诺清单；未做 iOS 实测）',
-        'D7': '移动端执行面仍无任何实现（ATS-606 只交付设计与边界；'
-              'iOS 真机路径按能力分层，真实 Android 冒烟属 ATS-603）；'
+              'Maestro 命令逐条兼容性判定与不承诺清单；§8.5 的导入器行为与参数保真由'
+              '逐条实跑导入器得出并由脚本生成，复核脚本把整块（三个组标题+55 行+TALLY）'
+              '与生成器输出逐字比对、并独立检查分组不变量与平台表的两条规则'
+              '（等待不决定分组、配对命令两边都带配对）——把一行挪到别的组必然变红；'
+              '未做 iOS 实测）',
+        'D7': 'iOS 真实执行属本阶段 OUT（ATS-606 只交付设计与边界冻结：'
+              '§8.4 写的是以 Maestro 2.12.1 为参照的可行性，本平台没有 iOS Runner，'
+              '仓库内无任何 iOS 实现）；'
+              'iOS 真机路径另有四条硬前提（需 Apple team ID 签名构建 driver-iphoneos、'
+              'runner 经 devicectl 装到设备、宿主侧的 CoreDevice 隧道已连上、'
+              '宿主到设备的 127.0.0.1:22087 可达），'
+              '且与 local-device 契约冲突（平台不接管真机安装与配对）；'
               '详见 docs/25-MOBILE-APP-TESTING.md',
     },
     '【ATS-203】': {

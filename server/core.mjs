@@ -965,10 +965,15 @@ export function discoverStatic(project, registry) {
    })),
  });
  const tests=resolved.items.map(t=>({
-   id:t.uid,uid:t.uid,uidSource:t.uidSource,uidStable:t.uidStable,
-   file:t.file,title:t.title,line:t.line,source:'static',level:'ST',
-   ...(t.ambiguity?{ambiguity:t.ambiguity}:{})
- }));
+    id:t.uid,uid:t.uid,uidSource:t.uidSource,uidStable:t.uidStable,
+    file:t.file,title:t.title,line:t.line,source:'static',level:'ST',
+    // ATS-214: the tags of the case. The static index reads them out of the
+    // source (the details object of the case and of the describes around
+    // it), so a tag filter works on an UNTRUSTED project too -- not only on
+    // the authoritative index, which gets them from the CLI.
+    ...(Array.isArray(t.tags)&&t.tags.length?{tags:t.tags}:{}),
+    ...(t.ambiguity?{ambiguity:t.ambiguity}:{})
+  }));
  // The mobile cases JOIN the catalogue: a Flow file declares cases, and a
  // case is a case. They carry their own `source`, so a reader can tell
  // where a case came from, and the UID rules work on them unchanged.
@@ -1278,6 +1283,12 @@ export function authoritativeCatalog(project, registry, trust, decision, listed)
       // its ordinal there.
       anchor: t.anchor ?? null,
       source: 'authoritative', level: 'ST',
+      // ATS-214: the tags the CLI reported for this case. The CLI is the
+      // authority on the tags (it is the engine that will run the case),
+      // and it reports them WITHOUT the '@' the author wrote -- which is
+      // the same spelling the static index uses, so a tag filter behaves
+      // the same on either index.
+      ...(Array.isArray(t.tags) && t.tags.length ? { tags: t.tags } : {}),
       ...(t.ambiguity ? { ambiguity: t.ambiguity } : {})
     })),
     ...mobileResolved.map(t => ({

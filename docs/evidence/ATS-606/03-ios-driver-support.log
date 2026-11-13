@@ -1,6 +1,6 @@
 === ATS-606 evidence: the iOS implementation status ===
-tree : a683fc5c2a9d362f1ab211157c4fc3e1eb396fd5
-date : 2026-11-09T17:12:51Z
+tree : 945405fed60a1bc7b1cac3a8258ed721fa42b18f
+date : 2026-11-13T12:44:13Z
 
 === ATS-606: the iOS implementation status (from the shipped byte-code) ===
 lib    : D:\AI-Tools\Maestro\lib
@@ -12,12 +12,12 @@ ok   ios/devicectl/DeviceControlIOSDevice.class: 33 methods, 25 unimplemented
 ok   ios/LocalIOSDevice.class: 34 methods, 0 unimplemented
 
 --- the routing of LocalIOSDevice ---
-to the XCTest driver (same code for simulator and device): 20
+to the XCTest driver (same HOST-SIDE code for simulator and device): 20
   close, deviceInfo, eraseText, input, isDarkModeEnabled, isKeyboardVisible, isScreenStatic, isShutdown, longPress, open, pressButton, pressKey, scroll, setAppearance, setOrientation, setPermissions, stop, takeScreenshot, tap, viewHierarchy
 to the deviceController (simctl on a simulator, devicectl on a device): 9
   addMedia, clearAppState, clearKeychain--HJRILA, install, launch, openLink-Zyo9ksc, setLocation-T3BZVFY, startScreenRecording, uninstall
 
---- the six platform step kinds on the two iOS paths ---
+--- the five step kinds that map onto a routed operation ---
 step kind        operation          simulator      device
 launchApp        launch            impl           NOT-IMPL
 tapOn            tap               impl           impl
@@ -26,15 +26,53 @@ assertVisible    viewHierarchy     impl           impl
 takeScreenshot   takeScreenshot    impl           impl
 recordScreen     startScreenRecording impl           NOT-IMPL
 
+--- the device log stream (the readLogs path) ---
+ok   the device log stream is started by IOSDriver through util.LocalSimulatorUtils.startDeviceLogStream
+ok   startDeviceLogStream runs `xcrun simctl spawn <id> log stream --style syslog` -- simulator-only
+ok   the physical-device controller exposes no device-log-stream method -- the readLogs path is simulator-only
 --- the design document claims (§8.4) ---
-ok   §8.4 launchApp: simulator="可自动化" device="**受限**" match the byte-code
-ok   §8.4 tapOn: simulator="可自动化" device="可自动化" match the byte-code
-ok   §8.4 assertVisible: simulator="可自动化" device="可自动化" match the byte-code
-ok   §8.4 takeScreenshot: simulator="可自动化" device="可自动化" match the byte-code
-ok   §8.4 recordScreen: simulator="可自动化" device="**受限**" match the byte-code
+ok   §8.4 launchApp: simulator="已实现" device="**未实现**" match the byte-code
+ok   §8.4 tapOn: simulator="已实现" device="已实现" match the byte-code
+ok   §8.4 assertVisible: simulator="已实现" device="已实现" match the byte-code
+ok   §8.4 takeScreenshot: simulator="已实现" device="已实现" match the byte-code
+ok   §8.4 recordScreen: simulator="已实现" device="**未实现**" match the byte-code
+ok   §8.4 readLogs: simulator="已实现" device="**无对应实现**" match the byte-code
+
+--- the seven capabilities (§8.4) ---
+ok   §8.4 app.install: simulator="可满足" device="不可满足" match the byte-code
+ok   §8.4 app.launch: simulator="可满足" device="不可满足" match the byte-code
+ok   §8.4 ui.tap: simulator="可满足" device="**宿主侧可满足（前提未验证）**" match the byte-code
+ok   §8.4 ui.hierarchy: simulator="可满足" device="**宿主侧可满足（前提未验证）**" match the byte-code
+ok   §8.4 screen.capture: simulator="可满足" device="**宿主侧可满足（前提未验证）**" match the byte-code
+ok   §8.4 screen.record: simulator="可满足" device="不可满足" match the byte-code
+ok   §8.4 log.read: simulator="可满足" device="**不可满足**" match the byte-code
 
 the physical-device controller: 1 implemented, 8 not implemented
 ok   §8.4 claims the physical-device path is only partly implemented, and 8 of the 9 deviceController operations are indeed not implemented
+ok   §8.4 scopes the "same implementation" claim to the host side and names the two device-side builds
+
+--- where the device-side runner builds live (the jar lists) ---
+driver-iPhoneSimulator/  -> maestro-ios-driver.jar
+ok   driver-iPhoneSimulator/ is held by exactly one jar: maestro-ios-driver.jar
+driver-iphoneos/         -> maestro-ios-driver.jar
+ok   driver-iphoneos/ is held by exactly one jar: maestro-ios-driver.jar
+the XCTestHTTPServer.swift source -> maestro-cli-2.12.1.jar
+ok   the XCTestHTTPServer.swift source is in maestro-cli-2.12.1.jar
+ok   no jar holds a `driver-ios/` directory -- so any document that cites `driver-ios/` as a jar path is wrong
+ok   §8.4 attributes the two device-side builds to maestro-ios-driver.jar, which is where the jar list really puts them
+
+--- the four hard preconditions (verified against the artifacts) ---
+ok   the byte-code of RealIOSDeviceDriver really carries "Apple account team ID must be specified to build drivers for connected iPhone."
+ok   the byte-code of RealIOSDeviceDriver really carries the MissingAppleTeamId exception
+ok   the byte-code of LocalIOSDeviceController really runs the xcrun / devicectl / install / app / launch sequence
+ok   the device-side XCTestHTTPServer really binds 127.0.0.1:22087
+ok   no jar carries an iproxy / usbmux port-forward implementation -- the reachability really is unproven
+ok   the byte-code of DeviceService.listIOSConnectedDevices really filters on the CoreDevice tunnel state ("connected")
+ok   §8.4 states the the Apple team ID precondition
+ok   §8.4 states the the devicectl runner install
+ok   §8.4 states the the 127.0.0.1:22087 reachability
+ok   §8.4 states the the CoreDevice tunnel precondition
+ok   §8.4 says the platform has no iOS Runner and points at the §2.2 OUT
 
 --- the two iOS no-ops ---
 ok   backPress is a no-op on iOS (the body is a single return)

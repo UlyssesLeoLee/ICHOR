@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：197；已执行通过：183；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：227；已执行通过：213；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -205,6 +205,36 @@
 |IT-SEC-024|FR-027|异常|未知项目或空输入的 /check 被拒并审计|未知 projectId；inputs=[]|400；审计各 +1|node --test|PASS|
 |IT-SEC-025|FR-027|安全|并发写凭据保持索引与凭据库一致（真实凭据库）|三个并发同名 POST|1 个 201、2 个 CREDENTIAL_DUPLICATE；索引 1 条|node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)|PASS|
 |IT-SEC-026|FR-027|异常|凭据库条目消失后可删除；写失败为 503（真实凭据库）|cmdkey 删除后 DELETE；3000 字节密钥|200 且引用清掉；503 CREDENTIAL_STORE_FAILED|node --test (real store, ATS402_REAL_CREDENTIAL_STORE=1)|PASS|
+|IT-ATS213-001|FR-027|安全|状态接口需要会话 token|无 X-ATS-Token|401|node --test|PASS|
+|IT-ATS213-002|FR-027|正常|状态清单经 HTTP 给出，每条恰有一个状态|GET /api/security/credentials/status|200；每条 status 落在三值闭集内、带原因码、指纹 8 位、无 secret 字段|node --test|PASS|
+|IT-ATS213-003|FR-027|正常|契约宣告状态词汇表|GET /api/security/contract|statuses 与 statusReasons 都在|node --test|PASS|
+|IT-ATS213-004|FR-027|异常|未知凭据 id 的状态被拒|GET /api/security/credentials/<未知 id>/status|404 CREDENTIAL_NOT_FOUND|node --test|PASS|
+|IT-ATS213-005|NFR-009|安全|畸形请求体不回显请求体内容（密钥片段泄漏的回归）|POST 一个 secret 未加引号的畸形 JSON|400 INVALID_REQUEST_BODY；响应里既无完整密钥也无其前 10 个字符|node --test|PASS|
+|IT-ATS213-006|FR-027|正常|存入凭据后状态清单保持一致（真实系统凭据库）|POST 存入 → 查状态 → DELETE|201 时状态读 configured，删除后清单为空；凭据库不可用时 POST 为 503 CREDENTIAL_STORE_UNAVAILABLE（两种结果都确定）|node --test（真实 Windows Credential Manager）|PASS|
+|IT-ATS213-007|NFR-009|安全|密钥不进本机任何可读文件|存入一个带标记的密钥后扫描数据目录|数据目录里没有任何文件含该密钥；状态清单也不含|node --test（真实 Windows Credential Manager）|PASS|
+|IT-ATS213-008|FR-027|正常|凭据形状的变量名带**引用**时档案存得下|POST /api/projects/<id>/env，API_TOKEN={"credentialRef":"cred_…"}|200；档案的公开视图带变量名 API_TOKEN，不带任何值|node --test|PASS|
+|IT-ATS213-009|FR-027|安全|凭据形状的变量名带**明文**时被拒|POST /api/projects/<id>/env，API_TOKEN=<明文>|400 ENV_VARIABLE_NOT_ALLOWED；拒绝理由指向凭据引用而不是明文|node --test|PASS|
+|IT-ATS213-010|FR-027|异常|引用解析不了时**拒绝启动**|档案引用一个不存在的 cred_…，然后发起运行|运行不被接受（不是 202）；404 CREDENTIAL_REF_NOT_FOUND，带变量名与引用 id，不带密钥|node --test|PASS|
+|IT-ATS213-011|NFR-009|安全|运行记录里没有密钥|扫描 /api/runs 的每一条记录|没有任何一条记录含密钥|node --test|PASS|
+|IT-ATS214-001|FR-005|正常|静态索引携带它从源码读出的标签|未可信项目，6 条用例的夹具|每个用例的 tags 与源码里的 details 对象一致；无标签的用例不带该字段|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-002|FR-021|正常|权威索引携带 CLI 自己的标签|授予信任后重读同一项目|discovery=authoritative、outcome=OK、CLI 1.64.1；标签与 CLI 报告一致|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-003|FR-021|边界|两个索引对同一用例的标签一致|同一夹具，静态与权威两套索引|逐条用例比对，两个索引的标签集合相同|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-010|FR-021|异常|目录不认识的 UID 被拒绝而非跳过|selection 里放一个不存在的 UID|400 SELECTION_UNKNOWN_CASE，响应带 unknown 数组|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-011|FR-021|异常|空选择被拒绝|selection=[]|400 SELECTION_EMPTY|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-012|FR-021|异常|不是数组的选择被拒绝|selection='u1'|400 SELECTION_NOT_AN_ARRAY|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-013|FR-010|安全|ATS-106 的请求白名单未被削弱|run 请求里放 grep|400 RUN_PARAMETER_NOT_ALLOWED，rejected=['grep']|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-020|FR-021|正常|单文件选择成为带选择集合的运行|选中登录文件的全部用例|202；运行带 selection/selectionUids；快照自带 file/title/line；run.file 等于该文件|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-021|FR-021|正常|跨文件选择成为按文件拆分的批次|每个文件选一条|202；批次记录 groups 为 2 组；run.batchUid 与批次互指|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-022|FR-021|正常|批次可按项目过滤|/api/batches?projectId=…|只返回该项目的批次|node --test tests/ats214-batch-run-api.test.mjs|PASS|
+|IT-ATS214-030|FR-021|正常|批次的第二个文件继承环境档案|selection=[a1,b1]、env=staging|批次 context 记着档案；两个 run 的 envName 都是 staging、envUid 相同、envVariables 都是 [BASE_URL]；引擎在第二个文件里真的看到了 BASE_URL=http://staging.example|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS214-031|FR-021|正常|批次的第二个 run 记录它继承的档案|同上|第二个 run 的 envName=staging、batchIndex=1；它的选择是它自己那一组（count=1、files=[tests/b.spec.ts]）|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS214-032|FR-021|异常|被拒绝的组让整单被拒绝|selection=[u-a1, u-p1]（p(1).spec.ts 被 ATS-106 拒绝）|单文件路径 400 INVALID_TEST_FILTER；批次路径**同样** 400 INVALID_TEST_FILTER 且 file 指名该文件；**没有**任何运行被启动|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS214-033|FR-021|异常|预检失败的批次也落到终态|没有 node_modules 的项目，两个文件|批次 status=failed；finishedAt 有值；error 写明原因——不是永远 running|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS214-034|FR-021|异常|批次进行中 Bridge 被杀，该批次被标为中断|强杀 Bridge 后在同一数据目录重启|批次 status 不再是 running；finishedAt 有值|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS214-035|FR-021|正常|批次记录对账「选了什么/跑了什么」|跨两个文件的选择真的跑完|reconciliation.selected=2；missing 为空（跨两个 run 计算）；extra 报告多跑的那些（整文件执行）——不藏起来|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS214-036|FR-021|安全|批次记录不携带环境变量的**值**|档案里写 BASE_URL=https://staging.example/?k=s3cr3t-value-1234，起一个两文件的批次|GET /api/batches 的整个响应里不含该值；batch.context 只有 envUid/envName/envTier，没有 envVariables；档案清单与运行记录同样不含该值|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS214-037|FR-021|异常|白名单收紧后**之后**启动的 run 不再带着该变量|run#1 在跑时用 PUT /env-whitelist 把 BASE_URL 移出白名单，随后启动的 run#2|run#2 的引擎看到 BASE_URL 未设置（`<unset>`）；run#2 的 envVariables 为空；envRefused 点名 BASE_URL|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS214-038|FR-021|异常|批次进行中档案被删除时批次以明确原因结束|run#1 在跑时 DELETE 掉档案|批次 status=failed，error 点名 ENV_PROFILE_NOT_FOUND；第二个文件**没有**在「无档案」的静默回落下跑过|node --test tests/ats214-batch-context.test.mjs|PASS|
 
 ## 进入与退出条件
 

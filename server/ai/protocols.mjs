@@ -97,6 +97,13 @@ export function validateProtocolConfig(protocol, config = {}) {
   if (typeof baseUrl !== 'string' || !/^https?:\/\//i.test(baseUrl)) {
     throw aiError('AI_PROVIDER_CONFIG_INVALID', 'baseUrl must be an http(s) URL');
   }
+  // The secret travels in a header, so a plain `http://` endpoint would send
+  // it in clear text. It is therefore allowed ONLY for a loopback address
+  // (a provider running on this machine); anywhere else https is required.
+  if (/^http:\/\//i.test(baseUrl) && !isLoopbackUrl(baseUrl)) {
+    throw aiError('AI_PROVIDER_CONFIG_INVALID',
+      'baseUrl must use https, except for a loopback address');
+  }
   if (config.credentialId !== undefined && config.credentialId !== null
     && !/^cred_[0-9a-f]{24}$/.test(String(config.credentialId))) {
     throw aiError('AI_PROVIDER_CONFIG_INVALID', 'credentialId must be a credential reference id');
@@ -191,6 +198,17 @@ export function sanitizeHeaders(headers) {
   return out;
 }
 
+/** 端点是不是一个回环地址（本机）。 */
+export function isLoopbackUrl(baseUrl) {
+  try {
+    const parsed = new URL(String(baseUrl));
+    const host = parsed.hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+  } catch {
+    return false;
+  }
+}
+
 /** 每个协议的默认端点。 */
 export function defaultBaseUrl(protocol) {
   if (protocol === 'openai-chat') return 'https://api.openai.com/v1';
@@ -270,11 +288,17 @@ export function buildProtocolHeaders(protocol, config, apiKey) {
     accept: 'application/json',
     ...config.headers,
   };
+  if (protocol === 'anthropic-messages') {
+    // `anthropic-version` is a PROTOCOL header, not a credential: it says
+    // which version of the API is being spoken. It is therefore sent
+    // whether or not a key is present -- a request without a key must not
+    // be rejected for a missing protocol header.
+    headers['anthropic-version'] = '2023-06-01';
+  }
   if (typeof apiKey === 'string' && apiKey.length) {
     if (protocol === 'openai-chat') headers.authorization = `Bearer ${apiKey}`;
     else if (protocol === 'anthropic-messages') {
       headers['x-api-key'] = apiKey;
-      headers['anthropic-version'] = '2023-06-01';
     } else {
       throw aiError('AI_PROVIDER_CONFIG_INVALID', `unsupported protocol ${protocol}`);
     }

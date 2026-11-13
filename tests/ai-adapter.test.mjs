@@ -1163,6 +1163,35 @@ test('R2-P6: a hanging provider does not consume the whole deadline', async () =
 
 /* --- P7: the audit store is required ------------------------------------ */
 
+test('R2-NB1: the anthropic protocol header is sent even without a key', () => {
+  // `anthropic-version` says which version of the API is being spoken. It
+  // is not a credential, so it must not disappear when there is no key: a
+  // request without credentials must not be rejected for a missing protocol
+  // header.
+  const config = validateProtocolConfig('anthropic-messages', { model: 'm' });
+  const withoutKey = buildProtocolHeaders('anthropic-messages', config, null);
+  assert.equal(withoutKey['anthropic-version'], '2023-06-01');
+  assert.ok(!('x-api-key' in withoutKey), 'no key means no key header');
+  const withKey = buildProtocolHeaders('anthropic-messages', config, 'sk-x');
+  assert.equal(withKey['anthropic-version'], '2023-06-01');
+  assert.equal(withKey['x-api-key'], 'sk-x');
+});
+
+test('R2-NB2: a plain http endpoint is refused unless it is loopback', () => {
+  // The secret travels in a header, so a plain http endpoint would send it
+  // in clear text.
+  assert.throws(() => validateProtocolConfig('openai-chat', { model: 'm', baseUrl: 'http://example.invalid/v1' }),
+    (e) => e.code === 'AI_PROVIDER_CONFIG_INVALID');
+  // A loopback provider (one running on this machine) is allowed.
+  for (const url of ['http://127.0.0.1:8080/v1', 'http://localhost:8080/v1', 'http://[::1]:8080/v1']) {
+    assert.equal(validateProtocolConfig('openai-chat', { model: 'm', baseUrl: url }).baseUrl, url.replace(/\/+$/, ''),
+      `${url} must be accepted`);
+  }
+  // https is always fine.
+  assert.equal(validateProtocolConfig('openai-chat', { model: 'm', baseUrl: 'https://example.invalid/v1' }).baseUrl,
+    'https://example.invalid/v1');
+});
+
 test('R2-P7: a missing audit store is VISIBLE, not silently swallowed', async () => {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-p7-'));
   fs.writeFileSync(path.join(work, 'a.spec.ts'), 'test("a");\n');

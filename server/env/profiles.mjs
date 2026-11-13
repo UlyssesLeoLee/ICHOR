@@ -60,7 +60,7 @@
  * the "配置不进入 Git" half of the acceptance criterion.
  */
 import crypto from 'node:crypto';
-import { checkEnvName, isCredentialShapedName } from './whitelist.mjs';
+import { checkEnvName, isCredentialShapedName, parseCredentialRef } from './whitelist.mjs';
 
 /** The separator between the parts of a UID seed; a NUL cannot occur in a name. */
 const NUL = '\u0000';
@@ -283,12 +283,24 @@ export function normaliseVariables(variables, { whitelist = null, reserved = RES
     }
     if (whitelist !== null) {
       // The whitelist check carries BOTH rules: the name has to be
-      // authorised, and it must not be credential-shaped. A credential
-      // belongs in the credential store, not in a profile -- a profile
-      // lives in the run assets, which are archived and mirrored.
-      const check = checkEnvName(name, whitelist);
+      // authorised, and it must not carry a plaintext credential.
+      //
+      // A credential-shaped name may carry a credential REFERENCE instead
+      // of a literal value. The reference is stored in the profile and
+      // resolved against the system credential store when the run starts;
+      // the profile never holds the secret, so it is safe to keep in the
+      // run assets, the SQLite mirror and the evidence archive.
+      const ref = parseCredentialRef(rawValue);
+      const check = checkEnvName(name, whitelist, ref);
       if (!check.allowed) {
         rejected.push({ name, reason: check.reason });
+        continue;
+      }
+      if (ref) {
+        // The stored value is the REFERENCE, in its canonical form. The
+        // shorthand `cred:<id>` is stored as the explicit object so a
+        // reader of the profile sees one shape, not two.
+        out[name] = { credentialRef: ref.id };
         continue;
       }
     }
@@ -349,7 +361,13 @@ export function filterProfileVariables(profile, whitelist, { reserved = RESERVED
       out[name] = value;
       continue;
     }
-    const check = checkEnvName(name, whitelist);
+    // A credential REFERENCE is carried through the filter untouched: it
+    // names an entry in the credential store, and the run resolves it
+    // against the store when the runner starts. A reference is not a
+    // plaintext value, so the whitelist rule about credential-shaped names
+    // does not refuse it.
+    const ref = parseCredentialRef(value);
+    const check = checkEnvName(name, whitelist, ref);
     if (!check.allowed) {
       refused.push({ name, reason: check.reason });
       continue;
@@ -357,6 +375,55 @@ export function filterProfileVariables(profile, whitelist, { reserved = RESERVED
     out[name] = value;
   }
   return { variables: out, refused };
+}
+
+/**
+ * The value of ONE runner variable, or a REFUSAL.
+ *
+ * The environment block holds STRINGS -- that is what a process's
+ * environment is. A value that is not a string therefore cannot be put into
+ * the block, and the question is what happens instead.
+ *
+ * The wrong answer is `String(value)`. A credential REFERENCE is an object,
+ * so `String({credentialRef:'cred_…'})` is the literal string
+ * `"[object Object]"` -- and a run that injects that under a credential-
+ * shaped name runs the system under test with a **bogus token** instead of
+ * the real one, or with none. The failure is SILENT: the run starts, the
+ * test runs, and the result means nothing. That is the worse outcome --
+ * worse than refusing, and worse than not running at all.
+ *
+ * So a reference is REFUSED: it is not a value, and the function says so
+ * (`null`) instead of inventing one. The caller turns the refusal into a
+ * run that does not start.
+ *
+ * Any OTHER non-string is a programming error rather than a platform shape,
+ * so it THROWS: an array or a plain object in a profile is not something
+ * the platform can guess the meaning of.
+ *
+ * A value that is a number or a boolean is still a string in an environment
+ * block, so those are converted -- they carry no secret and no reference.
+ *
+ * @param {string} name the variable's name
+ * @param {*} value the variable's value
+ * @returns {string|null} the value for the environment block, or `null` when
+ *   the value is a credential reference and must be resolved first
+ * @throws {Error} with `.code` `ENV_VALUE_NOT_RESOLVED` and `.variable`
+ */
+export function runnerVariableValue(name, value) {
+  if (typeof value === 'string') {
+    // A SHORTHAND reference (`cred:<id>`) is a string, so the type check
+    // cannot catch it. It is still a REFERENCE and never a value.
+    if (parseCredentialRef(value)) return null;
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  // A credential REFERENCE names a secret that has not been resolved yet.
+  // It is not a value, and it must never become one.
+  if (parseCredentialRef(value)) return null;
+  const error = new Error('ENV_VALUE_NOT_RESOLVED');
+  error.code = 'ENV_VALUE_NOT_RESOLVED';
+  error.variable = String(name);
+  throw error;
 }
 
 /**
@@ -374,14 +441,22 @@ export function filterProfileVariables(profile, whitelist, { reserved = RESERVED
  * spelling of a structural key is therefore removed before the platform's
  * own value is applied, so the platform always wins.
  *
+ * A CREDENTIAL REFERENCE IS REFUSED, NEVER STRINGIFIED. A reference that
+ * reached this function un-resolved would become `"[object Object]"` -- a
+ * silent downgrade that hands the code under test a bogus token. The
+ * refused variable is left OUT of the block and reported through
+ * `onRefused`, so the caller can refuse the run.
+ *
  * @param {object} profile the environment profile
  * @param {object} [options]
  * @param {object} [options.baseEnv] the host environment to pick the base keys out of
  * @param {object} [options.extra] variables the ADAPTER owns (the engine's own output paths)
+ * @param {Function} [options.onRefused] called with the refused variables
  * @returns {object} the environment block for the child process
  */
-export function buildRunnerEnv(profile, { baseEnv = process.env, extra = {} } = {}) {
+export function buildRunnerEnv(profile, { baseEnv = process.env, extra = {}, onRefused = null } = {}) {
   const env = {};
+  const refused = [];
   // The base keys are picked out of the host environment ONE BY ONE, so a
   // variable the host happens to have and that the profile does not declare
   // never reaches the child.
@@ -395,14 +470,26 @@ export function buildRunnerEnv(profile, { baseEnv = process.env, extra = {} } = 
   // that somehow carries `PATH` would break the child, so the base keys are
   // re-applied last for the ones that are structural.
   for (const [name, value] of Object.entries(profile?.variables ?? {})) {
-    env[name] = String(value);
+    const resolved = runnerVariableValue(name, value);
+    // A credential REFERENCE is not a value. It is left OUT of the block
+    // and reported, never stringified into `"[object Object]"`.
+    if (resolved === null) {
+      refused.push(name);
+      continue;
+    }
+    env[name] = resolved;
   }
   // The adapter's own variables (where the report goes) are applied LAST:
   // the engine's contract is that the report is written where the adapter
   // says, not where a profile says.
   for (const [name, value] of Object.entries(extra ?? {})) {
     if (value === undefined || value === null) continue;
-    env[name] = String(value);
+    const resolved = runnerVariableValue(name, value);
+    if (resolved === null) {
+      refused.push(name);
+      continue;
+    }
+    env[name] = resolved;
   }
   // The STRUCTURAL keys are re-applied last and UNCONDITIONALLY: they are
   // the ones the child process needs to exist at all, and a profile must
@@ -431,6 +518,10 @@ export function buildRunnerEnv(profile, { baseEnv = process.env, extra = {} } = 
     applied.add(upper);
     env[key] = String(value);
   }
+  // The refused variables are REPORTED, not swallowed: a caller that has to
+  // decide whether the run may start needs to know that a variable was left
+  // out of the block.
+  if (refused.length && typeof onRefused === 'function') onRefused(refused);
   return env;
 }
 

@@ -1,6 +1,6 @@
 === ATS-606 evidence: the Maestro command inventory ===
-tree : a683fc5c2a9d362f1ab211157c4fc3e1eb396fd5
-date : 2026-11-09T17:12:51Z
+tree : 945405fed60a1bc7b1cac3a8258ed721fa42b18f
+date : 2026-11-13T12:44:13Z
 
 === ATS-606: the Maestro command inventory (behavioural) ===
 maestro : D:\AI-Tools\Maestro\bin\maestro.bat
@@ -68,16 +68,32 @@ ok   negative control "tapon" rejected as expected
 
 MAESTRO COMMAND INVENTORY: 55 commands accepted, 0 rejected
 
+--- the platform importer, run over every fixture ---
+mapped=4 reported=51 (measured by running the importer)
+
 --- the compatibility table (docs/25 §8.5) ---
-table: mappable=7 partial=3 unmappable=45
+table: mappable=6 partial=2 unmappable=47
+ok   the §8.5 block is exactly the generated block (71 lines: the three group headings, all 55 rows and the TALLY) -- the table was not hand-edited
 ok   every accepted Maestro command (55) has a verdict in §8.5
 ok   every command named in §8.5 is a real Maestro command (55)
 ok   every rejected spelling is accounted for in §8.5
-ok   the stated counts (7/3/45) match the table
+ok   the stated counts (6/2/47) match the table
+ok   the stated importer counts (4/51) match the measured behaviour
+ok   every row states the importer behaviour the importer actually has (55 rows)
+ok   every parameter cell matches STEP_ARGUMENTS
 
 --- the platform vocabulary (ATS-601 / ATS-602) ---
 ATS-601 step kinds: launchApp, tapOn, assertVisible, takeScreenshot, recordScreen, readLogs
-ok   every mappable row names a step kind that ATS-601 freezes
+ok   the grouping breaks no §8.3 invariant: every mappable / partially mappable row names a step kind ATS-601 freezes, every unmappable row names none (55 rows)
+
+--- the spelling gap (§8.5.4): mappable in semantics, refused in spelling ---
+ok   the spelling gap holds 2 command(s) and the document says so: assertNotVisible, extendedWaitUntil
+
+--- the grouping, re-derived from the Maestro byte-code ---
+ok   every row's group and step kind are re-derived from the byte-code and agree with the document (55 rows)
+
+--- the rules §8.3 puts on the platform table ---
+ok   the platform table breaks no §8.3 rule: R1 the wait does not decide the group, R2 a begin/end pair carries the pairing on both halves (1 measured pair(s): startRecording/stopRecording)
 
 COMPATIBILITY TABLE: OK
 MAESTRO COMMAND INVENTORY: OK (55 commands)

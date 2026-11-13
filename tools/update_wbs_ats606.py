@@ -42,7 +42,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from wbs_common import (SHEET1, SHEET2, cell_number, cell_text,  # noqa: E402
+from wbs_common import (MARKERS, SHEET1, SHEET2, cell_number, cell_text,  # noqa: E402
                         format_rate, set_cell_in_row, set_marked_cell,
                         set_narrative_cell, totals, xml_escape)
 
@@ -60,28 +60,65 @@ TERMINAL_STATUSES = ('已完成', '已取消')
 NOTE = (
     'iOS 真机路径与 Maestro 兼容性边界已交付（设计与边界冻结，无 iOS 实测）：'
     '交付 docs/25-MOBILE-APP-TESTING.md §8 的三张表——'
-    '§8.4 iOS 支持范围表（逐类步骤在 iOS 模拟器/真机上的可自动化程度与理由）、'
-    '§8.5 Maestro Flow 语法兼容性判定表（逐条命令的可映射/部分可映射/不映射）、'
-    '§8.6 不承诺清单（12 项需人工完成或另立任务）。'
+    '§8.4 iOS 支持范围表（逐类步骤在 iOS 模拟器/真机上的**Maestro 实现状态**与依据，'
+    '含真机路径的四条硬前提）、'
+    '§8.5 Maestro Flow 语法兼容性判定表（逐条命令的可映射/部分可映射/不映射，'
+    '并逐条给出 ATS-602 导入器对 Maestro 原拼写的实际处理与参数保真）、'
+    '§8.6 不承诺清单（15 项需人工完成或另立任务）。'
     '判定依据两侧都有可机读复核的来源：Maestro 侧用本机 Maestro CLI 2.12.1——'
     '命令清单由行为确认（对每条候选命令跑 maestro check-syntax，看 Maestro 自己认不认；'
     '含两个负控证明该检查能区分真命令与拼写错误），'
+    '每条命令的参数清单由字节码读出（maestro-orchestra.jar 的 Yaml* 类），'
     'iOS 两条路径的实现状态由字节码确认（LocalIOSDevice 把操作分给 XCTest 驱动与 '
     'deviceController，后者模拟器上是 simctl、真机上是 devicectl，实现状态不同）；'
-    '本平台侧用 ATS-601 冻结的六类步骤与七项能力、ATS-602 冻结的语义与拼写表。'
-    '判定结论：Maestro 2.12.1 的 55 条命令中，可映射 7 条、部分可映射 3 条、不映射 45 条；'
-    '本平台不实现 Maestro Flow 语法兼容层，这是设计选择（docs/25 §1.2），不是缺陷。'
-    'iOS 侧结论：六类步骤在模拟器上均可自动化；真机路径按能力分层——'
-    'UI 交互（点按/断言/截图）走 XCUITest 驱动，真机可用；'
+    '本平台侧用 ATS-601 冻结的六类步骤与七项能力、ATS-602 冻结的语义拼写表与参数表。'
+    '判定结论：Maestro 2.12.1 的 55 条命令中，可映射 6 条、部分可映射 2 条、不映射 47 条；'
+    '**导入器对 Maestro 原拼写实跑的结果是映射成功 4 条、进导入报告 51 条**'
+    '（语义能表达不等于拼写被接受，差异在 assertNotVisible 与 extendedWaitUntil 两条；'
+    'startRecording / stopRecording 的拼写同样不被接受，但它们差在命令形态上——配对 vs 单步，'
+    '动作本平台能表达，表达不出来的是「开始/结束」这对边界）。'
+    '分组口径只有一套（docs/25 §8.3）：只看语义能不能表达与命令形态对不对；'
+    '拼写、参数保真、等待语义各有各的列，不参与分组。'
+    '**分组的判定是由 Maestro 字节码推导的**（tools/ats606-probes/maestro-action-model.mjs：'
+    '每条命令编译成的 orchestra 命令类与变体由 YamlFluentCommand 的字节码读出，'
+    '再经 ACTION_PLATFORM 一张小表推出判定），不是逐条手写的；'
+    '**那张小表是链上唯一的人判，探针核对的是它的性质**：'
+    'R1「等待不决定分组」（等待条目的判定必须与同一条件的普通断言同组、同步骤种类）'
+    '与 R2「配对命令两边都带配对」（配对关系由字节码的字段名读出），'
+    '两条规则都在表上检查，破坏任一条的表会被探针与生成器拒绝。'
+    '§8.5 的表由 tools/ats606-probes/gen-section-rows.mjs 生成，'
+    '其中导入器行为、参数保真、计数三列都是测量的结果，'
+    '参数保真一列还逐个点名每个参数落在哪一种结果里；'
+    '复核脚本 tools/ats606-probes/（probe-maestro-compat.mjs 把 §8.5 整块（三个组标题+55 行+TALLY）'
+    '与生成器输出逐字比对，独立检查分组不变量，'
+    '并把每一行的分组从字节码重新推导后与文档比对；'
+    '另检查 §8.5.4 的「拼写差」条数由表算得并与文中一致；'
+    '负控自检含「把某一行挪到别的组并同步改掉全部计数」，该负控必须变红；'
+    'probe-group-mutants.mjs 是交付的负控台架，M1–M9 逐条必须变红'
+    '（含把 extendedWaitUntil 挪进「不映射」，以及改坏平台表的两条——'
+    '等待条目与配对条目——后者由 R1/R2 抓住）；'
+    'probe-ios-driver-support.mjs 从字节码复核 §8.4 的每条 iOS 结论与'
+    '七项 capability 表，把四条硬前提逐条核到产物上（字节码里真有那条 '
+    'Apple team ID 报错与 MissingAppleTeamId、真有 xcrun/devicectl 序列、'
+    '真有 DeviceService.listIOSConnectedDevices 的 CoreDevice 隧道状态过滤、'
+    '设备侧 XCTestHTTPServer.swift 真绑 127.0.0.1:22087 且没有任何 jar 带 '
+    'iproxy/usbmux 端口转发），并逐个 jar 列表核对两个设备侧构建产物的出处），'
+    '证据 docs/evidence/ATS-606/。'
+    '本平台**不实现** Maestro Flow 语法兼容层，这是设计选择（docs/25 §1.2），不是缺陷。'
+    'iOS 侧结论（**以 Maestro 2.12.1 为参照的可行性，不是本平台的承诺**）：'
+    '六类步骤在模拟器上 Maestro 均已实现；真机路径按能力分层——'
+    'UI 交互（点按/断言/截图）走 XCUITest 驱动、宿主侧代码同源；'
     '而 App 启动、录屏、状态重置走 deviceController，真机侧未实现（9 个操作中 8 个是 '
-    'NotImplementedError），故真机上受限。'
+    'NotImplementedError），故真机上不可行；真机路径另有四条硬前提'
+    '（需 Apple team ID 签名构建 driver-iphoneos、runner 经 devicectl 装到设备、'
+    '宿主侧的 CoreDevice 隧道已连上、宿主到设备的 127.0.0.1:22087 可达），'
+    '且与 §3.1 的 local-device 契约冲突（平台不接管真机安装与配对）。'
     '另记两条 iOS 硬事实：back 是空操作（iOS 无返回键），飞行模式在 iOS 上不生效（驱动只打一条 warn）。'
-    '复核脚本 tools/ats606-probes/（probe-maestro-compat.mjs 机读校验命令清单与 §8.5 判定的一一对应及计数，'
-    'probe-ios-driver-support.mjs 从字节码复核 §8.4 的每条 iOS 结论），证据 docs/evidence/ATS-606/。'
     '未验证：本机无 macOS/Xcode/模拟器/真机，'
     '没有任何一条 iOS 行为被实测过；'
-    '本节写的是「按 Maestro 2.12.1 的实现与本平台的契约应当如何」，不是「已经跑通了」。'
-    'FR-035 的状态是判定与边界已冻结，iOS 执行能力本身仍为 DESIGNED（属 ATS-603/ATS-604）。'
+    '本节写的是「以 Maestro 2.12.1 为参照应当如何」，不是「已经跑通了」；'
+    '**本平台没有 iOS Runner**，iOS 真实执行按 §2.2 属本阶段 OUT。'
+    'FR-035 的状态是判定与边界已冻结，iOS 执行能力本身仍为 DESIGNED。'
 )
 
 
@@ -91,6 +128,39 @@ def find_ats_row(xml, ats_id):
         if f'<x:v>{ats_id}</x:v>' in rm.group(2):
             return int(rm.group(1)), rm
     return None
+
+
+def expected_marked_block(cell, marker, note):
+    """The marked block of `cell` that THIS script owns, or None.
+
+    The cell may hold an unmarked prefix and one block per marker. The
+    block that carries `marker` is the one this script wrote, so it is
+    the one that has to match the script's own text.
+    """
+    positions = []
+    for m in MARKERS:
+        for mm in re.finditer(re.escape(m), cell):
+            positions.append((mm.start(), m))
+    positions.sort()
+    for i, (pos, owner) in enumerate(positions):
+        if owner != marker:
+            continue
+        end = positions[i + 1][0] if i + 1 < len(positions) else len(cell)
+        block = cell[pos:end]
+        # The marker itself is part of the block, and so is the text the
+        # script wrote after it.
+        return block[len(marker):].strip()
+    return None
+
+
+def first_difference(a, b):
+    """Where two texts start to differ, in a form a reader can act on."""
+    n = min(len(a), len(b))
+    for i in range(n):
+        if a[i] != b[i]:
+            return (f'at offset {i}: the cell says "...{a[max(0, i - 30):i + 40]}" '
+                    f'but the script says "...{b[max(0, i - 30):i + 40]}"')
+    return f'the cell is {len(a)} chars, the script writes {len(b)}'
 
 
 def main():
@@ -126,11 +196,27 @@ def main():
             problems.append(f'T carries the marker {note.count(MARKER)} times, expected 1')
         if '未验证' not in note:
             problems.append('T does not say what was NOT verified')
+        # The NOTE must be the one THIS SCRIPT writes. A note that was
+        # edited by hand -- or written by an older version of this script
+        # -- drifts from the script, and the drift is invisible to the
+        # checks above: they only look at the status, the rate, the
+        # remainder and the marker count. So the cell is COMPARED with the
+        # script's own note, byte for byte, on the marked block.
+        expected = expected_marked_block(note, MARKER, NOTE)
+        if expected is None:
+            problems.append('T carries no ATS-606 block to compare against')
+        elif expected != NOTE:
+            problems.append(
+                'T does not match the note this script writes -- the committed cell and '
+                'the script disagree. Re-run the script (without --verify-only) to '
+                'rewrite the row. (first difference: '
+                f'{first_difference(expected, NOTE)})')
         if problems:
             for p in problems:
                 print(f'FAIL {p}')
             raise SystemExit(1)
-        print(f'PASS the ATS-606 row is {status}, 完成率=1, 剩余人日=0, note marker x1')
+        print(f'PASS the ATS-606 row is {status}, 完成率=1, 剩余人日=0, note marker x1, '
+              'note matches the script')
         return
 
     shutil.copy2(xlsx, xlsx.with_suffix('.xlsx.bak'))
