@@ -192,13 +192,12 @@ function removeTree(dir) {
   if (verdicts['U1a'] !== false) console.log(text.slice(-3000));
   removeTree(tree);
 }
-
 // --- 3. M-U3: the reference list is rendered from the statuses again
 {
   const tree = copyTree((page) => {
     const src = fs.readFileSync(page, 'utf8');
     const mutant = src.replace(
-      /\{credentials\.filter\(c=>!credStatuses\.some\(s=>s\.id===c\.id\)\)\.map\(c=>[\s\S]*?\n        <button className="btn danger small" onClick=\{\(\)=>removeKey\(c\.id\)\}><Trash2 size=\{13\}\/> 删除<\/button><\/div>\)\}/,
+      /\{credentials\.filter\(c=>!credStatuses\.some\(s=>s\.id===c\.id\)\)\.map\(c=>[\s\S]*?删除<\/button><\/div>\)\}/,
       '',
     );
     if (mutant === src) throw new Error('the M-U3 mutation did not apply');
@@ -214,11 +213,43 @@ function removeTree(dir) {
 // --- 4. M-S1: statusAll() re-reads the index per entry again
 {
   const src = fs.readFileSync(path.join(repo, 'server', 'security', 'credentials.mjs'), 'utf8');
-  const mutant = src.replace(
-    /const index = loadCredentialIndex\(indexFile\);\n    const out = \[\];\n    for \(const entry of index\.credentials\) \{[\s\S]*?\n      try \{\n        out\.push\(await status\(entry\.id, entry\)\);/,
-    'const out = [];\n    for (const entry of loadCredentialIndex(indexFile).credentials) {\n      try {\n        out.push(await status(entry.id));',
-  );
-  if (mutant === src) throw new Error('the M-S1 mutation did not apply');
+  // The mutation works on the SOURCE TEXT, so it must not depend on the
+  // line endings: the file in the working tree uses CRLF, the blob in the
+  // repository uses LF, and a probe that only matches one of them silently
+  // does nothing. Every replacement is therefore written as a REGULAR
+  // EXPRESSION whose line terminator is `\r?\n`.
+  //
+  // The mutant is the ORIGINAL defect, restored in two moves:
+  //
+  //   1. the walk re-reads the index for every entry, so a reference that
+  //      is deleted mid-walk is simply NOT THERE any more;
+  //   2. the walk has no per-entry catch, so one entry that cannot be
+  //      measured takes the whole list down.
+  //
+  // The catch block is removed by its WHOLE TEXT, and the removal is
+  // verified: a probe whose mutation silently does nothing would report a
+  // green mutant and prove nothing.
+  const walkStart = 'const index = loadCredentialIndex(indexFile);';
+  const catchStart = '      try {';
+  const catchEnd = '          checkedAt: now(),\r\n        });\r\n      }\r\n';
+  const catchEndLf = catchEnd.replace(/\r\n/g, '\n');
+  // Move 1: the walk re-reads the index for every entry.
+  const mutant0 = src
+    .replace(
+      /const index = loadCredentialIndex\(indexFile\);\r?\n    const out = \[\];\r?\n    for \(const entry of index\.credentials\) \{/,
+      'const out = [];\r\n    for (const entry of loadCredentialIndex(indexFile).credentials) {',
+    )
+    .replace('out.push(await status(entry.id, entry));', 'out.push(await status(entry.id));');
+  if (mutant0 === src) throw new Error('the M-S1 mutation did not apply (the walk still reads one snapshot)');
+  const end = mutant0.includes(catchEnd) ? catchEnd : catchEndLf;
+  const catchAt = mutant0.indexOf(catchStart);
+  const endAt = mutant0.indexOf(end, catchAt);
+  if (catchAt < 0 || endAt < 0) throw new Error('the M-S1 mutation could not find the per-entry catch block');
+  const mutant = mutant0
+    .slice(0, catchAt)
+    + '      out.push(await status(entry.id));\r\n'
+    + mutant0.slice(endAt + end.length);
+  if (mutant === mutant0) throw new Error('the M-S1 mutation did not apply');
   const dir = path.join(scratch, 'tree-m-s1');
   fs.mkdirSync(path.join(dir, 'server', 'security'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'server', 'security', 'credentials.mjs'), mutant, 'utf8');
@@ -227,14 +258,11 @@ function removeTree(dir) {
   const indexFile = path.join(dir, 'index.json');
   const secrets = new Map();
   let store;
-  let victim = null;
-  let fired = false;
   const backend = {
     name: 'racing-vault',
     available: async () => true,
     async write(id, secret) { secrets.set(id, secret); },
     async read(id) {
-      if (victim && !fired) { fired = true; await store.remove(victim); }
       if (!secrets.has(id)) throw new Error('CREDENTIAL_NOT_FOUND');
       return secrets.get(id);
     },
@@ -245,12 +273,31 @@ function removeTree(dir) {
   for (const n of ['a', 'b', 'c']) {
     ids.push((await store.put({ name: `mut-${n}`, secret: `sk-mut-${n}`, purpose: 'other' })).id);
   }
-  victim = ids[2];
+  // The victim is the SECOND entry, and the DELETE lands BETWEEN the two
+  // measurements: the walk has already read the list, the first entry is
+  // measured, and the concurrent DELETE removes the second one. The walk
+  // then measures an entry that is no longer there.
+  //
+  // The delete fires after the FIRST read returns, so the first measurement
+  // completes normally and the break happens on the next one -- which is
+  // exactly the window a concurrent DELETE has.
+  const victim = ids[1];
+  let reads = 0;
+  const backend2 = {
+    ...backend,
+    async read(id) {
+      reads++;
+      const result = await backend.read(id);
+      if (reads === 1) await store.remove(victim);
+      return result;
+    },
+  };
+  const store2 = createCredentialStore({ indexFile, backend: backend2 });
   let outcome;
-  try { const s = await store.statusAll(); outcome = `returned ${s.length} statuses`; }
+  try { const s = await store2.statusAll(); outcome = `returned ${s.length} statuses`; }
   catch (e) { outcome = `threw ${e.code || e.message}`; }
   report('M-S1', /threw/.test(outcome),
-    `the mutant statusAll() with a mid-walk delete -> ${outcome} (the defect is reproduced)`);
+    `the mutant statusAll() with a delete landing between two measurements -> ${outcome} (the defect is reproduced)`);
 }
 
 const failed = results.filter((r) => !r.ok).map((r) => r.id);

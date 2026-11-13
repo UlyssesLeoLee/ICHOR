@@ -389,20 +389,24 @@ PASS  REF-ST-010  the run folder holds no secret
 
 | 日志 | 内容 |
 |---|---|
-| `01-credential-status-ut.log` | 状态契约的 12 例 UT |
+| `01-credential-status-ut.log` | 状态契约的 17 例 UT |
 | `02-credential-status-api-it.log` | 状态面的 9 例 IT（HTTP） |
 | `03-credential-status-api-it-real-store.log` | 同一组 IT，对**真实 Windows Credential Manager** |
-| `04-security-regression.log` | ATS-402 的 108 例安全用例（凭据存储不得回归） |
-| `05-credential-boundary-probe.log` | 边界探针 9 项检查 + 2 项负控 |
-| `06-system-test.log` | 真实浏览器里的 11 项 ST + 截图 + trace |
+| `04-credential-reference-it.log` | 凭据引用的 5 例 IT（引用被接受 / 明文被拒 / 解析不了拒绝启动 / 记录无密钥） |
+| `05-security-regression.log` | ATS-402 的安全用例（凭据存储不得回归） |
+| `06-credential-boundary-probe.log` | 边界探针 9 项检查 + 2 项负控 |
 | `07-next-build.log` | `tsc --noEmit` + Next.js 静态导出构建 |
-| `08-quality-gates.log` | ATS-301 门禁（WBS 助手 + ADR 引用 + 端口审计） |
-| `09-full-regression.log` | 全量回归（1752 例 / 0 失败 / 18 跳过，跳过原因逐条标注） |
-| `10-wbs-row-and-checksums.log` | WBS 行与校验和清单 |
-| `ui/` | 真实浏览器的截图与 trace |
+| `08-system-test.log` | 真实浏览器里的 11 项 ST + 截图 + trace |
+| `09-credential-reference-st.log` | 凭据引用的端到端 10 项（**真实 Playwright 运行** + 真实 Windows Credential Manager） |
+| `10-status-failures-st.log` | 状态面的**失败路径** 10 项（真实浏览器） |
+| `11-status-mutants.log` | **变异体**：修复改回缺陷后，同一支 ST 必须变红 |
+| `12-quality-gates.log` | ATS-301 门禁（WBS 助手 + ADR 引用 + 端口审计） |
+| `13-full-regression.log` | 全量回归（0 失败；跳过项逐条标注） |
+| `14-wbs-row-and-checksums.log` | WBS 行与校验和清单 |
+| `ui/` `ref/` `failures/` | 真实浏览器的截图与 trace |
 
-证据目录另有一份 `README.md`，逐份写明每一步的**内容与复跑命令**，以及第 9 步
-的 18 个 skip 的**逐条原因**（skip 不是 PASS，也不是 FAIL）。
+证据目录另有一份 `README.md`，逐份写明每一步的**内容与复跑命令**，以及全量回归
+里跳过项的**逐条原因**（skip 不是 PASS，也不是 FAIL）。
 
 复现命令：
 
@@ -413,8 +417,12 @@ bash tools/ats213-probes/collect-evidence.sh
 # 单项
 node --test tests/credential-status.test.mjs
 node --test tests/credential-status-api.test.mjs
+node --test tests/credential-reference-api.test.mjs
 node tools/ats213-probes/probe-credential-boundary.mjs
 node tools/ats213-probes/st-ats213.mjs docs/evidence/ATS-213/ui
+node tools/ats213-probes/st-credential-ref.mjs docs/evidence/ATS-213/ref
+node tools/ats213-probes/st-credential-status-failures.mjs docs/evidence/ATS-213/failures
+node tools/ats213-probes/probe-credential-status-mutants.mjs
 python tools/update_wbs_ats213.py
 ```
 

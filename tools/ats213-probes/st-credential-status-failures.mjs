@@ -106,9 +106,20 @@ async function panel(page) {
     // that appears somewhere in its caption. A caption may mention "共 2
     // 条引用", and reading the caption for a digit would count the
     // references as usable keys.
-    const counts = {
+    //
+    // The captions are read by their OWN selector, not by looking for a
+    // word in the metric text: a caption that says something the probe did
+    // not expect ("全部可用") would then be INVISIBLE to the probe, and the
+    // defect would go unnoticed -- which is the very defect U1a is about.
+    const captions = {
       configured: text(document.querySelector('[data-region="cred-configured-count"]')),
       unavailable: text(document.querySelector('[data-region="cred-unavailable-count"]')),
+      unavailableCaption: text(document.querySelector('[data-region="cred-unavailable-caption"]')),
+      storeCaption: text(document.querySelector('[data-region="cred-store-caption"]')),
+    };
+    const counts = {
+      configured: captions.configured,
+      unavailable: captions.unavailable,
     };
     const rows = [...document.querySelectorAll('[data-region="cred-status"]')].map((r) => ({
       status: r.getAttribute('data-cred-status'),
@@ -116,10 +127,12 @@ async function panel(page) {
     }));
     // A row whose status was never measured carries `data-cred-reference`.
     // It is listed with its delete button, but it is NOT a measured status.
+    // The MEASURED rows are the ones WITHOUT that marker.
     const references = [...document.querySelectorAll('[data-cred-reference="true"]')].map((r) => text(r));
+    const measuredRows = rows.filter((r) => r.status !== 'unknown');
     const err = text(document.querySelector('[data-region="cred-status-error"]'));
     const deleteButtons = [...document.querySelectorAll('button')].filter((b) => b.innerText.includes('删除')).length;
-    return { metrics, counts, rows, references, err, deleteButtons };
+    return { metrics, counts, captions, rows, measuredRows, references, err, deleteButtons };
   });
 }
 
@@ -152,13 +165,18 @@ try {
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const page = await ctx.newPage();
     await openSecurity(page);
-    await page.waitForSelector('[data-region="cred-status"],[data-region="cred-reference"]', { timeout: 30000 });
+    // Wait for a MEASURED row: the panel renders a row for every reference,
+    // and the unmeasured row appears first.
+    await page.waitForSelector('[data-region="cred-status"]:not([data-cred-reference="true"])', { timeout: 30000 })
+      .catch(() => {});
     const p = await panel(page);
     await page.screenshot({ path: path.join(outDir, 'U1-store-unreachable.png') });
     const unavailable = p.rows.filter((r) => r.status === 'unavailable').length;
-    const unavailMetric = p.metrics.find((m) => m.startsWith('不可用密钥')) ?? '';
-    const storeMetric = p.metrics.find((m) => m.startsWith('凭据库')) ?? '';
-    const caption = p.metrics.find((m) => m.includes('未配置') || m.includes('取不到')) ?? '';
+    // The captions are read by their OWN selector. A caption that says
+    // 「全部可用」 must be VISIBLE to the probe -- otherwise the probe would
+    // not notice the defect it is looking for.
+    const caption = p.captions.unavailableCaption;
+    const storeCaption = p.captions.storeCaption;
 
     // U1a: the caption must NOT say 「全部可用」 while a count is above zero.
     check('U1a', 'the unavailable caption reflects the counts and never says 全部可用 while a count is above zero',
@@ -171,8 +189,8 @@ try {
 
     // U1b: the store metric must NOT say 「已就绪」 while the store is not usable.
     check('U1b', 'the credential-store metric is based on a measurement, not on the files being present',
-      !(unavailable > 0 && /已就绪/.test(storeMetric)),
-      `store metric reads "${storeMetric}"; GET /status available=${sb?.available} storeHealth=${JSON.stringify(sb?.storeHealth)}`);
+      !(unavailable > 0 && /已就绪/.test(storeCaption)),
+      `store caption reads "${storeCaption}"; GET /status available=${sb?.available} storeHealth=${JSON.stringify(sb?.storeHealth)}`);
     check('U1b-api', 'the status endpoint reports the store as NOT available when it cannot be reached',
       sb?.available === false,
       `available=${sb?.available} storeHealth=${JSON.stringify(sb?.storeHealth)}`);
@@ -186,7 +204,11 @@ try {
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const page = await ctx.newPage();
     await openSecurity(page);
-    await page.waitForSelector('[data-region="cred-status"]', { timeout: 30000 });
+    // Wait for a MEASURED row: the panel renders a row for every reference,
+    // and a row whose status was not measured yet appears first. Waiting
+    // for the measured one is what makes "before" a measurement.
+    await page.waitForSelector('[data-region="cred-status"]:not([data-cred-reference="true"])', { timeout: 30000 })
+      .catch(() => {});
     const before = await panel(page);
     // The bridge goes away: the refresh cannot read the status.
     await stopBridge();
@@ -194,18 +216,18 @@ try {
     await page.waitForSelector('[data-region="cred-status-error"]', { timeout: 15000 }).catch(() => {});
     const after = await panel(page);
     await page.screenshot({ path: path.join(outDir, 'U2-stale-after-refresh-failure.png') });
-    const stale = after.err && after.rows.some((r) => r.status === 'configured');
+    const stale = after.err && after.measuredRows.some((r) => r.status === 'configured');
     check('U2', 'a failed refresh does not leave the stale statuses on screen as if they were current',
       !stale,
-      `before: ${before.rows.map((r) => r.status).join(',')}; after: error="${after.err.slice(0, 70)}" rows=${after.rows.map((r) => r.status).join(',')}`);
+      `before: ${before.measuredRows.map((r) => r.status).join(',')}; after: error="${after.err.slice(0, 70)}" rows=${after.measuredRows.map((r) => r.status).join(',')}`);
     // The stale statuses are not counted as usable.
     check('U2-count', 'the stale statuses are not counted as usable keys',
       after.counts.configured === '0',
       `the 可用密钥 count reads "${after.counts.configured}" (it was ${before.counts.configured} before the failure)`);
     // The references are still listed, and still deletable.
     check('U2-refs', 'the references are still listed after a failed refresh',
-      after.references.length + after.rows.length >= 1,
-      `${after.references.length} reference rows, ${after.rows.length} status rows`);
+      after.references.length + after.measuredRows.length >= 1,
+      `${after.references.length} unmeasured rows, ${after.measuredRows.length} measured rows`);
     await ctx.close();
   }
 
@@ -223,14 +245,19 @@ try {
     await page.screenshot({ path: path.join(outDir, 'U3-first-load-status-failure.png') });
     const [, refs] = await api('/api/security/credentials');
     const noteClaimsList = /下方只列出引用/.test(p.err);
+    // The references are the rows the panel shows. A row whose status was
+    // NOT measured carries `data-cred-reference`; a row with a MEASURED
+    // status does not. The count of the references on the panel has to be
+    // the count of the references the bridge reported.
+    const shown = p.references.length + p.measuredRows.length;
     check('U3', 'a failed first load keeps the references on screen',
-      p.rows.length + p.references.length === refs.credentials.length,
-      `${refs.credentials.length} references exist; panel shows ${p.rows.length} status rows and ${p.references.length} reference rows`);
+      shown === refs.credentials.length,
+      `${refs.credentials.length} references exist; panel shows ${p.references.length} unmeasured rows and ${p.measuredRows.length} measured rows`);
     check('U3-delete', 'a failed first load keeps the delete buttons',
       p.deleteButtons >= refs.credentials.length,
       `${p.deleteButtons} delete buttons for ${refs.credentials.length} references`);
     check('U3-note', 'the note says the list below is the reference list, and that is true',
-      !(noteClaimsList && p.rows.length + p.references.length === 0),
+      !(noteClaimsList && shown === 0),
       `note: "${p.err.slice(0, 90)}"`);
     await ctx.close();
   }
