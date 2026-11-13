@@ -1,25 +1,15 @@
-# ATS-214 :: the Next.js 16 static export build
-#
-# The Turbopack build resolves `next/package.json` INSIDE the filesystem root it
-# is given, and a JUNCTION to a dependency tree on another volume is NOT
-# resolved by it. The build therefore ran on a copy of THIS TREE on D:,
-# where apps/studio/node_modules is a real directory.
-#
-# The sources in the D: tree are THIS TASK'S sources, byte for byte.
-#
-# ---------------------------------------------------------------
 npm notice run @ai-test-studio/ui@0.1.0 build
 npm notice run next build
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.mjs took 29ms
+✓ Running next.config.mjs took 21ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 289ms
+✓ Compiled successfully in 314ms
   Running TypeScript ...
-  Finished TypeScript in 1785ms ...
+  Finished TypeScript in 1208ms ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 538ms
+✓ Generating static pages using 4 workers (3/3) in 414ms
   Finalizing page optimization ...
 
 Route (app)
