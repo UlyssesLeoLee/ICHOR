@@ -1,0 +1,57 @@
+================================================================================
+ATS-213 evidence log -- the WBS row and the checksum manifest
+================================================================================
+commit        : af8a64f5db8e6cf44381c266b0836582b95bf7d2
+timestamp     : 2026-11-13T12:19:39Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+platform      : win32 x64
+command       : bash tools/ats213-probes/collect-wbs-and-checksums.sh
+================================================================================
+
+--- 1. the WBS row update ---
+overview: 已完成=2 完成率=0.3193612774451098 剩余人日=341.0
+updated D:\ICHOR\docs\WBS.xlsx
+the updater exit code: 0
+
+--- 2. the WBS row read back from the workbook ---
+row            : 34
+状态            : 待审核
+完成率          : 1
+剩余人日        : 0
+估算人日        : 5
+验证方式        : IT,ST
+关联要件        : FR-027,NFR-009
+备注长度        : 1897
+【ATS-213】×     : 1
+RESULT: OK -- the ATS-213 row reads 状态=待审核 完成率=1 剩余人日=0 marker×1
+the read-back exit code: 0
+
+--- 3. the overview totals (recomputed from the sheet) ---
+B8 已完成 count: 2
+B9 完成率: 0.3193612774451098
+B10 剩余人日: 341
+
+--- 4. the checksum manifest ---
+docs/32-CREDENTIAL-STATUS.md: the working tree differs from the committed blob -- commit the change before regenerating the manifest
+update_checksums exit code: 1
+manifest entries : 1019
+digest mismatches: 22
+    docs/07-UT-TEST-DESIGN.md 2c5fa1cc0d75aa23b45fc42206177a82cd37b3aebf695aa13db72621789cf0a5 != 79f2ef5e4030b3c0cd1d9ae7214f2a4527c8efab76b7f8708d59581f117e95af
+    docs/08-IT-TEST-DESIGN.md cca0f368b117e68fb0ec1897b6b459c76a4dc2d469080c15cd460b50e27aea04 != ca2dc1659f4c76f5641443a8e13e93a18251f512913bebae2aecdf54123e0ab3
+    docs/09-ST-TEST-DESIGN.md fe0bdb56a2772a880ae0eebfa5df431df8c689781a28d500ea6d3fb8723b56a8 != 6e44d10fa04f1ec69ff208f296ef997f3df753f9fa5931c4699e8a3e5fcb4cc0
+    docs/10-RTM.md 7451d8e4f5558d2a00e73f14ca7fc5f3be258282ca46acd778e0a9a2802863c0 != a7af57c480c4d64a9f53bbc337799a1e93d7b77dbd47f47b58b8fbf0a3d8ee80
+    docs/16-BASELINE-ADR.md 9a5913118649d7c9a215b53a793c499a7f589e12092855b65f5e882d4b16f5f5 != 3d144218cfebd0e2e552f8ef02920b010c992a35af7497979b5c89840bac6807
+    docs/32-CREDENTIAL-STATUS.md f8d5a5b8bf163c3929c42f1a0cf3443e7544760c9b6242c8393ce2c97d732324 != 91f5e7631d3a98a5a2d554f21149f93af23faa8680689a0dd92833b1e1439e72
+    docs/evidence/ATS-213/README.md 13052b4eb60ca70d326ce8b3e14f494f4c178fd9a0a393170cd2a3b35eec5148 != 1bf5d04e2d878ec8c5d4dd0fbfb540518f3eb095a3632298fa646de49635f2dd
+    server/env/credential-refs.mjs 94325070abd5ad7e4743cc80cbb27044763398c14ae8038822a1d45932d1147c != aac245b40d391d6c51b5e09c76f4613acd7ee47d096f6c13e39b7b088a3a4a82
+    server/env/profiles.mjs 7dee0f0c2cd72a27d4c70ec1f6f9784f08deebea520723723aeee46eb0e7b3cd != 5461f1f09444ae77d58ed4e0c404a9d1a406b4f0d20cb13ecc145b14d6514ae5
+    server/index.mjs 8292efe1e51c405fb0f38b2345532eb0c4efc54d83e32742a9472287c82c1135 != 3401d88042ea5513b66d7ea19e76b33f13e868e52196b0f44c2302b82ee1095c
+tracked-not-listed: 5 ['server/env/secret-redaction.mjs', 'tests/credential-redaction-api.test.mjs', 'tests/credential-reference-boundaries.test.mjs', 'tools/ats213-probes/cleanup-credential-store.mjs', 'tools/ats213-probes/probe-credential-redaction-mutants.mjs']
+listed-not-tracked: 0 []
+RESULT: MISMATCH
+verify_checksums exit code: 1
+
+--- exit code: 0 ---
