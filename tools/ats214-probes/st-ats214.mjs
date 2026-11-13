@@ -62,7 +62,12 @@
  *   ST-ATS214-009  the wording is HONEST: the interface says how many
  *                  cases will REALLY be executed, and the number is the
  *                  number the engine runs;
- *   ST-ATS214-010  the pick box is REACHABLE BY THE KEYBOARD.
+ *   ST-ATS214-010  the pick box is REACHABLE BY THE KEYBOARD;
+ *   ST-ATS214-012  the tick state is EXACTLY the selection: ticking
+ *                  one case ticks that one, ticking another leaves
+ *                  the first alone, 'select all' ticks every shown
+ *                  case, and unticking one leaves the rest alone --
+ *                  and `aria-checked` follows the state.
  *
  * The probe prints `OK`/`DEFECT` per check and `RESULT: <n> DEFECT(s)`;
  * it exits with the number of defects, so a non-zero exit is the number
@@ -381,7 +386,12 @@ await sleep(500);
   const search = p2.getByLabel('查找用例名、文件或标签');
   const perf = [];
   perf.push(await measure('type "module4" (7 keys) at 500 cases', async () => { await search.click(); await search.pressSequentially('module4', { delay: 40 }); }));
-  await search.press('Control+A'); await search.press('Backspace');
+  // CLEARING the query is a MEASURED interaction, not a setup step. It is
+  // the step that puts the list BACK from 110 rows to 500 rows in one
+  // paint -- the largest DOM change the reader can trigger -- so it is
+  // the step most likely to break the budget. Measuring it is what makes
+  // this ST able to see a regression in it.
+  perf.push(await measure('clear the query (Ctrl+A, Backspace)', async () => { await search.press('Control+A'); await search.press('Backspace'); }));
   perf.push(await measure('tag chips @smoke, @api, mode 全部 -> 任一', async () => {
     await p2.locator('.tag-chip', { hasText: '@smoke' }).click(); await sleep(60);
     await p2.locator('.tag-chip', { hasText: '@api' }).click(); await sleep(60);
@@ -700,6 +710,68 @@ await sleep(500);
   verdict('ST-ATS214-010 the-pick-box-is-keyboard-reachable',
     k.tag === 'BUTTON' && k.tabIndex >= 0 && !k.insideButton && reachable && toggled,
     `the first .pick-box is a <${k.tag}> with tabIndex=${k.tabIndex}, its parent is a <${k.parentTag}>, nested in a STRICTLY outer <button>=${k.insideButton}; focusable=${reachable}; SPACE toggled it=${toggled}`);
+}
+
+/* ================================================================== */
+/* ST-ATS214-012: the tick state IS the selection                     */
+/* ================================================================== */
+/* The tick state does not travel through the row's props -- it lives in
+ * a context that only the pick-boxes consume, so that ticking a case does
+ * not re-render the row. That is an OPTIMISATION, and an optimisation
+ * that broke the state would be invisible: the boxes would show the wrong
+ * tick, or the wrong case would be unticked.
+ *
+ * So the state is CHECKED here, in the real browser, against the real
+ * selection: one case, another case, all of them, and one unticked again.
+ */
+{
+  const boxes = page.locator('.pick-box');
+  const tickedCount = () => page.evaluate(() =>
+    [...document.querySelectorAll('.pick-box')].filter((b) => b.getAttribute('aria-checked') === 'true').length);
+  const barText = () => page.locator('.select-bar span').first().innerText();
+
+  // The check starts from a KNOWN state. The keyboard check above ends
+  // with SPACE on the first pick box, so that box is already ticked here.
+  // Whatever is ticked is unticked first, so the numbers below mean
+  // what they say.
+  const before = await tickedCount();
+  for (let i = 0; i < before; i++) {
+    const ticked = page.locator('.pick-box[aria-checked="true"]');
+    if (await ticked.count() === 0) break;
+    await ticked.first().click();
+    await sleep(120);
+  }
+  const cleared = await tickedCount();
+
+  await boxes.nth(0).click();
+  await sleep(250);
+  const one = await tickedCount();
+  const oneBar = await barText();
+  const oneAttr = await boxes.nth(0).getAttribute('aria-checked');
+
+  await boxes.nth(1).click();
+  await sleep(250);
+  const two = await tickedCount();
+  const firstAttr = await boxes.nth(0).getAttribute('aria-checked');
+  const secondAttr = await boxes.nth(1).getAttribute('aria-checked');
+
+  await page.getByRole('button', { name: '\u5168\u9009\u5f53\u524d' }).click();
+  await sleep(500);
+  const all = await tickedCount();
+  const allBar = await barText();
+
+  await boxes.nth(10).click();
+  await sleep(300);
+  const allButOne = await tickedCount();
+  const allButOneBar = await barText();
+
+  verdict('ST-ATS214-012 the-tick-state-is-the-selection',
+    cleared === 0
+    && one === 1 && oneAttr === 'true' && oneBar.startsWith('\u5df2\u9009 1 \u6761')
+    && two === 2 && firstAttr === 'true' && secondAttr === 'true'
+    && all === 500 && allBar.startsWith('\u5df2\u9009 500 \u6761')
+    && allButOne === 499 && allButOneBar.startsWith('\u5df2\u9009 499 \u6761'),
+    `cleared=${cleared}; ticking one -> ${one} (aria-checked=${oneAttr}, "${oneBar}"); ticking another -> ${two} (first=${firstAttr}, second=${secondAttr}); select all -> ${all} ("${allBar}"); unticking one -> ${allButOne} ("${allButOneBar}")`);
 }
 
 await browser.close();

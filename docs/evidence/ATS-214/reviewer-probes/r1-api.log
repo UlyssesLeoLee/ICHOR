@@ -1,11 +1,22 @@
+================================================================================
+ATS-214 evidence log -- the external probe: r1-api
+================================================================================
+commit        : 8021be4dd833c1cbfcad31e902d8191c29151d24
+timestamp     : 2026-11-13T15:23:35Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-17-3830379009a5/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node .probe-work/all/r1/probes/r1-api.mjs . D:\hermes-multica\home\cache\scratch/ats214-probe-fx D:\hermes-multica\home\cache\scratch/ats214-probe-data 8951
+================================================================================
+
 bridge up on 8951; tree=.
 env profile: 200 staging
 batch catalogue: discovery=authoritative tests=5
 POST run {selection:[a1,b1], env:'staging'} -> 202
-batch batch_4998865d-eac3-4ebd-8fc6-85c448707543: status=passed runs=tests/a.spec.ts:passed, tests/b.spec.ts:passed
+batch batch_22d9800f-4926-4d5f-ae91-e1fffb0a681c: status=passed runs=tests/a.spec.ts:passed, tests/b.spec.ts:passed
 OK     B0 chain-advances  runs=2
   env-seen.txt: ["a1=http://staging.example","a2=http://staging.example","a3=http://staging.example","b1=http://staging.example","b2=http://staging.example"]
-  run#1 envName=staging envUid=env_1_d4696bcef56644261e01a9a3 | run#2 envName=staging envUid=env_1_d4696bcef56644261e01a9a3
+  run#1 envName=staging envUid=env_1_ae1c991d06dee4359d88561b | run#2 envName=staging envUid=env_1_ae1c991d06dee4359d88561b
 OK     B1 env-profile-on-every-run  run#2 envName=staging; b-file saw ["b1=http://staging.example","b2=http://staging.example"]
   run#1.selection.uids=1 (files tests/a.spec.ts); run#1 executed=3
   UI card on run#1: 选中=1 实际执行=3 选中但未执行=0 执行但未选中=2 -> 选中的用例全部执行
@@ -23,7 +34,7 @@ OK     M1 other-file-not-run  extra=0; legacy cases executed: 0
   batch [m-login-1, legacy-login-1]: passed; executions per case across the batch: {"m-login-1":1,"m-login-2":1,"legacy-login-1":1,"legacy-login-2":1}
 OK     M2 no-case-executed-twice  {"m-login-1":1,"m-login-2":1,"legacy-login-1":1,"legacy-login-2":1}
 slow: run#1 running; killing the Bridge (taskkill /T /F) and restarting it on the same data dir
-  after restart + 8 s: run#1.status=interrupted; batch.status=failed runs=["interrupted"] finishedAt=2026-11-13T07:59:43.965Z
+  after restart + 8 s: run#1.status=interrupted; batch.status=failed runs=["interrupted"] finishedAt=2026-11-13T15:24:06.525Z
 OK     R1 batch-terminal-after-restart  batch.status=failed while its only run is interrupted
 tags: static=static/9 authoritative=authoritative/9 (outcome OK, CLI 1.64.1)
   = T1 title-tag @smoke                              CLI=["smoke"] static=["smoke"]
@@ -38,3 +49,5 @@ tags: static=static/9 authoritative=authoritative/9 (outcome OK, CLI 1.64.1)
 OK     T1 tag-parity-on-PW-spellings  0 of 9 cases disagree
 
 RESULT: 1 DEFECT(s)
+
+--- exit code: 1 ---
