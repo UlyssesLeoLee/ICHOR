@@ -1,21 +1,11 @@
 === ATS-606 evidence: the checksum manifest ===
-tree : 27ae990648dd79bc0213ebc1734da52098f867ab
-date : 2026-11-13T01:48:57Z
+tree : e6d14dd6978e31cebe9f7c52d72d540ff283fd1b
+date : 2026-11-13T02:03:07Z
 
-manifest entries : 994
-digest mismatches: 24
-    apps/studio/app/page.tsx 3f37f1c2dcbafb3fe4e2716f2dcf99f0c6db61f6446590adbac74dd169630405 != 68498894798967e9c17caf614655a61b06695cfbadb72c46d14bc2272da3a8e1
-    docs/00-INDEX.md 1e53bdb82e61f4abe7189ff9648f77486b5c7e3b6bb64e43ca4a18a5730de2fd != aebe66d31ddc8298466d66eb2ba62233055f2b0012e2a5711b9038d3ae61a69b
-    docs/02-REQUIREMENTS.md 1361045b7134de659beb49004920726a5e28945895808bb174a2ec6b6e6a5136 != e41e18d2491290b154abda1789987a04ae3ceba22fdbfe0a8e12e0faa15a1eca
-    docs/07-UT-TEST-DESIGN.md fa5590fdb6f5d47d43c3691c4f3b107eda87e2c36868f6dd114bb08c2b8be401 != a7e7f76fc17707ff784d4ac849798e1cf5471a79a6f94a351cbed1c62a92e54e
-    docs/08-IT-TEST-DESIGN.md 3865f791a44bb82a3af1aa9599897ecbf9550b69b6c015ddae7482d2c3eef225 != 5aa5d57330dba8de339127e8326c78d01abaf227d477ed7f2d421a1589db6c01
-    docs/09-ST-TEST-DESIGN.md 260d3e3dcea1afef7cdd1861fd0fc8639d43c16cd32bee7c2468a48d7f67fc6f != c4469ec536fe63d45d9a6ff5cc23a93afab8cb5128b9825c8cf409922d64039d
-    docs/10-RTM.md aa03c50b2aff96151c81732222f4d2b99b0240d0dd8c2985bd38813d27ae5a47 != 7451d8e4f5558d2a00e73f14ca7fc5f3be258282ca46acd778e0a9a2802863c0
-    docs/11-SECURITY-RISK.md d0b08143eae0ff789482f66ae3ff6d2dfe0c2c2cbca889ab351b73949a003630 != 295e9178e4c981fcd6c34c94b3157e4bb16fd19472cc3c91c0a4f8433b0befee
-    docs/16-BASELINE-ADR.md 63a030bb1181068bfdb25dbad53f0c080f56ab420cf534ce4f9ffc921eba85c9 != e72e747c1136904d3dcd5248be570150f499059c436e5366754272cbf87fee78
-    docs/32-CREDENTIAL-STATUS.md bda627028d1a18f8151113b7c6a905a8e091c2a6afb8f9ac107ccaa24d81d7e9 != f8d5a5b8bf163c3929c42f1a0cf3443e7544760c9b6242c8393ce2c97d732324
-tracked-not-listed: 5 ['server/env/credential-refs.mjs', 'tests/credential-reference-api.test.mjs', 'tools/ats213-probes/probe-credential-status-mutants.mjs', 'tools/ats213-probes/st-credential-ref.mjs', 'tools/ats213-probes/st-credential-status-failures.mjs']
+manifest entries : 999
+digest mismatches: 0
+tracked-not-listed: 0 []
 listed-not-tracked: 0 []
-RESULT: MISMATCH
+RESULT: OK
 
 exit : 0

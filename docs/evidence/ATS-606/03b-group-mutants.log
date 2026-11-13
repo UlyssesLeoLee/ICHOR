@@ -1,6 +1,6 @@
 === ATS-606 evidence: the grouping negative controls ===
-tree : 27ae990648dd79bc0213ebc1734da52098f867ab
-date : 2026-11-13T01:48:57Z
+tree : e6d14dd6978e31cebe9f7c52d72d540ff283fd1b
+date : 2026-11-13T02:03:07Z
 
 === ATS-606: the negative controls for the §8.5 GROUPING ===
 repo : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-49-7b6ee8cd1fd6\worktree
@@ -9,7 +9,7 @@ so the only thing wrong with it is WHICH GROUP the row is in.
 
 M0 control (unchanged)                   exit=0  => OK (control passes)
 M1 assertNotVisible -> 部分可映射             exit=1  => caught
-     FAIL the row generator could not be run (exit 1) -- the table is NOT verified against the measurement
+     FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
      FAIL the grouping contradicts the byte-code: assertNotVisible: the document puts it in the partial group, the byte-code implies 可映射 (it compiles into AssertConditionComma
 M2 swipe -> 可映射                          exit=1  => caught
      FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（7 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
