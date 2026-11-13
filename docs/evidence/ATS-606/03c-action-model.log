@@ -1,6 +1,6 @@
 === ATS-606 evidence: the Maestro action model (byte-code) ===
-tree : d9adc0731cd0304455c3d079352d0669b3ce05bd
-date : 2026-11-13T02:38:59Z
+tree : 945405fed60a1bc7b1cac3a8258ed721fa42b18f
+date : 2026-11-13T12:44:13Z
 
 === ATS-606: the Maestro action model (measured from the byte-code) ===
 lib   : D:\AI-Tools\Maestro\lib
@@ -10,8 +10,8 @@ launchApp                  LaunchAppCommand
 setPermissions             SetPermissionsCommand  
 tapOn                      TapOnElementCommand,TapOnPointV2Command  tap
 longPressOn                TapOnElementCommand,TapOnPointV2Command  long-press
-assertVisible              AssertConditionCommand  visible
-assertNotVisible           AssertConditionCommand  notVisible
+assertVisible              AssertConditionCommand  visible  slots=visible
+assertNotVisible           AssertConditionCommand  notVisible  slots=notVisible
 assertTrue                 AssertConditionCommand  expression
 assertNoDefectsWithAI      AssertNoDefectsWithAICommand  
 assertWithAI               AssertWithAICommand  
@@ -37,7 +37,7 @@ hideKeyboard               HideKeyboardCommand
 pasteText                  PasteTextCommand  
 scroll                     ScrollCommand  
 takeScreenshot             TakeScreenshotCommand  
-extendedWaitUntil          AssertConditionCommand  extended-wait
+extendedWaitUntil          AssertConditionCommand  notVisible|visible  slots=visible|notVisible
 stopApp                    StopAppCommand  
 killApp                    KillAppCommand  
 clearState                 ClearStateCommand  
@@ -48,7 +48,7 @@ repeat                     RepeatCommand
 retry                      RetryCommand  
 copyTextFrom               CopyTextFromCommand  
 setClipboard               SetClipboardCommand  
-runScript                  RunScriptCommand  expression
+runScript                  RunScriptCommand  
 waitForAnimationToEnd      WaitForAnimationToEndCommand  
 evalScript                 EvalScriptCommand  
 scrollUntilVisible         ScrollUntilVisibleCommand  
@@ -62,5 +62,13 @@ setDarkMode                SetDarkModeCommand
 toggleDarkMode             ToggleDarkModeCommand  
 assertDarkMode             AssertDarkModeCommand  
 assertLightMode            AssertLightModeCommand  
+
+=== the paired commands (a begin/end pair) ===
+startRecording / stopRecording  ->  StartRecordingCommand / StopRecordingCommand
+
+=== the rules the platform table has to satisfy ===
+R1 the wait does not decide the group: OK
+R2 a begin/end pair carries the pairing on both halves: OK
+TABLE RULES: OK
 
 exit : 0

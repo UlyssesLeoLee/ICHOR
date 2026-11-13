@@ -507,7 +507,7 @@ if (/宿主侧/.test(section) && /driver-iPhoneSimulator/.test(section) && /driv
 /* ------------------------------------------------------------------ */
 /* 4b. WHERE THE DEVICE-SIDE BUILDS LIVE                              */
 /* ------------------------------------------------------------------ */
-// The two device-side runner builds are the ones the round-2 review
+// The two device-side runner builds are the ones this check names
 // caught: the document attributed them to `maestro-cli-2.12.1.jar`, but
 // that jar holds only the Swift SOURCES under `driver/ios/`. The
 // prebuilt runners are in `maestro-ios-driver.jar`, under
