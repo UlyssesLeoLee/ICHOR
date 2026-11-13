@@ -710,13 +710,13 @@ warning: in the working copy of 'node_modules/playwright/types/testReporter.d.ts
 warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/p(1).spec.ts', LF will be replaced by CRLF the next time Git touches it
-✔ IT-ATS214-SETUP: start the bridge (659.6242ms)
-✔ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (5016.6665ms)
-✔ IT-ATS214-031: the second run of a batch records the profile it inherited (5070.2298ms)
-✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (1815.1574ms)
-✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (579.7266ms)
-✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (4683.8997ms)
-✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (4954.043ms)
+✔ IT-ATS214-SETUP: start the bridge (340.5276ms)
+✔ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (4729.2469ms)
+✔ IT-ATS214-031: the second run of a batch records the profile it inherited (4719.4941ms)
+✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (1747.8752ms)
+✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (476.0468ms)
+✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (4288.5648ms)
+✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (4867.5868ms)
 ℹ tests 7
 ℹ suites 0
 ℹ pass 7
@@ -724,4 +724,4 @@ warning: in the working copy of 'tests/p(1).spec.ts', LF will be replaced by CRL
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 30777.6082
+ℹ duration_ms 28738.1351

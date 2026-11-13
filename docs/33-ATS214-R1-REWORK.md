@@ -15,7 +15,13 @@
 | IT（批次上下文继承与终态，真实 Bridge + 真实 Playwright） | `node --test tests/ats214-batch-context.test.mjs` | **7/7 通过** |
 | ST（真实 Chromium + 真实 Bridge + 500 用例夹具） | `node tools/ats214-probes/st-ats214.mjs` | **ST-ATS214-001~011 共 11 项，0 DEFECT** |
 | 标签一致性（静态索引 vs 真实 CLI `--list`） | `node tools/ats214-probes/tag-parity.mjs` | **12/12 用例逐条一致，0 处不符** |
-| 负控（交付代码被变异后测试必须变红） | `node tools/ats214-probes/mutation-check.mjs` | 见 `13-mutation-control.log` |
+| 负控（交付代码被变异后测试必须变红） | `node tools/ats214-probes/mutation-check.mjs` | **10/10 个变异全部被抓住** |
+| **复核方自己那套探针** | 见 `docs/evidence/ATS-214/reviewer-probes/README.md` | **api 8 OK / ui 7 OK**；必过项全部转 OK |
+| 全仓库回归 | `node --test --test-concurrency=2 tests/*.test.mjs` | **1781 例，0 失败**（31 例按条件跳过） |
+| 发布清单 | `python tools/verify_checksums.py` | **1003 条，mismatch 0** |
+| WBS 第 35 行 | `python tools/update_wbs_ats214.py --verify-only` | **待审核 / 完成率 1 / 剩余 0** |
+
+> 上面这些数字都取自**合并 `dev` 之后**的树。
 
 ### ST 的实测数字
 
@@ -32,6 +38,10 @@
 | 009 | 文案如实 | 「已选 1 条 · 将执行 3 条」；toast「实际执行 3 条」；引擎真的跑了 3 条 |
 | 010 | 勾选框键盘可达 | `<BUTTON>`、tabIndex=0、不嵌在别的 button 里；空格能切换 |
 | 011 | 请求带着每一个被勾选的 UID | 请求体 selection = 两个 UID，与勾选的完全一致 |
+
+> 合并 `dev`（ATS-111 的工作台四态返工）之后，这 11 项**重跑过**，仍是 0 DEFECT。
+> 合并时用例列表面板那一处有冲突：面板状态用 dev 的 `panelState` 模型，
+> 勾选框用 ATS-214 的 `<button role="checkbox">` 写法——两边的模型都保留。
 
 ### 负控探针自身的两个坑（已修，值得记下来）
 
