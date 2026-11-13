@@ -1,16 +1,16 @@
 === ATS-606 evidence: the grouping negative controls ===
-tree : 945405fed60a1bc7b1cac3a8258ed721fa42b18f
-date : 2026-11-13T12:44:13Z
+tree : ee3098cfe282ce7a5d735839dc15837dd4c2e30b
+date : 2026-11-13T17:58:20Z
 
 === ATS-606: the negative controls for the §8.5 GROUPING ===
-repo : D:\tmp\m3-merge2
+repo : D:\ICHOR
 every mutant moves a row into another group and rewrites EVERY count,
 so the only thing wrong with it is WHICH GROUP the row is in.
 
 M0 control (unchanged)                   exit=0  => OK (control passes)
 M1 assertNotVisible -> 部分可映射             exit=1  => caught
      FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
-     FAIL §8.5.4 states the spelling gap holds 2 command(s), but the table has 1: extendedWaitUntil
+     FAIL a row's note contradicts its group: assertNotVisible: it is in the partially mappable group, but its note says the command form matches the platform's
 M2 swipe -> 可映射                          exit=1  => caught
      FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（7 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
      FAIL the grouping breaks the §8.3 criterion: swipe is in the mappable group but names no step kind
@@ -22,7 +22,7 @@ M4 startRecording -> 不映射                 exit=1  => caught
      FAIL the grouping breaks the §8.3 criterion: startRecording is in the unmappable group but names the step kind "recordScreen"
 M5 launchApp -> 部分可映射                    exit=1  => caught
      FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
-     FAIL the grouping contradicts the byte-code: launchApp: the document puts it in the partial group, the byte-code implies 可映射 (it compiles into LaunchAppCommand)
+     FAIL a row's note contradicts its group: launchApp: it is in the partially mappable group, but its note says the command form matches the platform's
 M6 tapOn -> 不映射                          exit=1  => caught
      FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
      FAIL the grouping breaks the §8.3 criterion: tapOn is in the unmappable group but names the step kind "tapOn"
@@ -31,7 +31,12 @@ M7 extendedWaitUntil -> 不映射              exit=1  => caught
      FAIL the grouping breaks the §8.3 criterion: extendedWaitUntil is in the unmappable group but names the step kind "assertVisible"
 M8 takeScreenshot -> 部分可映射               exit=1  => caught
      FAIL the §8.5 block differs from the generated block -- line 1 of the block: the document says "#### 8.5.1 可映射（5 条）", the generator says "#### 8.5.1 可映射（6 条）". The group 
-     FAIL the grouping contradicts the byte-code: takeScreenshot: the document puts it in the partial group, the byte-code implies 可映射 (it compiles into TakeScreenshotCommand)
+     FAIL a row's note contradicts its group: takeScreenshot: it is in the partially mappable group, but its note says the command form matches the platform's
+M9 §8.5.4 的部分可映射条数说成三条                   exit=1  => caught
+     FAIL §8.5.4 says 3 partially mappable command(s) have their spelling refused, but the table has 2: startRecording, stopRecording
+M10 tapOn 的说明与它的组矛盾                      exit=1  => caught
+     FAIL the §8.5 block differs from the generated block -- line 10 of the block: the document says "| `tapOn` | `tapOn` | 映射成功 → `tapOn` | 在模型内：`text` / `id` / `retryTapIfNo
+     FAIL a row's note contradicts its group: tapOn: it is in the mappable group, but its note says the command form differs
 
 
 --- the platform table mutants (the table itself must satisfy the §8.3 rules) ---
@@ -41,6 +46,9 @@ T1 the wait loses its table entry        exit=1  => caught
 T2 the recording pair loses the pairing  exit=1  => caught
      FAIL the row generator could not be run (exit 1) -- the table is NOT verified against the measurement
      FAIL the grouping contradicts the byte-code: startRecording: the document puts it in the partial group, the byte-code implies 可映射 (it compiles into StartRecordingCommand)
+T3 a variant entry carries the pairing   exit=1  => caught
+     FAIL the row generator could not be run (exit 1) -- the table is NOT verified against the measurement
+     FAIL the grouping contradicts the byte-code: tapOn: the document puts it in the mappable group, the byte-code implies 部分可映射 (it compiles into TapOnElementCommand/TapOnPoi
 
 GROUP MUTANTS: OK (every group mutation was caught, and the control still passes)
 

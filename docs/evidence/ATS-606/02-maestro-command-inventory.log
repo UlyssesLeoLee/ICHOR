@@ -1,6 +1,6 @@
 === ATS-606 evidence: the Maestro command inventory ===
-tree : 945405fed60a1bc7b1cac3a8258ed721fa42b18f
-date : 2026-11-13T12:44:13Z
+tree : ee3098cfe282ce7a5d735839dc15837dd4c2e30b
+date : 2026-11-13T17:58:20Z
 
 === ATS-606: the Maestro command inventory (behavioural) ===
 maestro : D:\AI-Tools\Maestro\bin\maestro.bat
@@ -86,8 +86,14 @@ ok   every parameter cell matches STEP_ARGUMENTS
 ATS-601 step kinds: launchApp, tapOn, assertVisible, takeScreenshot, recordScreen, readLogs
 ok   the grouping breaks no §8.3 invariant: every mappable / partially mappable row names a step kind ATS-601 freezes, every unmappable row names none (55 rows)
 
+--- the notes must not contradict the groups (§8.3) ---
+ok   every row's note agrees with its group about the command form (55 rows)
+
 --- the spelling gap (§8.5.4): mappable in semantics, refused in spelling ---
 ok   the spelling gap holds 2 command(s) and the document says so: assertNotVisible, extendedWaitUntil
+
+--- the partially mappable commands' spelling (§8.5.4) ---
+ok   §8.5.4's count of the partially mappable commands with a refused spelling holds (2): startRecording, stopRecording
 
 --- the grouping, re-derived from the Maestro byte-code ---
 ok   every row's group and step kind are re-derived from the byte-code and agree with the document (55 rows)
