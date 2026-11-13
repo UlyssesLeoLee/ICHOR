@@ -7,7 +7,7 @@ import {api,cancellableApi,downloadArtifact,type Project,type TestDef,type TestC
 // cancelled / loading -- are defined ONCE, here, and the unit tests assert
 // on them (tests/workbench-state.test.mjs) without a browser. The view
 // below only renders what the model says.
-import {WORKBENCH_STATES,NO_PROJECT_STATE,deriveWorkbenchState,panelState,isTextEntry,hasNativeEnterAction,isComposing,keyCommandFor,keyboardHelpLines,type WorkbenchStateKind} from '../lib/workbench-state.mjs';
+import {WORKBENCH_STATES,NO_PROJECT_STATE,deriveWorkbenchState,panelState,isTextEntry,hasNativeEnterAction,isComposing,escapeTarget,keyCommandFor,keyboardHelpLines,type WorkbenchStateKind} from '../lib/workbench-state.mjs';
 // ATS-214: the CASE SEARCH / TAG / FILTER / SELECTION module. The SAME
 // module the portable UI imports, so the two interfaces cannot disagree
 // about what the catalogue shows -- and the SET semantics (a search and a
@@ -445,7 +445,38 @@ export default function Studio(){
  },[]);
  useEffect(()=>{if(tab==='security')loadSecurity();},[tab,loadSecurity]);
  async function openFile(test:TestDef){setSelected(test);try{const s=await api<Source>(`/api/projects/${active}/source?file=${encodeURIComponent(test.file)}`);setSource(s);setDraft(s.content)}catch(e){notify((e as Error).message)}}
- async function addProject(){setBusy(true);try{const r=await api<{project:Project}>('/api/projects','POST',{path:projectPath});setDialog(false);setProjectPath('');setActive(r.project.id);await refresh();notify('项目添加成功：未修改原仓库')}catch(e){notify((e as Error).message)}finally{setBusy(false)}}
+ async function addProject(){setBusy(true);try{const r=await api<{project:Project}>('/api/projects','POST',{path:projectPath});closeDialog();setProjectPath('');setActive(r.project.id);await refresh();notify('项目添加成功：未修改原仓库')}catch(e){notify((e as Error).message)}finally{setBusy(false)}}
+ // ATS-111: closing the add-project dialog gives the focus BACK to a
+ // button the reader can act on. Without this the focus falls onto the
+ // <body>, and the document-level key commands still work -- but the
+ // reader who just cancelled now has to walk the whole tab order back
+ // to where they were.
+ //
+ // WHERE THE FOCUS GOES, EXACTLY
+ // ----------------------------
+ // It goes to the 「添加项目」 button in the project bar -- NOT to
+ // whichever control opened the dialog. The dialog can be opened from
+ // three places: the project bar's button, the no-project panel's
+ // button, and the welcome screen's button. Restoring the focus to
+ // "the opener" would need the opener to be remembered, and the first
+ // two of those three openers do not survive the dialog's own
+ // re-render reliably.
+ //
+ // The project bar's button is the one that is ALWAYS on screen, so it
+ // is the one the focus goes to. The round-2 review observed the
+ // difference (R2-8) and did not count it as a blocker -- but the code
+ // comment used to claim "the button that opened it", which is not
+ // what the code does. A comment that describes a behaviour the code
+ // does not have is the same class of defect as a help line that
+ // promises a capability the workbench does not have.
+ const closeDialog=useCallback(()=>{
+  setDialog(false);
+  // The focus is restored in a microtask, because the dialog is still
+  // mounted when `setDialog(false)` is called and the browser would
+  // refuse to move the focus onto an element that is about to be
+  // replaced.
+  queueMicrotask(()=>addProjectRef.current?.focus());
+ },[]);
  // ATS-214: the BATCH run. The selection is sent as the uids of the
  // picked cases; the Bridge validates them against the catalogue, splits
  // them by file and chains one run per file. The selection itself is on
@@ -595,21 +626,82 @@ export default function Studio(){
  // field's own "submit" behaviour), so typing a path and pressing Enter
  // still submits the form.
  const searchRef=React.useRef<HTMLInputElement|null>(null);
+ // ATS-111: the element that opened the add-project dialog. When the
+ // dialog closes, the focus goes BACK to it: without that, the focus
+ // falls onto the <body>, and a keyboard reader who then presses Ctrl+P
+ // finds that nothing happens -- and that Esc does not cancel the load
+ // either.
+ const addProjectRef=React.useRef<HTMLButtonElement|null>(null);
  const runCurrent=useCallback(async()=>{
   if(!active)return;if(live)return;
   await execute(selected?.file??null);
  },[active,live,selected?.file]);
- const onWorkbenchKey=useCallback((e:React.KeyboardEvent)=>{
-  const command=keyCommandFor(e.nativeEvent);
+ const onWorkbenchKey=useCallback((e:KeyboardEvent)=>{
+  const command=keyCommandFor(e);
   if(!command)return;
+  // The element the key landed on: a TEXT FIELD keeps its own keys.
+  const target=e.target as HTMLElement|null;
   if(command==='cancel'){
-   // The dialog is the innermost thing that can be cancelled.
-   if(dialog){setDialog(false);e.preventDefault();return;}
-   if(cancelCatalogue()){e.preventDefault();return;}
+   // The three things Escape can cancel are NESTED, and the innermost
+   // one wins: the dialog, then the load, then the run. The decision is
+   // the MODEL's (`escapeTarget`), so the order is asserted by the unit
+   // tests and the view only carries it out.
+   //
+   // The RUN is the third one, and it is the one the footer PROMISES:
+   // the help line says 「关闭弹窗，或取消正在进行的加载或运行」, so
+   // pressing Escape during a running test has to stop that test -- the
+   // same endpoint the 「停止运行」 button uses. The round-2 review
+   // rejected the delivery because the help claimed this and the key
+   // did nothing.
+   const target_=escapeTarget({dialogOpen:dialog,loadPending:catalogueRequest.phase==='pending',runActive:Boolean(live)});
+   if(target_==='dialog'){closeDialog();e.preventDefault();return;}
+   if(target_==='load'){if(cancelCatalogue()){e.preventDefault();return;}return;}
+   if(target_==='run'){
+    // The stop is REQUESTED, and the run's final status is decided by
+    // the engine when the process closes -- the same contract as the
+    // 「停止运行」 button.
+    if(live)void api(`/api/runs/${live.id}/stop`,'POST').then(()=>refresh()).catch(err=>notify((err as Error).message));
+    e.preventDefault();return;
+   }
    return;
   }
-  if(command==='focus-search'){searchRef.current?.focus();e.preventDefault();return;}
-  if(command==='run-current'){void runCurrent();e.preventDefault();return;}
+  if(command==='focus-search'){
+   // The dialog is modal: the focus stays inside it, and the key must
+   // NOT leak to the browser. The round-2 review found that the
+   // handler returned EARLY without preventDefault(), so Ctrl+P fell
+   // through to the browser's own Print command. The key is consumed
+   // here -- the focus simply does not move.
+   if(dialog){e.preventDefault();return;}
+   searchRef.current?.focus();e.preventDefault();return;
+  }
+  if(command==='run-current'){
+   // The dialog is modal: a key pressed in it must not start a run in
+   // the background behind it.
+   if(dialog)return;
+   // A text field keeps its own keys: pressing Ctrl+Enter while
+   // typing a path must not start a run.
+   if(isTextEntry(target))return;
+   void runCurrent();e.preventDefault();return;
+  }
+
+  if(command==='focus-search'){
+   // The dialog is modal: the focus stays inside it, and the key must
+   // NOT leak to the browser. The round-2 review found that the
+   // handler returned EARLY without preventDefault(), so Ctrl+P fell
+   // through to the browser's own Print command. The key is consumed
+   // here -- the focus simply does not move.
+   if(dialog){e.preventDefault();return;}
+   searchRef.current?.focus();e.preventDefault();return;
+  }
+  if(command==='run-current'){
+   // The dialog is modal: a key pressed in it must not start a run in
+   // the background behind it.
+   if(dialog)return;
+   // A text field keeps its own keys: pressing Ctrl+Enter while
+   // typing a path must not start a run.
+   if(isTextEntry(target))return;
+   void runCurrent();e.preventDefault();return;
+  }
   if(command==='submit'){
    // A text field keeps its own Enter behaviour.
    if(isTextEntry(e.target))return;
@@ -617,7 +709,49 @@ export default function Studio(){
    if(tab==='security'&&keyName&&keySecret){void saveKey();e.preventDefault();return;}
    if(selected&&source&&draft!==source.content){void save();e.preventDefault();return;}
   }
- },[dialog,projectPath,tab,keyName,keySecret,selected,source,draft,cancelCatalogue,runCurrent]);
+ },[dialog,projectPath,tab,keyName,keySecret,selected,source,draft,catalogueRequest.phase,live,closeDialog,refresh,cancelCatalogue,runCurrent]);
+ // ATS-111: the key commands are bound to the DOCUMENT.
+ //
+ // A handler on the app shell only receives the keys that land inside
+ // it, and the focus is not always inside it: after the page loads, and
+ // after a dialog closes, the focus sits on the <body>. The loading
+ // panel tells the reader 「按 Esc 可以取消这次加载」, so Escape has to
+ // work there -- and Ctrl+P has to move the focus to the search box
+ // from there too.
+ useEffect(()=>{
+  document.addEventListener('keydown',onWorkbenchKey);
+  return()=>document.removeEventListener('keydown',onWorkbenchKey);
+ },[onWorkbenchKey]);
+ // ATS-111: the FOCUS TRAP of the add-project dialog.
+ //
+ // The dialog declares `aria-modal="true"`, which promises the reader
+ // that the rest of the page is not reachable while it is open. Tab
+ // walking into the background breaks that promise: a screen-reader
+ // user would find themselves in the rail behind the dialog.
+ //
+ // The trap keeps the focus inside the dialog and wraps around at both
+ // ends. It is a CAPTURE-phase listener, so it runs before the browser
+ // moves the focus -- which is what makes the wrap-around work.
+ useEffect(()=>{
+  if(!dialog)return;
+  const onKeyDown=(e:KeyboardEvent)=>{
+   if(e.key!=='Tab')return;
+   const modal=document.querySelector('.modal[role="dialog"]');
+   if(!modal)return;
+   const focusable=[...modal.querySelectorAll<HTMLElement>('input,button,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')]
+    .filter(el=>!el.hasAttribute('disabled')&&el.offsetParent!==null);
+   if(!focusable.length)return;
+   const first=focusable[0],last=focusable[focusable.length-1];
+   const active=document.activeElement as HTMLElement|null;
+   if(e.shiftKey){
+    if(active===first||!modal.contains(active)){last.focus();e.preventDefault();}
+   }else if(active===last||!modal.contains(active)){
+    first.focus();e.preventDefault();
+   }
+  };
+  document.addEventListener('keydown',onKeyDown,true);
+  return()=>document.removeEventListener('keydown',onKeyDown,true);
+ },[dialog]);
  // ATS-111: the state of the catalogue panel, decided by the MODEL.
  // The panel component renders the ARIA attributes itself, from the same
  // model, so there is no second copy of them here to drift.
@@ -643,7 +777,7 @@ export default function Studio(){
  // work wherever the focus happens to be. The skip link is the first
  // focusable element: it lets a keyboard user jump straight to the
  // content instead of walking the rail.
- return <div className="app-shell" onKeyDown={onWorkbenchKey}>
+ return <div className="app-shell">
   <a className="skip-link" href="#content">跳到主要内容</a>
   <aside className="rail" role="navigation" aria-label="主导航" data-region="rail"><div className="mark"><TestTube2 size={23}/></div>
    <button title="测试目录" aria-label="测试目录" aria-current={tab==='catalog'?'page':undefined} className={tab==='catalog'?'rail-btn active':'rail-btn'} onClick={()=>setTab('catalog')}><Layers3 size={20}/></button>
@@ -660,7 +794,7 @@ export default function Studio(){
     <div className="top-actions"><span className="chip subdued"><ShieldAlert size={13}/> 本地可信仓库模式</span><button className="icon-btn" onClick={()=>refresh()} title="刷新" aria-label="刷新" data-region="refresh"><RefreshCcw size={16}/></button></div></header>
    <section className="projectbar" aria-label="工作区"><div><span className="eyebrow">WORKSPACE</span><select value={active} onChange={e=>setActive(e.target.value)} className="project-select" aria-label="选择测试项目" data-region="project-select"><option value="">选择测试项目</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
     {selectedProject&&<div className="repo-meta"><span><GitBranch size={14}/>{selectedProject.git.branch}</span><span><GitCommitHorizontal size={14}/>{selectedProject.git.commit}</span>{selectedProject.git.dirty&&<span className="dirty">未提交修改</span>}</div>}
-    <button className="btn secondary" onClick={()=>setDialog(true)} data-region="add-project"><FilePlus2 size={15}/> 添加项目</button>
+    <button className="btn secondary" ref={addProjectRef} onClick={()=>setDialog(true)} data-region="add-project"><FilePlus2 size={15}/> 添加项目</button>
    </section>
    <section className="workspace">
     <aside className="sidebar" aria-label="资源列表" data-region="sidebar"><div className="sidebar-head"><div className="eyebrow">EXPLORER</div><h3>{tab==='catalog'?'测试资产':tab==='runs'?'运行记录':tab==='quality'?'质量概览':tab==='evidence'?'证据工作台':tab==='trace'?'需求列表':'模块概览'}</h3></div>
@@ -714,14 +848,31 @@ export default function Studio(){
      {panel&&panel.kind==='no-project'&&<NoProjectPanel onAddProject={()=>setDialog(true)}/>}
      {shown.map(t=><CaseRow key={t.id} t={t} ticked={selectedUidSet.has(t.uid)} selected={selected?.id===t.id} onToggle={toggleSelect} onOpen={handleOpenFile}/>)}
      {/* The filter matched nothing -- a DIFFERENT fact from "the project has
-         no cases at all", so it is a different message. */}
-     {!panel&&!shown.length&&<div className="empty-small">{catalog.tests.length?'没有符合当前条件的用例<br/>搜索与过滤条件按「交集」叠加':'这个项目里没有可执行的测试用例。'}</div>}
+         no cases at all", so it is a different message. And it is only
+         shown when there IS a project and a catalogue to filter: without
+         a project the panel says so instead.
+
+         The two lines are SEPARATE elements, not one string with a
+         `<br/>` in it: inside a JSX text literal a `<br/>` is not a tag,
+         so the reader saw the characters `<br/>` on the screen. The
+         round-2 review spotted it (R2-6) as a leftover from ATS-214; it
+         is not a blocker for ATS-111, but it is in the panel this task
+         owns, so it is fixed here. */}
+     {!panel&&!shown.length&&<div className="empty-small">{catalog.tests.length?<><span>没有符合当前条件的用例</span><br/><span>搜索与过滤条件按「交集」叠加</span></>:<span>这个项目里没有可执行的测试用例。</span>}</div>}
      </div></>}
      {tab==='runs'&&<div className="file-list" data-region="runs-panel" data-runs-state={runsRequest.phase==='failed'?'error':runsRequest.phase==='pending'&&!runs.length?'loading':!projectRuns.length?'empty':'ready'}>
      {runsRequest.phase==='failed'&&<StatePanel kind="error" detail={runsRequest.error?`原因：${runsRequest.error}`:undefined} onRetry={()=>refresh()} retryLabel="重新加载"/>}
+     {/* ATS-111: the runs list is POLLED. When a poll FAILS, the rows
+         below are the LAST KNOWN ones, not the current ones -- and the
+         round-2 review observed (R2-7) that they were listed without
+         any mark, so the reader could take a stale run for a current
+         one. The model's `staleData` annotation is now wired to the
+         DOM: the panel carries `data-stale="true"` and the rows say
+         「已过期」. */}
+     {runsRequest.phase==='failed'&&projectRuns.length>0&&<div className="note stale-note" role="status" data-region="runs-stale"><TriangleAlert size={15}/>下面的运行记录是<b>上次读取到的</b>，本次读取失败，不能当作当前状态。</div>}
      {runsRequest.phase==='pending'&&!runs.length&&<StatePanel kind="loading"/>}
      {runsRequest.phase==='settled'&&!projectRuns.length&&<StatePanel kind="empty" detail="这个项目还没有运行记录。"/>}
-     {projectRuns.map(r=><button className={'run-item '+(currentRun?.id===r.id?'selected':'')} key={r.id} onClick={()=>setRunDetail(r)}><span className={'status-dot '+r.status}/><span><b>{r.file||'全部测试'}</b><small>{formatTime(r.createdAt)}</small><small className="uid-tag">{r.uid}</small></span><small>{label[r.status]||r.status}</small></button>)}</div>}
+     {projectRuns.map(r=><button className={'run-item '+(currentRun?.id===r.id?'selected':'')+(runsRequest.phase==='failed'?' stale':'')} data-stale={runsRequest.phase==='failed'?'true':undefined} key={r.id} onClick={()=>setRunDetail(r)}><span className={'status-dot '+r.status}/><span><b>{r.file||'全部测试'}</b><small>{formatTime(r.createdAt)}</small><small className="uid-tag">{r.uid}</small></span><small>{label[r.status]||r.status}{runsRequest.phase==='failed'?' · 已过期':''}</small></button>)}</div>}
      {tab==='quality'&&<><div className="search" style={{padding:'0 12px 10px'}}><select value={qualityScope} onChange={e=>{setQualityScope(e.target.value as 'project'|'all'|'run');if(e.target.value==='run'&&!qualityRunId)setQualityRunId(projectRuns[0]?.id||'');}} className="project-select" style={{fontSize:13,minWidth:0,width:'100%'}}><option value="project">当前项目</option><option value="all">全部项目</option><option value="run">单次运行</option></select></div>
      {qualityScope==='run'&&<div className="file-list">{projectRuns.map(r=><button key={r.id} className={'run-item '+(qualityRunId===r.id?'selected':'')} onClick={()=>setQualityRunId(r.id)}><span className={'status-dot '+r.status}/><span><b>{r.file||'全部测试'}</b><small>{formatTime(r.createdAt)}</small></span><small>{label[r.status]||r.status}</small></button>)}</div>}
      <div className="sidebar-hint">失败、重试与取消分开计数。质量概览页的「原始结果」列出每个数字的来源用例与 attempt。</div></> }

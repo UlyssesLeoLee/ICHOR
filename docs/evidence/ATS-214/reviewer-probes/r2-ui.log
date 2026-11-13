@@ -1,0 +1,34 @@
+served by my Bridge pid 10424; page has role="checkbox" button markup: n/a (client-rendered)
+Next: p500 selected -> 500 rows rendered in 59 ms (includes static discovery)
+  layout at 1440x900: {"listTop":674,"listHeight":104,"viewport":900,"fileChips":55}
+  rows fully visible in the list at 1440x900: 1
+OK     L1 next-500-list-visible  case list height=104px, top=674px of a 900px viewport, pushed down by 55 filter chips
+  type "module4" (7 keys) at 500 cases           n=8 p50=13ms p95=17ms max=17ms longtasks=[]
+    filter-report: 110 / 500 条搜索 110
+  clear the query (Ctrl+A, Backspace)            n=3 p50=64ms p95=76ms max=76ms longtasks=[52]
+  tag chips @smoke, @api, mode 全部, 任一            n=4 p50=35ms p95=64ms max=64ms longtasks=[]
+    filter-report: 234 / 500 条标签 234
+  全选当前 with 500 shown                            n=1 p50=70ms p95=70ms max=70ms longtasks=[62]
+    select-bar: 已选 500 条
+  type "case 4" with 500 selected                n=7 p50=18ms p95=31ms max=31ms longtasks=[]
+  untick one pick-box (synthetic click: list is 0px) n=1 p50=19ms p95=19ms max=19ms longtasks=[]
+  [4x CPU, info] type "module4" at 500 sel       n=8 p50=88ms p95=233ms max=233ms longtasks=[66,51,50,61,52,162,66]
+OK     P1 next-500-within-budget  budget 100 ms; worst max=76 ms; worst long task=62 ms (4x CPU info: max=233 ms)
+X1: in p500 with @smoke on: 134 / 500 条标签 134
+  switched to "other" (2 cases, tag @billing): rows=2; filter-report="2 / 2 条"; chips=["@billing\n1"]; pressed chips=0
+OK     X1 switch-does-not-hide-new-project  rows=2 of 2, no chip left to untick the stale @smoke criterion: true
+K: first .pick-box: {"tag":"BUTTON","tabIndex":0,"hasAttr":false,"insideButton":false}
+OK     K1 pick-box-keyboard-reachable  tabIndex=0, nested in <button>=false
+X3: ticked a1+b1 -> "已选 2 条 · 将执行 5 条"; b1 deleted from the file; catalogue reloaded -> "已选 2 条 · 将执行 3 条"; any warning on the page: true
+  批量运行 with the stale selection: toast "1 条用例已不在目录中（tc_1_d_29400f89352d7b70），请先移除后再运行"; runs submitted: 0
+OK     X3 dropped-selection-is-reported  selection 已选 2 条 · 将执行 5 条 -> 已选 2 条 · 将执行 3 条; warning shown=true; runs submitted=0
+X4: select-bar "已选 1 条 · 将执行 3 条"; toast "已提交运行：选中 1 条，实际执行 3 条，同文件的其余用例也会执行"; run.selection.count=1; attempts executed=3 (a1,a2,a3)
+OK     X4 toast-states-what-runs  toast states 3; engine executed 3
+fallback: p500 -> 500 rows in 25 ms
+  [fallback] type "module4" at 500 cases         n=9 p50=28ms p95=37ms max=37ms longtasks=[]
+    #filter-report: 110 / 500 条
+  [fallback] chips @smoke, @api                  n=2 p50=15ms p95=16ms max=16ms longtasks=[]
+OK     P2 fallback-500-within-budget  worst max=37 ms; worst long task=0 ms
+fallback selection surface: checkboxes=234, "已选 0 条"
+
+RESULT: 0 DEFECT(s)
