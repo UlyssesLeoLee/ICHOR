@@ -1,0 +1,21 @@
+================================================================================
+ATS-213 evidence log -- the mutants: the new checks go RED when the defect is back
+================================================================================
+commit        : cb3ad6823917c8846bfefd0cff42814e6600bf0c
+timestamp     : 2026-11-13T01:39:08Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+python        : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc    : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+platform      : win32 x64
+command       : node tools/ats213-probes/probe-credential-status-mutants.mjs
+================================================================================
+
+OK     DELIVERY-ST  the ST on the delivery tree: 10 checks, failing: none
+OK     M-U1a  the mutant caption makes the ST's U1a verdict RED (the defect is caught)
+OK     M-U3  the mutant list makes the ST's U3 verdict RED (the defect is caught)
+OK     M-S1  the mutant statusAll() with a delete landing between two measurements -> threw CREDENTIAL_NOT_FOUND (the defect is reproduced)
+
+RESULT: OK (4 checks)
+
+--- exit code: 0 ---
