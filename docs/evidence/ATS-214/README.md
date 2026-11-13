@@ -16,7 +16,7 @@
 | 真实 Bridge 的 IT（标签进目录、两个索引一致、选择拒绝、批次拆分） | `node --test tests/ats214-batch-run-api.test.mjs` | **11 / 11 通过** |
 | 标签一致性（静态索引 vs 真实 CLI `--list`） | `node tools/ats214-probes/tag-parity.mjs` | **12 / 12 用例逐条一致，0 处不符** |
 | 全仓库回归 | `node --test --test-concurrency=2 tests/*.test.mjs` | **1822 例，1803 通过，0 失败**（19 例按条件跳过） |
-| ST：真实 Chromium + 真实 Bridge + 500 用例夹具 | `node tools/ats214-probes/st-ats214.mjs` | **ST-ATS214-001~011 共 11 项，0 DEFECT** |
+| ST：真实 Chromium + 真实 Bridge + 500 用例夹具 | `node tools/ats214-probes/st-ats214.mjs` | **ST-ATS214-001~012 共 12 项，0 DEFECT** |
 | 负控：交付代码被变异后测试必须变红 | `node tools/ats214-probes/mutation-check.mjs` | **12 / 12 个变异全部被抓住** |
 | WBS 第 35 行 + 全部更新器共存 | `python tools/update_wbs_ats214.py --verify-only` + `bash tools/ats501-probes/check-wbs-updaters.sh` | **待审核 / 完成率 1 / 剩余 0；RESULT: OK** |
 | **外部探针复跑** | `bash tools/ats214-probes/run-reviewer-probes.sh <探针目录>` | **r1-api 8 OK / r2-extra 2 OK / r2-ui 7 OK / r1-ui 7 OK，0 DEFECT**（r1-api 的 B3 为信息项，见下） |
@@ -71,7 +71,7 @@
 | `06-wbs-row-and-updaters.log` | WBS 第 35 行的状态/完成率/剩余人日，以及全部更新器共存回归 | `python tools/update_wbs_ats214.py --verify-only` + `bash tools/ats501-probes/check-wbs-updaters.sh` |
 | `08-next-static-export-build-on-d.log` | 静态导出构建的**另一处**实测（在 D: 盘上带真实依赖的树里跑） | 见文件头的说明 |
 | `09-acceptance-mapping.log` | **验收对照表**：完成定义的两句话各自对应哪份实测日志（由脚本读日志判定，不是手写） | 采集脚本第 10 步 |
-| `10-st-500-cases.log` | ST：真实 Chromium 里的 500 用例夹具，11 项判定 | `node tools/ats214-probes/st-ats214.mjs` |
+| `10-st-500-cases.log` | ST：真实 Chromium 里的 500 用例夹具，12 项判定 | `node tools/ats214-probes/st-ats214.mjs` |
 | `12-batch-context-it.log` | 批次上下文继承与终态的 IT（10 例） | `node --test tests/ats214-batch-context.test.mjs` |
 | `13-mutation-control.log` | 负控：12 个变异逐个被抓住 | `node tools/ats214-probes/mutation-check.mjs` |
 | `reviewer-probes/` | **外部探针**的复跑结果与说明 | `bash tools/ats214-probes/run-reviewer-probes.sh <探针目录>` |
