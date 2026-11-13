@@ -159,6 +159,50 @@ const SELECTION_ROWS_PER_FILE=3;
  */
 const TickedContext=React.createContext<ReadonlySet<string>>(new Set<string>());
 
+/**
+ * The ICONS of a case row, defined ONCE.
+ *
+ * Every row of the case list carries the same two glyphs: the file-with-
+ * code mark and the chevron. Rendered as elements, each of them is an
+ * `<svg>` with its own `<path>` children -- 7 of the row's 15 DOM nodes,
+ * and 3500 identical SVG subtrees for a 500-case list.
+ *
+ * As `<symbol>`s they are defined once in the document, and every row
+ * references them with `<use>`. The picture is IDENTICAL (the same paths,
+ * the same viewBox, the same stroke) and `currentColor` still applies, so
+ * the SELECTED row still paints its icons in its own colour.
+ *
+ * The saving matters because one filter change can create 390 rows at
+ * once, and the browser creates and paints every node of them.
+ */
+const CASE_ICONS=(
+ <svg xmlns="http://www.w3.org/2000/svg" style={{display:'none'}} aria-hidden="true">
+  <symbol id="ats214-icon-file-code" viewBox="0 0 24 24" fill="none">
+   <path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/>
+   <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+   <path d="m5 12-3 3 3 3"/>
+   <path d="m9 18 3-3-3-3"/>
+  </symbol>
+  <symbol id="ats214-icon-chevron-right" viewBox="0 0 24 24" fill="none">
+   <path d="m9 18 6-6-6-6"/>
+  </symbol>
+ </svg>
+);
+
+/** The file-with-code mark of a case row, as a `<use>` of the symbol. */
+const CaseFileIcon=()=>(
+ <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-file-code-2" aria-hidden="true">
+  <use href="#ats214-icon-file-code"/>
+ </svg>
+);
+
+/** The chevron of a case row, as a `<use>` of the symbol. */
+const CaseChevronIcon=()=>(
+ <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-right" aria-hidden="true">
+  <use href="#ats214-icon-chevron-right"/>
+ </svg>
+);
+
 const CaseRow=React.memo(function CaseRow({t,selected,onToggle,onOpen}:{
  t:TestDef;selected:boolean;
  onToggle:(uid:string)=>void;onOpen:(test:TestDef)=>void;
@@ -211,7 +255,7 @@ const CaseTitle=React.memo(function CaseTitle({t,onOpen}:{
  t:TestDef;onOpen:(test:TestDef)=>void;
 }){
  return <button className="file-open" onClick={()=>onOpen(t)}>
-  <FileCode2 size={16}/><span><b>{t.title}</b><small>{t.file}:{t.line}</small>{(t.tags&&t.tags.length)?<small className="tag-line">{t.tags.map(x=>'@'+x).join(' ')}</small>:null}<small className="uid-tag">{t.uid}{t.uidStable?'':' ⚠'}</small></span><ChevronRight size={14}/>
+  <CaseFileIcon/><span><b>{t.title}</b><small>{t.file}:{t.line}</small>{(t.tags&&t.tags.length)?<small className="tag-line">{t.tags.map(x=>'@'+x).join(' ')}</small>:null}<small className="uid-tag">{t.uid}{t.uidStable?'':' ⚠'}</small></span><CaseChevronIcon/>
  </button>;
 });
 
@@ -804,7 +848,9 @@ export default function Studio(){
  // work wherever the focus happens to be. The skip link is the first
  // focusable element: it lets a keyboard user jump straight to the
  // content instead of walking the rail.
- return <div className="app-shell">
+ return <>
+  {CASE_ICONS}
+  <div className="app-shell">
   <a className="skip-link" href="#content">跳到主要内容</a>
   <aside className="rail" role="navigation" aria-label="主导航" data-region="rail"><div className="mark"><TestTube2 size={23}/></div>
    <button title="测试目录" aria-label="测试目录" aria-current={tab==='catalog'?'page':undefined} className={tab==='catalog'?'rail-btn active':'rail-btn'} onClick={()=>setTab('catalog')}><Layers3 size={20}/></button>
@@ -1125,4 +1171,5 @@ export default function Studio(){
    </form></div></div>}
   {message&&<div className="toast">{message}</div>}
  </div>
+ </>
 }
