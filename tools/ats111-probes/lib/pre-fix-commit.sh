@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# ATS-111: the ONE definition of "the pre-fix tree".
+# ATS-111: the definitions of the "pre-fix trees" and of the checks that
+# must fail on them.
 #
 # WHAT THIS SOLVES
 # -----------------
@@ -21,70 +22,126 @@
 # collected BEFORE the merge, so it could not be reproduced on the
 # merged dev tip at all.
 #
-# THE FIX
-# -------
-# The pre-fix tree is a PINNED COMMIT ID, not a search:
+# WHY THERE ARE TWO BASELINES
+# ---------------------------
+# The review rounds rejected two different deliveries, and the checks
+# that prove this round's work discriminate against DIFFERENT trees:
 #
-#   ATS111_PREFIX_COMMIT   -- an explicit override (a full SHA);
-#   the pinned default      -- the merge commit of the FIRST delivery,
-#                             which is the tree the round-1 review
-#                             rejected. That is the tree the new
-#                             checks have to go RED on.
+#   BASELINE A -- cb742ca, the merge commit of the FIRST delivery. The
+#   round-1 review rejected it: the four states were not wired up, the
+#   key commands were bound to the app shell instead of the document,
+#   the retry issued no request, the catalogue was not cleared on a
+#   project switch, and there was no no-project state.
 #
-# The default is a constant, not a search, so it does not move when
-# other commits are merged. The override exists for the case where a
-# reviewer wants to point the step at a different tree.
+#   BASELINE B -- 9e305e7, the merge commit of the SECOND delivery. The
+#   round-2 review rejected it for two narrower reasons: Escape did not
+#   stop a running test, and Ctrl+P inside the open dialog leaked to
+#   the browser. BOTH of those are REGRESSIONS OR OMISSIONS THAT ONLY
+#   EXIST IN B -- the first delivery had no dialog guard at all, so the
+#   Ctrl+P check PASSES on A.
 #
-# WHY THE FIRST DELIVERY IS THE RIGHT BASELINE
-# --------------------------------------------
-# The round-1 review rejected the tree at cb742ca, and the round-2
-# review confirmed that the 16 view-level checks added afterwards DO go
-# red on it. So cb742ca is the baseline that discriminates: it is the
-# code before the four states were wired up and before the key
-# commands were bound to the document.
+# So a single baseline cannot decide the whole thing: a check that
+# discriminates against B may legitimately pass on A. Each check is
+# therefore bound to the baseline it has to fail on, and the step
+# verifies each binding separately.
+#
+# Both baselines are PINNED COMMIT IDS, never searches, so they do not
+# move when other commits are merged.
 #
 # Usage:
-#   source tools/ats111-probes/lib/pre-fix-commit.sh
-#   PREFIX_COMMIT="$(ats111_prefix_commit)"
-#   # or, in a script:
-#   PREFIX_COMMIT="$(ats111_prefix_commit)"
+#   . tools/ats111-probes/lib/pre-fix-commit.sh
+#   COMMIT="$(ats111_baseline_commit A)"
+#   IDS="$(ats111_required_fail_ids A)"
 set -u
 
-# The merge commit of the FIRST delivery of ATS-111 -- the tree the
-# round-1 review rejected, and the tree the view-level checks have to
-# fail on.
-ATS111_PREFIX_COMMIT_DEFAULT="cb742cad04a251e265726f5171af4c3c348ea37c"
+# BASELINE A: the merge commit of the FIRST delivery of ATS-111 -- the
+# tree the round-1 review rejected.
+ATS111_BASELINE_A="cb742cad04a251e265726f5171af4c3c348ea37c"
+ATS111_BASELINE_A_LABEL="cb742ca"
 
-# The name of the tree, for the log lines.
-ATS111_PREFIX_TREE_LABEL="cb742ca"
+# BASELINE B: the merge commit of the SECOND delivery of ATS-111 -- the
+# tree the round-2 review rejected.
+ATS111_BASELINE_B="9e305e7552122eecb25fd05f02e1fb1b48cd07f5"
+ATS111_BASELINE_B_LABEL="9e305e7"
 
-# Print the commit to use as the pre-fix tree.
+# The checks that must FAIL on BASELINE A.
 #
-# The override wins when it is set AND it resolves to a commit that is
-# actually IN this repository. An override that does not resolve is an
-# error, not a silent fallback: a falsifiability step that quietly ran
-# against a different tree than the reader asked for is worse than one
-# that stops.
-ats111_prefix_commit() {
-  local override="${ATS111_PREFIX_COMMIT:-}"
+# These are the checks that prove the round-1 defects were real: the
+# four states were not wired up, the retry was a no-op, the catalogue
+# was not cleared, the key commands were bound to a container, and
+# there was no no-project state.
+#
+# ST-111-11c is deliberately NOT here. On baseline A, pressing Enter on
+# 「取消」 submits the form -- the dialog then CLOSES (the project is
+# registered) -- so 11c passes and 11d fails. The defect is the
+# WRITTEN ACTION, and 11d is the check that sees it.
+ATS111_REQUIRED_FAIL_A="ST-111-10b ST-111-10e ST-111-10g ST-111-11d \
+ST-111-12a ST-111-12d ST-111-13b ST-111-13c ST-111-13d \
+ST-111-14b ST-111-14d"
+
+# The checks that must FAIL on BASELINE B.
+#
+# These are the round-2 findings: Escape did not stop the run, and
+# Ctrl+P inside the open dialog was not consumed. ST-111-16c/16d and
+# ST-111-17b are the ones that carry them.
+ATS111_REQUIRED_FAIL_B="ST-111-16c ST-111-16d ST-111-17b"
+
+# The commit of a baseline. 'A' or 'B'.
+#
+# The override names a BASELINE, not a commit: `ATS111_BASELINE_A`
+# overrides baseline A, `ATS111_BASELINE_B` overrides baseline B.
+ats111_baseline_commit() {
+  local which="${1:-A}"
+  local pinned
+  case "$which" in
+    A) pinned="$ATS111_BASELINE_A" ;;
+    B) pinned="$ATS111_BASELINE_B" ;;
+    *) printf 'unknown baseline %s (expected A or B)\n' "$which" >&2; return 1 ;;
+  esac
+  local override_var="ATS111_BASELINE_${which}"
+  local override="${!override_var:-}"
   if [ -n "$override" ]; then
     if git cat-file -e "${override}^{commit}" 2>/dev/null; then
-      printf '%s\n' "$(git rev-parse "$override")"
+      git rev-parse "$override"
       return 0
     fi
-    printf 'the ATS111_PREFIX_COMMIT override (%s) is not a commit in this repository\n' \
-      "$override" >&2
+    printf 'the %s override (%s) is not a commit in this repository\n' \
+      "$override_var" "$override" >&2
     return 1
   fi
-  if ! git cat-file -e "${ATS111_PREFIX_COMMIT_DEFAULT}^{commit}" 2>/dev/null; then
-    printf 'the pinned pre-fix commit (%s) is not in this repository -- the history was rewritten\n' \
-      "$ATS111_PREFIX_COMMIT_DEFAULT" >&2
+  if ! git cat-file -e "${pinned}^{commit}" 2>/dev/null; then
+    printf 'the pinned baseline %s (%s) is not in this repository -- the history was rewritten\n' \
+      "$which" "$pinned" >&2
     return 1
   fi
-  git rev-parse "$ATS111_PREFIX_COMMIT_DEFAULT"
+  git rev-parse "$pinned"
 }
 
-# The short label of the pre-fix tree, for the logs.
+# The short label of a baseline, for the logs.
+ats111_baseline_label() {
+  case "${1:-A}" in
+    A) printf '%s\n' "$ATS111_BASELINE_A_LABEL" ;;
+    B) printf '%s\n' "$ATS111_BASELINE_B_LABEL" ;;
+    *) printf 'unknown\n' ;;
+  esac
+}
+
+# The check ids that must FAIL on a baseline.
+ats111_required_fail_ids() {
+  case "${1:-A}" in
+    A) printf '%s\n' "$ATS111_REQUIRED_FAIL_A" ;;
+    B) printf '%s\n' "$ATS111_REQUIRED_FAIL_B" ;;
+    *) printf '\n' ;;
+  esac
+}
+
+# The legacy entry point: the FIRST delivery's tree. It is what the
+# step used to select, and it is kept so that an existing caller keeps
+# working -- but the step itself now checks BOTH baselines.
+ats111_prefix_commit() {
+  ats111_baseline_commit A
+}
+
 ats111_prefix_label() {
-  printf '%s\n' "$ATS111_PREFIX_TREE_LABEL"
+  ats111_baseline_label A
 }
