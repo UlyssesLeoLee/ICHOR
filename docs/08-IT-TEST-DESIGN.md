@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：208；已执行通过：194；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：227；已执行通过：213；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -212,6 +212,10 @@
 |IT-ATS213-005|NFR-009|安全|畸形请求体不回显请求体内容（密钥片段泄漏的回归）|POST 一个 secret 未加引号的畸形 JSON|400 INVALID_REQUEST_BODY；响应里既无完整密钥也无其前 10 个字符|node --test|PASS|
 |IT-ATS213-006|FR-027|正常|存入凭据后状态清单保持一致（真实系统凭据库）|POST 存入 → 查状态 → DELETE|201 时状态读 configured，删除后清单为空；凭据库不可用时 POST 为 503 CREDENTIAL_STORE_UNAVAILABLE（两种结果都确定）|node --test（真实 Windows Credential Manager）|PASS|
 |IT-ATS213-007|NFR-009|安全|密钥不进本机任何可读文件|存入一个带标记的密钥后扫描数据目录|数据目录里没有任何文件含该密钥；状态清单也不含|node --test（真实 Windows Credential Manager）|PASS|
+|IT-ATS213-008|FR-027|正常|凭据形状的变量名带**引用**时档案存得下|POST /api/projects/<id>/env，API_TOKEN={"credentialRef":"cred_…"}|200；档案的公开视图带变量名 API_TOKEN，不带任何值|node --test|PASS|
+|IT-ATS213-009|FR-027|安全|凭据形状的变量名带**明文**时被拒|POST /api/projects/<id>/env，API_TOKEN=<明文>|400 ENV_VARIABLE_NOT_ALLOWED；拒绝理由指向凭据引用而不是明文|node --test|PASS|
+|IT-ATS213-010|FR-027|异常|引用解析不了时**拒绝启动**|档案引用一个不存在的 cred_…，然后发起运行|运行不被接受（不是 202）；404 CREDENTIAL_REF_NOT_FOUND，带变量名与引用 id，不带密钥|node --test|PASS|
+|IT-ATS213-011|NFR-009|安全|运行记录里没有密钥|扫描 /api/runs 的每一条记录|没有任何一条记录含密钥|node --test|PASS|
 |IT-ATS214-001|FR-005|正常|静态索引携带它从源码读出的标签|未可信项目，6 条用例的夹具|每个用例的 tags 与源码里的 details 对象一致；无标签的用例不带该字段|node --test tests/ats214-batch-run-api.test.mjs|PASS|
 |IT-ATS214-002|FR-021|正常|权威索引携带 CLI 自己的标签|授予信任后重读同一项目|discovery=authoritative、outcome=OK、CLI 1.64.1；标签与 CLI 报告一致|node --test tests/ats214-batch-run-api.test.mjs|PASS|
 |IT-ATS214-003|FR-021|边界|两个索引对同一用例的标签一致|同一夹具，静态与权威两套索引|逐条用例比对，两个索引的标签集合相同|node --test tests/ats214-batch-run-api.test.mjs|PASS|
@@ -231,10 +235,6 @@
 |IT-ATS214-036|FR-021|安全|批次记录不携带环境变量的**值**|档案里写 BASE_URL=https://staging.example/?k=s3cr3t-value-1234，起一个两文件的批次|GET /api/batches 的整个响应里不含该值；batch.context 只有 envUid/envName/envTier，没有 envVariables；档案清单与运行记录同样不含该值|node --test tests/ats214-batch-context.test.mjs|PASS|
 |IT-ATS214-037|FR-021|异常|白名单收紧后**之后**启动的 run 不再带着该变量|run#1 在跑时用 PUT /env-whitelist 把 BASE_URL 移出白名单，随后启动的 run#2|run#2 的引擎看到 BASE_URL 未设置（`<unset>`）；run#2 的 envVariables 为空；envRefused 点名 BASE_URL|node --test tests/ats214-batch-context.test.mjs|PASS|
 |IT-ATS214-038|FR-021|异常|批次进行中档案被删除时批次以明确原因结束|run#1 在跑时 DELETE 掉档案|批次 status=failed，error 点名 ENV_PROFILE_NOT_FOUND；第二个文件**没有**在「无档案」的静默回落下跑过|node --test tests/ats214-batch-context.test.mjs|PASS|
-|IT-ATS213-008|FR-027|正常|凭据形状的变量名带**引用**时档案存得下|POST /api/projects/<id>/env，API_TOKEN={"credentialRef":"cred_…"}|200；档案的公开视图带变量名 API_TOKEN，不带任何值|node --test|PASS|
-|IT-ATS213-009|FR-027|安全|凭据形状的变量名带**明文**时被拒|POST /api/projects/<id>/env，API_TOKEN=<明文>|400 ENV_VARIABLE_NOT_ALLOWED；拒绝理由指向凭据引用而不是明文|node --test|PASS|
-|IT-ATS213-010|FR-027|异常|引用解析不了时**拒绝启动**|档案引用一个不存在的 cred_…，然后发起运行|运行不被接受（不是 202）；404 CREDENTIAL_REF_NOT_FOUND，带变量名与引用 id，不带密钥|node --test|PASS|
-|IT-ATS213-011|NFR-009|安全|运行记录里没有密钥|扫描 /api/runs 的每一条记录|没有任何一条记录含密钥|node --test|PASS|
 
 ## 进入与退出条件
 
