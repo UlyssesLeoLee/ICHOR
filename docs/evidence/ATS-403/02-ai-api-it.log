@@ -1,25 +1,30 @@
-$ node --test tests/ai-api.test.mjs
-
-✔ IT-AIE-SETUP: start server (497.3366ms)
-✔ IT-AIE-001: the adapter contract is exposed (2.3227ms)
-✔ IT-AIE-002: the contract endpoint requires a session token (1.4468ms)
-✔ IT-AIE-003: a provider is configured and listed in the fallback order (12.848ms)
-✔ IT-AIE-004: a provider configuration with a plaintext secret is refused (21.861ms)
-✔ IT-AIE-005: the configured providers carry no secret (14.8866ms)
-✔ IT-AIE-006: a call without a consent is refused before the provider is reached (24.032ms)
-✔ IT-AIE-007: a call for an unknown project is refused (14.585ms)
-✔ IT-AIE-008: the refusal is audited (1.7734ms)
-✔ IT-AIE-009: with a consent the call reaches the provider (152.9534ms)
-✔ IT-AIE-010: the diagnostics report the adapter layer (1.3229ms)
-✔ IT-AIE-011: a provider can be removed (20.8485ms)
-✔ IT-AIE-SHUTDOWN: stop server (0.3732ms)
-ℹ tests 13
+✔ IT-AIE-SETUP: start server (746.3008ms)
+✔ IT-AIE-001: the adapter contract is exposed (13.8962ms)
+✔ IT-AIE-002: the contract endpoint requires a session token (14.9581ms)
+✔ IT-AIE-003: a provider is configured and listed in the fallback order (48.3996ms)
+✔ IT-AIE-004: a provider configuration with a plaintext secret is refused (31.519ms)
+✔ IT-AIE-004B: a secret in a HEADER is refused and never stored (49.2957ms)
+✔ IT-AIE-004C: an illegal provider configuration is refused and NOT stored (78.665ms)
+✔ IT-AIE-005: the configured providers carry no secret (2.9387ms)
+✔ IT-AIE-006: a call without a consent is refused before the provider is reached (31.4185ms)
+✔ IT-AIE-007: a call for an unknown project is refused (30.055ms)
+✔ IT-AIE-008: the refusal is audited (14.3643ms)
+✔ IT-AIE-009: with a consent the call reaches the provider (261.9174ms)
+✔ IT-AIE-010: the diagnostics report the adapter layer (1.3045ms)
+✔ IT-AIE-011: a provider can be removed (20.5504ms)
+✔ IT-AIE-020: the provider receives the CONSENTED content, not the caller's (141.8015ms)
+✔ IT-AIE-021: a call may not carry its own provider list (65.7458ms)
+✔ IT-AIE-022: a RATE LIMITED provider leaves the working tree byte-identical (155.4499ms)
+✔ IT-AIE-023: a provider that ECHOES the key does not leak it (1903.5166ms)
+✔ IT-AIE-024: the error codes match the documented status table (16.5792ms)
+✔ IT-AIE-SHUTDOWN: stop server (0.4803ms)
+ℹ tests 20
 ℹ suites 0
-ℹ pass 13
+ℹ pass 20
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 872.4663
+ℹ duration_ms 3766.4544
 
 --- exit: 0 ---

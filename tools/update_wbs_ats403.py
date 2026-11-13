@@ -93,7 +93,7 @@ NOTE = (
     'POST /api/ai/egress/check（只判闸门不发请求）；'
     'AI_* 错误码经表驱动映射为 HTTP 状态码，响应带稳定的 error 码与解释，'
     '不靠解析错误消息文本；状态表由代码直接发布，文档不再需要人工同步。'
-    '实测（第 2 轮）：UT 73 项全通过（tests/ai-adapter.test.mjs）；'
+    '实测（第 2 轮）：UT 75 项全通过（tests/ai-adapter.test.mjs）；'
     'IT 20 项全通过（tests/ai-api.test.mjs，真实起 Bridge + 回环假提供商：'
     '被授权内容才被发出、请求体自带提供商被拒、认证类请求头被拒且未落库、'
     '非法配置被拒且未落库、429 与超时后工作区逐字节不变、'

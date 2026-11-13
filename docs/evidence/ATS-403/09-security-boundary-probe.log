@@ -1,5 +1,3 @@
-$ node tools/ats402-probes/probe-security-boundary.mjs
-
 
 --- signal 1: static analysis -- no secret reaches a file, an argv or a log ---
   [PASS] server/security/credentials.mjs carries no forbidden pattern
