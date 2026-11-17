@@ -1,0 +1,40 @@
+==============================================================================
+ATS-410 evidence log -- 03-triage-boundary
+==============================================================================
+commit        : a5071fa34543c54156a2d4a3bae4def15f4533d6
+timestamp     : 2026-11-17T23:10:57Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-8ae52ece3b87/worktree
+node          : v24.19.0
+platform      : win32 x64
+==============================================================================
+
+
+-- 1. the classification is deterministic and complete --
+  PASS  every failure kind maps to one of the four categories, deterministically -- 7 kinds x 4 combinations
+  PASS  every one of the four categories is reachable -- environment, undetermined, product, script
+
+-- 2. the load-bearing part of the classification --
+  PASS  the environment set and the assertion-like set are disjoint -- timeout/network vs assertion/element/navigation
+  PASS  the history gate is load-bearing: without it every assertion-like failure would be blamed -- 6 cases: undetermined vs product
+  PASS  a timeout is `environment` even when its test script changed
+
+-- 3. every finding cites a checkable source --
+  PASS  a finding with no evidence ref is refused -- TRIAGE_EVIDENCE_REQUIRED
+  PASS  a ref to a case that does not exist is refused -- TRIAGE_EVIDENCE_NOT_FOUND
+  PASS  a ref to a run outside the triage is refused -- TRIAGE_EVIDENCE_OUT_OF_SCOPE
+  PASS  every finding of a real triage cites evidence with a recomputable digest -- 2 findings, undetermined / environment
+  PASS  the timeout is `environment` and the assertion without history is `undetermined`
+
+-- 4. the triage is read-only --
+  PASS  the triage core has no filesystem module, no process spawn and no write call -- 7 patterns checked
+  PASS  NEGATIVE CONTROL: the static read-only check fires on a broken copy -- node:fs, node:child_process, a write call, a process spawn, an fs object
+  PASS  a full triage leaves the run record byte-identical
+  PASS  NEGATIVE CONTROL: the no-write check fires when the run record changes
+  PASS  the suspect-change comparison needs two different commits
+  PASS  NEGATIVE CONTROL: all three evidence refusals fire
+  PASS  NEGATIVE CONTROL: the history-gate mutation changes the classification
+
+checks: 17  failures: 0
+RESULT: OK -- the triage boundary holds: the classification is deterministic and complete, the history gate is load-bearing, every finding cites a checkable source, and the triage is read-only.
+
+--- exit: 0 ---
