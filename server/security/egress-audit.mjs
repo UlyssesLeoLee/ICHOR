@@ -77,6 +77,16 @@ export function describeAuditRecord(record) {
     itemCount: record.itemCount ?? 0,
     totalBytes: record.totalBytes ?? 0,
     scopeDigest: record.scopeDigest ?? null,
+    // The INSTRUCTIONS that left the machine with this request. Only the
+    // DESCRIPTOR is kept: the kind, the digest and the byte count, never the
+    // text. `null` means "this egress carried no instructions".
+    instructions: record.instructions
+      ? {
+        kind: record.instructions.kind ?? 'INSTRUCTION',
+        digest: record.instructions.digest ?? null,
+        bytes: Number(record.instructions.bytes) || 0,
+      }
+      : null,
     items: Array.isArray(record.items)
       ? record.items.map((item) => ({
         kind: item.kind,
@@ -121,6 +131,7 @@ export function createEgressAuditStore({ list, persist, now = () => Date.now() }
     kinds = [],
     items = [],
     scopeDigest = null,
+    instructions = null,
   } = {}) {
     if (!EGRESS_AUDIT_EVENTS.includes(event)) {
       const error = new Error('EGRESS_AUDIT_EVENT_INVALID');
@@ -140,6 +151,17 @@ export function createEgressAuditStore({ list, persist, now = () => Date.now() }
       itemCount: items.length,
       totalBytes: items.reduce((n, item) => n + (Number(item.bytes) || 0), 0),
       scopeDigest,
+      // The instructions travel with the request, so the record names them
+      // too. Only the DESCRIPTOR is stored: the kind, the digest and the byte
+      // count. The text itself is dropped here, at the boundary, so the audit
+      // file cannot become a second copy of what was sent.
+      instructions: instructions && typeof instructions === 'object'
+        ? {
+          kind: instructions.kind ?? 'INSTRUCTION',
+          digest: instructions.digest ?? null,
+          bytes: Number(instructions.bytes) || 0,
+        }
+        : null,
       // The items are reduced to their DESCRIPTORS. The content itself is
       // dropped here, at the boundary: nothing downstream of this function can
       // see it, so the audit file cannot become a second copy of the data.
