@@ -1,15 +1,15 @@
 $ node r1-api.mjs <repo> <scratch>
 
-not-reproduced  S1  POST headers.authorization -> 400; GET /api/ai/providers returns it: false; on disk in \tmp\multica-task-1453651441\ats403-reviewer-probes\r1-api.mjs\state/*.json: false
+not-reproduced  S1  POST headers.authorization -> 400; GET /api/ai/providers returns it: false; on disk in \tmp\multica-task-3650004218\ats403-reviewer-probes\r1-api.mjs\state/*.json: false
 not-reproduced  S2  POST headers['api-key'] -> 400; GET returns it: false; on disk: false
 not-reproduced  S3  POST config {baseUrl:'ftp://x', maxTokens:-5} -> 400 (persisted; fails only when /api/ai/complete runs)
 not-reproduced  S4  /api/ai/complete -> 400 text=undefined; provider received unconsented content: false, consented file content: false; provider list came from the request body (not /api/ai/providers)
-file:///C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-81c159ec05e1/worktree/.probe-work/r1-api.mjs:78
+file:///C:/Users/seiko/AppData/Local/Temp/ats403-probes-r4/r1-api.mjs:78
   out('S4b', JSON.stringify(granted).includes('tests/home.spec.ts') && !JSON.stringify(granted).includes('id_ed25519'),
                                     ^
 
 TypeError: Cannot read properties of undefined (reading 'includes')
-    at file:///C:/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-81c159ec05e1/worktree/.probe-work/r1-api.mjs:78:37
+    at file:///C:/Users/seiko/AppData/Local/Temp/ats403-probes-r4/r1-api.mjs:78:37
     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
 
 Node.js v24.19.0

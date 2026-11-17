@@ -14,6 +14,14 @@ OUT="$ROOT/docs/evidence/ATS-403"
 mkdir -p "$OUT"
 cd "$ROOT"
 
+# The provenance header. Every log records WHICH TREE it describes, so a
+# reader can tell without guessing whether a log belongs to the tree that was
+# delivered -- the same convention the ATS-214 / ATS-307 logs use.
+COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+NODE="$(node --version 2>/dev/null || echo unknown)"
+PLATFORM="$(node -p 'process.platform + " " + process.arch' 2>/dev/null || echo unknown)"
+
 run() {
   local name="$1"; shift
   local log="$OUT/$name.log"
@@ -36,6 +44,16 @@ run() {
     rc=$?
   }
   {
+    echo "=============================================================================="
+    echo "ATS-403 evidence log -- $name"
+    echo "=============================================================================="
+    echo "commit        : $COMMIT"
+    echo "timestamp     : $TIMESTAMP (UTC)"
+    echo "repo root     : $ROOT"
+    echo "node          : $NODE"
+    echo "platform      : $PLATFORM"
+    echo "=============================================================================="
+    echo
     cat "$raw"
     echo
     echo "--- exit: $rc ---"
