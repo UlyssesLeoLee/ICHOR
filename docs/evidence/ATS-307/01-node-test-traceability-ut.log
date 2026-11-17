@@ -1,58 +1,61 @@
 ==============================================================================
 ATS-307 evidence log -- the ATS-307 unit suite
 ==============================================================================
-commit        : 0aedd9a0ac36eb92a752ca7802c695f5f191f588
-timestamp     : 2026-11-17T12:37:21Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-0c8c9160483f/worktree
+commit        : f7e3a55eb1c02c2c95e0ecd7e1c0925d2b34e064
+timestamp     : 2026-11-17T18:24:57Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f60149b94aa7/worktree
 node          : v24.19.0
 platform      : win32 x64
 command       : node --test tests/ats307-traceability.test.mjs
 ==============================================================================
 
-✔ UT-ATS307-001: a node uid is a pure function of its kind and its key (1.0451ms)
-✔ UT-ATS307-002: the node uid of the same key in two kinds differs (0.1354ms)
-✔ UT-ATS307-003: the edge uid depends on the endpoints AND the type (0.1061ms)
-✔ UT-ATS307-004: the data of a node cannot change its kind or its uid (0.1404ms)
-✔ UT-ATS307-005: the chain has the six hops in order (0.5217ms)
-✔ UT-ATS307-006: the coverage of a requirement is the best state it reaches (0.1287ms)
-✔ UT-ATS307-007: a requirement walks down to its script, its run and its evidence (7.1001ms)
-✔ UT-ATS307-008: a requirement with no test case says so instead of showing an empty chain (3.8911ms)
-✔ UT-ATS307-009: a case that was never executed reports the missing run hop (3.7955ms)
-✔ UT-ATS307-010: a gap is NEVER filled with a placeholder node (3.0813ms)
-✔ UT-ATS307-011: a requirement that does not exist is reported, not answered with nothing (2.6657ms)
-✔ UT-ATS307-012: an evidence file walks back up to the requirement it verifies (4.241ms)
-✔ UT-ATS307-013: an evidence file that reaches no requirement says WHY (3.5942ms)
-✔ UT-ATS307-014: an evidence selector that matches nothing is reported (2.558ms)
-✔ UT-ATS307-015: the backward walk joins through the run, not through the project (3.3727ms)
-✔ UT-ATS307-016: the RTM test ids that the catalogue does not have are reported (2.8245ms)
-✔ UT-ATS307-017: a design anchor that no document defines is reported (3.0107ms)
-✔ UT-ATS307-018: a case the catalogue marks PASS but no script implements is a FALSE CLAIM (2.9855ms)
-✔ UT-ATS307-019: a case the catalogue marks PENDING and no script implements is a GAP, not a false claim (2.5904ms)
-✔ UT-ATS307-020: the graph has no orphan edge and no cycle (3.9807ms)
-✔ UT-ATS307-021: a cycle in the data is FOUND by the cycle check (0.1121ms)
-✔ UT-ATS307-022: the script scanner finds the three declaration styles (3.4685ms)
-✔ UT-ATS307-023: a step suffix is only stripped when the catalogue knows the parent (2.9342ms)
-✔ UT-ATS307-024: the transcript scanner reads the executed ids and their result (3.395ms)
-✔ UT-ATS307-025: the design anchor splitter keeps a phase marker whole (0.2042ms)
-✔ UT-ATS307-026: the catalogue reader reports a missing file as no data, not as a crash (0.588ms)
-✔ UT-ATS307-027: the evidence reader only accepts a script that really exists (3.1235ms)
-✔ UT-ATS307-028: the coverage report counts the gaps by kind (3.0199ms)
-✔ UT-ATS307-029: the gap of a hop names that hop (0.0716ms)
-✔ UT-ATS307-030: the graph of the REAL repository has no orphan edge and no cycle (412.0162ms)
-✔ UT-ATS307-031: every id the real RTM names exists in the real catalogue (2.7366ms)
-✔ UT-ATS307-032: the build is deterministic -- the same tree gives the same graph (763.2082ms)
-✔ UT-ATS307-033: the graph of the real repository is walkable in both directions (375.4128ms)
-ℹ tests 33
+✔ UT-ATS307-001: a node uid is a pure function of its kind and its key (1.7579ms)
+✔ UT-ATS307-002: the node uid of the same key in two kinds differs (0.1467ms)
+✔ UT-ATS307-003: the edge uid depends on the endpoints AND the type (0.1166ms)
+✔ UT-ATS307-004: the data of a node cannot change its kind or its uid (0.1559ms)
+✔ UT-ATS307-005: the chain has the six hops in order (0.5982ms)
+✔ UT-ATS307-006: the coverage of a requirement is the best state it reaches (0.1685ms)
+✔ UT-ATS307-007: a requirement walks down to its script, its run and its evidence (9.4055ms)
+✔ UT-ATS307-008: a requirement with no test case says so instead of showing an empty chain (4.9088ms)
+✔ UT-ATS307-009: a case that was never executed reports the missing run hop (5.537ms)
+✔ UT-ATS307-010: a gap is NEVER filled with a placeholder node (4.3425ms)
+✔ UT-ATS307-011: a requirement that does not exist is reported, not answered with nothing (4.402ms)
+✔ UT-ATS307-012: an evidence file walks back up to the requirement it verifies (6.8361ms)
+✔ UT-ATS307-013: an evidence file that reaches no requirement says WHY (5.423ms)
+✔ UT-ATS307-014: an evidence selector that matches nothing is reported (4.3831ms)
+✔ UT-ATS307-015: the backward walk joins through the run, not through the project (5.618ms)
+✔ UT-ATS307-016: the RTM test ids that the catalogue does not have are reported (4.2353ms)
+✔ UT-ATS307-017: a design anchor that no document defines is reported (4.2724ms)
+✔ UT-ATS307-018: a case the catalogue marks PASS but no script implements is a FALSE CLAIM (3.7098ms)
+✔ UT-ATS307-019: a case the catalogue marks PENDING and no script implements is a GAP, not a false claim (3.7176ms)
+✔ UT-ATS307-020: the graph has no orphan edge and no cycle (5.1695ms)
+✔ UT-ATS307-021: a cycle in the data is FOUND by the cycle check (0.1181ms)
+✔ UT-ATS307-022: the script scanner finds the three declaration styles (4.6222ms)
+✔ UT-ATS307-023: a step suffix is only stripped when the catalogue knows the parent (3.9803ms)
+✔ UT-ATS307-024: the transcript scanner reads the executed ids and their result (3.6915ms)
+✔ UT-ATS307-025: the design anchor splitter keeps a phase marker whole (0.1987ms)
+✔ UT-ATS307-026: the catalogue reader reports a missing file as no data, not as a crash (0.7272ms)
+✔ UT-ATS307-027: the evidence reader only accepts a script that really exists (4.3936ms)
+✔ UT-ATS307-028: the coverage report counts the gaps by kind (3.661ms)
+✔ UT-ATS307-029: the gap of a hop names that hop (0.0838ms)
+✔ UT-ATS307-030: the graph of the REAL repository has no orphan edge and no cycle (607.5137ms)
+✔ UT-ATS307-031: every id the real RTM names exists in the real catalogue (2.6785ms)
+✔ UT-ATS307-032: the build is deterministic -- the same tree gives the same graph (713.5135ms)
+✔ UT-ATS307-034: a case whose execution FAILED is `failed`, not `verified` (6.1861ms)
+✔ UT-ATS307-035: a case with BOTH a failing and a passing execution is `verified` (8.0581ms)
+✔ UT-ATS307-036: the `failed` state is ranked BELOW `verified` and ABOVE `executed` (0.1223ms)
+✔ UT-ATS307-033: the graph of the real repository is walkable in both directions (346.9653ms)
+ℹ tests 36
 ℹ suites 0
-ℹ pass 33
+ℹ pass 36
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1772.0461
+ℹ duration_ms 1908.2543
 
 --- the summary the reporter printed ---
-ℹ tests 33
-ℹ pass 33
+ℹ tests 36
+ℹ pass 36
 ℹ fail 0
 ℹ skipped 0

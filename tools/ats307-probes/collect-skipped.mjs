@@ -69,11 +69,23 @@ for (const file of files) {
   const text = fs.readFileSync(path.join(root, file), 'utf8');
   for (const s of skipped) {
     if (owner.has(s.name)) continue;
-    if (text.includes(s.name)) owner.set(s.name, file);
+    if (text.includes(s.name)) { owner.set(s.name, file); continue; }
+    // The declaration may ESCAPE a quote inside the name (`the engine\'s
+    // own error message`), so the escaped form is tried too.
+    const escaped = s.name.replace(/'/g, "\\'");
+    if (escaped !== s.name && text.includes(escaped)) owner.set(s.name, file);
   }
 }
 for (const s of skipped) {
   s.file = owner.get(s.name) ?? '(not attributed)';
+}
+const unattributed = skipped.filter((s) => s.file === '(not attributed)');
+if (unattributed.length) {
+  // An unattributed skip is a REPORT, not a guess: a reader must be able
+  // to find the test in the source.
+  console.log('WARNING: %d skipped test(s) could not be attributed to a file:',
+    unattributed.length);
+  for (const s of unattributed) console.log('      %s', s.name);
 }
 
 console.log('=== ATS-307: the skipped tests of the full suite, with their reasons ===');

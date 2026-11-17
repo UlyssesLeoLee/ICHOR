@@ -80,6 +80,9 @@ STATUS_DONE = '已完成'
 # that no committed log carried. A hardcoded constant is the defect.
 EVIDENCE_LOG = Path(__file__).resolve().parents[1] / 'docs' / 'evidence' / 'ATS-307' / '06-node-test-full.log'
 
+# The probe log, the second source of measured figures (the graph's shape).
+PROBE_LOG = Path(__file__).resolve().parents[1] / 'docs' / 'evidence' / 'ATS-307' / '03-probe-traceability.log'
+
 # The `node --test` summary lines the figures are read from.
 SUMMARY_RE = re.compile(r'^\u2139 (tests|pass|fail|skipped) (\d+)$', re.M)
 
@@ -109,18 +112,71 @@ def regression_figures(log_path=None):
     return found
 
 
-def note_text(figures):
-    """The note, with the regression figures taken from the evidence log.
+def graph_figures(log_path=None):
+    """The graph's shape, READ FROM THE COMMITTED PROBE LOG.
+
+    The same defect class as the regression figures: a re-typed constant in
+    the note goes stale when the tree changes. The probe log is the
+    authority on the graph's shape, so the note reads it from there.
+
+    Returns a dict with `nodes`, `edges`, `chains`, `complete`, `broken`
+    and the coverage counts.
+    """
+    path = Path(log_path) if log_path is not None else PROBE_LOG
+    if not path.exists():
+        raise SystemExit(
+            'the probe log %s does not exist -- the note\'s graph figures are derived '
+            'from it, so the updater refuses to write a note it cannot back up' % path)
+    text = path.read_text(encoding='utf-8')
+
+    def number(pattern, label):
+        m = re.search(pattern, text, re.M)
+        if not m:
+            raise SystemExit(
+                'the probe log %s does not carry the %s figure -- the note\'s graph '
+                'figures are derived from it, so the updater refuses to write' % (path, label))
+        return int(m.group(1))
+
+    out = {
+        'nodes': number(r'^nodes\s+:\s+(\d+)$', 'node count'),
+        'edges': number(r'^edges\s+:\s+(\d+)$', 'edge count'),
+        'chains': number(r'^chains\s+:\s+(\d+)$', 'chain count'),
+        'complete': number(r'^complete chains\s+:\s+(\d+)$', 'complete chain count'),
+        'broken': number(r'^broken chains\s+:\s+(\d+)$', 'broken chain count'),
+    }
+    for state in ('verified', 'implemented', 'designed'):
+        m = re.search(r'^  %s\s+(\d+)$' % state, text, re.M)
+        if not m:
+            raise SystemExit(
+                'the probe log %s does not carry the %s coverage count -- the note\'s '
+                'graph figures are derived from it, so the updater refuses to write'
+                % (path, state))
+        out[state] = int(m.group(1))
+    return out
+
+
+def note_text(figures, graph=None):
+    """The note, with the measured figures taken from the evidence logs.
 
     The figures are FORMATTED into the sentence, so the number in the
     workbook is the number the committed log carries -- by construction,
     not by a re-typed constant.
     """
+    if graph is None:
+        graph = graph_figures()
     return NOTE_TEMPLATE.format(
         tests=figures['tests'],
         passed=figures['pass'],
         failed=figures['fail'],
         skipped=figures['skipped'],
+        nodes=graph['nodes'],
+        edges=graph['edges'],
+        chains=graph['chains'],
+        complete=graph['complete'],
+        broken=graph['broken'],
+        verified=graph['verified'],
+        implemented=graph['implemented'],
+        designed=graph['designed'],
     )
 
 # The note. It is a TEMPLATE: the four regression figures are placeholders,
@@ -157,8 +213,9 @@ NOTE_TEMPLATE = (
     '（`P1 AST/CLI` から `CLI` を切り出さない、`NFR / SEC / OPS` は 1 つの領域）；'
     '整合性検査：danglingTest 0 件、danglingAnchor 0 件、orphanEdge 0 件、'
     '循環 0 件、present でないノード 0 件；'
-    '本ツリーのグラフ実測：ノード 1354、辺 25862、チェーン 49、完全なチェーン 5、欠けたチェーン 44、'
-    'coverage は verified 26 / implemented 2 / designed 21；'
+    '本ツリーのグラフ実測：ノード {nodes}、辺 {edges}、チェーン {chains}、'
+    '完全なチェーン {complete}、欠けたチェーン {broken}、'
+    'coverage は verified {verified} / implemented {implemented} / designed {designed}；'
     '本票が報告する既存の drift：カタログが PASS と宣言するが実装スクリプトがその ID を宣言しないケースが 88 件'
     '（UT-DSC-* 30、IT-DSC-* 11、IT-DSC-API-* 7、UT-ATS213-* 17、IT-ATS213-* 11、UT-QUAL-* 9、'
     'IT-DSC-SETUP / IT-DSC-CLEANUP / ST-045 各 1）。実装は別 ID 体系（ATS-202-UT-001 / ATS-216-UT-001 等）で'
@@ -319,6 +376,13 @@ def verify(xlsx_path=None, figures=None):
         needle = '%d %s' % (figures[key], label)
         assert needle in note, \
             'the ATS-307 note does not carry %r -- the evidence log says %r' % (needle, figures)
+    # And the graph's shape must be the one the probe log holds.
+    graph = graph_figures()
+    for needle in ('ノード %d' % graph['nodes'], '辺 %d' % graph['edges'],
+                   'チェーン %d' % graph['chains'],
+                   'verified %d' % graph['verified']):
+        assert needle in note, \
+            'the ATS-307 note does not carry %r -- the probe log says %r' % (needle, graph)
     print(f'verify: ATS-307 row {rid} 状态={status} 完成率={rate} 剩余人日={remain} marker×{note.count(MARKER)}')
     print('verify: the note carries the figures the evidence log holds: '
           '%d tests / %d pass / %d fail / %d skipped'

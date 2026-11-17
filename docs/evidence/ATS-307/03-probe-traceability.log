@@ -1,9 +1,9 @@
 ==============================================================================
 ATS-307 evidence log -- the ATS-307 probe
 ==============================================================================
-commit        : 0aedd9a0ac36eb92a752ca7802c695f5f191f588
-timestamp     : 2026-11-17T12:37:30Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-0c8c9160483f/worktree
+commit        : f7e3a55eb1c02c2c95e0ecd7e1c0925d2b34e064
+timestamp     : 2026-11-17T18:25:05Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f60149b94aa7/worktree
 node          : v24.19.0
 platform      : win32 x64
 command       : node tools/ats307-probes/probe-traceability.mjs
@@ -12,19 +12,19 @@ command       : node tools/ats307-probes/probe-traceability.mjs
 ==============================================================================
 ATS-307 probe: the traceability graph of this repository
 ==============================================================================
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-0c8c9160483f\worktree
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-f60149b94aa7\worktree
 node      : v24.19.0
 platform  : win32 x64
 
 ------------------------------------------------------------------------------
 --- 1. the shape of the graph ---
 ------------------------------------------------------------------------------
-nodes            : 1354
-edges            : 25862
+nodes            : 1356
+edges            : 25951
 chains           : 49
-nodes by kind    : {"testcase":1069,"run":80,"design":26,"script":50,"evidence":80,"requirement":49}
-edges by type    : {"attempted":23701,"implemented":929,"covers":1097,"designs":55,"archived":80}
-edges by source  : {"evidence":23781,"source":906,"catalog":1175}
+nodes by kind    : {"testcase":1071,"run":80,"design":26,"script":50,"evidence":80,"requirement":49}
+edges by type    : {"attempted":23786,"implemented":931,"covers":1099,"designs":55,"archived":80}
+edges by source  : {"evidence":23866,"source":908,"catalog":1177}
 
 ------------------------------------------------------------------------------
 --- 2. the checks: stable uid, orphan edges, cycles ---

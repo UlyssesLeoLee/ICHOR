@@ -200,7 +200,8 @@ def test_tc009c_a_stale_note_is_caught_by_verify_only(copy, tmp_path, monkeypatc
     """
     # The note is written against the real, committed log.
     assert updater.main(['--xlsx', str(copy)]) == 0
-    assert '1865 pass' in row(copy)['T']
+    real = log_figures()
+    assert '%d pass' % real['pass'] in row(copy)['T']
 
     # The log is re-collected with different numbers, and the note is NOT
     # regenerated -- the drift the round-1 review found.
@@ -214,6 +215,32 @@ def test_tc009c_a_stale_note_is_caught_by_verify_only(copy, tmp_path, monkeypatc
     with pytest.raises(AssertionError) as excinfo:
         updater.verify(str(copy))
     assert 'evidence log says' in str(excinfo.value)
+
+
+def test_tc009d_the_graph_figures_come_from_the_probe_log(copy, tmp_path, monkeypatch):
+    """TC-009d: the graph's shape is derived from the probe log too.
+
+    The same defect class as the regression figures: a re-typed constant in
+    the note goes stale when the tree changes. The node/edge counts are
+    read from the probe log, so they cannot.
+    """
+    probe_dir = tmp_path / 'fake' / 'docs' / 'evidence' / 'ATS-307'
+    probe_dir.mkdir(parents=True)
+    fake_probe = probe_dir / '03-probe-traceability.log'
+    fake_probe.write_text(
+        'nodes            : 999\n'
+        'edges            : 888\n'
+        'chains           : 49\n'
+        'complete chains  : 5\n'
+        'broken chains    : 44\n'
+        '  designed     21\n'
+        '  implemented  2\n'
+        '  verified     26\n', encoding='utf-8')
+    monkeypatch.setattr(updater, 'PROBE_LOG', fake_probe)
+    assert updater.main(['--xlsx', str(copy)]) == 0
+    note = row(copy)['T']
+    assert 'ノード 999' in note
+    assert '辺 888' in note
 
 
 def test_tc010_a_missing_log_makes_the_updater_refuse_to_write(copy, tmp_path, monkeypatch):
