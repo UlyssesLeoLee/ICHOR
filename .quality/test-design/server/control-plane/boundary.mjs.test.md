@@ -2,7 +2,7 @@
 
 Source: `server/control-plane/boundary.mjs`
 
-Source-SHA256: `4be3a578aa106a3e121900a999d4abed2a03e4efc34e70a8d562370066daa38a`
+Source-SHA256: `dc0f5334565ac15b9440f1fc8edb965fc8e4c9f7a7fff384f54809d7bf9a53e7`
 
 ## Test Strategy
 

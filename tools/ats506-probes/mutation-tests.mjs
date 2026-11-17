@@ -107,6 +107,20 @@ const MUTATIONS = [
     replace: '',
     expect: 'UT-CP-033',
   },
+  {
+    id: 'M12', guard: 'UT-CP-035 short %NAME% before a separator',
+    file: 'server/control-plane/boundary.mjs',
+    needle: "  ['env_path', /%[A-Za-z_][A-Za-z0-9_]*%[\\\\/]/],\n",
+    replace: '',
+    expect: 'UT-CP-035',
+  },
+  {
+    id: 'M13', guard: 'UT-CP-035 system root behind any non-word character',
+    file: 'server/control-plane/boundary.mjs',
+    needle: "  ['posix_absolute_path', new RegExp(`(?:^|[^A-Za-z0-9._-])/(?:${SYSTEM_ROOTS})(?:/|$)`)],\n",
+    replace: "  ['posix_absolute_path', new RegExp(`(?:^|[\\\\s\"'(=,;:])/(?:${SYSTEM_ROOTS})(?:/|$)`)],\n",
+    expect: 'UT-CP-035',
+  },
 ];
 
 function copyTree(dest) {

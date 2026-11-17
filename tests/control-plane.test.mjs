@@ -603,3 +603,31 @@ test('UT-CP-034: embedded tokens and variable paths are refused on the way in an
   assert.ok(!r.text.includes(HEX48));
   server.close();
 });
+
+// --- review round 2 regression cases (UT-CP-035) --------------------------
+
+test('UT-CP-035: a short %NAME% before a separator is a path, and a system root behind any non-word character is refused', () => {
+  // Round 1 had the rule "a %NAME% reference of ANY length followed by a
+  // separator"; round 2 replaced it with "a %NAME% of at least 3 characters"
+  // and dropped the separator rule with it, so %CD% (the current directory in
+  // cmd -- a local absolute path) was accepted.
+  for (const v of ['%CD%\\repo', '%CD%/repo', '%OS%\\x', '%CD%\\', 'x %CD%/y']) {
+    assert.equal(detectLocalPath(v), 'env_path', v);
+  }
+  // A %NAME% without a separator after it is ordinary text, and so is the
+  // percent-encoded fragment of a UTF-8 text.
+  for (const v of ['%E4%B8%AD', '%CD%', '100%', '50% off']) {
+    assert.equal(detectLocalPath(v), null, v);
+  }
+  // A POSIX system root behind ANY character outside [A-Za-z0-9._-] is a
+  // path: the bracket, the backtick, the brace, the angle bracket and the
+  // pipe all separate it from ordinary text.
+  for (const v of ['[/home/alice/repo]', '`/home/alice/repo`', '{/Users/bob/x}', '</etc/passwd>', '|/var/log/x', 'dir:[/home/a]']) {
+    assert.equal(detectLocalPath(v), 'posix_absolute_path', v);
+  }
+  // Behind a word character the same text is part of a host, a protocol or
+  // an identifier -- not a path.
+  for (const v of ['https://h/home/x', 'TCP/IP', 'a.b/home', 'x/home/y', 'prj_1234/home/x']) {
+    assert.equal(detectLocalPath(v), null, v);
+  }
+});

@@ -641,6 +641,7 @@ UT+=[
 ('UT-CP-032','FR-028','安全','环境变量形态全部被识别','$USERPROFILE、$APPDATA、${HOME}、$env:NAME、%NAME%；100%、%E4%B8%AD、$5、a$','前者 env_path，后者 null','node --test','PASS'),
 ('UT-CP-033','FR-028','安全','盘符相对、根相对、家目录用户形态被拒','D:work、\\Users\\x、Users\\x\\y、~root/x、~；a/b、ns:name、TCP/IP、~approx','前者对应规则名，后者 null','node --test','PASS'),
 ('UT-CP-034','NFR-002','安全','嵌入 Token 与变量路径入站被拒且出站不回显','POST 嵌入 Token 与变量路径、查询串；存储被注入嵌入 Token 后读取','422 REMOTE_SECRET_INLINE_FORBIDDEN / REMOTE_PATH_FORBIDDEN；出站 500 REMOTE_INTERNAL，响应不含该 Token','node --test','PASS'),
+('UT-CP-035','FR-028','安全','短名环境变量与任意非单词字符后的系统根被拒','%CD%\\repo、%CD%/repo、%OS%\\x；[/home/alice/repo]、`/home/alice/repo`、{/Users/bob/x}、</etc/passwd>、|/var/log/x、dir:[/home/a]；%E4%B8%AD、%CD%、https://h/home/x、TCP/IP、a.b/home','前者 env_path / posix_absolute_path，后者 null','node --test','PASS'),
 ]
 IT+=[
 ('IT-CP-SETUP','NFR-011','正常','本地 Bridge 与控制面以纯 Node 进程并行启动','随机端口、隔离数据目录、dev-static 令牌','两者 health=200，取得本地会话 token','node --test','PASS'),
@@ -659,6 +660,7 @@ IT+=[
 ('IT-CP-013','NFR-002','安全','控制面拒绝与本地 Bridge 共用端口','ATS_CP_PORT 等于 ATS_PORT 启动控制面','退出码 2，stderr 点名 ATS_CP_PORT','node --test','PASS'),
 ('IT-CP-014','NFR-002','安全','嵌入的本地 Token 与变量路径被拒且不会被读回','以真实本地会话 Token 构造 Bearer/x-ats-token=/tok 前缀与 $USERPROFILE 等 displayName，再读列表','422 且列表数量不变、响应不含本地 Token','node --test','PASS'),
 ('IT-CP-015','NFR-002','安全','配置证书时控制面只提供 TLS 1.3','openssl 生成自签证书启动控制面，分别以 TLSv1.3/TLSv1.2 握手并 GET /cp/v1/health','TLSv1.3 成功、TLSv1.2 被拒、health 200；无 openssl 时跳过并记录','node --test','PASS'),
+('IT-CP-016','FR-028','安全','短名环境变量与非单词字符后的系统根经 HTTP 管线被拒','以 %CD%\\repo、%CD%/repo、%OS%\\x、[...]、反引号、{...}、<...>、|... 作 displayName；查询串 ?ref=%25CD%25%5Crepo','422 REMOTE_PATH_FORBIDDEN；项目列表数量不变','node --test','PASS'),
 ('IT-ATS602-API-001','FR-032','正常','移动端用例出现在 API 提供的目录里','真实 Bridge + 含 Flow 的夹具项目','目录里 web 用例与 4 个移动端用例都在，移动端用例是 TestDefinition','node --test','PASS'),
 ('IT-ATS602-API-002','FR-032','正常','移动端用例带着步骤与引擎','读取目录里的某个移动端用例','带 engine、appId、tags 与步骤，断言是统一模型的断言','node --test','PASS'),
 ('IT-ATS602-API-003','FR-032','安全','导入报告随目录一起提供','读取目录的 mobile 段','每个 Flow 一个报告，不支持步骤带原文与行号与原因','node --test','PASS'),

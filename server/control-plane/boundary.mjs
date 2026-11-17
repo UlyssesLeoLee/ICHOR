@@ -33,9 +33,19 @@ const PATH_RULES = [
   ['home_relative_path', /^~$|^~[^\s\\/]*[\\/]/],
   // Any environment reference: $NAME, ${NAME}, $env:NAME, %NAME% (3+ characters, so %E4% is not one).
   ['env_path', /\$\{?[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_]{2,}%/],
+  // A %NAME% reference of ANY length followed by a path separator. %CD% is
+  // the current directory in cmd -- a local absolute path -- and the 3+
+  // character rule above does not see it. A %NAME% without a separator after
+  // it stays ordinary text, so the percent-encoded fragments of a UTF-8 text
+  // (%E4%B8%AD) are not mistaken for a path.
+  ['env_path', /%[A-Za-z_][A-Za-z0-9_]*%[\\/]/],
   ['path_traversal', /(?:^|[\\/])\.\.(?:[\\/]|$)/],
   ['posix_absolute_path', /^\//],
-  ['posix_absolute_path', new RegExp(`(?:^|[\\s"'(=,;:])/(?:${SYSTEM_ROOTS})(?:/|$)`)],
+  // A system root behind ANY character outside [A-Za-z0-9._-]: the bracket,
+  // the backtick, the brace, the angle bracket and the pipe all separate a
+  // system root from ordinary text. A system root behind a word character
+  // (https://h/home/x, TCP/IP, a.b/home) is part of a host or an identifier.
+  ['posix_absolute_path', new RegExp(`(?:^|[^A-Za-z0-9._-])/(?:${SYSTEM_ROOTS})(?:/|$)`)],
   // No drive letter: `\Users\x`, and backslash-separated segments `Users\x\y`.
   ['windows_rooted_path', /^\\[^\\]/],
   ['windows_rooted_path', /[A-Za-z0-9._-]\\[A-Za-z0-9._-]/],

@@ -243,6 +243,23 @@ test('IT-CP-013: the control plane refuses to share the local Bridge port', asyn
   assert.match(stderr, /ATS_CP_PORT/);
 });
 
+test('IT-CP-016: a short environment variable before a separator and a system root behind any non-word character are refused', async () => {
+  const before = (await cpCall('GET', '/cp/v1/projects', { token: CP_TOKEN_A })).json.projects.length;
+  // %CD% is the current directory in cmd: a local absolute path.
+  for (const displayName of ['%CD%\\repo', '%CD%/repo', '%OS%\\x', '[/home/alice/repo]', '`/home/alice/repo`',
+    '{/Users/bob/x}', '</etc/passwd>', '|/var/log/x', 'dir:[/home/a]']) {
+    const r = await cpCall('POST', '/cp/v1/projects', { token: CP_TOKEN_A, body: { displayName } });
+    assert.equal(r.status, 422, displayName);
+    assert.equal(r.json.error, 'REMOTE_PATH_FORBIDDEN');
+  }
+  const list = await cpCall('GET', '/cp/v1/projects', { token: CP_TOKEN_A });
+  assert.equal(list.json.projects.length, before);
+  // The query string is scanned by the same rules.
+  const q = await cpCall('GET', '/cp/v1/projects?ref=%25CD%25%5Crepo', { token: CP_TOKEN_A });
+  assert.equal(q.status, 422);
+  assert.equal(q.json.error, 'REMOTE_PATH_FORBIDDEN');
+});
+
 const openssl = spawnSync('openssl', ['version'], { encoding: 'utf8' });
 test('IT-CP-015: with a certificate the control plane serves TLS 1.3 only', { skip: openssl.status === 0 ? false : 'openssl is not available on this machine' }, async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ats506-tls-'));

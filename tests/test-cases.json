@@ -4631,6 +4631,17 @@
     "level": "UT"
   },
   {
+    "id": "UT-CP-035",
+    "req": "FR-028",
+    "category": "安全",
+    "title": "短名环境变量与任意非单词字符后的系统根被拒",
+    "input": "%CD%\\repo、%CD%/repo、%OS%\\x；[/home/alice/repo]、`/home/alice/repo`、{/Users/bob/x}、</etc/passwd>、|/var/log/x、dir:[/home/a]；%E4%B8%AD、%CD%、https://h/home/x、TCP/IP、a.b/home",
+    "expected": "前者 env_path / posix_absolute_path，后者 null",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "UT"
+  },
+  {
     "id": "ATS-206-UT-001",
     "req": "NFR-010",
     "category": "正常",
@@ -10159,6 +10170,17 @@
     "title": "配置证书时控制面只提供 TLS 1.3",
     "input": "openssl 生成自签证书启动控制面，分别以 TLSv1.3/TLSv1.2 握手并 GET /cp/v1/health",
     "expected": "TLSv1.3 成功、TLSv1.2 被拒、health 200；无 openssl 时跳过并记录",
+    "evidence": "node --test",
+    "status": "PASS",
+    "level": "IT"
+  },
+  {
+    "id": "IT-CP-016",
+    "req": "FR-028",
+    "category": "安全",
+    "title": "短名环境变量与非单词字符后的系统根经 HTTP 管线被拒",
+    "input": "以 %CD%\\repo、%CD%/repo、%OS%\\x、[...]、反引号、{...}、<...>、|... 作 displayName；查询串 ?ref=%25CD%25%5Crepo",
+    "expected": "422 REMOTE_PATH_FORBIDDEN；项目列表数量不变",
     "evidence": "node --test",
     "status": "PASS",
     "level": "IT"
