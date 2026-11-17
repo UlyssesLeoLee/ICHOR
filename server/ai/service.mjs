@@ -14,10 +14,14 @@
  *
  *   1. **没有授权就不发请求。** 外传闸门先判（`authorizeEgress`），判不过
  *      就**不读文件、不取密钥、不发请求**，并把这次拒绝写进外传审计。
- *   2. **发出去的就是被授权的那一份。** 发给提供商的输入取自闸门读出并
- *      复算过摘要的 `verdict.inputs`，**不采用**调用方给的
+ *   2. **发出去的输入就是被授权的那一份。** 发给提供商的**输入内容**取自
+ *      闸门读出并复算过摘要的 `verdict.inputs`，**不采用**调用方给的
  *      `request.inputs[].content`（那完全由调用方控制）。于是外传审计记的
  *      与实际发出的必然一致（见 `bindRequestToConsent`）。
+ *
+ *      **指令（`request.instructions`）是另一条外发通道**：它不是项目数据，
+ *      但它**会**原样发给提供商，因此它**进审计**——审计记它的 SHA-256 摘要
+ *      与字节数（记摘要，不记正文，见 `describeInstructions`）。
  *   3. **密钥只来自凭据库。** `credentialStore.resolve(id, 'ai-provider')`
  *      是唯一入口；配置里不允许有明文密钥（见 `protocols.mjs`）。
  *   4. **失败不污染工作区。** 本模块**不写任何文件**：没有缓存、没有临时
@@ -33,6 +37,8 @@
  * 本模块把它落成「最多几步」的硬约束，步数用尽即 `AI_STEPS_EXCEEDED`；
  * 不可回退的错误**保留自己的错误码**，不被改标成「步数用尽」。
  */
+import crypto from 'node:crypto';
+
 import { aiError, isRetryableAiError } from './errors.mjs';
 import { asContractProvider, createAiProvider } from './provider.mjs';
 import { createFallbackChain } from './fallback.mjs';
@@ -74,7 +80,10 @@ export function rootCauseCode(error) {
  *     就能被用来发送任意文本（哪怕引用的是另一个文件）。
  *
  * 调用方的 `instructions`（模型指令）予以保留：它是**指令**而不是**输入内容**，
- * 不构成外传的项目数据。
+ * 不构成外传的项目数据。**但它仍然是会离开本机的文本**，因此它必须被审计：
+ * `describeInstructions()` 给出它的摘要与字节数，`authorize()` 把它写进外传
+ * 审计的 `instructions` 字段。审计记的是**摘要**，不是正文——与文件输入
+ * 同一口径，审计文件因此不会变成第二个泄漏面。
  *
  * @param {object} request     调用方的统一请求
  * @param {Array}  consented   闸门放行的输入（平台读出并核对过摘要）
@@ -95,6 +104,28 @@ export function bindRequestToConsent(request, consented) {
       digest: input?.digest ?? '',
       content: typeof input?.content === 'string' ? input.content : '',
     })),
+  };
+}
+
+/**
+ * 描述一次请求的**指令**（`request.instructions`），供外传审计使用。
+ *
+ * 指令会**原样发给提供商**（它进 system 消息），所以它是一条真实的外发通道。
+ * 审计必须能回答「这次发出去的指令是哪一份」，因此这里给出它的 **SHA-256
+ * 摘要**与**字节数**——和文件输入同一个口径：**记摘要，不记正文**。
+ *
+ * 摘要让「同一次外发」可核对：指令不同，摘要就不同；指令相同，摘要就相同。
+ * 正文不进审计，因此审计记录仍然不可能成为第二个内容泄漏面。
+ *
+ * @param {string} instructions  调用方给的指令文本
+ * @returns {{kind:string, digest:string, bytes:number}|null} 摘要描述；没有指令时为 null
+ */
+export function describeInstructions(instructions) {
+  if (typeof instructions !== 'string' || !instructions.length) return null;
+  return {
+    kind: 'INSTRUCTION',
+    digest: crypto.createHash('sha256').update(instructions, 'utf8').digest('hex'),
+    bytes: Buffer.byteLength(instructions, 'utf8'),
   };
 }
 
@@ -146,7 +177,7 @@ export function createModelService({
    *
    * @returns {Promise<{allowed:boolean|null, code?:string, reason?:string, inputs?:Array}>}
    */
-  async function authorize({ projectId, inputs, consentId }) {
+  async function authorize({ projectId, inputs, consentId, instructions }) {
     // The audit store is not optional. Without it no egress decision can be
     // recorded, and an egress that leaves no trace cannot be claimed to have
     // been controlled. The missing store is therefore reported LOUDLY --
@@ -206,6 +237,11 @@ export function createModelService({
       kinds: verdict.scope.kinds,
       items: verdict.scope.items,
       scopeDigest: verdict.scope.scopeDigest,
+      // The INSTRUCTIONS are caller text that leaves the machine with the
+      // request, so they belong in the audit record. The record carries their
+      // DIGEST and byte count -- never the text itself, exactly like the
+      // file inputs above.
+      instructions: describeInstructions(instructions),
     });
     return {
       allowed: true,
@@ -283,7 +319,15 @@ export function createModelService({
       throw aiError('AI_PROVIDER_CONFIG_INVALID', 'the fallback chain needs at least one provider');
     }
     // --- 1. the gate comes FIRST: no consent, no request, no file read ------
-    const verdict = await authorize({ projectId, inputs, consentId });
+    // The instructions travel WITH the request, so the gate is told about
+    // them: they end up in the audit record, so that the trail names every
+    // piece of text that left the machine.
+    const verdict = await authorize({
+      projectId,
+      inputs,
+      consentId,
+      instructions: request && typeof request.instructions === 'string' ? request.instructions : '',
+    });
     // `allowed === null` means NO DECISION was made (the platform cannot
     // record egress decisions). That is a platform failure, not a refusal of
     // the content, and it is reported with its own code.

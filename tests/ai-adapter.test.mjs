@@ -1238,3 +1238,175 @@ test('R2-P7: a missing audit store is VISIBLE, not silently swallowed', async ()
   assert.equal(error.code, 'AI_AUDIT_UNAVAILABLE');
   assert.equal(sent.length, 0, 'no request may leave the machine');
 });
+
+/* --- round 3: the instructions channel and the redaction order ---------- */
+
+/**
+ * A service whose consent store is the REAL one, so the gate really reads
+ * the file and really matches the consent.
+ */
+function consentedService(work, { audit, fetch, transport }) {
+  const consents = [];
+  const consentStore = createEgressConsentStore({
+    list: async () => consents,
+    persist: async (records) => { consents.splice(0, consents.length, ...records); },
+  });
+  const service = createModelService({
+    credentialStore: stubCredentialStore(),
+    consentStore,
+    auditStore: { record: async (r) => { audit.push(r); } },
+    getProject: () => ({ id: 'p1', root: work }),
+    transport: transport ?? createTransport({ fetch }),
+  });
+  return { service, consentStore };
+}
+
+test('R3-Q1: the instructions reach the provider AND land in the audit trail', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-q1-'));
+  fs.writeFileSync(path.join(work, 'a.spec.ts'), 'CONSENTED-AAA\n');
+  const sent = [];
+  const audit = [];
+  const { service, consentStore } = consentedService(work, {
+    audit,
+    fetch: async (url, init) => {
+      sent.push(String(init.body));
+      return { status: 200, text: async () => JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }) };
+    },
+  });
+  const inputs = [{ kind: 'file', ref: 'a.spec.ts' }];
+  const scope = buildEgressScope({ project: { id: 'p1', root: work }, inputs });
+  const consent = await consentStore.confirm({ previewId: consentStore.preview(scope.items).previewId, inputs: scope.items });
+
+  await service.complete({
+    projectId: 'p1',
+    inputs,
+    consentId: consent.id,
+    providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://probe.invalid/v1' } }],
+    request: { instructions: 'CALLER-INSTRUCTIONS', inputs: [] },
+  });
+
+  // The instructions really do leave the machine...
+  assert.equal(sent.length, 1);
+  assert.ok(sent[0].includes('CALLER-INSTRUCTIONS'), 'the instructions reach the provider');
+  // ...so the audit must NAME them.
+  const granted = audit.filter((r) => r.event === 'egress.granted').at(-1);
+  assert.ok(granted, 'the egress must leave a granted record');
+  assert.ok(granted.instructions, 'the audit record must describe the instructions');
+  assert.equal(granted.instructions.kind, 'INSTRUCTION');
+  assert.equal(granted.instructions.digest, sha('CALLER-INSTRUCTIONS'));
+  assert.equal(granted.instructions.bytes, Buffer.byteLength('CALLER-INSTRUCTIONS', 'utf8'));
+  // The audit carries the DIGEST, never the text: the audit file must not
+  // become a second copy of what was sent.
+  assert.ok(!JSON.stringify(granted).includes('CALLER-INSTRUCTIONS'), 'the audit must not carry the instruction text');
+});
+
+test('R3-Q1b: different instructions produce different audit digests', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-q1b-'));
+  fs.writeFileSync(path.join(work, 'a.spec.ts'), 'CONSENTED-AAA\n');
+  const digests = [];
+  for (const instructions of ['FIRST-INSTRUCTION', 'SECOND-INSTRUCTION']) {
+    const audit = [];
+    const { service, consentStore } = consentedService(work, {
+      audit,
+      fetch: async () => ({ status: 200, text: async () => JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }) }),
+    });
+    const inputs = [{ kind: 'file', ref: 'a.spec.ts' }];
+    const scope = buildEgressScope({ project: { id: 'p1', root: work }, inputs });
+    const consent = await consentStore.confirm({ previewId: consentStore.preview(scope.items).previewId, inputs: scope.items });
+    await service.complete({
+      projectId: 'p1',
+      inputs,
+      consentId: consent.id,
+      providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://probe.invalid/v1' } }],
+      request: { instructions, inputs: [] },
+    });
+    digests.push(audit.filter((r) => r.event === 'egress.granted').at(-1).instructions.digest);
+  }
+  assert.notEqual(digests[0], digests[1], 'different instructions must have different audit digests');
+});
+
+test('R3-Q1c: an egress with no instructions records none', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ats403-q1c-'));
+  fs.writeFileSync(path.join(work, 'a.spec.ts'), 'CONSENTED-AAA\n');
+  const audit = [];
+  const { service, consentStore } = consentedService(work, {
+    audit,
+    fetch: async () => ({ status: 200, text: async () => JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }) }),
+  });
+  const inputs = [{ kind: 'file', ref: 'a.spec.ts' }];
+  const scope = buildEgressScope({ project: { id: 'p1', root: work }, inputs });
+  const consent = await consentStore.confirm({ previewId: consentStore.preview(scope.items).previewId, inputs: scope.items });
+  await service.complete({
+    projectId: 'p1',
+    inputs,
+    consentId: consent.id,
+    providers: [{ id: 'x', protocol: 'openai-chat', config: { model: 'm', baseUrl: 'https://probe.invalid/v1' } }],
+    request: { inputs: [] },
+  });
+  const granted = audit.filter((r) => r.event === 'egress.granted').at(-1);
+  assert.equal(granted.instructions, null, 'no instructions means no instruction descriptor');
+});
+
+test('R3-Q2: a key straddling the cut leaves no prefix of it in the error', async () => {
+  // The key ends at character 501, so truncating at 500 first would keep
+  // 48 of its 49 characters -- and `split(secret)` would no longer match.
+  const KEY = `sk-live-${'K'.repeat(40)}Z`;
+  const pad = 'x'.repeat(500 - (KEY.length - 1));
+  const provider = createAiProvider({
+    id: 'A',
+    protocol: 'openai-chat',
+    config: { model: 'm', baseUrl: 'https://p.invalid/v1', credentialId: `cred_${'a'.repeat(24)}` },
+    resolveKey: async () => KEY,
+    transport: createTransport({
+      fetch: async (url, init) => ({ status: 401, text: async () => `${pad}${init.headers.authorization.slice(7)}` }),
+    }),
+  });
+  let error = null;
+  try {
+    await createFallbackChain({ providers: [provider] }).run({ instructions: 'i', inputs: [] }, {});
+  } catch (e) {
+    error = e;
+  }
+  assert.ok(error, 'the provider error must surface');
+  const prefix = KEY.slice(0, -1);
+  assert.ok(!String(error.message).includes(prefix), 'no prefix of the key may survive in the message');
+  assert.ok(!String(error.message).includes(KEY), 'the key must not survive in the message');
+  assert.ok(!JSON.stringify(error.details ?? {}).includes(prefix), 'no prefix of the key may survive in the details');
+  assert.ok(!JSON.stringify(error.details ?? {}).includes(KEY), 'the key must not survive in the details');
+});
+
+test('R3-Q2b: the whole key is still redacted when it fits inside the body', async () => {
+  const KEY = 'sk-live-ENTIRELY-VISIBLE-KEY';
+  const provider = createAiProvider({
+    id: 'A',
+    protocol: 'openai-chat',
+    config: { model: 'm', baseUrl: 'https://p.invalid/v1', credentialId: `cred_${'a'.repeat(24)}` },
+    resolveKey: async () => KEY,
+    transport: createTransport({
+      fetch: async (url, init) => ({ status: 401, text: async () => `Incorrect API key provided: ${init.headers.authorization.slice(7)}` }),
+    }),
+  });
+  let error = null;
+  try {
+    await createFallbackChain({ providers: [provider] }).run({ instructions: 'i', inputs: [] }, {});
+  } catch (e) {
+    error = e;
+  }
+  assert.ok(!String(error.message).includes(KEY), 'the key must not survive in the message');
+  assert.ok(String(error.message).includes('[redacted]'), 'the redaction placeholder must be there');
+});
+
+test('R3-Q4: the contract does NOT advertise a Bridge route for the step bound', () => {
+  const description = describeAiAdapter();
+  // `executeSteps` is a library function. The contract must not claim the
+  // step bound is enforced on a path that does not exist.
+  assert.ok(!/maxSteps is enforced/.test(description.stepPolicy), 'the stepPolicy must not claim an enforced bound');
+  assert.ok(/LIBRARY function/.test(description.stepPolicy), 'the stepPolicy must say it is a library function');
+  assert.ok(/no \/api\/ai route calls it/.test(description.stepPolicy), 'the stepPolicy must say no route calls it');
+});
+
+test('R3-Q4b: no Bridge route calls executeSteps', () => {
+  const source = fs.readFileSync(path.join('server', 'index.mjs'), 'utf8');
+  assert.ok(!/executeSteps|maxSteps/.test(source), 'the Bridge must not reference executeSteps or maxSteps');
+});
+

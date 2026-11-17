@@ -84,6 +84,16 @@ run 08-agent-boundary-probe node tools/ats401-probes/probe-agent-boundary.mjs
 # 9. the ATS-402 security boundary probe must still pass
 run 09-security-boundary-probe node tools/ats402-probes/probe-security-boundary.mjs
 
+# 9b. the EXTERNAL review probes (issue attachments) must be re-run here.
+# The probes are not in the repository; the script takes the directory they
+# were unpacked into. When that directory is absent the step is SKIPPED
+# with the reason -- it is never reported as PASS.
+if [ -d "${ATS403_REVIEW_PROBE_DIR:-}" ]; then
+  run 11-reviewer-probes bash tools/ats403-probes/run-reviewer-probes.sh "$ATS403_REVIEW_PROBE_DIR" docs/evidence/ATS-403/reviewer-probes
+else
+  echo "SKIPPED 11-reviewer-probes -- set ATS403_REVIEW_PROBE_DIR to the unpacked probe directory" | tee "$OUT/11-reviewer-probes.log"
+fi
+
 # 10. the ATS-101 port audit must still pass
 if [ -f tools/ats101-probes/scenario-d-port-audit.mjs ]; then
   run 10-ats101-port-audit node tools/ats101-probes/scenario-d-port-audit.mjs

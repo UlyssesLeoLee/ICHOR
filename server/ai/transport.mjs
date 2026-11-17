@@ -111,10 +111,17 @@ export function createTransport({ fetch: fetchImpl, timeoutMs = DEFAULT_TRANSPOR
         // a provider that echoes the key back (many compatible gateways do)
         // would otherwise put the secret into `message`, and from there into
         // `details.attempts[].reason` and straight to the client.
+        //
+        // The ORDER matters and is not interchangeable: the redaction runs on
+        // the WHOLE body first, and only the redacted text is truncated. Doing
+        // it the other way round (truncate, then redact) leaves a PREFIX of
+        // the key in the message whenever the key straddles the cut -- the
+        // full secret is gone, but `split(secret)` no longer matches, so the
+        // leftover prefix survives into `message` and `details`.
         const reason = redactSecret(
-          String(text || '').slice(0, 500).replace(/\s+/g, ' ').trim(),
+          String(text || '').replace(/\s+/g, ' ').trim(),
           apiKey,
-        );
+        ).slice(0, 500);
         throw aiError(code, reason || `the provider answered with status ${status}`, { status });
       }
       if (text.length > MAX_RESPONSE_CHARS) {

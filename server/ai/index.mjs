@@ -49,7 +49,7 @@ export {
 
 export { createAiProvider, asContractProvider } from './provider.mjs';
 export { createFallbackChain, explainAiError } from './fallback.mjs';
-export { createModelService } from './service.mjs';
+export { createModelService, bindRequestToConsent, describeInstructions } from './service.mjs';
 
 /** 本层的契约版本。 */
 export const AI_ADAPTER_CONTRACT_VERSION = 'ai-adapter/v1';
@@ -70,9 +70,9 @@ export function describeAiAdapter() {
     statusByCode: { ...AI_STATUS_FOR_CODE },
     fallbackPolicy: 'A provider is tried at most once. Only a retryable error moves the chain to the next provider; an auth, configuration or request error fails immediately.',
     secretPolicy: 'A provider configuration may only carry a credential REFERENCE. The secret is read from the credential store at the moment the request is sent and never enters the configuration, the URL, the request body or a log. A provider that ECHOES the key back in its error body has it redacted before the message leaves the adapter.',
-    egressPolicy: 'The egress gate runs BEFORE the request: without a granted consent whose scope still matches the content, no file is read, no secret is resolved and no request is sent. The content that is sent is the content the gate read and verified against the consent, not the content supplied by the caller.',
+    egressPolicy: 'The egress gate runs BEFORE the request: without a granted consent whose scope still matches the content, no file is read, no secret is resolved and no request is sent. The INPUT CONTENT that is sent is the content the gate read and verified against the consent, not the content supplied by the caller. The caller\'s INSTRUCTIONS are a separate channel: they are sent to the provider as they are, and the egress audit records their SHA-256 digest and byte length -- never the text itself.',
     workspacePolicy: 'The adapter layer writes no file: a timeout or a rate limit leaves the working tree byte-identical.',
-    stepPolicy: 'maxSteps is enforced as a hard bound: the step budget running out is reported as AI_STEPS_EXCEEDED. A failure that cannot be recovered by trying another provider keeps its own error code instead of being relabelled as AI_STEPS_EXCEEDED.',
+    stepPolicy: 'executeSteps() is a LIBRARY function of the adapter layer, not a Bridge route: the step bound applies only to a caller that invokes executeSteps() itself, and no /api/ai route calls it. When it is invoked, the step budget running out is reported as AI_STEPS_EXCEEDED, and a failure that cannot be recovered by trying another provider keeps its own error code instead of being relabelled as AI_STEPS_EXCEEDED.',
     deadlinePolicy: 'When a deadline is set, the time that is left is divided among the providers still to try, so one hanging provider cannot consume the whole budget.',
     providerSource: 'A call uses the CONFIGURED providers only. A request body cannot supply a provider list or an endpoint.',
   };

@@ -1,0 +1,9 @@
+$ node r2.mjs <repo> <scratch>
+
+not-reproduced  Q1  caller text in request.instructions reached the provider: true; audit granted items=["a.spec.ts"], audit records the instructions (or their digest): true (docs/30 §5.1 says audit items and what was sent "必然一致")
+not-reproduced  Q2  provider echoes a 49-char key across the 500-char cut -> error.message carries 48/49 chars of it: false; details (HTTP-visible): false (transport.mjs truncates BEFORE redactSecret)
+not-reproduced  Q3  real consent store, step1 429 / step2 200 -> steps=2 text=step-ok calls=2 error=undefined; egress.granted records=2
+not-reproduced  Q4  server/index.mjs references executeSteps/maxSteps: false; docs/30 §5.3 says 「修好并接入」: false
+not-reproduced  Q5  deadline 150ms, A hangs -> provider=B error=undefined tried=A,B
+
+--- exit: 0 ---
