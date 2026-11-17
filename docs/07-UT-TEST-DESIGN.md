@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：768；已执行通过：752；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：769；已执行通过：753；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -429,6 +429,7 @@
 |UT-CP-032|FR-028|安全|环境变量形态全部被识别|$USERPROFILE、$APPDATA、${HOME}、$env:NAME、%NAME%；100%、%E4%B8%AD、$5、a$|前者 env_path，后者 null|node --test|PASS|
 |UT-CP-033|FR-028|安全|盘符相对、根相对、家目录用户形态被拒|D:work、\Users\x、Users\x\y、~root/x、~；a/b、ns:name、TCP/IP、~approx|前者对应规则名，后者 null|node --test|PASS|
 |UT-CP-034|NFR-002|安全|嵌入 Token 与变量路径入站被拒且出站不回显|POST 嵌入 Token 与变量路径、查询串；存储被注入嵌入 Token 后读取|422 REMOTE_SECRET_INLINE_FORBIDDEN / REMOTE_PATH_FORBIDDEN；出站 500 REMOTE_INTERNAL，响应不含该 Token|node --test|PASS|
+|UT-CP-035|FR-028|安全|短名环境变量与任意非单词字符后的系统根被拒|%CD%\repo、%CD%/repo、%OS%\x；[/home/alice/repo]、`/home/alice/repo`、{/Users/bob/x}、</etc/passwd>、//var/log/x、dir:[/home/a]；%E4%B8%AD、%CD%、https://h/home/x、TCP/IP、a.b/home|前者 env_path / posix_absolute_path，后者 null|node --test|PASS|
 |ATS-206-UT-001|NFR-010|正常|状态的可数项被逐项计数|一个含项目/运行/重试/产物/登记的状态|五项计数都与内容相符|node --test|PASS|
 |ATS-206-UT-002|NFR-010|正常|迁移保持项目与历史的数量一致|迁移一个 v0.1 状态|迁移前后五项计数逐项相等|node --test|PASS|
 |ATS-206-UT-003|NFR-010|异常|计数不一致的迁移被拒绝|迁移前后计数不同|抛 MIGRATION_COUNT_MISMATCH|node --test|PASS|

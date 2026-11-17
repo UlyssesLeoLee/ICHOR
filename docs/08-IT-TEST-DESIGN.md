@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：227；已执行通过：213；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：228；已执行通过：214；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -164,6 +164,7 @@
 |IT-CP-013|NFR-002|安全|控制面拒绝与本地 Bridge 共用端口|ATS_CP_PORT 等于 ATS_PORT 启动控制面|退出码 2，stderr 点名 ATS_CP_PORT|node --test|PASS|
 |IT-CP-014|NFR-002|安全|嵌入的本地 Token 与变量路径被拒且不会被读回|以真实本地会话 Token 构造 Bearer/x-ats-token=/tok 前缀与 $USERPROFILE 等 displayName，再读列表|422 且列表数量不变、响应不含本地 Token|node --test|PASS|
 |IT-CP-015|NFR-002|安全|配置证书时控制面只提供 TLS 1.3|openssl 生成自签证书启动控制面，分别以 TLSv1.3/TLSv1.2 握手并 GET /cp/v1/health|TLSv1.3 成功、TLSv1.2 被拒、health 200；无 openssl 时跳过并记录|node --test|PASS|
+|IT-CP-016|FR-028|安全|短名环境变量与非单词字符后的系统根经 HTTP 管线被拒|以 %CD%\repo、%CD%/repo、%OS%\x、[...]、反引号、{...}、<...>、/... 作 displayName；查询串 ?ref=%25CD%25%5Crepo|422 REMOTE_PATH_FORBIDDEN；项目列表数量不变|node --test|PASS|
 |IT-ATS602-API-001|FR-032|正常|移动端用例出现在 API 提供的目录里|真实 Bridge + 含 Flow 的夹具项目|目录里 web 用例与 4 个移动端用例都在，移动端用例是 TestDefinition|node --test|PASS|
 |IT-ATS602-API-002|FR-032|正常|移动端用例带着步骤与引擎|读取目录里的某个移动端用例|带 engine、appId、tags 与步骤，断言是统一模型的断言|node --test|PASS|
 |IT-ATS602-API-003|FR-032|安全|导入报告随目录一起提供|读取目录的 mobile 段|每个 Flow 一个报告，不支持步骤带原文与行号与原因|node --test|PASS|

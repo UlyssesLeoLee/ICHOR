@@ -24,6 +24,39 @@ const REPO_ROOT = path.resolve(PROBE_DIR, '..', '..');
 const AUDIT = path.join(PROBE_DIR, 'audit-remote-protocol.mjs');
 const DOC_REL = path.join('docs', '19-REMOTE-RUNNER-PROTOCOL.md');
 
+/** How many times an infrastructure failure is retried before it is reported. */
+const MAX_ATTEMPTS = 3;
+
+/**
+ * Classify one child run. Returns null when the run produced a VERDICT, or a
+ * short reason string when it is an infrastructure failure that has to be
+ * retried.
+ *
+ * A verdict is a run that printed the audit's final `RESULT:` line. Anything
+ * else is a machine failure, not an audit result:
+ *
+ *   - the child could not be spawned at all (`error`), or was killed
+ *     (`status === null`, a signal);
+ *   - the exit code is outside 0-255: on Windows a crash under commit-memory
+ *     pressure exits with 0xC0000409, which Node reports as a code that is
+ *     NOT a valid POSIX exit status;
+ *   - the output carries no `RESULT:` line, so the audit never finished and
+ *     the run says nothing about the mutation.
+ *
+ * The middle case is the one the old guard missed: the guard only retried
+ * when the output was COMPLETELY empty, so a crash that had already printed
+ * part of the output was taken for a real verdict.
+ */
+function classifyFailure(res) {
+  if (res.error) return `spawn error: ${res.error.message}`;
+  if (res.status === null) return 'killed by a signal';
+  if (res.status < 0 || res.status > 255) return `exit code outside 0-255: ${res.status}`;
+  const stdout = res.stdout ?? '';
+  const stderr = res.stderr ?? '';
+  if (!stdout.includes('RESULT:') && !stderr.includes('RESULT:')) return 'no RESULT: line in the output';
+  return null;
+}
+
 console.log('=== ATS-501 probe: protocol audit mutation tests ===');
 console.log(`repo root : ${REPO_ROOT}`);
 console.log('');
@@ -32,6 +65,19 @@ const results = [];
 function record(name, ok, detail) {
   results.push({ name, ok, detail });
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}${ok || !detail ? '' : `  [${detail}]`}`);
+}
+
+/**
+ * Record one mutation, and state the number of attempts the child run needed.
+ * A run that was retried is reported with the attempts so a reviewer can see
+ * that the machine was under pressure; a run that never produced a verdict
+ * is reported as an infrastructure failure, not as a passing mutation.
+ */
+function recordRun(name, ok, res, extra = '') {
+  const attempts = res.attempts ?? 1;
+  const infra = res.infrastructure ? `; infrastructure failure: ${res.infrastructure}` : '';
+  const detail = `exit=${res.exitCode}; attempts=${attempts}${infra}${extra ? `; ${extra}` : ''}`;
+  record(name, ok, detail);
 }
 
 /**
@@ -62,21 +108,28 @@ function runAuditOn(docText, workbookBytes) {
       fs.copyFileSync(path.join(REPO_ROOT, 'docs', 'WBS.xlsx'), path.join(tmp, 'docs', 'WBS.xlsx'));
     }
 
-    // A child that cannot even start (spawn error, killed, or no output at all)
-    // is a machine failure -- seen as 0xc0000409 / OOM under commit-memory
-    // pressure -- not an audit verdict. Only that case is retried; a real
-    // verdict (exit code with output) is never retried, so a mutation the audit
-    // fails to catch still fails the probe.
+    // A child that cannot even start (spawn error), was killed, exited with a
+    // code outside 0-255 (0xC0000409 -- a crash under commit-memory pressure)
+    // or produced no final `RESULT:` line is an INFRASTRUCTURE failure, not an
+    // audit verdict. Those are retried, and the number of attempts is
+    // reported. A run that DID print a `RESULT:` line is a verdict and is
+    // NEVER retried, so a mutation the audit fails to catch still fails the
+    // probe.
     let res;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    let attempts = 0;
+    let infrastructure = null;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      attempts = attempt;
       res = spawnSync(process.execPath, [path.join(tmpProbe, 'audit-remote-protocol.mjs')], { encoding: 'utf8' });
-      const infrastructureFailure = res.error || res.status === null || ((res.stdout ?? '') === '' && (res.stderr ?? '') === '');
-      if (!infrastructureFailure) break;
+      infrastructure = classifyFailure(res);
+      if (!infrastructure) break;
     }
     return {
       exitCode: res.status,
       stdout: res.stdout ?? '',
       stderr: res.stderr ?? '',
+      attempts,
+      infrastructure,
     };
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -206,12 +259,34 @@ function crc32(buf) {
   return (crc ^ -1) >>> 0;
 }
 
+// --- self-check: the infrastructure/verdict classifier must not be vacuous --
+// The guard this probe relies on is the classifier: a child that crashed must
+// be retried, a child that printed a verdict must NOT be retried. The
+// classifier is therefore itself checked against the failure modes it claims
+// to recognise -- otherwise a classifier that called everything a verdict
+// would make this probe pass forever.
+for (const [name, res, wantInfrastructure] of [
+  ['a crash with a code outside 0-255 and partial output', { status: 0xc0000409, stdout: 'checks passed : 3/11\n', stderr: '' }, true],
+  ['a child that was killed', { status: null, stdout: '', stderr: '' }, true],
+  ['a run with no RESULT: line at all', { status: 0, stdout: 'checks passed : 3/11\n', stderr: '' }, true],
+  ['a run that printed RESULT: OK', { status: 0, stdout: 'RESULT: OK -- the contract is self-consistent.\n', stderr: '' }, false],
+  ['a run that printed RESULT: MISMATCH', { status: 1, stdout: 'RESULT: MISMATCH -- the contract is not self-consistent.\n', stderr: '' }, false],
+  ['a run that printed RESULT: on stderr only', { status: 1, stdout: '', stderr: 'RESULT: MISMATCH -- x\n' }, false],
+]) {
+  const reason = classifyFailure(res);
+  record(
+    `classifier: ${name} is ${wantInfrastructure ? 'an infrastructure failure' : 'a verdict'}`,
+    (reason !== null) === wantInfrastructure,
+    reason === null ? 'no retry' : reason,
+  );
+}
+
 // --- control: the unmutated document must pass ---------------------------
 const control = runAuditOn(originalDoc, null);
-record(
+recordRun(
   'control: the unmutated document passes the audit',
   control.exitCode === 0 && control.stdout.includes('RESULT: OK'),
-  `exit=${control.exitCode}`,
+  control,
 );
 
 // --- M1: the typo that the table-only comparison used to miss -----------
@@ -221,10 +296,10 @@ record(
     '`REMOTE_IDEMPOTENCY_CONFILICT` 只在"同键不同体"时出现',
   );
   const res = runAuditOn(mutated, null);
-  record(
+  recordRun(
     'M1: a REMOTE_ typo in the prose fails the audit',
     res.exitCode !== 0 && res.stdout.includes('REMOTE_IDEMPOTENCY_CONFILICT'),
-    `exit=${res.exitCode}`,
+    res,
   );
 }
 
@@ -235,10 +310,10 @@ record(
     '### 3.4 认证失败与信息最小化\n\n若节点尚未入网，返回 `REMOTE_AUTH_BOGUS`。',
   );
   const res = runAuditOn(mutated, null);
-  record(
+  recordRun(
     'M1b: an undeclared REMOTE_ code outside the code table fails the audit',
     res.exitCode !== 0 && res.stdout.includes('REMOTE_AUTH_BOGUS'),
-    `exit=${res.exitCode}`,
+    res,
   );
 }
 
@@ -249,10 +324,10 @@ record(
     '远程执行面已实现，控制平面已上线。\n\n## 9. 跨平面数据约束',
   );
   const res = runAuditOn(mutated, null);
-  record(
+  recordRun(
     'M2: an unqualified 「已实现/已上线」 claim fails the audit',
     res.exitCode !== 0 && res.stdout.includes('unqualified claim'),
-    `exit=${res.exitCode}`,
+    res,
   );
 }
 
@@ -263,10 +338,10 @@ record(
     '2. 控制平面生成节点身份对并返回**私钥**（一次，仅此一次）。',
   );
   const res = runAuditOn(mutated, null);
-  record(
+  recordRun(
     'M3: a control-plane-distributed private key fails the audit',
     res.exitCode !== 0,
-    `exit=${res.exitCode}`,
+    res,
   );
 }
 
@@ -277,10 +352,10 @@ record(
     '可以按失败原因区分响应码，例如"该节点存在但凭据错误"。',
   );
   const res = runAuditOn(mutated, null);
-  record(
+  recordRun(
     'M4: the node-existence leak fails the audit',
     res.exitCode !== 0 && res.stdout.includes('node existence'),
-    `exit=${res.exitCode}`,
+    res,
   );
 }
 
@@ -291,10 +366,10 @@ record(
     '| **未列举条件的策略拒绝** | 请求不满足任何已列举的放行条件 | `REMOTE_INTERNAL` | 500 | 是 |',
   );
   const res = runAuditOn(mutated, null);
-  record(
+  recordRun(
     'M5: routing unknown conditions to REMOTE_INTERNAL fails the audit',
     res.exitCode !== 0,
-    `exit=${res.exitCode}`,
+    res,
   );
 }
 
@@ -302,10 +377,10 @@ record(
 {
   const mutated = originalDoc.replace('### 7.5 代码获取通道（冻结）', '### 7.5 其它');
   const res = runAuditOn(mutated, null);
-  record(
+  recordRun(
     'M6: removing the code acquisition section fails the audit',
     res.exitCode !== 0 && res.stdout.includes('code acquisition'),
-    `exit=${res.exitCode}`,
+    res,
   );
 }
 
@@ -316,10 +391,10 @@ record(
     '"direction": "control_plane_pulls",',
   );
   const res = runAuditOn(mutated, null);
-  record(
+  recordRun(
     'M7: flipping the connection direction fails the audit',
     res.exitCode !== 0 && res.stdout.includes('connection direction'),
-    `exit=${res.exitCode}`,
+    res,
   );
 }
 
@@ -338,12 +413,12 @@ record(
   const res = runAuditOn(originalDoc, mutated);
   // The audit exits early when the row is missing, so the early-exit
   // message is what appears in the output.
-  record(
+  recordRun(
     'M8: a workbook without the ATS-501 row fails the audit',
     res.exitCode !== 0
       && (res.stdout.includes('ATS-501 row is missing')
         || res.stdout.includes('ATS-501 row found')),
-    `exit=${res.exitCode}`,
+    res,
   );
 }
 
@@ -366,18 +441,28 @@ record(
     parts.set('xl/worksheets/sheet2.xml', sheet.replace(row, patchedRow));
   });
   const res = runAuditOn(originalDoc, mutated);
-  record(
+  recordRun(
     'M9: a WBS status outside the allowed set fails the audit',
     res.exitCode !== 0 && res.stdout.includes('allowed values'),
-    `exit=${res.exitCode}`,
+    res,
   );
 }
 
 // --- verdict ---------------------------------------------------------------
 const failed = results.filter((r) => !r.ok);
+const retried = results.filter((r) => r.detail && /attempts=[2-9]/.test(r.detail)).length;
+const infrastructure = results.filter((r) => r.detail && r.detail.includes('infrastructure failure:')).length;
 console.log('');
 console.log(`mutations passed : ${results.length - failed.length}/${results.length}`);
-if (failed.length) {
+console.log(`retried runs     : ${retried} (an infrastructure failure was retried)`);
+console.log(`unresolved infra : ${infrastructure} (every attempt failed -- the verdict is unknown)`);
+if (infrastructure) {
+  // A run that never produced a verdict proves NOTHING about its mutation,
+  // so it must not be counted as a caught mutation.
+  console.log('');
+  console.log('RESULT: MISMATCH -- some mutations never produced an audit verdict (infrastructure failure).');
+  process.exitCode = 1;
+} else if (failed.length) {
   console.log('');
   console.log('RESULT: MISMATCH -- some mutations did not turn the audit red.');
   process.exitCode = 1;

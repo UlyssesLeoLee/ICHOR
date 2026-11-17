@@ -87,14 +87,14 @@
 | `windows_drive_path` | 以盘符开头且后接分隔符、结束或非空白字符（`C:`、`C:\`、`C:/`、盘符相对路径 `D:work`），或在非字母数字字符之后出现盘符加分隔符 | `C:\repo`、`see D:/x`、`D:work` |
 | `windows_rooted_path` | 以单个 `\` 开头（无盘符的根相对路径），或由 `\` 分隔的多段（`段\段`，段由字母、数字、`.`、`_`、`-` 组成） | `\Users\x`、`Users\x\y` |
 | `unc_path` | 以 `\\` 或 `//` 开头，或在空白/引号/括号/等号/逗号/分号之后出现 `\\主机\` | `\\srv\share`、`\\?\C:\x`、`//srv/share` |
-| `posix_absolute_path` | 以 `/` 开头，或在空白/引号/括号/等号/逗号/分号/冒号之后出现常见系统根（`home`、`Users`、`root`、`tmp`、`var`、`etc`、`opt`、`usr`、`mnt`、`Volumes`、`private`、`srv`、`proc`、`dev`、`sys`、`run`、`media`） | `/home/alice/repo`、`at /Users/bob/x` |
+| `posix_absolute_path` | 以 `/` 开头，或在**`[A-Za-z0-9._-]` 以外的任意字符之后**出现常见系统根（`home`、`Users`、`root`、`tmp`、`var`、`etc`、`opt`、`usr`、`mnt`、`Volumes`、`private`、`srv`、`proc`、`dev`、`sys`、`run`、`media`） | `/home/alice/repo`、`at /Users/bob/x`、`[/home/alice/repo]`、`` `/home/alice/repo` ``、`{/Users/bob/x}`、`</etc/passwd>`、`\|/var/log/x`、`dir:[/home/a]` |
 | `file_url` | 含 `file:` 协议 | `file:///C:/x` |
 | `home_relative_path` | 以 `~/`、`~\` 开头、等于 `~`，或以 `~用户名/`、`~用户名\` 开头 | `~/repo`、`~root/x` |
-| `env_path` | 含任意环境变量引用：`$NAME`、`${NAME}`、`$env:NAME`、`%NAME%`（名称以字母或下划线开头；`%NAME%` 的名称至少 3 个字符，避免误伤 `%E4%` 这类编码残片） | `%USERPROFILE%`、`$APPDATA\x`、`$env:USERPROFILE\x`、`${HOME}/x` |
+| `env_path` | 含任意环境变量引用：`$NAME`、`${NAME}`、`$env:NAME`、`%NAME%`（名称以字母或下划线开头；`%NAME%` 的名称至少 3 个字符，避免误伤 `%E4%` 这类编码残片）。**此外，`%名称%`（名称任意长度）后紧跟 `\` 或 `/` 一律判为路径**——`%CD%` 在 cmd 中就是当前目录，是本地绝对路径 | `%USERPROFILE%`、`$APPDATA\x`、`$env:USERPROFILE\x`、`${HOME}/x`、`%CD%\repo`、`%CD%/repo`、`%OS%\x` |
 | `path_traversal` | 含 `..` 路径段 | `a/../b`、`..` |
 | `repository_url` | `ssh://`、`git://`、`git+ssh://` 协议，`user@host:path` 形态，或以 `.git` 结尾的 http(s) 地址 | `git@github.com:o/r.git` |
 
-带 `$` 加字母的普通文本（如 `$USD`）同样被视为环境变量引用而拒绝；单字母加冒号开头的文本（`A:B`）被视为盘符相对路径而拒绝。这两处是有意取的保守误伤，换取不漏判。
+带 `$` 加字母的普通文本（如 `$USD`）同样被视为环境变量引用而拒绝；单字母加冒号开头的文本（`A:B`）被视为盘符相对路径而拒绝；**两个单词字符之间夹一个反斜杠的普通文本**（如 `line1\nline2`、`C\C++ notes`）会被 `windows_rooted_path` 拒绝。这三处是有意取的保守误伤，换取不漏判。`displayName` 是唯一的自由文本字段，长度上限 120，误伤时失败也是安全方向。
 
 字符串同时按原样与百分号解码后（可解码时）各判定一次，`C%3A%5Crepo` 与 `C:\repo` 同等拒绝。`https://example.com/a`、`prj_<uuid>`、40 位 Git SHA、`a/b` 这类相对片段不命中。
 
@@ -160,15 +160,15 @@
 
 - UT（`tests/control-plane.test.mjs`）：边界判定矩阵、字段名规则、Token 形态、深度上限、码表与 `docs/19` 约束块一致、认证器、启动配置矩阵、进程内 HTTP 管线（每个拒绝分支与成功路径）、出站拦截、静态导入守护、`lib.rs` 命令守护。
 - IT（`tests/control-plane-it.test.mjs`）：以子进程同时启动本地 Bridge 与控制面（随机端口、隔离数据目录），验证两面凭据互不通用、路由互不服务、路径与 Token 入站拒绝、跨租户 404、本地数据目录与本地 Token 从不出现在控制面的任何响应中，以及控制面在没有 Tauri 的情况下完整可用。
-- 负向夹具：`node tools/ats506-probes/mutation-tests.mjs` 把控制面、UT 套件、`docs/19`、`lib.rs` 与前端源码复制到临时目录，逐一破坏 11 个守护（导入白名单、盘符规则、本地凭据拒绝、出站拦截、码表一致、Tauri 命令清单、跨租户隔离、原始 `..` 段拒绝、嵌入 Token、环境变量形态、根相对 Windows 路径），每个变异都必须被拥有该守护的用例捕获，未修改的副本必须通过；仓库本身不被修改。
+- 负向夹具：`node tools/ats506-probes/mutation-tests.mjs` 把控制面、UT 套件、`docs/19`、`lib.rs` 与前端源码复制到临时目录，逐一破坏 13 个守护（导入白名单、盘符规则、本地凭据拒绝、出站拦截、码表一致、Tauri 命令清单、跨租户隔离、原始 `..` 段拒绝、嵌入 Token、环境变量形态、根相对 Windows 路径、短名 `%NAME%` 后接分隔符、系统根前导字符类），每个变异都必须被拥有该守护的用例捕获，未修改的副本必须通过；仓库本身不被修改。
 - TLS 1.3：IT 用 `openssl` 生成自签证书，以 `ATS_CP_TLS_CERT`/`ATS_CP_TLS_KEY` 启动控制面子进程，验证 TLSv1.3 握手成功、TLSv1.2 被拒、HTTPS `/cp/v1/health` 返回 200；本机没有 `openssl` 时该用例跳过并在证据中如实记录。
-- 回归反例：复核提出的嵌入 Token、环境变量与 Windows 路径变体固化为 UT-CP-031..034 与 IT-CP-014（POST 后 GET 不回显），TLS 握手为 IT-CP-015。
+- 回归反例：第 1 轮复核提出的嵌入 Token、环境变量与 Windows 路径变体固化为 UT-CP-031..034 与 IT-CP-014（POST 后 GET 不回显），TLS 握手为 IT-CP-015；第 2 轮复核提出的短名 `%NAME%`（`%CD%`）与「系统根出现在任意非单词字符之后」固化为 UT-CP-035 与 IT-CP-016，并由变异 M12（删掉短名分隔符规则）与 M13（把前导字符类收窄回旧写法）守护。
 - 证据：`bash tools/ats506-probes/collect-evidence.sh` 生成 `docs/evidence/ATS-506/` 下的日志（命令、提交、Node/Python 版本与原样输出）。
 
 ## 11. 未验证项（PENDING ≠ PASS）
 
 1. **用户侧认证只有接口**：OIDC 属 ATS-507；`dev-static` 不是生产认证方式。
 2. **控制面无持久化**：项目元数据与审计事件只在进程内，重启即丢失；持久化与审计查询属 ATS-508/509。
-3. **路径与 Token 形态判定是启发式的**：§5.1、§5.3 覆盖的形态之外不保证；不以常见系统根开头、且出现在字符串中间的 POSIX 路径（如 `x /custom/dir`）不在判定范围内；被分隔符拆开的十六进制（如每 8 位加 `-`）不会被识别为 Token。出站扫描与入站使用同一判定，只能拦住入站已覆盖形态的回流（例如由认证器或存储层产生的值），不是对任意文本的完备证明。
+3. **路径与 Token 形态判定是启发式的**：§5.1、§5.3 覆盖的形态之外不保证；不以常见系统根开头、且出现在字符串中间的 POSIX 路径（如 `x /custom/dir`）不在判定范围内；系统根紧跟在单词字符之后（`https://h/home/x`、`TCP/IP`、`a.b/home`）按「主机名/标识符」处理、不判为路径；被分隔符拆开的十六进制（如每 8 位加 `-`）不会被识别为 Token。出站扫描与入站使用同一判定，只能拦住入站已覆盖形态的回流（例如由认证器或存储层产生的值），不是对任意文本的完备证明。
 4. **浏览器跨源调用未开放**：带 `Origin` 的请求一律拒绝；UI 到控制面的元数据同步通道属 ATS-510。
 5. **桌面与控制面同机部署的端口冲突检查只对已设置的 `ATS_PORT` 生效**：控制面不硬编码本地 Bridge 的默认端口。
