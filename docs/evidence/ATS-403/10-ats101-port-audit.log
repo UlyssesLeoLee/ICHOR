@@ -1,5 +1,15 @@
+==============================================================================
+ATS-403 evidence log -- 10-ats101-port-audit
+==============================================================================
+commit        : 1fe66785b9a31ebc7ccb4cd3ca14e73db6416feb
+timestamp     : 2026-11-17T17:23:20Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-ff48d390e8e6/worktree
+node          : v24.19.0
+platform      : win32 x64
+==============================================================================
+
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-81c159ec05e1\worktree
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-ff48d390e8e6\worktree
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
@@ -9,18 +19,20 @@ port      : 4577
   apps/studio/lib/api.ts:111  if(protocol==='tauri:'||protocol==='tauri+https:')return 'http://127.0.0.1:4577';
   apps/studio/lib/api.ts:115  return 'http://127.0.0.1:4577';
   apps/studio/public/fallback.html:24  </style></head><body><div class="shell"><div class="rail"><div class="logo">AT</div><span>▦</span><span>◎</spa...
-  server/index.mjs:77  const PORT=Number(process.env.ATS_PORT||4577);
-  server/index.mjs:1384  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
+  server/index.mjs:86  const PORT=Number(process.env.ATS_PORT||4577);
+  server/index.mjs:1393  res.writeHead(200,{'Content-Type':mime[path.extname(found)]||'application/octet-stream','X-Content-Type-Option...
   src-tauri/src/lib.rs:45  .env("ATS_PORT","4577")
-total = 9
+  tools/ats307-probes/probe-api.mjs:29  // A free port: the fixed 4577 is taken by other agents' bridges, and a
+  tools/ats307-probes/probe-api.mjs:69  console.log(`port      : ${port} (a free one; 4577 belongs to other agents)`);
+total = 11
 
 --- NON-runtime data mentions (data/scripts that only display it) ---
   start.ps1:8  Write-Host 'AI Test Studio -- local runner at http://127.0.0.1:4577/fallback.html' -ForegroundColor ...
   start.ps1:9  Start-Process 'http://127.0.0.1:4577/fallback.html'
   start.sh:4  echo 'AI Test Studio: http://127.0.0.1:4577/fallback.html'
-  tests/test-cases.json:8664  "input": "localhost:3000 + 4577",
-  tests/test-cases.json:8730  "input": "Host=evil.example:4577",
-  tests/test-cases.json:11095  "input": "同 LAN 他机尝试访问 4577",
+  tests/test-cases.json:8675  "input": "localhost:3000 + 4577",
+  tests/test-cases.json:8741  "input": "Host=evil.example:4577",
+  tests/test-cases.json:11117  "input": "同 LAN 他机尝试访问 4577",
   tools/generate_test_docs.py:416  ('IT-UI-001','FR-020','正常','Next UI 与 Bridge CORS','localhost:3000 + 4577','页面 API 可正常请求','需 npm 依赖'...
   tools/generate_test_docs.py:422  ('IT-API-004','NFR-002','安全','错误 Host 拒绝','Host=evil.example:4577','403 INVALID_HOST','可自动化','PENDIN...
   tools/generate_test_docs.py:550  ('ST-014','NFR-002','安全','远程主机访问拒绝','同 LAN 他机尝试访问 4577','连接拒绝或无法访问 API','网络抓包','PENDING'),
@@ -91,6 +103,7 @@ total = 54
   apps/studio/public/fallback.html
   server/index.mjs
   src-tauri/src/lib.rs
+  tools/ats307-probes/probe-api.mjs
 
 --- distinct DOC files (c) class, excluding 16 itself and the probe dir ---
   README.md (4)
@@ -142,22 +155,22 @@ files = 16, mentions = 58
   tools/update_wbs_ats216.py
 
 --- verdict ---
-runtime occurrences in source   : 9
-distinct runtime files          : 5
+runtime occurrences in source   : 11
+distinct runtime files          : 6
 non-runtime data files          : 6
 doc-mention files (excl. 16)    : 16
 doc mentions (excl. 16)         : 58
-runtime files missing from §3.1 : (none)
+runtime files missing from §3.1 : tools/ats307-probes/probe-api.mjs
 non-runtime missing from §3.1   : (none)
-runtime positions missing       : (none)
+runtime positions missing       : server/index.mjs:86, server/index.mjs:1393, tools/ats307-probes/probe-api.mjs:29, tools/ats307-probes/probe-api.mjs:69
 listed but not found at runtime : (none)
 count claimed in 16 §3.1        : 9
-actual runtime occurrence count : 9
-count matches source            : true
+actual runtime occurrence count : 11
+count matches source            : false
 doc files/mentions claimed      : 16 / 58
 doc files/mentions actual       : 16 / 58
 doc mention count matches       : true
 
-RESULT: OK -- every hardcoded occurrence is listed in 16 §3.1, by position.
+RESULT: MISMATCH -- the port list in 16 §3.1 does not match the source.
 
---- exit: 0 ---
+--- exit: 1 ---

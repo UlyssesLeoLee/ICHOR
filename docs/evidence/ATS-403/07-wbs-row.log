@@ -1,5 +1,15 @@
-overview: 已完成=2 完成率=0.3193612774451098 剩余人日=341.0
-updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-81c159ec05e1\worktree\docs\WBS.xlsx
-totals: {'completed': 2, 'sum_estimate': 501.0, 'sum_remaining': 341.0, 'completion_rate': 0.3193612774451098}
+==============================================================================
+ATS-403 evidence log -- 07-wbs-row
+==============================================================================
+commit        : 1fe66785b9a31ebc7ccb4cd3ca14e73db6416feb
+timestamp     : 2026-11-17T17:23:20Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-ff48d390e8e6/worktree
+node          : v24.19.0
+platform      : win32 x64
+==============================================================================
+
+overview: 已完成=2 完成率=0.3293413173652695 剩余人日=336.0
+updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-ff48d390e8e6\worktree\docs\WBS.xlsx
+totals: {'completed': 2, 'sum_estimate': 501.0, 'sum_remaining': 336.0, 'completion_rate': 0.3293413173652695}
 
 --- exit: 0 ---
