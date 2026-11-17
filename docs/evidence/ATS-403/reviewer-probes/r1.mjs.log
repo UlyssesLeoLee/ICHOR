@@ -1,0 +1,13 @@
+$ node r1.mjs <repo> <scratch>
+
+not-reproduced  P1  gate passed for a.spec.ts; provider received UNCONSENTED-BBB=false CONSENTED-AAA=true; audit says granted items=["a.spec.ts"]
+not-reproduced  P2  provider that ALWAYS answers 200 -> executeSteps code=AI_EGRESS_DENIED fetchCalls=0 stepsRun=undefined/2 cause=undefined: undefined
+not-reproduced  P3a  config temperature=0 -> anthropic body has temperature key: true (Anthropic default is 1.0)
+not-reproduced  P3b  system="INSTR" user="--- input file a ---\nINPUT"...
+not-reproduced  P3c  anthropic temperature 1.7 accepted by config validation: false
+not-reproduced  P4  A truncated -> chain error=undefined, tried=A,B (transport.mjs:225-227 says "so a fallback provider can be tried")
+not-reproduced  P5  endpoint echoing the key -> key present in error.details (the shape index.mjs returns to the client): false; in message: false
+not-reproduced  P6  A hangs, B healthy, deadline 150ms -> undefined; B request sent: true; B attempt reason: undefined
+not-reproduced  P7  no auditStore -> authorize returned allowed=null without any error (service.mjs:104 comment says it must not be silently swallowed)
+
+--- exit: 0 ---

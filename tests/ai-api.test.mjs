@@ -453,6 +453,62 @@ test('IT-AIE-024: the error codes match the documented status table', async () =
   }
 });
 
+test('IT-AIE-025: the instructions reach the provider AND are audited', async () => {
+  // The instructions are caller text that leaves the machine, so the egress
+  // audit must name them -- by digest and byte length, never by content.
+  const fake = await startFakeProvider();
+  try {
+    const [cfgStatus] = await api('/api/ai/providers', 'POST', {
+      id: 'instructed', protocol: 'openai-chat', config: { model: 'm', baseUrl: fake.url },
+    });
+    assert.equal(cfgStatus, 201);
+
+    const inputs = [{ kind: 'file', ref: 'tests/home.spec.ts' }];
+    const [, preview] = await api('/api/security/egress/preview', 'POST', { projectId, inputs });
+    const [, confirmed] = await api('/api/security/egress/confirm', 'POST', {
+      projectId, inputs, previewId: preview.preview.previewId,
+    });
+    fake.received.length = 0;
+
+    const instructions = 'IT-AIE-025-INSTRUCTIONS';
+    const [status, body] = await api('/api/ai/complete', 'POST', {
+      projectId,
+      inputs,
+      consentId: confirmed.consent.id,
+      request: { instructions, inputs: [] },
+    });
+    assert.equal(status, 200, JSON.stringify(body));
+
+    // The instructions really did go out...
+    const sent = fake.received[0]?.body ?? '';
+    assert.ok(sent.includes(instructions), 'the instructions must reach the provider');
+    // ...and the audit names them.
+    const [, auditBody] = await api('/api/security/egress/audit');
+    // The audit list is newest-first, so the record of THIS call is the
+    // first one that matches.
+    const granted = auditBody.audit.filter((r) => r.event === 'egress.granted')[0];
+    assert.ok(granted, 'the granted egress must be audited');
+    assert.ok(granted.instructions, 'the audit record must describe the instructions');
+    assert.equal(granted.instructions.kind, 'INSTRUCTION');
+    assert.equal(granted.instructions.digest, sha256(instructions));
+    assert.equal(granted.instructions.bytes, Buffer.byteLength(instructions, 'utf8'));
+    // The audit carries the digest, never the text.
+    assert.ok(!JSON.stringify(granted).includes(instructions), 'the audit must not carry the instruction text');
+  } finally {
+    fake.server.close();
+    await api('/api/ai/providers/instructed', 'DELETE');
+  }
+});
+
+test('IT-AIE-026: the contract does NOT advertise a Bridge route for the step bound', async () => {
+  const [status, body] = await api('/api/ai/contract');
+  assert.equal(status, 200);
+  // `executeSteps` is a library function of the adapter layer. No /api/ai
+  // route calls it, so the contract must not claim the bound is enforced.
+  assert.ok(!/maxSteps is enforced/.test(body.stepPolicy), `the stepPolicy still claims an enforced bound: ${body.stepPolicy}`);
+  assert.ok(/no \/api\/ai route calls it/.test(body.stepPolicy), `the stepPolicy must say no route calls it: ${body.stepPolicy}`);
+});
+
 test('IT-AIE-SHUTDOWN: stop server', async () => {
   cp.kill();
 });

@@ -1,8 +1,8 @@
 ================================================================================
 ATS-214 evidence log -- the negative control: every mutation of the delivered code must turn the suite red
 ================================================================================
-commit        : d6acd2e664dceb9987ad24cdccf606664e67e1a6
-timestamp     : 2026-11-13T14:42:08Z (UTC)
+commit        : b33fae6ac05357ec4ab104f4c3c366d7de694483
+timestamp     : 2026-11-13T19:22:17Z (UTC)
 repo root     : /d/ICHOR
 node          : v24.19.0
 platform      : win32 x64
@@ -10,7 +10,7 @@ command       : node tools/ats214-probes/mutation-check.mjs . C:\Users\seiko\App
 ================================================================================
 
 PASS M1 the filter is disabled -- the list shows everything -- caught (the ST probe (real Chromium): RED)
-PASS M2 runSelection sends only the FIRST uid of the selection -- caught (the ST probe (real Chromium): RED)
+FAIL M2 runSelection sends only the FIRST uid of the selection -- NOT CAUGHT (the ST probe (real Chromium): BROKEN (the ST printed no verdict at all (it crashed)))
 PASS M3 the warning of a case that left the catalogue is not rendered -- caught (the ST probe (real Chromium): RED)
 PASS M4 the run is NOT blocked when a case left the catalogue -- caught (the ST probe (real Chromium): RED)
 PASS M5 the toast promises the SELECTED count instead of the count that will really run -- caught (the ST probe (real Chromium): RED)
@@ -22,6 +22,6 @@ PASS M10 the batch is NOT ended when the preflight fails -- caught (the integrat
 PASS M11 the batch record carries the environment VARIABLES again -- caught (the integration tests: RED)
 PASS M12 a DELETED profile does NOT end the batch -- it runs without one -- caught (the integration tests: RED)
 
-RESULT: 12/12
+RESULT: 11/12
 
---- exit code: 0 ---
+--- exit code: 1 ---

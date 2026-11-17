@@ -1,0 +1,9 @@
+$ node r2-api.mjs <repo> <scratch>
+
+not-reproduced  H1  provider configured (201); /api/ai/complete -> 200 configured-ok; instructions text sent: true; inputs[].content sent: false; consented file sent: true; audit granted items=["tests/home.spec.ts"] (no trace of the instructions)
+not-reproduced  S4b  audit granted items=["tests/home.spec.ts"]
+CONFIRMED  H3  re-POST provider 'main' -> 201; complete -> 200; the consented content went to the NEW endpoint: true (destination not bound to consent -- known, out of ATS-403 scope)
+not-reproduced  S5  provider 401 -> HTTP 502 AI_PROVIDER_AUTH_FAILED; published statusByCode.AI_PROVIDER_AUTH_FAILED=502
+not-reproduced  S5b  /api/ai/contract stepPolicy still advertises: "executeSteps() is a LIBRARY function of the adapter layer, n..." while no Bridge route calls executeSteps
+
+--- exit: 0 ---
