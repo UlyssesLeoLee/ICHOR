@@ -313,17 +313,17 @@ export default function Studio(){
   setRunsRequest({phase:'settled',itemCount:r.runs.length});
   if(!active&&p.projects.length)setActive(p.projects[0].id);
  }catch(e){setRunsRequest({phase:'failed',error:(e as Error).message});notify((e as Error).message)}},[active]);
- useEffect(()=>{refresh();const t=setInterval(()=>{api<{runs:Run[]}>('/api/runs').then(r=>setRuns(r.runs)).catch(()=>{})},1800);return()=>clearInterval(t)},[refresh]);
- // ATS-111: the catalogue load is CANCELLABLE and reports its outcome.
- //
- // The request is aborted when the project changes, so the answer of the
- // project the reader left can never land on the project they are now
- // looking at -- and the reader is told the load was CANCELLED rather
- // than being left with a spinner that never resolves.
+ useEffect(()=>{refresh();const t=setInterval(()=>{api<{runs:Run[]}>('/api/runs').then(r=>{setRuns(r.runs);setRunsRequest({phase:'settled',itemCount:r.runs.length});}).catch(e=>setRunsRequest({phase:'failed',error:(e as Error).message}));},1800);return()=>clearInterval(t)},[refresh]);// ATS-111: a poll that FAILS is reported -- a swallowed failure would show the last known runs as if they were current.
+ // ATS-111: the catalogue load is CANCELLABLE and reports its outcome. The
+ // request is aborted when the project changes, so the answer of the project
+ // the reader left can never land on the project they are now looking at.
+ // The CATALOGUE is also CLEARED before the new request goes out: otherwise
+ // the previous project's cases stay in the panel and the footer.
  useEffect(()=>{
   if(!active){setCatalog({tests:[],files:[],warning:'',uidVersion:0,projectUid:''});
    setCatalogueRequest({phase:'idle'});return;}
   let cancelled=false;
+  setCatalog({tests:[],files:[],warning:'',uidVersion:0,projectUid:''});
   setCatalogueRequest({phase:'pending'});
   const controller=cancellableApi<TestCatalog>(`/api/projects/${active}/tests`);
   catalogueAbort.current=controller.abort;
@@ -653,11 +653,11 @@ export default function Studio(){
  // field's own "submit" behaviour), so typing a path and pressing Enter
  // still submits the form.
  const searchRef=React.useRef<HTMLInputElement|null>(null);
- // ATS-111: the element that opened the add-project dialog. When the
- // dialog closes, the focus goes BACK to it: without that, the focus
- // falls onto the <body>, and a keyboard reader who then presses Ctrl+P
- // finds that nothing happens -- and that Esc does not cancel the load
- // either.
+ // ATS-111: the ref to the project bar's 「添加项目」 button.
+ // That button is where the focus is restored when the add-project
+ // dialog closes -- see closeDialog for where the focus goes and why.
+ // It is NOT "the control that opened the dialog": the dialog is also
+ // opened from the no-project panel and from the welcome screen.
  const addProjectRef=React.useRef<HTMLButtonElement|null>(null);
  const runCurrent=useCallback(async()=>{
   if(!active)return;if(live)return;
@@ -732,6 +732,11 @@ export default function Studio(){
   if(command==='submit'){
    // A text field keeps its own Enter behaviour.
    if(isTextEntry(e.target))return;
+   // A control with its own Enter action keeps it: the browser fires that
+   // control's click and the workbench does not perform a different write on
+   // top of it. Focusing 「取消」 and pressing Enter has to CANCEL -- not add
+   // the project.
+   if(hasNativeEnterAction(e.target))return;
    if(dialog&&projectPath){void addProject();e.preventDefault();return;}
    if(tab==='security'&&keyName&&keySecret){void saveKey();e.preventDefault();return;}
    if(selected&&source&&draft!==source.content){void save();e.preventDefault();return;}
@@ -1113,7 +1118,7 @@ export default function Studio(){
    <details className="kbd-help" data-region="kbd-help"><summary>键盘操作</summary><ul>{keyboardHelpLines().map(l=><li key={l}>{l}</li>)}</ul></details>
   </footer>
   </div>
-  {dialog&&<div className="overlay" onClick={()=>setDialog(false)}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="add-project-title" onClick={e=>e.stopPropagation()}><h2 id="add-project-title">添加 Playwright 项目</h2><p>填写已有 Git 项目的本地绝对路径。系统不复制项目，也不会自动执行 npm install。</p>
+  {dialog&&<div className="overlay" onClick={()=>closeDialog()}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="add-project-title" onClick={e=>e.stopPropagation()}><h2 id="add-project-title">添加 Playwright 项目</h2><p>填写已有 Git 项目的本地绝对路径。系统不复制项目，也不会自动执行 npm install。</p>
    {/* ATS-111: the dialog is a REAL form, so the browser's own "submit
        the form" behaviour makes Enter work on the path field -- the key
        a reader presses after typing a path. The form's submit handler
@@ -1121,7 +1126,7 @@ export default function Studio(){
        cannot disagree. */}
    <form onSubmit={e=>{e.preventDefault();void addProject();}}>
    <input autoFocus aria-label="项目本地绝对路径" value={projectPath} onChange={e=>setProjectPath(e.target.value)} placeholder="C:\\Projects\\MyApp 或 /workspace/my-app"/>
-   <div className="modal-actions"><button type="button" className="btn secondary" onClick={()=>setDialog(false)}>取消</button><button type="submit" className="btn primary" disabled={busy||!projectPath}>添加项目</button></div>
+   <div className="modal-actions"><button type="button" className="btn secondary" onClick={()=>closeDialog()}>取消</button><button type="submit" className="btn primary" disabled={busy||!projectPath}>添加项目</button></div>
    </form></div></div>}
   {message&&<div className="toast">{message}</div>}
  </div>

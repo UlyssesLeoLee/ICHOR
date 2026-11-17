@@ -131,7 +131,7 @@ Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-
    | 4 | `apps/studio/lib/api.ts:109` | API Base（端口为 3000 时） |
    | 5 | `apps/studio/lib/api.ts:111` | API Base（Tauri 协议） |
    | 6 | `apps/studio/lib/api.ts:115` | API Base（默认分支） |
-   | 7 | `apps/studio/app/page.tsx:1109` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
+   | 7 | `apps/studio/app/page.tsx:1114` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
    | 8 | `apps/studio/public/fallback.html:24` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
    | 9 | `src-tauri/src/lib.rs:45` | `ATS_PORT` 环境变量默认值 |
 

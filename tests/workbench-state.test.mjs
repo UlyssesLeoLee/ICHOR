@@ -416,6 +416,7 @@ test('the focus order is the reading order', () => {
     'add-project',
     'search',
     'sidebar',
+    'select-bar',
     'panel',
     'content',
   ]);
