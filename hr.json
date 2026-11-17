@@ -1,0 +1,126 @@
+[
+  {
+    "agent_id": "01f8384c-eca8-4a37-b942-6424106ac7a2",
+    "attempt": 1,
+    "attribution": {
+      "delegated_from_task_id": "01a19f87-a00a-78af-990e-f1ace320f2da",
+      "evidence": {
+        "kind": "issue_assignment",
+        "ref_id": "01a19f95-8b8a-76a1-af87-6fdacea0125e"
+      },
+      "initiator": {
+        "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocLP6U1ssLnrivAn_ckvKON_1gyPxdHGVdqz4bW96S6yoMBCL6I=s96-c",
+        "email": "lidian1985727@gmail.com",
+        "id": "a39a5ffd-7dcc-4bbd-8afe-536a93e1533d",
+        "name": "DIAN LI"
+      },
+      "originator": {
+        "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocLP6U1ssLnrivAn_ckvKON_1gyPxdHGVdqz4bW96S6yoMBCL6I=s96-c",
+        "email": "lidian1985727@gmail.com",
+        "id": "a39a5ffd-7dcc-4bbd-8afe-536a93e1533d",
+        "name": "DIAN LI"
+      },
+      "precise": true,
+      "source": "delegation"
+    },
+    "completed_at": null,
+    "created_at": "2026-11-17T15:35:33Z",
+    "delivered_comment_ids": [],
+    "dispatched_at": null,
+    "error": null,
+    "id": "01a1ea26-2ff5-7acf-a520-d8b1b14d3189",
+    "issue_id": "01a19f95-8b8a-76a1-af87-6fdacea0125e",
+    "kind": "direct",
+    "max_attempts": 2,
+    "priority": 3,
+    "result": null,
+    "runtime_id": "ce5698b0-e8be-4a9a-8f95-ab2e9334c556",
+    "started_at": null,
+    "status": "queued",
+    "workspace_id": "9ab14788-a008-4c5f-bed9-4bc6c5b98085"
+  },
+  {
+    "agent_id": "01f8384c-eca8-4a37-b942-6424106ac7a2",
+    "attempt": 1,
+    "attribution": {
+      "delegated_from_task_id": "01a19f87-a00a-78af-990e-f1ace320f2da",
+      "evidence": {
+        "kind": "issue_assignment",
+        "ref_id": "01a19f96-6e68-7898-b5ec-5f05eb21a195"
+      },
+      "initiator": {
+        "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocLP6U1ssLnrivAn_ckvKON_1gyPxdHGVdqz4bW96S6yoMBCL6I=s96-c",
+        "email": "lidian1985727@gmail.com",
+        "id": "a39a5ffd-7dcc-4bbd-8afe-536a93e1533d",
+        "name": "DIAN LI"
+      },
+      "originator": {
+        "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocLP6U1ssLnrivAn_ckvKON_1gyPxdHGVdqz4bW96S6yoMBCL6I=s96-c",
+        "email": "lidian1985727@gmail.com",
+        "id": "a39a5ffd-7dcc-4bbd-8afe-536a93e1533d",
+        "name": "DIAN LI"
+      },
+      "precise": true,
+      "source": "delegation"
+    },
+    "completed_at": null,
+    "created_at": "2026-11-17T15:35:30Z",
+    "delivered_comment_ids": [],
+    "dispatched_at": "2026-11-17T15:35:30Z",
+    "error": null,
+    "id": "01a1ea26-238d-7cd2-900e-caf560f06594",
+    "issue_id": "01a19f96-6e68-7898-b5ec-5f05eb21a195",
+    "kind": "direct",
+    "max_attempts": 2,
+    "priority": 2,
+    "relative_work_dir": "triton-n4hv-4bc6c5b98085/seikoist-18-caf560f06594/worktree",
+    "result": null,
+    "runtime_id": "ce5698b0-e8be-4a9a-8f95-ab2e9334c556",
+    "started_at": "2026-11-17T15:35:46Z",
+    "status": "running",
+    "work_dir": "C:\\Users\\seiko\\multica_workspaces_desktop-api.multica.ai\\triton-n4hv-4bc6c5b98085\\seikoist-18-caf560f06594\\worktree",
+    "workspace_id": "9ab14788-a008-4c5f-bed9-4bc6c5b98085"
+  },
+  {
+    "agent_id": "01f8384c-eca8-4a37-b942-6424106ac7a2",
+    "attempt": 1,
+    "attribution": {
+      "delegated_from_task_id": "01a19f87-a00a-78af-990e-f1ace320f2da",
+      "evidence": {
+        "kind": "issue_assignment",
+        "ref_id": "01a19f96-f7cf-7c52-a093-33aec3a0b94c"
+      },
+      "initiator": {
+        "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocLP6U1ssLnrivAn_ckvKON_1gyPxdHGVdqz4bW96S6yoMBCL6I=s96-c",
+        "email": "lidian1985727@gmail.com",
+        "id": "a39a5ffd-7dcc-4bbd-8afe-536a93e1533d",
+        "name": "DIAN LI"
+      },
+      "originator": {
+        "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocLP6U1ssLnrivAn_ckvKON_1gyPxdHGVdqz4bW96S6yoMBCL6I=s96-c",
+        "email": "lidian1985727@gmail.com",
+        "id": "a39a5ffd-7dcc-4bbd-8afe-536a93e1533d",
+        "name": "DIAN LI"
+      },
+      "precise": true,
+      "source": "delegation"
+    },
+    "completed_at": null,
+    "created_at": "2026-11-17T15:35:27Z",
+    "delivered_comment_ids": [],
+    "dispatched_at": "2026-11-17T15:35:27Z",
+    "error": null,
+    "id": "01a1ea26-175f-7c87-b446-6f6cb834a08c",
+    "issue_id": "01a19f96-f7cf-7c52-a093-33aec3a0b94c",
+    "kind": "direct",
+    "max_attempts": 2,
+    "priority": 2,
+    "relative_work_dir": "triton-n4hv-4bc6c5b98085/seikoist-20-6f6cb834a08c/worktree",
+    "result": null,
+    "runtime_id": "ce5698b0-e8be-4a9a-8f95-ab2e9334c556",
+    "started_at": "2026-11-17T15:35:36Z",
+    "status": "running",
+    "work_dir": "C:\\Users\\seiko\\multica_workspaces_desktop-api.multica.ai\\triton-n4hv-4bc6c5b98085\\seikoist-20-6f6cb834a08c\\worktree",
+    "workspace_id": "9ab14788-a008-4c5f-bed9-4bc6c5b98085"
+  }
+]
