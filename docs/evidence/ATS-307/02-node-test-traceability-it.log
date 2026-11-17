@@ -1,23 +1,23 @@
 ==============================================================================
 ATS-307 evidence log -- the ATS-307 integration suite
 ==============================================================================
-commit        : f7e3a55eb1c02c2c95e0ecd7e1c0925d2b34e064
-timestamp     : 2026-11-17T18:25:01Z (UTC)
+commit        : e75b7cad716a14e5931102bec19411b58287a77b
+timestamp     : 2026-11-17T18:57:29Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f60149b94aa7/worktree
 node          : v24.19.0
 platform      : win32 x64
 command       : node --test tests/ats307-traceability-it.test.mjs
 ==============================================================================
 
-✔ IT-ATS307-001: start the bridge (747.6183ms)
-✔ IT-ATS307-002: the traceability endpoint needs the session token (2.5422ms)
-✔ IT-ATS307-003: the summary answers with the graph shape and its gaps (431.1797ms)
-✔ IT-ATS307-004: ?requirement= walks one chain down (382.3854ms)
-✔ IT-ATS307-005: ?requirement= names the hop that is missing (333.8622ms)
-✔ IT-ATS307-006: an unknown requirement is reported (364.7943ms)
-✔ IT-ATS307-007: ?evidence= walks one chain up (691.5468ms)
-✔ IT-ATS307-008: an unknown evidence node is reported (546.375ms)
-✔ IT-ATS307-009: the bridge shuts down (6.2874ms)
+✔ IT-ATS307-001: start the bridge (1057.9236ms)
+✔ IT-ATS307-002: the traceability endpoint needs the session token (14.63ms)
+✔ IT-ATS307-003: the summary answers with the graph shape and its gaps (579.8981ms)
+✔ IT-ATS307-004: ?requirement= walks one chain down (710.9807ms)
+✔ IT-ATS307-005: ?requirement= names the hop that is missing (501.8738ms)
+✔ IT-ATS307-006: an unknown requirement is reported (861.6997ms)
+✔ IT-ATS307-007: ?evidence= walks one chain up (1966.7757ms)
+✔ IT-ATS307-008: an unknown evidence node is reported (969.9653ms)
+✔ IT-ATS307-009: the bridge shuts down (8.2511ms)
 ℹ tests 9
 ℹ suites 0
 ℹ pass 9
@@ -25,4 +25,4 @@ command       : node --test tests/ats307-traceability-it.test.mjs
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 3644.0927
+ℹ duration_ms 6882.0213

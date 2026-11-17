@@ -1,8 +1,8 @@
 ==============================================================================
 ATS-307 evidence log -- the ATS-307 probe
 ==============================================================================
-commit        : f7e3a55eb1c02c2c95e0ecd7e1c0925d2b34e064
-timestamp     : 2026-11-17T18:25:05Z (UTC)
+commit        : e75b7cad716a14e5931102bec19411b58287a77b
+timestamp     : 2026-11-17T18:57:36Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f60149b94aa7/worktree
 node          : v24.19.0
 platform      : win32 x64
@@ -19,12 +19,12 @@ platform  : win32 x64
 ------------------------------------------------------------------------------
 --- 1. the shape of the graph ---
 ------------------------------------------------------------------------------
-nodes            : 1356
-edges            : 25951
+nodes            : 1358
+edges            : 26833
 chains           : 49
-nodes by kind    : {"testcase":1071,"run":80,"design":26,"script":50,"evidence":80,"requirement":49}
-edges by type    : {"attempted":23786,"implemented":931,"covers":1099,"designs":55,"archived":80}
-edges by source  : {"evidence":23866,"source":908,"catalog":1177}
+nodes by kind    : {"testcase":1071,"run":81,"design":26,"script":50,"evidence":81,"requirement":49}
+edges by type    : {"attempted":24667,"implemented":931,"covers":1099,"designs":55,"archived":81}
+edges by source  : {"evidence":24748,"source":908,"catalog":1177}
 
 ------------------------------------------------------------------------------
 --- 2. the checks: stable uid, orphan edges, cycles ---
@@ -93,18 +93,18 @@ requirement FR-001  (coverage: verified)
       tests/core.test.mjs
       tests/api.test.mjs
       tests/control-plane-it.test.mjs
-  hop 4 run         43 node(s)
+  hop 4 run         44 node(s)
       transcript:docs/evidence/ATS-213/16-full-regression.log
       transcript:docs/evidence/ATS-202/06-line-coverage.log
       transcript:docs/evidence/ATS-111/02-node-test-full.log
       transcript:docs/evidence/ATS-205/10-coverage.log
-      ... 39 more
-  hop 5 evidence    43 node(s)
+      ... 40 more
+  hop 5 evidence    44 node(s)
       transcript:docs/evidence/ATS-213/16-full-regression.log
       transcript:docs/evidence/ATS-202/06-line-coverage.log
       transcript:docs/evidence/ATS-111/02-node-test-full.log
       transcript:docs/evidence/ATS-205/10-coverage.log
-      ... 39 more
+      ... 40 more
   gaps: 2
       [hop 3] no-script: no script in the tree declares this case
       [hop 4] no-run: the case was never executed

@@ -1,8 +1,8 @@
 ==============================================================================
 ATS-307 evidence log -- the ATS-307 API surface
 ==============================================================================
-commit        : f7e3a55eb1c02c2c95e0ecd7e1c0925d2b34e064
-timestamp     : 2026-11-17T18:25:06Z (UTC)
+commit        : e75b7cad716a14e5931102bec19411b58287a77b
+timestamp     : 2026-11-17T18:57:37Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f60149b94aa7/worktree
 node          : v24.19.0
 platform      : win32 x64
@@ -13,7 +13,7 @@ command       : node tools/ats307-probes/probe-api.mjs
 ATS-307 probe: the API surface of the traceability graph
 ==============================================================================
 repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-f60149b94aa7\worktree
-port      : 50947 (a free one; the default port belongs to other agents)
+port      : 49319 (a free one; the default port belongs to other agents)
 
 ------------------------------------------------------------------------------
 --- 1. the endpoint needs the session token ---
@@ -24,13 +24,13 @@ GET /api/traceability without the token : 401  (expected 401)
 --- 2. the summary ---
 ------------------------------------------------------------------------------
 GET /api/traceability : 200
-nodes        : 1356
-edges        : 25951
+nodes        : 1358
+edges        : 26833
 chains       : 49
 coverage     : {"verified":26,"designed":21,"implemented":2}
-nodesByKind  : {"testcase":1071,"run":80,"design":26,"script":50,"evidence":80,"requirement":49}
-edgesByType  : {"attempted":23786,"implemented":931,"covers":1099,"designs":55,"archived":80}
-edgesByProv  : {"evidence":23866,"source":908,"catalog":1177}
+nodesByKind  : {"testcase":1071,"run":81,"design":26,"script":50,"evidence":81,"requirement":49}
+edgesByType  : {"attempted":24667,"implemented":931,"covers":1099,"designs":55,"archived":81}
+edgesByProv  : {"evidence":24748,"source":908,"catalog":1177}
 orphan edges : 0
 cycles       : 0
 not present  : 0
@@ -64,16 +64,16 @@ status : 200   found: true   coverage: verified
       tests/evidence.test.mjs
       tests/evidence-it.test.mjs
       tools/ats215-probes/st-ats215.mjs
-  hop 4 run         28 node(s)
+  hop 4 run         29 node(s)
       transcript:docs/evidence/ATS-502/07-baseline-regression.log
       transcript:docs/evidence/ATS-216/02-node-test-full.log
       transcript:docs/evidence/ATS-512/04-full-test-suite.log
-      ... 25 more
-  hop 5 evidence    28 node(s)
+      ... 26 more
+  hop 5 evidence    29 node(s)
       transcript:docs/evidence/ATS-502/07-baseline-regression.log
       transcript:docs/evidence/ATS-216/02-node-test-full.log
       transcript:docs/evidence/ATS-512/04-full-test-suite.log
-      ... 25 more
+      ... 26 more
   gaps: 9
       [hop 3] no-script: no script in the tree declares this case
       [hop 3] no-script: no script in the tree declares this case
