@@ -23,10 +23,14 @@ Unit tests with `node:test` in `tests/control-plane.test.mjs` (catalog IDs UT-CP
 | TC-009 | `detectLocalPath` on `$USERPROFILE/x`, `$APPDATA`, `${HOME}/x`, `$env:USERPROFILE\x`, `%USERPROFILE%`, `%APPDATA%\x`; negatives `100%`, `%E4%B8%AD`, `$5`, `a$` (UT-CP-032) | `env_path` for the positives, `null` for the negatives | `tests/control-plane.test.mjs` |
 | TC-010 | `detectLocalPath` on `D:work`, `\Users\x`, `Users\x\y`, `~root/x`, `data\proj\x`; negatives `a/b`, `ns:name`, `TCP/IP`, `Fix:/x` (UT-CP-033) | `windows_drive_path`, `windows_rooted_path`, `home_relative_path`; `null` for the negatives | `tests/control-plane.test.mjs` |
 | TC-011 | in-process HTTP: POST `displayName` `Bearer <48hex>` and `$USERPROFILE/x`; a stored value forced to `Bearer <48hex>` is blocked by egress (UT-CP-034) | 422 `REMOTE_SECRET_INLINE_FORBIDDEN` / `REMOTE_PATH_FORBIDDEN`; egress gives 500 `REMOTE_INTERNAL` | `tests/control-plane.test.mjs` |
+| TC-012 | `detectLocalPath` on `%CD%\repo`, `%CD%/repo`, `%OS%\x`; negatives `%E4%B8%AD`, `%CD%`, `100%` (UT-CP-035) | `env_path` for the three positives; `null` for the negatives -- a short `%NAME%` is a path only when a separator follows it | `tests/control-plane.test.mjs` |
+| TC-013 | `detectLocalPath` on `[/home/alice/repo]`, `` `/home/alice/repo` ``, `{/Users/bob/x}`, `</etc/passwd>`, `\|/var/log/x`, `dir:[/home/a]`; negatives `https://h/home/x`, `TCP/IP`, `a.b/home` (UT-CP-035) | `posix_absolute_path` for the six positives; `null` for the three negatives -- a system root behind a word character is part of a host or an identifier | `tests/control-plane.test.mjs` |
 
 ## Boundary & Failure Cases
 
 Drive letter preceded by a letter (`http:` scheme, `Fix:/x`) must not match; a lone `/` is a POSIX absolute path; depth exactly 32 passes and 33 fails; 47/48/49 hex characters around the token shape; percent-decoding failure falls back to the raw text instead of throwing; non-string and non-object inputs return `null` and never throw.
+
+A `%NAME%` reference of a name shorter than 3 characters is refused ONLY when a path separator follows it; on its own (`%CD%`) it is ordinary text, and a percent-encoded UTF-8 fragment (`%E4%B8%AD`) is never a path. A POSIX system root is refused when it follows any character outside `[A-Za-z0-9._-]` and is NOT refused when it follows a word character (`https://h/home/x`, `TCP/IP`, `a.b/home`).
 
 ## Regression Scope
 

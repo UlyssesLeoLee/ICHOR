@@ -87,14 +87,14 @@
 | `windows_drive_path` | 以盘符开头且后接分隔符、结束或非空白字符（`C:`、`C:\`、`C:/`、盘符相对路径 `D:work`），或在非字母数字字符之后出现盘符加分隔符 | `C:\repo`、`see D:/x`、`D:work` |
 | `windows_rooted_path` | 以单个 `\` 开头（无盘符的根相对路径），或由 `\` 分隔的多段（`段\段`，段由字母、数字、`.`、`_`、`-` 组成） | `\Users\x`、`Users\x\y` |
 | `unc_path` | 以 `\\` 或 `//` 开头，或在空白/引号/括号/等号/逗号/分号之后出现 `\\主机\` | `\\srv\share`、`\\?\C:\x`、`//srv/share` |
-| `posix_absolute_path` | 以 `/` 开头，或在空白/引号/括号/等号/逗号/分号/冒号之后出现常见系统根（`home`、`Users`、`root`、`tmp`、`var`、`etc`、`opt`、`usr`、`mnt`、`Volumes`、`private`、`srv`、`proc`、`dev`、`sys`、`run`、`media`） | `/home/alice/repo`、`at /Users/bob/x` |
+| `posix_absolute_path` | 以 `/` 开头，或在**`[A-Za-z0-9._-]` 以外的任意字符之后**出现常见系统根（`home`、`Users`、`root`、`tmp`、`var`、`etc`、`opt`、`usr`、`mnt`、`Volumes`、`private`、`srv`、`proc`、`dev`、`sys`、`run`、`media`） | `/home/alice/repo`、`at /Users/bob/x`、`[/home/alice/repo]`、`` `/home/alice/repo` ``、`{/Users/bob/x}`、`</etc/passwd>`、`\|/var/log/x`、`dir:[/home/a]` |
 | `file_url` | 含 `file:` 协议 | `file:///C:/x` |
 | `home_relative_path` | 以 `~/`、`~\` 开头、等于 `~`，或以 `~用户名/`、`~用户名\` 开头 | `~/repo`、`~root/x` |
-| `env_path` | 含任意环境变量引用：`$NAME`、`${NAME}`、`$env:NAME`、`%NAME%`（名称以字母或下划线开头；`%NAME%` 的名称至少 3 个字符，避免误伤 `%E4%` 这类编码残片） | `%USERPROFILE%`、`$APPDATA\x`、`$env:USERPROFILE\x`、`${HOME}/x` |
+| `env_path` | 含任意环境变量引用：`$NAME`、`${NAME}`、`$env:NAME`、`%NAME%`（名称以字母或下划线开头；`%NAME%` 的名称至少 3 个字符，避免误伤 `%E4%` 这类编码残片）。**此外，`%名称%`（名称任意长度）后紧跟 `\` 或 `/` 一律判为路径**——`%CD%` 在 cmd 中就是当前目录，是本地绝对路径 | `%USERPROFILE%`、`$APPDATA\x`、`$env:USERPROFILE\x`、`${HOME}/x`、`%CD%\repo`、`%CD%/repo`、`%OS%\x` |
 | `path_traversal` | 含 `..` 路径段 | `a/../b`、`..` |
 | `repository_url` | `ssh://`、`git://`、`git+ssh://` 协议，`user@host:path` 形态，或以 `.git` 结尾的 http(s) 地址 | `git@github.com:o/r.git` |
 
-带 `$` 加字母的普通文本（如 `$USD`）同样被视为环境变量引用而拒绝；单字母加冒号开头的文本（`A:B`）被视为盘符相对路径而拒绝。这两处是有意取的保守误伤，换取不漏判。
+带 `$` 加字母的普通文本（如 `$USD`）同样被视为环境变量引用而拒绝；单字母加冒号开头的文本（`A:B`）被视为盘符相对路径而拒绝；**两个单词字符之间夹一个反斜杠的普通文本**（如 `line1\nline2`、`C\C++ notes`）会被 `windows_rooted_path` 拒绝。这三处是有意取的保守误伤，换取不漏判。`displayName` 是唯一的自由文本字段，长度上限 120，误伤时失败也是安全方向。
 
 字符串同时按原样与百分号解码后（可解码时）各判定一次，`C%3A%5Crepo` 与 `C:\repo` 同等拒绝。`https://example.com/a`、`prj_<uuid>`、40 位 Git SHA、`a/b` 这类相对片段不命中。
 
