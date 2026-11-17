@@ -253,8 +253,40 @@ RTM の真実は**行単位**である。FR-007 は `UT-E-001` を、FR-008 は 
 
 * `chain`：6 hop それぞれに到達したノード
 * `gaps`：欠けた hop と、その理由
-* `coverage`：`verified` / `executed` / `implemented` / `designed` / `uncovered`
+* `coverage`：`verified` / `failed` / `executed` / `implemented` / `designed` /
+  `uncovered`
 * `cases`：ケースごとの script / run / evidence
+
+#### `coverage` は「何が成立したか」である
+
+coverage の 6 状態は**深さの順**であり、「何が成立したか」の順でもある。
+`verified` と `failed` の差は**深さではなく結果**である：どちらも run に
+到達し、証拠も残っている（= チェーンはそこまで到達した）が、
+`verified` は**通った**実行の証拠、`failed` は**落ちた**実行の証拠である。
+
+**WHAT RAN and WHAT WAS DECLARED PASS are two different facts.**
+「実行された」と「PASS と宣言された」は別の事実であり、
+coverage は両方を区別する：
+
+| 実行の結果 | coverage |
+|---|---|
+| 一度も通らなかった（落ちた実行が 1 つ以上、通った実行は 0） | `failed` |
+| 通った実行が 1 つ以上ある（落ちた実行があっても） | `verified` |
+| 実行されたが証拠が残っていない | `executed` |
+| スクリプトがあるが実行されていない | `implemented` |
+| カタログにあるがスクリプトが無い | `designed` |
+| カタログにも無い | `uncovered` |
+
+`attempted` 辺が持つ `ok`（トランスクリプトの読み取り結果）と
+実行の `status`（runtime 由来）がこの判定の入力である。
+辺が**何も言っていない**場合は `unknown` であり、`passed` ではない——
+言っていないものを「通った」と読むのは、落ちた実行を
+`verified` と報告することになる。
+
+`failed` の順位は `verified` の**下**、`executed` の**上**である：
+落ちた実行はチェーンの深さでは通った実行と同じところまで到達している
+（実行されて証拠も残った）が、**何も確立していない**ため、
+`executed` より上であり `verified` より下である。
 
 ### 8.2 逆向き（証拠 -> 要件）
 
@@ -304,8 +336,8 @@ run を経由しない逆走査は、1 つの artifact がプロジェクトの�
 
 | 項目 | 実測値 |
 |---|---|
-| ノード | 1354 |
-| 辺 | 25862 |
+| ノード | 1358 |
+| 辺 | 26833 |
 | チェーン（要件） | 49 |
 | 孤児辺 | 0 |
 | 循環 | 0 |

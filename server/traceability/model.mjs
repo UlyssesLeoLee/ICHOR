@@ -270,11 +270,18 @@ export const GAP = Object.freeze({
  * The relation between a requirement's coverage and the state of the
  * project. This is the honest summary of a chain:
  *
- *   `verified`     the chain reaches an observed execution with evidence
+ *   `verified`     the chain reaches an observed execution that PASSED
+ *   `failed`       the chain reaches an observed execution that FAILED
  *   `executed`     the chain reaches an observed execution (no evidence)
  *   `implemented`  the chain reaches a script in the tree, never executed
  *   `designed`     the chain stops at the design anchor
  *   `uncovered`    the chain stops at the requirement
+ *
+ * WHAT RAN AND WHAT WAS DECLARED PASS ARE TWO DIFFERENT FACTS. A case
+ * whose only execution FAILED is `failed`, not `verified`: the evidence
+ * exists, but it is the evidence of a failure. A case that has BOTH a
+ * failing and a passing execution is `verified` -- the chain did reach a
+ * passing verification for it.
  */
 export const COVERAGE = Object.freeze({
   VERIFIED: 'verified',
@@ -282,6 +289,7 @@ export const COVERAGE = Object.freeze({
   IMPLEMENTED: 'implemented',
   DESIGNED: 'designed',
   UNCOVERED: 'uncovered',
+  FAILED: 'failed',
 });
 
 /**
@@ -291,11 +299,16 @@ export const COVERAGE = Object.freeze({
  * did reach the evidence for it.
  */
 export const COVERAGE_RANK = Object.freeze({
+  // The order is "how much was ESTABLISHED", not "how far did the chain
+  // reach": a failed execution reached exactly as far as a passing one (it
+  // ran, and it left evidence behind), so `failed` sits just BELOW
+  // `verified` -- the chain got there, but the run did not pass.
   [COVERAGE.VERIFIED]: 5,
-  [COVERAGE.EXECUTED]: 4,
-  [COVERAGE.IMPLEMENTED]: 3,
-  [COVERAGE.DESIGNED]: 2,
-  [COVERAGE.UNCOVERED]: 1,
+  [COVERAGE.FAILED]: 4,
+  [COVERAGE.EXECUTED]: 3,
+  [COVERAGE.IMPLEMENTED]: 2,
+  [COVERAGE.DESIGNED]: 1,
+  [COVERAGE.UNCOVERED]: 0,
 });
 
 /**
@@ -303,7 +316,8 @@ export const COVERAGE_RANK = Object.freeze({
  *
  * The state of a CASE is the deepest hop the case itself reaches:
  *
- *   verified     the case was executed and left evidence behind
+ *   verified     the case was executed, it PASSED, and it left evidence
+ *   failed       the case was executed and it FAILED (no execution passed)
  *   executed     the case was executed, but no evidence was archived
  *   implemented  a script implements the case, but it was never executed
  *   designed     the case is DECLARED (it exists in the catalogue) but no

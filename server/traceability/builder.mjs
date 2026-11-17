@@ -318,6 +318,30 @@ export function readEvidenceScripts(root, cases) {
 const TRANSCRIPT_RE = /^[✔✓✖×✗]\s+([A-Z][A-Z0-9]*(?:-[A-Za-z0-9]+)+)\s*:/gm;
 
 /**
+ * The OUTCOME of one execution, as the `attempted` edge records it.
+ *
+ * The transcript reader writes `ok: true/false` on the edge it creates
+ * from a transcript line (a `✔` line is a pass, a `✖` line is a failure).
+ * The runtime path writes the attempt's own `status`.
+ *
+ * The answer is one of:
+ *   'passed'  -- the execution passed
+ *   'failed'  -- the execution failed
+ *   'unknown' -- the edge does not say (the engine did not report it)
+ *
+ * 'unknown' is NOT 'passed'. An edge that does not say must not be read as
+ * a pass: that is how a failing execution would be reported as a
+ * verification.
+ */
+function attemptOutcome(edge) {
+  if (typeof edge.ok === 'boolean') return edge.ok ? 'passed' : 'failed';
+  const status = String(edge.status ?? '').toLowerCase();
+  if (status === 'passed' || status === 'expected') return 'passed';
+  if (status === 'failed' || status === 'unexpected') return 'failed';
+  return 'unknown';
+}
+
+/**
  * Scans the evidence transcripts for the case ids they observed.
  *
  * @returns {Map<string, {file:string, ok:boolean}[]>}
@@ -753,6 +777,7 @@ export function buildGraph({ root, runs = null, catalogue = null, definitions = 
   const implByCase = new Map();    // case uid -> [script uids]
   const declaredByCase = new Set();// case uids with a DECLARED script
   const attemptedByCase = new Map();// case uid -> [run uids]
+  const outcomeByCase = new Map();  // case uid -> ['passed' | 'failed' | ...]
   const evidenceByRun = new Map();  // run uid -> [evidence uids]
   for (const e of edges.values()) {
     if (e.type === EDGE_TYPE.IMPLEMENTS) {
@@ -764,6 +789,13 @@ export function buildGraph({ root, runs = null, catalogue = null, definitions = 
     } else if (e.type === EDGE_TYPE.ATTEMPTED) {
       if (!attemptedByCase.has(e.from)) attemptedByCase.set(e.from, []);
       attemptedByCase.get(e.from).push(e.to);
+      // Did the execution PASS? The transcript reader records it on the
+      // `attempted` edge (`ok`), and the runtime path records the attempt's
+      // own status. Both are the same fact about ONE execution, and the
+      // coverage has to consume it: an execution that FAILED is not a
+      // verification.
+      if (!outcomeByCase.has(e.from)) outcomeByCase.set(e.from, []);
+      outcomeByCase.get(e.from).push(attemptOutcome(e));
     } else if (e.type === EDGE_TYPE.ARCHIVED) {
       if (!evidenceByRun.has(e.from)) evidenceByRun.set(e.from, []);
       evidenceByRun.get(e.from).push(e.to);
@@ -808,6 +840,14 @@ export function buildGraph({ root, runs = null, catalogue = null, definitions = 
       if (!runs.length) caseGaps.push({ gap: GAP.NO_RUN, hop: hopOf(NODE_KIND.RUN), detail: 'the case was never executed' });
       else if (!evidence.length) caseGaps.push({ gap: GAP.NO_EVIDENCE, hop: hopOf(NODE_KIND.EVIDENCE), detail: 'the execution left no evidence for the case' });
 
+      // What the executions of this case actually did. A case that was
+      // executed and FAILED is `failed`, not `verified`: the evidence
+      // exists, but it is the evidence of a failure. WHAT RAN and WHAT WAS
+      // DECLARED PASS ARE TWO DIFFERENT FACTS.
+      const outcomes = outcomeByCase.get(caseNode.uid) ?? [];
+      const passed = outcomes.includes('passed');
+      const failed = outcomes.includes('failed');
+
       let state = COVERAGE.UNCOVERED;
       if (scripts.length) state = COVERAGE.IMPLEMENTED;
       if (runs.length) state = COVERAGE.EXECUTED;
@@ -815,6 +855,10 @@ export function buildGraph({ root, runs = null, catalogue = null, definitions = 
       // A case that exists in the catalogue but that no script implements
       // is DESIGNED: it is a designed case, not an absent one.
       if (!scripts.length) state = COVERAGE.DESIGNED;
+      // A case whose executions all FAILED is `failed`. It outranks
+      // `executed` (the chain got further than merely having run), and it
+      // does not reach `verified`: nothing verified it.
+      if (failed && !passed) state = COVERAGE.FAILED;
       states.push(state);
       gaps.push(...caseGaps.map((g) => ({ ...g, testcase: caseNode.key })));
     }

@@ -31,15 +31,16 @@ node --test --test-concurrency=2 tests/*.test.mjs       # 全量回帰
 | `03-probe-traceability.log` | 本ツリーのグラフの実測（形・検査・coverage・gap・両方向 walk） | 孤児辺 0 / 循環 0 / present でないノード 0 |
 | `04-api-traceability.log` | `GET /api/traceability` の 6 つの問い | 全て期待どおり |
 | `05-negative-control.log` | **負向対照**：検査が実際に赤くなることの確認 | **0 failures**（4 種の改変を全て捕捉） |
-| `06-node-test-full.log` | 全量回帰 | **1897 tests / 1865 pass / 0 fail / 32 skipped** |
+| `06-node-test-full.log` | 全量回帰（**全量**を保持。`tail` で切っていない） | **1902 tests / 1870 pass / 0 fail / 32 skipped** |
 | `07-syntax-gate.log` | 変更したソースの `node --check` | 7 ファイル全て ok |
+| `08-skipped-reasons.log` | **skip した 32 件を 1 件ずつ**（理由と所在ファイル） | 32 件を 8 つの理由に分類 |
 
 ## 実測値（本ツリー）
 
 | 項目 | 値 |
 |---|---|
-| ノード | 1354 |
-| 辺 | 25862 |
+| ノード | 1358 |
+| 辺 | 26833 |
 | チェーン（要件） | 49 |
 | 孤児辺 | 0 |
 | 循環 | 0 |
@@ -126,6 +127,27 @@ node --test --test-concurrency=2 tests/*.test.mjs       # 全量回帰
 | UT-QUAL-* | 9 |
 | IT-DSC-API-* | 7 |
 | IT-DSC-SETUP / IT-DSC-CLEANUP / ST-045 | 各 1 |
+
+## 4b. skip した 32 件（1 件ずつ）
+
+`node --test` は skip の**件数**しか出さない（`skipped 32`）。
+**件数は台帳ではない**——何が走らなかったかは読めない。
+`08-skipped-reasons.log` は TAP レポーター（TAP は skip 行に理由を付ける）
+で走らせた結果から、skip した 32 件を**理由ごとに全件**並べたもの。
+
+| 件数 | 理由 | 何が足りないか |
+|---|---|---|
+| 11 | `no Android device is attached to adb` | Android 実機／エミュレータが無い（ATS-603 の範疇） |
+| 6 | `examples/sample-playwright has no node_modules` | サンプル工程的依存が未インストール |
+| 4 | `examples/sample-wdio has no node_modules` | 同上（WDIO 側） |
+| 4 | `needs ATS402_REAL_CREDENTIAL_STORE=1` | 本物の Windows 資格情報ストアを触らない |
+| 3 | `npm ci failed (exit 1): npm error code EALLOWREMOTE` | レジストリが `remote` 型の取得を拒否（ATS-107 の実ブラウザ夹具） |
+| 2 | `no real @playwright/test installation` | 実 `@playwright/test` のインストールが無い |
+| 1 | `the fixtures have no node_modules` | 上記 2 種を同時に要求する |
+| 1 | `needs ATS213_REAL_CREDENTIAL_STORE=1` | 本物の資格情報ストアを触らない（ATS-213 の redact テスト） |
+
+**PENDING は PASS ではない。** 32 件は**未実行**であり、
+上の理由がそのまま未実行の理由である。合算して「PASS」と数えてはならない。
 
 ## 5. 未検証・未実行の項目
 

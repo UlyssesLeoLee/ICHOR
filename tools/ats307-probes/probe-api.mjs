@@ -26,7 +26,7 @@ import { freePort } from '../../tests/helpers/free-port.mjs';
 const root = path.resolve(import.meta.dirname, '..', '..');
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'ats307-api-'));
 
-// A free port: the fixed 4577 is taken by other agents' bridges, and a
+// A free port: the default port belongs to other agents' bridges, and a
 // collision would make this probe read somebody else's server.
 const port = await freePort();
 
@@ -66,7 +66,7 @@ try {
   console.log('ATS-307 probe: the API surface of the traceability graph');
   console.log(line('='));
   console.log(`repo root : ${root}`);
-  console.log(`port      : ${port} (a free one; 4577 belongs to other agents)`);
+  console.log(`port      : ${port} (a free one; the default port belongs to other agents)`);
   console.log();
 
   // --- 1. the token ---------------------------------------------------
