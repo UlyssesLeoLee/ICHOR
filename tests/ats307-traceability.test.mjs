@@ -603,6 +603,59 @@ test('UT-ATS307-032: the build is deterministic -- the same tree gives the same 
   assert.deepEqual(a.chains, b.chains);
 });
 
+test('UT-ATS307-034: a case whose execution FAILED is `failed`, not `verified`', () => {
+  // WHAT RAN and WHAT WAS DECLARED PASS ARE TWO DIFFERENT FACTS. A case
+  // whose only transcript line is a FAILURE has evidence behind it, but
+  // that evidence is the evidence of a failure: the chain did not verify
+  // it.
+  const root = makeRepo({
+    rtm: [rtmRow('FR-020', 'B01', 'UT-F-001')],
+    cases: [caseRow('UT-F-001', 'FR-020')],
+    requirements: [{ id: 'FR-020', title: 'twenty' }],
+    basic: [{ id: 'B01', name: 'Catalog' }],
+    scripts: [{ file: 'tests/f.test.mjs', text: "test('UT-F-001: one', () => {});\n" }],
+    transcripts: [{ file: 'docs/evidence/ATS-020/01.log', text: '\u2716 UT-F-001: one\n' }],
+  });
+  const graph = buildGraph({ root });
+  const chain = graph.chains.find((c) => c.requirementKey === 'FR-020');
+  assert.ok(chain, 'the FR-020 chain was built');
+  assert.equal(chain.coverage, COVERAGE.FAILED,
+    'a case whose only execution failed must not be `verified`');
+  assert.notEqual(chain.coverage, COVERAGE.VERIFIED);
+});
+
+test('UT-ATS307-035: a case with BOTH a failing and a passing execution is `verified`', () => {
+  // The chain DID reach a passing verification for the case, so it is
+  // `verified` -- the earlier failure does not take that away.
+  const root = makeRepo({
+    rtm: [rtmRow('FR-021', 'B01', 'UT-F-002')],
+    cases: [caseRow('UT-F-002', 'FR-021')],
+    requirements: [{ id: 'FR-021', title: 'twentyone' }],
+    basic: [{ id: 'B01', name: 'Catalog' }],
+    scripts: [{ file: 'tests/f2.test.mjs', text: "test('UT-F-002: one', () => {});\n" }],
+    transcripts: [
+      { file: 'docs/evidence/ATS-021/01.log', text: '\u2716 UT-F-002: one\n' },
+      { file: 'docs/evidence/ATS-021/02.log', text: '\u2714 UT-F-002: one\n' },
+    ],
+  });
+  const graph = buildGraph({ root });
+  const chain = graph.chains.find((c) => c.requirementKey === 'FR-021');
+  assert.ok(chain, 'the FR-021 chain was built');
+  assert.equal(chain.coverage, COVERAGE.VERIFIED);
+});
+
+test('UT-ATS307-036: the `failed` state is ranked BELOW `verified` and ABOVE `executed`', () => {
+  // The rank is "how much was ESTABLISHED": a failed execution got as far
+  // as a passing one (it ran, it left evidence), but it did not establish
+  // anything, so it must not outrank `verified`.
+  assert.ok(COVERAGE_RANK[COVERAGE.VERIFIED] > COVERAGE_RANK[COVERAGE.FAILED]);
+  assert.ok(COVERAGE_RANK[COVERAGE.FAILED] > COVERAGE_RANK[COVERAGE.EXECUTED]);
+  // And the ranking helper agrees.
+  assert.equal(bestCoverage([COVERAGE.FAILED]), COVERAGE.FAILED);
+  assert.equal(bestCoverage([COVERAGE.FAILED, COVERAGE.VERIFIED]), COVERAGE.VERIFIED);
+  assert.equal(bestCoverage([COVERAGE.EXECUTED, COVERAGE.FAILED]), COVERAGE.FAILED);
+});
+
 test('UT-ATS307-033: the graph of the real repository is walkable in both directions', () => {
   const root = path.resolve(import.meta.dirname, '..');
   const view = indexGraph(buildGraph({ root }));
