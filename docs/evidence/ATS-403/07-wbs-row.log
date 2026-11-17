@@ -1,15 +1,15 @@
 ==============================================================================
 ATS-403 evidence log -- 07-wbs-row
 ==============================================================================
-commit        : 1fe66785b9a31ebc7ccb4cd3ca14e73db6416feb
-timestamp     : 2026-11-17T17:23:20Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-ff48d390e8e6/worktree
+commit        : f1bed1d126d3916969828f3fa411a0f5955d2858
+timestamp     : 2026-11-17T17:37:58Z (UTC)
+repo root     : /d/ICHOR
 node          : v24.19.0
 platform      : win32 x64
 ==============================================================================
 
 overview: 已完成=2 完成率=0.3293413173652695 剩余人日=336.0
-updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-ff48d390e8e6\worktree\docs\WBS.xlsx
+updated D:\ICHOR\docs\WBS.xlsx
 totals: {'completed': 2, 'sum_estimate': 501.0, 'sum_remaining': 336.0, 'completion_rate': 0.3293413173652695}
 
 --- exit: 0 ---
