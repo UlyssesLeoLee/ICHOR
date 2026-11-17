@@ -1,6 +1,16 @@
+==============================================================================
+ATS-403 evidence log -- 08-agent-boundary-probe
+==============================================================================
+commit        : 1fe66785b9a31ebc7ccb4cd3ca14e73db6416feb
+timestamp     : 2026-11-17T17:23:20Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-ff48d390e8e6/worktree
+node          : v24.19.0
+platform      : win32 x64
+==============================================================================
+
 === ATS-401 probe: Agent contract v1 permission boundary ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-81c159ec05e1\worktree
-work root : C:\Users\seiko\AppData\Local\Temp\multica-task-1453651441\ats401-probes
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-ff48d390e8e6\worktree
+work root : C:\Users\seiko\AppData\Local\Temp\multica-task-3650004218\ats401-probes
 
 --- signal 1a: static analysis of server/agent.mjs ---
   imports: node:crypto, node:path

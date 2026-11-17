@@ -1,3 +1,13 @@
+==============================================================================
+ATS-403 evidence log -- 11-reviewer-probes
+==============================================================================
+commit        : 1fe66785b9a31ebc7ccb4cd3ca14e73db6416feb
+timestamp     : 2026-11-17T17:23:20Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-ff48d390e8e6/worktree
+node          : v24.19.0
+platform      : win32 x64
+==============================================================================
+
 captured r2.mjs.log
 captured r2-api.mjs.log
 captured r1.mjs.log
