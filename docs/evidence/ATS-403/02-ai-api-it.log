@@ -1,35 +1,35 @@
 ==============================================================================
 ATS-403 evidence log -- 02-ai-api-it
 ==============================================================================
-commit        : 1fe66785b9a31ebc7ccb4cd3ca14e73db6416feb
-timestamp     : 2026-11-17T17:23:20Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-ff48d390e8e6/worktree
+commit        : f1bed1d126d3916969828f3fa411a0f5955d2858
+timestamp     : 2026-11-17T17:37:58Z (UTC)
+repo root     : /d/ICHOR
 node          : v24.19.0
 platform      : win32 x64
 ==============================================================================
 
-✔ IT-AIE-SETUP: start server (809.8506ms)
-✔ IT-AIE-001: the adapter contract is exposed (6.5ms)
-✔ IT-AIE-002: the contract endpoint requires a session token (14.6804ms)
-✔ IT-AIE-003: a provider is configured and listed in the fallback order (47.0605ms)
-✔ IT-AIE-004: a provider configuration with a plaintext secret is refused (31.2616ms)
-✔ IT-AIE-004B: a secret in a HEADER is refused and never stored (31.7748ms)
-✔ IT-AIE-004C: an illegal provider configuration is refused and NOT stored (92.2997ms)
-✔ IT-AIE-005: the configured providers carry no secret (14.9172ms)
-✔ IT-AIE-006: a call without a consent is refused before the provider is reached (30.0141ms)
-✔ IT-AIE-007: a call for an unknown project is refused (13.7286ms)
-✔ IT-AIE-008: the refusal is audited (2.7702ms)
-✔ IT-AIE-009: with a consent the call reaches the provider (208.4078ms)
-✔ IT-AIE-010: the diagnostics report the adapter layer (1.31ms)
-✔ IT-AIE-011: a provider can be removed (24.0056ms)
-✔ IT-AIE-020: the provider receives the CONSENTED content, not the caller's (174.2414ms)
-✔ IT-AIE-021: a call may not carry its own provider list (59.1267ms)
-✔ IT-AIE-022: a RATE LIMITED provider leaves the working tree byte-identical (122.9031ms)
-✔ IT-AIE-023: a provider that ECHOES the key does not leak it (2262.7055ms)
-✔ IT-AIE-024: the error codes match the documented status table (11.6576ms)
-✔ IT-AIE-025: the instructions reach the provider AND are audited (174.321ms)
-✔ IT-AIE-026: the contract does NOT advertise a Bridge route for the step bound (12.1154ms)
-✔ IT-AIE-SHUTDOWN: stop server (0.5528ms)
+✔ IT-AIE-SETUP: start server (810.125ms)
+✔ IT-AIE-001: the adapter contract is exposed (10.4129ms)
+✔ IT-AIE-002: the contract endpoint requires a session token (14.5209ms)
+✔ IT-AIE-003: a provider is configured and listed in the fallback order (18.808ms)
+✔ IT-AIE-004: a provider configuration with a plaintext secret is refused (13.2379ms)
+✔ IT-AIE-004B: a secret in a HEADER is refused and never stored (46.785ms)
+✔ IT-AIE-004C: an illegal provider configuration is refused and NOT stored (77.1599ms)
+✔ IT-AIE-005: the configured providers carry no secret (15.3961ms)
+✔ IT-AIE-006: a call without a consent is refused before the provider is reached (31.1269ms)
+✔ IT-AIE-007: a call for an unknown project is refused (17.4358ms)
+✔ IT-AIE-008: the refusal is audited (13.9311ms)
+✔ IT-AIE-009: with a consent the call reaches the provider (191.5067ms)
+✔ IT-AIE-010: the diagnostics report the adapter layer (1.5369ms)
+✔ IT-AIE-011: a provider can be removed (40.6198ms)
+✔ IT-AIE-020: the provider receives the CONSENTED content, not the caller's (170.5526ms)
+✔ IT-AIE-021: a call may not carry its own provider list (64.9384ms)
+✔ IT-AIE-022: a RATE LIMITED provider leaves the working tree byte-identical (117.2628ms)
+✔ IT-AIE-023: a provider that ECHOES the key does not leak it (2472.3621ms)
+✔ IT-AIE-024: the error codes match the documented status table (6.3296ms)
+✔ IT-AIE-025: the instructions reach the provider AND are audited (144.0034ms)
+✔ IT-AIE-026: the contract does NOT advertise a Bridge route for the step bound (1.9049ms)
+✔ IT-AIE-SHUTDOWN: stop server (0.5284ms)
 ℹ tests 22
 ℹ suites 0
 ℹ pass 22
@@ -37,6 +37,6 @@ platform      : win32 x64
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 4281.9576
+ℹ duration_ms 4430.0772
 
 --- exit: 0 ---

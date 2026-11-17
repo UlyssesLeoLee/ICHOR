@@ -70,9 +70,14 @@ echo "04 -> $OUT/04-api-traceability.log"
 echo "05 -> $OUT/05-negative-control.log"
 
 # --- 6. the full repository regression ---------------------------------
+#
+# The FULL output is kept. A previous version piped it through `tail -120`,
+# which cut off exactly the part a reader needs: the per-test lines that
+# say WHICH tests were skipped and WHY. A truncated log cannot answer
+# "what did not run?".
 {
   header "the full repository regression" "node --test --test-concurrency=2 tests/*.test.mjs"
-  node --test --test-concurrency=2 tests/*.test.mjs 2>&1 | tail -120
+  node --test --test-concurrency=2 tests/*.test.mjs 2>&1
 } > "$OUT/06-node-test-full.log" 2>&1
 echo "06 -> $OUT/06-node-test-full.log"
 
@@ -84,6 +89,23 @@ echo "06 -> $OUT/06-node-test-full.log"
   done
 } > "$OUT/07-syntax-gate.log" 2>&1
 echo "07 -> $OUT/07-syntax-gate.log"
+
+# --- 8. the skipped tests, one by one -----------------------------------
+#
+# `node --test` reports a COUNT of the skipped tests (`skipped 32`), but
+# not WHICH ones or WHY. A count is not an inventory: a reader cannot tell
+# what did not run from it. This step re-runs the suite with the TAP
+# reporter, which prints the reason on the skipped line, and lists every
+# one of them.
+#
+# The reason is the POINT of the list: a skipped test is not a pass, and
+# the reader has to see WHY it did not run (no device, no installed
+# fixture, no real credential store).
+{
+  header "the skipped tests, one by one" "node tools/ats307-probes/collect-skipped.mjs"
+  node tools/ats307-probes/collect-skipped.mjs 2>&1
+} > "$OUT/08-skipped-reasons.log" 2>&1
+echo "08 -> $OUT/08-skipped-reasons.log"
 
 echo
 echo "all steps finished; the logs are in $OUT"

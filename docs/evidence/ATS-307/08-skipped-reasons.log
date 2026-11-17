@@ -1,0 +1,51 @@
+=== ATS-307: the skipped tests of the full suite, with their reasons ===
+exit code   : 0
+skipped     : 32
+
+--- 11 skipped: no Android device is attached to adb
+      tests/android-bridge-it.test.mjs  IT-ATS603-030: the Bridge runs a mobile case on the device and reports it
+      tests/android-bridge-it.test.mjs  IT-ATS603-031: the capability matrix reports the android runner
+      tests/android-runner-it.test.mjs  IT-ATS603-001: the device is attached and answers
+      tests/android-runner-it.test.mjs  IT-ATS603-002: the driver PROVES the device capabilities by trying them
+      tests/android-runner-it.test.mjs  IT-ATS603-010: launchApp brings the app to the foreground
+      tests/android-runner-it.test.mjs  IT-ATS603-011: tapOn taps the element and the next screen appears
+      tests/android-runner-it.test.mjs  IT-ATS603-012: assertVisible names the element when the assertion fails
+      tests/android-runner-it.test.mjs  IT-ATS603-013: takeScreenshot writes a PNG of the screen
+      tests/android-runner-it.test.mjs  IT-ATS603-020: a WHOLE Flow runs on the device and passes
+      tests/android-runner-it.test.mjs  IT-ATS603-021: a Flow that names a missing element fails with the ELEMENT, not generically
+      tests/android-runner-it.test.mjs  IT-ATS603-022: the runner REFUSES an app the project did not register
+
+--- 6 skipped: examples/sample-playwright has no node_modules
+      tests/adapters-it.test.mjs  IT-ADP-005: negotiation over the real Playwright project proves the CLI options
+      tests/adapters-it.test.mjs  IT-ADP-005B: the real Playwright CLI declares a positional test filter
+      tests/adapters-it.test.mjs  IT-ADP-005C: the real Playwright run passes the filtered file as a positional argument
+      tests/adapters-it.test.mjs  IT-ADP-008: Playwright start -> collect produces one PASS and one FAIL
+      tests/adapters-it.test.mjs  IT-ADP-011: stop() terminates a Playwright run that is in flight
+      tests/api.test.mjs  IT-API-013B: the four REQUIRED capabilities are supported on the real fixture
+
+--- 4 skipped: examples/sample-wdio has no node_modules
+      tests/adapters-it.test.mjs  IT-ADP-006: negotiation over the real WDIO project proves the reporter
+      tests/adapters-it.test.mjs  IT-ADP-007: an unsupported capability is DETECTABLE, not an exception
+      tests/adapters-it.test.mjs  IT-ADP-009: WDIO start -> collect produces one PASS and one FAIL
+      tests/adapters-it.test.mjs  IT-ADP-011B: stop() terminates a WebdriverIO run that is in flight
+
+--- 4 skipped: needs ATS402_REAL_CREDENTIAL_STORE=1
+      tests/security-api.test.mjs  IT-SEC-004: a secret never reaches the platform state files
+      tests/security-api.test.mjs  IT-SEC-005: a duplicate credential name is refused
+      tests/security-api.test.mjs  IT-SEC-025: concurrent credential writes keep the index and the vault consistent
+      tests/security-api.test.mjs  IT-SEC-026: a reference whose vault entry vanished can be deleted; a failed write is 503
+
+--- 3 skipped: npm ci failed (exit 1): npm error code EALLOWREMOTE\\nnpm error Fetching packages of type "remote" have been disabled\\nnpm error Refusing to fetch "playwright-core@https://registry.npmmirror.com/playwright-core/-/playwright-core-1.65.0.tgz"\\nnpm error A complete log of this run can be found in: C:\\Users\\seiko\\AppData\\Local\\npm
+      tests/ats107-real-browser-it.test.mjs  IT-ATS107-001: the Bridge runs the real fixture and reports one PASS and one FAIL
+      tests/ats107-real-browser-it.test.mjs  IT-ATS107-002: the run really launched a Chromium (the trace has a browser context)
+      tests/ats107-real-browser-it.test.mjs  IT-ATS107-003: the failing case carries the engine's own error message, in full
+
+--- 2 skipped: no real @playwright/test installation (set ATS_REAL_PLAYWRIGHT_PROJECT or run npm install in examples\\sample-playwright)
+      tests/preflight-real.test.mjs  CT-PF-001: the preflight reads a real installation as runnable
+      tests/preflight-real.test.mjs  CT-ARG-001: the real CLI accepts the Bridge vector and the filter selects one file
+
+--- 1 skipped: the fixtures have no node_modules
+      tests/adapters-it.test.mjs  IT-ADP-010: both engines map their results onto the SAME model
+
+--- 1 skipped: needs ATS213_REAL_CREDENTIAL_STORE=1 (the real Windows Credential Manager)
+      tests/credential-redaction-api.test.mjs  ATS213-REDACT-IT-001: a failing assertion does NOT put the injected secret on disk

@@ -106,3 +106,19 @@ src-tauri/gen/
 # rerun, never a deliverable). The probe LOGS that belong to the delivery
 # live in docs/evidence/ATS-214/reviewer-probes/.
 .probe-work/
+
+# The Multica runtime's per-run metadata dumps. They are written into the
+# working directory by the orchestration harness (agent transcripts, issue
+# dumps, reviewer instruction files) and are NOT product source. Two of them
+# (m3b.json / m3live*.json) carry a port literal, which the ATS-101 port
+# audit would otherwise report as runtime hardcoding -- so they must never
+# be committed.
+agents*.json
+agents*.err
+hr*.json
+hr*.err
+m3*.json
+m3*.err
+reviewer_instructions.md
+c_*.json
+cc_*.json

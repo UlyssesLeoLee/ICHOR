@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "source": "tools/check_adr_citations.py",
+  "baseline_source_sha256": "d390fb258c60081932c1258db27774f2622600ef5db5cc3654c10d410c04a60c",
+  "prepared_branch": "agent/m3/seikoist-183",
+  "technical_design": ".quality/docs/tools/check_adr_citations.py.md",
+  "test_design": ".quality/test-design/tools/check_adr_citations.py.test.md",
+  "prepared_technical_design_sha256": "4818ce10f8ac42d31202b0d865658653268ec0a615f5fb7fe6055922b6960656",
+  "prepared_test_design_sha256": "c796481b40e67e543573a0bdc7f57b60a33b001581132374dbcf88f27cbfe276",
+  "prepared_related_design_sha256": {}
+}

@@ -1,9 +1,9 @@
 ==============================================================================
 ATS-403 evidence log -- 09-security-boundary-probe
 ==============================================================================
-commit        : 1fe66785b9a31ebc7ccb4cd3ca14e73db6416feb
-timestamp     : 2026-11-17T17:23:20Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-ff48d390e8e6/worktree
+commit        : f1bed1d126d3916969828f3fa411a0f5955d2858
+timestamp     : 2026-11-17T17:37:58Z (UTC)
+repo root     : /d/ICHOR
 node          : v24.19.0
 platform      : win32 x64
 ==============================================================================
