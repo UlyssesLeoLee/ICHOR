@@ -167,20 +167,48 @@ RANGES = [
 # listed). So only the exact positions below are exempt -- a citation of any
 # other line of the same file is reported as UNCOVERED.
 #
-# file -> {position: what the position is}
+# The POSITIONS ARE DERIVED, not written down.
 # ---------------------------------------------------------------------------
-PORT_AUDITED = {
-    # RUNTIME port hardcodings: the audit validates each of these positions
-    # against the source.
+# The files below are rewritten by the front-end and the desktop tasks, and
+# every rewrite moved the port line without updating this table. The failure
+# is silent in the source and loud in the gate: step 5 reports
+# `STALE <file>:<n> (port-audited but not cited by the ADR)`, because the ADR
+# cites the NEW position while the table still holds the OLD one.
+#
+# So the position is DERIVED from the source the same way `EXPECTED_NEEDLES`
+# derives its positions: the first line of the file that holds the needle.
+#
+# THE NEEDLE MUST NOT SPELL OUT THE PORT. The port audit scans every source
+# file for the hardcoded default port and classifies a hit as a RUNTIME
+# hardcoding site, so a needle that contained the port would make this
+# checker look like a seventh runtime site and break that audit. The needle
+# therefore names the STATEMENT the port line holds.
+#
+# file -> {needle: what the position is}
+# ---------------------------------------------------------------------------
+PORT_AUDITED_NEEDLES = {
+    # The four API base URL branches. All four hold the same text, so each
+    # one is given a DISTINCT needle: the branch that decides it. Without
+    # that, the derivation would pick the first of the four for all of them.
     'apps/studio/lib/api.ts': {
-        106: 'the API base URL (the server-rendered branch)',
-        109: 'the API base URL (the port-3000 branch)',
-        111: 'the API base URL (the Tauri-protocol branch)',
-        115: 'the API base URL (the default branch)',
+        "if(typeof window==='undefined')return": 'the API base URL (the server-rendered branch)',
+        "if(port==='3000')return": 'the API base URL (the port-3000 branch)',
+        "if(protocol==='tauri:'": 'the API base URL (the Tauri-protocol branch)',
+        # The last branch: the bare `return` that is not inside an `if`.
+        # The two leading spaces are part of the needle -- without them
+        # this needle would also match the three branches above, which
+        # hold the same `return 'http://127.0.0.1:` text.
+        "  return 'http://127.0.0.1:": 'the API base URL (the default branch)',
     },
-    'apps/studio/app/page.tsx': {1080: 'the workbench footer text'},
-    'apps/studio/public/fallback.html': {24: 'the portable UI footer text'},
-    'src-tauri/src/lib.rs': {45: 'the ATS_PORT environment default'},
+    'apps/studio/app/page.tsx': {
+        'LOCAL RUNNER · 127.0.0.1:': 'the workbench footer text',
+    },
+    'apps/studio/public/fallback.html': {
+        'LOCAL BRIDGE · 127.0.0.1:': 'the portable UI footer text',
+    },
+    'src-tauri/src/lib.rs': {
+        '.env("ATS_PORT","': 'the ATS_PORT environment default',
+    },
 }
 
 # A `path:line` reference. The path may contain slashes, dots, dashes and
@@ -262,6 +290,40 @@ def derived_positions(rel, needles):
     return out
 
 
+def port_audited_table():
+    """The PORT_AUDITED table, with the positions DERIVED from the source.
+
+    Every position comes from the needle that identifies the port-bearing
+    line, so a rewrite of the file moves the position with it.
+
+    A needle that is NOT in the source yields NO entry for that file. The
+    caller then reports the file as uncovered, because the port line the ADR
+    cites is GONE -- which is the failure this table is here to catch.
+
+    Two needles of the same file that land on the SAME line would make the
+    derivation ambiguous (one position, two descriptions), so that is a
+    hard error rather than a silent collapse.
+    """
+    table = {}
+    for rel, needles in PORT_AUDITED_NEEDLES.items():
+        lines = read_lines(rel)
+        if not lines:
+            continue
+        positions = {}
+        for needle, what in needles.items():
+            for i, line in enumerate(lines, 1):
+                if needle in line:
+                    if i in positions:
+                        raise ValueError(
+                            '%s: the needles %r and %r both land on line %d'
+                            % (rel, positions[i], needle, i))
+                    positions[i] = needle
+                    break
+        if positions:
+            table[rel] = {i: needles[positions[i]] for i in sorted(positions)}
+    return table
+
+
 def expected_table():
     """The EXPECTED table, with the DERIVED positions filled in.
 
@@ -323,6 +385,7 @@ def main():
     # ONCE, from the CURRENT source, so a cited file that was rewritten
     # does not turn the gate red for a bookkeeping reason.
     expected = expected_table()
+    port_audited = port_audited_table()
 
     covered = set()
     for rel, table in expected.items():
@@ -334,7 +397,7 @@ def main():
         # The port audit exempts POSITIONS, not files: a file is only exempt
         # at the positions the audit actually validates. Every other position
         # of the same file has to carry a needle here.
-        port_positions = set(PORT_AUDITED.get(rel, {}))
+        port_positions = set(port_audited.get(rel, {}))
         if rel in covered:
             pass
         elif not port_positions:
@@ -439,7 +502,7 @@ def main():
     # position is actually cited by the ADR (a position the audit validates
     # but the ADR does not mention would make the audit's guarantee vacuous)
     # and that the cited file exists.
-    for rel in sorted(PORT_AUDITED):
+    for rel in sorted(PORT_AUDITED_NEEDLES):
         if rel not in all_citations:
             bad.append('%s is port-audited but the ADR does not cite it' % rel)
             print('STALE %s (port-audited but not cited by the ADR)' % rel)
@@ -448,8 +511,14 @@ def main():
             bad.append('%s is cited by the ADR but the file does not exist' % rel)
             print('WRONG %s (the cited file does not exist)' % rel)
             continue
+        if rel not in port_audited:
+            # The file exists but NONE of its needles were found: the port
+            # line the ADR cites is gone. Reported, not ignored.
+            bad.append('%s is port-audited but no port-bearing line was found in it' % rel)
+            print('STALE %s (port-audited but no port line was found in the source)' % rel)
+            continue
         cited = set(cited_positions(text, rel))
-        for position, what in sorted(PORT_AUDITED[rel].items()):
+        for position, what in sorted(port_audited[rel].items()):
             if position not in cited:
                 bad.append('%s:%d is port-audited but the ADR does not cite it' % (rel, position))
                 print('STALE %s:%d (port-audited but not cited by the ADR)' % (rel, position))
