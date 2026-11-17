@@ -1,0 +1,28 @@
+==============================================================================
+ATS-307 evidence log -- the ATS-307 integration suite
+==============================================================================
+commit        : 6a41384f3dbfb1c208ca401e9c85f5394c5f26b3
+timestamp     : 2026-11-17T12:12:01Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-0c8c9160483f/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node --test tests/ats307-traceability-it.test.mjs
+==============================================================================
+
+✔ IT-ATS307-001: start the bridge (818.0666ms)
+✔ IT-ATS307-002: the traceability endpoint needs the session token (1.9474ms)
+✔ IT-ATS307-003: the summary answers with the graph shape and its gaps (439.0979ms)
+✔ IT-ATS307-004: ?requirement= walks one chain down (400.8276ms)
+✔ IT-ATS307-005: ?requirement= names the hop that is missing (371.039ms)
+✔ IT-ATS307-006: an unknown requirement is reported (387.756ms)
+✔ IT-ATS307-007: ?evidence= walks one chain up (813.3968ms)
+✔ IT-ATS307-008: an unknown evidence node is reported (386.6928ms)
+✔ IT-ATS307-009: the bridge shuts down (4.1103ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3778.125

@@ -1,0 +1,18 @@
+==============================================================================
+ATS-307 evidence log -- the syntax gate
+==============================================================================
+commit        : 6a41384f3dbfb1c208ca401e9c85f5394c5f26b3
+timestamp     : 2026-11-17T12:15:36Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-0c8c9160483f/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node --check on the changed sources
+==============================================================================
+
+ok    server/index.mjs
+ok    server/traceability/model.mjs
+ok    server/traceability/builder.mjs
+ok    server/traceability/query.mjs
+ok    tests/ats307-traceability.test.mjs
+ok    tests/ats307-traceability-it.test.mjs
+ok    tools/ats307-probes/probe-traceability.mjs

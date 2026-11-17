@@ -1,0 +1,150 @@
+==============================================================================
+ATS-307 evidence log -- the ATS-307 probe
+==============================================================================
+commit        : 6a41384f3dbfb1c208ca401e9c85f5394c5f26b3
+timestamp     : 2026-11-17T12:12:06Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-0c8c9160483f/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node tools/ats307-probes/probe-traceability.mjs
+==============================================================================
+
+==============================================================================
+ATS-307 probe: the traceability graph of this repository
+==============================================================================
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-0c8c9160483f\worktree
+node      : v24.19.0
+platform  : win32 x64
+
+------------------------------------------------------------------------------
+--- 1. the shape of the graph ---
+------------------------------------------------------------------------------
+nodes            : 1354
+edges            : 25862
+chains           : 49
+nodes by kind    : {"testcase":1069,"run":80,"design":26,"script":50,"evidence":80,"requirement":49}
+edges by type    : {"attempted":23701,"implemented":929,"covers":1097,"designs":55,"archived":80}
+edges by source  : {"evidence":23781,"source":906,"catalog":1175}
+
+------------------------------------------------------------------------------
+--- 2. the checks: stable uid, orphan edges, cycles ---
+------------------------------------------------------------------------------
+orphan edges     : 0
+cycles           : 0
+nodes not present: 0
+complete chains  : 5
+broken chains    : 44
+
+
+------------------------------------------------------------------------------
+--- 3. the coverage of the requirements ---
+------------------------------------------------------------------------------
+  designed     21
+  implemented  2
+  verified     26
+
+gaps by kind:
+  no-declaration       23 gap(s) over 8 requirement(s)
+      FR-009 FR-014 FR-015 FR-016 FR-020 FR-027 NFR-009 TOOL
+  no-run              183 gap(s) over 34 requirement(s)
+      FR-001 FR-002 FR-003 FR-004 FR-005 FR-006 FR-007 FR-008 FR-009 FR-010 FR-011 FR-012 FR-013 FR-014 FR-015 FR-016 FR-017 FR-018 FR-019 FR-020 FR-021 FR-027 NFR-001 NFR-002 NFR-003 NFR-004 NFR-005 NFR-006 NFR-007 NFR-008 NFR-009 NFR-010 NFR-011 TOOL
+  no-script           140 gap(s) over 32 requirement(s)
+      FR-001 FR-002 FR-003 FR-004 FR-005 FR-006 FR-007 FR-008 FR-009 FR-010 FR-011 FR-012 FR-013 FR-014 FR-015 FR-016 FR-017 FR-018 FR-019 FR-020 FR-021 FR-027 NFR-001 NFR-002 NFR-003 NFR-004 NFR-005 NFR-006 NFR-007 NFR-009 NFR-011 TOOL
+  no-testcase          10 gap(s) over 10 requirement(s)
+      FR-022 FR-023 FR-026 FR-029 FR-030 FR-033 FR-034 FR-035 NFR-012 NFR-013
+
+------------------------------------------------------------------------------
+--- 4. the consistency checks ---
+------------------------------------------------------------------------------
+ok                        : false
+dangling test ids         : 0
+dangling design anchors   : 0
+orphan edges              : 0
+cases with no script      : 140
+  of which declared PASS  : 88   <- a false claim
+
+the cases the catalogue declares PASS but that no script implements:
+  IT-ATS213-     11  IT-ATS213-001 IT-ATS213-002 IT-ATS213-003 IT-ATS213-004 IT-ATS213-006 IT-ATS213-008 ...
+  IT-DSC-        11  IT-DSC-001 IT-DSC-002 IT-DSC-003 IT-DSC-004 IT-DSC-005 IT-DSC-006 ...
+  IT-DSC-API-    7  IT-DSC-API-001 IT-DSC-API-002 IT-DSC-API-003 IT-DSC-API-004 IT-DSC-API-005 IT-DSC-API-006 ...
+  IT-DSC-CLEANUP 1  IT-DSC-CLEANUP
+  IT-DSC-SETUP   1  IT-DSC-SETUP
+  ST-            1  ST-045
+  UT-ATS213-     17  UT-ATS213-001 UT-ATS213-002 UT-ATS213-003 UT-ATS213-004 UT-ATS213-005 UT-ATS213-006 ...
+  UT-DSC-        30  UT-DSC-001 UT-DSC-002 UT-DSC-003 UT-DSC-004 UT-DSC-005 UT-DSC-006 ...
+  UT-QUAL-       9  UT-QUAL-001 UT-QUAL-002 UT-QUAL-003 UT-QUAL-004 UT-QUAL-005 UT-QUAL-006 ...
+
+------------------------------------------------------------------------------
+--- 5. the FORWARD walk: from a requirement down the chain ---
+------------------------------------------------------------------------------
+requirement FR-001  (coverage: verified)
+  hop 0 requirement 1 node(s)
+      FR-001
+  hop 1 design      2 node(s)
+      B01
+      UC-01
+  hop 2 testcase    5 node(s)
+      UT-CORE-001
+      UT-CORE-004
+      IT-API-001
+      IT-CP-012
+      ... 1 more
+  hop 3 script      3 node(s)
+      tests/core.test.mjs
+      tests/api.test.mjs
+      tests/control-plane-it.test.mjs
+  hop 4 run         43 node(s)
+      transcript:docs/evidence/ATS-213/16-full-regression.log
+      transcript:docs/evidence/ATS-202/06-line-coverage.log
+      transcript:docs/evidence/ATS-111/02-node-test-full.log
+      transcript:docs/evidence/ATS-205/10-coverage.log
+      ... 39 more
+  hop 5 evidence    43 node(s)
+      transcript:docs/evidence/ATS-213/16-full-regression.log
+      transcript:docs/evidence/ATS-202/06-line-coverage.log
+      transcript:docs/evidence/ATS-111/02-node-test-full.log
+      transcript:docs/evidence/ATS-205/10-coverage.log
+      ... 39 more
+  gaps: 2
+      [hop 3] no-script: no script in the tree declares this case
+      [hop 4] no-run: the case was never executed
+
+requirement FR-002  (coverage: designed) -- a chain with a gap:
+  hop 0 requirement 1 node(s)
+  hop 1 design      1 node(s)
+  hop 2 testcase    3 node(s)
+  hop 3 script      0 node(s)
+  hop 4 run         0 node(s)
+  hop 5 evidence    0 node(s)
+  the gaps:
+      [hop 3] no-script: no script in the tree declares this case
+      [hop 3] no-script: no script in the tree declares this case
+      [hop 3] no-script: no script in the tree declares this case
+      [hop 4] no-run: the case was never executed
+      [hop 4] no-run: the case was never executed
+      [hop 4] no-run: the case was never executed
+      [hop 5] no-evidence: the chain does not reach the evidence hop
+
+------------------------------------------------------------------------------
+--- 6. the BACKWARD walk: from an evidence file up to the requirement ---
+------------------------------------------------------------------------------
+evidence     : docs/evidence/ATS-213/16-full-regression.log
+  kind       : transcript
+  sha256     : (a transcript: no digest of its own)
+backward walk: 877 requirement(s) reached, 0 unreached
+  FR-031  <-  S6 移动端执行面  <-  UT-MOB-046   (via catalog)
+  NFR-010  <-  NFR / SEC / OPS  <-  UT-SQL-050   (via catalog)
+  FR-001  <-  UC-01  <-  UT-CORE-001   (via catalog)
+  NFR-010  <-  NFR / SEC / OPS  <-  ATS-206-UT-043   (via catalog)
+  FR-028  <-  P2 Remote  <-  UT-PLG-059   (via catalog)
+  FR-028  <-  P2 Remote  <-  UT-PLG-002   (via catalog)
+  ... 871 more
+
+------------------------------------------------------------------------------
+--- 7. an evidence that reaches no requirement says WHY ---
+------------------------------------------------------------------------------
+evidence nodes that reach no requirement: 0
+
+==============================================================================
+END OF THE ATS-307 PROBE
+==============================================================================
