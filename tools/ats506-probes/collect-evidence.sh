@@ -66,7 +66,12 @@ header 03-guard-mutations.log "guard mutations on a temporary copy (each must be
   "node tools/ats506-probes/mutation-tests.mjs"
 run 03-guard-mutations.log node tools/ats506-probes/mutation-tests.mjs
 
-# --- 4. Python tooling: tests + per-file coverage ------------------------------
+# --- 4. the 2nd review's counterexamples, replayed through the real pipeline --
+header 08-round3-review-probe.log "the 2nd review's path/Token counterexamples through the real HTTP pipeline" \
+  "node tools/ats506-probes/round3-review-probe.mjs"
+run 08-round3-review-probe.log node tools/ats506-probes/round3-review-probe.mjs
+
+# --- 5. Python tooling: tests + per-file coverage ------------------------------
 header 04-python-tools.log "WBS/catalog tooling tests and line coverage" \
   "python tools/test_wbs_common.py && python -m pytest -q -p no:cacheprovider tools/test_wbs_common_helpers.py tools/test_update_wbs_ats506.py tools/test_generate_test_docs.py --cov=tools --cov-report=term"
 {
@@ -80,7 +85,7 @@ header 04-python-tools.log "WBS/catalog tooling tests and line coverage" \
 } >> "$OUT/04-python-tools.log" 2>&1
 rm -f .coverage
 
-# --- 5. WBS updater coexistence (all tools/update_wbs_*.py) --------------------
+# --- 6. WBS updater coexistence (all tools/update_wbs_*.py) --------------------
 header 05-wbs-updater-regression.log "WBS updater coexistence regression (discovers tools/update_wbs_ats506.py)" \
   "bash tools/ats501-probes/check-wbs-updaters.sh"
 run 05-wbs-updater-regression.log bash tools/ats501-probes/check-wbs-updaters.sh
@@ -88,7 +93,7 @@ run 05-wbs-updater-regression.log bash tools/ats501-probes/check-wbs-updaters.sh
 # The ATS-506 row update is applied after the regression restored the workbook.
 python tools/update_wbs_ats506.py --status 待审核 > /dev/null
 
-# --- 6. the ATS-506 row as a reader of the workbook sees it --------------------
+# --- 7. the ATS-506 row as a reader of the workbook sees it --------------------
 header 06-wbs-state.log "ATS-506 row and 总览 in docs/WBS.xlsx" \
   "python -c <read ATS-506 row with tools/wbs_common.py>"
 run 06-wbs-state.log python -c "
@@ -110,7 +115,7 @@ print(f'D6: {s1[6].get(\"D\", \"\")}')
 print(f'D7: {s1[7].get(\"D\", \"\")}')
 "
 
-# --- 7. baseline regression ---------------------------------------------------
+# --- 8. baseline regression ---------------------------------------------------
 header 07-baseline-regression.log "baseline regression: npm test / node --check / port audit / ATS-501 protocol audit / ADR citations / dependency manifest" \
   "npm test; node --check server/index.mjs server/control-plane/main.mjs; node tools/ats101-probes/scenario-d-port-audit.mjs; node tools/ats501-probes/audit-remote-protocol.mjs; node tools/ats501-probes/mutation-tests.mjs; python tools/check_adr_citations.py; node tools/gen_dep_manifest.mjs --check"
 {

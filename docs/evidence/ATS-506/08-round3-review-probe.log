@@ -1,0 +1,59 @@
+=== ATS-506 evidence: the 2nd review's path/Token counterexamples through the real HTTP pipeline ===
+date        : 2026-11-17T15:35:00Z (UTC)
+commit      : 7c6074420f42ba7d92e8c23e828c335591b83226
+node        : v24.19.0
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
+stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
+command     : node tools/ats506-probes/round3-review-probe.mjs
+
+=== ATS-506 round-3 review probe: the 2nd review counterexamples ===
+port : 60761
+
+--- the counterexamples must be refused (422 REMOTE_PATH_FORBIDDEN) ---
+  PASS  POST "%CD%\\repo" -> 422 REMOTE_PATH_FORBIDDEN
+  PASS  EGRESS "%CD%\\repo" -> 500 REMOTE_INTERNAL
+  PASS  POST "%CD%/repo" -> 422 REMOTE_PATH_FORBIDDEN
+  PASS  EGRESS "%CD%/repo" -> 500 REMOTE_INTERNAL
+  PASS  POST "%OS%\\x" -> 422 REMOTE_PATH_FORBIDDEN
+  PASS  EGRESS "%OS%\\x" -> 500 REMOTE_INTERNAL
+  PASS  POST "[/home/alice/repo]" -> 422 REMOTE_PATH_FORBIDDEN
+  PASS  EGRESS "[/home/alice/repo]" -> 500 REMOTE_INTERNAL
+  PASS  POST "`/home/alice/repo`" -> 422 REMOTE_PATH_FORBIDDEN
+  PASS  EGRESS "`/home/alice/repo`" -> 500 REMOTE_INTERNAL
+  PASS  POST "{/Users/bob/x}" -> 422 REMOTE_PATH_FORBIDDEN
+  PASS  EGRESS "{/Users/bob/x}" -> 500 REMOTE_INTERNAL
+  PASS  POST "</etc/passwd>" -> 422 REMOTE_PATH_FORBIDDEN
+  PASS  EGRESS "</etc/passwd>" -> 500 REMOTE_INTERNAL
+  PASS  POST "|/var/log/x" -> 422 REMOTE_PATH_FORBIDDEN
+  PASS  EGRESS "|/var/log/x" -> 500 REMOTE_INTERNAL
+  PASS  POST "dir:[/home/a]" -> 422 REMOTE_PATH_FORBIDDEN
+  PASS  EGRESS "dir:[/home/a]" -> 500 REMOTE_INTERNAL
+
+--- the query string form must be refused too ---
+  PASS  GET /cp/v1/projects?ref=%25CD%25%5Crepo -> 422 REMOTE_PATH_FORBIDDEN
+  PASS  GET /cp/v1/projects?ref=%2Fhome%2Falice -> 422 REMOTE_PATH_FORBIDDEN
+
+--- the values that must NOT be flagged must be accepted (201) ---
+  PASS  POST "%E4%B8%AD" -> 201 undefined
+  PASS  POST "%CD%" -> 201 undefined
+  PASS  POST "100%" -> 201 undefined
+  PASS  POST "https://h/home/x" -> 201 undefined
+  PASS  POST "TCP/IP" -> 201 undefined
+  PASS  POST "a.b/home" -> 201 undefined
+  PASS  POST "ns:name" -> 201 undefined
+  PASS  POST "a/b" -> 201 undefined
+
+--- the 2nd review: the Token matrix must still hold ---
+  PASS  POST "Bearer 0123456789abcdef0123456789abcdef0123456789abcdef" -> 422 REMOTE_SECRET_INLINE_FORBIDDEN
+  PASS  POST "x-ats-token=0123456789abcdef0123456789abcdef0123456789abcdef" -> 422 REMOTE_SECRET_INLINE_FORBIDDEN
+  PASS  POST "tok 0123456789abcdef0123456789abcdef0123456789abcdef" -> 422 REMOTE_SECRET_INLINE_FORBIDDEN
+  PASS  POST "0x0123456789abcdef0123456789abcdef0123456789abcdef" -> 422 REMOTE_SECRET_INLINE_FORBIDDEN
+  PASS  POST "k=0123456789abcdef0123456789abcdef0123456789abcdef" -> 422 REMOTE_SECRET_INLINE_FORBIDDEN
+  PASS  POST "?t=0123456789abcdef0123456789abcdef0123456789abcdef" -> 422 REMOTE_SECRET_INLINE_FORBIDDEN
+  PASS  POST "prj_0123456789abcdef0123456789abcdef0123456789abcdef" -> 422 REMOTE_SECRET_INLINE_FORBIDDEN
+  PASS  POST "0123456789abcdef0123456789abcdef0123456789abcdefg" -> 422 REMOTE_SECRET_INLINE_FORBIDDEN
+  PASS  POST "\n0123456789abcdef0123456789abcdef0123456789abcdef\n" -> 422 REMOTE_SECRET_INLINE_FORBIDDEN
+  PASS  POST "\"0123456789abcdef0123456789abcdef0123456789abcdef\"" -> 422 REMOTE_SECRET_INLINE_FORBIDDEN
+
+RESULT: OK -- every round-3 counterexample is refused and every value that must stay allowed is accepted.
+exit code   : 0
