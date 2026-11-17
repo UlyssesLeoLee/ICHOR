@@ -1,8 +1,8 @@
 === ATS-506 evidence: WBS/catalog tooling tests and line coverage ===
-date        : 2026-11-09T07:25:02Z (UTC)
-commit      : f11ea2fb0f05b32371563bec2251bece15d0b6f7
+date        : 2026-11-17T15:22:38Z (UTC)
+commit      : ff25b0c98302ecacfd81a80e8278abe12707980b
 node        : v24.19.0
-python      : 3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]
+python      : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc  : utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 command     : python tools/test_wbs_common.py && python -m pytest -q -p no:cacheprovider tools/test_wbs_common_helpers.py tools/test_update_wbs_ats506.py tools/test_generate_test_docs.py --cov=tools --cov-report=term
 
@@ -16,6 +16,10 @@ PASS the own marker is present
 PASS 【ATS-101】 is idempotent
 PASS 【ATS-102】 is idempotent
 PASS 【ATS-103】 is idempotent
+PASS 【ATS-104】 is idempotent
+PASS 【ATS-106】 is idempotent
+PASS 【ATS-107】 is idempotent
+PASS 【ATS-111】 is idempotent
 PASS 【ATS-201】 is idempotent
 PASS 【ATS-202】 is idempotent
 PASS 【ATS-203】 is idempotent
@@ -26,16 +30,23 @@ PASS 【ATS-207】 is idempotent
 PASS 【ATS-208】 is idempotent
 PASS 【ATS-209】 is idempotent
 PASS 【ATS-212】 is idempotent
+PASS 【ATS-213】 is idempotent
+PASS 【ATS-214】 is idempotent
+PASS 【ATS-215】 is idempotent
 PASS 【ATS-216】 is idempotent
 PASS 【ATS-301】 is idempotent
+PASS 【ATS-307】 is idempotent
 PASS 【ATS-401】 is idempotent
 PASS 【ATS-402】 is idempotent
+PASS 【ATS-403】 is idempotent
 PASS 【ATS-501】 is idempotent
 PASS 【ATS-502】 is idempotent
 PASS 【ATS-506】 is idempotent
 PASS 【ATS-512】 is idempotent
 PASS 【ATS-601】 is idempotent
 PASS 【ATS-602】 is idempotent
+PASS 【ATS-603】 is idempotent
+PASS 【ATS-606】 is idempotent
 PASS at least one updater declares a marker
 PASS update_wbs_ats101.py declares exactly one marker
 PASS 【ATS-101】 (from update_wbs_ats101.py) is registered in MARKERS
@@ -43,6 +54,14 @@ PASS update_wbs_ats102.py declares exactly one marker
 PASS 【ATS-102】 (from update_wbs_ats102.py) is registered in MARKERS
 PASS update_wbs_ats103.py declares exactly one marker
 PASS 【ATS-103】 (from update_wbs_ats103.py) is registered in MARKERS
+PASS update_wbs_ats104.py declares exactly one marker
+PASS 【ATS-104】 (from update_wbs_ats104.py) is registered in MARKERS
+PASS update_wbs_ats106.py declares exactly one marker
+PASS 【ATS-106】 (from update_wbs_ats106.py) is registered in MARKERS
+PASS update_wbs_ats107.py declares exactly one marker
+PASS 【ATS-107】 (from update_wbs_ats107.py) is registered in MARKERS
+PASS update_wbs_ats111.py declares exactly one marker
+PASS 【ATS-111】 (from update_wbs_ats111.py) is registered in MARKERS
 PASS update_wbs_ats201.py declares exactly one marker
 PASS 【ATS-201】 (from update_wbs_ats201.py) is registered in MARKERS
 PASS update_wbs_ats202.py declares exactly one marker
@@ -63,14 +82,24 @@ PASS update_wbs_ats209.py declares exactly one marker
 PASS 【ATS-209】 (from update_wbs_ats209.py) is registered in MARKERS
 PASS update_wbs_ats212.py declares exactly one marker
 PASS 【ATS-212】 (from update_wbs_ats212.py) is registered in MARKERS
+PASS update_wbs_ats213.py declares exactly one marker
+PASS 【ATS-213】 (from update_wbs_ats213.py) is registered in MARKERS
+PASS update_wbs_ats214.py declares exactly one marker
+PASS 【ATS-214】 (from update_wbs_ats214.py) is registered in MARKERS
+PASS update_wbs_ats215.py declares exactly one marker
+PASS 【ATS-215】 (from update_wbs_ats215.py) is registered in MARKERS
 PASS update_wbs_ats216.py declares exactly one marker
 PASS 【ATS-216】 (from update_wbs_ats216.py) is registered in MARKERS
 PASS update_wbs_ats301.py declares exactly one marker
 PASS 【ATS-301】 (from update_wbs_ats301.py) is registered in MARKERS
+PASS update_wbs_ats307.py declares exactly one marker
+PASS 【ATS-307】 (from update_wbs_ats307.py) is registered in MARKERS
 PASS update_wbs_ats401.py declares exactly one marker
 PASS 【ATS-401】 (from update_wbs_ats401.py) is registered in MARKERS
 PASS update_wbs_ats402.py declares exactly one marker
 PASS 【ATS-402】 (from update_wbs_ats402.py) is registered in MARKERS
+PASS update_wbs_ats403.py declares exactly one marker
+PASS 【ATS-403】 (from update_wbs_ats403.py) is registered in MARKERS
 PASS update_wbs_ats501.py declares exactly one marker
 PASS 【ATS-501】 (from update_wbs_ats501.py) is registered in MARKERS
 PASS update_wbs_ats502.py declares exactly one marker
@@ -83,21 +112,19 @@ PASS update_wbs_ats601.py declares exactly one marker
 PASS 【ATS-601】 (from update_wbs_ats601.py) is registered in MARKERS
 PASS update_wbs_ats602.py declares exactly one marker
 PASS 【ATS-602】 (from update_wbs_ats602.py) is registered in MARKERS
+PASS update_wbs_ats603.py declares exactly one marker
+PASS 【ATS-603】 (from update_wbs_ats603.py) is registered in MARKERS
+PASS update_wbs_ats606.py declares exactly one marker
+PASS 【ATS-606】 (from update_wbs_ats606.py) is registered in MARKERS
 PASS the declared markers are exactly MARKERS
 
 all checks passed
 exit code   : 0
 
 --- pytest + coverage ---
-Name                               Stmts   Miss  Cover
-------------------------------------------------------
-tools\generate_test_docs.py           43      0   100%
-tools\test_generate_test_docs.py      66      0   100%
-tools\test_update_wbs_ats506.py      109      0   100%
-tools\test_wbs_common.py              70     70     0%
-tools\update_wbs_ats506.py            65      1    98%
-tools\wbs_common.py                  241      7    97%
-------------------------------------------------------
-TOTAL                               4194   3558    15%
-26 passed in 3.43s
-exit code   : 0
+ERROR: usage: python -m pytest [options] [file_or_dir] [file_or_dir] [...]
+python -m pytest: error: unrecognized arguments: --cov=tools --cov-report=term
+  inifile: None
+  rootdir: C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-21-03d3c0269578\worktree
+
+exit code   : 4

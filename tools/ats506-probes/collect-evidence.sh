@@ -52,12 +52,12 @@ run() {
 }
 
 # --- 1. unit tests + per-file line coverage of the control plane ------------
-header 01-control-plane-ut.log "control-plane unit tests (UT-CP-001..034) with coverage of server/control-plane/*" \
+header 01-control-plane-ut.log "control-plane unit tests (UT-CP-001..035) with coverage of server/control-plane/*" \
   "node --test --experimental-test-coverage --test-coverage-include=server/control-plane/** tests/control-plane.test.mjs"
 run 01-control-plane-ut.log node --test --experimental-test-coverage '--test-coverage-include=server/control-plane/**' tests/control-plane.test.mjs
 
 # --- 2. process-level integration tests --------------------------------------
-header 02-control-plane-it.log "local Bridge + control plane as real processes (IT-CP-SETUP..CLEANUP)" \
+header 02-control-plane-it.log "local Bridge + control plane as real processes (IT-CP-SETUP..016, IT-CP-CLEANUP)" \
   "node --test tests/control-plane-it.test.mjs"
 run 02-control-plane-it.log node --test tests/control-plane-it.test.mjs
 
