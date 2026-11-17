@@ -71,6 +71,15 @@ import {
 import {
   linkToBlob, storeBlob, storeBytes, storeDirOf,
 } from './evidence/store.mjs';
+// ATS-307: the traceability graph. The model (the node kinds, the edge
+// types, the stable uids and the gap vocabulary), the builder (it reads
+// the catalogue, the scripts, the runs and the evidence out of the tree)
+// and the queries (the forward and the backward walk, the coverage report
+// and the consistency checks).
+import { buildGraph } from './traceability/builder.mjs';
+import {
+  consistencyChecks, coverageReport, indexGraph, traceEvidence, traceRequirement,
+} from './traceability/query.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const ROOT=path.resolve(HERE,'..');
@@ -1402,6 +1411,39 @@ const server=http.createServer(async(req,res)=>{
  if(p==='/api/session'&&req.method==='GET')return respond(res,200,{token:TOKEN,mode:'local'});
  if(p.startsWith('/api/')&&req.headers['x-ats-token']!==TOKEN)return err(res,401,'INVALID_SESSION');
  try{
+ // ATS-307: the TRACEABILITY GRAPH of the platform's own repository.
+ //
+ // The graph describes the PLATFORM's repository -- its catalogue, its
+ // scripts, its runs and its evidence -- so it is NOT scoped to a
+ // registered project: it is a top-level endpoint. (The per-project
+ // `/lineage` below is the PROJECT's own requirement list, which is a
+ // different thing.)
+ //
+ // `?requirement=FR-015` walks ONE chain down; `?evidence=<uid>` walks
+ // one chain up. Without either, the endpoint returns the graph's shape
+ // and its coverage report -- the summary a reader wants first.
+ if(p==='/api/traceability'&&req.method==='GET'){
+  const graph=buildGraph({root:ROOT,runs:store.runs});
+  const view=indexGraph(graph);
+  const requirement=u.searchParams.get('requirement');
+  const evidence=u.searchParams.get('evidence');
+  if(requirement)return respond(res,200,traceRequirement(view,requirement));
+  if(evidence)return respond(res,200,traceEvidence(view,{uid:evidence}));
+  const report=coverageReport(view);
+  return respond(res,200,{
+   version:graph.version,
+   nodes:graph.nodes.length,
+   edges:graph.edges.length,
+   chains:graph.chains.length,
+   coverage:report.byCoverage,
+   gaps:report.gapsByKind,
+   nodesByKind:report.nodesByKind,
+   edgesByType:report.edgesByType,
+   edgesByProvenance:report.edgesByProvenance,
+   checks:report.checks,
+   consistency:consistencyChecks(view),
+  });
+ }
  if(p==='/api/projects'&&req.method==='GET')return respond(res,200,{projects:store.projects.map(cleanProject)});
  if(p==='/api/projects'&&req.method==='POST'){
   const b=await body(req);const actual=validateProjectPath(b.path);

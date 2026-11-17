@@ -1,0 +1,62 @@
+==============================================================================
+ATS-307 evidence log -- the ATS-307 negative control
+==============================================================================
+commit        : 0aedd9a0ac36eb92a752ca7802c695f5f191f588
+timestamp     : 2026-11-17T12:37:34Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-0c8c9160483f/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node tools/ats307-probes/probe-negative-control.mjs
+==============================================================================
+
+==============================================================================
+ATS-307 negative control: the checks CAN fail
+==============================================================================
+node : v24.19.0
+
+------------------------------------------------------------------------------
+--- 0. the positive control: an intact graph passes ---
+------------------------------------------------------------------------------
+  ok    the intact graph has no dangling test id
+  ok    the intact graph has no dangling anchor
+  ok    the intact graph has no orphan edge
+  ok    the intact graph has no false PASS
+  ok    the intact graph has no cycle
+  ok    the intact graph is consistent
+
+------------------------------------------------------------------------------
+--- 1. the RTM names a case the catalogue does not have ---
+------------------------------------------------------------------------------
+  ok    the dangling test id is CAUGHT
+  ok    the catch names the id
+  ok    the graph is no longer consistent
+  ok    the chain reports the gap
+  ok    the missing case is a node that is NOT present
+
+------------------------------------------------------------------------------
+--- 2. the RTM names a design no document defines ---
+------------------------------------------------------------------------------
+  ok    the dangling anchor is CAUGHT
+  ok    the catch names the anchor
+  ok    the graph is no longer consistent
+
+------------------------------------------------------------------------------
+--- 3. the catalogue says PASS but no script implements the case ---
+------------------------------------------------------------------------------
+  ok    the false PASS is CAUGHT
+  ok    the catch names the case
+  ok    the graph is no longer consistent
+  ok    a PENDING case with no script is NOT a false claim
+  ok    but it IS reported as a case without a script
+
+------------------------------------------------------------------------------
+--- 4. the data contains a directed cycle ---
+------------------------------------------------------------------------------
+  ok    the cycle is CAUGHT
+  ok    the cycle names its nodes
+  ok    the cycle closes on itself
+  ok    the acyclic graph reports no cycle
+
+==============================================================================
+NEGATIVE CONTROL: every check failed when it should -- 0 failures
+==============================================================================

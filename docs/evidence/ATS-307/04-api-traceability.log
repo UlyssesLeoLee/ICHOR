@@ -1,0 +1,128 @@
+==============================================================================
+ATS-307 evidence log -- the ATS-307 API surface
+==============================================================================
+commit        : 0aedd9a0ac36eb92a752ca7802c695f5f191f588
+timestamp     : 2026-11-17T12:37:30Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-0c8c9160483f/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node tools/ats307-probes/probe-api.mjs
+==============================================================================
+
+==============================================================================
+ATS-307 probe: the API surface of the traceability graph
+==============================================================================
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-0c8c9160483f\worktree
+port      : 57464 (a free one; 4577 belongs to other agents)
+
+------------------------------------------------------------------------------
+--- 1. the endpoint needs the session token ---
+------------------------------------------------------------------------------
+GET /api/traceability without the token : 401  (expected 401)
+
+------------------------------------------------------------------------------
+--- 2. the summary ---
+------------------------------------------------------------------------------
+GET /api/traceability : 200
+nodes        : 1354
+edges        : 25862
+chains       : 49
+coverage     : {"verified":26,"designed":21,"implemented":2}
+nodesByKind  : {"testcase":1069,"run":80,"design":26,"script":50,"evidence":80,"requirement":49}
+edgesByType  : {"attempted":23701,"implemented":929,"covers":1097,"designs":55,"archived":80}
+edgesByProv  : {"evidence":23781,"source":906,"catalog":1175}
+orphan edges : 0
+cycles       : 0
+not present  : 0
+the gaps, by kind:
+  no-script          140 gap(s) over 32 requirement(s)
+  no-run             183 gap(s) over 34 requirement(s)
+  no-declaration     23 gap(s) over 8 requirement(s)
+  no-testcase        10 gap(s) over 10 requirement(s)
+the consistency checks:
+  ok                       : false
+  dangling test ids        : 0
+  dangling design anchors  : 0
+  orphan edges             : 0
+  cases with no script     : 140
+  of which declared PASS   : 88
+
+------------------------------------------------------------------------------
+--- 3. the FORWARD walk: GET /api/traceability?requirement=FR-015 ---
+------------------------------------------------------------------------------
+status : 200   found: true   coverage: verified
+  hop 0 requirement 1 node(s)
+      FR-015
+  hop 1 design      1 node(s)
+      B05
+  hop 2 testcase    21 node(s)
+      UT-SEC-003
+      UT-EVD-001
+      UT-EVD-002
+      ... 18 more
+  hop 3 script      3 node(s)
+      tests/evidence.test.mjs
+      tests/evidence-it.test.mjs
+      tools/ats215-probes/st-ats215.mjs
+  hop 4 run         28 node(s)
+      transcript:docs/evidence/ATS-502/07-baseline-regression.log
+      transcript:docs/evidence/ATS-216/02-node-test-full.log
+      transcript:docs/evidence/ATS-512/04-full-test-suite.log
+      ... 25 more
+  hop 5 evidence    28 node(s)
+      transcript:docs/evidence/ATS-502/07-baseline-regression.log
+      transcript:docs/evidence/ATS-216/02-node-test-full.log
+      transcript:docs/evidence/ATS-512/04-full-test-suite.log
+      ... 25 more
+  gaps: 9
+      [hop 3] no-script: no script in the tree declares this case
+      [hop 3] no-script: no script in the tree declares this case
+      [hop 3] no-script: no script in the tree declares this case
+      [hop 3] no-declaration: the script that ran this case is known only through the catalogue -- it does not declare the case id
+      [hop 3] no-declaration: the script that ran this case is known only through the catalogue -- it does not declare the case id
+      [hop 4] no-run: the case was never executed
+      [hop 4] no-run: the case was never executed
+      [hop 4] no-run: the case was never executed
+      ... 1 more
+
+------------------------------------------------------------------------------
+--- 4. the BACKWARD walk: GET /api/traceability?evidence=<uid> ---
+------------------------------------------------------------------------------
+the evidence of UT-SEC-003 : docs/evidence/ATS-502/07-baseline-regression.log
+status : 200   found: true
+requirements reached: 779   unreached: 0
+  FR-024  <-  P1 Agent  <-  UT-AGT-016   (via catalog)
+  FR-028  <-  P2 Remote  <-  UT-CP-024   (via catalog)
+  FR-027  <-  P1 Secret  <-  IT-ENV-ADP-002   (via catalog)
+  FR-025  <-  P1 Agent  <-  UT-AGT-061   (via catalog)
+  FR-027  <-  P1 Secret  <-  UT-CRD-005   (via catalog)
+  FR-024  <-  P1 Agent  <-  UT-AGT-002   (via catalog)
+  ... 773 more
+
+------------------------------------------------------------------------------
+--- 5. a broken chain says WHICH hop is missing ---
+------------------------------------------------------------------------------
+GET /api/traceability?requirement=FR-022 : 200
+found: true   coverage: designed   complete: false
+  hop 0 requirement 1 node(s)
+  hop 1 design      1 node(s)
+  hop 2 testcase    0 node(s)
+  hop 3 script      0 node(s)
+  hop 4 run         0 node(s)
+  hop 5 evidence    0 node(s)
+the gaps:
+  [hop 2] no-testcase: the requirement has no test case
+  [hop 3] no-script: the chain does not reach the script hop
+  [hop 4] no-run: the chain does not reach the run hop
+  [hop 5] no-evidence: the chain does not reach the evidence hop
+
+------------------------------------------------------------------------------
+--- 6. an unknown requirement is REPORTED ---
+------------------------------------------------------------------------------
+GET /api/traceability?requirement=FR-999 : 200
+found : false
+reason: the traceability graph has no requirement FR-999
+
+==============================================================================
+END OF THE ATS-307 API PROBE
+==============================================================================
