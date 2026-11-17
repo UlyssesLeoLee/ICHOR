@@ -31,7 +31,7 @@ node --test --test-concurrency=2 tests/*.test.mjs       # 全量回帰
 | `03-probe-traceability.log` | 本ツリーのグラフの実測（形・検査・coverage・gap・両方向 walk） | 孤児辺 0 / 循環 0 / present でないノード 0 |
 | `04-api-traceability.log` | `GET /api/traceability` の 6 つの問い | 全て期待どおり |
 | `05-negative-control.log` | **負向対照**：検査が実際に赤くなることの確認 | **0 failures**（4 種の改変を全て捕捉） |
-| `06-node-test-full.log` | 全量回帰 | **1888 tests / 1856 pass / 0 fail / 32 skipped** |
+| `06-node-test-full.log` | 全量回帰 | **1897 tests / 1865 pass / 0 fail / 32 skipped** |
 | `07-syntax-gate.log` | 変更したソースの `node --check` | 7 ファイル全て ok |
 
 ## 実測値（本ツリー）
