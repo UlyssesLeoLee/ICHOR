@@ -1,0 +1,56 @@
+==============================================================================
+ATS-410 evidence log -- 01-triage-unit
+==============================================================================
+commit        : a5071fa34543c54156a2d4a3bae4def15f4533d6
+timestamp     : 2026-11-17T23:10:57Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-8ae52ece3b87/worktree
+node          : v24.19.0
+platform      : win32 x64
+==============================================================================
+
+✔ the classification set is exactly script / product / environment / undetermined (1.4107ms)
+✔ every classification result carries a category from the closed set (0.274ms)
+✔ environment beats the script/product split: a broken environment makes both fail (0.121ms)
+✔ an assertion-like failure with a changed test script is a script defect (0.09ms)
+✔ an assertion-like failure with an unchanged test script is a product defect (0.076ms)
+✔ an assertion-like failure with NO comparable history is undetermined, not product (0.0953ms)
+✔ a failure that names no assertion and no environment signal is undetermined (0.0758ms)
+✔ the environment set and the assertion-like set are disjoint, so their order is not load-bearing (0.1429ms)
+✔ the failure kind is the ATS-216 vocabulary, reused rather than reinvented (0.6225ms)
+✔ a finding without an evidence ref is refused (0.5637ms)
+✔ a finding with no evidenceRefs key at all is refused (0.1569ms)
+✔ an evidence ref pointing at a run outside the triage is refused (0.1292ms)
+✔ an evidence ref pointing at a case that does not exist is refused (0.0884ms)
+✔ an evidence ref with an absolute path is refused (0.248ms)
+✔ an evidence ref without a digest is refused (0.0983ms)
+✔ the digest of a fact is stable, order-independent and recomputable (0.5499ms)
+✔ two runs at the SAME commit are not comparable: a difference there is flakiness (0.2182ms)
+✔ a changed test script between two different commits IS a suspect change (0.1862ms)
+✔ a change in PRODUCT code is not a suspect change (0.1282ms)
+✔ without a baseline there is no comparable history at all (0.0591ms)
+✔ the engine triages a failing run and cites evidence for every finding (0.8553ms)
+✔ the same evidence always yields the same report (0.3807ms)
+✔ a run that is still in flight is refused (0.2199ms)
+✔ an unknown run is refused (0.114ms)
+✔ a regression across two commits produces a diff suggestion with no fix action (0.4157ms)
+✔ without a baseline the category degrades to undetermined, never to product (0.2233ms)
+✔ a request for model enhancement FAILS when no provider is configured (0.2612ms)
+✔ a request for model enhancement never changes the category (0.2496ms)
+✔ a model enhancement that returns the wrong shape is refused (0.2075ms)
+✔ the reconciliation checks are reported and are not smoothed away (0.1674ms)
+✔ a tampered evidence archive makes the integrity check fail (0.1667ms)
+✔ the triage does not change the run it triages (0.1598ms)
+✔ the case key identifies the same logical case across runs (0.0855ms)
+✔ the triage core has no write path: no fs writes, no process spawning (0.6633ms)
+✔ the read-only check is not a tautology: it fires on a broken copy (0.1208ms)
+✔ the contract description states the categories, the order and the write policy (0.159ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 126.166
+
+--- exit: 0 ---
