@@ -1,0 +1,31 @@
+==============================================================================
+ATS-410 evidence log -- 02-triage-api
+==============================================================================
+commit        : a5071fa34543c54156a2d4a3bae4def15f4533d6
+timestamp     : 2026-11-17T23:10:57Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-20-8ae52ece3b87/worktree
+node          : v24.19.0
+platform      : win32 x64
+==============================================================================
+
+✔ the triage contract endpoint returns the four categories and the rule order (844.8187ms)
+✔ the triage contract endpoint leaks neither a secret nor a local path (13.8047ms)
+✔ the triage endpoint requires the session token (4.5533ms)
+✔ the triage endpoint triages a run and cites evidence for every finding (13.598ms)
+✔ the triage is a READ: the state file is byte-identical before and after (3.2691ms)
+✔ the triage of a run with no comparable history is undetermined, not product (2.3207ms)
+✔ an unknown run is refused with 404 (2.912ms)
+✔ a run that does not exist is refused with 404 and the documented code (3.5803ms)
+✔ a request for the model enhancement fails with 503 when no provider is configured (2.2421ms)
+✔ a request without a runId is refused with 400 (13.4976ms)
+✔ the triage report carries no absolute path and no secret (16.4852ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1097.8652
+
+--- exit: 0 ---
