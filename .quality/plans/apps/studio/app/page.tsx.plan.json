@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "source": "apps/studio/app/page.tsx",
+  "baseline_source_sha256": "395491a9648649eef679b46fe7d27febccfdfe78e1e8d5dc2b366bf2691233ca",
+  "prepared_branch": "agent/m3/seikoist-152",
+  "technical_design": ".quality/docs/apps/studio/app/page.tsx.md",
+  "test_design": ".quality/test-design/apps/studio/app/page.tsx.test.md",
+  "prepared_technical_design_sha256": "dd92cfeda8ed59fcd244466c9c28befe974e964d9544349e52f01180c0b62730",
+  "prepared_test_design_sha256": "72249c78f697bd23128a9410e94c0e533e0d8aa3bff80e30e4f9807ef3c5bd52",
+  "prepared_related_design_sha256": {}
+}
