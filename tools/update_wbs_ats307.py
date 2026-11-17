@@ -72,7 +72,62 @@ TERMINAL_STATUSES = ('已完成', '已取消')
 # values in the N-column data-validation list.
 STATUS_DONE = '已完成'
 
-NOTE = (
+# The committed evidence log the note's regression figures are DERIVED from.
+#
+# The figures used to be written down in the note. That is what let them go
+# stale: the evidence was re-collected (the pass count went from 1856 to
+# 1865) and the note was not regenerated, so the workbook claimed a number
+# that no committed log carried. A hardcoded constant is the defect.
+EVIDENCE_LOG = Path(__file__).resolve().parents[1] / 'docs' / 'evidence' / 'ATS-307' / '06-node-test-full.log'
+
+# The `node --test` summary lines the figures are read from.
+SUMMARY_RE = re.compile(r'^\u2139 (tests|pass|fail|skipped) (\d+)$', re.M)
+
+
+def regression_figures(log_path=None):
+    """The full regression's figures, READ FROM THE COMMITTED EVIDENCE LOG.
+
+    Returns a dict with `tests`, `pass`, `fail` and `skipped`.
+
+    A log that is missing, or that does not carry all four lines, is a hard
+    error: the updater REFUSES to write a note whose figures it cannot
+    vouch for. Writing a note with no numbers in it would be worse than
+    refusing to write.
+    """
+    path = Path(log_path) if log_path is not None else EVIDENCE_LOG
+    if not path.exists():
+        raise SystemExit(
+            'the evidence log %s does not exist -- the note\'s figures are derived '
+            'from it, so the updater refuses to write a note it cannot back up' % path)
+    text = path.read_text(encoding='utf-8')
+    found = {k: int(v) for k, v in SUMMARY_RE.findall(text)}
+    missing = [k for k in ('tests', 'pass', 'fail', 'skipped') if k not in found]
+    if missing:
+        raise SystemExit(
+            'the evidence log %s does not carry the %s summary line(s) -- the note\'s '
+            'figures are derived from it, so the updater refuses to write' % (path, ', '.join(missing)))
+    return found
+
+
+def note_text(figures):
+    """The note, with the regression figures taken from the evidence log.
+
+    The figures are FORMATTED into the sentence, so the number in the
+    workbook is the number the committed log carries -- by construction,
+    not by a re-typed constant.
+    """
+    return NOTE_TEMPLATE.format(
+        tests=figures['tests'],
+        passed=figures['pass'],
+        failed=figures['fail'],
+        skipped=figures['skipped'],
+    )
+
+# The note. It is a TEMPLATE: the four regression figures are placeholders,
+# filled by `note_text()` from the committed evidence log. A re-typed
+# constant is what let the workbook claim a pass count that no committed
+# log carried.
+NOTE_TEMPLATE = (
     '已交付 Requirement→Design→TestCase→Script→Run→Evidence 追溯链（语义图谱 Schema）：'
     '模型在 server/traceability/（model.mjs 节点种/边种/UID/gap 语彙、'
     'builder.mjs 从树与 state 构建、query.mjs 双向 walk），接口面 GET /api/traceability'
@@ -113,7 +168,8 @@ NOTE = (
     '_steps suffix の折り返し規則・-real tree には孤児辺も循環も無いこと）を含む）'
     '+ IT 9 例（tests/ats307-traceability-it.test.mjs、実 Bridge 上の HTTP 面、token 必須・'
     'requirement パラメータ・evidence パラメータ・未知 ID の報告）；'
-    '全量回帰（node --test --test-concurrency=2 tests/*.test.mjs）は 1856 pass / 0 fail / 32 skipped、'
+    '全量回帰（node --test --test-concurrency=2 tests/*.test.mjs）は {passed} pass / {failed} fail / '
+    '{skipped} skipped（{tests} tests、入庫ログ docs/evidence/ATS-307/06-node-test-full.log から派生）、'
     '証拠は docs/evidence/ATS-307/（01 UT、02 IT、03 プローブ、04 API 面、05 負向対照、06 全量回帰、07 構文ゲート）；'
     '負向対照（tools/ats307-probes/probe-negative-control.mjs）は 4 種の改変'
     '（dangling test id / dangling anchor / 偽 PASS / 循環）で検査が実際に赤くなることを確認している'
@@ -148,9 +204,18 @@ def self_consistent(xml, rid):
     return rate >= 1 and remaining <= 0
 
 
-def patch_workbook(status='待审核'):
-    shutil.copy2(XLSX, XLSX.with_suffix('.xlsx.bak'))
-    zin = zipfile.ZipFile(XLSX)
+def patch_workbook(status='待审核', xlsx_path=None, note=None):
+    """Write the ATS-307 row into the workbook at `xlsx_path`.
+
+    The path is a PARAMETER, so the updater can be exercised on a copy: a
+    test that had to edit the repository workbook would modify the
+    deliverable while reporting success.
+    """
+    xlsx = Path(xlsx_path) if xlsx_path is not None else XLSX
+    if note is None:
+        note = note_text(regression_figures())
+    shutil.copy2(xlsx, xlsx.with_suffix('.xlsx.bak'))
+    zin = zipfile.ZipFile(xlsx)
     parts = {n: zin.read(n) for n in zin.namelist()}
     infos = {i.filename: i for i in zin.infolist()}
     zin.close()
@@ -174,7 +239,7 @@ def patch_workbook(status='待审核'):
     # same cell and re-emits the blocks in canonical order, so the result
     # does not depend on which updater ran last. The note text is
     # XML-ESCAPED by `set_marked_cell`.
-    xml2 = set_marked_cell(xml2, rid, 'T', MARKER, NOTE)
+    xml2 = set_marked_cell(xml2, rid, 'T', MARKER, note)
 
     parts[SHEET2] = xml2.encode('utf-8')
 
@@ -196,7 +261,7 @@ def patch_workbook(status='待审核'):
           f'完成率={derived["completion_rate"]} 剩余人日={derived["sum_remaining"]}')
 
     # --- rewrite the archive, preserving every other part byte-for-byte -----
-    tmp = XLSX.with_suffix('.xlsx.tmp')
+    tmp = xlsx.with_suffix('.xlsx.tmp')
     with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zout:
         for name, data in parts.items():
             info = infos[name]
@@ -205,23 +270,32 @@ def patch_workbook(status='待审核'):
             zi.external_attr = info.external_attr
             zout.writestr(zi, data)
     # os.replace() can fail on Windows when the target is held open; copy then unlink
-    shutil.copy2(tmp, XLSX)
+    shutil.copy2(tmp, xlsx)
     tmp.unlink()
-    print('updated', XLSX)
+    print('updated', xlsx)
 
 
-def row_signature():
+def row_signature(xlsx_path=None):
     """The ATS-307 row's cells, for the idempotency check."""
-    zin = zipfile.ZipFile(XLSX)
+    xlsx = Path(xlsx_path) if xlsx_path is not None else XLSX
+    zin = zipfile.ZipFile(xlsx)
     xml2 = zin.read(SHEET2).decode('utf-8')
     zin.close()
     rid, rm = find_ats_row(xml2, 'ATS-307')
     return rm.group(0)
 
 
-def verify():
-    """Assert the workbook still parses and row ATS-307 is exactly as intended."""
-    zin = zipfile.ZipFile(XLSX)
+def verify(xlsx_path=None, figures=None):
+    """Assert the workbook still parses and row ATS-307 is exactly as intended.
+
+    The note's regression figures are checked against the evidence log they
+    are derived from: a number that drifts can therefore no longer reach
+    the workbook.
+    """
+    xlsx = Path(xlsx_path) if xlsx_path is not None else XLSX
+    if figures is None:
+        figures = regression_figures()
+    zin = zipfile.ZipFile(xlsx)
     names = zin.namelist()
     assert 'xl/worksheets/sheet2.xml' in names, 'sheet2 missing'
     xml2 = zin.read(SHEET2).decode('utf-8')
@@ -240,10 +314,18 @@ def verify():
     assert remain == '0', f'ATS-307 remaining days is {remain!r}, expected 0'
     assert note.count(MARKER) == 1, f'ATS-307 note has {note.count(MARKER)} markers, expected 1'
     assert '追溯链' in note, 'the ATS-307 note is missing the delivered scope'
+    # The figures the note carries must be the ones the evidence log holds.
+    for key, label in (('pass', 'pass'), ('fail', 'fail'), ('skipped', 'skipped'), ('tests', 'tests')):
+        needle = '%d %s' % (figures[key], label)
+        assert needle in note, \
+            'the ATS-307 note does not carry %r -- the evidence log says %r' % (needle, figures)
     print(f'verify: ATS-307 row {rid} 状态={status} 完成率={rate} 剩余人日={remain} marker×{note.count(MARKER)}')
+    print('verify: the note carries the figures the evidence log holds: '
+          '%d tests / %d pass / %d fail / %d skipped'
+          % (figures['tests'], figures['pass'], figures['fail'], figures['skipped']))
 
 
-def check_parses():
+def check_parses(xlsx_path=None):
     """Assert the workbook is loadable -- in both openpyxl modes.
 
     A note that was written into the sheet XML without XML escaping makes the
@@ -252,7 +334,8 @@ def check_parses():
     """
     import openpyxl
 
-    wb = openpyxl.load_workbook(XLSX, data_only=False)
+    xlsx = Path(xlsx_path) if xlsx_path is not None else XLSX
+    wb = openpyxl.load_workbook(xlsx, data_only=False)
     ws = wb['开发WBS']
     row = None
     for r in range(1, ws.max_row + 1):
@@ -271,38 +354,59 @@ def check_parses():
     assert '追溯链' in note, 'column T is missing the delivered scope'
     wb.close()
 
-    wb = openpyxl.load_workbook(XLSX, data_only=True)
+    wb = openpyxl.load_workbook(xlsx, data_only=True)
     assert '开发WBS' in wb.sheetnames, 'the 开发WBS sheet is missing in the data_only mode'
     wb.close()
     print('verify: openpyxl loads the workbook in the normal and the data_only mode')
 
 
-if __name__ == '__main__':
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--verify-only', action='store_true')
     ap.add_argument(
-        '--status', default='待审核',
+        '--status', default='待审核', choices=('待审核', STATUS_DONE),
         help='the 状态 to write into the ATS-307 row (default: 待审核). '
              'Use 已完成 once the review has returned PASS; the row then keeps '
-             'that status across later re-runs of this script.')
-    args = ap.parse_args()
+             'that status across later re-runs of this script. Any other value '
+             'is rejected by argparse (exit 2) -- the N column carries a data '
+             'validation list, and a status outside it would be a broken cell.')
+    ap.add_argument(
+        '--xlsx', default=str(XLSX),
+        help='the workbook to edit (default: docs/WBS.xlsx). A copy can be '
+             'given so the updater can be exercised without touching the '
+             'repository workbook.')
+    args = ap.parse_args(argv)
+
+    # The figures come from the committed evidence log. A log that is missing
+    # or incomplete makes the updater REFUSE to write -- a note whose numbers
+    # cannot be vouched for is worse than no note.
+    figures = regression_figures()
+    print('evidence: %d tests / %d pass / %d fail / %d skipped (from %s)'
+          % (figures['tests'], figures['pass'], figures['fail'], figures['skipped'], EVIDENCE_LOG))
+    note = note_text(figures)
 
     if args.verify_only:
-        verify()
-        check_parses()
+        verify(args.xlsx, figures)
+        check_parses(args.xlsx)
+        return 0
+
+    before = row_signature(args.xlsx)
+    patch_workbook(args.status, args.xlsx, note)
+    after = row_signature(args.xlsx)
+    if before == after:
+        print('IDEMPOTENT: row ATS-307 unchanged')
     else:
-        before = row_signature()
-        patch_workbook(args.status)
-        after = row_signature()
-        if before == after:
-            print('IDEMPOTENT: row ATS-307 unchanged')
-        else:
-            print('CHANGED (first run applied the update)')
-        # A second run must be a no-op.
-        second_before = row_signature()
-        patch_workbook(args.status)
-        second_after = row_signature()
-        assert second_before == second_after, 'the updater is NOT idempotent'
-        print('IDEMPOTENT: a second run leaves row ATS-307 byte-identical')
-        verify()
-        check_parses()
+        print('CHANGED (first run applied the update)')
+    # A second run must be a no-op.
+    second_before = row_signature(args.xlsx)
+    patch_workbook(args.status, args.xlsx, note)
+    second_after = row_signature(args.xlsx)
+    assert second_before == second_after, 'the updater is NOT idempotent'
+    print('IDEMPOTENT: a second run leaves row ATS-307 byte-identical')
+    verify(args.xlsx, figures)
+    check_parses(args.xlsx)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
