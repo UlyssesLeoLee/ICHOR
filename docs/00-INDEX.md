@@ -36,6 +36,7 @@
 | 29-EVIDENCE-WORKBENCH.md | 证据工作台设计书 | ATS-215：Trace/附件定位与执行前后对照；从失败用例到 Trace 的两级定位（引擎记录为准、命名规则兜底）与定位失败的报告、归档时的摘要与文件时间（不重算摘要）、2 次点击预算的数法、执行前后对照的配对与"不同 commit 不可比"、两个界面共用一份实现、真实浏览器里的实测证据与已知边界 |
 | 27-EVIDENCE-MANIFEST.md | 证据清单设计书 | ATS-209：Evidence Manifest、SHA-256、内容寻址去重与保留期清理；清单带所属运行与整组摘要、篡改可检出并指名文件、到期只删证据不删 Run 元数据、清理离线执行与审计日志、已知边界 |
 | 18-RUNNER-ADAPTER-CONTRACT.md | Runner/Reporter 适配器契约 | ATS-301：适配器契约 v1、能力协商与拒绝规则 |
+| 33-TRACEABILITY-GRAPH.md | 语义图谱 Schema 设计书 | ATS-307：Requirement→Design→TestCase→Script→Run→Evidence 追溯链；节点/边的稳定 UID・出所・Git commit、循环与孤児辺の検査、欠けた環の可視化（gap 語彙）、両方向 walk（join は run 経由）、カタログと実装の drift 検出；详见 docs/evidence/ATS-307/ |
 | 19-REMOTE-RUNNER-PROTOCOL.md | 远程协议・威胁模型 | S5 远程执行面的信任边界、认证、版本握手、租户隔离、拒绝规则（ADR-015~023，全部 DESIGNED） |
 | 20-PARALLEL-ORCHESTRATION.md | 并行编排 | 多任务并行执行的编排约束 |
 | 29-REMOTE-SCHEDULING.md | 远程调度内核 | ATS-502：Job 队列/租约/心跳/幂等键/重试的实现与实测证据（ADR-024~034）；含租约 fencing、`running` 态回收与服务端租约上限；节点协议与执行仍未实现 |
