@@ -27,8 +27,8 @@ import shutil
 import zipfile
 from pathlib import Path
 
-from wbs_common import (cell_number, cell_text, set_cell_in_row, set_marked_cell,
-                         set_narrative_cell, totals)
+from wbs_common import (cell_number, cell_text, format_rate, set_cell_in_row,
+                         set_marked_cell, set_narrative_cell, totals)
 
 XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
 SHEET2 = 'xl/worksheets/sheet2.xml'
@@ -186,7 +186,7 @@ def main():
     # --- 总览: refresh the cached values of the existing formulas -----------
     done, rate, sum_p = summarise(xml2)
     xml1 = set_cell_in_row(xml1, 8, 'B', str(done), numeric=True)
-    xml1 = set_cell_in_row(xml1, 9, 'B', repr(rate), numeric=True)
+    xml1 = set_cell_in_row(xml1, 9, 'B', format_rate(rate), numeric=True)
     xml1 = set_cell_in_row(xml1, 10, 'B', str(int(sum_p)) if sum_p == int(sum_p) else str(sum_p), numeric=True)
     parts[SHEET1] = xml1.encode('utf-8')
     print(f'overview: 已完成={done} 完成率={rate} 剩余人日={sum_p}')

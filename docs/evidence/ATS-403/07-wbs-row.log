@@ -1,5 +1,15 @@
-overview: 已完成=2 完成率=0.3193612774451098 剩余人日=341.0
-updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-20-81c159ec05e1\worktree\docs\WBS.xlsx
-totals: {'completed': 2, 'sum_estimate': 501.0, 'sum_remaining': 341.0, 'completion_rate': 0.3193612774451098}
+==============================================================================
+ATS-403 evidence log -- 07-wbs-row
+==============================================================================
+commit        : f1bed1d126d3916969828f3fa411a0f5955d2858
+timestamp     : 2026-11-17T17:37:58Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+platform      : win32 x64
+==============================================================================
+
+overview: 已完成=2 完成率=0.3293413173652695 剩余人日=336.0
+updated D:\ICHOR\docs\WBS.xlsx
+totals: {'completed': 2, 'sum_estimate': 501.0, 'sum_remaining': 336.0, 'completion_rate': 0.3293413173652695}
 
 --- exit: 0 ---

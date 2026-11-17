@@ -1,9 +1,19 @@
+==============================================================================
+ATS-403 evidence log -- 07b-wbs-row-check
+==============================================================================
+commit        : f1bed1d126d3916969828f3fa411a0f5955d2858
+timestamp     : 2026-11-17T17:37:58Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+platform      : win32 x64
+==============================================================================
+
 ATS-403 row 62
   状态=待审核 完成率=1.0 剩余人日=0.0
   风险/说明 marker counts: ATS-403=1 ATS-402=0 ATS-215=0
 总览 D6: v0.1 已有 Node Bridge/便携 UI/Next/Tauri 源码，已通过 20 项 Node UT/IT；Next.js 16 静态导出构建已实测通过；锁文件、依赖清单与 CI 构建门禁已交付；Next.js 16 静态导出与 127.0.0.1 Bridge 的会话/项目/运行操作已实测通过，真实 headless Chromium 驱动导出页 7/7 通过（ATS-103）；Tauri 2 Windows dev build 已实测通过（ATS-104：cargo tauri dev 起桌面壳，WebView2 加载页面，Bridge 应答，关窗后无孤儿进程与孤儿窗口）；真实
 总览 D7: 真实浏览器 Playwright ST 已开始实测（B-01 已由 ATS-106 修复，ATS-107 起在真实 Chromium 上执行）；详见 docs/16-BASELINE-ADR.md；CI workflow 未在真实 runner 上跑过；详见 docs/17-BUILD-CI.md；静态导出未在 macOS/Linux 实测、未在真实 Tauri 壳内实测；引擎进程异常死亡时运行记录无 summary 的证据链缺陷属 ATS-108/ATS-112；Bridge 静态路由只覆盖 /，目录索引与 404 未实现；详见 docs/22-FRONTEND-EXPORT.md；msvc
-总览 B8=2 B9=0.3193612774451098 B10=341
+总览 B8=2 B9=0.329341317365270 B10=336
 OK: the ATS-403 row and the narrative cells are consistent
 
 --- exit: 0 ---

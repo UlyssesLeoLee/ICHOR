@@ -1,3 +1,13 @@
+==============================================================================
+ATS-403 evidence log -- 03-ai-boundary-probe
+==============================================================================
+commit        : f1bed1d126d3916969828f3fa411a0f5955d2858
+timestamp     : 2026-11-17T17:37:58Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+platform      : win32 x64
+==============================================================================
+
 # signal 1 -- STATIC: the adapter layer does not write a secret anywhere
 ok   server/ai/errors.mjs: no secret-to-file -- secret-to-file
 ok   server/ai/errors.mjs: no secret-to-argv -- secret-to-argv

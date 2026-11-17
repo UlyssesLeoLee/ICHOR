@@ -12,7 +12,7 @@
 |---|---|---|
 | `r2.mjs.log` | `r2.mjs`（单元层反例 Q1–Q5） | **5 项全部 not-reproduced** |
 | `r2-api.mjs.log` | `r2-api.mjs`（真实 HTTP 反例 H1/S4b/H3/S5/S5b） | **5 项中 4 项 not-reproduced**；H3 仍 CONFIRMED（已登记的缺口，见下） |
-| `r1.mjs.log` | `r1.mjs`（单元层反例 P1–P7） | **8 项全部 not-reproduced** |
+| `r1.mjs.log` | `r1.mjs`（单元层反例 P1–P7，其中 P3 拆成 P3a/P3b/P3c 三项判据） | **9 项全部 not-reproduced** |
 | `r1-api.mjs.log` | `r1-api.mjs`（真实 HTTP 反例 S1–S5） | S1–S4 全部 not-reproduced；**S4b 处探针自身抛错**（见下） |
 
 ## 逐条对照
@@ -39,8 +39,17 @@
 
 ### r1.mjs / r1-api.mjs —— 上一轮的反例不得回归
 
-`r1.mjs` 的 P1–P7 全部 not-reproduced；`r1-api.mjs` 的 S1–S4 全部
-not-reproduced。
+`r1.mjs` 的 **9 项**判据（P1、P2、P3a、P3b、P3c、P4、P5、P6、P7）全部
+not-reproduced；`r1-api.mjs` 的 S1–S4 全部 not-reproduced。
+
+判据数是**机读可核**的：每个日志里以 `not-reproduced` 或 `CONFIRMED` 开头的
+行数就是该探针的判据数。核对命令：
+
+```
+grep -cE '^(not-reproduced|CONFIRMED)' docs/evidence/ATS-403/reviewer-probes/r1.mjs.log
+```
+
+上面的表里的数字必须与这个命令的输出相等。
 
 ## `r1-api.mjs` 在 S4b 处抛错：这是探针的产物，不是缺陷
 

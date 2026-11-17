@@ -1,3 +1,13 @@
+==============================================================================
+ATS-403 evidence log -- 05-deps-manifest
+==============================================================================
+commit        : f1bed1d126d3916969828f3fa411a0f5955d2858
+timestamp     : 2026-11-17T17:37:58Z (UTC)
+repo root     : /d/ICHOR
+node          : v24.19.0
+platform      : win32 x64
+==============================================================================
+
 npm notice run ai-test-studio@0.1.0 deps:manifest:check
 npm notice run node tools/gen_dep_manifest.mjs --check
 RESULT: OK -- the committed dependency manifest matches the lockfiles.
