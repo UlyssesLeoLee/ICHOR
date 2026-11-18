@@ -1,8 +1,8 @@
 ==============================================================================
 ATS-314 evidence log -- the WBS updater and its idempotence
 ==============================================================================
-commit        : fe13b15e47ad174c722ef134abb8671a4e869349
-timestamp     : 2026-11-18T04:28:46Z (UTC)
+commit        : 9726082352f3878183ea226db4977f6e5fd8500b
+timestamp     : 2026-11-18T04:34:35Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-e71fb757862f/worktree
 node          : v24.19.0
 platform      : win32 x64
@@ -17,7 +17,7 @@ C:\Users\seiko\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\openpyxl
 evidence: 5 files / 12 steps / 3 controlled (from C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-e71fb757862f\worktree\docs\evidence\ATS-314\03-probe-ast-subset.log)
 overview: 已完成=2 完成率=0.3672654690618763 剩余人日=317.0
 updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-e71fb757862f\worktree\docs\WBS.xlsx
-CHANGED (first run applied the update)
+IDEMPOTENT: row ATS-314 unchanged
 overview: 已完成=2 完成率=0.3672654690618763 剩余人日=317.0
 updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-e71fb757862f\worktree\docs\WBS.xlsx
 IDEMPOTENT: a second run leaves row ATS-314 byte-identical
