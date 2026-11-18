@@ -1,11 +1,23 @@
 ==============================================================================
 ATS-307 evidence log -- what the README claims, checked against the logs
 ==============================================================================
-commit        : 31ebccfbbbf79216dc94f738327b98539937a6a6
-timestamp     : 2026-11-18T01:13:21Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-cdff9ecc594b/worktree
+commit        : 1f2fac4a119d41e8f18c4a4989341377b134da0c
+timestamp     : 2026-11-18T03:52:48Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f6e06b6b86ab/worktree
 node          : v24.19.0
-platform      : win32 x64
+[eval]:1
+process.platform + \" \" + process.arch
+                   ^
+Expression expected
+
+SyntaxError: Invalid or unexpected token
+    at makeContextifyScript (node:internal/vm:194:14)
+    at compileScript (node:internal/process/execution:388:10)
+    at evalTypeScript (node:internal/process/execution:260:22)
+    at node:internal/main/eval_string:71:3
+
+Node.js v24.19.0
+platform      : 
 command       : node tools/ats307-probes/check-readme-consistency.mjs
 ==============================================================================
 
@@ -16,12 +28,25 @@ command       : node tools/ats307-probes/check-readme-consistency.mjs
   ok    every log the README names is committed
   ok    the README UT case count is the committed suite log count
   ok    the README IT case count is the committed suite log count
+  ok    the README full-regression tests count is the committed log's
+  ok    the README full-regression pass count is the committed log's
+  ok    the README full-regression fail count is the committed log's
+  ok    the README full-regression skipped count is the committed log's
+  ok    the README negative-control mutation count is the committed log's
   ok    the README group listing covers every case the suite log shows
   ok    the README the node count is the probe log's measurement
   ok    the README the edge count is the probe log's measurement
   ok    the README the chain count is the probe log's measurement
   ok    the README the commit coverage of the nodes is the probe log's measurement
   ok    the README the commit coverage of the edges is the probe log's measurement
+  ok    the design document the node count is the probe log's measurement
+  ok    the design document the edge count is the probe log's measurement
+  ok    the design document the chain count is the probe log's measurement
+  ok    the design document the complete chain count is the probe log's measurement
+  ok    the design document the broken chain count is the probe log's measurement
+  ok    the design document the commit coverage of the nodes is the probe log's measurement
+  ok    the design document the commit coverage of the edges is the probe log's measurement
+  ok    the design document AC-3 row carries the probe log's commit coverage
   ok    the README claims the number of groups it lists
 
 RESULT: OK -- the README step count, log table and suite counts are the committed ones

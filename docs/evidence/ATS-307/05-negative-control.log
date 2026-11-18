@@ -1,9 +1,9 @@
 ==============================================================================
 ATS-307 evidence log -- the ATS-307 negative control
 ==============================================================================
-commit        : aab1b01c393b0608e9fc06774f85ddbad437ee11
-timestamp     : 2026-11-18T01:01:33Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-cdff9ecc594b/worktree
+commit        : 1f2fac4a119d41e8f18c4a4989341377b134da0c
+timestamp     : 2026-11-18T03:42:37Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f6e06b6b86ab/worktree
 node          : v24.19.0
 platform      : win32 x64
 command       : node tools/ats307-probes/probe-negative-control.mjs
@@ -56,6 +56,15 @@ node : v24.19.0
   ok    the cycle names its nodes
   ok    the cycle closes on itself
   ok    the acyclic graph reports no cycle
+
+------------------------------------------------------------------------------
+--- 5. the commit reaches the node AND the edge ---
+------------------------------------------------------------------------------
+  ok    the run node carries the commit the run record states
+  ok    the ATTEMPTED edge carries the commit
+  ok    the ARCHIVED edge carries the commit
+  ok    a tree WITHOUT history claims no commit on any node
+  ok    a tree WITHOUT history claims no commit on any edge
 
 ==============================================================================
 NEGATIVE CONTROL: every check failed when it should -- 0 failures

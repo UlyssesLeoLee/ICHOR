@@ -1,23 +1,23 @@
 ==============================================================================
 ATS-307 evidence log -- the ATS-307 integration suite
 ==============================================================================
-commit        : aab1b01c393b0608e9fc06774f85ddbad437ee11
-timestamp     : 2026-11-18T01:01:26Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-cdff9ecc594b/worktree
+commit        : 1f2fac4a119d41e8f18c4a4989341377b134da0c
+timestamp     : 2026-11-18T03:42:29Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f6e06b6b86ab/worktree
 node          : v24.19.0
 platform      : win32 x64
 command       : node --test tests/ats307-traceability-it.test.mjs
 ==============================================================================
 
-✔ IT-ATS307-001: start the bridge (500.9956ms)
-✔ IT-ATS307-002: the traceability endpoint needs the session token (3.7234ms)
-✔ IT-ATS307-003: the summary answers with the graph shape and its gaps (456.4515ms)
-✔ IT-ATS307-004: ?requirement= walks one chain down (408.2921ms)
-✔ IT-ATS307-005: ?requirement= names the hop that is missing (394.6833ms)
-✔ IT-ATS307-006: an unknown requirement is reported (398.9251ms)
-✔ IT-ATS307-007: ?evidence= walks one chain up (796.4051ms)
-✔ IT-ATS307-008: an unknown evidence node is reported (745.9581ms)
-✔ IT-ATS307-009: the bridge shuts down (4.7669ms)
+✔ IT-ATS307-001: start the bridge (475.7027ms)
+✔ IT-ATS307-002: the traceability endpoint needs the session token (3.0858ms)
+✔ IT-ATS307-003: the summary answers with the graph shape and its gaps (468.3793ms)
+✔ IT-ATS307-004: ?requirement= walks one chain down (452.7544ms)
+✔ IT-ATS307-005: ?requirement= names the hop that is missing (423.4957ms)
+✔ IT-ATS307-006: an unknown requirement is reported (408.9734ms)
+✔ IT-ATS307-007: ?evidence= walks one chain up (794.7209ms)
+✔ IT-ATS307-008: an unknown evidence node is reported (809.1969ms)
+✔ IT-ATS307-009: the bridge shuts down (4.9492ms)
 ℹ tests 9
 ℹ suites 0
 ℹ pass 9
@@ -25,4 +25,4 @@ command       : node --test tests/ats307-traceability-it.test.mjs
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 3851.0384
+ℹ duration_ms 3966.9676

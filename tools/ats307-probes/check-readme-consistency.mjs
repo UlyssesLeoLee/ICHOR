@@ -95,6 +95,66 @@ for (const [label, file, pattern] of [
     `the log holds ${logCount ?? 'none'} cases, the README claims ${readmeCount ?? 'none'}`);
 }
 
+// --- 3b. the FULL REGRESSION's figures ---------------------------------
+//
+// The log table's row for the full regression states the whole suite's
+// counts. Those counts were the ones the check above could not see: the
+// suite logs cover only the two ATS-307 suites, and the full regression's
+// row was never compared against the log it names.
+//
+// The consequence was a README that stated `1902 tests / 1870 pass` while
+// the log sitting in the same directory said `1953 tests / 1921 pass` --
+// the exact defect class this check exists to catch, in the one row the
+// check did not cover.
+{
+  const file = '06-node-test-full.log';
+  const logPath = path.join(evidenceDir, file);
+  if (!fs.existsSync(logPath)) {
+    check('the full regression log is committed', false, `missing ${file}`);
+  } else {
+    const log = fs.readFileSync(logPath, 'utf8');
+    const figures = {};
+    for (const key of ['tests', 'pass', 'fail', 'skipped']) {
+      const m = new RegExp(`^ℹ ${key} (\\d+)$`, 'm').exec(log);
+      figures[key] = m ? m[1] : null;
+    }
+    // The row of the log table that names this log.
+    const row = new RegExp(`^\\| \`${file}\` \\|([^|]*)\\|([^|]*)\\|`, 'm').exec(readme);
+    const claimed = row ? row[2] : null;
+    for (const key of ['tests', 'pass', 'fail', 'skipped']) {
+      const needle = `${figures[key]} ${key}`;
+      check(`the README full-regression ${key} count is the committed log's`,
+        claimed !== null && needle !== 'null null' && claimed.includes(needle),
+        `the log says ${needle}, the README claims ${claimed ?? 'no row'}`);
+    }
+  }
+}
+
+// --- 3c. the negative control's mutation COUNT --------------------------
+//
+// The README states how many mutations the negative control performs, and
+// the probe's own output states how many groups it ran. A count that is
+// typed in the README goes stale the moment a group is added -- and the
+// stale count is the one a reader trusts.
+{
+  const file = '05-negative-control.log';
+  const logPath = path.join(evidenceDir, file);
+  if (!fs.existsSync(logPath)) {
+    check('the negative control log is committed', false, `missing ${file}`);
+  } else {
+    const log = fs.readFileSync(logPath, 'utf8');
+    // The probe's numbered group headers: `--- 1. the RTM names ... ---`.
+    const groups = [...log.matchAll(/^--- \d+\. /gm)].length;
+    // The positive control is group 0 and is not a mutation, so the
+    // mutations are the groups that follow it.
+    const mutations = Math.max(groups - 1, 0);
+    const claimed = /(\d+) 種の改変/.exec(readme)?.[1] ?? null;
+    check('the README negative-control mutation count is the committed log\'s',
+      claimed !== null && Number(claimed) === mutations,
+      `the log ran ${mutations} mutation group(s), the README claims ${claimed ?? 'none'}`);
+  }
+}
+
 // --- 4. the group listing covers every case ---------------------------
 // The README lists the suite's cases in groups, and the listing has to
 // name EVERY case id. A group that was forgotten leaves its cases
@@ -154,6 +214,59 @@ for (const [label, file, pattern] of [
         actual !== null && claimed !== null && actual === claimed,
         `the probe says ${actual ?? 'none'}, the README claims ${claimed ?? 'none'}`);
     }
+  }
+}
+
+// --- 4c. the DESIGN DOCUMENT's measurements ---------------------------
+//
+// The design document states the same measurements in its §10 table and
+// in its AC-3 row. Those numbers were TYPED: nothing compared them with
+// the probe log, so when the tree moved on, the design document kept
+// quoting the graph of an earlier tree while claiming IMPLEMENTED.
+//
+// The design document is the document a reviewer reads for the acceptance
+// criteria, so a stale number in it is worse than one in the README: the
+// AC table's status column is read as a verdict.
+{
+  const designPath = path.join(root, 'docs', '33-TRACEABILITY-GRAPH.md');
+  const probePath = path.join(evidenceDir, '03-probe-traceability.log');
+  if (!fs.existsSync(designPath)) {
+    check('the design document exists', false, 'missing docs/33-TRACEABILITY-GRAPH.md');
+  } else if (!fs.existsSync(probePath)) {
+    check('the probe log is committed', false, 'missing 03-probe-traceability.log');
+  } else {
+    const design = fs.readFileSync(designPath, 'utf8');
+    const probe = fs.readFileSync(probePath, 'utf8');
+    const probeNumber = (re) => re.exec(probe)?.[1] ?? null;
+    const claims = [
+      ['the node count', probeNumber(/^nodes\s+:\s+(\d+)$/m), /\| ノード \| (\d+) \|/],
+      ['the edge count', probeNumber(/^edges\s+:\s+(\d+)$/m), /\| 辺 \| (\d+) \|/],
+      ['the chain count', probeNumber(/^chains\s+:\s+(\d+)$/m), /\| チェーン（要件） \| (\d+) \|/],
+      ['the complete chain count', probeNumber(/^complete chains\s+:\s+(\d+)$/m), /\| 完全なチェーン \| (\d+) \|/],
+      ['the broken chain count', probeNumber(/^broken chains\s+:\s+(\d+)$/m), /\| 欠けたチェーン \| (\d+) \|/],
+      ['the commit coverage of the nodes',
+        probeNumber(/^nodes with a commit : (\d+) of \d+$/m),
+        /\| \*\*commit を持つノード\*\* \| \*\*(\d+) \/ \d+\*\* \|/],
+      ['the commit coverage of the edges',
+        probeNumber(/^edges with a commit : (\d+) of \d+$/m),
+        /\| \*\*commit を持つ辺\*\* \| \*\*(\d+) \/ \d+\*\* \|/],
+    ];
+    for (const [label, actual, pattern] of claims) {
+      const claimed = pattern.exec(design)?.[1] ?? null;
+      check(`the design document ${label} is the probe log's measurement`,
+        actual !== null && claimed !== null && actual === claimed,
+        `the probe says ${actual ?? 'none'}, the design document claims ${claimed ?? 'none'}`);
+    }
+    // The AC-3 row of the acceptance table repeats the commit coverage.
+    // That row's STATUS is read as a verdict, so its numbers must be the
+    // measurement too.
+    const nodesWithCommit = probeNumber(/^nodes with a commit : (\d+) of \d+$/m);
+    const edgesWithCommit = probeNumber(/^edges with a commit : (\d+) of \d+$/m);
+    const acRow = /^\| AC-3 \|.*$/m.exec(design)?.[0] ?? '';
+    check('the design document AC-3 row carries the probe log\'s commit coverage',
+      acRow !== '' && acRow.includes(`ノード ${nodesWithCommit}/${nodesWithCommit}`)
+        && acRow.includes(`辺 ${edgesWithCommit}/${edgesWithCommit}`),
+      `the probe says ノード ${nodesWithCommit}/${nodesWithCommit}・辺 ${edgesWithCommit}/${edgesWithCommit}, the AC-3 row says ${acRow || 'no row'}`);
   }
 }
 

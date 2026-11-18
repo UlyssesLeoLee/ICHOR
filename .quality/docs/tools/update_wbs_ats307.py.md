@@ -2,7 +2,7 @@
 
 Source: `tools/update_wbs_ats307.py`
 
-Source-SHA256: `3e351cb9ce7e57ccc9ae67aae16d6c9f199fb4828519e7ec379ee077184f1a3c`
+Source-SHA256: `74f8c2e41f5e04e71dddee802f400c788afe8b014507e94799e3d1d4495fee97`
 
 ## Responsibility
 
@@ -105,6 +105,51 @@ the ids the note names are ids the log actually shows.
 workbook. A test of it would therefore have MODIFIED the deliverable while
 "passing" — the symptom is a test that reports success while another file
 changed. Every function that touches the workbook now takes the path.
+
+### The negative control's MUTATION COUNT is derived too — the same defect class
+
+The note stated "4 mutations". The negative control performed FIVE: the
+commit-propagation mutation (AC-3) was added to the probe, and the count in
+the note, in the evidence README and in the design document was not
+refreshed. The count a reader trusts was the stale one, and the log that
+contradicted it was in the same directory.
+
+⇒ `mutation_figures()` reads the committed negative-control log
+(`docs/evidence/ATS-307/05-negative-control.log`) and counts its numbered
+group headers. Group 0 is the POSITIVE control (the intact graph), so the
+mutations are the groups after it. A log that is missing, or that carries
+no group header, is a hard error, exactly as for the other logs.
+
+⇒ The note's mutation count is written from that figure, and `verify()`
+asserts the note carries it — so a mutation added to the probe without the
+note being regenerated is caught instead of silently shipped.
+
+### The evidence README's log table was NOT covered by the consistency check
+
+The README's table row for the full regression stated `1902 tests / 1870
+pass` while the log it names said `1953 tests / 1921 pass`. The consistency
+check compared the UT/IT case counts against their suite logs, but the full
+regression's row — the one row that states a whole suite's counts — was
+never compared against the log it names.
+
+⇒ `tools/ats307-probes/check-readme-consistency.mjs` now compares the
+README's full-regression row against the committed log's four summary lines,
+and the README's negative-control mutation count against the negative
+control log's group headers.
+
+### The DESIGN DOCUMENT's measurements were typed, and nothing checked them
+
+The design document's §10 table and its AC-3 row quoted the graph's shape
+(nodes, edges, chains, commit coverage). Nothing compared them with the
+probe log, so the design document could keep quoting an earlier tree's
+graph while its acceptance table said `IMPLEMENTED`. The design document
+is where a reviewer reads the acceptance criteria, so a stale number there
+is worse than one in the README.
+
+⇒ The consistency check now compares the design document's §10 table and
+its AC-3 row against the committed probe log's measurements. A stale number
+in the acceptance document is now a red gate, not a discrepancy a reader has
+to notice.
 
 ### The note no longer carries review-process narration
 

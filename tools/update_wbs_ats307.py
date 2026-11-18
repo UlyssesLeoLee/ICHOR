@@ -95,6 +95,12 @@ IT_LOG = Path(__file__).resolve().parents[1] / 'docs' / 'evidence' / 'ATS-307' /
 # is what let the note claim seven logs while the directory held eight.
 EVIDENCE_DIR = Path(__file__).resolve().parents[1] / 'docs' / 'evidence' / 'ATS-307'
 
+# The negative control's log. The note states how many MUTATIONS the
+# negative control performs, and that count is read from the log: a typed
+# count went stale when the commit-propagation mutation was added, and the
+# stale count is the one a reader trusts.
+NEGATIVE_LOG = Path(__file__).resolve().parents[1] / 'docs' / 'evidence' / 'ATS-307' / '05-negative-control.log'
+
 # The `node --test` summary lines the figures are read from.
 SUMMARY_RE = re.compile(r'^\u2139 (tests|pass|fail|skipped) (\d+)$', re.M)
 
@@ -180,6 +186,38 @@ def evidence_figures(directory=None):
     return names
 
 
+def mutation_figures(log_path=None):
+    """The negative control's mutation count, READ FROM ITS COMMITTED LOG.
+
+    The same defect class as the regression figures: the note stated
+    "4 mutations" while the probe ran five (the commit-propagation
+    mutation was added and the count was not). The note's count is what a
+    reader trusts, so it is derived from the log the probe wrote.
+
+    The probe's numbered group headers (`--- 1. ... ---`) name each group.
+    Group 0 is the POSITIVE control -- the intact graph -- so it is not a
+    mutation; the mutations are the groups after it.
+
+    Returns the number of mutations. A log that is missing, or that carries
+    no group header at all, is a hard error: the updater REFUSES to write
+    a count it cannot vouch for.
+    """
+    path = Path(log_path) if log_path is not None else NEGATIVE_LOG
+    if not path.exists():
+        raise SystemExit(
+            'the negative control log %s does not exist -- the note\'s mutation '
+            'count is derived from it, so the updater refuses to write' % path)
+    text = path.read_text(encoding='utf-8')
+    groups = re.findall(r'^--- \d+\. ', text, re.M)
+    if not groups:
+        raise SystemExit(
+            'the negative control log %s carries no group header -- the note\'s '
+            'mutation count is derived from it, so the updater refuses to write'
+            % path)
+    # Group 0 is the positive control; the rest are the mutations.
+    return len(groups) - 1
+
+
 def graph_figures(log_path=None):
     """The graph's shape, READ FROM THE COMMITTED PROBE LOG.
 
@@ -236,7 +274,7 @@ def graph_figures(log_path=None):
     return out
 
 
-def note_text(figures, graph=None, suites=None, evidence=None):
+def note_text(figures, graph=None, suites=None, evidence=None, mutations=None):
     """The note, with the measured figures taken from the evidence logs.
 
     The figures are FORMATTED into the sentence, so the number in the
@@ -249,6 +287,8 @@ def note_text(figures, graph=None, suites=None, evidence=None):
         suites = suite_figures()
     if evidence is None:
         evidence = evidence_figures()
+    if mutations is None:
+        mutations = mutation_figures()
     return NOTE_TEMPLATE.format(
         tests=figures['tests'],
         passed=figures['pass'],
@@ -276,6 +316,7 @@ def note_text(figures, graph=None, suites=None, evidence=None):
         nodes_total=graph['nodes_with_commit_total'],
         edges_with_commit=graph['edges_with_commit'],
         edges_total=graph['edges_with_commit_total'],
+        mutations=mutations,
     )
 
 # The note. It is a TEMPLATE: the four regression figures are placeholders,
@@ -334,8 +375,8 @@ NOTE_TEMPLATE = (
     '{skipped} skipped（{tests} tests、入庫ログ docs/evidence/ATS-307/06-node-test-full.log から派生）、'
     '証拠は docs/evidence/ATS-307/（{evidence_list} の {evidence_count} 件、'
     'ディレクトリから派生なので、追加されたログが一覧から漏れない）；'
-    '負向対照（tools/ats307-probes/probe-negative-control.mjs）は 4 種の改変'
-    '（dangling test id / dangling anchor / 偽 PASS / 循環）で検査が実際に赤くなることを確認している'
+    '負向対照（tools/ats307-probes/probe-negative-control.mjs）は {mutations} 種の改変'
+    '（dangling test id / dangling anchor / 偽 PASS / 循環 / commit の伝播）で検査が実際に赤くなることを確認している'
     '（検査が赤にならない検査は何も証明しない）；'
     '既知の境界：UI は無い（React Flow の血缘图は ATS-310 の領域、本票はデータ層に限定、'
     'apps/studio の既存 trace タブは未変更）；増分関係校验と変更影響評価 API は無い（ATS-309 の領域、'
@@ -514,6 +555,14 @@ def verify(xlsx_path=None, figures=None, suites=None, evidence=None):
         assert needle in note, \
             'the ATS-307 note does not carry the commit coverage %r -- the probe log says %r' \
             % (needle, graph)
+    # The MUTATION COUNT: the note must carry the number of mutations the
+    # negative control actually performed. A typed count drifted when the
+    # commit-propagation mutation was added, so it is derived and checked.
+    mutations = mutation_figures()
+    needle = '%d 種の改変' % mutations
+    assert needle in note, \
+        'the ATS-307 note does not carry the mutation count %r -- the negative control log says %r' \
+        % (needle, mutations)
     print(f'verify: ATS-307 row {rid} 状态={status} 完成率={rate} 剩余人日={remain} marker×{note.count(MARKER)}')
     print('verify: the note carries the figures the evidence log holds: '
           '%d tests / %d pass / %d fail / %d skipped'
@@ -521,6 +570,7 @@ def verify(xlsx_path=None, figures=None, suites=None, evidence=None):
     print('verify: the note carries the suite counts the suite logs hold: '
           'UT %d / IT %d, and names all %d committed evidence logs'
           % (suites['ut']['tests'], suites['it']['tests'], len(evidence)))
+    print('verify: the note carries the negative control\'s mutation count: %d' % mutations)
 
 
 def check_parses(xlsx_path=None):
