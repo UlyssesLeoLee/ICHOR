@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadState,saveState,validateProjectPath,gitInfo,discoverStatic,discoverTests,discoverTestsAsync,readSource,writeSource,safeRunArgs,runDir,filesInRun,artifactPath,parseReport,now,safeId,compactLog,attemptsForRun,acquireBridgeLock,releaseBridgeLock,lockPath,verifyBridgeLock,lockWaitFromEnv,lockVerifyIntervalFromEnv,removeStateTempFiles,recoverMetadataMirror,dataDir } from './core.mjs';
 import { projectUidFor, projectUidOf, runUidFor, attemptUidFor, nextRunSeq, UID_SCHEME_VERSION } from './uid.mjs';
@@ -31,6 +31,14 @@ import {
  AI_ADAPTER_CONTRACT_VERSION, AI_ERROR_CODES, AI_PROTOCOLS, AI_STATUS_FOR_CODE,
  aiError, createModelService, describeAiAdapter, explainAiError, validateProtocolConfig,
 } from './ai/index.mjs';
+// ATS-410: the TRIAGE core (失败归因内核). The core is DETERMINISTIC: it
+// classifies a failure into script / product / environment / undetermined and
+// cites a checkable source for every inference. The model enhancement is
+// OPTIONAL and additive -- it never decides the category. See
+// `docs/34-TRIAGE-DIAGNOSIS.md`.
+import {
+ TRIAGE_CONTRACT_VERSION, createTriageEngine, describeTriageContract,
+} from './ai/triage.mjs';
 // ATS-106: the run preflight and the test filter check (docs/26-RUNNER-PREFLIGHT.md).
 import { preflightPlaywright } from './adapters/playwright-preflight.mjs';
 import { assertSafeTestFilter } from './adapters/playwright-cli.mjs';
@@ -393,6 +401,116 @@ const modelService=createModelService({
  */
 function aiProviders(){
  return (store.aiProviders??[]).map((entry)=>({id:entry.id,protocol:entry.protocol,config:entry.config??{}}));
+}
+
+/* --- ATS-410: the triage engine ------------------------------------------ */
+
+/**
+ * 读一次 Git 历史事实。**只读**：只跑 `git log` / `git diff`，不写任何东西。
+ *
+ * 这里用 `spawnSync` 而不是 `execSync`：前者**不经 shell**，参数直接进 argv，
+ * 因此文件名里的空格与引号不会被 shell 解释——这是仓库里既有的做法
+ * （`server/core.mjs` 的 `gitInfo()` 同样如此）。
+ *
+ * @param {string} root 项目根
+ * @param {string[]} args git 参数
+ * @returns {string} stdout（trim 后），失败时为 ''
+ */
+function gitRead(root,args){
+ if(!root||typeof root!=='string'||!path.isAbsolute(root))return '';
+ try{
+  const r=spawnSync('git',['-C',root,...args],{encoding:'utf8',timeout:4000});
+  return r.status===0?(r.stdout??'').trim():'';
+ }catch{return '';}
+}
+
+/**
+ * 判断某个文件在两个 commit 之间是否改过。
+ *
+ * `git diff --name-only from..to -- <file>` 的输出为空即「没改过」。用
+ * `--` 结束选项解析，因此以 `-` 开头的文件名也不会被当成选项。
+ */
+function gitFileChanged(root,from,to,file){
+ if(!root||!from||!to||from===to||!file)return false;
+ const out=gitRead(root,['diff','--name-only',`${from}..${to}`,'--',file]);
+ return out.length>0;
+}
+
+/**
+ * 两个 commit 之间某个文件的改动摘要（文件名与增删行数）。
+ *
+ * 只取**摘要**（`--numstat`），不取补丁正文：归因报告需要「哪些文件改了」，
+ * 不需要把补丁正文塞进报告里。
+ */
+function gitFileDiff(root,from,to,file){
+ if(!root||!from||!to||from===to||!file)return [];
+ const out=gitRead(root,['diff','--numstat',`${from}..${to}`,'--',file]);
+ const rows=[];
+ for(const line of out.split('\n')){
+  const m=/^(\d+|-)\s+(\d+|-)\s+(.*)$/.exec(line.trim());
+  if(!m)continue;
+  rows.push({file:m[3],added:m[1]==='-'?null:Number(m[1]),removed:m[2]==='-'?null:Number(m[2])});
+ }
+ return rows;
+}
+
+/**
+ * 归因引擎。
+ *
+ * 三件事由**平台侧**提供，核心自己不碰文件系统：
+ *   * `readRun` —— 从状态里读运行记录；
+ *   * `gitChanged` / `gitDiff` —— 读 Git 历史（**只读**）；
+ *   * `verifyEvidence` —— ATS-209 的证据校验结果。
+ *
+ * 模型增强**没有接线**：本机没有配置任何模型提供商，因此
+ * `modelEnhanced: true` 会报 `TRIAGE_MODEL_UNAVAILABLE` 而不是静默退化成
+ * 确定性结果。
+ */
+const triageEngine=createTriageEngine({
+ readRun:(id)=>store.runs.find(r=>r.id===id||r.uid===id)??null,
+ gitChanged:(from,to,file)=>{
+  // The repository root comes from the run that CARRIES the baseline commit.
+  // `from` is the baseline commit, so the project is looked up by that run --
+  // and when the baseline run is not in the state, no comparison is made.
+  const project=projectOfRunByCommit(from);
+  return gitFileChanged(project?.root??null,from,to,file);
+ },
+ gitDiff:(from,to,file)=>{
+  const project=projectOfRunByCommit(from);
+  return gitFileDiff(project?.root??null,from,to,file);
+ },
+ verifyEvidence:(run)=>{
+  try{return verifyEvidence(runDir(run.id));}catch{return {verified:false,reason:'the run folder is unreadable'};}
+ },
+});
+
+/**
+ * 一次运行归属的项目（按运行记录里的 projectId / projectUid 找）。
+ *
+ * 找不到时返回 null——归因因此**不**比较历史（无法确定仓库根），而不是猜一个。
+ */
+function projectOfRun(runId){
+ const run=store.runs.find(r=>r.id===runId||r.uid===runId);
+ if(!run)return null;
+ return store.projects.find(p=>p.id===run.projectId||p.uid===run.projectId||p.uid===run.projectUid)??null;
+}
+
+/**
+ * 带着某个 commit 的那次运行归属的项目。
+ *
+ * 归因比较的是两个 commit，而 commit 本身不带项目信息——项目要**从那次运行**
+ * 推导出来。这条推导有歧义（多个项目可能跑在同一个 commit 上），因此取
+ * **第一个**匹配的项目，并在这里说清楚：这个选择决定了「可疑变更」读的是
+ * 哪个仓库。找不到就**不比较**（`null`），而不是随便挑一个仓库。
+ *
+ * @param {string} commit
+ * @returns {object|null}
+ */
+function projectOfRunByCommit(commit){
+ if(typeof commit!=='string'||!commit)return null;
+ const run=store.runs.find(r=>r.gitCommit===commit);
+ if(!run)return null;
+ return store.projects.find(p=>p.id===run.projectId||p.uid===run.projectId||p.uid===run.projectUid)??null;
 }
 
 /**
@@ -2192,6 +2310,23 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   // secret, an endpoint credential or a local path.
   return respond(res,200,{version:AI_ADAPTER_CONTRACT_VERSION,...describeAiAdapter()});
  }
+ // ATS-410: the TRIAGE contract. Same shape as the other contract
+ // endpoints: the categories, the ORDER of the rules, the evidence rules and
+ // the write policy. No secret, no endpoint, no local path.
+ if(p==='/api/ai/triage/contract'&&req.method==='GET'){
+  return respond(res,200,describeTriageContract());
+ }
+ // ATS-410: the triage itself. It is a READ: it writes no file, changes no
+ // assertion, updates no expected result and creates no commit.
+ if(p==='/api/ai/triage'&&req.method==='POST'){
+  const b=await body(req);
+  const report=await triageEngine.triage({
+   runId:b.runId,
+   baselineRunId:b.baselineRunId,
+   modelEnhanced:b.modelEnhanced===true,
+  });
+  return respond(res,200,report);
+ }
  if(p==='/api/ai/providers'&&req.method==='GET'){
   // The CONFIGURED providers, in fallback order. A provider configuration
   // carries a credential REFERENCE, never a secret.
@@ -2322,6 +2457,16 @@ if(p==='/api/plugins/validate'&&req.method==='POST'){
   const status=AI_STATUS_FOR_CODE[code]??502;
   const details=e&&e.details&&typeof e.details==='object'?{details:e.details}:{};
   return respond(res,status,{error:code||message,explanation:explainAiError(code),...details});
+ }
+ // ATS-410: the triage core. `TRIAGE_*` codes are client errors, except the
+ // two that name a MISSING thing (404) and the model one (503 -- no provider
+ // is configured). The scope of this mapping is TRIAGE_* ONLY: every other
+ // error keeps its pre-ATS-410 behaviour byte for byte.
+ const isTriageError=/^TRIAGE_/.test(code);
+ if(isTriageError){
+  const status=/NOT_FOUND/.test(code)?404:/MODEL_UNAVAILABLE/.test(code)?503:400;
+  const details=e&&e.details&&typeof e.details==='object'?{details:e.details}:{};
+  return respond(res,status,{error:code||message,...details});
  }
  const status=/NOT_FOUND/.test(message)?404:/CONFLICT|ALREADY/.test(message)?409:/OUTSIDE|INVALID|REQUIRED|STALE|TOO_LARGE|NOT_INSTALLED/.test(message)?400:500;
  return err(res,status,message);}
