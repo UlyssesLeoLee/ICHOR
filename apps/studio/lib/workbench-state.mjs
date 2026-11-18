@@ -592,6 +592,7 @@ export const FOCUS_ORDER = Object.freeze([
   'add-project',
   'search',
   'sidebar',
+  'select-bar',
   'panel',
   'content',
 ]);
@@ -720,6 +721,8 @@ export function observedFocusOrderIsConsistent(observed) {
  *   project-select  the <select> in the project bar
  *   add-project     the 「添加项目」 <button>
  *   search          the <div role="search"> around the search input
+ *   select-bar      the selection bar's <div> (a plain region, not a
+ *                   landmark)
  *   panel           the catalogue's <div> (a plain region, not a
  *                   landmark)
  *   content         the <main role="main">
@@ -733,6 +736,7 @@ export const LANDMARK_ROLES = Object.freeze({
   refresh: 'none',
   search: 'search',
   sidebar: 'none',
+  'select-bar': 'none',
   panel: 'none',
   content: 'main',
 });
