@@ -109,16 +109,48 @@ src-tauri/gen/
 
 # The Multica runtime's per-run metadata dumps. They are written into the
 # working directory by the orchestration harness (agent transcripts, issue
-# dumps, reviewer instruction files) and are NOT product source. Two of them
-# (m3b.json / m3live*.json) carry a port literal, which the ATS-101 port
-# audit would otherwise report as runtime hardcoding -- so they must never
-# be committed.
-agents*.json
-agents*.err
-hr*.json
-hr*.err
-m3*.json
-m3*.err
+# dumps, reviewer instruction files) and are NOT product source. Some of
+# them carry a port literal, which the ATS-101 port audit would otherwise
+# report as runtime hardcoding -- so they must never be committed.
+#
+# The patterns are the EXACT file names the harness writes, not a prefix
+# wildcard. A prefix wildcard (`c_*.json`) also swallows any legitimate
+# file that happens to start with the same letters, and nothing in the
+# repository needs that: `git ls-files` matches none of them. The numbered
+# variants (`agents2`, `hr2` ... `hr9`, `m3live2`) are the harness's own
+# sequence, so the digits are spelled out rather than wildcarded.
+agents2.json
+agents2.err
+agents3.json
+agents3.err
+hr.json
+hr.err
+hr2.json
+hr2.err
+hr3.json
+hr3.err
+hr4.json
+hr4.err
+hr5.json
+hr5.err
+hr6.json
+hr6.err
+hr7.json
+hr7.err
+hr8.json
+hr8.err
+hr9.json
+hr9.err
+m3b.json
+m3live.json
+m3live.err
+m3live2.json
+m3live2.err
+m3-conclusion.json
 reviewer_instructions.md
-c_*.json
-cc_*.json
+c_01a19f95-8b8a-76a1-af87-6fdacea0125e.json
+c_01a19f96-6e68-7898-b5ec-5f05eb21a195.json
+c_01a19f96-f7cf-7c52-a093-33aec3a0b94c.json
+cc_01a19f95-8b8a-76a1-af87-6fdacea0125e.json
+cc_01a19f96-6e68-7898-b5ec-5f05eb21a195.json
+cc_01a19f96-f7cf-7c52-a093-33aec3a0b94c.json

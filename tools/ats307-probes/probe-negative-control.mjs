@@ -202,6 +202,59 @@ console.log(line());
 }
 console.log();
 
+/* ------------------------------------------------------------------ */
+/* 5. the commit propagation                                            */
+/* ------------------------------------------------------------------ */
+
+console.log(line());
+console.log('--- 5. the commit reaches the node AND the edge ---');
+console.log(line());
+{
+  // AC-3: the nodes and the edges carry a git commit. The POSITIVE case
+  // is a runtime run that knows its own commit: the commit must land on
+  // the run node AND on the edges that join it.
+  //
+  // The NEGATIVE case is a tree without history: a fixture has no commit,
+  // and the graph must NOT invent one. A check that cannot fail proves
+  // nothing, so both directions are exercised here.
+  const root = makeRepo();
+  writeCatalogue(root,
+    [{ requirement: 'FR-001', design: 'B01', tests: 'UT-A-001', status: 'IMPLEMENTED' }],
+    [caseRow('UT-A-001', 'FR-001')]);
+  const runs = [{
+    id: 'run_1_000000000000000000000000',
+    status: 'passed',
+    gitCommit: 'deadbeef1234567890abcdef1234567890abcdef12',
+    attempts: [{ uid: 'att_1_000000000000000000000000', testUid: 'UT-A-001', status: 'passed' }],
+    artifacts: [{ file: 'report.json', size: 12, sha256: 'a'.repeat(64) }],
+  }];
+  const graph = buildGraph({ root, runs });
+  const run = graph.nodes.find((n) => n.kind === 'run' && n.key === 'run_1_000000000000000000000000');
+  check('the run node carries the commit the run record states',
+    run?.gitCommit === 'deadbeef1234567890abcdef1234567890abcdef12');
+  const attempted = graph.edges.find((e) => e.type === 'attempted' && e.to === run?.uid);
+  check('the ATTEMPTED edge carries the commit',
+    attempted?.gitCommit === 'deadbeef1234567890abcdef1234567890abcdef12');
+  const archived = graph.edges.find((e) => e.type === 'archived' && e.from === run?.uid);
+  check('the ARCHIVED edge carries the commit',
+    archived?.gitCommit === 'deadbeef1234567890abcdef1234567890abcdef12');
+
+  // The NEGATIVE control: a tree without a git history invents nothing.
+  const root2 = makeRepo();
+  writeCatalogue(root2,
+    [{ requirement: 'FR-001', design: 'B01', tests: 'UT-A-001', status: 'IMPLEMENTED' }],
+    [caseRow('UT-A-001', 'FR-001')]);
+  const graph2 = buildGraph({ root: root2 });
+  check('a tree WITHOUT history claims no commit on any node',
+    graph2.nodes.every((n) => n.gitCommit == null));
+  check('a tree WITHOUT history claims no commit on any edge',
+    graph2.edges.every((e) => e.gitCommit == null));
+
+  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(root2, { recursive: true, force: true });
+}
+console.log();
+
 console.log(line('='));
 if (failures === 0) {
   console.log('NEGATIVE CONTROL: every check failed when it should -- 0 failures');

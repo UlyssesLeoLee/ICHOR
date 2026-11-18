@@ -67,6 +67,38 @@ for (const d of graph.checks.danglingNodes) console.log(`  NOT PRESENT: ${d.kind
 console.log();
 
 /* ------------------------------------------------------------------ */
+/* 2b. the commit every node and edge carries                         */
+/* ------------------------------------------------------------------ */
+
+// AC-3: the nodes and the edges have a git commit. The completion
+// definition names it, so the coverage is a COUNT -- measured here, on
+// the tree this probe runs against, and not asserted in prose.
+//
+// A node's commit is the commit of the file it comes from; an edge's
+// commit is the commit of the facts it joins. A tree that is not a git
+// checkout has neither, and the counts say so instead of hiding it.
+
+const nodesWithCommit = graph.nodes.filter((n) => n.gitCommit != null);
+const edgesWithCommit = graph.edges.filter((e) => e.gitCommit != null);
+const nodesByKindWithCommit = {};
+for (const n of nodesWithCommit) {
+  nodesByKindWithCommit[n.kind] = (nodesByKindWithCommit[n.kind] ?? 0) + 1;
+}
+const edgesByTypeWithCommit = {};
+for (const e of edgesWithCommit) {
+  edgesByTypeWithCommit[e.type] = (edgesByTypeWithCommit[e.type] ?? 0) + 1;
+}
+
+console.log(line());
+console.log('--- 2b. the commit the nodes and the edges carry ---');
+console.log(line());
+console.log(`nodes with a commit : ${nodesWithCommit.length} of ${graph.nodes.length}`);
+console.log(`edges with a commit : ${edgesWithCommit.length} of ${graph.edges.length}`);
+console.log(`nodes by kind       : ${JSON.stringify(nodesByKindWithCommit)}`);
+console.log(`edges by type       : ${JSON.stringify(edgesByTypeWithCommit)}`);
+console.log();
+
+/* ------------------------------------------------------------------ */
 /* 3. the coverage                                                     */
 /* ------------------------------------------------------------------ */
 

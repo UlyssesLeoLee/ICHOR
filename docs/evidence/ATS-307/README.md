@@ -7,17 +7,31 @@
 ## 复现
 
 ```bash
-# 全流程（7 步）
+# 全流程（10 歩）
 bash tools/ats307-probes/collect-evidence.sh
 
 # 单步
-node --test tests/ats307-traceability.test.mjs          # UT 33 例
+node --test tests/ats307-traceability.test.mjs          # UT 40 例
 node --test tests/ats307-traceability-it.test.mjs       # IT 9 例
 node tools/ats307-probes/probe-traceability.mjs         # グラフの実測
 node tools/ats307-probes/probe-api.mjs                  # API 面の実測
 node tools/ats307-probes/probe-negative-control.mjs     # 負向対照
+node tools/ats307-probes/check-readme-consistency.mjs   # README とログの照合
 node --test --test-concurrency=2 tests/*.test.mjs       # 全量回帰
 ```
+
+**歩数・ログ表・用例数はこの README の手で書いた値ではない。**
+第 9 歩（`09-readme-consistency.log`）が、本 README の歩数・ログ表・
+UT/IT の用例数を**コミット済みのログと照合**する。数がずれたら FAIL する
+——つまり、ログを追加して README を更新し忘れると**門禁が赤くなる**。
+
+**第 10 歩は、全量回帰の「1 件だけ失敗」の帰属である。**
+全量回帰は 1900 件超を 1 プロセスツリーで走らせるため、宿主が混雑していると
+ソケットを保持する用例が失敗する（`ECONNRESET`）。同じツリーが 1 回 0 失敗
+次の回 1 失敗になる。`10-suite-flaky-attribution.log` は、そのファイルだけを
+再実行し、**このツリーと固定された base ツリーの両方で緑**であることを示す
+（`git diff <base> HEAD -- <file>` が空であることも示す）。⇒ この 1 件の失敗は
+**コードの回帰ではなく宿主資源由来**である。
 
 プローブは**読み取り専用**である（ツリーに何も書かない）。だから同じツリーで
 二回走らせば同じ結果が出る。
@@ -26,21 +40,23 @@ node --test --test-concurrency=2 tests/*.test.mjs       # 全量回帰
 
 | ファイル | 内容 | 結果 |
 |---|---|---|
-| `01-node-test-traceability-ut.log` | UT 33 例 | **33 pass / 0 fail / 0 skipped** |
+| `01-node-test-traceability-ut.log` | UT 40 例 | **40 pass / 0 fail / 0 skipped** |
 | `02-node-test-traceability-it.log` | IT 9 例（実 Bridge 上の HTTP 面） | **9 pass / 0 fail / 0 skipped** |
-| `03-probe-traceability.log` | 本ツリーのグラフの実測（形・検査・coverage・gap・両方向 walk） | 孤児辺 0 / 循環 0 / present でないノード 0 |
+| `03-probe-traceability.log` | 本ツリーのグラフの実測（形・検査・coverage・gap・両方向 walk・commit の覆盖率） | 孤児辺 0 / 循環 0 / present でないノード 0 |
 | `04-api-traceability.log` | `GET /api/traceability` の 6 つの問い | 全て期待どおり |
 | `05-negative-control.log` | **負向対照**：検査が実際に赤くなることの確認 | **0 failures**（4 種の改変を全て捕捉） |
 | `06-node-test-full.log` | 全量回帰（**全量**を保持。`tail` で切っていない） | **1902 tests / 1870 pass / 0 fail / 32 skipped** |
 | `07-syntax-gate.log` | 変更したソースの `node --check` | 7 ファイル全て ok |
 | `08-skipped-reasons.log` | **skip した 32 件を 1 件ずつ**（理由と所在ファイル） | 32 件を 8 つの理由に分類 |
+| `09-readme-consistency.log` | 本 README の歩数・ログ表・用例数とコミット済みログの照合 | **RESULT: OK** |
+| `10-suite-flaky-attribution.log` | 全量回帰で出た失敗が**ホスト資源由来**であることの帰属（本票は該当ファイルに触っていない） | **RESULT: OK** |
 
 ## 実測値（本ツリー）
 
 | 項目 | 値 |
 |---|---|
-| ノード | 1358 |
-| 辺 | 26833 |
+| ノード | 1360 |
+| 辺 | 26863 |
 | チェーン（要件） | 49 |
 | 孤児辺 | 0 |
 | 循環 | 0 |
@@ -51,10 +67,22 @@ node --test --test-concurrency=2 tests/*.test.mjs       # 全量回帰
 | gap | no-script 140 / no-run 183 / no-declaration 23 / no-testcase 10 |
 | `danglingTest` / `danglingAnchor` / `orphanEdge` | 0 / 0 / 0 |
 | `falsePass` | **88**（既存の drift。§4 参照） |
+| **commit を持つノード** | **1360 / 1360** |
+| **commit を持つ辺** | **26863 / 26863** |
+
+### commit の覆盖率（AC-3）
+
+ノードの commit は**その由来ファイルが最後に変更された commit**、辺の commit
+は**辺が結ぶ事実の commit**（runtime run が自分の commit を持つ場合はそちらが
+優先）。⇒ ノードも辺も commit を持つ。
+
+git の履歴を持たないツリー（`git archive` の出力や一時ディレクトリ）では
+commit は**全て null** になる。「commit を持たない”是事実として記録され、
+捏造されない（UT-ATS307-039）。
 
 ## 1. UT が何を確認しているか
 
-`01-node-test-traceability-ut.log` の 33 例は 5 群に分かれる。
+`01-node-test-traceability-ut.log` の 40 例は 8 群に分かれる。
 
 1. **UID**（001〜006）— 同じ入力は同じ UID、kind が違えば UID も違う、
    辺の UID は端点**と**辺種に依存する、**ノードの data は kind と uid を
@@ -77,6 +105,23 @@ node --test --test-concurrency=2 tests/*.test.mjs       # 全量回帰
    （`ST-017a` → `ST-017`、しかし `UT-MOB-011b` は truncation しない）、
    トランスクリプトの読取、ファイルが無いスクリプトはスクリプトではない、
    壊れたファイルは「データ無し」であって crash ではない。
+6. **gap と実ツリー**（028〜033）— coverage レポートの gap の内訳、
+   gap が hop を名指すこと、**実ツリー**に孤児辺も循環も無いこと、
+   実 RTM が名指す ID が全て実カタログに存在すること、
+   構築が**決定的**であること（同じツリーは同じグラフを返す）、
+   **実ツリー**が両方向に walk できること。
+7. **coverage の結果**（034〜036）— 落ちた実行は `verified` ではなく `failed`、
+   落ちた実行と通った実行の両方を持つケースは `verified`、
+   `failed` の順位は `verified` の**下**かつ `executed` の**上**。
+
+### commit（AC-3）
+
+8. **commit**（037〜040）— commit を持つ runtime run は**ノード**と**辺**の
+   両方にその commit を載せる（037）。**実ツリー**のノード 1360/1360 と
+   辺 26863/26863 が commit を持つ（038）。git の履歴を持たないツリーでは
+   commit は**全て null** で、捏造しない（039）。ノードの commit は
+   **そのノードの由来ファイル**に対する `git log -1` が返す commit と
+   **一致**する——派生であって手書きではない（040）。
 
 ## 2. 負向対照が守ること
 
@@ -91,6 +136,9 @@ node --test --test-concurrency=2 tests/*.test.mjs       # 全量回帰
    gap であり偽の主張ではないことも同時に確認する）
 4. データに有向閉路を作る → 循環検出が赤くなる（閉路を持たないグラフでは
    0 件になることも確認する）
+5. **commit の伝播**（§5 参照）— commit を持つ runtime run がノードと辺の
+   両方に載ることを**確認**し、git の履歴を持たないツリーが commit を
+   **捏造しない**ことも確認する（両方向とも、正統が赤くなる）
 
 ## 3. API 面
 

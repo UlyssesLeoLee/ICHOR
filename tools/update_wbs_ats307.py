@@ -83,21 +83,31 @@ EVIDENCE_LOG = Path(__file__).resolve().parents[1] / 'docs' / 'evidence' / 'ATS-
 # The probe log, the second source of measured figures (the graph's shape).
 PROBE_LOG = Path(__file__).resolve().parents[1] / 'docs' / 'evidence' / 'ATS-307' / '03-probe-traceability.log'
 
+# The SUITE logs: the unit suite and the integration suite. Their case
+# COUNTS are derived from here for the same reason the regression figures
+# are: a typed count goes stale the moment a case is added, and then the
+# note names a count that the committed log contradicts.
+UT_LOG = Path(__file__).resolve().parents[1] / 'docs' / 'evidence' / 'ATS-307' / '01-node-test-traceability-ut.log'
+IT_LOG = Path(__file__).resolve().parents[1] / 'docs' / 'evidence' / 'ATS-307' / '02-node-test-traceability-it.log'
+
+# The evidence directory itself. The note lists the logs it is backed by,
+# and that list is READ FROM THE DIRECTORY rather than typed: a typed list
+# is what let the note claim seven logs while the directory held eight.
+EVIDENCE_DIR = Path(__file__).resolve().parents[1] / 'docs' / 'evidence' / 'ATS-307'
+
 # The `node --test` summary lines the figures are read from.
 SUMMARY_RE = re.compile(r'^\u2139 (tests|pass|fail|skipped) (\d+)$', re.M)
 
+# A test id as a transcript line names it: `✔ UT-ATS307-001: ...`.
+CASE_ID_RE = re.compile(r'^[✔✓✖×✗]\s+((?:UT|IT|ST)-[A-Z0-9]+(?:-[A-Za-z0-9]+)+)\s*:', re.M)
 
-def regression_figures(log_path=None):
-    """The full regression's figures, READ FROM THE COMMITTED EVIDENCE LOG.
 
-    Returns a dict with `tests`, `pass`, `fail` and `skipped`.
+def _summary(path):
+    """The four `node --test` summary lines of a committed log.
 
     A log that is missing, or that does not carry all four lines, is a hard
-    error: the updater REFUSES to write a note whose figures it cannot
-    vouch for. Writing a note with no numbers in it would be worse than
-    refusing to write.
+    error: the updater REFUSES to write figures it cannot vouch for.
     """
-    path = Path(log_path) if log_path is not None else EVIDENCE_LOG
     if not path.exists():
         raise SystemExit(
             'the evidence log %s does not exist -- the note\'s figures are derived '
@@ -110,6 +120,64 @@ def regression_figures(log_path=None):
             'the evidence log %s does not carry the %s summary line(s) -- the note\'s '
             'figures are derived from it, so the updater refuses to write' % (path, ', '.join(missing)))
     return found
+
+
+def regression_figures(log_path=None):
+    """The full regression's figures, READ FROM THE COMMITTED EVIDENCE LOG.
+
+    Returns a dict with `tests`, `pass`, `fail` and `skipped`.
+
+    A log that is missing, or that does not carry all four lines, is a hard
+    error: the updater REFUSES to write a note whose figures it cannot
+    vouch for. Writing a note with no numbers in it would be worse than
+    refusing to write.
+    """
+    return _summary(Path(log_path) if log_path is not None else EVIDENCE_LOG)
+
+
+def suite_figures(ut_log=None, it_log=None):
+    """The suites' case counts, READ FROM THE COMMITTED SUITE LOGS.
+
+    The same defect class as the regression figures, one level up: the
+    suite grew (three cases were added for the `failed` state), the typed
+    count stayed, and the note contradicted the log that sits in the same
+    directory.
+
+    Returns a dict with the `ut` and `it` figures, each carrying `tests`,
+    `pass`, `fail`, `skipped` and the LIST of the case ids the log names.
+    """
+    out = {}
+    for key, default in (('ut', ut_log or UT_LOG), ('it', it_log or IT_LOG)):
+        path = Path(default)
+        figures = _summary(path)
+        text = path.read_text(encoding='utf-8')
+        ids = sorted(set(CASE_ID_RE.findall(text)))
+        figures['ids'] = ids
+        out[key] = figures
+    return out
+
+
+def evidence_figures(directory=None):
+    """The committed evidence logs, READ FROM THE DIRECTORY.
+
+    The note tells the reader which logs back it up. That list used to be
+    typed, and it went stale the moment a log was added -- the note named
+    seven logs while the directory held eight, and the skip reasons were
+    in the one the note did not name.
+
+    Returns the sorted list of the directory's `NN-*.log` file names.
+    """
+    path = Path(directory) if directory is not None else EVIDENCE_DIR
+    if not path.is_dir():
+        raise SystemExit(
+            'the evidence directory %s does not exist -- the note\'s evidence list is '
+            'derived from it, so the updater refuses to write' % path)
+    names = sorted(p.name for p in path.glob('*.log'))
+    if not names:
+        raise SystemExit(
+            'the evidence directory %s holds no log -- the note\'s evidence list is '
+            'derived from it, so the updater refuses to write' % path)
+    return names
 
 
 def graph_figures(log_path=None):
@@ -152,10 +220,23 @@ def graph_figures(log_path=None):
                 'graph figures are derived from it, so the updater refuses to write'
                 % (path, state))
         out[state] = int(m.group(1))
+    # The commit coverage (AC-3): how many nodes and how many edges carry a
+    # git commit. The probe MEASURES it on the tree it runs against, so the
+    # note carries the measurement and not a claim about it.
+    for label, key in (('node', 'nodes_with_commit'), ('edge', 'edges_with_commit')):
+        m = re.search(r'^%s with a commit\s+:\s+(\d+) of (\d+)$'
+                      % ('nodes' if key == 'nodes_with_commit' else 'edges'), text, re.M)
+        if not m:
+            raise SystemExit(
+                'the probe log %s does not carry the %s commit coverage -- the note\'s '
+                'commit figures are derived from it, so the updater refuses to write'
+                % (path, label))
+        out[key] = int(m.group(1))
+        out[key + '_total'] = int(m.group(2))
     return out
 
 
-def note_text(figures, graph=None):
+def note_text(figures, graph=None, suites=None, evidence=None):
     """The note, with the measured figures taken from the evidence logs.
 
     The figures are FORMATTED into the sentence, so the number in the
@@ -164,6 +245,10 @@ def note_text(figures, graph=None):
     """
     if graph is None:
         graph = graph_figures()
+    if suites is None:
+        suites = suite_figures()
+    if evidence is None:
+        evidence = evidence_figures()
     return NOTE_TEMPLATE.format(
         tests=figures['tests'],
         passed=figures['pass'],
@@ -177,6 +262,20 @@ def note_text(figures, graph=None):
         verified=graph['verified'],
         implemented=graph['implemented'],
         designed=graph['designed'],
+        ut_tests=suites['ut']['tests'],
+        ut_pass=suites['ut']['pass'],
+        ut_fail=suites['ut']['fail'],
+        ut_skipped=suites['ut']['skipped'],
+        it_tests=suites['it']['tests'],
+        it_pass=suites['it']['pass'],
+        it_fail=suites['it']['fail'],
+        it_skipped=suites['it']['skipped'],
+        evidence_list='、'.join(evidence),
+        evidence_count=len(evidence),
+        nodes_with_commit=graph['nodes_with_commit'],
+        nodes_total=graph['nodes_with_commit_total'],
+        edges_with_commit=graph['edges_with_commit'],
+        edges_total=graph['edges_with_commit_total'],
     )
 
 # The note. It is a TEMPLATE: the four regression figures are placeholders,
@@ -216,18 +315,25 @@ NOTE_TEMPLATE = (
     '本ツリーのグラフ実測：ノード {nodes}、辺 {edges}、チェーン {chains}、'
     '完全なチェーン {complete}、欠けたチェーン {broken}、'
     'coverage は verified {verified} / implemented {implemented} / designed {designed}；'
+    'ノードと辺の Git commit：ノード {nodes_with_commit}/{nodes_total}、'
+    '辺 {edges_with_commit}/{edges_total} が commit を保持する'
+    '（ノードの commit はその由来ファイルの最終変更 commit、辺の commit は'
+    '結ぶ事実の commit。git の履歴を持たないツリーでは全て null になる）；'
     '本票が報告する既存の drift：カタログが PASS と宣言するが実装スクリプトがその ID を宣言しないケースが 88 件'
     '（UT-DSC-* 30、IT-DSC-* 11、IT-DSC-API-* 7、UT-ATS213-* 17、IT-ATS213-* 11、UT-QUAL-* 9、'
     'IT-DSC-SETUP / IT-DSC-CLEANUP / ST-045 各 1）。実装は別 ID 体系（ATS-202-UT-001 / ATS-216-UT-001 等）で'
     '書かれており、カタログとスクリプトの ID 統一を要する別件であり、本票はそれを隠さない；'
-    'テストは UT 33 例（tests/ats307-traceability.test.mjs、'
+    'テストは UT {ut_tests} 例（tests/ats307-traceability.test.mjs、'
     '安定 UID・両方向 walk・gap の可視化・偽 PASS の検出・ scanners の 3 種宣言スタイル・'
-    '_steps suffix の折り返し規則・-real tree には孤児辺も循環も無いこと）を含む）'
-    '+ IT 9 例（tests/ats307-traceability-it.test.mjs、実 Bridge 上の HTTP 面、token 必須・'
-    'requirement パラメータ・evidence パラメータ・未知 ID の報告）；'
+    '_steps suffix の折り返し規則・-real tree には孤児辺も循環も無いこと・'
+    'coverage gap の統計と gap の hop 命名・RTM の全 ID 存在・構築の決定性・'
+    '失敗した実行は verified でないことを含む、{ut_pass} pass / {ut_fail} fail / {ut_skipped} skipped）'
+    '+ IT {it_tests} 例（tests/ats307-traceability-it.test.mjs、実 Bridge 上の HTTP 面、token 必須・'
+    'requirement パラメータ・evidence パラメータ・未知 ID の報告、{it_pass} pass / {it_fail} fail / {it_skipped} skipped）；'
     '全量回帰（node --test --test-concurrency=2 tests/*.test.mjs）は {passed} pass / {failed} fail / '
     '{skipped} skipped（{tests} tests、入庫ログ docs/evidence/ATS-307/06-node-test-full.log から派生）、'
-    '証拠は docs/evidence/ATS-307/（01 UT、02 IT、03 プローブ、04 API 面、05 負向対照、06 全量回帰、07 構文ゲート）；'
+    '証拠は docs/evidence/ATS-307/（{evidence_list} の {evidence_count} 件、'
+    'ディレクトリから派生なので、追加されたログが一覧から漏れない）；'
     '負向対照（tools/ats307-probes/probe-negative-control.mjs）は 4 種の改変'
     '（dangling test id / dangling anchor / 偽 PASS / 循環）で検査が実際に赤くなることを確認している'
     '（検査が赤にならない検査は何も証明しない）；'
@@ -342,16 +448,22 @@ def row_signature(xlsx_path=None):
     return rm.group(0)
 
 
-def verify(xlsx_path=None, figures=None):
+def verify(xlsx_path=None, figures=None, suites=None, evidence=None):
     """Assert the workbook still parses and row ATS-307 is exactly as intended.
 
     The note's regression figures are checked against the evidence log they
     are derived from: a number that drifts can therefore no longer reach
-    the workbook.
+    the workbook. The SUITE counts and the evidence LIST are checked the
+    same way -- against the suite logs and the evidence directory they are
+    derived from.
     """
     xlsx = Path(xlsx_path) if xlsx_path is not None else XLSX
     if figures is None:
         figures = regression_figures()
+    if suites is None:
+        suites = suite_figures()
+    if evidence is None:
+        evidence = evidence_figures()
     zin = zipfile.ZipFile(xlsx)
     names = zin.namelist()
     assert 'xl/worksheets/sheet2.xml' in names, 'sheet2 missing'
@@ -383,10 +495,32 @@ def verify(xlsx_path=None, figures=None):
                    'verified %d' % graph['verified']):
         assert needle in note, \
             'the ATS-307 note does not carry %r -- the probe log says %r' % (needle, graph)
+    # The SUITE counts: the note must name the case counts the suite logs
+    # hold. A typed count would drift the moment a case is added.
+    for suite in ('ut', 'it'):
+        needle = '%d 例' % suites[suite]['tests']
+        assert needle in note, \
+            'the ATS-307 note does not carry the %s case count %r -- the suite log says %r' \
+            % (suite, needle, suites[suite])
+    # The EVIDENCE LIST: every committed log must be named, so a log that
+    # is added cannot fall out of the note.
+    for name in evidence:
+        assert name in note, \
+            'the ATS-307 note does not name the evidence log %r -- the directory holds it' % name
+    # The COMMIT COVERAGE (AC-3): the note must carry the measurement the
+    # probe made, not a claim about it.
+    for needle in ('ノード %d/%d' % (graph['nodes_with_commit'], graph['nodes_with_commit_total']),
+                   '辺 %d/%d' % (graph['edges_with_commit'], graph['edges_with_commit_total'])):
+        assert needle in note, \
+            'the ATS-307 note does not carry the commit coverage %r -- the probe log says %r' \
+            % (needle, graph)
     print(f'verify: ATS-307 row {rid} 状态={status} 完成率={rate} 剩余人日={remain} marker×{note.count(MARKER)}')
     print('verify: the note carries the figures the evidence log holds: '
           '%d tests / %d pass / %d fail / %d skipped'
           % (figures['tests'], figures['pass'], figures['fail'], figures['skipped']))
+    print('verify: the note carries the suite counts the suite logs hold: '
+          'UT %d / IT %d, and names all %d committed evidence logs'
+          % (suites['ut']['tests'], suites['it']['tests'], len(evidence)))
 
 
 def check_parses(xlsx_path=None):
@@ -441,16 +575,21 @@ def main(argv=None):
              'repository workbook.')
     args = ap.parse_args(argv)
 
-    # The figures come from the committed evidence log. A log that is missing
+    # The figures come from the committed evidence logs. A log that is missing
     # or incomplete makes the updater REFUSE to write -- a note whose numbers
     # cannot be vouched for is worse than no note.
     figures = regression_figures()
     print('evidence: %d tests / %d pass / %d fail / %d skipped (from %s)'
           % (figures['tests'], figures['pass'], figures['fail'], figures['skipped'], EVIDENCE_LOG))
-    note = note_text(figures)
+    suites = suite_figures()
+    print('suites: UT %d cases / IT %d cases (from the committed suite logs)'
+          % (suites['ut']['tests'], suites['it']['tests']))
+    evidence = evidence_figures()
+    print('evidence list: %d committed logs (from the directory itself)' % len(evidence))
+    note = note_text(figures, suites=suites, evidence=evidence)
 
     if args.verify_only:
-        verify(args.xlsx, figures)
+        verify(args.xlsx, figures, suites, evidence)
         check_parses(args.xlsx)
         return 0
 
@@ -467,7 +606,7 @@ def main(argv=None):
     second_after = row_signature(args.xlsx)
     assert second_before == second_after, 'the updater is NOT idempotent'
     print('IDEMPOTENT: a second run leaves row ATS-307 byte-identical')
-    verify(args.xlsx, figures)
+    verify(args.xlsx, figures, suites, evidence)
     check_parses(args.xlsx)
     return 0
 

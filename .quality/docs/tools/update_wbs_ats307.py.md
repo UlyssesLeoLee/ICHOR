@@ -2,7 +2,7 @@
 
 Source: `tools/update_wbs_ats307.py`
 
-Source-SHA256: `0c151dba79aa91c9b7987d66cbd12e31019ae751a698893a1f9587b349d29923`
+Source-SHA256: `3e351cb9ce7e57ccc9ae67aae16d6c9f199fb4828519e7ec379ee077184f1a3c`
 
 ## Responsibility
 
@@ -18,6 +18,10 @@ style as the other `tools/update_wbs_*.py` updaters:
   written (`wbs_common.totals`), and the shared narrative cells D6/D7 are
   recomposed from every task's fragment.
 - A row that has already been accepted (`已完成` / `已取消`) is never downgraded.
+
+Every MEASURED number the note carries is DERIVED from a committed evidence
+log. The script never types a count of its own: a re-typed constant is what
+lets the workbook claim a figure that no committed log carries.
 
 ## Dependencies
 
@@ -38,6 +42,10 @@ style as the other `tools/update_wbs_*.py` updaters:
   `verify(xlsx_path)`, `check_parses(xlsx_path)`: every one of them takes the
   workbook path, so the updater can be exercised on a COPY and the repository
   workbook is never touched by a test.
+- `regression_figures(log_path)` / `suite_figures()` / `graph_figures(log_path)`:
+  the three derivation functions. Each one either returns the figures it read
+  from a committed log, or raises `SystemExit` naming the log it could not
+  read. None of them has a fallback value.
 - Invariants: idempotent (a second run with the same status leaves the file
   byte-identical); every zip member other than sheet1/sheet2 is rewritten with
   identical bytes, in the original member order and with the original
@@ -68,6 +76,28 @@ workbook.
 
 ⇒ The same check runs in `--verify-only` mode, so a reviewer can ask "does the
 note still match the evidence?" without rewriting anything.
+
+### The suite's case counts are DERIVED too — the same defect class
+
+Deriving the REGRESSION figures while typing the SUITE's case count by hand is
+the same defect wearing a different hat. The suite grew (the `failed` state
+added three cases), the typed count stayed, and the workbook, the design
+document and the evidence README then all claimed a case count that the
+committed suite log contradicted — the log was sitting in the same directory.
+
+⇒ `suite_figures()` reads the committed suite logs
+(`docs/evidence/ATS-307/01-node-test-traceability-ut.log` and
+`.../02-node-test-traceability-it.log`) and returns the `tests` / `pass` /
+`fail` / `skipped` counts of each. A log that is missing or does not carry the
+four lines is a hard error, exactly as for the regression log.
+
+⇒ The note's suite counts are written from those figures, and `verify()`
+asserts that the note carries them. The note can therefore no longer name a
+case count that the committed suite log contradicts.
+
+⇒ `suite_figures()` also returns the LIST of the case ids the suite log names,
+so the note can name the cases it added and the verification can assert that
+the ids the note names are ids the log actually shows.
 
 ### The updater can be exercised on a copy
 

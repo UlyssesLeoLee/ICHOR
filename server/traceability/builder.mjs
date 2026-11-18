@@ -37,6 +37,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 import {
   CHAIN, COVERAGE, EDGE_TYPE, GAP, NODE_KIND, PROVENANCE,
@@ -305,6 +306,61 @@ export function readEvidenceScripts(root, cases) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Reading the git history                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The last commit that touched each file of the repository.
+ *
+ * A node's provenance is a FILE, and a file in a git repository has a
+ * history: the commit that last changed it is a fact about that file that
+ * no other source carries. The graph hangs it on the node as `gitCommit`,
+ * so a reader can ask "which commit is this claim from?" without leaving
+ * the graph.
+ *
+ * ONE `git log --name-only` pass reads the whole history, and the FIRST
+ * commit that names a file is the one that last touched it (git lists the
+ * newest first). That is a single process invocation, not one per file.
+ *
+ * A repository that is not a git checkout (a fixture directory, an export)
+ * has no history: the answer is an empty map, and every node's commit is
+ * `null`. That is a fact about the tree, not an error -- the graph is
+ * still built, and the nodes say "this tree carries no commit".
+ *
+ * @param {string} root the repository root
+ * @returns {Map<string, string>} repo-relative path -> commit sha
+ */
+export function readFileCommits(root) {
+  const commits = new Map();
+  let raw;
+  try {
+    raw = execFileSync('git', ['log', '--format=%x1e%H', '--name-only', '--no-renames'], {
+      cwd: root,
+      encoding: 'utf8',
+      maxBuffer: 128 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    // Not a git checkout (or git is unavailable): the tree carries no
+    // commit history. Every node's `gitCommit` stays null.
+    return commits;
+  }
+  let commit = null;
+  for (const line of raw.split('\n')) {
+    if (line.startsWith('\x1e')) {
+      commit = line.slice(1).trim();
+      continue;
+    }
+    const file = line.trim();
+    if (!file || !commit) continue;
+    // The newest commit wins: git lists the history newest-first, and the
+    // first commit that names a file is the one that last changed it.
+    if (!commits.has(file)) commits.set(file, commit);
+  }
+  return commits;
+}
+
+/* ------------------------------------------------------------------ */
 /* Reading the evidence                                                */
 /* ------------------------------------------------------------------ */
 
@@ -413,7 +469,7 @@ export function readRuntimeRuns(root, { dataDir = null } = {}) {
  *        `tests/test-cases.json` (read from the root when omitted)
  * @returns {object} the graph
  */
-export function buildGraph({ root, runs = null, catalogue = null, definitions = null, anchors = null, scripts = null, transcripts = null, evidenceScripts = null }) {
+export function buildGraph({ root, runs = null, catalogue = null, definitions = null, anchors = null, scripts = null, transcripts = null, evidenceScripts = null, commits = null }) {
   const cat = catalogue ?? readCatalogue(root);
   const defined = definitions ?? readDefinedRequirements(root);
   const anchorMap = anchors ?? readDesignAnchors(root);
@@ -425,9 +481,25 @@ export function buildGraph({ root, runs = null, catalogue = null, definitions = 
   const transcriptMap = transcripts ?? scanEvidenceTranscripts(root);
   const evidenceScriptMap = evidenceScripts ?? readEvidenceScripts(root, cat.cases);
   const runList = runs ?? readRuntimeRuns(root);
+  // The git history: which commit last touched which file. It gives every
+  // node the commit its own provenance file carries.
+  const commitMap = commits ?? readFileCommits(root);
 
   const nodes = new Map();
   const edges = new Map();
+
+  /**
+   * The commit a node's provenance file carries.
+   *
+   * A node names a FILE as its source, and a file that git knows about has
+   * a commit. A file git does not know (a fixture, a transcript of a tree
+   * that was never committed) has none: the answer is `null`, which says
+   * "this fact has no commit", not "this fact has no value".
+   */
+  const commitOf = (source) => {
+    if (typeof source !== 'string' || !source) return null;
+    return commitMap.get(source) ?? null;
+  };
 
   const addNode = (kind, key, data) => {
     const n = makeNode(kind, key, data);
@@ -436,14 +508,38 @@ export function buildGraph({ root, runs = null, catalogue = null, definitions = 
     const existing = nodes.get(n.uid);
     if (existing) {
       Object.assign(existing, data, { present: existing.present && data.present !== false });
+      // The commit is derived, so a merge of two declarations of the same
+      // node keeps the commit of the source file that has one. A runtime
+      // run's OWN commit (the commit it was executed at) is a stronger
+      // fact than the commit of the file that records it, so it wins.
+      existing.gitCommit = existing.gitCommit ?? commitOf(existing.source);
       return existing;
     }
+    // The node's commit is the commit of the file it comes from. A node
+    // that names no file (a runtime run, whose commit the state records)
+    // keeps the commit it was given -- including `null`, which says "this
+    // fact has no commit".
+    if (n.gitCommit == null) n.gitCommit = commitOf(n.source);
     nodes.set(n.uid, n);
     return n;
   };
 
   const addEdge = (from, to, type, provenance, data = {}) => {
-    const e = makeEdge(from, to, type, provenance, data);
+    // THE EDGE'S COMMIT. An edge is not a file, so it has no history of
+    // its own: its commit is the commit of the facts it joins. The edge
+    // from a test case to the script that implements it is committed in
+    // the script's commit; the edge from a run to the evidence it archived
+    // is committed in the run's commit.
+    //
+    // A runtime run carries its OWN commit (the commit the run was
+    // executed at), which is a stronger fact than "the commit of the file
+    // that mentions the run", so it wins over the derived value.
+    const fromCommit = from.gitCommit ?? commitOf(from.source);
+    const toCommit = to.gitCommit ?? commitOf(to.source);
+    const e = makeEdge(from, to, type, provenance, {
+      gitCommit: fromCommit ?? toCommit ?? null,
+      ...data,
+    });
     const existing = edges.get(e.uid);
     if (existing) return existing;
     edges.set(e.uid, e);
@@ -757,7 +853,11 @@ export function buildGraph({ root, runs = null, catalogue = null, definitions = 
           subKind: 'transcript',
           status: 'observed',
           file: hit.file,
-          gitCommit: null,
+          // The transcript is a FILE in the repository, so it has a commit:
+          // the commit that last changed it. That commit is the commit the
+          // execution was recorded at -- the closest thing a transcript
+          // has to the runtime run's own `gitCommit`.
+          gitCommit: commitOf(hit.file),
           runner: 'node --test',
           source: hit.file,
         });

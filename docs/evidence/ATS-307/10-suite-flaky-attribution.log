@@ -1,0 +1,124 @@
+==============================================================================
+ATS-307 evidence log -- the attribution of a full-suite failure that is not this task's
+==============================================================================
+commit        : c2c5f8627d3b5cecc9538a5828dccff2d2b95571
+timestamp     : 2026-11-18T01:07:20Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-cdff9ecc594b/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node --test tests/ats214-batch-context.test.mjs
+==============================================================================
+
+--- why this log exists ---
+The full regression runs 1900+ cases in one process tree. Under host
+load a case that holds a socket can lose it (ECONNRESET), so the
+same tree reports 0 failures on one run and 1 on the next. A failure
+of that shape is a property of the HOST, not of the code.
+
+This log answers the question that decides it: does the failing file
+pass on its own, and does this task touch it?
+
+--- 1. the failing file, re-run on its own (this branch) ---
+
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/p(1).spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+✔ IT-ATS214-SETUP: start the bridge (422.9843ms)
+✔ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (5990.9071ms)
+✔ IT-ATS214-031: the second run of a batch records the profile it inherited (6026.8475ms)
+✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (2167.0304ms)
+✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (605.6148ms)
+✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (4794.3422ms)
+✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (5811.2702ms)
+✔ IT-ATS214-036: the batch record carries NO environment variable values (5697.3303ms)
+✔ IT-ATS214-037: a whitelist tightened while the batch runs constrains the LATER run (13983.2379ms)
+✔ IT-ATS214-038: a profile DELETED while the batch runs ends the batch with a reason (12658.1805ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 64278.012
+
+exit code: 0
+
+--- 2. does this task touch that file? ---
+
+$ git diff 3bbfdeb6ba2ce477f1c316d5ddf0ec6625963f39 HEAD -- tests/ats214-batch-context.test.mjs
+(an empty diff means this task changed nothing in that file)
+
+$ git diff 3bbfdeb6ba2ce477f1c316d5ddf0ec6625963f39 HEAD --stat -- the sources this task changed
+ server/traceability/builder.mjs | 106 +++++++++++++++++++++++-
+ tools/update_wbs_ats307.py      | 177 +++++++++++++++++++++++++++++++++++-----
+ 2 files changed, 261 insertions(+), 22 deletions(-)
+
+
+--- 3. the same file on the BASE tree, on its own ---
+
+The base tree is checked out into a temporary worktree, so the
+comparison does not touch this checkout.
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/p(1).spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
+✔ IT-ATS214-SETUP: start the bridge (413.0098ms)
+✔ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (6123.9019ms)
+✔ IT-ATS214-031: the second run of a batch records the profile it inherited (5980.1774ms)
+✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (2169.8547ms)
+✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (602.7948ms)
+✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (4947.8215ms)
+✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (5886.2791ms)
+✔ IT-ATS214-036: the batch record carries NO environment variable values (6228.276ms)
+✔ IT-ATS214-037: a whitelist tightened while the batch runs constrains the LATER run (14111.7308ms)
+✔ IT-ATS214-038: a profile DELETED while the batch runs ends the batch with a reason (12441.9862ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 65051.2468
+
+exit code: 0
+
+--- the verdict ---
+
+RESULT: OK -- the file passes on its own on BOTH trees, and this task
+changed nothing in it. A failure of this file inside the full suite
+is a HOST-RESOURCE effect, not a regression of this delivery.

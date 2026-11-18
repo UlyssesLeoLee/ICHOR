@@ -1,9 +1,9 @@
 ==============================================================================
 ATS-307 evidence log -- the ATS-307 negative control
 ==============================================================================
-commit        : e75b7cad716a14e5931102bec19411b58287a77b
-timestamp     : 2026-11-17T18:57:42Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f60149b94aa7/worktree
+commit        : aab1b01c393b0608e9fc06774f85ddbad437ee11
+timestamp     : 2026-11-18T01:01:33Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-cdff9ecc594b/worktree
 node          : v24.19.0
 platform      : win32 x64
 command       : node tools/ats307-probes/probe-negative-control.mjs

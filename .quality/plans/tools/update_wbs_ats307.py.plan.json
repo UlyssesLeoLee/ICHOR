@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "source": "tools/update_wbs_ats307.py",
-  "baseline_source_sha256": "0c151dba79aa91c9b7987d66cbd12e31019ae751a698893a1f9587b349d29923",
+  "baseline_source_sha256": "c15ac1111c0e45de3bf9fad2f9750255e251ef2e3ae8d8a536b30474a87f4e7c",
   "prepared_branch": "agent/m3/seikoist-183",
   "technical_design": ".quality/docs/tools/update_wbs_ats307.py.md",
   "test_design": ".quality/test-design/tools/update_wbs_ats307.py.test.md",
-  "prepared_technical_design_sha256": "edd7099760484cfa1e1db30a334b88c68fe4caf4b1c8378a5507c2fd6baf1e71",
-  "prepared_test_design_sha256": "2c507fd373511081bfcdb0de7b9aa2db6da3b7931322339897271bb7986b855b",
+  "prepared_technical_design_sha256": "22dc4fc71629fa291b1b981f578b946cd3eb961ec0d0f63cbb1c5eadd07ba71a",
+  "prepared_test_design_sha256": "c12f9185ab0d7f64e8b114e402e6a4ed8a59bf99f4e3540b37990f36f599be1c",
   "prepared_related_design_sha256": {}
 }
