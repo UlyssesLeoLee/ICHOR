@@ -19,7 +19,7 @@ ATS-307 の完了定義は次の 3 項目である。
 |---|---|---|---|
 | AC-1 | ノード/辺に安定した UID がある | §4 UID 規約 / `server/traceability/model.mjs` | IMPLEMENTED |
 | AC-2 | ノード/辺に**出所**がある | §5 出所（provenance） / `EDGE_TYPE`・`PROVENANCE` | IMPLEMENTED |
-| AC-3 | ノード/辺に **Git commit** がある | §6 由来と commit | IMPLEMENTED |
+| AC-3 | ノード/辺に **Git commit** がある | §6 由来と commit | IMPLEMENTED（実測：ノード 1358/1358・辺 26833/26833） |
 | AC-4 | 循環辺が検査できる | §7.1 孤児辺・循環の検査 | IMPLEMENTED |
 | AC-5 | 孤児辺が検査できる | §7.1 孤児辺・循環の検査 | IMPLEMENTED |
 
@@ -182,10 +182,30 @@ RTM の真実は**行単位**である。FR-007 は `UT-E-001` を、FR-008 は 
   （ATS-209）の値、トランスクリプトなら「トランスクリプト自身には digest が
   無い」ことを明示する。
 
-**Git commit を持たないノードがある。** トランスクリプトDerived の run/evidence
-は、そのトランスクリプトが**どの commit で取得されたか**を記録していない。
-実行時の run 記録は `gitCommit` を持つ。両者を同じ栏に押し込むのではなく
-`subKind` で区別する（`transcript` / `runtime`）。
+### 6.1 commit は**派生**する
+
+ノードの commit は、**そのノードの由来ファイルが最後に変更された commit**
+である（`git log --name-only` を 1 回走査して、ファイル → 最終変更 commit の
+表を作る）。由来ファイルが git に知られていないもの（fixture ツリーや
+`git archive` の出力）は commit を持たない ⇒ `null`。
+
+辺はファイルではない⇒辺自身の履歴は無い。**辺の commit は辺が結ぶ事実の
+commit** であり、runtime run が自分の commit を持つ場合はそちらが優先する
+（run は「どの commit で実行されたか」を記録している）。
+
+`subKind` で `transcript` / `runtime` を区別する点は変わらない。両者は
+**別の由来**であり、同じ栏に押し込まない。
+
+**実測（`docs/evidence/ATS-307/03-probe-traceability.log` §2b、
+`09-readme-consistency.log`）**：ノード **1358/1358**、辺 **26833/26833** が
+commit を持つ。
+
+**commit を持たないノードがある。** git の履歴を持たないツリーでは
+**全て**の commit が `null` になる。捏造はしない——「commit を持たない」
+は事実として記録される（UT-ATS307-039）。
+
+**導出の正しさ**：`git log -1 -- <file>` が返す commit とノードの commit が
+**一致**することを UT が検査する（UT-ATS307-040）。
 
 ---
 
@@ -328,7 +348,12 @@ run を経由しない逆走査は、1 つの artifact がプロジェクトの�
 5. **実行時 run と Idle 時 run の結合は実測していない。** 本票の IT は
    トランスクリプト由来の run を使う。`state.json` に実 run がある環境で
    `attempted` 辺が張られることは、モデルとして正しいが、本票の証跡では
-   トランスクリプト経路しか実行していない。
+   トランスクリプト経路しか実行していない。commit の伝播は**夾具で**実測した
+   （UT-ATS307-037：commit を持つ runtime run がノードと辺の両方に載る）。
+6. **ノードの commit は由来ファイルの「最終変更」の commit であり、
+   「その事実が宣言されたとき」の commit ではない。** 「要件が書かれたとき」
+   と「その実装が書かれていたとき」を区別するには履歴の走査が要るが、
+   本票は**最後の変更**だけを悬挂している。
 
 ---
 
@@ -347,6 +372,8 @@ run を経由しない逆走査は、1 つの artifact がプロジェクトの�
 | 整合性 `danglingTest` | 0 |
 | 整合性 `danglingAnchor` | 0 |
 | `falsePass`（偽の主張） | 88 |
+| **commit を持つノード** | **1358 / 1358** |
+| **commit を持つ辺** | **26833 / 26833** |
 
 `falsePass` 88 件は**本票が発見した既存 drift** である：カタログは
 `UT-DSC-001` / `IT-DSC-001` / `UT-QUAL-001` / `UT-ATS213-001` 等を `PASS` と
@@ -366,9 +393,11 @@ run を経由しない逆走査は、1 つの artifact がプロジェクトの�
 | `server/traceability/builder.mjs` | グラフ構築（カタログ・スクリプト・run・証拠の読み出し） |
 | `server/traceability/query.mjs` | 前向き/逆向き walk、coverage レポート、整合性検査 |
 | `server/index.mjs` | `GET /api/traceability`（`?requirement=` / `?evidence=`） |
-| `tests/ats307-traceability.test.mjs` | UT 33 件 |
+| `tests/ats307-traceability.test.mjs` | UT 40 件 |
 | `tests/ats307-traceability-it.test.mjs` | IT 9 件 |
 | `tools/ats307-probes/probe-traceability.mjs` | 再現可能なプローブ |
+| `tools/ats307-probes/check-readme-consistency.mjs` | 証拠 README とコミット済みログの照合 |
+| `tools/ats307-probes/collect-evidence.sh` | 9 歩の証跡採集 |
 
 ---
 

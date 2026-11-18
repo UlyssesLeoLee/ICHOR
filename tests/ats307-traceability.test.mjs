@@ -34,6 +34,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 import {
   CHAIN, COVERAGE, COVERAGE_RANK, EDGE_TYPE, GAP, NODE_KIND, PROVENANCE,
@@ -654,6 +655,98 @@ test('UT-ATS307-036: the `failed` state is ranked BELOW `verified` and ABOVE `ex
   assert.equal(bestCoverage([COVERAGE.FAILED]), COVERAGE.FAILED);
   assert.equal(bestCoverage([COVERAGE.FAILED, COVERAGE.VERIFIED]), COVERAGE.VERIFIED);
   assert.equal(bestCoverage([COVERAGE.EXECUTED, COVERAGE.FAILED]), COVERAGE.FAILED);
+});
+
+test('UT-ATS307-037: a runtime run with a commit puts that commit on the node AND on its edges', () => {
+  // AC-3: the nodes and the edges carry a git commit. A runtime run is the
+  // only source that KNOWS its own commit, so it is the fixture that can
+  // prove the propagation reaches the edges too.
+  const root = makeRepo({
+    rtm: [rtmRow('FR-001', 'B01', 'UT-A-001')],
+    cases: [caseRow('UT-A-001', 'FR-001')],
+    requirements: [{ id: 'FR-001', title: 'first' }],
+    basic: [{ id: 'B01', name: 'Catalog' }],
+    scripts: [{ file: 'tests/a.test.mjs', text: "test('UT-A-001: ok', () => {});\n" }],
+  });
+  const runs = [{
+    id: 'run-1',
+    gitCommit: 'deadbeef1234567890abcdef1234567890abcdef12',
+    status: 'passed',
+    file: 'tests/a.test.mjs',
+    attempts: [{ uid: 'att-1', testUid: 'UT-A-001', status: 'passed' }],
+    artifacts: [{ file: 'report.json', sha256: 'a'.repeat(64), size: 10 }],
+  }];
+  const graph = buildGraph({ root, runs });
+  const run = graph.nodes.find((n) => n.kind === 'run' && n.key === 'run-1');
+  assert.ok(run, 'the runtime run is a node of the graph');
+  assert.equal(run.gitCommit, 'deadbeef1234567890abcdef1234567890abcdef12',
+    'the run node carries the commit the run record states');
+
+  // The edges that join the case to the run, and the run to the evidence.
+  const attempted = graph.edges.find((e) => e.type === 'attempted' && e.to === run.uid);
+  assert.ok(attempted, 'the attempt edge exists');
+  assert.equal(attempted.gitCommit, 'deadbeef1234567890abcdef1234567890abcdef12',
+    'the ATTEMPTED edge carries the commit of the run it joins');
+  const archived = graph.edges.find((e) => e.type === 'archived' && e.from === run.uid);
+  assert.ok(archived, 'the archived edge exists');
+  assert.equal(archived.gitCommit, 'deadbeef1234567890abcdef1234567890abcdef12',
+    'the ARCHIVED edge carries the commit of the run it joins');
+});
+
+test('UT-ATS307-038: every node and every edge of the REAL repository carries a commit', () => {
+  // AC-3 measured on the real tree: the completion definition says the
+  // nodes and the edges have a git commit, so the coverage is a COUNT, not
+  // a claim. A tree that is not a git checkout has none -- that is the
+  // fixture case, not this one.
+  const root = path.resolve(import.meta.dirname, '..');
+  const graph = buildGraph({ root });
+  assert.ok(graph.nodes.length > 0, 'the real graph has nodes');
+  // The COUNT is the assertion, and the offenders are named only when the
+  // count is not zero. Comparing two 26000-element arrays with `deepEqual`
+  // makes node build a diff of the whole thing, which exhausts the heap:
+  // a failing assertion must stay READABLE.
+  const nodesWithout = graph.nodes.filter((n) => n.gitCommit == null);
+  assert.equal(nodesWithout.length, 0,
+    `every node of the real graph carries a commit; ${nodesWithout.length} do not: `
+    + nodesWithout.slice(0, 5).map((n) => `${n.kind} ${n.key}`).join(', '));
+  const edgesWithout = graph.edges.filter((e) => e.gitCommit == null);
+  assert.equal(edgesWithout.length, 0,
+    `every edge of the real graph carries a commit; ${edgesWithout.length} do not: `
+    + edgesWithout.slice(0, 5).map((e) => e.uid).join(', '));
+});
+
+test('UT-ATS307-039: a tree that is not a git checkout has no commit -- and says so', () => {
+  // The other half of AC-3: the commit is not invented. A fixture tree has
+  // no history, so every commit is null -- "this fact has no commit", not
+  // "this fact has no value".
+  const root = makeRepo({
+    rtm: [rtmRow('FR-001', 'B01', 'UT-A-001')],
+    cases: [caseRow('UT-A-001', 'FR-001')],
+    requirements: [{ id: 'FR-001', title: 'first' }],
+    basic: [{ id: 'B01', name: 'Catalog' }],
+    scripts: [{ file: 'tests/a.test.mjs', text: "test('UT-A-001: ok', () => {});\n" }],
+  });
+  const graph = buildGraph({ root });
+  assert.ok(graph.nodes.length > 0, 'the fixture graph has nodes');
+  assert.equal(graph.nodes.every((n) => n.gitCommit == null), true,
+    'no node of a tree without history claims a commit');
+  assert.equal(graph.edges.every((e) => e.gitCommit == null), true,
+    'no edge of a tree without history claims a commit');
+});
+
+test('UT-ATS307-040: the commit a node carries is the commit of the file it comes from', () => {
+  // The commit is DERIVED, not typed: it must be the commit that last
+  // touched the node's own source file. The real tree is the only place
+  // where git can answer that, so the check is made there.
+  const root = path.resolve(import.meta.dirname, '..');
+  const graph = buildGraph({ root });
+  const script = graph.nodes.find((n) => n.kind === 'script' && typeof n.source === 'string');
+  assert.ok(script, 'the real graph has a script node');
+  const direct = execFileSync('git', ['log', '-1', '--format=%H', '--', script.source], {
+    cwd: root, encoding: 'utf8',
+  }).trim();
+  assert.equal(script.gitCommit, direct,
+    'the node carries the commit git reports for its own source file');
 });
 
 test('UT-ATS307-033: the graph of the real repository is walkable in both directions', () => {

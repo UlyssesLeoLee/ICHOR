@@ -109,3 +109,18 @@ echo "08 -> $OUT/08-skipped-reasons.log"
 
 echo
 echo "all steps finished; the logs are in $OUT"
+
+# --- 9. what the README claims, checked against the logs ---------------
+#
+# The README says how many steps the collection has and how many cases the
+# suites hold. Those numbers used to be TYPED in the README, and they went
+# stale: the collector ran eight steps and the README said seven; the suite
+# grew and the README kept the old case count.
+#
+# The check is a STANDALONE script, so running it alone and running it
+# inside the whole collection cannot drift apart. The collection calls it.
+{
+  header "what the README claims, checked against the logs" "node tools/ats307-probes/check-readme-consistency.mjs"
+  node tools/ats307-probes/check-readme-consistency.mjs 2>&1
+} > "$OUT/09-readme-consistency.log" 2>&1
+echo "09 -> $OUT/09-readme-consistency.log"
