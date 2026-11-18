@@ -473,9 +473,16 @@ GATE = ROOT / 'tools' / 'ats307-probes' / 'check-readme-consistency.mjs'
 
 
 def _run_gate(tree):
-    """Run the consistency gate on `tree` and return (exit code, output)."""
+    """Run the consistency gate OF `tree` and return (exit code, output).
+
+    The gate resolves the tree it checks from its OWN location
+    (`import.meta.dirname`), so the copy INSIDE the mutated tree is the one
+    that has to run -- running the original file would check the original
+    tree and the mutation would be invisible.
+    """
+    gate = tree / 'tools' / 'ats307-probes' / 'check-readme-consistency.mjs'
     proc = subprocess.run(
-        ['node', str(GATE)],
+        ['node', str(gate)],
         cwd=str(tree), capture_output=True, text=True,
         env={**os.environ, 'NO_COLOR': '1'})
     return proc.returncode, proc.stdout + proc.stderr
