@@ -33,6 +33,23 @@ The ATS-308 note says what was MEASURED and what was NOT:
 
 The note therefore does NOT say "设计资料导入已全部完成". It says what is
 implemented and measured.
+
+THE MEASURED FIGURES ARE DERIVED, NOT RE-TYPED
+----------------------------------------------
+The note quotes the measured figures (the number of references, the
+per-verdict breakdown, the number of resolved references that were checked
+against the filesystem). Those figures used to be typed into this file, and
+they went stale the moment another ticket added a document to `docs/`:
+the note kept saying 43 documents / 1205 references / 1058 resolved while
+the tree measured something else.
+
+So the figures are READ FROM THE COMMITTED PROBE LOG
+(`docs/evidence/ATS-308/04-probe-design-import.log`) and formatted into the
+sentence. The number in the workbook cell is therefore the number the
+committed log carries -- by construction, not by a re-typed constant.
+
+If the log is missing, or does not carry a figure, the updater REFUSES to
+write: a note it cannot back up must not be written into the workbook.
 """
 import re
 import shutil
@@ -42,9 +59,11 @@ from pathlib import Path
 from wbs_common import (cell_number, cell_text, format_rate, set_cell_in_row,
                          set_marked_cell, set_narrative_cell, totals)
 
-XLSX = Path(__file__).resolve().parents[1] / 'docs' / 'WBS.xlsx'
+ROOT = Path(__file__).resolve().parents[1]
+XLSX = ROOT / 'docs' / 'WBS.xlsx'
 SHEET2 = 'xl/worksheets/sheet2.xml'
 SHEET1 = 'xl/worksheets/sheet1.xml'
+PROBE_LOG = ROOT / 'docs' / 'evidence' / 'ATS-308' / '04-probe-design-import.log'
 
 FIRST_ROW = 6
 
@@ -56,11 +75,61 @@ def find_ats_row(xml, ats_id):
     raise SystemExit(f'row for {ats_id} not found')
 
 
-NOTE = (
+def probe_figures(log_path=None):
+    """The measured figures, READ FROM THE COMMITTED PROBE LOG.
+
+    The probe log is the authority on what the design baseline holds. The
+    note's figures are formatted from here, so they cannot drift away from
+    the log they claim to describe.
+
+    Returns a dict with `design` (the number of design documents), `asset`
+    (the number of tracking assets), the per-verdict counts and `total`.
+    """
+    path = Path(log_path) if log_path is not None else PROBE_LOG
+    if not path.exists():
+        raise SystemExit(
+            'the probe log %s does not exist -- the note\'s measured figures are '
+            'derived from it, so the updater refuses to write a note it cannot '
+            'back up' % path)
+    text = path.read_text(encoding='utf-8')
+
+    def number(pattern, label):
+        m = re.search(pattern, text, re.M)
+        if not m:
+            raise SystemExit(
+                'the probe log %s does not carry the %s figure -- the note\'s '
+                'measured figures are derived from it, so the updater refuses to '
+                'write' % (path, label))
+        return int(m.group(1))
+
+    out = {
+        'resolved': number(r'^\s*resolved\s*:\s*(\d+)\s*$', 'resolved reference count'),
+        'ambiguous': number(r'^\s*ambiguous\s*:\s*(\d+)\s*$', 'ambiguous reference count'),
+        'runtime': number(r'^\s*runtime\s*:\s*(\d+)\s*$', 'runtime reference count'),
+        'external': number(r'^\s*external\s*:\s*(\d+)\s*$', 'external reference count'),
+        'broken': number(r'^\s*broken\s*:\s*(\d+)\s*$', 'broken reference count'),
+        'total': number(r'^\s*TOTAL\s*:\s*(\d+)\s*$', 'total reference count'),
+        'design': number(r'^\s*design\s*:\s*(\d+)\s*$', 'design document count'),
+        'asset': number(r'^\s*asset\s*:\s*(\d+)\s*$', 'tracking asset count'),
+    }
+    return out
+
+
+def note_text(figures=None):
+    """The note, with the measured figures taken from the probe log."""
+    if figures is None:
+        figures = probe_figures()
+    return NOTE_TEMPLATE.format(**figures)
+
+
+# The note. It is a TEMPLATE: the measured figures are placeholders, filled
+# by `note_text()` from the committed probe log. A re-typed constant is what
+# let the workbook claim a reference count that no committed log carried.
+NOTE_TEMPLATE = (
     '【ATS-308】设计资料索引器已实现并实测（design-import/v1）：'
     '（1）**导入只读不写**：验收标准「导入 md/json 关系不改正文」不是'
-    '禁止事项而是**主张**——索引器打开 43 份设计文档与追踪资产、读出关系、'
-    '返回报告，**1 字节也不写回**；API 只有 GET，**没有 POST**。'
+    '禁止事项而是**主张**——索引器打开 {design} 份设计文档与 {asset} 份追踪资产、'
+    '读出关系、返回报告，**1 字节也不写回**；API 只有 GET，**没有 POST**。'
     '破坏「正文不变」的负控（M6：让导入器往正文追加一行）实测**必然改变**'
     '正文，未变异的导入器逐字节相同（UT/IT 各一组）。'
     '（2）**失效与重名都出报告**：引用按 5 个 verdict 分类——resolved / '
@@ -69,10 +138,11 @@ NOTE = (
     '报告按 token 归并，一个坏链被 12 处提到仍算**一个**缺陷。'
     '（3）**不 cry wolf**：state.json / report.json 这类运行期产物不算失效'
     '（否则每次报告都在叫），重名不算失效（引用没错，只是不完整）。'
-    '（4）**实**：对真实设计基线实测 1205 条引用——resolved 1058 / runtime 76 / '
-    'ambiguous 14 / external 16 / broken 41（41 处均为 issue 附件的复核探针、'
+    '（4）**实**：对真实设计基线实测 {total} 条引用——resolved {resolved} / '
+    'runtime {runtime} / ambiguous {ambiguous} / external {external} / '
+    'broken {broken}（{broken} 处均为 issue 附件的复核探针、'
     '他树旧文件名或运行期生成物，**不是真缺的文件**）；'
-    '**1058 条 resolved 的候选逐条核对，全部实存**。'
+    '**{resolved} 条 resolved 的候选逐条核对，全部实存**。'
     '（5）**负控 7 条**：把导入器的「报告失效」「报告重名」「把坏链说成已解析」'
     '「把运行期产物说成失效」「把外部路径说成失效」「改正文」「在多个候选中'
     '乱猜」逐个变异，**7 变异逐条被抓住**，未变异的代码仍然通过。'
@@ -136,7 +206,10 @@ def main():
     # The marker-aware merge keeps every other task's marked block in the
     # same cell and re-emits the blocks in canonical order, so the result
     # does not depend on which updater ran last.
-    xml2 = set_marked_cell(xml2, rid, 'T', '【ATS-308】', NOTE)
+    #
+    # The note's measured figures are formatted from the committed probe log,
+    # so the cell cannot claim a count that no committed log carries.
+    xml2 = set_marked_cell(xml2, rid, 'T', '【ATS-308】', note_text())
 
     parts[SHEET2] = xml2.encode('utf-8')
 

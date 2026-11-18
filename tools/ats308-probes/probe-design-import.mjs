@@ -13,10 +13,35 @@
  *   * a SELF-CHECK: every reference that resolved names a file that
  *     really exists.
  *
- * `--exclude <rel>` drops one document from the counts (the ATS-308
- * design document itself is not part of the baseline it measures).
+ * WHAT THE BASELINE EXCLUDES, AND WHY IT IS WRITTEN THIS WAY
+ * ----------------------------------------------------------
+ * The baseline is the platform's OWN design material. Two kinds of document
+ * are NOT part of it:
  *
- * Usage: node tools/ats308-probes/probe-design-import.mjs [--exclude rel]
+ *   * the design document this ticket wrote (`docs/35-DESIGN-IMPORT.md`);
+ *   * this ticket's evidence index (`docs/evidence/ATS-308/README.md`).
+ *
+ * Both are documents THIS ticket added, so they are not the baseline it
+ * measures -- and that is not only a semantic point. If a ticket's own
+ * artifacts were part of the measurement, then EDITING the ticket would
+ * move the number the ticket reports: the README names `show-wbs-row.py`,
+ * which exists twice in the tree, so the README alone adds one AMBIGUOUS
+ * reference and one design document. The figure would then depend on the
+ * text of the document that quotes the figure.
+ *
+ * Excluding both makes the measurement a function of the rest of the tree
+ * alone: editing this ticket's documents cannot change the number the
+ * ticket reports. (Verified: excluding the design document alone gives
+ * 57 design documents / 15 ambiguous; excluding both gives 56 / 14.)
+ *
+ * The exclusion is therefore a DEFAULT, not a flag the caller must remember
+ * to pass. `--exclude <rel>` still exists and ADDS to the default list, for
+ * the case where another ticket's document must be left out of a run.
+ *
+ * The log records the exclusion list, so a reader can see what was left out
+ * of the baseline that produced the numbers.
+ *
+ * Usage: node tools/ats308-probes/probe-design-import.mjs [--exclude rel]...
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,8 +52,14 @@ import { importDesignMaterials, REFERENCE_KIND } from '../../server/import/desig
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
 
+// The documents this ticket added: they are not the baseline they measure.
+const DEFAULT_EXCLUDE = [
+  'docs/35-DESIGN-IMPORT.md',
+  'docs/evidence/ATS-308/README.md',
+];
+
 const args = process.argv.slice(2);
-const exclude = [];
+const exclude = [...DEFAULT_EXCLUDE];
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--exclude') exclude.push(args[i + 1]);
 }
