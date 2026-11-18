@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：769；已执行通过：753；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：800；已执行通过：784；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -777,6 +777,37 @@
 |UT-ATS214-042|FR-005|异常|现在指向别的用例的 uid 被报出|快照说 u1 是「用户登录」，目录说 u1 是「其他用例」|gone 为空（uid 仍能解析）；moved 列出 u1；ok=false|node --test tests/ats214-case-search.test.mjs|PASS|
 |UT-ATS214-043|FR-005|正常|仍指向同一个用例的 uid 不算 moved|快照与目录一致|moved 为空；ok=true|node --test tests/ats214-case-search.test.mjs|PASS|
 |UT-ATS214-044|FR-005|异常|身份不稳定的用例被报为 stale|uidStable=false 的用例|stale 列出该 uid；gone 为空|node --test tests/ats214-case-search.test.mjs|PASS|
+|UT-ATS308-001|FR-026|正常|导入不改树的任何一个字节|对夹具树跑完设计索引与追踪资产导入|导入前后全树的 sha256 摘要相同、文件数相同|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-002|FR-026|正常|同一棵树两次导入得到同一份索引|同一夹具连续导入两次|两次的 report 完全相等；资料的 sha256 逐条相等|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-003|FR-026|正常|资料与引用的 uid 依赖路径而非位置|materialUid/referenceUid 的取值|同一路径两次得到同一 uid；不同路径得到不同 uid；同一文档两行的同一引用得到不同 uid|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-010|FR-026|正常|写了就存在的路径被判为已解析|夹具里的 server/index.mjs|kind=resolved 且候选就是那个文件|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-011|FR-026|正常|只此一处的裸文件名被判为已解析|夹具里的 core.mjs（只有 server/core.mjs）|kind=resolved、候选=server/core.mjs|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-012|FR-026|边界|同名多处的裸文件名判为歧义且列出全部候选|再放一个 other/core.mjs|kind=ambiguous、候选 2 个都列出，**不替读者选一个**|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-013|FR-026|异常|目录在此仓库而文件不在的引用判为失效|server/gone.mjs|kind=broken、候选为空|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-014|FR-026|边界|目录不在此仓库的引用判为外部而非失效|flows/android.yaml（此仓库无 flows/）|kind=external——不是 broken|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-015|FR-026|边界|运行期产物不是失效链接|state.json / report.json / out/index.html|全部 kind=runtime|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-016|FR-026|边界|末尾一致只在唯一匹配时生效|两个同名文件在 a/b/ 与 c/|不唯一时判为歧义而非乱猜|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-017|FR-026|异常|分类器从不解析不存在的引用|server/gone.mjs / docs/missing.md / nothing-at-all.mjs|三者都不是 resolved|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-020|FR-026|正常|引用是内联代码里的路径样式记号|含散文与扩展名列表的文本|只取出路径样式的记号；散文与 `.mjs` 不被取出|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-021|FR-026|正常|每条引用带着它被写下的行号|两行各自的引用|行号正确|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-022|FR-026|正常|文档的章号被读出|含 1 / 2 / 2.1 的标题|章号与标题都对|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-030|FR-026|异常|报告点名失效引用及其位置|夹具里的两条坏链|broken 列出 token 与出处（文件+行号）；已解析的不被列为坏链|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-031|FR-026|正常|报告的计数覆盖每一条引用恰好一次|夹具的导入结果|byKind 的合计等于引用总数|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-032|FR-026|正常|人可读的报告写出计数与结论|夹具的导入结果|含设计文档数、引用数、失效链接段，并点名失效的 token|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-033|FR-026|正常|资料清单只收设计文档与追踪资产|夹具树|docs/ 的 Markdown 在清单里；package.json 与源码**不在**|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-040|FR-017|正常|追踪资产连同其关系被导入|带 .aitest 的夹具项目|需求数、关联数正确，无问题项|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-041|FR-017|异常|指向未声明需求的关联被报出|traceability 里放 REQ-999|issue= dangling-requirement|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-042|FR-017|异常|指向文件未声明的用例的关联被报出|关联指向一个被改名的用例|issue=unknown-case 并点名该标题|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-043|FR-017|异常|指向项目没有的文件的关联被报出|关联指向 tests/none.spec.ts|issue=missing-file 并点名该文件|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-044|FR-017|异常|重复的关联只报一次也只索引一次|同一条关联写两遍|links=1、duplicateLinks=1|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-045|FR-017|异常|重复声明的需求被报出|需求列表里 REQ-001 写两遍|issue=duplicate-requirement 且计数为 2|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-046|FR-017|异常|损坏的资产被报出而不是抛出|requirements.json 不是 JSON|需求数 0 且资产带错误说明|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-047|FR-017|异常|不合 file::title 约定的关联被报出|to 只有标题|issue=malformed-target|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-048|FR-017|正常|目标按第一个双冒号切分|标题里还有双冒号|file 与 title 切分正确|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-049|FR-017|正常|资产的 uid 依赖项目而非只依赖内容|两个项目、两个资产名|uid 两两不同|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-050|FR-017|正常|用例标题用平台自己的走查器读出|夹具的 spec 文件|标题集合与文件里的 test() 声明一致|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-060|FR-026|正常|真实基线导入后每条已解析的引用都指向真实存在的文件|对真实仓库跑导入|resolved 的全部候选逐条存在；byKind 合计等于引用总数|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS308-061|FR-026|正常|真实基线两次导入结果相同|对真实仓库跑两次|两次的 report 完全相等|node --test tests/ats308-import.test.mjs|PASS|
 
 ## 进入与退出条件
 

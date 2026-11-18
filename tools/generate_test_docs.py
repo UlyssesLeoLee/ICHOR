@@ -1229,6 +1229,65 @@ ST+=[
 ('ST-ATS214-012','TOOL','可靠性','交付的代码被变异时测试必须变红（负控）','对 page.tsx 与 server/index.mjs 做 12 个变异（关掉过滤、只发第一个 UID、不渲染警告、不阻止运行、承诺选中条数、不重置过滤、把勾选框放回 button 里、不重新解析环境档案、不整单校验、预检失败不结束批次、批次记录又带上变量值、档案被删也不结束批次）','每个变异都被抓住（界面变异由 ST 抓住，服务端变异由 IT 抓住）；未变异的代码仍然通过','node tools/ats214-probes/mutation-check.mjs','PASS'),
 ]
 
+# --- ATS-308: the design material indexer and the tracking asset import -----
+#
+# The acceptance criterion of ATS-308 has two halves, and the test ids
+# say which half each case guards:
+#   * UT-ATS308-0xx / IT-ATS308-API-00x  -> 「导入 md/json 关系不改正文」
+#   * UT-ATS308-1xx                      -> 「失效/重名链接输出报告」
+#
+# The mutation cases (M1..M7) are the NEGATIVE CONTROL: they mutate the
+# importer and assert that the property turns red. A test nobody can
+# fail guards nothing.
+UT+=[
+('UT-ATS308-001','FR-026','正常','导入不改树的任何一个字节','对夹具树跑完设计索引与追踪资产导入','导入前后全树的 sha256 摘要相同、文件数相同','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-002','FR-026','正常','同一棵树两次导入得到同一份索引','同一夹具连续导入两次','两次的 report 完全相等；资料的 sha256 逐条相等','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-003','FR-026','正常','资料与引用的 uid 依赖路径而非位置','materialUid/referenceUid 的取值','同一路径两次得到同一 uid；不同路径得到不同 uid；同一文档两行的同一引用得到不同 uid','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-010','FR-026','正常','写了就存在的路径被判为已解析','夹具里的 server/index.mjs','kind=resolved 且候选就是那个文件','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-011','FR-026','正常','只此一处的裸文件名被判为已解析','夹具里的 core.mjs（只有 server/core.mjs）','kind=resolved、候选=server/core.mjs','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-012','FR-026','边界','同名多处的裸文件名判为歧义且列出全部候选','再放一个 other/core.mjs','kind=ambiguous、候选 2 个都列出，**不替读者选一个**','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-013','FR-026','异常','目录在此仓库而文件不在的引用判为失效','server/gone.mjs','kind=broken、候选为空','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-014','FR-026','边界','目录不在此仓库的引用判为外部而非失效','flows/android.yaml（此仓库无 flows/）','kind=external——不是 broken','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-015','FR-026','边界','运行期产物不是失效链接','state.json / report.json / out/index.html','全部 kind=runtime','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-016','FR-026','边界','末尾一致只在唯一匹配时生效','两个同名文件在 a/b/ 与 c/','不唯一时判为歧义而非乱猜','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-017','FR-026','异常','分类器从不解析不存在的引用','server/gone.mjs / docs/missing.md / nothing-at-all.mjs','三者都不是 resolved','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-020','FR-026','正常','引用是内联代码里的路径样式记号','含散文与扩展名列表的文本','只取出路径样式的记号；散文与 `.mjs` 不被取出','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-021','FR-026','正常','每条引用带着它被写下的行号','两行各自的引用','行号正确','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-022','FR-026','正常','文档的章号被读出','含 1 / 2 / 2.1 的标题','章号与标题都对','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-030','FR-026','异常','报告点名失效引用及其位置','夹具里的两条坏链','broken 列出 token 与出处（文件+行号）；已解析的不被列为坏链','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-031','FR-026','正常','报告的计数覆盖每一条引用恰好一次','夹具的导入结果','byKind 的合计等于引用总数','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-032','FR-026','正常','人可读的报告写出计数与结论','夹具的导入结果','含设计文档数、引用数、失效链接段，并点名失效的 token','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-033','FR-026','正常','资料清单只收设计文档与追踪资产','夹具树','docs/ 的 Markdown 在清单里；package.json 与源码**不在**','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-040','FR-017','正常','追踪资产连同其关系被导入','带 .aitest 的夹具项目','需求数、关联数正确，无问题项','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-041','FR-017','异常','指向未声明需求的关联被报出','traceability 里放 REQ-999','issue= dangling-requirement','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-042','FR-017','异常','指向文件未声明的用例的关联被报出','关联指向一个被改名的用例','issue=unknown-case 并点名该标题','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-043','FR-017','异常','指向项目没有的文件的关联被报出','关联指向 tests/none.spec.ts','issue=missing-file 并点名该文件','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-044','FR-017','异常','重复的关联只报一次也只索引一次','同一条关联写两遍','links=1、duplicateLinks=1','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-045','FR-017','异常','重复声明的需求被报出','需求列表里 REQ-001 写两遍','issue=duplicate-requirement 且计数为 2','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-046','FR-017','异常','损坏的资产被报出而不是抛出','requirements.json 不是 JSON','需求数 0 且资产带错误说明','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-047','FR-017','异常','不合 file::title 约定的关联被报出','to 只有标题','issue=malformed-target','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-048','FR-017','正常','目标按第一个双冒号切分','标题里还有双冒号','file 与 title 切分正确','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-049','FR-017','正常','资产的 uid 依赖项目而非只依赖内容','两个项目、两个资产名','uid 两两不同','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-050','FR-017','正常','用例标题用平台自己的走查器读出','夹具的 spec 文件','标题集合与文件里的 test() 声明一致','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-060','FR-026','正常','真实基线导入后每条已解析的引用都指向真实存在的文件','对真实仓库跑导入','resolved 的全部候选逐条存在；byKind 合计等于引用总数','node --test tests/ats308-import.test.mjs','PASS'),
+('UT-ATS308-061','FR-026','正常','真实基线两次导入结果相同','对真实仓库跑两次','两次的 report 完全相等','node --test tests/ats308-import.test.mjs','PASS'),
+]
+
+IT+=[
+('IT-ATS308-API-001','FR-026','正常','按项目的导入端点同时给出资产与设计资料','真实 Bridge + 带 .aitest 与 docs/ 的夹具项目','assets 段有需求与关联；design 段有该项目的资料','node --test tests/ats308-import-it.test.mjs','PASS'),
+('IT-ATS308-API-002','FR-026','异常','导入端点报出改名与悬空的关系','夹具的 traceability 含改名用例与未声明需求','issues 含 unknown-case 与 dangling-requirement；design 报告点名坏链','node --test tests/ats308-import-it.test.mjs','PASS'),
+('IT-ATS308-API-003','FR-026','正常','导入不改项目的一个字节','调用前后对夹具树取摘要','摘要相同、文件数相同','node --test tests/ats308-import-it.test.mjs','PASS'),
+('IT-ATS308-API-004','FR-026','安全','导入是只读的——没有写端点','对导入端点发 POST','404——导入不可写','node --test tests/ats308-import-it.test.mjs','PASS'),
+('IT-ATS308-API-005','FR-027','安全','导入端点需要会话 token','不带 X-ATS-Token 调用','401','node --test tests/ats308-import-it.test.mjs','PASS'),
+('IT-ATS308-API-006','FR-026','正常','顶层端点导入平台自身的设计基线','真实 Bridge','资料清单含 docs/33-TRACEABILITY-GRAPH.md；detailed 模式带出全部引用，且每条 resolved 的候选都真实存在','node --test tests/ats308-import-it.test.mjs','PASS'),
+('IT-ATS308-API-007','FR-026','正常','顶层导入不改仓库的一个字节','调用前后读同一份设计文档','内容逐字节相同','node --test tests/ats308-import-it.test.mjs','PASS'),
+]
+
+ST+=[
+('ST-ATS308-001','TOOL','可靠性','交付的导入器被变异时负控必须变红（7 个变异）','把导入器复制到临时目录后变异：不报失效、不报歧义、把坏链说成已解析、把运行期产物说成失效、把外部路径说成失效、改正文、在多个候选中乱猜','7 个变异逐条被抓住；未变异的导入器仍然通过','node --test tests/ats308-import-mutation.test.mjs','PASS'),
+]
+
+
 
 def emit(file,title,purpose,cases):
  # The status column may qualify a PASS ("PASS（UT）" -- passed, but the

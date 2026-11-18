@@ -1,0 +1,39 @@
+✔ UT-ATS308-001: the import does not change a single byte of the tree (22.3602ms)
+✔ UT-ATS308-002: the import is repeatable and produces the same index (7.2768ms)
+✔ UT-ATS308-003: the material uid depends on the path, not on the position (0.1924ms)
+✔ UT-ATS308-010: a path that exists as written is resolved (6.2547ms)
+✔ UT-ATS308-011: a bare basename that names exactly one file is resolved (5.1641ms)
+✔ UT-ATS308-012: a bare basename that names SEVERAL files is ambiguous, and the candidates are reported (5.7605ms)
+✔ UT-ATS308-013: a reference into a directory of THIS repository that has no such file is broken (5.3464ms)
+✔ UT-ATS308-014: a reference into a directory this repository does NOT have is external, not broken (5.1416ms)
+✔ UT-ATS308-015: a runtime artefact is not a broken link (64.8171ms)
+✔ UT-ATS308-016: the suffix rule resolves a shortened path but never guesses (7.7758ms)
+✔ UT-ATS308-017: the classifier never resolves a reference that does not exist (5.2234ms)
+✔ UT-ATS308-020: a reference is an inline-code span holding a path (0.1469ms)
+✔ UT-ATS308-021: every reference carries the line it was written on (0.114ms)
+✔ UT-ATS308-022: the headings of a document are read with their numbers (0.0682ms)
+✔ UT-ATS308-030: the report names the broken references and where they are (5.8941ms)
+✔ UT-ATS308-031: the report counts every reference exactly once (6.4917ms)
+✔ UT-ATS308-032: the readable report names the counts and the findings (5.2882ms)
+✔ UT-ATS308-033: the material list is the design documents plus the tracking assets (6.583ms)
+✔ UT-ATS308-040: the tracking assets are imported with their relations (6.3228ms)
+✔ UT-ATS308-041: a link to a requirement the list does not declare is reported (5.5865ms)
+✔ UT-ATS308-042: a link to a case the file does not declare is reported (6.1338ms)
+✔ UT-ATS308-043: a link to a file the project does not have is reported (5.4498ms)
+✔ UT-ATS308-044: a duplicated link is reported once, and the link is kept once (5.5678ms)
+✔ UT-ATS308-045: a duplicated requirement is reported (6.2391ms)
+✔ UT-ATS308-046: a malformed asset is reported, not thrown (5.5583ms)
+✔ UT-ATS308-047: a target that does not use the file::title convention is reported (6.6288ms)
+✔ UT-ATS308-048: the target is split on the FIRST double colon (0.081ms)
+✔ UT-ATS308-049: the asset uids depend on the project, not only on the content (0.0635ms)
+✔ UT-ATS308-050: the case titles are read with the platform scanner (5.4023ms)
+✔ UT-ATS308-060: the real baseline imports, and every reference to a file of this repository resolves (132.8932ms)
+✔ UT-ATS308-061: the real baseline is imported twice with the same result (83.9834ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 531.2582
