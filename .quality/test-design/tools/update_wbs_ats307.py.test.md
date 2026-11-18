@@ -52,6 +52,14 @@ Two properties are checked in BOTH directions:
 | TC-018 | The note in the written cell | its evidence list names every committed log of `docs/evidence/ATS-307/` — the skip-reasons log included | `tools/test_update_wbs_ats307.py` |
 | TC-019 | The committed evidence directory | the note's evidence list and the directory's `NN-*.log` files are the SAME set (the list is derived, not typed) | `tools/test_update_wbs_ats307.py` |
 | TC-020 | The note in the written cell | it names the case ids the suite log shows, so a case added to the suite is named in the note | `tools/test_update_wbs_ats307.py` |
+| TC-021 | The note in the written cell | it carries the commit coverage the probe log measured | `tools/test_update_wbs_ats307.py` |
+| TC-022 | The note in the written cell | its negative-control mutation count is EXACTLY the number of mutation groups the committed `05-negative-control.log` ran (group 0 is the positive control, so the count is the groups after it) | `tools/test_update_wbs_ats307.py` |
+| TC-023 | A temporary tree whose negative-control log has been replaced by one carrying a different number of group headers | the self-check FAILS and the run exits non-zero, naming the mutation count | `tools/test_update_wbs_ats307.py` |
+| TC-024 | A temporary tree with no `docs/evidence/ATS-307/05-negative-control.log` | `mutation_figures()` raises `SystemExit` naming the log | `tools/test_update_wbs_ats307.py` |
+| TC-025 | A temporary tree whose negative-control log carries no group header | `mutation_figures()` raises `SystemExit` naming the log | `tools/test_update_wbs_ats307.py` |
+| TC-026 | The committed evidence README's log table | its full-regression row states the four figures the committed `06-node-test-full.log` holds | `tools/ats307-probes/check-readme-consistency.mjs` |
+| TC-027 | The committed evidence README | its negative-control mutation count is the mutation count the committed `05-negative-control.log` ran | `tools/ats307-probes/check-readme-consistency.mjs` |
+| TC-028 | The committed design document `docs/33-TRACEABILITY-GRAPH.md` | its §10 measurement table and its AC-3 row state the figures the committed `03-probe-traceability.log` measured | `tools/ats307-probes/check-readme-consistency.mjs` |
 
 ## Boundary & Failure Cases
 
