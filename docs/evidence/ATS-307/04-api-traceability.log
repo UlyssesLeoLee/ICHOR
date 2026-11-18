@@ -1,8 +1,8 @@
 ==============================================================================
 ATS-307 evidence log -- the ATS-307 API surface
 ==============================================================================
-commit        : 95b41f2aca0db353b67126bfb30f2279232a8be1
-timestamp     : 2026-11-18T03:27:53Z (UTC)
+commit        : 1f2fac4a119d41e8f18c4a4989341377b134da0c
+timestamp     : 2026-11-18T03:42:34Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f6e06b6b86ab/worktree
 node          : v24.19.0
 platform      : win32 x64
@@ -13,7 +13,7 @@ command       : node tools/ats307-probes/probe-api.mjs
 ATS-307 probe: the API surface of the traceability graph
 ==============================================================================
 repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-f6e06b6b86ab\worktree
-port      : 55288 (a free one; the default port belongs to other agents)
+port      : 53880 (a free one; the default port belongs to other agents)
 
 ------------------------------------------------------------------------------
 --- 1. the endpoint needs the session token ---
@@ -25,12 +25,12 @@ GET /api/traceability without the token : 401  (expected 401)
 ------------------------------------------------------------------------------
 GET /api/traceability : 200
 nodes        : 1406
-edges        : 26992
+edges        : 27030
 chains       : 49
 coverage     : {"verified":28,"designed":19,"implemented":2}
 nodesByKind  : {"testcase":1110,"run":84,"design":26,"script":53,"evidence":84,"requirement":49}
-edgesByType  : {"attempted":24734,"implemented":970,"covers":1149,"designs":55,"archived":84}
-edgesByProv  : {"evidence":24818,"source":946,"catalog":1228}
+edgesByType  : {"attempted":24772,"implemented":970,"covers":1149,"designs":55,"archived":84}
+edgesByProv  : {"evidence":24856,"source":946,"catalog":1228}
 orphan edges : 0
 cycles       : 0
 not present  : 0

@@ -1,8 +1,8 @@
 ==============================================================================
 ATS-307 evidence log -- the skipped tests, one by one
 ==============================================================================
-commit        : 95b41f2aca0db353b67126bfb30f2279232a8be1
-timestamp     : 2026-11-18T03:30:31Z (UTC)
+commit        : 1f2fac4a119d41e8f18c4a4989341377b134da0c
+timestamp     : 2026-11-18T03:45:25Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f6e06b6b86ab/worktree
 node          : v24.19.0
 platform      : win32 x64
@@ -47,7 +47,7 @@ skipped     : 32
       tests/security-api.test.mjs  IT-SEC-025: concurrent credential writes keep the index and the vault consistent
       tests/security-api.test.mjs  IT-SEC-026: a reference whose vault entry vanished can be deleted; a failed write is 503
 
---- 3 skipped: npm ci failed (exit 1): npm warn cleanup Failed to remove some directories [\\nnpm warn cleanup   [\\nnpm warn cleanup     '\\\\\\\\?\\\\C:\\\\Users\\\\seiko\\\\AppData\\\\Local\\\\Temp\\\\ats107-it-VfLoyV\\\\real-browser-fixture\\\\node_modules',\\nnpm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\\Users\\seiko\\AppData\\Local\\Temp\\
+--- 3 skipped: npm ci failed (exit 1): npm warn cleanup Failed to remove some directories [\\nnpm warn cleanup   [\\nnpm warn cleanup     '\\\\\\\\?\\\\C:\\\\Users\\\\seiko\\\\AppData\\\\Local\\\\Temp\\\\ats107-it-svMEUD\\\\real-browser-fixture\\\\node_modules\\\\@playwright',\\nnpm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\\Users\\seiko\\AppDat
       tests/ats107-real-browser-it.test.mjs  IT-ATS107-001: the Bridge runs the real fixture and reports one PASS and one FAIL
       tests/ats107-real-browser-it.test.mjs  IT-ATS107-002: the run really launched a Chromium (the trace has a browser context)
       tests/ats107-real-browser-it.test.mjs  IT-ATS107-003: the failing case carries the engine's own error message, in full

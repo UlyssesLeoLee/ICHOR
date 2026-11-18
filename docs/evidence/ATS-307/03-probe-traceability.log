@@ -1,8 +1,8 @@
 ==============================================================================
 ATS-307 evidence log -- the ATS-307 probe
 ==============================================================================
-commit        : 95b41f2aca0db353b67126bfb30f2279232a8be1
-timestamp     : 2026-11-18T03:27:52Z (UTC)
+commit        : 1f2fac4a119d41e8f18c4a4989341377b134da0c
+timestamp     : 2026-11-18T03:42:33Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f6e06b6b86ab/worktree
 node          : v24.19.0
 platform      : win32 x64
@@ -20,11 +20,11 @@ platform  : win32 x64
 --- 1. the shape of the graph ---
 ------------------------------------------------------------------------------
 nodes            : 1406
-edges            : 26992
+edges            : 27030
 chains           : 49
 nodes by kind    : {"testcase":1110,"run":84,"design":26,"script":53,"evidence":84,"requirement":49}
-edges by type    : {"attempted":24734,"implemented":970,"covers":1149,"designs":55,"archived":84}
-edges by source  : {"evidence":24818,"source":946,"catalog":1228}
+edges by type    : {"attempted":24772,"implemented":970,"covers":1149,"designs":55,"archived":84}
+edges by source  : {"evidence":24856,"source":946,"catalog":1228}
 
 ------------------------------------------------------------------------------
 --- 2. the checks: stable uid, orphan edges, cycles ---
@@ -40,9 +40,9 @@ broken chains    : 43
 --- 2b. the commit the nodes and the edges carry ---
 ------------------------------------------------------------------------------
 nodes with a commit : 1406 of 1406
-edges with a commit : 26992 of 26992
+edges with a commit : 27030 of 27030
 nodes by kind       : {"testcase":1110,"run":84,"design":26,"script":53,"evidence":84,"requirement":49}
-edges by type       : {"attempted":24734,"implemented":970,"covers":1149,"designs":55,"archived":84}
+edges by type       : {"attempted":24772,"implemented":970,"covers":1149,"designs":55,"archived":84}
 
 ------------------------------------------------------------------------------
 --- 3. the coverage of the requirements ---

@@ -19,7 +19,7 @@ ATS-307 の完了定義は次の 3 項目である。
 |---|---|---|---|
 | AC-1 | ノード/辺に安定した UID がある | §4 UID 規約 / `server/traceability/model.mjs` | IMPLEMENTED |
 | AC-2 | ノード/辺に**出所**がある | §5 出所（provenance） / `EDGE_TYPE`・`PROVENANCE` | IMPLEMENTED |
-| AC-3 | ノード/辺に **Git commit** がある | §6 由来と commit | IMPLEMENTED（実測：ノード 1406/1406・辺 26992/26992） |
+| AC-3 | ノード/辺に **Git commit** がある | §6 由来と commit | IMPLEMENTED（実測：ノード 1406/1406・辺 27030/27030） |
 | AC-4 | 循環辺が検査できる | §7.1 孤児辺・循環の検査 | IMPLEMENTED |
 | AC-5 | 孤児辺が検査できる | §7.1 孤児辺・循環の検査 | IMPLEMENTED |
 
@@ -197,7 +197,7 @@ commit** であり、runtime run が自分の commit を持つ場合はそちら
 **別の由来**であり、同じ栏に押し込まない。
 
 **実測（`docs/evidence/ATS-307/03-probe-traceability.log` §2b、
-`09-readme-consistency.log`）**：ノード **1406/1406**、辺 **26992/26992** が
+`09-readme-consistency.log`）**：ノード **1406/1406**、辺 **27030/27030** が
 commit を持つ。
 
 **commit を持たないノードがある。** git の履歴を持たないツリーでは
@@ -367,7 +367,7 @@ run を経由しない逆走査は、1 つの artifact がプロジェクトの�
 | 項目 | 実測値 |
 |---|---|
 | ノード | 1406 |
-| 辺 | 26992 |
+| 辺 | 27030 |
 | チェーン（要件） | 49 |
 | 孤児辺 | 0 |
 | 循環 | 0 |
@@ -378,7 +378,7 @@ run を経由しない逆走査は、1 つの artifact がプロジェクトの�
 | 整合性 `danglingAnchor` | 0 |
 | `falsePass`（偽の主張） | 88 |
 | **commit を持つノード** | **1406 / 1406** |
-| **commit を持つ辺** | **26992 / 26992** |
+| **commit を持つ辺** | **27030 / 27030** |
 
 `falsePass` 88 件は**本票が発見した既存 drift** である：カタログは
 `UT-DSC-001` / `IT-DSC-001` / `UT-QUAL-001` / `UT-ATS213-001` 等を `PASS` と
