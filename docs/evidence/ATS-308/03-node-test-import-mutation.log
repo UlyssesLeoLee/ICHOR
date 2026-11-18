@@ -1,10 +1,21 @@
-✔ M1: when the broken links are not collected, the report has no broken entry (17.7538ms)
-✔ M2: when the ambiguous links are not collected, the report has no ambiguous entry (9.6424ms)
-✔ M3: when a broken link is reported as resolved, the report invents a fact (9.9177ms)
-✔ M4: when a runtime artefact is reported broken, the report cries wolf (16.6158ms)
-✔ M5: when an external path is reported broken, the report cries wolf (7.8121ms)
-✔ M6: when the import rewrites the body, the acceptance criterion is violated (10.6129ms)
-✔ M7: when the classifier guesses among several candidates, the report invents a fact (10.1725ms)
+==============================================================================
+ATS-308 evidence log -- the ATS-308 negative control
+==============================================================================
+commit        : 6783999419a5f2bc06f7cd65e20252cfa2dc3608
+timestamp     : 2026-11-18T02:46:56Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-387a812793da/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node --test tests/ats308-import-mutation.test.mjs
+==============================================================================
+
+✔ M1: when the broken links are not collected, the report has no broken entry (20.4104ms)
+✔ M2: when the ambiguous links are not collected, the report has no ambiguous entry (10.1389ms)
+✔ M3: when a broken link is reported as resolved, the report invents a fact (12.5558ms)
+✔ M4: when a runtime artefact is reported broken, the report cries wolf (16.5872ms)
+✔ M5: when an external path is reported broken, the report cries wolf (7.8041ms)
+✔ M6: when the import rewrites the body, the acceptance criterion is violated (10.5579ms)
+✔ M7: when the classifier guesses among several candidates, the report invents a fact (10.8935ms)
 ℹ tests 7
 ℹ suites 0
 ℹ pass 7
@@ -12,4 +23,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 182.4349
+ℹ duration_ms 183.0575

@@ -1,8 +1,27 @@
 #!/usr/bin/env python3
-"""ATS-501: print the state of the ATS-501 row in docs/WBS.xlsx.
+"""Print the state of ONE WBS row in docs/WBS.xlsx.
 
 A small read-only helper so the evidence log shows the row as a reader of
 the workbook would see it, rather than as the updater script wrote it.
+
+THE WBS ID IS AN ARGUMENT
+-------------------------
+This script used to hardcode ATS-501 and IGNORE its command line. A caller
+that passed a different id (`show-wbs-row.py ATS-308`) got ATS-501's row
+printed back -- so an evidence log could claim to show one task's row while
+showing another's. That is exactly the class of defect the ATS-307
+readme-consistency check was written to kill, and it hid a real one: the
+ATS-308 evidence log showed the ATS-501 row.
+
+So the id is now taken from the command line, and the DEFAULT is the task
+that owns this script (ATS-501), which keeps every existing caller working.
+The row that is printed is the row that was asked for, and the header says
+which one it is -- a reader can tell at a glance whether the log shows what
+the step was supposed to show.
+
+Usage:
+  show-wbs-row.py            # ATS-501 (the default, this script's own task)
+  show-wbs-row.py ATS-308    # the ATS-308 row
 """
 import sys
 from pathlib import Path
@@ -24,6 +43,10 @@ parts = read_parts()
 s1 = sheet_cells(parts, 'xl/worksheets/sheet1.xml')
 s2 = sheet_cells(parts, 'xl/worksheets/sheet2.xml')
 
+# The row to print. The default is the task that owns this script, so the
+# existing callers (which pass no argument) keep their behaviour.
+WBS_ID = sys.argv[1] if len(sys.argv) > 1 else 'ATS-501'
+
 COLUMNS = {
     'A': 'WBS ID',
     'B': '名称',
@@ -37,16 +60,16 @@ COLUMNS = {
 
 target = None
 for rid in sorted(s2):
-    if s2[rid].get('A') == 'ATS-501':
+    if s2[rid].get('A') == WBS_ID:
         target = (rid, s2[rid])
         break
 
 if target is None:
-    print('ATS-501 row not found in 开发WBS')
+    print(f'{WBS_ID} row not found in 开发WBS')
     raise SystemExit(1)
 
 rid, cells = target
-print(f'ATS-501 row {rid}:')
+print(f'{WBS_ID} row {rid}:')
 for col, label in COLUMNS.items():
     print(f'  {col}{rid} {label:<8}: {cells.get(col, "")}')
 

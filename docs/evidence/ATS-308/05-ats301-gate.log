@@ -1,5 +1,16 @@
+==============================================================================
+ATS-308 evidence log -- the ATS-301 gate
+==============================================================================
+commit        : 6783999419a5f2bc06f7cd65e20252cfa2dc3608
+timestamp     : 2026-11-18T02:46:57Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-387a812793da/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : bash tools/ats301-probes/check-ats301-gate.sh
+==============================================================================
+
 === ATS-301 gate: WBS helper + ADR citations + port audit ===
-repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-7a716a6ed55a/worktree
+repo root : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-387a812793da/worktree
 python    : 3.11.16 (main, Sep  1 2026, 14:15:24) [MSC v.1944 64 bit (AMD64)]
 stdout enc: utf-8 (forced: PYTHONUTF8=1 PYTHONIOENCODING=utf-8)
 node      : v24.19.0
@@ -127,7 +138,7 @@ all checks passed
 
 --- 2. every ADR path:line citation resolves ---
 --- citations enumerated from the ADR ---
-  apps/studio/app/page.tsx         1109
+  apps/studio/app/page.tsx         1114
   apps/studio/lib/api.ts           106, 109, 111, 115
   apps/studio/public/fallback.html 24
   server/core.mjs                  1392, 781
@@ -158,7 +169,7 @@ ok   server/index.mjs:2519
 ok   server/core.mjs:781
 ok   server/core.mjs:1392
 ok   server/index.mjs:1474-1504 (cancelRun extent)
-ok   apps/studio/app/page.tsx:1109 (the workbench footer text -- covered by the ATS-101 port audit)
+ok   apps/studio/app/page.tsx:1114 (the workbench footer text -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:106 (the API base URL (the server-rendered branch) -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:109 (the API base URL (the port-3000 branch) -- covered by the ATS-101 port audit)
 ok   apps/studio/lib/api.ts:111 (the API base URL (the Tauri-protocol branch) -- covered by the ATS-101 port audit)
@@ -171,11 +182,11 @@ RESULT: OK
 
 --- 3. the hardcoded default port list in 16 §3.1 matches the source ---
 === ATS-101 scenario D: hardcoded default-port audit ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-7a716a6ed55a\worktree
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-387a812793da\worktree
 port      : 4577
 
 --- RUNTIME hardcoding in shipped source ---
-  apps/studio/app/page.tsx:1109  <footer className="bottom-bar"><span><span className="online"/> LOCAL RUNNER · 127.0.0.1:4577</span><span>Git ...
+  apps/studio/app/page.tsx:1114  <footer className="bottom-bar"><span><span className="online"/> LOCAL RUNNER · 127.0.0.1:4577</span><span>Git ...
   apps/studio/lib/api.ts:106  if(typeof window==='undefined')return 'http://127.0.0.1:4577';
   apps/studio/lib/api.ts:109  if(port==='3000')return 'http://127.0.0.1:4577';
   apps/studio/lib/api.ts:111  if(protocol==='tauri:'||protocol==='tauri+https:')return 'http://127.0.0.1:4577';
@@ -212,7 +223,7 @@ total = 11
   docs/16-BASELINE-ADR.md:100  Bridge 仅监听 `127.0.0.1:<ATS_PORT>`（默认 4577）。状态类 API 需 `X-ATS-Token`；`/api/session` 由 Origin allowlist...
   docs/16-BASELINE-ADR.md:124  1. **默认端口 4577 在发布源码中被硬编码在 9 处**（不含文档与测试数据）。改端口须同步全部，否则 UI 与 CSP 会指向错误端口：
   docs/16-BASELINE-ADR.md:128  | 1 | `server/index.mjs:100` | 默认值 `process.env.ATS_PORT\|\|4577` |
-  docs/16-BASELINE-ADR.md:134  | 7 | `apps/studio/app/page.tsx:1109` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
+  docs/16-BASELINE-ADR.md:134  | 7 | `apps/studio/app/page.tsx:1114` | 工作台页脚文本 `LOCAL RUNNER · 127.0.0.1:4577` |
   docs/16-BASELINE-ADR.md:135  | 8 | `apps/studio/public/fallback.html:24` | 便携 UI 页脚文本 `LOCAL BRIDGE · 127.0.0.1:4577` |
   docs/16-BASELINE-ADR.md:149  2. **`ATS_PORT` 非默认时 UI 不可用**：实测 bridge 在 19988 端口正常启动，但 CSP 与 `api.ts` 仍指向 4577。
   docs/16-BASELINE-ADR.md:370  - **ATS-103 已实测静态导出与 Bridge 的接口面接缝**（`docs/22-FRONTEND-EXPORT.md`）：`next build` 成功产出 `apps/studio/ou...
