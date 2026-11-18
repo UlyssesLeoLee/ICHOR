@@ -19,7 +19,7 @@ ATS-308 の完了定義は次の 2 項目である。
 | AC-1 | 导入 md/json 关系不改正文 | §4 読み取り専用性 / §9 実測 | IMPLEMENTED |
 | AC-2 | 失效/重名链接输出报告 | §5 分類器 / §6 報告書 / §9 実測 | IMPLEMENTED |
 
-**「不改正文」は禁止事項ではなく主張である。** 索引器は 43 文書を
+**「不改正文」は禁止事項ではなく主張である。** 索引器は 56 文書を
 開き、関係を読み、報告を返すが、**1 バイトも書き戻さない**。§4 で
 「なぜ書き戻さないことが設計であるか」を述べる。
 
@@ -38,8 +38,8 @@ ATS-308 の完了定義は次の 2 項目である。
    リンクが古い。**生データは今日の状態を述べるが、
    壊れたリンクがどこにあるかは述べない。**
 2. **設計資料という側の関係は、 altogether 見ていなかった。** `.aitest` は
-   JSON 2 個だが、設計資料は `docs/` の Markdown 43 ファイルで、
-   **そちらのほうが関係が多い**（実測 1205 参照）。B07
+   JSON 2 個だが、設計資料は `docs/` の Markdown 56 ファイルで、
+   **そちらのほうが関係が多い**（実測 1208 参照）。B07
    「Graph Traceability」の設計は「要件/关联读取 → `.aitest/*.json`」と
    書いているが、実装は**片方の半分しか見ていない**。
 3. **報告が無い。** 壊れたリンクを**列挙**する場所が無い。読者は
@@ -97,7 +97,7 @@ UT-ATS308-001 / IT-ATS308-API-003 / IT-ATS308-API-004 が
 
 参照は 1 本の**インラインコードスパン**（`` `server/index.mjs` ``）で
 書かれる。これは**リポジトリが実際に使っている唯一の規約**である
-（計測: 43 文書、1205 参照、**Markdown リンクは 0 本**）。
+（計測: 56 文書、1208 参照、**Markdown リンクは 0 本**）。
 Markdown パーサを**再実装しない**のはこのためである。
 
 判定は 8 段の**順序**で、**第一条**で必ず決着する。
@@ -220,18 +220,20 @@ UID はプロジェクト依存（ATS-202/ATS-204）であり、**タイトル**
 
 ## 9. 実測結果（`docs/evidence/ATS-308/`）
 
-プラットフォーム自身の設計ベースライン（`docs/` 43 文書 + 追跡資産 3 個）
-に対する**実測**（本票の新規文書 `docs/35-DESIGN-IMPORT.md` を**除外**した
-数値——それは本票が**追加した**文書であり、ベースラインではない）：
+プラットフォーム自身の設計ベースライン（`docs/` 56 文書 + 追跡資産 3 個）
+に対する**実測**（本票の新規文書 `docs/35-DESIGN-IMPORT.md` と本票の
+証跡索引 `docs/evidence/ATS-308/README.md` を**除外**した数値——前者は
+本票が**追加した**文書、後者は本票の**証跡**であり、いずれもベースライン
+ではない）：
 
 | verdict | 件数 |
 |---|---|
-| `resolved` | 1058 |
+| `resolved` | 1061 |
 | `runtime` | 76 |
 | `ambiguous` | 14 |
 | `external` | 16 |
 | `broken` | 41（**16 種の token**、41 箇所の出現） |
-| **合計（参照総数）** | **1205** |
+| **合計（参照総数）** | **1208** |
 
 `byKind` の合計が参照総数と一致することは UT-ATS308-031 が**実測**で
 確認する。
@@ -272,7 +274,7 @@ UID はプロジェクト依存（ATS-202/ATS-204）であり、**タイトル**
 | `index.mjs` | 3 | 4 | `server/index.mjs` `server/ai/index.mjs` `server/discovery/index.mjs` `examples/sample-plugin/index.mjs` |
 | `mutation-check.mjs` | 3 | 4 | `tools/ats107-probes/` `ats111-probes/` `ats214-probes/` `ats216-probes/` |
 | `errors.mjs` | 2 | 2 | `server/ai/errors.mjs` `server/control-plane/errors.mjs` |
-| `collect-evidence.sh` | 1 | 31 | `tools/ats1xx-probes/` … `tools/ats6xx-probes/` の 31 本 |
+| `collect-evidence.sh` | 1 | 32 | `tools/ats1xx-probes/` … `tools/ats6xx-probes/` の 32 本 |
 
 **どれも実在する重名**であり、**誤検出ではない**。索引器は
 **1 つも選ばない**。
@@ -287,13 +289,13 @@ UID はプロジェクト依存（ATS-202/ATS-204）であり、**タイトル**
 ### 9.5 壊れリンクの**発見能力**は**実測**で確認した
 
 `tools/ats308-probes/probe-design-import.mjs` は**実リポジトリ**を読み、
-`resolved` と判定された**全 1058 参照**の候補が**実在するファイル**で
+`resolved` と判定された**全 1061 参照**の候補が**実在するファイル**で
 あることを**1 件ずつ**確認する。
 
 ```
-resolved references checked : 1058
+resolved references checked : 1061
 candidates that do not exist: 0
-RESULT: OK -- 1058 resolved references all name files that exist.
+RESULT: OK -- 1061 resolved references all name files that exist.
 ```
 
 **⇒ 「存在しないファイルへの参照を見つける」能力は実測で確認できた。

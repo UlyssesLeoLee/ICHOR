@@ -1,23 +1,34 @@
+==============================================================================
+ATS-308 evidence log -- the WBS updater and its idempotence
+==============================================================================
+commit        : 6783999419a5f2bc06f7cd65e20252cfa2dc3608
+timestamp     : 2026-11-18T02:46:58Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-387a812793da/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : python tools/update_wbs_ats308.py && python tools/ats501-probes/show-wbs-row.py ATS-308
+==============================================================================
+
 $ python tools/update_wbs_ats308.py
 overview: 已完成=2 完成率=0.3532934131736527 剩余人日=324.0
-updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-7a716a6ed55a\worktree\docs\WBS.xlsx
+updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-387a812793da\worktree\docs\WBS.xlsx
 totals: {'completed': 2, 'sum_estimate': 501.0, 'sum_remaining': 324.0, 'completion_rate': 0.3532934131736527}
 
 $ python tools/update_wbs_ats308.py   # again -- the row must not change
 overview: 已完成=2 完成率=0.3532934131736527 剩余人日=324.0
-updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-7a716a6ed55a\worktree\docs\WBS.xlsx
+updated C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-387a812793da\worktree\docs\WBS.xlsx
 totals: {'completed': 2, 'sum_estimate': 501.0, 'sum_remaining': 324.0, 'completion_rate': 0.3532934131736527}
 
 $ python tools/ats501-probes/show-wbs-row.py ATS-308
-ATS-501 row 77:
-  A77 WBS ID  : ATS-501
-  B77 名称      : S5
-  G77 完成定义    : 定义服务端信任边界、认证、版本握手、租户隔离及拒绝规则
-  K77 估算人日    : 5
-  N77 状态      : 待审核
-  O77 完成率     : 1
-  P77 剩余人日    : 0
-  T77 风险/说明   : 阶段内按验收门槛控制；【ATS-501】远程协议/ADR 已冻结于 docs/19-REMOTE-RUNNER-PROTOCOL.md：信任边界、认证、版本握手、租户隔离、拒绝规则五项验收要素齐备，另冻结连接方向（节点只出站）与代码获取通道（节点侧预置本地代码源）；机读契约块可由 tools/ats501-probes/audit-remote-protocol.mjs 校验、负向夹具由 tools/ats501-probes/mutation-tests.mjs 证明校验非空转；远程执行面在本任务范围内无任何实现，全部标记 DESIGNED
+ATS-308 row 48:
+  A48 WBS ID  : ATS-308
+  B48 名称      : S3
+  G48 完成定义    : 导入 md/json 关系不改正文；失效/重名链接输出报告
+  K48 估算人日    : 5
+  N48 状态      : 待审核
+  O48 完成率     : 1
+  P48 剩余人日    : 0
+  T48 风险/说明   : 阶段内按验收门槛控制；【ATS-308】设计资料索引器已实现并实测（design-import/v1）：（1）**导入只读不写**：验收标准「导入 md/json 关系不改正文」不是禁止事项而是**主张**——索引器打开 56 份设计文档与 3 份追踪资产、读出关系、返回报告，**1 字节也不写回**；API 只有 GET，**没有 POST**。破坏「正文不变」的负控（M6：让导入器往正文追加一行）实测**必然改变**正文，未变异的导入器逐字节相同（UT/IT 各一组）。（2）**失效与重名都出报告**：引用按 5 个 verdict 分类——resolved / ambiguous（同名多处，列出全部候选，**不替读者选**）/ runtime（运行期或构建产物）/ external（指向被测项目，本仓库无此目录）/ broken。报告按 token 归并，一个坏链被 12 处提到仍算**一个**缺陷。（3）**不 cry wolf**：state.json / report.json 这类运行期产物不算失效（否则每次报告都在叫），重名不算失效（引用没错，只是不完整）。（4）**实**：对真实设计基线实测 1208 条引用——resolved 1061 / runtime 76 / ambiguous 14 / external 16 / broken 41（41 处均为 issue 附件的复核探针、他树旧文件名或运行期生成物，**不是真缺的文件**）；**1061 条 resolved 的候选逐条核对，全部实存**。（5）**负控 7 条**：把导入器的「报告失效」「报告重名」「把坏链说成已解析」「把运行期产物说成失效」「把外部路径说成失效」「改正文」「在多个候选中乱猜」逐个变异，**7 变异逐条被抓住**，未变异的代码仍然通过。（6）**已知局限（如实记录）**：broken 的词汇**不区分**「真缺的文件」与「另一种不在」（issue 附件、他树旧名、运行期生成物都落在同一个词里），所以坏链报告**偏强**；§ 编号的**照合未实现**（索引只读出章号，不核对 § 引用）；被测项目**自有**设计基线的索引**未实现**（当前索引的是项目自身的 docs/）；UI 未做（属 ATS-310）。详见 docs/35-DESIGN-IMPORT.md。
 
   remaining == estimate * (1 - completion) ? True (5.0 * (1 - 1.0) = 0.0)
 

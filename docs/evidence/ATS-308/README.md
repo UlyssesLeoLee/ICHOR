@@ -4,8 +4,13 @@
 每一份 log 都是**某条命令在这台机器上真的打印出来的东西**，不是对它的描述。
 
 采集脚本：`tools/ats308-probes/collect-evidence.sh`
-（一次跑完 6 步，最后一行是 `RESULT: OK -- every step of the ATS-308
+（一次跑完 7 步，最后一行是 `RESULT: OK -- every step of the ATS-308
 evidence collection passed.`）。
+
+**每份 log 的头部写明它描述的是哪一个 commit**（`commit : <sha>`）。没有
+commit 的 log 是没有树依附的数字，而没有树的数字会在别的票一碰 `docs/`
+就过期——第一次采集就是如此：探针在一棵树上量到 1058 resolved，树长了，
+设计书却还在引 1058。
 
 ## ログの一覧
 
@@ -14,29 +19,43 @@ evidence collection passed.`）。
 | `01-node-test-import-ut.log` | `node --test tests/ats308-import.test.mjs` | **tests 31 / pass 31 / fail 0** |
 | `02-node-test-import-it.log` | `node --test tests/ats308-import-it.test.mjs` | **tests 9 / pass 9 / fail 0**（実 Bridge、HTTP） |
 | `03-node-test-import-mutation.log` | `node --test tests/ats308-import-mutation.test.mjs` | **tests 7 / pass 7 / fail 0**（**負控 7 変異が 7 変異を捕捉**） |
-| `04-probe-design-import.log` | `node tools/ats308-probes/probe-design-import.mjs --exclude docs/35-DESIGN-IMPORT.md` | **`RESULT: OK -- 1058 resolved references all name files that exist.`** |
+| `04-probe-design-import.log` | `node tools/ats308-probes/probe-design-import.mjs` | **`RESULT: OK -- 1061 resolved references all name files that exist.`** |
 | `05-ats301-gate.log` | `bash tools/ats301-probes/check-ats301-gate.sh` | **`RESULT: OK -- the WBS helper regression, the ADR citation check and the port audit all pass.`** |
-| `06-wbs-update.log` | `python tools/update_wbs_ats308.py`（2 回）+ `show-wbs-row.py` | ATS-308 行 = `待审核` / `1` / `0`、マーカー 1 個、総覧の派生値がシートと一致 |
+| `06-wbs-update.log` | `python tools/update_wbs_ats308.py`（2 回）+ `show-wbs-row.py ATS-308` | ATS-308 行 = `待审核` / `1` / `0`、マーカー 1 個、総覧の派生値がシートと一致 |
+| `07-doc-consistency.log` | `node tools/ats308-probes/check-doc-consistency.mjs` | **`RESULT: OK -- every figure the documents quote is the committed log's figure.`** |
 
 ## 04 のプローブが実測した数字
 
-プラットフォーム自身の設計ベースライン（`docs/` 43 文書 + 追跡資産 3 個）:
+プラットフォーム自身の設計ベースライン（`docs/` 56 文書 + 追跡資産 3 個）:
 
 ```
-resolved      : 1058
+resolved      : 1061
 runtime       : 76
 ambiguous     : 14
 external      : 16
 broken        : 41
-TOTAL         : 1205
+TOTAL         : 1208
 ```
+
+**ベースラインは本票の産物（`docs/35-DESIGN-IMPORT.md` と本 README）を
+除外する。** 除外しないと、本票が自分の文章を編集するだけで測定値が
+動く——README は `show-wbs-row.py` を名指しし、これはツリーに 2 個ある
+ので README 1 行が AMBIGUOUS を 1 件と設計文書 1 件を増やす。§9 の表は
+残りのツリーだけの関数になる。
 
 `broken` の 41 箇所は**実在の欠陥ではない**（issue 添付の復核プローブ 25、
 他ツリーの旧ファイル名 12、実行時生成物 4）。内訳は
 `docs/35-DESIGN-IMPORT.md` §9.1 に**実測値**として書いてある。
 
-**プローブは自検もする**——`resolved` と判定された**全 1058 参照**の候補が
+**プローブは自検もする**——`resolved` と判定された**全 1061 参照**の候補が
 **1 件ずつ実在するファイル**であることを確認してから `RESULT: OK` を出す。
+
+## 数字は散文ではなく**検査される**
+
+`07-doc-consistency.log` は、本 README と `docs/35-DESIGN-IMPORT.md` と
+`docs/00-INDEX.md` と `tools/update_wbs_ats308.py` が**引用する数字**を、
+コミット済みのログの数字と**一対一で照合する**。ずれたら FAIL する。
+だから「ログを追加して README を更新し忘れる」と**門禁が赤くなる**。
 
 ## 05 の ATS-301 ゲートが緑である理由
 

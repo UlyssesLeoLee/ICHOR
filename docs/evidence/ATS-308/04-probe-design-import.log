@@ -1,15 +1,26 @@
+==============================================================================
+ATS-308 evidence log -- the ATS-308 probe over the real baseline
+==============================================================================
+commit        : 6783999419a5f2bc06f7cd65e20252cfa2dc3608
+timestamp     : 2026-11-18T02:46:57Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-387a812793da/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node tools/ats308-probes/probe-design-import.mjs
+==============================================================================
+
 === ATS-308 probe: the design import over the real repository ===
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-7a716a6ed55a\worktree
-excluded  : docs/35-DESIGN-IMPORT.md
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-387a812793da\worktree
+excluded  : docs/35-DESIGN-IMPORT.md, docs/evidence/ATS-308/README.md
 
 --- per-verdict counts ---
-  resolved      : 1058
+  resolved      : 1061
   ambiguous     : 14
   runtime       : 76
   external      : 16
   broken        : 41
   not-a-reference: 0
-  TOTAL         : 1205
+  TOTAL         : 1208
 
 --- broken references (41 occurrences) ---
     6x r1-api.mjs  <- docs/evidence/ATS-403/reviewer-probes/README.md
@@ -120,11 +131,11 @@ excluded  : docs/35-DESIGN-IMPORT.md
     1x out/404/index.html
 
 --- self-check: every resolved reference names a file that exists ---
-  resolved references checked : 1058
+  resolved references checked : 1061
   candidates that do not exist: 0
 
 --- materials ---
   design        : 56
   asset         : 3
 
-RESULT: OK -- 1058 resolved references all name files that exist.
+RESULT: OK -- 1061 resolved references all name files that exist.

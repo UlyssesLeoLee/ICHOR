@@ -1,0 +1,55 @@
+==============================================================================
+ATS-308 evidence log -- the ATS-308 document/log consistency check
+==============================================================================
+commit        : 6783999419a5f2bc06f7cd65e20252cfa2dc3608
+timestamp     : 2026-11-18T02:46:58Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-387a812793da/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node tools/ats308-probes/check-doc-consistency.mjs
+==============================================================================
+
+=== ATS-308: the figures the documents quote vs the committed logs ===
+  ok    the probe log carries every per-verdict count
+  ok    the probe log carries the material counts
+  ok    the probe log carries its self-check count
+  ok    the design document's `resolved` row is the probe log's 1061
+  ok    the evidence README's `resolved` line is the probe log's 1061
+  ok    the design document's `ambiguous` row is the probe log's 14
+  ok    the evidence README's `ambiguous` line is the probe log's 14
+  ok    the design document's `runtime` row is the probe log's 76
+  ok    the evidence README's `runtime` line is the probe log's 76
+  ok    the design document's `external` row is the probe log's 16
+  ok    the evidence README's `external` line is the probe log's 16
+  ok    the design document's `broken` row is the probe log's 41
+  ok    the evidence README's `broken` line is the probe log's 41
+  ok    the design document states the probe log's total
+  ok    the evidence README states the probe log's total
+  ok    the design document quotes the probe log's self-check count
+  ok    the evidence README quotes the probe log's self-check count
+  ok    the evidence README quotes the probe log's RESULT line
+  ok    the design document states the probe log's design document count
+  ok    the evidence README states the probe log's design document count
+  ok    the index document states the probe log's design document count
+  ok    the design document states the probe log's tracking asset count
+  ok    the README's UT counts are the committed log's counts
+  ok    the README's IT counts are the committed log's counts
+  ok    the README's negative control counts are the committed log's counts
+  ok    the README log table has one row per committed log
+  ok    every committed log is named in the README
+  ok    every log the README names is committed
+  ok    the design document's §9.1 breakdown sums to the probe log's broken count
+  ok    the WBS updater's note template carries a slot for the resolved reference count
+  ok    the WBS updater's note template carries a slot for the ambiguous reference count
+  ok    the WBS updater's note template carries a slot for the runtime reference count
+  ok    the WBS updater's note template carries a slot for the external reference count
+  ok    the WBS updater's note template carries a slot for the broken reference count
+  ok    the WBS updater's note template carries a slot for the total reference count
+  ok    the WBS updater's note template carries a slot for the design document count
+  ok    the WBS updater's note template carries a slot for the tracking asset count
+  ok    the workbook note the updater wrote states the log's total
+  ok    the workbook note the updater wrote states the log's resolved count
+  ok    the 06 log shows the ATS-308 row, not another task's row
+  ok    the design document's "no Markdown links" claim holds for the tree
+
+RESULT: OK -- every figure the documents quote is the committed log's figure.
