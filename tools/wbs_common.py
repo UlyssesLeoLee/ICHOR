@@ -45,7 +45,7 @@ MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-104】', '
            '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-213】', '【ATS-214】', '【ATS-215】', '【ATS-216】',
            '【ATS-301】', '【ATS-307】', '【ATS-401】', '【ATS-402】', '【ATS-403】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
            '【ATS-601】', '【ATS-602】', '【ATS-603】', '【ATS-606】', '【ATS-410】',
-           '【ATS-308】')
+           '【ATS-308】', '【ATS-314】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked

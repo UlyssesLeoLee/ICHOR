@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：235；已执行通过：221；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：243；已执行通过：229；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -243,6 +243,14 @@
 |IT-ATS308-API-005|FR-027|安全|导入端点需要会话 token|不带 X-ATS-Token 调用|401|node --test tests/ats308-import-it.test.mjs|PASS|
 |IT-ATS308-API-006|FR-026|正常|顶层端点导入平台自身的设计基线|真实 Bridge|资料清单含 docs/33-TRACEABILITY-GRAPH.md；detailed 模式带出全部引用，且每条 resolved 的候选都真实存在|node --test tests/ats308-import-it.test.mjs|PASS|
 |IT-ATS308-API-007|FR-026|正常|顶层导入不改仓库的一个字节|调用前后读同一份设计文档|内容逐字节相同|node --test tests/ats308-import-it.test.mjs|PASS|
+|IT-ATS314-API-001|FR-022|正常|端点给出判定、计数与步骤|实 Bridge + 全部步骤受控的夹具脚本|editability=writable、controlled=3；步骤点名三个 API；containers=1|node --test tests/ats314-ast-subset-it.test.mjs|PASS'|
+|IT-ATS314-API-002|FR-022|正常|有被拒步骤的文件是 partial 且不可写|实 Bridge + 混有受控与被拒步骤的夹具脚本|editability=partial、writable=false；被拒步骤点名 page.setContent 与 not-whitelisted|node --test tests/ats314-ast-subset-it.test.mjs|PASS'|
+|IT-ATS314-API-003|FR-022|正常|每个拒绝都带理由，界面才能说清为什么|实 Bridge + helper 与运行期参数的夹具脚本|理由含 not-whitelisted、argument-not-static、inside-local-function；理由计数合计=只读计数|node --test tests/ats314-ast-subset-it.test.mjs|PASS'|
+|IT-ATS314-API-004|FR-022|正常|检测器不改项目的一个字节|调用前后对夹具树取摘要|摘要相同、文件数相同|node --test tests/ats314-ast-subset-it.test.mjs|PASS'|
+|IT-ATS314-API-005|FR-022|安全|检测器是只读的——没有写端点|对 ast-subset 端点发 POST|404——检测器不可写|node --test tests/ats314-ast-subset-it.test.mjs|PASS'|
+|IT-ATS314-API-006|FR-022|安全|端点接受的文件与 source 端点完全相同|file=package.json 与 file=../escape.spec.ts|两者都 400；与 source 端点的错误码相同|node --test tests/ats314-ast-subset-it.test.mjs|PASS'|
+|IT-ATS314-API-007|FR-022|安全|端点需要会话 token|不带 X-ATS-Token 调用|401|node --test tests/ats314-ast-subset-it.test.mjs|PASS'|
+|IT-ATS314-API-008|FR-022|正常|回答写明它出自哪个版本的检测器|实 Bridge|version=1|node --test tests/ats314-ast-subset-it.test.mjs|PASS'|
 
 ## 进入与退出条件
 

@@ -1,0 +1,61 @@
+==============================================================================
+ATS-314 evidence log -- the ATS-314 document/log consistency check
+==============================================================================
+commit        : 9726082352f3878183ea226db4977f6e5fd8500b
+timestamp     : 2026-11-18T04:34:36Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-e71fb757862f/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node tools/ats314-probes/check-doc-consistency.mjs
+==============================================================================
+
+=== ATS-314: the figures the documents quote vs the committed logs ===
+  ok    the probe log carries a per-file line for every file it measured
+  ok    the per-file counts add up to the totals
+  ok    the per-file verdicts add up to the file totals
+  ok    the design document quotes "5 个文件"
+  ok    the design document quotes "controlled 3"
+  ok    the design document quotes "read-only 9"
+  ok    the design document does not contradict the verdict of examples/real-browser-fixture/tests/failing.spec.ts
+  ok    the design document does not contradict the verdict of examples/real-browser-fixture/tests/passing.spec.ts
+  ok    the design document does not contradict the verdict of examples/sample-playwright/tests/home.spec.ts
+  ok    the design document does not contradict the verdict of examples/sample-wdio/tests/fail.spec.js
+  ok    the design document does not contradict the verdict of examples/sample-wdio/tests/pass.spec.js
+  ok    the unit suite log carries its case count
+  ok    the integration suite log carries its case count
+  ok    the negative control log carries its case count
+  ok    the unit suite had no failures
+  ok    the integration suite had no failures
+  ok    the negative control had no failures
+  ok    the design document quotes the unit suite case count
+  ok    the design document quotes the integration suite case count
+  ok    the design document quotes the negative control case count
+  ok    the evidence README quotes the unit suite case count
+  ok    the evidence README quotes the integration suite case count
+  ok    the probe log carries the reason breakdown
+  ok    the reason counts add up to the read-only step count
+  ok    the design document mentions the reason "argument-not-static"
+  ok    the design document mentions the reason "not-whitelisted"
+  ok    the evidence README names the committed log 01-node-test-ast-subset-ut.log
+  ok    the evidence README names the committed log 02-node-test-ast-subset-it.log
+  ok    the evidence README names the committed log 03-probe-ast-subset.log
+  ok    the evidence README names the committed log 04-node-test-negative-control.log
+  ok    the evidence README names the committed log 05-ats301-gate.log
+  ok    the evidence README names the committed log 06-wbs-update.log
+  ok    the evidence README names the committed log 07-doc-consistency.log
+  ok    the log 01-node-test-ast-subset-ut.log the README names is committed
+  ok    the log 02-node-test-ast-subset-it.log the README names is committed
+  ok    the log 03-probe-ast-subset.log the README names is committed
+  ok    the log 04-node-test-negative-control.log the README names is committed
+  ok    the log 05-ats301-gate.log the README names is committed
+  ok    the log 06-wbs-update.log the README names is committed
+  ok    the log 07-doc-consistency.log the README names is committed
+  ok    the log 04-node-test-negative-control.log the README names is committed
+  ok    the log 07-doc-consistency.log the README names is committed
+  ok    the log 03-probe-ast-subset.log the README names is committed
+  ok    the WBS updater reads the figures from the probe log
+  ok    the WBS updater refuses to write without the probe log
+  ok    the WBS updater derives the note text from the figures
+  ok    the index document names the ATS-314 design document
+
+RESULT: OK -- every figure the documents quote is backed by a committed log.

@@ -1,0 +1,27 @@
+==============================================================================
+ATS-314 evidence log -- the ATS-314 negative control
+==============================================================================
+commit        : 9726082352f3878183ea226db4977f6e5fd8500b
+timestamp     : 2026-11-18T04:34:34Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-e71fb757862f/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node --test tests/ats314-ast-subset-mutation.test.mjs
+==============================================================================
+
+✔ M1: without the whitelist, a step that is not supported is reported as controlled (5.5849ms)
+✔ M2: without the static-argument rule, a computed argument is reported as controlled (3.8606ms)
+✔ M3: without the runtime-value rule, the actual of an assertion is reported as rewritable (5.9527ms)
+✔ M4: without the loop refusal, a step that runs N times is drawn as one box (3.9308ms)
+✔ M5: without the string and comment skipping, a call that is not a call is reported (4.4816ms)
+✔ M6: with the verdict inverted, a file the platform may not rewrite is writable (3.2323ms)
+✔ M7: without the reason codes, a refusal cannot say why (4.1584ms)
+✔ M8: the unmutated detector refuses every one of the mutated behaviours (0.5268ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 123.6721

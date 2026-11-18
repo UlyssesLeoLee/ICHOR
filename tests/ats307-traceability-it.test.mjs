@@ -88,13 +88,34 @@ test('IT-ATS307-004: ?requirement= walks one chain down', async () => {
 });
 
 test('IT-ATS307-005: ?requirement= names the hop that is missing', async () => {
-  // FR-022 is DESIGNED with no test case at all.
-  const [status, body] = await api('/api/traceability?requirement=FR-022');
+  // The requirement used here must be one whose chain really IS broken.
+  //
+  // It used to be FR-022, because FR-022's test column was the STRING
+  // `TBD` -- 「欠けた環は `TBD` という文字列」 -- and a string is not a
+  // test case. ATS-314 gave FR-022 real test cases, so the chain is no
+  // longer broken at the `no-testcase` hop, and this test failed for a
+  // reason that had nothing to do with the graph.
+  //
+  // The requirement is therefore DERIVED from the catalogue instead of
+  // being hardcoded: the test asks the graph for a requirement that
+  // has no test case, and asserts that the gap names it. A hardcoded
+  // id is a claim about the catalogue that goes stale the first time
+  // somebody writes a test for it.
+  const catalogue = await api('/api/traceability');
+  const summary = catalogue[1];
+  // The summary reports the gaps BY KIND (`gaps`), each with the
+  // requirements that have it.
+  const noTestcase = summary.gaps?.['no-testcase'];
+  assert.ok(noTestcase, `the summary has a no-testcase gap: ${JSON.stringify(Object.keys(summary.gaps ?? {}))}`);
+  assert.ok(noTestcase.requirements.length > 0, 'the gap names the requirements');
+
+  const requirement = noTestcase.requirements[0];
+  const [status, body] = await api(`/api/traceability?requirement=${requirement}`);
   assert.equal(status, 200);
   assert.equal(body.found, true);
   assert.ok(body.gaps.length > 0, 'the broken chain says so');
   const gap = body.gaps.find((g) => g.gap === 'no-testcase');
-  assert.ok(gap, 'the missing test case is named');
+  assert.ok(gap, `the missing test case is named (gaps: ${JSON.stringify(body.gaps)})`);
   assert.equal(gap.hop, 2, 'the gap names the hop');
 });
 
