@@ -1,8 +1,8 @@
 ==============================================================================
 ATS-307 evidence log -- the attribution of a full-suite failure that is not this task's
 ==============================================================================
-commit        : b62b19db38a71d1cc215aadd7d1351592dce0dbf
-timestamp     : 2026-11-18T00:40:45Z (UTC)
+commit        : c2c5f8627d3b5cecc9538a5828dccff2d2b95571
+timestamp     : 2026-11-18T01:07:20Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-cdff9ecc594b/worktree
 node          : v24.19.0
 platform      : win32 x64
@@ -40,16 +40,16 @@ warning: in the working copy of '.gitignore', LF will be replaced by CRLF the ne
 warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
-✔ IT-ATS214-SETUP: start the bridge (701.1869ms)
-✔ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (7830.726ms)
-✔ IT-ATS214-031: the second run of a batch records the profile it inherited (6083.8895ms)
-✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (2392.5524ms)
-✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (589.3369ms)
-✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (5083.8873ms)
-✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (6087.6342ms)
-✔ IT-ATS214-036: the batch record carries NO environment variable values (6383.8024ms)
-✔ IT-ATS214-037: a whitelist tightened while the batch runs constrains the LATER run (15060.5905ms)
-✔ IT-ATS214-038: a profile DELETED while the batch runs ends the batch with a reason (13845.0505ms)
+✔ IT-ATS214-SETUP: start the bridge (422.9843ms)
+✔ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (5990.9071ms)
+✔ IT-ATS214-031: the second run of a batch records the profile it inherited (6026.8475ms)
+✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (2167.0304ms)
+✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (605.6148ms)
+✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (4794.3422ms)
+✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (5811.2702ms)
+✔ IT-ATS214-036: the batch record carries NO environment variable values (5697.3303ms)
+✔ IT-ATS214-037: a whitelist tightened while the batch runs constrains the LATER run (13983.2379ms)
+✔ IT-ATS214-038: a profile DELETED while the batch runs ends the batch with a reason (12658.1805ms)
 ℹ tests 10
 ℹ suites 0
 ℹ pass 10
@@ -57,7 +57,7 @@ warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF t
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 70762.7334
+ℹ duration_ms 64278.012
 
 exit code: 0
 
@@ -96,16 +96,16 @@ warning: in the working copy of '.gitignore', LF will be replaced by CRLF the ne
 warning: in the working copy of 'playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/a.spec.ts', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF the next time Git touches it
-✔ IT-ATS214-SETUP: start the bridge (544.2077ms)
-✔ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (6253.4692ms)
-✔ IT-ATS214-031: the second run of a batch records the profile it inherited (6623.2836ms)
-✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (2368.4421ms)
-✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (717.5159ms)
-✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (5968.2169ms)
-✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (6158.0005ms)
-✔ IT-ATS214-036: the batch record carries NO environment variable values (5983.7577ms)
-✔ IT-ATS214-037: a whitelist tightened while the batch runs constrains the LATER run (14041.2683ms)
-✔ IT-ATS214-038: a profile DELETED while the batch runs ends the batch with a reason (13635.0548ms)
+✔ IT-ATS214-SETUP: start the bridge (413.0098ms)
+✔ IT-ATS214-030: the SECOND file of a batch inherits the environment profile (6123.9019ms)
+✔ IT-ATS214-031: the second run of a batch records the profile it inherited (5980.1774ms)
+✔ IT-ATS214-032: a refused file in a selection is refused as a WHOLE (2169.8547ms)
+✔ IT-ATS214-033: a batch whose preflight fails REACHES A TERMINAL STATUS (602.7948ms)
+✔ IT-ATS214-034: a batch that is in flight when the Bridge dies is INTERRUPTED (4947.8215ms)
+✔ IT-ATS214-035: the batch record reconciles what was selected against what ran (5886.2791ms)
+✔ IT-ATS214-036: the batch record carries NO environment variable values (6228.276ms)
+✔ IT-ATS214-037: a whitelist tightened while the batch runs constrains the LATER run (14111.7308ms)
+✔ IT-ATS214-038: a profile DELETED while the batch runs ends the batch with a reason (12441.9862ms)
 ℹ tests 10
 ℹ suites 0
 ℹ pass 10
@@ -113,7 +113,7 @@ warning: in the working copy of 'tests/b.spec.ts', LF will be replaced by CRLF t
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 68773.938
+ℹ duration_ms 65051.2468
 
 exit code: 0
 

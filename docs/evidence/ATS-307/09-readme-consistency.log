@@ -1,8 +1,8 @@
 ==============================================================================
 ATS-307 evidence log -- what the README claims, checked against the logs
 ==============================================================================
-commit        : b62b19db38a71d1cc215aadd7d1351592dce0dbf
-timestamp     : 2026-11-18T00:36:02Z (UTC)
+commit        : aab1b01c393b0608e9fc06774f85ddbad437ee11
+timestamp     : 2026-11-18T01:09:31Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-cdff9ecc594b/worktree
 node          : v24.19.0
 platform      : win32 x64
@@ -11,10 +11,12 @@ command       : node tools/ats307-probes/check-readme-consistency.mjs
 
 === ATS-307: the evidence README vs the committed logs ===
   ok    the README claims the number of steps the collector runs
-  FAIL  the README log table has one row per committed log -- the directory holds 9 logs, the table names 10
+  ok    the README log table has one row per committed log
   ok    every committed log is named in the README
-  FAIL  every log the README names is committed -- named but absent: 10-suite-flaky-attribution.log
+  ok    every log the README names is committed
   ok    the README UT case count is the committed suite log count
   ok    the README IT case count is the committed suite log count
+  ok    the README group listing covers every case the suite log shows
+  FAIL  the README claims the number of groups it lists -- the README lists 9 groups and claims 8
 
-RESULT: FAIL -- 2 mismatch(es) between the README and the committed logs
+RESULT: FAIL -- 1 mismatch(es) between the README and the committed logs

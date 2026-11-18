@@ -128,10 +128,44 @@ for (const [label, file, pattern] of [
   }
 }
 
+// --- 4b. the graph measurements the README claims ---------------------
+// The README states the graph's shape (nodes, edges, chains) and the
+// commit coverage. Those numbers come from the probe, so the probe's log
+// is the authority -- the same rule as the suite counts.
+{
+  const probePath = path.join(evidenceDir, '03-probe-traceability.log');
+  if (fs.existsSync(probePath)) {
+    const probe = fs.readFileSync(probePath, 'utf8');
+    const probeNumber = (re) => re.exec(probe)?.[1] ?? null;
+    const claims = [
+      ['the node count', probeNumber(/^nodes\s+:\s+(\d+)$/m), /\| ノード \| (\d+) \|/],
+      ['the edge count', probeNumber(/^edges\s+:\s+(\d+)$/m), /\| 辺 \| (\d+) \|/],
+      ['the chain count', probeNumber(/^chains\s+:\s+(\d+)$/m), /\| チェーン（要件） \| (\d+) \|/],
+      ['the commit coverage of the nodes',
+        probeNumber(/^nodes with a commit : (\d+) of \d+$/m),
+        /\| \*\*commit を持つノード\*\* \| \*\*(\d+) \/ \d+\*\* \|/],
+      ['the commit coverage of the edges',
+        probeNumber(/^edges with a commit : (\d+) of \d+$/m),
+        /\| \*\*commit を持つ辺\*\* \| \*\*(\d+) \/ \d+\*\* \|/],
+    ];
+    for (const [label, actual, pattern] of claims) {
+      const claimed = pattern.exec(readme)?.[1] ?? null;
+      check(`the README ${label} is the probe log's measurement`,
+        actual !== null && claimed !== null && actual === claimed,
+        `the probe says ${actual ?? 'none'}, the README claims ${claimed ?? 'none'}`);
+    }
+  }
+}
+
 // --- 5. the number of groups the README claims -------------------------
 {
+  // The GROUP LIST is the numbered items of the section that describes
+  // what the unit suite checks. The count is taken from THAT section
+  // only: the negative-control section has its own numbered list, and
+  // counting every numbered item in the file would mix the two.
+  const section = /## 1\. UT が何を確認しているか([\s\S]*?)\n## /.exec(readme)?.[1] ?? '';
   const claimed = /の (\d+) 例は (\d+) 群/.exec(readme);
-  const groups = (readme.match(/^\d+\. \*\*/gm) ?? []).length;
+  const groups = (section.match(/^\d+\. \*\*/gm) ?? []).length;
   check('the README claims the number of groups it lists',
     claimed !== null && Number(claimed[2]) === groups,
     `the README lists ${groups} groups and claims ${claimed?.[2] ?? 'none'}`);

@@ -1,8 +1,8 @@
 ==============================================================================
 ATS-307 evidence log -- the ATS-307 probe
 ==============================================================================
-commit        : b62b19db38a71d1cc215aadd7d1351592dce0dbf
-timestamp     : 2026-11-18T00:30:18Z (UTC)
+commit        : aab1b01c393b0608e9fc06774f85ddbad437ee11
+timestamp     : 2026-11-18T01:01:29Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-cdff9ecc594b/worktree
 node          : v24.19.0
 platform      : win32 x64
@@ -19,12 +19,12 @@ platform  : win32 x64
 ------------------------------------------------------------------------------
 --- 1. the shape of the graph ---
 ------------------------------------------------------------------------------
-nodes            : 1358
-edges            : 26833
+nodes            : 1360
+edges            : 26863
 chains           : 49
-nodes by kind    : {"testcase":1071,"run":81,"design":26,"script":50,"evidence":81,"requirement":49}
-edges by type    : {"attempted":24667,"implemented":931,"covers":1099,"designs":55,"archived":81}
-edges by source  : {"evidence":24748,"source":908,"catalog":1177}
+nodes by kind    : {"testcase":1071,"run":82,"design":26,"script":50,"evidence":82,"requirement":49}
+edges by type    : {"attempted":24696,"implemented":931,"covers":1099,"designs":55,"archived":82}
+edges by source  : {"evidence":24778,"source":908,"catalog":1177}
 
 ------------------------------------------------------------------------------
 --- 2. the checks: stable uid, orphan edges, cycles ---
@@ -39,10 +39,10 @@ broken chains    : 44
 ------------------------------------------------------------------------------
 --- 2b. the commit the nodes and the edges carry ---
 ------------------------------------------------------------------------------
-nodes with a commit : 1358 of 1358
-edges with a commit : 26833 of 26833
-nodes by kind       : {"testcase":1071,"run":81,"design":26,"script":50,"evidence":81,"requirement":49}
-edges by type       : {"attempted":24667,"implemented":931,"covers":1099,"designs":55,"archived":81}
+nodes with a commit : 1360 of 1360
+edges with a commit : 26863 of 26863
+nodes by kind       : {"testcase":1071,"run":82,"design":26,"script":50,"evidence":82,"requirement":49}
+edges by type       : {"attempted":24696,"implemented":931,"covers":1099,"designs":55,"archived":82}
 
 ------------------------------------------------------------------------------
 --- 3. the coverage of the requirements ---
