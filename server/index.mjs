@@ -92,6 +92,7 @@ import {
 // documents) and of the tracking assets (the `.aitest` requirement and
 // traceability lists). Both importers are READ-ONLY: the acceptance
 // criterion is 「导入 md/json 关系不改正文」, so nothing is ever rewritten.
+import { buildReport as buildAstSubsetReport } from './edit/ast-subset.mjs';
 import { importDesignMaterials } from './import/design-index.mjs';
 import { importTrackingAssets } from './import/tracking-assets.mjs';
 
@@ -1757,6 +1758,26 @@ const server=http.createServer(async(req,res)=>{
   }
   if(action==='source'&&req.method==='GET')return respond(res,200,readSource(project,u.searchParams.get('file')));
   if(action==='source'&&req.method==='PUT'){const b=await body(req);return respond(res,200,writeSource(project,b.file,b.content,b.baseHash));}
+  // ATS-314: the CONTROLLED STEP SUBSET of a script.
+  //
+  // It is a READ: the detector recognises the steps the platform may
+  // write back and refuses the rest, and it never modifies the file.
+  // The write-back itself (diff, syntax check, approve, atomic write)
+  // is ATS-315's job.
+  //
+  // The file is resolved through `readSource`, so the endpoint accepts
+  // exactly the files the source endpoint accepts -- the path rules
+  // (a test file, inside the project, not too large) are the SAME
+  // rules, and a caller cannot use this endpoint to reach a file the
+  // source endpoint would refuse.
+  if(action==='ast-subset'&&req.method==='GET'){
+   const file=u.searchParams.get('file');
+   let source;
+   try{source=readSource(project,file);}
+   catch(e){return err(res,400,e&&e.code?e.code:'INVALID_SOURCE_FILE',{file});}
+   const report=buildAstSubsetReport(file,source.content);
+   return respond(res,200,report);
+  }
   if(action==='run'&&req.method==='POST'){
    if(store.runs.some(x=>x.projectId===project.id&&['running','queued','cancelling'].includes(x.status)))throw new Error('PROJECT_ALREADY_RUNNING');
    const b=await body(req);

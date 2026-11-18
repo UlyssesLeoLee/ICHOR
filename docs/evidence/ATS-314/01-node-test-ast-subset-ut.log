@@ -1,0 +1,67 @@
+==============================================================================
+ATS-314 evidence log -- the ATS-314 unit suite
+==============================================================================
+commit        : fe13b15e47ad174c722ef134abb8671a4e869349
+timestamp     : 2026-11-18T04:28:44Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-e71fb757862f/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node --test tests/ats314-ast-subset.test.mjs
+==============================================================================
+
+✔ UT-ATS314-001: the whitelist is closed and every entry declares its rule (0.9348ms)
+✔ UT-ATS314-002: a whitelisted API with a static argument is a controlled step (1.0365ms)
+✔ UT-ATS314-003: an argument that is a NAME is not static (0.1714ms)
+✔ UT-ATS314-004: a template literal without an interpolation IS static (0.2201ms)
+✔ UT-ATS314-005: a template literal WITH an interpolation is NOT static (0.1711ms)
+✔ UT-ATS314-006: the literal values are static (0.4519ms)
+✔ UT-ATS314-007: an options object is static only when every value is (0.203ms)
+✔ UT-ATS314-008: an options object with a SHORTHAND is not static (0.1186ms)
+✔ UT-ATS314-009: an options object with a SPREAD is not static (0.4008ms)
+✔ UT-ATS314-010: the locator of a step is a separate space and must be static too (0.5028ms)
+✔ UT-ATS314-011: an assertion is controlled, and its actual is a runtime value (0.2019ms)
+✔ UT-ATS314-012: the assertion matcher is not a separate step from its actual (0.1298ms)
+✔ UT-ATS314-013: a step inside a callback is a step of its own (0.8406ms)
+✔ UT-ATS314-014: a call that is not whitelisted is read-only with its name (0.2858ms)
+✔ UT-ATS314-015: a helper call is not a controlled step, and the platform does not guess (0.1328ms)
+✔ UT-ATS314-016: a call with an undeclared number of arguments is refused (0.1228ms)
+✔ UT-ATS314-017: the locator factories are a closed list (0.0506ms)
+✔ UT-ATS314-020: a call inside a STRING is not a call (0.0611ms)
+✔ UT-ATS314-021: a call inside a COMMENT is not a call (0.148ms)
+✔ UT-ATS314-022: a step inside a LOOP is refused, because a loop is not one box (0.1438ms)
+✔ UT-ATS314-023: a step inside a WHILE loop is refused too (0.0913ms)
+✔ UT-ATS314-024: a nested call with a nested parenthesis is classified by its INNER value (0.0703ms)
+✔ UT-ATS314-025: the reason codes are a closed set (0.138ms)
+✔ UT-ATS314-026: every read-only step carries a reason (0.1712ms)
+✔ UT-ATS314-027: a read-only step is NOT an error (0.0681ms)
+✔ UT-ATS314-028: a file that cannot be lexed is reported as such, not as "no steps" (0.0609ms)
+✔ UT-ATS314-029: a file that cannot be READ says so (0.2762ms)
+✔ UT-ATS314-030: the control flow refusal does not hide the argument verdict (0.0835ms)
+✔ UT-ATS314-032: a step inside a LOCALLY DECLARED FUNCTION is refused (0.1112ms)
+✔ UT-ATS314-033: a step inside an ARROW FUNCTION bound to a name is refused too (0.0788ms)
+✔ UT-ATS314-034: a step inside a CALLBACK is NOT inside a local function (0.1472ms)
+✔ UT-ATS314-035: a step inside a loop inside a function is refused for the loop (0.2757ms)
+✔ UT-ATS314-031: a call inside a function is still FOUND, and it is refused (0.1263ms)
+✔ UT-ATS314-040: a file whose every step is controlled is WRITABLE (0.278ms)
+✔ UT-ATS314-041: a file with some controlled steps is PARTIAL, and NOT writable (0.2278ms)
+✔ UT-ATS314-042: a file whose steps are all read-only is READ-ONLY (0.1061ms)
+✔ UT-ATS314-043: a file with no steps at all is READ-ONLY (0.1815ms)
+✔ UT-ATS314-044: the counts of the report cover every step EXACTLY once (0.2279ms)
+✔ UT-ATS314-045: the analysis is a pure function of the source (0.3489ms)
+✔ UT-ATS314-046: the case declarations are containers, not steps (0.1919ms)
+✔ UT-ATS314-047: a `test.step` is a GROUP, not a container (0.1757ms)
+✔ UT-ATS314-048: the report names the version it was produced by (0.0697ms)
+✔ UT-ATS314-049: the readable summary quotes the counts the report holds (0.8114ms)
+✔ UT-ATS314-050: the readable summary of an unreadable file says so (0.2783ms)
+✔ UT-ATS314-051: the lexer tells a string from a code token (0.1009ms)
+✔ UT-ATS314-052: the lexer records the position of every token (0.1239ms)
+✔ UT-ATS314-053: the static rule is a pure function of the tokens (0.0424ms)
+✔ UT-ATS314-054: the REAL fixture is classified, and its assertions are controlled (0.5885ms)
+ℹ tests 48
+ℹ suites 0
+ℹ pass 48
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 109.3685

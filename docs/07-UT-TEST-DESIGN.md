@@ -1,6 +1,6 @@
 # ATS-UT-001 単体テスト設計書
 
-> 设计总数：800；已执行通过：784；待执行/未实现：16。**PENDING 不是测试通过**。
+> 设计总数：848；已执行通过：832；待执行/未实现：16。**PENDING 不是测试通过**。
 
 单体测试关注核心函数、API 输入校验、边界条件与报告转换。已通过用例直接对应 `tests/core.test.mjs`；其余为正式项目扩充用例，不能视为已经执行。
 
@@ -808,6 +808,54 @@
 |UT-ATS308-050|FR-017|正常|用例标题用平台自己的走查器读出|夹具的 spec 文件|标题集合与文件里的 test() 声明一致|node --test tests/ats308-import.test.mjs|PASS|
 |UT-ATS308-060|FR-026|正常|真实基线导入后每条已解析的引用都指向真实存在的文件|对真实仓库跑导入|resolved 的全部候选逐条存在；byKind 合计等于引用总数|node --test tests/ats308-import.test.mjs|PASS|
 |UT-ATS308-061|FR-026|正常|真实基线两次导入结果相同|对真实仓库跑两次|两次的 report 完全相等|node --test tests/ats308-import.test.mjs|PASS|
+|UT-ATS314-001|FR-022|正常|白名单是封闭的且每条都声明了自己的规则|遍历 WHITELIST|每条都有 kind / arity / doc；静态下标落在可达范围内；运行期下标不与静态下标重叠|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-002|FR-022|正常|白名单 API + 静态参数是受控步骤|await page.goto('/login|,'kind=navigate、reason=null、editability=controlled|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-003|FR-022|边界|名字不是静态参数|await page.goto(url)|read-only 且 reason=argument-not-static|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-004|FR-022|正常|无插值的模板字符串是静态的|await page.goto(`/login`)|controlled|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-005|FR-022|边界|有插值的模板字符串不是静态的|await page.goto(`/login/${id}`)|read-only 且 reason=argument-not-static|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-006|FR-022|正常|字面量都是静态的|字符串/数字/布尔/null/undefined|五者都判为 controlled|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-007|FR-022|边界|选项对象只在每个值都静态时才静态|{ timeout: 5000 } 与 { timeout: cfg.timeout }|前者 controlled，后者 read-only|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-008|FR-022|边界|简写的选项成员不是静态的|{ timeout }|read-only 且 reason=argument-not-static|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-009|FR-022|边界|展开的选项成员不是静态的|{ ...base }|read-only 且 reason=argument-not-static|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-010|FR-022|正常|定位器是独立的下标空间且必须静态|page.getByRole('button|,'前者 controlled（定位器参数 2 条都静态），后者 read-only|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-011|FR-022|正常|断言受控而其 actual 是运行期值|await expect(page.locator('#t')).toHaveText('hello')|actual 槽 runtime=true 且 static=false；expected 槽 static=true|node --test tests/ats314-ast-subset.test.mjs|PASS|
+|UT-ATS314-012|FR-022|正常|断言匹配器与它的 actual 不是两个步骤|同上|只有 1 个步骤，api=expect.toHaveText|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-013|FR-022|正常|回调里的步骤是独立的步骤|test.step('x', async () => { await page.goto('/a'); })|两个步骤：test.step 与 page.goto；后者的 nesting=1|node --test tests/ats314-ast-subset.test.mjs|PASS|
+|UT-ATS314-014|FR-022|正常|不在白名单上的调用带名字被拒绝|await page.setContent('<h1>hi</h1>|,'read-only、reason=not-whitelisted、chain=page.setContent|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-015|FR-022|边界|helper 调用不是受控步骤且平台不猜|await login(page)|read-only、reason=not-whitelisted、api=null|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-016|FR-022|异常|参数个数不在声明范围内的调用被拒绝|await page.goto('/a', {}, 'extra')|read-only 且 reason=arity-not-supported|node --test tests/ats314-ast-subset.test.mjs|PASS|
+|UT-ATS314-017|FR-022|正常|定位器工厂是封闭列表|LOCATOR_FACTORIES|含 getByRole/locator/getByTestId；不含 querySelector|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-020|FR-022|边界|字符串里的调用不是调用|const s = "await page.goto('/x|,'0 个步骤|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-021|FR-022|边界|注释里的调用不是调用|// 与 /* */ 注释各一条调用|只有真正的那 1 个步骤|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-022|FR-022|边界|循环里的步骤被拒绝——循环不是一个方块|for (const t of items) { await page.goto('/a|,'read-only 且 reason=inside-control-flow|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-023|FR-022|边界|while 循环里的步骤也被拒绝|while (hasMore()) { await page.goto('/a|,'该 goto 的 reason=inside-control-flow|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-024|FR-022|边界|嵌套括号的调用按内层值判定|await page.goto(getUrl('a', 'b'))|read-only 且 reason=argument-not-static|node --test tests/ats314-ast-subset.test.mjs|PASS|
+|UT-ATS314-025|FR-022|正常|理由码是封闭集合|多种拒绝并存的源码|每个只读步骤的 reason 都属于已声明的集合；受控步骤的 reason 为 null|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-026|FR-022|正常|每个只读步骤都带理由|三种拒绝并存的源码|每个只读步骤的 reason 非空且在封闭集合内|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-027|FR-022|正常|只读步骤不是错误|await login(page)|report.error 为 null；readOnly=1、controlled=0|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-028|FR-022|异常|无法词法分析的文件被如实报告|未闭合的模板字符串|error=unterminated template literal；不是「没有受控步骤」|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-029|FR-022|异常|读不到的文件被如实报告|不存在的路径|error 非空；editability=read-only|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-030|FR-022|边界|循环的拒绝不掩盖参数判定|for (const t of items) { await page.goto(t); }|reason=argument-not-static（更具体的理由优先）|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-031|FR-022|正常|函数里的调用仍被找到|async function helper() { await page.goto('/a|,'找到 1 个步骤；read-only 且 reason=inside-local-function|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-032|FR-022|边界|本地声明函数里的步骤被拒绝|function helper() { await page.goto('/a|,'reason=inside-local-function（函数可能被多处调用）|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-033|FR-022|边界|绑定到名字的箭头函数里的步骤也被拒绝|const helper = async () => { await page.goto('/a|,'reason=inside-local-function|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-034|FR-022|正常|回调里的步骤不在「本地函数」之列|test('a case', async ({ page }) => { await page.goto('/a'); })|该 goto 为 controlled（回调体正是流程的步骤）|node --test tests/ats314-ast-subset.test.mjs|PASS|
+|UT-ATS314-035|FR-022|边界|函数里的循环按循环的理由拒绝|function helper(items) { for (const t of items) { await page.goto('/a|,'reason=inside-control-flow（更具体的理由优先）|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-040|FR-022|正常|每个步骤都受控的文件是 writable|三条受控步骤|editability=writable、writable=true、controlled=3|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-041|FR-022|边界|部分受控的文件是 partial 且不可写|一条受控 + 一条被拒|editability=partial、writable=false|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-042|FR-022|边界|全部只读的文件是 read-only|两条被拒|editability=read-only、controlled=0|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-043|FR-022|边界|没有步骤的文件是 read-only|const x = 1;|editability=read-only、total=0|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-044|FR-022|正常|报告的计数把每个步骤恰覆盖一次|五条步骤的源码|total=steps.length；controlled+readOnly=total；理由计数合计=readOnly|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-045|FR-022|正常|判定是源码的纯函数|同一段源码判定两次|两次的报告完全相等|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-046|FR-022|正常|用例声明是容器而不是步骤|两个 test(...)|steps 里没有 test；containers 有 2 条且标题是静态的|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-047|FR-022|正常|test.step 是分组而不是容器|test.step('x|,'步骤含 test.step 与 page.goto；containers 只有 1 条|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-048|FR-022|正常|报告写明它出自哪个版本|buildReport|version=ast-subset/v1 的版本号 1|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-049|FR-022|正常|可读摘要引用报告自己持有的计数|一条受控 + 一条被拒|摘要含 writable=false 与「2 total / 1 controlled / 1 read-only」|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-050|FR-022|异常|读不到的文件的摘要如实说明|不存在的路径|摘要含 error 行|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-051|FR-022|正常|词法分析分得清字符串与代码记号|含注释的源码|注释不是记号；字符串是 1 个 string 记号|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-052|FR-022|正常|词法分析记下每个记号的位置|两行源码|第二行的记号 line=2|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-053|FR-022|正常|静态规则是记号的纯函数|字面量与名字|前者 static=true、后者 false|node --test tests/ats314-ast-subset.test.mjs|PASS'|
+|UT-ATS314-054|FR-022|正常|真实夹具被判定且其断言受控|examples/sample-playwright/tests/home.spec.ts|editability=partial、controlled=2、not-whitelisted=2、containers=2|node --test tests/ats314-ast-subset.test.mjs|PASS'|
 
 ## 进入与退出条件
 

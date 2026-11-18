@@ -1,0 +1,35 @@
+==============================================================================
+ATS-314 evidence log -- the ATS-314 probe over the real scripts
+==============================================================================
+commit        : fe13b15e47ad174c722ef134abb8671a4e869349
+timestamp     : 2026-11-18T04:28:45Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-e71fb757862f/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node tools/ats314-probes/probe-ast-subset.mjs
+==============================================================================
+
+=== ATS-314: the controlled subset over the real scripts ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-e71fb757862f\worktree
+
+--- the files ---
+  examples/real-browser-fixture/tests/failing.spec.ts  read-only  2 steps / 0 controlled / 2 read-only
+  examples/real-browser-fixture/tests/passing.spec.ts  partial    2 steps / 1 controlled / 1 read-only
+  examples/sample-playwright/tests/home.spec.ts        partial    4 steps / 2 controlled / 2 read-only
+  examples/sample-wdio/tests/fail.spec.js              read-only  2 steps / 0 controlled / 2 read-only
+  examples/sample-wdio/tests/pass.spec.js              read-only  2 steps / 0 controlled / 2 read-only
+
+--- the totals ---
+files           : 5
+files-writable  : 0
+files-partial   : 2
+files-read-only : 3
+steps           : 12
+steps-controlled : 3
+steps-read-only : 9
+
+--- the reasons ---
+  argument-not-static        1
+  not-whitelisted            8
+
+RESULT: OK -- the probe measured the real scripts.

@@ -1,0 +1,29 @@
+==============================================================================
+ATS-314 evidence log -- the ATS-314 integration suite
+==============================================================================
+commit        : fe13b15e47ad174c722ef134abb8671a4e869349
+timestamp     : 2026-11-18T04:28:44Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-e71fb757862f/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node --test tests/ats314-ast-subset-it.test.mjs
+==============================================================================
+
+✔ IT-ATS314-API-SETUP: start the bridge and register the fixture project (507.4416ms)
+✔ IT-ATS314-API-001: the endpoint answers with the verdict, the counts and the steps (5.4197ms)
+✔ IT-ATS314-API-002: a file with a refused step is PARTIAL, and it is not writable (13.8709ms)
+✔ IT-ATS314-API-003: every refusal carries a reason, so the UI can say WHY (16.2148ms)
+✔ IT-ATS314-API-004: the detector does not change a byte of the project (31.6384ms)
+✔ IT-ATS314-API-005: the detector is a READ -- there is no write endpoint (13.6036ms)
+✔ IT-ATS314-API-006: the endpoint accepts exactly the files the source endpoint accepts (46.987ms)
+✔ IT-ATS314-API-007: the endpoint needs the session token (15.2272ms)
+✔ IT-ATS314-API-008: the answer names the detector version it came from (2.7122ms)
+✔ IT-ATS314-API-CLEANUP: stop the bridge and remove the fixture (216.9849ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 975.8321
