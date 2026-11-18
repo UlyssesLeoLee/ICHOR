@@ -110,7 +110,23 @@ echo "08 -> $OUT/08-skipped-reasons.log"
 echo
 echo "all steps finished; the logs are in $OUT"
 
-# --- 9. what the README claims, checked against the logs ---------------
+# --- 9. the attribution of a host-effect failure ----------------------
+#
+# The full regression (step 6) runs 1900+ cases in one process tree. Under
+# host load a case that holds a socket can lose it, so the same tree can
+# report 0 failures on one run and 1 on the next. A reader who re-runs the
+# suite on a loaded host must be able to see that the failure is a
+# property of the HOST, not of this delivery.
+#
+# The attribution re-runs the file on its own, on this branch and on the
+# PINNED base tree, and shows the diff for that file (empty = this task
+# did not touch it).
+# The attribution script OWNS its log file, so the collector does not
+# redirect into the same path.
+bash tools/ats307-probes/collect-flaky-attribution.sh 2>&1
+echo "9 -> $OUT/10-suite-flaky-attribution.log"
+
+# --- 10. what the README claims, checked against the logs ---------------
 #
 # The README says how many steps the collection has and how many cases the
 # suites hold. Those numbers used to be TYPED in the README, and they went
@@ -123,4 +139,4 @@ echo "all steps finished; the logs are in $OUT"
   header "what the README claims, checked against the logs" "node tools/ats307-probes/check-readme-consistency.mjs"
   node tools/ats307-probes/check-readme-consistency.mjs 2>&1
 } > "$OUT/09-readme-consistency.log" 2>&1
-echo "09 -> $OUT/09-readme-consistency.log"
+echo "10 -> $OUT/09-readme-consistency.log"

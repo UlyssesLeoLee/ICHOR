@@ -1,4 +1,16 @@
+==============================================================================
+ATS-307 evidence log -- the skipped tests, one by one
+==============================================================================
+commit        : b62b19db38a71d1cc215aadd7d1351592dce0dbf
+timestamp     : 2026-11-18T00:33:13Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-cdff9ecc594b/worktree
+node          : v24.19.0
+platform      : win32 x64
+command       : node tools/ats307-probes/collect-skipped.mjs
+==============================================================================
+
 === ATS-307: the skipped tests of the full suite, with their reasons ===
+command     : node --test --test-concurrency=2 --test-reporter=tap tests/*.test.mjs
 exit code   : 0
 skipped     : 32
 
@@ -49,3 +61,4 @@ skipped     : 32
 
 --- 1 skipped: needs ATS213_REAL_CREDENTIAL_STORE=1 (the real Windows Credential Manager)
       tests/credential-redaction-api.test.mjs  ATS213-REDACT-IT-001: a failing assertion does NOT put the injected secret on disk
+

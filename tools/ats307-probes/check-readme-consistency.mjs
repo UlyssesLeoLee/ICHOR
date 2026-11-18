@@ -95,6 +95,48 @@ for (const [label, file, pattern] of [
     `the log holds ${logCount ?? 'none'} cases, the README claims ${readmeCount ?? 'none'}`);
 }
 
+// --- 4. the group listing covers every case ---------------------------
+// The README lists the suite's cases in groups, and the listing has to
+// name EVERY case id. A group that was forgotten leaves its cases
+// undescribed, and the reader cannot tell whether the case exists.
+//
+// The ranges in the README are written `NNN〜MMM` (and the commit group
+// names its cases individually), so the listing is read as the set of
+// ids it covers.
+
+{
+  const utLogPath = path.join(evidenceDir, '01-node-test-traceability-ut.log');
+  if (fs.existsSync(utLogPath)) {
+    const log = fs.readFileSync(utLogPath, 'utf8');
+    const ids = [...log.matchAll(/^[✔✓✖×✗]\s+(UT-ATS307-\d+)\s*:/gm)].map((m) => m[1]);
+    // The ranges the README's group listing spells out.
+    const ranges = [...readme.matchAll(/（(\d{3})〜(\d{3})）/g)]
+      .map((m) => [Number(m[1]), Number(m[2])]);
+    // The ids the README names one by one (the commit group).
+    const named = new Set([...readme.matchAll(/UT-ATS307-(\d{3})/g)].map((m) => m[1]));
+    const covered = new Set();
+    for (const [from, to] of ranges) {
+      for (let n = from; n <= to; n += 1) covered.add(String(n).padStart(3, '0'));
+    }
+    for (const n of named) covered.add(n);
+    const missing = ids
+      .map((id) => id.replace('UT-ATS307-', ''))
+      .filter((n) => !covered.has(n));
+    check('the README group listing covers every case the suite log shows',
+      missing.length === 0,
+      `not covered: ${missing.map((n) => `UT-ATS307-${n}`).join(', ')}`);
+  }
+}
+
+// --- 5. the number of groups the README claims -------------------------
+{
+  const claimed = /の (\d+) 例は (\d+) 群/.exec(readme);
+  const groups = (readme.match(/^\d+\. \*\*/gm) ?? []).length;
+  check('the README claims the number of groups it lists',
+    claimed !== null && Number(claimed[2]) === groups,
+    `the README lists ${groups} groups and claims ${claimed?.[2] ?? 'none'}`);
+}
+
 console.log('');
 if (failures === 0) {
   console.log('RESULT: OK -- the README step count, log table and suite counts are the committed ones');

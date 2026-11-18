@@ -235,7 +235,9 @@ def test_tc009d_the_graph_figures_come_from_the_probe_log(copy, tmp_path, monkey
         'broken chains    : 44\n'
         '  designed     21\n'
         '  implemented  2\n'
-        '  verified     26\n', encoding='utf-8')
+        '  verified     26\n'
+        'nodes with a commit : 999 of 999\n'
+        'edges with a commit : 888 of 888\n', encoding='utf-8')
     monkeypatch.setattr(updater, 'PROBE_LOG', fake_probe)
     assert updater.main(['--xlsx', str(copy)]) == 0
     note = row(copy)['T']
@@ -308,24 +310,38 @@ def test_tc015_the_note_carries_the_suite_case_counts(copy):
             % (suite, needle, suites[suite]))
 
 
-def test_tc016_a_suite_log_with_a_wrong_count_makes_the_self_check_fail(copy, tmp_path):
-    """The guard FIRES: a suite log that disagrees with the note stops the run."""
-    tree = tmp_path / 'tree'
-    (tree / 'docs' / 'evidence' / 'ATS-307').mkdir(parents=True)
-    for name in ('06-node-test-full.log', '03-probe-traceability.log',
-                 '02-node-test-traceability-it.log'):
-        shutil.copyfile(ROOT / 'docs' / 'evidence' / 'ATS-307' / name,
-                        tree / 'docs' / 'evidence' / 'ATS-307' / name)
-    ut = tree / 'docs' / 'evidence' / 'ATS-307' / '01-node-test-traceability-ut.log'
-    text = (ROOT / 'docs' / 'evidence' / 'ATS-307' / '01-node-test-traceability-ut.log').read_text(encoding='utf-8')
-    ut.write_text(text.replace('\u2139 tests 36', '\u2139 tests 99'), encoding='utf-8')
-    monkey = updater.UT_LOG
-    try:
-        updater.UT_LOG = ut
-        with pytest.raises(AssertionError):
-            updater.main(['--xlsx', str(copy)])
-    finally:
-        updater.UT_LOG = monkey
+def test_tc016_a_suite_log_with_a_wrong_count_makes_the_self_check_fail(copy, tmp_path, monkeypatch):
+    """TC-016: a note whose case count disagrees with the suite log is CAUGHT.
+
+    The drift is produced the way it actually happens: the note is written
+    against one suite log, and the log is then re-collected with a
+    different case count -- and the note is NOT regenerated. The
+    self-check catches it, so a drifted count cannot reach the workbook.
+    """
+    # The note is written against the real, committed suite log.
+    assert updater.main(['--xlsx', str(copy)]) == 0
+    real = updater.suite_figures()
+    assert '%d 例' % real['ut']['tests'] in row(copy)['T']
+
+    # The suite log is re-collected with a different count, and the note is
+    # not regenerated.
+    log_dir = tmp_path / 'fake' / 'docs' / 'evidence' / 'ATS-307'
+    log_dir.mkdir(parents=True)
+    fake_ut = log_dir / '01-node-test-traceability-ut.log'
+    # The count is REPLACED, not typed: every `ℹ tests` line of the log is
+    # rewritten, so the test does not have to know how many cases the
+    # suite holds today. The log carries the line more than once (the
+    # collector runs the suite twice) and the derivation reads the last
+    # one -- so ALL of them are rewritten.
+    committed = (ROOT / 'docs' / 'evidence' / 'ATS-307' / '01-node-test-traceability-ut.log').read_text(encoding='utf-8')
+    rewritten, count = re.subn(r'^\u2139 tests \d+$', '\u2139 tests 999', committed, flags=re.M)
+    assert count >= 1, 'the committed suite log carries a `ℹ tests` line'
+    fake_ut.write_text(rewritten, encoding='utf-8')
+    monkeypatch.setattr(updater, 'UT_LOG', fake_ut)
+
+    with pytest.raises(AssertionError) as excinfo:
+        updater.main(['--xlsx', str(copy), '--verify-only'])
+    assert 'case count' in str(excinfo.value)
 
 
 def test_tc017_a_missing_suite_log_makes_the_updater_refuse(tmp_path, monkeypatch):
