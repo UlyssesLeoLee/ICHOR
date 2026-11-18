@@ -1,6 +1,6 @@
 # ATS-ST-001 システムテスト設計書
 
-> 设计总数：74；已执行通过：51；待执行/未实现：23。**PENDING 不是测试通过**。
+> 设计总数：75；已执行通过：52；待执行/未实现：23。**PENDING 不是测试通过**。
 
 系统测试需要真实 UI、Node、Playwright、Git、Windows/Tauri 和隐私/异常注入环境，已实机执行的用例在证据列写明执行脚本，其余仍待实机执行。UT/IT 自动化通过**不等同于** ST 验收。
 
@@ -82,6 +82,7 @@
 |ST-ATS214-010|FR-005|可用性|勾选框键盘可达|真实 Chromium 的 Tab / Space|勾选框是自己的 <button role=checkbox>（不是嵌在 button 里的 span），能拿到焦点，空格能切换|node tools/ats214-probes/st-ats214.mjs|PASS|
 |ST-ATS214-011|FR-021|功能|发出去的请求带着**每一个**被勾选的 UID|勾选两个不同文件里的用例，拦截浏览器发出的请求|请求体里的 selection 带着两个 UID（读的是网络上的请求，不是界面自己的算术——只读界面只能证明界面没算错，证明不了它发对了）|node tools/ats214-probes/st-ats214.mjs|PASS|
 |ST-ATS214-012|TOOL|可靠性|交付的代码被变异时测试必须变红（负控）|对 page.tsx 与 server/index.mjs 做 12 个变异（关掉过滤、只发第一个 UID、不渲染警告、不阻止运行、承诺选中条数、不重置过滤、把勾选框放回 button 里、不重新解析环境档案、不整单校验、预检失败不结束批次、批次记录又带上变量值、档案被删也不结束批次）|每个变异都被抓住（界面变异由 ST 抓住，服务端变异由 IT 抓住）；未变异的代码仍然通过|node tools/ats214-probes/mutation-check.mjs|PASS|
+|ST-ATS308-001|TOOL|可靠性|交付的导入器被变异时负控必须变红（7 个变异）|把导入器复制到临时目录后变异：不报失效、不报歧义、把坏链说成已解析、把运行期产物说成失效、把外部路径说成失效、改正文、在多个候选中乱猜|7 个变异逐条被抓住；未变异的导入器仍然通过|node --test tests/ats308-import-mutation.test.mjs|PASS|
 
 ## 进入与退出条件
 

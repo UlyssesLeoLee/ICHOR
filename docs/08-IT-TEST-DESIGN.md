@@ -1,6 +1,6 @@
 # ATS-IT-001 結合テスト設計書
 
-> 设计总数：228；已执行通过：214；待执行/未实现：14。**PENDING 不是测试通过**。
+> 设计总数：235；已执行通过：221；待执行/未实现：14。**PENDING 不是测试通过**。
 
 结合测试关注 HTTP 会话→Git/文件→Runner→事件与存储的连接。已通过用例对应 `tests/api.test.mjs`；实际 Playwright Runner 的跨组件验证依赖安装目标仓库依赖和浏览器。
 
@@ -236,6 +236,13 @@
 |IT-ATS214-036|FR-021|安全|批次记录不携带环境变量的**值**|档案里写 BASE_URL=https://staging.example/?k=s3cr3t-value-1234，起一个两文件的批次|GET /api/batches 的整个响应里不含该值；batch.context 只有 envUid/envName/envTier，没有 envVariables；档案清单与运行记录同样不含该值|node --test tests/ats214-batch-context.test.mjs|PASS|
 |IT-ATS214-037|FR-021|异常|白名单收紧后**之后**启动的 run 不再带着该变量|run#1 在跑时用 PUT /env-whitelist 把 BASE_URL 移出白名单，随后启动的 run#2|run#2 的引擎看到 BASE_URL 未设置（`<unset>`）；run#2 的 envVariables 为空；envRefused 点名 BASE_URL|node --test tests/ats214-batch-context.test.mjs|PASS|
 |IT-ATS214-038|FR-021|异常|批次进行中档案被删除时批次以明确原因结束|run#1 在跑时 DELETE 掉档案|批次 status=failed，error 点名 ENV_PROFILE_NOT_FOUND；第二个文件**没有**在「无档案」的静默回落下跑过|node --test tests/ats214-batch-context.test.mjs|PASS|
+|IT-ATS308-API-001|FR-026|正常|按项目的导入端点同时给出资产与设计资料|真实 Bridge + 带 .aitest 与 docs/ 的夹具项目|assets 段有需求与关联；design 段有该项目的资料|node --test tests/ats308-import-it.test.mjs|PASS|
+|IT-ATS308-API-002|FR-026|异常|导入端点报出改名与悬空的关系|夹具的 traceability 含改名用例与未声明需求|issues 含 unknown-case 与 dangling-requirement；design 报告点名坏链|node --test tests/ats308-import-it.test.mjs|PASS|
+|IT-ATS308-API-003|FR-026|正常|导入不改项目的一个字节|调用前后对夹具树取摘要|摘要相同、文件数相同|node --test tests/ats308-import-it.test.mjs|PASS|
+|IT-ATS308-API-004|FR-026|安全|导入是只读的——没有写端点|对导入端点发 POST|404——导入不可写|node --test tests/ats308-import-it.test.mjs|PASS|
+|IT-ATS308-API-005|FR-027|安全|导入端点需要会话 token|不带 X-ATS-Token 调用|401|node --test tests/ats308-import-it.test.mjs|PASS|
+|IT-ATS308-API-006|FR-026|正常|顶层端点导入平台自身的设计基线|真实 Bridge|资料清单含 docs/33-TRACEABILITY-GRAPH.md；detailed 模式带出全部引用，且每条 resolved 的候选都真实存在|node --test tests/ats308-import-it.test.mjs|PASS|
+|IT-ATS308-API-007|FR-026|正常|顶层导入不改仓库的一个字节|调用前后读同一份设计文档|内容逐字节相同|node --test tests/ats308-import-it.test.mjs|PASS|
 
 ## 进入与退出条件
 

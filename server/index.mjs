@@ -88,6 +88,12 @@ import { buildGraph } from './traceability/builder.mjs';
 import {
   consistencyChecks, coverageReport, indexGraph, traceEvidence, traceRequirement,
 } from './traceability/query.mjs';
+// ATS-308: the import of the design material (the Markdown design
+// documents) and of the tracking assets (the `.aitest` requirement and
+// traceability lists). Both importers are READ-ONLY: the acceptance
+// criterion is 「导入 md/json 关系不改正文」, so nothing is ever rewritten.
+import { importDesignMaterials } from './import/design-index.mjs';
+import { importTrackingAssets } from './import/tracking-assets.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const ROOT=path.resolve(HERE,'..');
@@ -1562,6 +1568,24 @@ const server=http.createServer(async(req,res)=>{
    consistency:consistencyChecks(view),
   });
  }
+ // ATS-308: the import of the platform's OWN design baseline.
+ //
+ // It is a top-level endpoint (like `/api/traceability` above) because the
+ // design baseline is the PLATFORM's, not a registered project's. The
+ // per-project import lives at `/api/projects/:id/import`.
+ //
+ // It is a READ. The import never rewrites a document -- the acceptance
+ // criterion is 「导入 md/json 关系不改正文」.
+ if(p==='/api/design/import'&&req.method==='GET'){
+  const design=importDesignMaterials({root:ROOT});
+  const detailed=u.searchParams.get('detailed')==='true';
+  return respond(res,200,{
+   version:design.version,
+   materials:design.materials,
+   report:design.report,
+   ...(detailed?{references:design.references}:{}),
+  });
+ }
  if(p==='/api/projects'&&req.method==='GET')return respond(res,200,{projects:store.projects.map(cleanProject)});
  if(p==='/api/projects'&&req.method==='POST'){
   const b=await body(req);const actual=validateProjectPath(b.path);
@@ -1989,6 +2013,29 @@ batch={uid:`batch_${crypto.randomUUID()}`,projectId:project.id,projectUid,select
    try{requirements=JSON.parse(fs.readFileSync(path.join(dir,'requirements.json'),'utf8'));}catch{}
    try{links=JSON.parse(fs.readFileSync(path.join(dir,'traceability.json'),'utf8'));}catch{}
    return respond(res,200,{requirements,links});
+  }
+  // ATS-308: the IMPORT of the design material and the tracking assets.
+  //
+  // It is a READ: the import indexes what the project already holds and
+  // reports what does not resolve. It NEVER rewrites the body -- the
+  // acceptance criterion is 「导入 md/json 关系不改正文」, so there is no
+  // POST here on purpose: an importer that could repair the documents
+  // would be a tool whose report could no longer be trusted.
+  //
+  // TWO KINDS OF MATERIAL, TWO SECTIONS OF THE ANSWER:
+  //   * `assets` -- the project's `.aitest` tracking assets (the
+  //     requirement list and the traceability list) with the issues the
+  //     import found in them;
+  //   * `design` -- the design documents of the project's OWN tree, with
+  //     the references that do not resolve.
+  if(action==='import'&&req.method==='GET'){
+   const assets=importTrackingAssets({root:project.root,projectKey:projectUidOf(project)});
+   const design=importDesignMaterials({root:project.root});
+   return respond(res,200,{
+    project:cleanProject(project),
+    assets:{requirements:assets.requirements,links:assets.links,issues:assets.issues,report:assets.report},
+    design:{materials:design.materials,report:design.report},
+   });
   }
  }
  if(p==='/api/runs'&&req.method==='GET')return respond(res,200,{runs:store.runs.map(({log,...r})=>({...r,logLength:log?.length||0}))});

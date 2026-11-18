@@ -1,0 +1,17 @@
+✔ IT-ATS308-API-SETUP: start the bridge and register the fixture project (574.6254ms)
+✔ IT-ATS308-API-001: the per-project import answers with the assets and the design material (67.133ms)
+✔ IT-ATS308-API-002: the import reports the broken and the dangling relations (62.7394ms)
+✔ IT-ATS308-API-003: the import does not change a byte of the project (65.3557ms)
+✔ IT-ATS308-API-004: the import is a READ -- there is no write endpoint (2.26ms)
+✔ IT-ATS308-API-005: the import needs the session token (1.6162ms)
+✔ IT-ATS308-API-006: the top-level endpoint imports the platform own baseline (211.5426ms)
+✔ IT-ATS308-API-007: the top-level import does not change a byte of the repository (44.8984ms)
+✔ IT-ATS308-API-CLEANUP: stop the bridge and remove the fixture (211.5609ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1359.5272

@@ -1,0 +1,130 @@
+=== ATS-308 probe: the design import over the real repository ===
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-7a716a6ed55a\worktree
+excluded  : docs/35-DESIGN-IMPORT.md
+
+--- per-verdict counts ---
+  resolved      : 1058
+  ambiguous     : 14
+  runtime       : 76
+  external      : 16
+  broken        : 41
+  not-a-reference: 0
+  TOTAL         : 1205
+
+--- broken references (41 occurrences) ---
+    6x r1-api.mjs  <- docs/evidence/ATS-403/reviewer-probes/README.md
+    3x 404.html  <- docs/22-FRONTEND-EXPORT.md
+    3x r1.mjs  <- docs/evidence/ATS-403/reviewer-probes/README.md
+    3x r2-api.mjs  <- docs/evidence/ATS-403/reviewer-probes/README.md
+    2x error-context.md  <- docs/32-CREDENTIAL-STATUS.md
+    2x index.html  <- docs/22-FRONTEND-EXPORT.md
+    2x login.spec.ts  <- docs/17-AGENT-CONTRACT.md, docs/18-UID-SPEC.md
+    2x r2.mjs  <- docs/evidence/ATS-403/reviewer-probes/README.md
+    1x ce.mjs  <- docs/21-PLUGIN-CONTRACT.md
+    1x ce206.mjs  <- docs/24-STATE-MIGRATION.md
+    1x ce206k.mjs  <- docs/24-STATE-MIGRATION.md
+    1x ce206r2.mjs  <- docs/24-STATE-MIGRATION.md
+    1x cli.js  <- docs/26-RUNNER-PREFLIGHT.md
+    1x e2e206.mjs  <- docs/24-STATE-MIGRATION.md
+    1x http.mjs  <- docs/21-PLUGIN-CONTRACT.md
+    1x k4.mjs  <- docs/24-STATE-MIGRATION.md
+    1x r1-ui.mjs  <- docs/evidence/ATS-214/reviewer-probes/README.md
+    1x r2-inproc.mjs  <- docs/evidence/ATS-213/README.md
+    1x r2-ref-leak.mjs  <- docs/evidence/ATS-213/README.md
+    1x r2-ui.mjs  <- docs/evidence/ATS-213/README.md
+    1x SHASUMS256.txt  <- docs/17-BUILD-CI.md
+    1x tests/a.spec.ts  <- docs/26-RUNNER-PREFLIGHT.md
+    1x tests/cart.spec.ts  <- docs/32-CASE-SEARCH-SELECTION.md
+    1x tests/login.spec.ts  <- docs/17-AGENT-CONTRACT.md
+    1x tests/new.spec.ts  <- docs/17-AGENT-CONTRACT.md
+    1x tools/migrate_state.py  <- docs/23-AUTHORITATIVE-DISCOVERY.md
+
+--- ambiguous references (14 occurrences) ---
+    5x playwright.config.ts  (2 candidates)
+         examples/real-browser-fixture/playwright.config.ts
+         examples/sample-playwright/playwright.config.ts
+    3x index.mjs  (4 candidates)
+         examples/sample-plugin/index.mjs
+         server/ai/index.mjs
+         server/discovery/index.mjs
+         server/index.mjs
+    3x mutation-check.mjs  (4 candidates)
+         tools/ats107-probes/mutation-check.mjs
+         tools/ats111-probes/mutation-check.mjs
+         tools/ats214-probes/mutation-check.mjs
+         tools/ats216-probes/mutation-check.mjs
+    2x errors.mjs  (2 candidates)
+         server/ai/errors.mjs
+         server/control-plane/errors.mjs
+    1x collect-evidence.sh  (32 candidates)
+         tools/ats102-probes/collect-evidence.sh
+         tools/ats103-probes/collect-evidence.sh
+         tools/ats104-probes/collect-evidence.sh
+         tools/ats106-probes/collect-evidence.sh
+         tools/ats107-probes/collect-evidence.sh
+         tools/ats111-probes/collect-evidence.sh
+         tools/ats201-probes/collect-evidence.sh
+         tools/ats202-probes/collect-evidence.sh
+         tools/ats204-probes/collect-evidence.sh
+         tools/ats205-probes/collect-evidence.sh
+         tools/ats206-probes/collect-evidence.sh
+         tools/ats207-probes/collect-evidence.sh
+         tools/ats208-probes/collect-evidence.sh
+         tools/ats209-probes/collect-evidence.sh
+         tools/ats212-probes/collect-evidence.sh
+         tools/ats213-probes/collect-evidence.sh
+         tools/ats214-probes/collect-evidence.sh
+         tools/ats215-probes/collect-evidence.sh
+         tools/ats216-probes/collect-evidence.sh
+         tools/ats301-probes/collect-evidence.sh
+         tools/ats307-probes/collect-evidence.sh
+         tools/ats308-probes/collect-evidence.sh
+         tools/ats401-probes/collect-evidence.sh
+         tools/ats402-probes/collect-evidence.sh
+         tools/ats501-probes/collect-evidence.sh
+         tools/ats502-probes/collect-evidence.sh
+         tools/ats506-probes/collect-evidence.sh
+         tools/ats512-probes/collect-evidence.sh
+         tools/ats601-probes/collect-evidence.sh
+         tools/ats602-probes/collect-evidence.sh
+         tools/ats603-probes/collect-evidence.sh
+         tools/ats606-probes/collect-evidence.sh
+
+--- external references (16 occurrences) ---
+    2x apps/studio/app/api/session/route.ts  <- docs/22-FRONTEND-EXPORT.md
+    1x apps/studio/out/index.html  <- docs/22-FRONTEND-EXPORT.md
+    1x auth/login.spec.ts  <- docs/18-UID-SPEC.md
+    1x flows/android.yaml  <- docs/25-MOBILE-APP-TESTING.md
+    1x flows/ios.yaml  <- docs/25-MOBILE-APP-TESTING.md
+    1x flows/smoke/login.yaml  <- docs/25-MOBILE-APP-TESTING.md
+    1x platform_impl/windows/event_loop.rs  <- docs/16-BASELINE-ADR.md
+    1x playwright-core/browsers.json  <- docs/26-RUNNER-PREFLIGHT.md
+    1x playwright/lib/worker/workerProcessEntry.js  <- docs/29-EVIDENCE-WORKBENCH.md
+    1x probes/r1-api.mjs  <- docs/evidence/ATS-214/reviewer-probes/README.md
+    1x probes/r1-ui-run.mjs  <- docs/evidence/ATS-214/reviewer-probes/README.md
+    1x probes/r1-ui.mjs  <- docs/evidence/ATS-214/reviewer-probes/README.md
+    1x probes/r2-extra.mjs  <- docs/evidence/ATS-214/reviewer-probes/README.md
+    1x probes/r2-ui.mjs  <- docs/evidence/ATS-214/reviewer-probes/README.md
+    1x x/tests/a.spec.ts  <- docs/26-RUNNER-PREFLIGHT.md
+
+--- runtime references (76 occurrences) ---
+   48x state.json
+   16x report.json
+    4x evidence-cleaned.json
+    2x out/index.html
+    1x credentials.json
+    1x html/index.html
+    1x lnk/state.json
+    1x node_modules/.package-lock.json
+    1x out/_not-found/index.html
+    1x out/404/index.html
+
+--- self-check: every resolved reference names a file that exists ---
+  resolved references checked : 1058
+  candidates that do not exist: 0
+
+--- materials ---
+  design        : 56
+  asset         : 3
+
+RESULT: OK -- 1058 resolved references all name files that exist.

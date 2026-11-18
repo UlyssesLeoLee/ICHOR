@@ -44,7 +44,8 @@ SHEET2 = 'xl/worksheets/sheet2.xml'
 MARKERS = ('【ATS-101】', '【ATS-102】', '【ATS-103】', '【ATS-104】', '【ATS-106】', '【ATS-107】', '【ATS-111】', '【ATS-201】', '【ATS-202】', '【ATS-203】', '【ATS-204】',
            '【ATS-205】', '【ATS-206】', '【ATS-207】', '【ATS-208】', '【ATS-209】', '【ATS-212】', '【ATS-213】', '【ATS-214】', '【ATS-215】', '【ATS-216】',
            '【ATS-301】', '【ATS-307】', '【ATS-401】', '【ATS-402】', '【ATS-403】', '【ATS-501】', '【ATS-502】', '【ATS-506】', '【ATS-512】',
-           '【ATS-601】', '【ATS-602】', '【ATS-603】', '【ATS-606】', '【ATS-410】')
+           '【ATS-601】', '【ATS-602】', '【ATS-603】', '【ATS-606】', '【ATS-410】',
+           '【ATS-308】')
 
 # The 总览 narrative cells D6/D7 summarise the state of the whole baseline.
 # They are shared by every updater, so each task contributes ONE marked
@@ -294,6 +295,15 @@ NARRATIVE_FRAGMENTS = {
         'D6': '远程调度内核已实现（队列/租约/心跳/幂等键/重试，含租约 fencing 与 running 态回收）',
         'D7': '远程节点协议、签名与工作树隔离仍未实现（ATS-503/504）；'
               '详见 docs/29-REMOTE-SCHEDULING.md',
+    },
+    '【ATS-308】': {
+        'D6': '设计资料索引器已实现（ATS-308：设计文档与 .aitest 追踪资产的导入索引；'
+              '**导入只读不改正文**；失效与重名链接出报告，不修复）',
+        'D7': '坏链报告的词汇**不区分**真缺的文件与另一种不在（issue 附件、'
+              '他树旧名、运行期生成物），报告**偏强**；'
+              '§ 编号的照合未实现；被测项目自有设计基线的索引未实现；'
+              'UI 未做（属 ATS-310）；'
+              '详见 docs/35-DESIGN-IMPORT.md',
     },
 }
 
