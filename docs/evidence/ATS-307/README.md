@@ -44,8 +44,8 @@ UT/IT の用例数を**コミット済みのログと照合**する。数がず�
 | `02-node-test-traceability-it.log` | IT 9 例（実 Bridge 上の HTTP 面） | **9 pass / 0 fail / 0 skipped** |
 | `03-probe-traceability.log` | 本ツリーのグラフの実測（形・検査・coverage・gap・両方向 walk・commit の覆盖率） | 孤児辺 0 / 循環 0 / present でないノード 0 |
 | `04-api-traceability.log` | `GET /api/traceability` の 6 つの問い | 全て期待どおり |
-| `05-negative-control.log` | **負向対照**：検査が実際に赤くなることの確認 | **0 failures**（4 種の改変を全て捕捉） |
-| `06-node-test-full.log` | 全量回帰（**全量**を保持。`tail` で切っていない） | **1902 tests / 1870 pass / 0 fail / 32 skipped** |
+| `05-negative-control.log` | **負向対照**：検査が実際に赤くなることの確認 | **0 failures**（5 種の改変を全て捕捉） |
+| `06-node-test-full.log` | 全量回帰（**全量**を保持。`tail` で切っていない） | **1953 tests / 1921 pass / 0 fail / 32 skipped** |
 | `07-syntax-gate.log` | 変更したソースの `node --check` | 7 ファイル全て ok |
 | `08-skipped-reasons.log` | **skip した 32 件を 1 件ずつ**（理由と所在ファイル） | 32 件を 8 つの理由に分類 |
 | `09-readme-consistency.log` | 本 README の歩数・ログ表・用例数とコミット済みログの照合 | **RESULT: OK** |
@@ -126,7 +126,7 @@ commit は**全て null** になる。「commit を持たない”是事実と�
 ## 2. 負向対照が守ること
 
 `05-negative-control.log` は、**検査が赤くなること**を証明する。検査が赤く
-ならない検査は何も証明しないからだ。4 種の改変を一つずつ作り、それぞれが
+ならない検査は何も証明しないからだ。5 種の改変を一つずつ作り、それぞれが
 対応する検査で捕捉されることを確認する：
 
 1. カタログに無いテスト ID を RTM に足す → `danglingTest` が赤くなる

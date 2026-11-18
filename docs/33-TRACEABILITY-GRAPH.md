@@ -402,7 +402,7 @@ run を経由しない逆走査は、1 つの artifact がプロジェクトの�
 | `tests/ats307-traceability-it.test.mjs` | IT 9 件 |
 | `tools/ats307-probes/probe-traceability.mjs` | 再現可能なプローブ |
 | `tools/ats307-probes/check-readme-consistency.mjs` | 証拠 README とコミット済みログの照合 |
-| `tools/ats307-probes/collect-evidence.sh` | 9 歩の証跡採集 |
+| `tools/ats307-probes/collect-evidence.sh` | 10 歩の証跡採集 |
 
 ---
 
