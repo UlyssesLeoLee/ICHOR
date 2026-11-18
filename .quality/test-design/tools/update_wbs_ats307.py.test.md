@@ -2,7 +2,7 @@
 
 Source: `tools/update_wbs_ats307.py`
 
-Source-SHA256: `3e351cb9ce7e57ccc9ae67aae16d6c9f199fb4828519e7ec379ee077184f1a3c`
+Source-SHA256: `74f8c2e41f5e04e71dddee802f400c788afe8b014507e94799e3d1d4495fee97`
 
 ## Test Strategy
 
@@ -57,9 +57,15 @@ Two properties are checked in BOTH directions:
 | TC-023 | A temporary tree whose negative-control log has been replaced by one carrying a different number of group headers | the self-check FAILS and the run exits non-zero, naming the mutation count | `tools/test_update_wbs_ats307.py` |
 | TC-024 | A temporary tree with no `docs/evidence/ATS-307/05-negative-control.log` | `mutation_figures()` raises `SystemExit` naming the log | `tools/test_update_wbs_ats307.py` |
 | TC-025 | A temporary tree whose negative-control log carries no group header | `mutation_figures()` raises `SystemExit` naming the log | `tools/test_update_wbs_ats307.py` |
-| TC-026 | The committed evidence README's log table | its full-regression row states the four figures the committed `06-node-test-full.log` holds | `tools/ats307-probes/check-readme-consistency.mjs` |
-| TC-027 | The committed evidence README | its negative-control mutation count is the mutation count the committed `05-negative-control.log` ran | `tools/ats307-probes/check-readme-consistency.mjs` |
-| TC-028 | The committed design document `docs/33-TRACEABILITY-GRAPH.md` | its §10 measurement table and its AC-3 row state the figures the committed `03-probe-traceability.log` measured | `tools/ats307-probes/check-readme-consistency.mjs` |
+| TC-026 | The committed evidence README's log table | its full-regression row states the four figures the committed `06-node-test-full.log` holds | `tools/test_update_wbs_ats307.py` |
+| TC-027 | The committed evidence README | its negative-control mutation count is the mutation count the committed `05-negative-control.log` ran | `tools/test_update_wbs_ats307.py` |
+| TC-028 | The committed design document `docs/33-TRACEABILITY-GRAPH.md` | its §10 measurement table and its AC-3 row state the figures the committed `03-probe-traceability.log` measured | `tools/test_update_wbs_ats307.py` |
+
+TC-026..TC-028 are enforced by the STANDALONE gate
+`tools/ats307-probes/check-readme-consistency.mjs` (the collector's ninth
+step). The tests below INVOKE that gate against the committed tree and
+against mutated copies of it, so the gate is proved to have teeth rather
+than merely being run.
 
 ## Boundary & Failure Cases
 

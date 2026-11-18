@@ -11,8 +11,10 @@ updater reads (`docs/evidence/ATS-307/06-node-test-full.log`). A fixture
 that hard-coded "1865" would pass forever; a fixture that reads the log
 fails the moment the two disagree -- which is the defect this round is about.
 """
+import os
 import re
 import shutil
+import subprocess
 import sys
 import zipfile
 from pathlib import Path
@@ -455,3 +457,91 @@ def test_tc025_a_negative_control_log_without_groups_makes_the_updater_refuse(tm
     monkeypatch.setattr(updater, 'NEGATIVE_LOG', fake_log)
     with pytest.raises(SystemExit):
         updater.mutation_figures()
+
+
+# --- TC-026..TC-028: the STANDALONE consistency gate ---------------------
+#
+# The gate that compares the evidence README and the design document with
+# the committed logs lives in a `.mjs` probe, so it is exercised here by
+# INVOKING it -- against the committed tree (it must pass) and against
+# mutated copies of it (it must fail, naming what it caught).
+#
+# Running the gate is not enough: a check that cannot fail proves nothing,
+# so each mutation must turn it RED.
+
+GATE = ROOT / 'tools' / 'ats307-probes' / 'check-readme-consistency.mjs'
+
+
+def _run_gate(tree):
+    """Run the consistency gate on `tree` and return (exit code, output)."""
+    proc = subprocess.run(
+        ['node', str(GATE)],
+        cwd=str(tree), capture_output=True, text=True,
+        env={**os.environ, 'NO_COLOR': '1'})
+    return proc.returncode, proc.stdout + proc.stderr
+
+
+def _copy_tree(tmp_path):
+    """A copy of the repository's committed tree (the gate reads real files)."""
+    tree = tmp_path / 'tree'
+    subprocess.run(
+        ['git', 'clone', '--no-hardlinks', '--quiet', str(ROOT), str(tree)],
+        check=True, capture_output=True)
+    subprocess.run(['git', '-C', str(tree), 'checkout', '--quiet', '--force', 'HEAD'],
+                   check=True, capture_output=True)
+    return tree
+
+
+def test_tc026_the_gate_passes_on_the_committed_tree():
+    """TC-026: on the committed tree the gate is green."""
+    code, out = _run_gate(ROOT)
+    assert code == 0, out
+    assert 'RESULT: OK' in out
+
+
+def test_tc026b_a_stale_full_regression_row_turns_the_gate_red(tmp_path):
+    """TC-026b: a README row that contradicts its log turns the gate RED.
+
+    The defect this gate now covers actually happened: the README's
+    full-regression row stated `1902 tests / 1870 pass` while the log it
+    names said `1953 tests / 1921 pass`. The mutation reproduces it.
+    """
+    tree = _copy_tree(tmp_path)
+    readme = tree / 'docs' / 'evidence' / 'ATS-307' / 'README.md'
+    text = readme.read_text(encoding='utf-8')
+    mutated = text.replace('2000 tests / 1968 pass', '1902 tests / 1870 pass')
+    assert mutated != text, 'the committed README carries the figures to mutate'
+    readme.write_text(mutated, encoding='utf-8')
+    code, out = _run_gate(tree)
+    assert code != 0, 'the gate passed a README that contradicts its log'
+    assert 'full-regression tests count' in out
+
+
+def test_tc027_a_stale_mutation_count_turns_the_gate_red(tmp_path):
+    """TC-027: a README claiming the wrong number of mutations turns it RED."""
+    tree = _copy_tree(tmp_path)
+    readme = tree / 'docs' / 'evidence' / 'ATS-307' / 'README.md'
+    text = readme.read_text(encoding='utf-8')
+    mutated = text.replace('5 種の改変', '4 種の改変')
+    assert mutated != text, 'the committed README carries the count to mutate'
+    readme.write_text(mutated, encoding='utf-8')
+    code, out = _run_gate(tree)
+    assert code != 0, 'the gate passed a README with a stale mutation count'
+    assert 'mutation count' in out
+
+
+def test_tc028_a_stale_design_document_measurement_turns_the_gate_red(tmp_path):
+    """TC-028: a design document quoting an earlier tree turns the gate RED.
+
+    The design document's acceptance table is read as a verdict, so a
+    stale number there is the most consequential kind of drift.
+    """
+    tree = _copy_tree(tmp_path)
+    design = tree / 'docs' / '33-TRACEABILITY-GRAPH.md'
+    text = design.read_text(encoding='utf-8')
+    mutated = text.replace('| ノード | 1406 |', '| ノード | 1358 |')
+    assert mutated != text, 'the committed design document carries the figure to mutate'
+    design.write_text(mutated, encoding='utf-8')
+    code, out = _run_gate(tree)
+    assert code != 0, 'the gate passed a design document with a stale figure'
+    assert 'design document the node count' in out

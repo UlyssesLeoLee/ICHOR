@@ -2,7 +2,7 @@
 
 Source: `tools/update_wbs_ats307.py`
 
-Source-SHA256: `3e351cb9ce7e57ccc9ae67aae16d6c9f199fb4828519e7ec379ee077184f1a3c`
+Source-SHA256: `74f8c2e41f5e04e71dddee802f400c788afe8b014507e94799e3d1d4495fee97`
 
 ## Responsibility
 
