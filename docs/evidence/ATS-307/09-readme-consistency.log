@@ -1,8 +1,8 @@
 ==============================================================================
 ATS-307 evidence log -- what the README claims, checked against the logs
 ==============================================================================
-commit        : aab1b01c393b0608e9fc06774f85ddbad437ee11
-timestamp     : 2026-11-18T01:09:31Z (UTC)
+commit        : 31ebccfbbbf79216dc94f738327b98539937a6a6
+timestamp     : 2026-11-18T01:13:21Z (UTC)
 repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-cdff9ecc594b/worktree
 node          : v24.19.0
 platform      : win32 x64
@@ -17,6 +17,11 @@ command       : node tools/ats307-probes/check-readme-consistency.mjs
   ok    the README UT case count is the committed suite log count
   ok    the README IT case count is the committed suite log count
   ok    the README group listing covers every case the suite log shows
-  FAIL  the README claims the number of groups it lists -- the README lists 9 groups and claims 8
+  ok    the README the node count is the probe log's measurement
+  ok    the README the edge count is the probe log's measurement
+  ok    the README the chain count is the probe log's measurement
+  ok    the README the commit coverage of the nodes is the probe log's measurement
+  ok    the README the commit coverage of the edges is the probe log's measurement
+  ok    the README claims the number of groups it lists
 
-RESULT: FAIL -- 1 mismatch(es) between the README and the committed logs
+RESULT: OK -- the README step count, log table and suite counts are the committed ones
