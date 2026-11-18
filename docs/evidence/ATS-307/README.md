@@ -44,8 +44,8 @@ UT/IT の用例数を**コミット済みのログと照合**する。数がず�
 | `02-node-test-traceability-it.log` | IT 9 例（実 Bridge 上の HTTP 面） | **9 pass / 0 fail / 0 skipped** |
 | `03-probe-traceability.log` | 本ツリーのグラフの実測（形・検査・coverage・gap・両方向 walk・commit の覆盖率） | 孤児辺 0 / 循環 0 / present でないノード 0 |
 | `04-api-traceability.log` | `GET /api/traceability` の 6 つの問い | 全て期待どおり |
-| `05-negative-control.log` | **負向対照**：検査が実際に赤くなることの確認 | **0 failures**（4 種の改変を全て捕捉） |
-| `06-node-test-full.log` | 全量回帰（**全量**を保持。`tail` で切っていない） | **1902 tests / 1870 pass / 0 fail / 32 skipped** |
+| `05-negative-control.log` | **負向対照**：検査が実際に赤くなることの確認 | **0 failures**（5 種の改変を全て捕捉） |
+| `06-node-test-full.log` | 全量回帰（**全量**を保持。`tail` で切っていない） | **2000 tests / 1968 pass / 0 fail / 32 skipped** |
 | `07-syntax-gate.log` | 変更したソースの `node --check` | 7 ファイル全て ok |
 | `08-skipped-reasons.log` | **skip した 32 件を 1 件ずつ**（理由と所在ファイル） | 32 件を 8 つの理由に分類 |
 | `09-readme-consistency.log` | 本 README の歩数・ログ表・用例数とコミット済みログの照合 | **RESULT: OK** |
@@ -55,20 +55,20 @@ UT/IT の用例数を**コミット済みのログと照合**する。数がず�
 
 | 項目 | 値 |
 |---|---|
-| ノード | 1360 |
-| 辺 | 26863 |
+| ノード | 1406 |
+| 辺 | 26992 |
 | チェーン（要件） | 49 |
 | 孤児辺 | 0 |
 | 循環 | 0 |
 | present でないノード | 0 |
-| 完全なチェーン | 5 |
-| 欠けたチェーン | 44 |
-| coverage | verified 26 / implemented 2 / designed 21 |
-| gap | no-script 140 / no-run 183 / no-declaration 23 / no-testcase 10 |
+| 完全なチェーン | 6 |
+| 欠けたチェーン | 43 |
+| coverage | verified 28 / implemented 2 / designed 19 |
+| gap | no-script 140 / no-run 184 / no-declaration 24 / no-testcase 9 |
 | `danglingTest` / `danglingAnchor` / `orphanEdge` | 0 / 0 / 0 |
 | `falsePass` | **88**（既存の drift。§4 参照） |
-| **commit を持つノード** | **1360 / 1360** |
-| **commit を持つ辺** | **26863 / 26863** |
+| **commit を持つノード** | **1406 / 1406** |
+| **commit を持つ辺** | **26992 / 26992** |
 
 ### commit の覆盖率（AC-3）
 
@@ -117,8 +117,8 @@ commit は**全て null** になる。「commit を持たない”是事実と�
 ### commit（AC-3）
 
 8. **commit**（037〜040）— commit を持つ runtime run は**ノード**と**辺**の
-   両方にその commit を載せる（037）。**実ツリー**のノード 1360/1360 と
-   辺 26863/26863 が commit を持つ（038）。git の履歴を持たないツリーでは
+   両方にその commit を載せる（037）。**実ツリー**のノード 1406/1406 と
+   辺 26992/26992 が commit を持つ（038）。git の履歴を持たないツリーでは
    commit は**全て null** で、捏造しない（039）。ノードの commit は
    **そのノードの由来ファイル**に対する `git log -1` が返す commit と
    **一致**する——派生であって手書きではない（040）。
@@ -126,7 +126,7 @@ commit は**全て null** になる。「commit を持たない”是事実と�
 ## 2. 負向対照が守ること
 
 `05-negative-control.log` は、**検査が赤くなること**を証明する。検査が赤く
-ならない検査は何も証明しないからだ。4 種の改変を一つずつ作り、それぞれが
+ならない検査は何も証明しないからだ。5 種の改変を一つずつ作り、それぞれが
 対応する検査で捕捉されることを確認する：
 
 1. カタログに無いテスト ID を RTM に足す → `danglingTest` が赤くなる

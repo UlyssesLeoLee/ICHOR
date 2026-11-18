@@ -400,3 +400,58 @@ def test_tc021_the_note_carries_the_commit_coverage(copy):
     graph = updater.graph_figures()
     assert 'ノード %d/%d' % (graph['nodes_with_commit'], graph['nodes_with_commit_total']) in note
     assert '辺 %d/%d' % (graph['edges_with_commit'], graph['edges_with_commit_total']) in note
+
+
+def test_tc022_the_note_carries_the_negative_controls_mutation_count(copy):
+    """TC-022: the mutation count is DERIVED from the negative control's log.
+
+    The note said "4 mutations" while the probe ran five (the
+    commit-propagation mutation was added and the count was not). The count
+    a reader trusts must be the one the log holds.
+    """
+    assert updater.main(['--xlsx', str(copy)]) == 0
+    note = row(copy)['T']
+    assert '%d 種の改変' % updater.mutation_figures() in note
+
+
+def test_tc023_a_stale_mutation_count_is_caught(copy, tmp_path, monkeypatch):
+    """TC-023: a note whose mutation count disagrees with the log is CAUGHT.
+
+    The drift is produced the way it actually happens: the note is written
+    against one log, the probe gains a mutation, the log is re-collected,
+    and the note is NOT regenerated.
+    """
+    assert updater.main(['--xlsx', str(copy)]) == 0
+    assert '%d 種の改変' % updater.mutation_figures() in row(copy)['T']
+
+    log_dir = tmp_path / 'fake' / 'docs' / 'evidence' / 'ATS-307'
+    log_dir.mkdir(parents=True)
+    fake_log = log_dir / '05-negative-control.log'
+    # The group headers are APPENDED, not typed: the count is derived from
+    # the headers the log carries, so the test does not have to know how
+    # many mutations the probe performs today.
+    committed = (ROOT / 'docs' / 'evidence' / 'ATS-307' / '05-negative-control.log').read_text(encoding='utf-8')
+    fake_log.write_text(committed + '--- 99. an extra mutation ---\n', encoding='utf-8')
+    monkeypatch.setattr(updater, 'NEGATIVE_LOG', fake_log)
+
+    with pytest.raises(AssertionError) as excinfo:
+        updater.main(['--xlsx', str(copy), '--verify-only'])
+    assert 'mutation count' in str(excinfo.value)
+
+
+def test_tc024_a_missing_negative_control_log_makes_the_updater_refuse(tmp_path, monkeypatch):
+    """TC-024: a missing negative control log is a refusal."""
+    monkeypatch.setattr(updater, 'NEGATIVE_LOG', tmp_path / 'nope.log')
+    with pytest.raises(SystemExit):
+        updater.mutation_figures()
+
+
+def test_tc025_a_negative_control_log_without_groups_makes_the_updater_refuse(tmp_path, monkeypatch):
+    """TC-025: a log with no group header cannot back a mutation count."""
+    log_dir = tmp_path / 'fake'
+    log_dir.mkdir()
+    fake_log = log_dir / '05-negative-control.log'
+    fake_log.write_text('nothing that names a group\n', encoding='utf-8')
+    monkeypatch.setattr(updater, 'NEGATIVE_LOG', fake_log)
+    with pytest.raises(SystemExit):
+        updater.mutation_figures()

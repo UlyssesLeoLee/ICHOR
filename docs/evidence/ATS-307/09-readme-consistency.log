@@ -1,9 +1,9 @@
 ==============================================================================
 ATS-307 evidence log -- what the README claims, checked against the logs
 ==============================================================================
-commit        : 31ebccfbbbf79216dc94f738327b98539937a6a6
-timestamp     : 2026-11-18T01:13:21Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-cdff9ecc594b/worktree
+commit        : 95b41f2aca0db353b67126bfb30f2279232a8be1
+timestamp     : 2026-11-18T03:35:13Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f6e06b6b86ab/worktree
 node          : v24.19.0
 platform      : win32 x64
 command       : node tools/ats307-probes/check-readme-consistency.mjs
@@ -16,12 +16,25 @@ command       : node tools/ats307-probes/check-readme-consistency.mjs
   ok    every log the README names is committed
   ok    the README UT case count is the committed suite log count
   ok    the README IT case count is the committed suite log count
+  FAIL  the README full-regression tests count is the committed log's -- the log says 2000 tests, the README claims  **1953 tests / 1921 pass / 0 fail / 32 skipped** 
+  FAIL  the README full-regression pass count is the committed log's -- the log says 1968 pass, the README claims  **1953 tests / 1921 pass / 0 fail / 32 skipped** 
+  ok    the README full-regression fail count is the committed log's
+  ok    the README full-regression skipped count is the committed log's
+  ok    the README negative-control mutation count is the committed log's
   ok    the README group listing covers every case the suite log shows
-  ok    the README the node count is the probe log's measurement
-  ok    the README the edge count is the probe log's measurement
+  FAIL  the README the node count is the probe log's measurement -- the probe says 1406, the README claims 1360
+  FAIL  the README the edge count is the probe log's measurement -- the probe says 26992, the README claims 26863
   ok    the README the chain count is the probe log's measurement
-  ok    the README the commit coverage of the nodes is the probe log's measurement
-  ok    the README the commit coverage of the edges is the probe log's measurement
+  FAIL  the README the commit coverage of the nodes is the probe log's measurement -- the probe says 1406, the README claims 1360
+  FAIL  the README the commit coverage of the edges is the probe log's measurement -- the probe says 26992, the README claims 26863
+  FAIL  the design document the node count is the probe log's measurement -- the probe says 1406, the design document claims 1360
+  FAIL  the design document the edge count is the probe log's measurement -- the probe says 26992, the design document claims 26863
+  ok    the design document the chain count is the probe log's measurement
+  FAIL  the design document the complete chain count is the probe log's measurement -- the probe says 6, the design document claims 5
+  FAIL  the design document the broken chain count is the probe log's measurement -- the probe says 43, the design document claims 44
+  FAIL  the design document the commit coverage of the nodes is the probe log's measurement -- the probe says 1406, the design document claims 1360
+  FAIL  the design document the commit coverage of the edges is the probe log's measurement -- the probe says 26992, the design document claims 26863
+  FAIL  the design document AC-3 row carries the probe log's commit coverage -- the probe says ノード 1406/1406・辺 26992/26992, the AC-3 row says | AC-3 | ノード/辺に **Git commit** がある | §6 由来と commit | IMPLEMENTED（実測：ノード 1360/1360・辺 26863/26863） |
   ok    the README claims the number of groups it lists
 
-RESULT: OK -- the README step count, log table and suite counts are the committed ones
+RESULT: FAIL -- 13 mismatch(es) between the README and the committed logs

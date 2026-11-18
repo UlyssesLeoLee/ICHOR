@@ -1,9 +1,9 @@
 ==============================================================================
 ATS-307 evidence log -- the ATS-307 API surface
 ==============================================================================
-commit        : aab1b01c393b0608e9fc06774f85ddbad437ee11
-timestamp     : 2026-11-18T01:01:30Z (UTC)
-repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-cdff9ecc594b/worktree
+commit        : 95b41f2aca0db353b67126bfb30f2279232a8be1
+timestamp     : 2026-11-18T03:27:53Z (UTC)
+repo root     : /c/Users/seiko/multica_workspaces_desktop-api.multica.ai/triton-n4hv-4bc6c5b98085/seikoist-18-f6e06b6b86ab/worktree
 node          : v24.19.0
 platform      : win32 x64
 command       : node tools/ats307-probes/probe-api.mjs
@@ -12,8 +12,8 @@ command       : node tools/ats307-probes/probe-api.mjs
 ==============================================================================
 ATS-307 probe: the API surface of the traceability graph
 ==============================================================================
-repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-cdff9ecc594b\worktree
-port      : 52703 (a free one; the default port belongs to other agents)
+repo root : C:\Users\seiko\multica_workspaces_desktop-api.multica.ai\triton-n4hv-4bc6c5b98085\seikoist-18-f6e06b6b86ab\worktree
+port      : 55288 (a free one; the default port belongs to other agents)
 
 ------------------------------------------------------------------------------
 --- 1. the endpoint needs the session token ---
@@ -24,21 +24,21 @@ GET /api/traceability without the token : 401  (expected 401)
 --- 2. the summary ---
 ------------------------------------------------------------------------------
 GET /api/traceability : 200
-nodes        : 1360
-edges        : 26863
+nodes        : 1406
+edges        : 26992
 chains       : 49
-coverage     : {"verified":26,"designed":21,"implemented":2}
-nodesByKind  : {"testcase":1071,"run":82,"design":26,"script":50,"evidence":82,"requirement":49}
-edgesByType  : {"attempted":24696,"implemented":931,"covers":1099,"designs":55,"archived":82}
-edgesByProv  : {"evidence":24778,"source":908,"catalog":1177}
+coverage     : {"verified":28,"designed":19,"implemented":2}
+nodesByKind  : {"testcase":1110,"run":84,"design":26,"script":53,"evidence":84,"requirement":49}
+edgesByType  : {"attempted":24734,"implemented":970,"covers":1149,"designs":55,"archived":84}
+edgesByProv  : {"evidence":24818,"source":946,"catalog":1228}
 orphan edges : 0
 cycles       : 0
 not present  : 0
 the gaps, by kind:
   no-script          140 gap(s) over 32 requirement(s)
-  no-run             183 gap(s) over 34 requirement(s)
-  no-declaration     23 gap(s) over 8 requirement(s)
-  no-testcase        10 gap(s) over 10 requirement(s)
+  no-run             184 gap(s) over 34 requirement(s)
+  no-declaration     24 gap(s) over 8 requirement(s)
+  no-testcase        9 gap(s) over 9 requirement(s)
 the consistency checks:
   ok                       : false
   dangling test ids        : 0
