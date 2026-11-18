@@ -50,6 +50,14 @@
  *              open it, run it, stop it -- is completable with the
  *              KEYBOARD ALONE (no `click()` on the workbench's own
  *              controls anywhere in this check);
+ *
+ *              The probe has to work against TWO shapes of the catalogue
+ *              row, because the falsifiability step copies THIS probe onto
+ *              the two pinned baseline trees: on the baselines the ROW was
+ *              the `<button>`, today the row is a `<div>` and its TITLE is
+ *              the button. A selector that only matched one shape would
+ *              fail on a baseline because the element was missing, not
+ *              because of the defect the check exists to prove.
  *   ST-111-8  the skip link is the FIRST focusable element, so a
  *              keyboard user can jump to the content;
  *   ST-111-9  no console error and no page error were produced;
@@ -493,7 +501,16 @@ try {
   // inline handler), and a stale 500-injector would make the LOADING and
   // CANCELLED checks measure the ERROR state instead.
   let routeMode = 'pass';
-  let releaseHold = null;
+  // The held requests are a LIST, not a single resolver: `reloadCatalogue`
+  // fires TWO /tests requests (it switches the project select twice), and
+  // in 'hold' mode BOTH hang. With a single slot the second request
+  // overwrote the first one's resolver, so the first request hung FOREVER
+  // -- its route was never continued, the request never completed, and the
+  // panel stayed in 「加载中」 for the rest of the run. The symptom was a
+  // STUCK PANEL, not a missing element: the checks after a hold phase read
+  // 'loading' where they expected 'empty', and everything downstream
+  // cascaded (ST-111-10f/10g, then 13a, 7c, 7d, 7e, 7f, 7g, 19a~19d).
+  const releaseHolds = [];
   let requestCount = 0;
   await page.route('**/api/projects/*/tests', async (route) => {
     if (route.request().url().includes('/tests')) requestCount++;
@@ -508,7 +525,7 @@ try {
     if (routeMode === 'hold') {
       // The request HANGS: the panel is genuinely in flight, and the
       // reader can really press Escape while it is.
-      await new Promise((resolve) => { releaseHold = resolve; });
+      await new Promise((resolve) => { releaseHolds.push(resolve); });
     }
     await route.continue();
   });
@@ -551,7 +568,7 @@ try {
   check('ST-111-5c the CANCELLED state does NOT claim emptiness',
     cancelledState && cancelledState.label !== '暂无内容', cancelledState && cancelledState.label);
   // Release the held route so the page is not left with a pending request.
-  if (releaseHold) { releaseHold(); releaseHold = null; }
+  while (releaseHolds.length) releaseHolds.pop()();
   await sleep(1500);
 
   // --- the four labels are four DIFFERENT strings -------------------------
@@ -593,7 +610,7 @@ try {
   check('ST-111-10c after the retry the panel is LOADING again',
     afterCancelRetryState && afterCancelRetryState.kind === 'loading',
     JSON.stringify(afterCancelRetryState));
-  if (releaseHold) { releaseHold(); releaseHold = null; }
+  while (releaseHolds.length) releaseHolds.pop()();
   routeMode = 'pass';
   await sleep(1500);
 
@@ -666,7 +683,7 @@ try {
   check('ST-111-13e the panel is in the LOADING state while the new project loads',
     duringSwitchState && duringSwitchState.kind === 'loading',
     JSON.stringify(duringSwitchState));
-  if (releaseHold) { releaseHold(); releaseHold = null; }
+  while (releaseHolds.length) releaseHolds.pop()();
   routeMode = 'pass';
   await sleep(2000);
 
@@ -888,7 +905,7 @@ try {
   check('ST-111-14d Escape cancels the load with the focus on the BODY',
     bodyCancelledState && bodyCancelledState.kind === 'cancelled',
     JSON.stringify(bodyCancelledState));
-  if (releaseHold) { releaseHold(); releaseHold = null; }
+  while (releaseHolds.length) releaseHolds.pop()();
   routeMode = 'pass';
   await sleep(1500);
 
@@ -939,10 +956,54 @@ try {
   await page.keyboard.press('Delete');
   await sleep(800);
 
-  // Open a case with the keyboard: focus the first item and press Enter.
+  // Open a case with the keyboard: focus the control that opens it and
+  // press Enter.
+  //
+  // The control is the row's TITLE button (`.file-open`), not the row
+  // itself. The row is a `<div>` because the pick-box next to it is a real
+  // `<button role="checkbox">` and a nested interactive element inside a
+  // button is not reachable by the keyboard -- so the row cannot be the
+  // button any more. The title button is the control that actually opens
+  // the case, and it is focusable.
+  //
+  // The focus is ASSERTED, not assumed: the check says "the control that
+  // opens a case can be reached with the keyboard AND opens it". A selector
+  // swap alone would pass even if the control had stopped being focusable,
+  // because the page might then open the case by some other route -- the
+  // assertion is what keeps the check falsifiable.
   await noClick('ST-111-7d a test case can be OPENED with the KEYBOARD',
     async () => {
-      await page.focus('[data-region="panel"] .file-item');
+      // The control that opens a case is the title button when the row has
+      // one, and the row itself otherwise. The catalogue row changed SHAPE
+      // between the two pinned baselines and now: on the baselines the ROW
+      // was the button, today the row is a `<div>` and its TITLE is a
+      // `<button class="file-open">` (the pick-box next to it is a real
+      // checkbox, and a nested interactive element inside a button is not
+      // reachable by the keyboard).
+      //
+      // The falsifiability step copies THIS probe onto the OLD trees, so the
+      // selector has to match BOTH shapes -- a selector that only matched
+      // today's shape would fail on a baseline because the element was not
+      // there, not because of the defect the check exists to prove.
+      const rowSel = '[data-region="panel"] .file-item';
+      const titleSel = `${rowSel} .file-open`;
+      // Which shape the page has, decided by asking the page -- a comma
+      // selector would resolve to the first element in DOCUMENT order that
+      // matches either part, and on today's tree the `.file-item` DIV comes
+      // before its `.file-open` child, so the DIV would win and it is not
+      // focusable.
+      const titleCount = await page.locator(titleSel).count();
+      const opener = titleCount > 0 ? titleSel : rowSel;
+      await page.focus(opener);
+      const focused = await page.evaluate((sel) => {
+        const el = document.activeElement;
+        if (!el) return '(none)';
+        if (!el.matches(sel)) return `${el.tagName}.${el.className}`;
+        return el.tagName;
+      }, opener);
+      if (focused !== 'BUTTON') {
+        throw new Error(`the control that opens a case is not focused (focus=${focused})`);
+      }
       await page.keyboard.press('Enter');
       await sleep(3000);
       // The panel's own item carries the `selected` class once it is
@@ -962,8 +1023,14 @@ try {
       await page.keyboard.press('Control+Enter');
       await sleep(3000);
       const toast = await page.locator('.toast').count();
+      const toastText = await page.locator('.toast').allInnerTexts().catch(() => []);
       const runCount = (await api('/api/runs'))[1].runs.length;
-      if (runCount < 1) throw new Error('no run was started');
+      // The toast carries WHY a run was not started (the Bridge's rejection
+      // reason). A failure that does not say why is a failure the next
+      // reader cannot act on, so the text goes into the message.
+      if (runCount < 1) {
+        throw new Error(`no run was started (toast=${JSON.stringify(toastText)})`);
+      }
       if (!toast) throw new Error('no feedback was shown');
     });
 

@@ -17,7 +17,7 @@
  *   MODEL mutations (M1-M17) break `apps/studio/lib/workbench-state.mjs`.
  *   They are caught by the UNIT tests, which import the model directly.
  *
- *   VIEW mutations (V1-V6) break `apps/studio/app/page.tsx` -- the WIRING
+ *   VIEW mutations (V1-V8) break `apps/studio/app/page.tsx` -- the WIRING
  *   between the model and the screen. The unit tests cannot see them: the
  *   model is still perfect while the screen says the wrong thing. So
  *   these are caught by the SYSTEM TEST, which drives the real static
@@ -56,6 +56,12 @@
  *   V6  Ctrl+P inside the dialog is NOT consumed -- the round-2
  *       regression, restored. The key leaks to the browser's own Print
  *       command.
+ *   V7  the run poll DISCARDS its failure -- the round-4 regression,
+ *       restored. The rows are not marked stale and the panel does not
+ *       say they are the last known ones.
+ *   V8  the 「取消」 button BYPASSES closeDialog -- the round-4
+ *       regression, restored. The focus is not restored to the
+ *       「添加项目」 button.
  *
  * HOW THE VIEW MUTATIONS ARE RUN
  * -------------------------------
@@ -162,7 +168,7 @@ const MODEL_MUTATIONS = [
   {
     id: 'M10 the focus order is reversed',
     file: MODEL,
-    find: "export const FOCUS_ORDER = Object.freeze([\n  'rail',\n  'refresh',\n  'project-select',\n  'add-project',\n  'search',\n  'sidebar',\n  'panel',\n  'content',\n]);",
+    find: "export const FOCUS_ORDER = Object.freeze([\n  'rail',\n  'refresh',\n  'project-select',\n  'add-project',\n  'search',\n  'sidebar',\n  'select-bar',\n  'panel',\n  'content',\n]);",
     replace: "export const FOCUS_ORDER = Object.freeze([\n  'content',\n  'panel',\n  'sidebar',\n  'search',\n  'add-project',\n  'project-select',\n  'refresh',\n  'rail',\n]);",
   },
   {
@@ -232,7 +238,7 @@ const VIEW_MUTATIONS = [
   {
     id: 'V2 the Enter key swallows the focused control own action (the rejected behaviour, restored)',
     file: VIEW,
-    find: "   // A text field keeps its own Enter behaviour.\n   if(isTextEntry(target))return;\n   // A control with its own Enter action keeps it: the browser fires\n   // that control's click, and the workbench does not perform a\n   // different write on top of it. Focusing 「取消」 and pressing Enter\n   // has to CANCEL -- not add the project.\n   if(hasNativeEnterAction(target))return;\n   if(selected&&source&&draft!==source.content){void save();e.preventDefault();return;}",
+    find: "   // A text field keeps its own Enter behaviour.\n   if(isTextEntry(e.target))return;\n   // A control with its own Enter action keeps it: the browser fires that\n   // control's click and the workbench does not perform a different write on\n   // top of it. Focusing 「取消」 and pressing Enter has to CANCEL -- not add\n   // the project.\n   if(hasNativeEnterAction(e.target))return;\n   if(dialog&&projectPath){void addProject();e.preventDefault();return;}",
     replace: "   // The rejected behaviour, restored: Enter is the workbench's own\n   // command wherever it lands, and it performs a write of its own.\n   if(dialog&&projectPath){void addProject();e.preventDefault();return;}\n   if(tab==='security'&&keyName&&keySecret){void saveKey();e.preventDefault();return;}\n   if(selected&&source&&draft!==source.content){void save();e.preventDefault();return;}",
   },
   {
@@ -258,6 +264,18 @@ const VIEW_MUTATIONS = [
     file: VIEW,
     find: "   if(dialog){e.preventDefault();return;}\n   searchRef.current?.focus();e.preventDefault();return;",
     replace: "   if(dialog)return;\n   searchRef.current?.focus();e.preventDefault();return;",
+  },
+  {
+    id: 'V7 the run poll DISCARDS its failure (the stale rows are not marked)',
+    file: VIEW,
+    find: ".catch(e=>setRunsRequest({phase:'failed',error:(e as Error).message}));",
+    replace: ".catch(()=>{});",
+  },
+  {
+    id: 'V8 the cancel button BYPASSES closeDialog (the focus is not restored)',
+    file: VIEW,
+    find: "onClick={()=>closeDialog()}>取消</button>",
+    replace: "onClick={()=>setDialog(false)}>取消</button>",
   },
 ];
 

@@ -1,0 +1,38 @@
+
+=== the baseline tree cb742ca (A) is built and probed ===
+  PASS  the checks bound to the baseline cb742ca all FAIL there (RESULT: 55/79, 24 failing)
+FAIL ST-111-12b the NO-PROJECT state does NOT say 「没有匹配」
+FAIL ST-111-12c the NO-PROJECT state points at importing a project
+FAIL ST-111-12d the NO-PROJECT state renders a STATE PANEL (not the filter-miss text) -- {"hasStatePanel":false,"stateKind":null,"hasFilterMiss":false,"hasEmptySmall":true}
+FAIL ST-111-12e the NO-PROJECT state does not fall back to the filter-miss block -- {"hasStatePanel":false,"stateKind":null,"hasFilterMiss":false,"hasEmptySmall":true}
+FAIL ST-111-10b the retry in the CANCELLED state REALLY re-issues the request -- requests 5 -> 5
+FAIL ST-111-10c after the retry the panel is LOADING again -- {"kind":"cancelled","role":"status","live":"polite","busy":"false","label":"已取消","detail":"这次加载被取消了，没有拿到数据。","hint":"重新加载以继续。取消不等于失败，也不等于空。"}
+FAIL ST-111-10e the retry in the ERROR state REALLY re-issues the request -- requests 7 -> 7
+FAIL ST-111-10g the retry in the EMPTY state REALLY re-issues the request -- requests 8 -> 8
+FAIL ST-111-13b switching to another project shows NO cases of the previous one -- items=2
+FAIL ST-111-13c the 「可管理用例」 metric is 0 while the new project loads -- manageable=2
+FAIL ST-111-13d the footer counts no cases of the previous project -- footer=2 tests · 1 filesE:\ats111-fals-final-prefix-st-A\st111-mWjgsE\empty-playwright
+FAIL ST-111-18a the filter-miss message does NOT show the characters 「<br/>」 -- 没有匹配「zzz-no-such-case-at-all」的用例 清空筛选条件可查看全部
+FAIL ST-111-11d Enter on 「取消」 did NOT register the NEVER-REGISTERED project -- 3 -> 4 (path=E:\ats111-fals-final-prefix-st-A\st111-mWjgsE\cancel-only-playwright)
+FAIL ST-111-15 the focus returned to the 「添加项目」 button after the dialog closed -- BODY|
+FAIL ST-111-17c Ctrl+P inside the dialog does NOT move the focus out of it -- outside:INPUT
+FAIL ST-111-14b Ctrl+P moves the focus to the search box with the focus on the BODY -- BODY|
+FAIL ST-111-14d Escape cancels the load with the focus on the BODY -- {"kind":"loading","role":"status","live":"polite","busy":"true","label":"加载中","detail":"正在取数据，请稍候。","hint":"按 Esc 可以取消这次加载。"}
+FAIL ST-111-19b the failed poll is reported as an ERROR state -- ready
+FAIL ST-111-19c the run rows are MARKED as stale when the poll fails -- rows=1 stale=0
+FAIL ST-111-19d the panel SAYS the rows are stale
+FAIL ST-111-16c the Escape keydown IS consumed by the workbench -- {"key":"Escape","ctrl":false,"shift":false,"prevented":false,"target":"BODY"}
+FAIL ST-111-16d Escape STOPS the run that was in flight -- run_1_e732ded49b4224f2be134de9 running
+FAIL ST-111-16e the stopped run is reported as CANCELLED (not as a failure) -- running error=(none)
+RESULT: 55/79
+
+=== the baseline tree 9e305e7 (B) is built and probed ===
+  PASS  the checks bound to the baseline 9e305e7 all FAIL there (RESULT: 72/79, 7 failing)
+FAIL ST-111-18a the filter-miss message does NOT show the characters 「<br/>」 -- 没有符合当前条件的用例<br/>搜索与过滤条件按「交集」叠加
+FAIL ST-111-17b Ctrl+P inside the dialog IS consumed by the workbench -- {"key":"p","ctrl":true,"shift":false,"prevented":false,"target":"INPUT"}
+FAIL ST-111-19c the run rows are MARKED as stale when the poll fails -- rows=1 stale=0
+FAIL ST-111-19d the panel SAYS the rows are stale
+FAIL ST-111-16c the Escape keydown IS consumed by the workbench -- {"key":"Escape","ctrl":false,"shift":false,"prevented":false,"target":"BODY"}
+FAIL ST-111-16d Escape STOPS the run that was in flight -- run_1_9e4c08553073f4b04b6329da running
+FAIL ST-111-16e the stopped run is reported as CANCELLED (not as a failure) -- running error=(none)
+RESULT: 72/79
