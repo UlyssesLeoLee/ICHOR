@@ -98,6 +98,13 @@ tools/ats104-probes/control-tree/
 # the gate's coverage commands, so they are build output, not source.
 .quality/coverage/
 
+# pytest-cov's own data file. It is written into the working directory by
+# every `pytest --cov` run, so it is build output, not source -- and it must
+# never be committed, because the checksum manifest hashes the tracked
+# files and a committed data file would drift with every test run.
+.coverage
+.coverage.*
+
 # The Tauri build script's generated capability schemas. They are written by
 # `tauri-build` on every build, so they are build output, not source.
 src-tauri/gen/
